@@ -1,7 +1,7 @@
 import { and, eq, inArray, sql, asc, desc, isNull, gte, lte, or, ilike, ne, type SQL } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import {
-  paymentMethods, orders, orderPrivate, orderItems, orderInstallments, orderEvents, payments, refunds, financeLedger,
+  paymentMethods, orders, orderPrivate, orderItems, orderInstallments, orderEvents, payments, refunds, financeLedger, bankTransactions, commissions,
   centers, users, userRoles, userNotifications, enrollments, classes, courses, students, parents, studentGuardians,
 } from "@satarobo/db";
 import {
@@ -16,12 +16,13 @@ import { requirePermission, type ProtectedContext } from "../trpc";
 import { writeAudit } from "./audit";
 import { todayISO } from "./sessions";
 import { consumedSql } from "./students";
+import { accrueCommissions, adjustCommissionsForRefund } from "./commissions";
 
-type Db = ProtectedContext["db"];
-const bad = (m: string | string[]) => new TRPCError({ code: "BAD_REQUEST", message: Array.isArray(m) ? m.join("; ") : m });
-const pre = (m: string | string[]) => new TRPCError({ code: "PRECONDITION_FAILED", message: Array.isArray(m) ? m.join("; ") : m });
+export type Db = ProtectedContext["db"];
+export const bad = (m: string | string[]) => new TRPCError({ code: "BAD_REQUEST", message: Array.isArray(m) ? m.join("; ") : m });
+export const pre = (m: string | string[]) => new TRPCError({ code: "PRECONDITION_FAILED", message: Array.isArray(m) ? m.join("; ") : m });
 
-function wrapRule<T>(fn: () => T): T {
+export function wrapRule<T>(fn: () => T): T {
   try {
     return fn();
   } catch (e) {
@@ -30,7 +31,7 @@ function wrapRule<T>(fn: () => T): T {
   }
 }
 
-function reasonOrThrow(reason: string | null | undefined) {
+export function reasonOrThrow(reason: string | null | undefined) {
   try {
     return requireReason(reason);
   } catch (e) {
@@ -38,25 +39,25 @@ function reasonOrThrow(reason: string | null | undefined) {
   }
 }
 
-function scope(ctx: ProtectedContext, col: SQL | typeof orders.centerId): SQL {
+export function scope(ctx: ProtectedContext, col: SQL | typeof orders.centerId): SQL {
   const v = visibleCenterIds(ctx.actor);
   if (v === null) return sql`true`;
   return v.length ? (inArray(col as typeof orders.centerId, v) as SQL) : sql`false`;
 }
 
-const can = (ctx: ProtectedContext, p: Permission, centerId: string | null) => authorize(ctx.actor, p, { centerId }).allowed;
+export const can = (ctx: ProtectedContext, p: Permission, centerId: string | null) => authorize(ctx.actor, p, { centerId }).allowed;
 
-async function notify(db: Db, userIds: (string | null | undefined)[], title: string, body: string, link: string, priority = 2) {
+export async function notify(db: Db, userIds: (string | null | undefined)[], title: string, body: string, link: string, priority = 2) {
   const ids = [...new Set(userIds.filter((x): x is string => !!x))];
   if (ids.length) await db.insert(userNotifications).values(ids.map((userId) => ({ userId, title, body, link, priority })));
 }
 
-async function accountantsOf(db: Db, centerId: string) {
+export async function accountantsOf(db: Db, centerId: string) {
   return (await db.select({ u: userRoles.userId }).from(userRoles).innerJoin(users, eq(users.id, userRoles.userId))
     .where(and(eq(userRoles.role, "CENTER_ACCOUNTANT"), eq(userRoles.centerId, centerId), eq(users.isActive, true)))).map((r) => r.u);
 }
 
-async function managersOf(db: Db, centerId: string) {
+export async function managersOf(db: Db, centerId: string) {
   return (await db.select({ u: userRoles.userId }).from(userRoles).innerJoin(users, eq(users.id, userRoles.userId))
     .where(and(eq(userRoles.role, "CENTER_MANAGER"), eq(userRoles.centerId, centerId), eq(users.isActive, true)))).map((r) => r.u);
 }
@@ -66,7 +67,23 @@ const confirmedSql = sql<number>`coalesce((select sum(p.amount) from ${payments}
 const pendingSql = sql<number>`coalesce((select sum(p.amount) from ${payments} p where p.order_id = ${sql.raw('"orders"."id"')} and p.status = 'recorded'), 0)::bigint`;
 const refundedSql = sql<number>`coalesce((select sum(r.amount) from ${refunds} r where r.order_id = ${sql.raw('"orders"."id"')} and r.status = 'paid'), 0)::bigint`;
 
-async function recomputeOrderStatus(tx: Db, orderId: string, actorId: string, note: string) {
+/** Số thứ tự đơn kế tiếp trong năm (gọi trong transaction) */
+export async function nextOrderCode(tx: Db, yr: number) {
+  await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${"order-code:" + yr}))`);
+  const prefix = orderCode(yr, 0).slice(0, 5);
+  const [m] = await tx.select({ n: sql<number>`coalesce(max(substring(${orders.code} from 6)::int), 0)::int` }).from(orders).where(ilike(orders.code, `${prefix}%`));
+  return orderCode(yr, (m?.n ?? 0) + 1);
+}
+
+/** Số phiếu thu kế tiếp theo cơ sở + năm (gọi trong transaction) */
+export async function nextReceiptNo(tx: Db, centerCode: string, yr: number) {
+  const prefix = receiptNumber(centerCode, yr, 0).slice(0, -6);
+  await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${"receipt:" + prefix}))`);
+  const [m] = await tx.select({ n: sql<number>`coalesce(max(right(${payments.receiptNo}, 6)::int), 0)::int` }).from(payments).where(ilike(payments.receiptNo, `${prefix}%`));
+  return receiptNumber(centerCode, yr, (m?.n ?? 0) + 1);
+}
+
+export async function recomputeOrderStatus(tx: Db, orderId: string, actorId: string | null, note: string, opts: { accrue?: boolean } = {}) {
   const o = await tx.query.orders.findFirst({ where: eq(orders.id, orderId) });
   if (!o) return;
   const [c] = await tx.select({ n: sql<number>`coalesce(sum(${payments.amount}), 0)::bigint` }).from(payments).where(and(eq(payments.orderId, orderId), eq(payments.status, "confirmed")));
@@ -74,6 +91,7 @@ async function recomputeOrderStatus(tx: Db, orderId: string, actorId: string, no
   if (next !== o.status) {
     await tx.update(orders).set({ status: next }).where(eq(orders.id, orderId));
     await tx.insert(orderEvents).values({ orderId, event: "status", fromStatus: o.status, toStatus: next, note, actorId });
+    if (next === "paid" && opts.accrue !== false) await accrueCommissions(tx, orderId);
   }
 }
 
@@ -246,11 +264,7 @@ export async function createOrder(ctx: ProtectedContext, input: CreateOrderInput
   if (input.discount && input.discount.value > 0 && (input.internalNote ?? "").trim().length < 3) throw bad("Đơn có giảm giá cần ghi chú nội bộ (lý do / chương trình ưu đãi)");
 
   return ctx.db.transaction(async (tx) => {
-    const yr = Number(todayISO().slice(0, 4));
-    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${"order-code:" + yr}))`);
-    const prefix = orderCode(yr, 0).slice(0, 5); // "DH26-"
-    const [m] = await tx.select({ n: sql<number>`coalesce(max(substring(${orders.code} from 6)::int), 0)::int` }).from(orders).where(ilike(orders.code, `${prefix}%`));
-    const code = orderCode(yr, (m?.n ?? 0) + 1);
+    const code = await nextOrderCode(tx as unknown as Db, Number(todayISO().slice(0, 4)));
     const [o] = await tx.insert(orders).values({
       code, type: input.type, status: priced.total === 0 ? "paid" : "pending_payment", centerId: input.centerId, parentId: input.parentId ?? null, studentId, enrollmentId,
       customerName: input.customer.name.trim(), customerPhone: phone, customerEmail: input.customer.email?.trim() || null,
@@ -429,11 +443,7 @@ export async function decidePayment(ctx: ProtectedContext, input: { paymentId: s
     const amount = input.decision === "adjust" ? Math.round(input.adjustedAmount!) : p.amount;
     const [c] = await tx.select({ n: sql<number>`coalesce(sum(${payments.amount}), 0)::bigint` }).from(payments).where(and(eq(payments.orderId, o.id), eq(payments.status, "confirmed")));
     if (Number(c?.n ?? 0) + amount > o.total) throw pre(`Xác nhận ${formatVnd(amount)} sẽ vượt tổng đơn (đã thu ${formatVnd(Number(c?.n ?? 0))}/${formatVnd(o.total)}) — điều chỉnh số tiền`);
-    const yr = Number(todayISO().slice(0, 4));
-    const prefix = receiptNumber(center?.code ?? "HO", yr, 0).slice(0, -6);
-    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${"receipt:" + prefix}))`);
-    const [m] = await tx.select({ n: sql<number>`coalesce(max(right(${payments.receiptNo}, 6)::int), 0)::int` }).from(payments).where(ilike(payments.receiptNo, `${prefix}%`));
-    const receiptNo = receiptNumber(center?.code ?? "HO", yr, (m?.n ?? 0) + 1);
+    const receiptNo = await nextReceiptNo(tx as unknown as Db, center?.code ?? "HO", Number(todayISO().slice(0, 4)));
     const up = await tx.update(payments).set({ status: "confirmed", amount, decidedBy: ctx.user.id, decidedAt: new Date(), decisionReason: input.reason?.trim() || null, receiptNo })
       .where(and(eq(payments.id, p.id), eq(payments.status, "recorded"))).returning({ id: payments.id });
     if (!up.length) throw new TRPCError({ code: "CONFLICT", message: "Khoản thu vừa được xử lý" });
@@ -505,6 +515,7 @@ export async function getReceipt(ctx: ProtectedContext, paymentId: string) {
   if (!r) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy khoản thu" });
   requirePermission(ctx, "finance:read", { centerId: r.p.centerId });
   if (r.p.status !== "confirmed") throw pre("Chỉ in phiếu thu cho khoản đã được kế toán xác nhận");
+  if (!r.p.receiptNo) throw pre(`Khoản nhập từ hệ cũ — dùng số phiếu cũ ${r.p.externalRef ?? ""}`.trim());
   const [c] = await ctx.db.select({ n: sql<number>`coalesce(sum(${payments.amount}), 0)::bigint` }).from(payments).where(and(eq(payments.orderId, r.orderId), eq(payments.status, "confirmed"), lte(payments.decidedAt, r.p.decidedAt ?? new Date())));
   const items = await ctx.db.select({ description: orderItems.description, amount: orderItems.amount }).from(orderItems).where(eq(orderItems.orderId, r.orderId));
   const decider = r.p.decidedBy ? await ctx.db.query.users.findFirst({ where: eq(users.id, r.p.decidedBy), columns: { fullName: true } }) : null;
@@ -702,6 +713,7 @@ export async function payRefund(ctx: ProtectedContext, input: { id: string; paym
     const fully = Number(rf?.n ?? 0) >= Number(c?.n ?? 0);
     await tx.insert(orderEvents).values({ orderId: r.orderId, event: "refund_paid", fromStatus: o?.status, toStatus: fully ? "refunded" : o?.status, note: `${formatVnd(r.amount)} · ${method.name}`, actorId: ctx.user.id });
     if (fully && o) await tx.update(orders).set({ status: "refunded" }).where(eq(orders.id, o.id));
+    await adjustCommissionsForRefund(tx as unknown as Db, r.orderId, r.amount, ctx.user.id);
     await notify(tx as unknown as Db, [r.requestedBy], "Đã chi hoàn tiền", `${formatVnd(r.amount)} — nhớ cập nhật trạng thái đăng ký học nếu học viên nghỉ`, "/hoan-tien?status=paid");
     await writeAudit(tx as unknown as Db, { actorId: ctx.user.id, action: "TRANSITION", module: "finance", entity: "refunds", entityId: r.id, before: { status: r.status }, after: { status: to, method: method.code, payoutRef: input.payoutRef ?? null }, ip: ctx.ip });
   });
@@ -743,7 +755,7 @@ export async function listRefunds(ctx: ProtectedContext, input: { status?: Refun
 export async function financeQueues(ctx: ProtectedContext) {
   const confirmCenters = ctx.actor.assignments.filter((a) => authorize({ userId: ctx.actor.userId, assignments: [a] }, "finance:confirm", { centerId: a.centerId }).allowed);
   const approveCenters = ctx.actor.assignments.filter((a) => authorize({ userId: ctx.actor.userId, assignments: [a] }, "finance:approve", { centerId: a.centerId }).allowed);
-  const inScope = (list: { centerId: string | null }[], col: typeof payments.centerId | typeof refunds.centerId): SQL => {
+  const inScope = (list: { centerId: string | null }[], col: typeof payments.centerId | typeof refunds.centerId | typeof commissions.centerId): SQL => {
     if (list.some((a) => a.centerId === null)) return sql`true`;
     const ids = list.map((a) => a.centerId!).filter(Boolean);
     return ids.length ? (inArray(col, ids) as SQL) : sql`false`;
@@ -754,10 +766,20 @@ export async function financeQueues(ctx: ProtectedContext) {
     out.push({ key: "payments_confirm", title: "Khoản thu chờ kế toán xác nhận", count: p?.n ?? 0, overdue: p?.old ?? 0, href: "/payments?status=recorded" });
     const [r] = await ctx.db.select({ n: sql<number>`count(*)::int` }).from(refunds).where(and(eq(refunds.status, "approved"), inScope(confirmCenters, refunds.centerId)));
     out.push({ key: "refunds_pay", title: "Hoàn tiền đã duyệt chờ chi", count: r?.n ?? 0, overdue: 0, href: "/hoan-tien?status=approved" });
+    const bankScope = confirmCenters.some((a) => a.centerId === null)
+      ? sql`true`
+      : or(isNull(bankTransactions.centerId), inArray(bankTransactions.centerId, confirmCenters.map((a) => a.centerId!).filter(Boolean)))!;
+    const [b] = await ctx.db.select({ n: sql<number>`count(*)::int`, old: sql<number>`count(*) filter (where ${bankTransactions.receivedAt} < now() - interval '24 hours')::int` })
+      .from(bankTransactions).where(and(inArray(bankTransactions.status, ["unmatched", "needs_review"]), eq(bankTransactions.direction, "in"), bankScope));
+    out.push({ key: "bank_open", title: "Tiền về chưa khớp đơn", count: b?.n ?? 0, overdue: b?.old ?? 0, href: "/bien-dong-so-du?status=needs_review" });
+    const [c] = await ctx.db.select({ n: sql<number>`count(*)::int` }).from(commissions).where(and(eq(commissions.status, "approved"), inScope(confirmCenters, commissions.centerId)));
+    out.push({ key: "commission_pay", title: "Hoa hồng đã duyệt chờ chi", count: c?.n ?? 0, overdue: 0, href: "/crm/commission?status=approved" });
   }
   if (approveCenters.length) {
     const [r] = await ctx.db.select({ n: sql<number>`count(*)::int`, old: sql<number>`count(*) filter (where ${refunds.createdAt} < now() - interval '48 hours')::int` }).from(refunds).where(and(eq(refunds.status, "pending"), inScope(approveCenters, refunds.centerId)));
     out.push({ key: "refunds_approve", title: "Yêu cầu hoàn tiền chờ duyệt", count: r?.n ?? 0, overdue: r?.old ?? 0, href: "/hoan-tien?status=pending" });
+    const [c] = await ctx.db.select({ n: sql<number>`count(*)::int` }).from(commissions).where(and(eq(commissions.status, "accrued"), inScope(approveCenters, commissions.centerId)));
+    out.push({ key: "commission_approve", title: "Hoa hồng tạm tính chờ duyệt", count: c?.n ?? 0, overdue: 0, href: "/crm/commission?status=accrued" });
   }
   return out;
 }

@@ -1,7 +1,9 @@
 import { z } from "zod";
-import { ORDER_TYPES, ORDER_STATUSES, PAYMENT_STATUSES, PAYMENT_METHOD_KINDS, REFUND_STATUSES, AGING_BUCKETS } from "@satarobo/core";
+import { ORDER_TYPES, ORDER_STATUSES, PAYMENT_STATUSES, PAYMENT_METHOD_KINDS, REFUND_STATUSES, AGING_BUCKETS, BANK_TX_STATUSES, COMMISSION_KINDS, COMMISSION_STATUSES, RATE_TYPES } from "@satarobo/core";
 import { router, protectedProcedure } from "../trpc";
 import * as F from "../services/finance";
+import * as B from "../services/bank";
+import * as C from "../services/commissions";
 
 const uuid = z.string().uuid();
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Ngày không hợp lệ");
@@ -65,4 +67,36 @@ export const financeRouter = router({
   requestRefund: protectedProcedure.input(z.object({ enrollmentId: uuid, amount: money.min(1, "Số tiền hoàn phải > 0"), reason: z.string().max(500) })).mutation(({ ctx, input }) => F.requestRefund(ctx, input)),
   decideRefund: protectedProcedure.input(z.object({ id: uuid, action: z.enum(["approve", "reject"]), note: ntext(300) })).mutation(({ ctx, input }) => F.decideRefund(ctx, input)),
   payRefund: protectedProcedure.input(z.object({ id: uuid, paymentMethodId: uuid, payoutRef: ntext(80) })).mutation(({ ctx, input }) => F.payRefund(ctx, input)),
+
+  // Biến động số dư
+  bankTxs: protectedProcedure
+    .input(z.object({ status: z.enum(BANK_TX_STATUSES).optional(), q: z.string().max(100).optional(), from: isoDate.optional(), to: isoDate.optional(), page: z.number().int().min(1).optional() }).default({}))
+    .query(({ ctx, input }) => B.listBankTx(ctx, input)),
+  bankCandidates: protectedProcedure.input(z.object({ id: uuid, q: z.string().max(100).optional() })).query(({ ctx, input }) => B.matchCandidates(ctx, input)),
+  bankMatch: protectedProcedure.input(z.object({ id: uuid, orderId: uuid, note: ntext(300) })).mutation(({ ctx, input }) => B.matchManually(ctx, input)),
+  bankIgnore: protectedProcedure.input(z.object({ id: uuid, reason: z.string().max(300) })).mutation(({ ctx, input }) => B.ignoreBankTx(ctx, input)),
+  bankRematch: protectedProcedure.input(z.object({ id: uuid })).mutation(({ ctx, input }) => B.rematchBankTx(ctx, input)),
+  statementPreview: protectedProcedure.input(z.object({ csv: z.string().min(1, "File trống").max(3_000_000), paymentMethodId: uuid })).mutation(({ ctx, input }) => B.previewStatement(ctx, input)),
+  statementImport: protectedProcedure.input(z.object({ csv: z.string().min(1).max(3_000_000), paymentMethodId: uuid, fileName: ntext(200), note: z.string().max(300) })).mutation(({ ctx, input }) => B.importStatement(ctx, input)),
+
+  // Nhập giao dịch cũ
+  legacyPreview: protectedProcedure.input(z.object({ csv: z.string().min(1, "File trống").max(3_000_000) })).mutation(({ ctx, input }) => B.previewLegacy(ctx, input)),
+  legacyImport: protectedProcedure.input(z.object({ csv: z.string().min(1).max(3_000_000), note: z.string().max(300), fileName: ntext(200) })).mutation(({ ctx, input }) => B.importLegacy(ctx, input)),
+  importBatches: protectedProcedure.input(z.object({ kind: z.enum(["legacy_payments", "bank_statement"]).optional() }).default({})).query(({ ctx, input }) => B.listImportBatches(ctx, input)),
+
+  // Hoa hồng
+  commissions: protectedProcedure
+    .input(z.object({ period: z.string().regex(/^\d{4}-\d{2}$/).optional(), status: z.enum(COMMISSION_STATUSES).optional(), kind: z.enum(COMMISSION_KINDS).optional(), centerId: uuid.optional(), q: z.string().max(100).optional() }).default({}))
+    .query(({ ctx, input }) => C.listCommissions(ctx, input)),
+  decideCommissions: protectedProcedure
+    .input(z.object({ ids: z.array(uuid).min(1, "Chưa chọn dòng").max(500), action: z.enum(["approve", "pay", "cancel"]), reason: ntext(300), payoutRef: ntext(80) }))
+    .mutation(({ ctx, input }) => C.decideCommissions(ctx, input)),
+  accrueMissing: protectedProcedure.input(z.object({ centerId: uuid.optional() }).default({})).mutation(({ ctx, input }) => C.accrueMissing(ctx, input)),
+  commissionRules: protectedProcedure.query(({ ctx }) => C.listRules(ctx)),
+  upsertCommissionRule: protectedProcedure
+    .input(z.object({
+      id: uuid.optional(), name: z.string().trim().min(3, "Tên tối thiểu 3 ký tự").max(120), kind: z.enum(COMMISSION_KINDS), centerId: uuid.nullable(), orderType: z.enum(ORDER_TYPES).nullable(),
+      rateType: z.enum(RATE_TYPES), value: z.number().int().min(1).max(100_000_000), maxAmount: money.nullable(), minOrderTotal: money, effectiveFrom: isoDate, effectiveTo: isoDate.nullable(), isActive: z.boolean(),
+    }))
+    .mutation(({ ctx, input }) => C.upsertRule(ctx, input)),
 });

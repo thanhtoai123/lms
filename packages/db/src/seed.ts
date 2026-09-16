@@ -13,8 +13,9 @@ import {
   leads, leadChildren, leadActivities, leadTasks, leadAssignees, admissionsSettings, trialBookings, auditLog,
   holidays, coursePrerequisites, teacherCourses, teacherEvaluations,
   paymentMethods, orders, orderItems, orderInstallments, orderEvents, payments, refunds, financeLedger,
+  commissionRules, commissions, bankTransactions,
 } from "./schema/index";
-import { generateSessions, buildClassCode, buildStudentCode, toISODate, addDays, orderCode, receiptNumber, packagePrice, buildInstallmentPlan } from "@satarobo/core";
+import { generateSessions, buildClassCode, buildStudentCode, toISODate, addDays, orderCode, receiptNumber, packagePrice, buildInstallmentPlan, computeCommission, describeRule, periodOf } from "@satarobo/core";
 
 const db = createDb();
 
@@ -313,9 +314,8 @@ async function main() {
     await db.update(orders).set({ status }).where(eq(orders.id, o!.id));
     return { order: o!, total };
   };
-  await mkOrder(0, { pay: [{ amount: packagePrice(sata4Price, 48, 48), status: "confirmed", daysAgo: 35 }] });
+  const paid0 = await mkOrder(0, { pay: [{ amount: packagePrice(sata4Price, 48, 48), status: "confirmed", daysAgo: 35 }] });
   const inst = await mkOrder(1, { installments: 3, firstDue: addDays(today, -45), pay: [{ amount: 3_200_000, status: "confirmed", daysAgo: 44 }] });
-  void inst;
   await mkOrder(2, { pay: [{ amount: 2_000_000, status: "recorded", daysAgo: 1 }] });
   const paidFull = await mkOrder(4, { pay: [{ amount: packagePrice(sata4Price, 48, 48), status: "confirmed", daysAgo: 30 }] });
   await mkOrder(5, { installments: 2, firstDue: addDays(today, 2) });
@@ -324,6 +324,26 @@ async function main() {
     orderId: paidFull.order.id, enrollmentId: enrollA[4]!.id, centerId: cs1!.id, status: "pending", amount: 6_000_000, proposedAmount: 7_600_000,
     sessionsUsed: 10, sessionsTotal: 48, reason: "Gia đình chuyển vào TP.HCM (mẫu)", requestedBy: mgrU!.id,
   });
+
+  // ---- Hoa hồng mẫu + biến động số dư mẫu ----
+  const [saleRule] = await db.insert(commissionRules).values([
+    { name: "Sale chốt khoá học 5% (tối đa 1 triệu)", kind: "sale", centerId: null, orderType: "course", rateType: "percent", value: 500, maxAmount: 1_000_000, minOrderTotal: 0, effectiveFrom: "2026-01-01", createdBy: adminU!.id },
+    { name: "Phụ huynh giới thiệu 300k", kind: "referrer", centerId: null, orderType: "course", rateType: "fixed", value: 300_000, minOrderTotal: 3_000_000, effectiveFrom: "2026-01-01", createdBy: adminU!.id },
+  ]).returning();
+  for (const [o, st] of [[paid0, "accrued"], [paidFull, "approved"]] as const) {
+    const amt = computeCommission(saleRule!, o.total);
+    await db.insert(commissions).values({
+      orderId: o.order.id, centerId: cs1!.id, kind: "sale", ruleId: saleRule!.id, beneficiaryUserId: sale1U!.id, beneficiaryName: sale1U!.fullName,
+      baseAmount: o.total, rateLabel: describeRule(saleRule!), originalAmount: amt, amount: amt, period: periodOf(addDays(today, -30)), status: st,
+      ...(st === "approved" ? { approvedBy: mgrU!.id, approvedAt: new Date() } : {}),
+    });
+  }
+  const now = Date.now();
+  await db.insert(bankTransactions).values([
+    { source: "sepay", externalId: "seed-1", gateway: "Vietcombank", accountNo: "0000000000", paymentMethodId: pmBank!.id, occurredAt: new Date(now - 2 * 3600e3), amount: 1_500_000, direction: "in", content: "PH chuyen tien hoc cho be (mau)", status: "unmatched", matchNote: "Nội dung không có mã đơn" },
+    { source: "sepay", externalId: "seed-2", gateway: "Vietcombank", accountNo: "0000000000", paymentMethodId: pmBank!.id, centerId: cs1!.id, occurredAt: new Date(now - 3600e3), amount: 20_000_000, direction: "in", content: `SATA ${inst.order.code.replace("-", "")} (mau)`, status: "needs_review", matchNote: "Tiền vào vượt số còn phải thu", orderId: inst.order.id },
+    { source: "sepay", externalId: "seed-3", gateway: "Vietcombank", accountNo: "0000000000", paymentMethodId: pmBank!.id, occurredAt: new Date(now - 1800e3), amount: 22_000, direction: "out", content: "Phi dich vu SMS (mau)", status: "ignored", matchNote: "Tiền ra — không đối khớp" },
+  ]);
 
   // ---- Lớp Trial mẫu: 1 buổi sắp tới (đã xếp), 1 đã học thử, 1 không đến ----
   const futureA = sessionRows.filter((x) => x.classId === classA!.id && x.date > today).sort((a, b) => a.sequenceNo - b.sequenceNo);

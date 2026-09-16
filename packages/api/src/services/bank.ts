@@ -1,0 +1,543 @@
+import { and, eq, inArray, sql, desc, asc, isNull, or, gte, lte, ilike, type SQL } from "drizzle-orm";
+import { TRPCError } from "@trpc/server";
+import {
+  bankTransactions, importBatches, paymentMethods, orders, orderItems, orderInstallments, orderEvents, payments, financeLedger,
+  centers, users, enrollments, classes, courses, students, studentGuardians, parents,
+} from "@satarobo/db";
+import {
+  decideBankMatch, extractOrderRef, digitsOnly, parseStatementCsv, parseLegacyCsv, packagePrice, formatVnd, allocateInstallments,
+  type BankTx, type BankTxSource, type BankTxStatus, type LegacyRow,
+} from "@satarobo/core";
+import { requirePermission, type ProtectedContext } from "../trpc";
+import { writeAudit } from "./audit";
+import { todayISO } from "./sessions";
+import { bad, pre, reasonOrThrow, can, notify, accountantsOf, recomputeOrderStatus, nextOrderCode, nextReceiptNo, type Db } from "./finance";
+
+/** Ngày theo giờ Việt Nam */
+const vnDate = (d: Date) => new Date(d.getTime() + 7 * 3600e3).toISOString().slice(0, 10);
+
+async function bankMethodsFor(db: Db, accountNo: string) {
+  return db.select().from(paymentMethods).where(and(
+    eq(paymentMethods.kind, "bank_transfer"), eq(paymentMethods.isActive, true),
+    sql`regexp_replace(coalesce(${paymentMethods.accountNo}, ''), '\\D', '', 'g') = ${digitsOnly(accountNo)}`,
+  ));
+}
+
+async function orderSnapshot(db: Db, orderId: string) {
+  const o = await db.query.orders.findFirst({ where: eq(orders.id, orderId) });
+  if (!o) return null;
+  const pays = await db.select({ id: payments.id, amount: payments.amount, status: payments.status, recordedBy: payments.recordedBy }).from(payments).where(eq(payments.orderId, orderId));
+  return {
+    o,
+    confirmed: pays.filter((p) => p.status === "confirmed").reduce((s, p) => s + p.amount, 0),
+    pending: pays.filter((p) => p.status === "recorded").map((p) => ({ id: p.id, amount: p.amount, recordedBy: p.recordedBy })),
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/* Nhận giao dịch + đối khớp                                           */
+/* ------------------------------------------------------------------ */
+
+/** Lưu giao dịch (idempotent theo nguồn + mã ngoài) rồi đối khớp. Dùng cho webhook và nhập sao kê. */
+export async function ingestBankTx(db: Db, t: BankTx, source: BankTxSource, raw: unknown, importBatchId: string | null = null, actorId: string | null = null) {
+  const methods = await bankMethodsFor(db, t.accountNo);
+  const centerIds = [...new Set(methods.map((m) => m.centerId))];
+  const [row] = await db.insert(bankTransactions).values({
+    source, externalId: t.externalId, gateway: t.gateway || null, accountNo: t.accountNo, paymentMethodId: methods[0]?.id ?? null,
+    centerId: centerIds.length === 1 ? centerIds[0]! : null, occurredAt: new Date(t.occurredAt), amount: t.amount, direction: t.direction,
+    content: t.content, referenceCode: t.referenceCode, accumulated: t.accumulated, status: "unmatched", importBatchId, raw: raw ?? null,
+  }).onConflictDoNothing().returning({ id: bankTransactions.id });
+  if (!row) {
+    const ex = await db.query.bankTransactions.findFirst({ where: and(eq(bankTransactions.source, source), eq(bankTransactions.externalId, t.externalId)), columns: { id: true, status: true } });
+    return { id: ex?.id ?? null, duplicate: true, status: ex?.status ?? null, note: "Giao dịch đã nhận trước đó" };
+  }
+  const r = await matchBankTx(db, row.id, actorId);
+  return { id: row.id, duplicate: false, ...r };
+}
+
+/** Đối khớp tự động một giao dịch chưa khớp. actorId null = hệ thống. */
+export async function matchBankTx(db: Db, id: string, actorId: string | null): Promise<{ status: BankTxStatus; note: string; orderCode?: string; receiptNo?: string }> {
+  const bt = await db.query.bankTransactions.findFirst({ where: eq(bankTransactions.id, id) });
+  if (!bt) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy giao dịch" });
+  if (bt.status === "matched") return { status: "matched", note: bt.matchNote ?? "" };
+  const ref = extractOrderRef(bt.content);
+  const order = ref ? await db.query.orders.findFirst({ where: eq(orders.code, ref) }) : undefined;
+  const methods = await bankMethodsFor(db, bt.accountNo);
+  const method = order ? methods.find((m) => m.centerId === order.centerId) ?? methods.find((m) => m.centerId === null) : undefined;
+
+  return db.transaction(async (txx) => {
+    const tx = txx as unknown as Db;
+    if (order) await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${"order:" + order.id}))`);
+    const snap = order ? await orderSnapshot(tx, order.id) : null;
+    const d = decideBankMatch({
+      direction: bt.direction, amount: bt.amount, content: bt.content, accountKnown: methods.length > 0, accountOk: !!method,
+      order: snap ? { code: snap.o.code, status: snap.o.status, total: snap.o.total, confirmed: snap.confirmed, pending: snap.pending } : null,
+    });
+    if (d.kind === "unmatched" || d.kind === "needs_review" || d.kind === "ignored") {
+      await tx.update(bankTransactions).set({ status: d.kind, matchNote: d.note, orderId: snap?.o.id ?? null, centerId: snap?.o.centerId ?? bt.centerId, ...(actorId ? { handledBy: actorId, handledAt: new Date() } : {}) })
+        .where(and(eq(bankTransactions.id, bt.id), sql`${bankTransactions.status} <> 'matched'`));
+      if (d.kind === "needs_review" && bt.status !== "needs_review") {
+        const cid = snap?.o.centerId ?? bt.centerId;
+        if (cid) await notify(tx, await accountantsOf(tx, cid), "Biến động số dư cần kiểm tra", `${formatVnd(bt.amount)} — ${d.note}`, "/bien-dong-so-du?status=needs_review", 1);
+      }
+      return { status: d.kind, note: d.note, orderCode: snap?.o.code };
+    }
+    const o = snap!.o;
+    const center = await tx.query.centers.findFirst({ where: eq(centers.id, o.centerId), columns: { code: true } });
+    const receiptNo = await nextReceiptNo(tx, center?.code ?? "HO", Number(todayISO().slice(0, 4)));
+    let paymentId: string;
+    let recorder: string | null = null;
+    if (d.kind === "confirm_pending") {
+      const up = await tx.update(payments).set({ status: "confirmed", decidedBy: actorId, decidedAt: new Date(), decisionReason: `Khớp biến động số dư ${bt.referenceCode ?? bt.externalId}`, receiptNo })
+        .where(and(eq(payments.id, d.paymentId), eq(payments.status, "recorded"))).returning({ id: payments.id, recordedBy: payments.recordedBy });
+      if (!up.length) throw new TRPCError({ code: "CONFLICT", message: "Khoản thu vừa được xử lý" });
+      paymentId = up[0]!.id;
+      recorder = up[0]!.recordedBy;
+    } else {
+      const [p] = await tx.insert(payments).values({
+        orderId: o.id, centerId: o.centerId, recordedAmount: bt.amount, amount: bt.amount, paymentMethodId: method!.id, paidAt: vnDate(bt.occurredAt),
+        status: "confirmed", source: bt.source === "sepay" ? "sepay" : "statement", externalRef: bt.externalId, note: bt.content.slice(0, 300),
+        recordedBy: null, decidedBy: actorId, decidedAt: new Date(), decisionReason: d.note, receiptNo,
+      }).returning({ id: payments.id });
+      paymentId = p!.id;
+    }
+    await tx.insert(financeLedger).values({ orderId: o.id, centerId: o.centerId, entryType: "payment", amount: -bt.amount, refId: paymentId, note: `${receiptNo} · chuyển khoản ${bt.referenceCode ?? ""}`.trim(), actorId });
+    await tx.insert(orderEvents).values({ orderId: o.id, event: "payment_confirmed", note: `${receiptNo} · ${formatVnd(bt.amount)} · ${d.note}`, actorId });
+    const up = await tx.update(bankTransactions).set({ status: "matched", matchNote: d.note, orderId: o.id, paymentId, centerId: o.centerId, ...(actorId ? { handledBy: actorId, handledAt: new Date() } : {}) })
+      .where(and(eq(bankTransactions.id, bt.id), sql`${bankTransactions.status} <> 'matched'`)).returning({ id: bankTransactions.id });
+    if (!up.length) throw new TRPCError({ code: "CONFLICT", message: "Giao dịch vừa được xử lý" });
+    await recomputeOrderStatus(tx, o.id, actorId, receiptNo);
+    await notify(tx, [o.createdBy, recorder], "Tiền đã về tài khoản", `${o.code} · ${formatVnd(bt.amount)} · ${receiptNo}`, `/orders/${o.id}`, 3);
+    await writeAudit(tx, { actorId, action: "TRANSITION", module: "finance", entity: "bank_transactions", entityId: bt.id, before: { status: bt.status }, after: { status: "matched", orderId: o.id, paymentId, receiptNo, mode: d.kind } });
+    return { status: "matched" as const, note: d.note, orderCode: o.code, receiptNo };
+  });
+}
+
+/* ------------------------------------------------------------------ */
+/* Màn hình Biến động số dư                                            */
+/* ------------------------------------------------------------------ */
+
+function confirmCenters(ctx: ProtectedContext) {
+  return ctx.actor.assignments.filter((a) => can(ctx, "finance:confirm", a.centerId)).map((a) => a.centerId);
+}
+
+function bankScope(ctx: ProtectedContext): SQL {
+  const cc = confirmCenters(ctx);
+  if (cc.includes(null)) return sql`true`;
+  const readable = ctx.actor.assignments.filter((a) => can(ctx, "finance:read", a.centerId)).map((a) => a.centerId!).filter(Boolean);
+  const parts: SQL[] = [];
+  if (readable.length) parts.push(inArray(bankTransactions.centerId, readable));
+  if (cc.length) parts.push(isNull(bankTransactions.centerId));
+  return parts.length ? or(...parts)! : sql`false`;
+}
+
+function canHandle(ctx: ProtectedContext, centerId: string | null) {
+  const cc = confirmCenters(ctx);
+  return cc.includes(null) || (centerId ? cc.includes(centerId) : cc.length > 0);
+}
+
+export async function listBankTx(ctx: ProtectedContext, input: { status?: BankTxStatus; q?: string; from?: string; to?: string; page?: number }) {
+  requirePermission(ctx, "finance:read", { centerId: null });
+  const conds: SQL[] = [bankScope(ctx)];
+  if (input.from) conds.push(gte(bankTransactions.occurredAt, new Date(`${input.from}T00:00:00+07:00`)));
+  if (input.to) conds.push(lte(bankTransactions.occurredAt, new Date(`${input.to}T23:59:59+07:00`)));
+  if (input.q?.trim()) {
+    const q = `%${input.q.trim()}%`;
+    const digits = input.q.replace(/\D/g, "");
+    conds.push(or(ilike(bankTransactions.content, q), ilike(bankTransactions.referenceCode, q), ...(digits.length >= 4 ? [sql`${bankTransactions.amount}::text = ${digits}`] : []))!);
+  }
+  const base = and(...conds);
+  const page = input.page ?? 1;
+  const pageSize = 50;
+  const where = input.status ? and(base, eq(bankTransactions.status, input.status)) : base;
+  const rows = await ctx.db.select({
+    t: bankTransactions, orderCode: orders.code, customerName: orders.customerName, centerCode: centers.code, methodName: paymentMethods.name, receiptNo: payments.receiptNo,
+    handlerName: sql<string | null>`(select full_name from ${users} u where u.id = ${bankTransactions.handledBy})`,
+  }).from(bankTransactions).leftJoin(orders, eq(orders.id, bankTransactions.orderId)).leftJoin(centers, eq(centers.id, bankTransactions.centerId))
+    .leftJoin(paymentMethods, eq(paymentMethods.id, bankTransactions.paymentMethodId)).leftJoin(payments, eq(payments.id, bankTransactions.paymentId))
+    .where(where).orderBy(desc(bankTransactions.occurredAt)).limit(pageSize).offset((page - 1) * pageSize);
+  const [agg] = await ctx.db.select({
+    total: sql<number>`count(*) filter (where true)::int`,
+    matched: sql<number>`count(*) filter (where ${bankTransactions.status} = 'matched')::int`,
+    unmatched: sql<number>`count(*) filter (where ${bankTransactions.status} = 'unmatched')::int`,
+    needs_review: sql<number>`count(*) filter (where ${bankTransactions.status} = 'needs_review')::int`,
+    ignored: sql<number>`count(*) filter (where ${bankTransactions.status} = 'ignored')::int`,
+    inSum: sql<number>`coalesce(sum(${bankTransactions.amount}) filter (where ${bankTransactions.direction} = 'in'), 0)::bigint`,
+    matchedSum: sql<number>`coalesce(sum(${bankTransactions.amount}) filter (where ${bankTransactions.status} = 'matched'), 0)::bigint`,
+    openSum: sql<number>`coalesce(sum(${bankTransactions.amount}) filter (where ${bankTransactions.status} in ('unmatched','needs_review')), 0)::bigint`,
+    lastSepay: sql<string | null>`(max(${bankTransactions.receivedAt}) filter (where ${bankTransactions.source} = 'sepay'))::text`,
+  }).from(bankTransactions).where(base);
+  const [cnt] = await ctx.db.select({ n: sql<number>`count(*)::int` }).from(bankTransactions).where(where);
+  const accounts = await ctx.db.select({ id: paymentMethods.id, code: paymentMethods.code, name: paymentMethods.name, bankName: paymentMethods.bankName, accountNo: paymentMethods.accountNo, centerId: paymentMethods.centerId, centerCode: centers.code })
+    .from(paymentMethods).leftJoin(centers, eq(centers.id, paymentMethods.centerId))
+    .where(and(eq(paymentMethods.kind, "bank_transfer"), eq(paymentMethods.isActive, true))).orderBy(asc(paymentMethods.sortOrder));
+  return {
+    page, pageSize, total: cnt?.n ?? 0,
+    counts: { matched: agg?.matched ?? 0, unmatched: agg?.unmatched ?? 0, needs_review: agg?.needs_review ?? 0, ignored: agg?.ignored ?? 0 },
+    sums: { in: Number(agg?.inSum ?? 0), matched: Number(agg?.matchedSum ?? 0), open: Number(agg?.openSum ?? 0) },
+    webhook: { path: "/api/webhooks/sepay", configured: !!process.env.SEPAY_API_KEY, lastReceivedAt: agg?.lastSepay ?? null },
+    accounts: accounts.filter((a) => canHandle(ctx, a.centerId) || can(ctx, "finance:read", a.centerId)),
+    canImport: confirmCenters(ctx).length > 0,
+    items: rows.map((x) => ({
+      ...x.t, raw: undefined, orderCode: x.orderCode, customerName: x.customerName, centerCode: x.centerCode, methodName: x.methodName, receiptNo: x.receiptNo, handlerName: x.handlerName,
+      orderRef: extractOrderRef(x.t.content),
+      canHandle: (x.t.status === "unmatched" || x.t.status === "needs_review") && x.t.direction === "in" && canHandle(ctx, x.t.centerId),
+    })),
+  };
+}
+
+async function loadOpenTx(ctx: ProtectedContext, id: string) {
+  const bt = await ctx.db.query.bankTransactions.findFirst({ where: eq(bankTransactions.id, id) });
+  if (!bt) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy giao dịch" });
+  if (!canHandle(ctx, bt.centerId)) throw new TRPCError({ code: "FORBIDDEN", message: "Không có quyền finance:confirm cho giao dịch này" });
+  if (bt.status !== "unmatched" && bt.status !== "needs_review") throw pre(`Giao dịch đang "${bt.status === "matched" ? "Đã khớp" : "Bỏ qua"}" — không xử lý lại`);
+  return bt;
+}
+
+/** Gợi ý đơn để khớp tay: đơn còn nợ ≥ số tiền, ưu tiên kỳ trả góp đúng số tiền */
+export async function matchCandidates(ctx: ProtectedContext, input: { id: string; q?: string }) {
+  const bt = await loadOpenTx(ctx, input.id);
+  const cc = confirmCenters(ctx);
+  const conds: SQL[] = [inArray(orders.status, ["pending_payment", "partially_paid"])];
+  if (!cc.includes(null)) conds.push(inArray(orders.centerId, cc.filter((c): c is string => !!c)));
+  if (bt.centerId) conds.push(eq(orders.centerId, bt.centerId));
+  if (input.q?.trim()) {
+    const q = `%${input.q.trim()}%`;
+    const digits = input.q.replace(/\D/g, "");
+    conds.push(or(ilike(orders.code, q), ilike(orders.customerName, q), ilike(students.fullName, q), ...(digits.length >= 4 ? [ilike(orders.customerPhone, `%${digits}%`)] : []))!);
+  }
+  const rows = await ctx.db.select({
+    id: orders.id, code: orders.code, total: orders.total, status: orders.status, customerName: orders.customerName, centerId: orders.centerId, centerCode: centers.code, studentName: students.fullName,
+    confirmed: sql<number>`coalesce((select sum(p.amount) from ${payments} p where p.order_id = ${orders.id} and p.status = 'confirmed'), 0)::bigint`,
+    pending: sql<number>`coalesce((select sum(p.amount) from ${payments} p where p.order_id = ${orders.id} and p.status = 'recorded'), 0)::bigint`,
+  }).from(orders).innerJoin(centers, eq(centers.id, orders.centerId)).leftJoin(students, eq(students.id, orders.studentId))
+    .where(and(...conds)).orderBy(desc(orders.createdAt)).limit(200);
+  const ids = rows.map((r) => r.id);
+  const plans = ids.length ? await ctx.db.select().from(orderInstallments).where(inArray(orderInstallments.orderId, ids)) : [];
+  const today = todayISO();
+  const methods = await bankMethodsFor(ctx.db, bt.accountNo);
+  const items = rows.map((r) => {
+    const confirmed = Number(r.confirmed);
+    const outstanding = Math.max(0, r.total - confirmed);
+    const alloc = allocateInstallments(plans.filter((p) => p.orderId === r.id).map((p) => ({ seq: p.seq, amount: p.amount, dueDate: p.dueDate })), confirmed, today);
+    const next = alloc.find((a) => a.remaining > 0);
+    const score = (next?.remaining === bt.amount ? 3 : 0) + (outstanding === bt.amount ? 2 : 0) + (Number(r.pending) === bt.amount ? 2 : 0);
+    return { ...r, confirmed, pending: Number(r.pending), outstanding, nextDue: next ?? null, score, accountOk: methods.some((m) => m.centerId === null || m.centerId === r.centerId) };
+  }).filter((r) => r.outstanding >= bt.amount).sort((a, b) => b.score - a.score).slice(0, 20);
+  return { tx: { ...bt, raw: undefined }, items };
+}
+
+export async function matchManually(ctx: ProtectedContext, input: { id: string; orderId: string; note?: string | null }) {
+  const bt = await loadOpenTx(ctx, input.id);
+  if (bt.direction !== "in") throw pre("Chỉ khớp giao dịch tiền vào");
+  const note = bt.status === "needs_review" ? reasonOrThrow(input.note) : input.note?.trim() || null;
+  const order = await ctx.db.query.orders.findFirst({ where: eq(orders.id, input.orderId) });
+  if (!order) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy đơn" });
+  requirePermission(ctx, "finance:confirm", { centerId: order.centerId });
+  if (order.status === "cancelled" || order.status === "refunded") throw pre("Đơn đã đóng");
+  const methods = await bankMethodsFor(ctx.db, bt.accountNo);
+  const method = methods.find((m) => m.centerId === order.centerId) ?? methods.find((m) => m.centerId === null)
+    ?? (await ctx.db.query.paymentMethods.findFirst({ where: and(eq(paymentMethods.kind, "bank_transfer"), eq(paymentMethods.isActive, true), or(isNull(paymentMethods.centerId), eq(paymentMethods.centerId, order.centerId))) }));
+  if (!method) throw pre("Chưa có phương thức chuyển khoản nào cho cơ sở của đơn");
+  const center = await ctx.db.query.centers.findFirst({ where: eq(centers.id, order.centerId), columns: { code: true } });
+  return ctx.db.transaction(async (txx) => {
+    const tx = txx as unknown as Db;
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${"order:" + order.id}))`);
+    const snap = (await orderSnapshot(tx, order.id))!;
+    const outstanding = Math.max(0, order.total - snap.confirmed);
+    if (bt.amount > outstanding) throw pre(`Số tiền ${formatVnd(bt.amount)} vượt số còn phải thu ${formatVnd(outstanding)} của ${order.code}`);
+    const receiptNo = await nextReceiptNo(tx, center?.code ?? "HO", Number(todayISO().slice(0, 4)));
+    const same = snap.pending.find((p) => p.amount === bt.amount);
+    const reason = `Khớp tay biến động số dư ${bt.referenceCode ?? bt.externalId}${note ? `: ${note}` : ""}`;
+    let paymentId: string;
+    if (same) {
+      const up = await tx.update(payments).set({ status: "confirmed", decidedBy: ctx.user.id, decidedAt: new Date(), decisionReason: reason, receiptNo })
+        .where(and(eq(payments.id, same.id), eq(payments.status, "recorded"))).returning({ id: payments.id });
+      if (!up.length) throw new TRPCError({ code: "CONFLICT", message: "Khoản thu vừa được xử lý" });
+      paymentId = same.id;
+    } else {
+      if (snap.pending.length && snap.pending.reduce((s, p) => s + p.amount, 0) + bt.amount > outstanding) throw pre("Đơn còn khoản sale ghi nhận chờ xác nhận — xử lý khoản đó trước để tránh thu trùng");
+      const [p] = await tx.insert(payments).values({
+        orderId: order.id, centerId: order.centerId, recordedAmount: bt.amount, amount: bt.amount, paymentMethodId: method.id, paidAt: vnDate(bt.occurredAt),
+        status: "confirmed", source: bt.source === "sepay" ? "sepay" : "statement", externalRef: bt.externalId, note: bt.content.slice(0, 300),
+        recordedBy: ctx.user.id, decidedBy: ctx.user.id, decidedAt: new Date(), decisionReason: reason, receiptNo,
+      }).returning({ id: payments.id });
+      paymentId = p!.id;
+    }
+    await tx.insert(financeLedger).values({ orderId: order.id, centerId: order.centerId, entryType: "payment", amount: -bt.amount, refId: paymentId, note: `${receiptNo} · khớp tay`, actorId: ctx.user.id });
+    await tx.insert(orderEvents).values({ orderId: order.id, event: "payment_confirmed", note: `${receiptNo} · ${formatVnd(bt.amount)} · ${reason}`, actorId: ctx.user.id });
+    const up = await tx.update(bankTransactions).set({ status: "matched", matchNote: reason, orderId: order.id, paymentId, centerId: order.centerId, handledBy: ctx.user.id, handledAt: new Date() })
+      .where(and(eq(bankTransactions.id, bt.id), inArray(bankTransactions.status, ["unmatched", "needs_review"]))).returning({ id: bankTransactions.id });
+    if (!up.length) throw new TRPCError({ code: "CONFLICT", message: "Giao dịch vừa được xử lý" });
+    await recomputeOrderStatus(tx, order.id, ctx.user.id, receiptNo);
+    await notify(tx, [order.createdBy], "Tiền đã về tài khoản", `${order.code} · ${formatVnd(bt.amount)} · ${receiptNo}`, `/orders/${order.id}`, 3);
+    await writeAudit(tx, { actorId: ctx.user.id, action: "TRANSITION", module: "finance", entity: "bank_transactions", entityId: bt.id, before: { status: bt.status }, after: { status: "matched", orderId: order.id, paymentId, receiptNo, manual: true }, reason: note, ip: ctx.ip });
+    return { receiptNo, orderCode: order.code };
+  });
+}
+
+export async function ignoreBankTx(ctx: ProtectedContext, input: { id: string; reason: string }) {
+  const bt = await loadOpenTx(ctx, input.id);
+  const reason = reasonOrThrow(input.reason);
+  await ctx.db.transaction(async (txx) => {
+    const tx = txx as unknown as Db;
+    const up = await tx.update(bankTransactions).set({ status: "ignored", matchNote: reason, handledBy: ctx.user.id, handledAt: new Date() })
+      .where(and(eq(bankTransactions.id, bt.id), eq(bankTransactions.status, bt.status))).returning({ id: bankTransactions.id });
+    if (!up.length) throw new TRPCError({ code: "CONFLICT", message: "Giao dịch vừa được xử lý" });
+    await writeAudit(tx, { actorId: ctx.user.id, action: "TRANSITION", module: "finance", entity: "bank_transactions", entityId: bt.id, before: { status: bt.status }, after: { status: "ignored" }, reason, ip: ctx.ip });
+  });
+  return { ok: true };
+}
+
+export async function rematchBankTx(ctx: ProtectedContext, input: { id: string }) {
+  const bt = await loadOpenTx(ctx, input.id);
+  return matchBankTx(ctx.db, bt.id, ctx.user.id);
+}
+
+/* ------------------------------------------------------------------ */
+/* Nhập sao kê                                                         */
+/* ------------------------------------------------------------------ */
+
+async function statementMethod(ctx: ProtectedContext, paymentMethodId: string) {
+  const m = await ctx.db.query.paymentMethods.findFirst({ where: eq(paymentMethods.id, paymentMethodId) });
+  if (!m || m.kind !== "bank_transfer" || !m.accountNo) throw bad("Chọn tài khoản ngân hàng đã khai báo số tài khoản");
+  if (!canHandle(ctx, m.centerId)) throw new TRPCError({ code: "FORBIDDEN", message: "Không có quyền nhập sao kê cho tài khoản này" });
+  return m;
+}
+
+export async function previewStatement(ctx: ProtectedContext, input: { csv: string; paymentMethodId: string }) {
+  const m = await statementMethod(ctx, input.paymentMethodId);
+  const r = parseStatementCsv(input.csv, digitsOnly(m.accountNo), m.bankName ?? m.name);
+  if (r.headerErrors.length) return { headerErrors: r.headerErrors, rows: [], errors: [], summary: null };
+  const ext = r.txs.map((t) => t.externalId);
+  const dup = ext.length ? await ctx.db.select({ e: bankTransactions.externalId }).from(bankTransactions).where(and(inArray(bankTransactions.source, ["statement", "sepay"]), inArray(bankTransactions.externalId, ext))) : [];
+  const refs = [...new Set(r.txs.map((t) => extractOrderRef(t.content)).filter((x): x is string => !!x))];
+  const os = refs.length ? await ctx.db.select({ code: orders.code, status: orders.status }).from(orders).where(inArray(orders.code, refs)) : [];
+  const rows = r.txs.map((t) => {
+    const ref = extractOrderRef(t.content);
+    const o = ref ? os.find((x) => x.code === ref) : undefined;
+    return { ...t, duplicate: dup.some((d) => d.e === t.externalId), orderRef: ref, orderFound: !!o, orderStatus: o?.status ?? null };
+  });
+  return {
+    headerErrors: [], errors: r.errors, rows: rows.slice(0, 300),
+    summary: { rows: rows.length, amount: rows.reduce((s, x) => s + x.amount, 0), duplicates: rows.filter((x) => x.duplicate).length, withOrder: rows.filter((x) => x.orderFound).length, skippedOut: r.skippedOut, errorRows: r.errors.length },
+  };
+}
+
+export async function importStatement(ctx: ProtectedContext, input: { csv: string; paymentMethodId: string; fileName?: string | null; note: string }) {
+  const m = await statementMethod(ctx, input.paymentMethodId);
+  const note = reasonOrThrow(input.note);
+  const r = parseStatementCsv(input.csv, digitsOnly(m.accountNo), m.bankName ?? m.name);
+  if (r.headerErrors.length) throw bad(r.headerErrors);
+  if (!r.txs.length) throw bad("Không có giao dịch tiền vào hợp lệ");
+  const [batch] = await ctx.db.insert(importBatches).values({ kind: "bank_statement", fileName: input.fileName?.slice(0, 200) || null, note, totalRows: r.txs.length + r.errors.length + r.skippedOut, createdBy: ctx.user.id }).returning({ id: importBatches.id });
+  const res = { imported: 0, duplicates: 0, matched: 0, needs_review: 0, unmatched: 0, ignored: 0, amount: 0 };
+  for (const t of r.txs) {
+    const x = await ingestBankTx(ctx.db, t, "statement", { line: "csv" }, batch!.id, ctx.user.id);
+    if (x.duplicate) {
+      res.duplicates++;
+      continue;
+    }
+    res.imported++;
+    res.amount += t.amount;
+    if (x.status) res[x.status]++;
+  }
+  await ctx.db.update(importBatches).set({ okRows: res.imported, skippedRows: res.duplicates + r.errors.length + r.skippedOut, totalAmount: res.amount, summary: { ...res, errors: r.errors.slice(0, 50), skippedOut: r.skippedOut, account: m.code } }).where(eq(importBatches.id, batch!.id));
+  await writeAudit(ctx.db, { actorId: ctx.user.id, action: "CREATE", module: "finance", entity: "import_batches", entityId: batch!.id, after: { kind: "bank_statement", ...res }, reason: note, ip: ctx.ip });
+  return { batchId: batch!.id, ...res, errors: r.errors, skippedOut: r.skippedOut };
+}
+
+/* ------------------------------------------------------------------ */
+/* Nhập giao dịch cũ                                                   */
+/* ------------------------------------------------------------------ */
+
+type Resolved = {
+  line: number;
+  status: "ok" | "error" | "duplicate";
+  errors: string[];
+  row: LegacyRow | null;
+  centerId: string | null;
+  centerCode: string | null;
+  orderId: string | null;
+  orderCode: string | null;
+  newOrder: { enrollmentId: string; studentId: string; parentId: string | null; customerName: string; customerPhone: string; courseId: string; courseCode: string; total: number; packageSessions: number } | null;
+  studentName: string | null;
+  methodId: string | null;
+  methodName: string | null;
+};
+
+async function resolveLegacy(ctx: ProtectedContext, csv: string) {
+  const today = todayISO();
+  const parsed = parseLegacyCsv(csv, today);
+  if (parsed.headerErrors.length) return { headerErrors: parsed.headerErrors, rows: [] as Resolved[] };
+  const ok = parsed.rows.filter((r) => r.row).map((r) => r.row!);
+  const codes = [...new Set(ok.map((r) => r.orderCode).filter((x): x is string => !!x))];
+  const orderRows = codes.length ? await ctx.db.select({ id: orders.id, code: orders.code, centerId: orders.centerId, total: orders.total, status: orders.status, studentName: students.fullName })
+    .from(orders).leftJoin(students, eq(students.id, orders.studentId)).where(inArray(orders.code, codes)) : [];
+  const pairs = ok.filter((r) => !r.orderCode);
+  const stuCodes = [...new Set(pairs.map((r) => r.studentCode!))];
+  const enrRows = stuCodes.length ? await ctx.db.select({
+    enrollmentId: enrollments.id, studentId: students.id, studentCode: students.code, studentName: students.fullName, classCode: classes.code, centerId: classes.centerId,
+    packageSessions: enrollments.packageSessions, courseId: courses.id, courseCode: courses.code, listPrice: courses.listPrice, totalSessions: courses.totalSessions, createdAt: enrollments.createdAt,
+  }).from(enrollments).innerJoin(students, eq(students.id, enrollments.studentId)).innerJoin(classes, eq(classes.id, enrollments.classId)).innerJoin(courses, eq(courses.id, classes.courseId))
+    .where(inArray(students.code, stuCodes)).orderBy(desc(enrollments.createdAt)) : [];
+  const enrIds = enrRows.map((e) => e.enrollmentId);
+  const openOrders = enrIds.length ? await ctx.db.select({ id: orders.id, code: orders.code, enrollmentId: orders.enrollmentId, total: orders.total, status: orders.status })
+    .from(orders).where(and(inArray(orders.enrollmentId, enrIds), inArray(orders.status, ["pending_payment", "partially_paid", "paid"]))) : [];
+  const guardians = enrRows.length ? await ctx.db.select({ studentId: studentGuardians.studentId, parentId: parents.id, name: parents.fullName, phone: parents.phone, isPrimary: studentGuardians.isPrimary })
+    .from(studentGuardians).innerJoin(parents, eq(parents.id, studentGuardians.parentId)).where(inArray(studentGuardians.studentId, enrRows.map((e) => e.studentId))) : [];
+  const methods = await ctx.db.select({ id: paymentMethods.id, code: paymentMethods.code, name: paymentMethods.name, centerId: paymentMethods.centerId }).from(paymentMethods);
+  const receipts = ok.map((r) => r.legacyReceipt.toUpperCase());
+  const dups = receipts.length ? await ctx.db.select({ e: payments.externalRef }).from(payments).where(and(eq(payments.source, "legacy"), inArray(payments.externalRef, receipts))) : [];
+  const orderIds = [...new Set([...orderRows.map((o) => o.id), ...openOrders.map((o) => o.id)])];
+  const paid = orderIds.length ? await ctx.db.select({ orderId: payments.orderId, n: sql<number>`coalesce(sum(${payments.amount}), 0)::bigint` }).from(payments)
+    .where(and(inArray(payments.orderId, orderIds), inArray(payments.status, ["confirmed", "recorded"]))).groupBy(payments.orderId) : [];
+  const used = new Map<string, number>(paid.map((p) => [p.orderId, Number(p.n)]));
+  const newTotals = new Map<string, { total: number; used: number }>();
+
+  const rows: Resolved[] = parsed.rows.map((pr) => {
+    const res: Resolved = { line: pr.line, status: "error", errors: [...pr.errors], row: pr.row, centerId: null, centerCode: null, orderId: null, orderCode: null, newOrder: null, studentName: null, methodId: null, methodName: null };
+    const r = pr.row;
+    if (!r) return res;
+    let total = 0;
+    let key = "";
+    if (r.orderCode) {
+      const o = orderRows.find((x) => x.code === r.orderCode);
+      if (!o) res.errors.push(`Không tìm thấy đơn ${r.orderCode}`);
+      else if (o.status === "cancelled" || o.status === "refunded") res.errors.push(`Đơn ${o.code} đã đóng`);
+      else Object.assign(res, { centerId: o.centerId, orderId: o.id, orderCode: o.code, studentName: o.studentName }), (total = o.total), (key = o.id);
+    } else {
+      const e = enrRows.find((x) => x.studentCode === r.studentCode && x.classCode === r.classCode);
+      if (!e) res.errors.push(`Không tìm thấy ghi danh ${r.studentCode} ở lớp ${r.classCode}`);
+      else {
+        res.centerId = e.centerId;
+        res.studentName = e.studentName;
+        const oo = openOrders.find((x) => x.enrollmentId === e.enrollmentId);
+        if (oo) Object.assign(res, { orderId: oo.id, orderCode: oo.code }), (total = oo.total), (key = oo.id);
+        else {
+          const g = guardians.filter((x) => x.studentId === e.studentId).sort((a, b) => Number(b.isPrimary) - Number(a.isPrimary))[0];
+          const t = r.orderTotal ?? packagePrice(Number(e.listPrice), e.totalSessions, e.packageSessions);
+          if (!g?.phone) res.errors.push("Học viên chưa có phụ huynh / SĐT để lập đơn");
+          else {
+            key = `new:${e.enrollmentId}`;
+            const prev = newTotals.get(key);
+            if (prev && r.orderTotal && prev.total !== r.orderTotal) res.errors.push(`Tổng đơn khác dòng trước (${formatVnd(prev.total)})`);
+            total = prev?.total ?? t;
+            if (!prev) newTotals.set(key, { total, used: 0 });
+            res.newOrder = { enrollmentId: e.enrollmentId, studentId: e.studentId, parentId: g.parentId, customerName: g.name, customerPhone: g.phone, courseId: e.courseId, courseCode: e.courseCode, total, packageSessions: e.packageSessions };
+            res.orderCode = "(tạo mới)";
+          }
+        }
+      }
+    }
+    if (res.centerId) {
+      res.centerCode = null;
+      if (!can(ctx, "finance:confirm", res.centerId)) res.errors.push("Không có quyền xác nhận thu ở cơ sở này");
+      const mm = methods.find((m) => (m.code.toUpperCase() === r.method.toUpperCase() || m.name.toLowerCase() === r.method.toLowerCase()) && (m.centerId === null || m.centerId === res.centerId));
+      if (!mm) res.errors.push(`Phương thức "${r.method}" không có ở cơ sở này`);
+      else Object.assign(res, { methodId: mm.id, methodName: mm.name });
+    }
+    if (key && !res.errors.length) {
+      const already = key.startsWith("new:") ? newTotals.get(key)!.used : used.get(key) ?? 0;
+      if (already + r.amount > total) res.errors.push(`Vượt tổng đơn: đã có ${formatVnd(already)}/${formatVnd(total)}`);
+      else if (key.startsWith("new:")) newTotals.get(key)!.used += r.amount;
+      else used.set(key, already + r.amount);
+    }
+    if (dups.some((d) => d.e === r.legacyReceipt.toUpperCase())) {
+      res.status = "duplicate";
+      res.errors = ["Số phiếu cũ đã nhập trước đó"];
+      return res;
+    }
+    res.status = res.errors.length ? "error" : "ok";
+    return res;
+  });
+  const cmap = await ctx.db.select({ id: centers.id, code: centers.code }).from(centers);
+  for (const r of rows) r.centerCode = cmap.find((c) => c.id === r.centerId)?.code ?? null;
+  return { headerErrors: [] as string[], rows };
+}
+
+function assertCanImport(ctx: ProtectedContext) {
+  if (!confirmCenters(ctx).length) throw new TRPCError({ code: "FORBIDDEN", message: "Chỉ kế toán được nhập giao dịch cũ" });
+}
+
+export async function previewLegacy(ctx: ProtectedContext, input: { csv: string }) {
+  assertCanImport(ctx);
+  const r = await resolveLegacy(ctx, input.csv);
+  const okRows = r.rows.filter((x) => x.status === "ok");
+  return {
+    headerErrors: r.headerErrors,
+    rows: r.rows.slice(0, 500).map((x) => ({ ...x, newOrder: x.newOrder ? { courseCode: x.newOrder.courseCode, total: x.newOrder.total, customerName: x.newOrder.customerName } : null })),
+    summary: {
+      rows: r.rows.length, ok: okRows.length, errors: r.rows.filter((x) => x.status === "error").length, duplicates: r.rows.filter((x) => x.status === "duplicate").length,
+      amount: okRows.reduce((s, x) => s + x.row!.amount, 0), newOrders: new Set(okRows.filter((x) => x.newOrder).map((x) => x.newOrder!.enrollmentId)).size,
+    },
+  };
+}
+
+export async function importLegacy(ctx: ProtectedContext, input: { csv: string; note: string; fileName?: string | null }) {
+  assertCanImport(ctx);
+  const note = reasonOrThrow(input.note);
+  const r = await resolveLegacy(ctx, input.csv);
+  if (r.headerErrors.length) throw bad(r.headerErrors);
+  const okRows = r.rows.filter((x) => x.status === "ok");
+  if (!okRows.length) throw pre("Không có dòng hợp lệ để nhập");
+  return ctx.db.transaction(async (txx) => {
+    const tx = txx as unknown as Db;
+    const [batch] = await tx.insert(importBatches).values({ kind: "legacy_payments", fileName: input.fileName?.slice(0, 200) || null, note, totalRows: r.rows.length, createdBy: ctx.user.id }).returning({ id: importBatches.id });
+    const created = new Map<string, { id: string; code: string }>();
+    const touched = new Set<string>();
+    let amount = 0;
+    for (const x of okRows) {
+      const row = x.row!;
+      let orderId = x.orderId;
+      if (!orderId && x.newOrder) {
+        const no = x.newOrder;
+        let c = created.get(no.enrollmentId);
+        if (!c) {
+          await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${"enroll-order:" + no.enrollmentId}))`);
+          const again = await tx.select({ id: orders.id }).from(orders).where(and(eq(orders.enrollmentId, no.enrollmentId), inArray(orders.status, ["pending_payment", "partially_paid", "paid"]))).limit(1);
+          if (again[0]) throw new TRPCError({ code: "CONFLICT", message: `Dòng ${x.line}: ghi danh vừa có đơn — xem trước lại` });
+          const code = await nextOrderCode(tx, Number(todayISO().slice(0, 4)));
+          const [o] = await tx.insert(orders).values({
+            code, type: "course", status: "pending_payment", centerId: x.centerId!, parentId: no.parentId, studentId: no.studentId, enrollmentId: no.enrollmentId,
+            customerName: no.customerName, customerPhone: no.customerPhone.replace(/\D/g, ""), subtotal: no.total, discountAmount: 0, total: no.total,
+            paymentMethodId: x.methodId, internalNote: `Nhập từ hệ cũ — ${note}`, createdBy: ctx.user.id,
+          }).returning({ id: orders.id });
+          await tx.insert(orderItems).values({ orderId: o!.id, courseId: no.courseId, description: `Học phí ${no.courseCode} — gói ${no.packageSessions} buổi (hệ cũ)`, quantity: 1, unitPrice: no.total, amount: no.total, packageSessions: no.packageSessions });
+          await tx.insert(orderInstallments).values({ orderId: o!.id, seq: 1, amount: no.total, dueDate: row.paidAt });
+          await tx.insert(orderEvents).values({ orderId: o!.id, event: "create", toStatus: "pending_payment", note: "Nhập từ hệ cũ", actorId: ctx.user.id });
+          await tx.insert(financeLedger).values({ orderId: o!.id, centerId: x.centerId!, entryType: "charge", amount: no.total, refId: o!.id, note: `Tạo đơn ${code} (hệ cũ)`, actorId: ctx.user.id });
+          c = { id: o!.id, code };
+          created.set(no.enrollmentId, c);
+        }
+        orderId = c.id;
+      }
+      const [p] = await tx.insert(payments).values({
+        orderId: orderId!, centerId: x.centerId!, recordedAmount: row.amount, amount: row.amount, paymentMethodId: x.methodId, paidAt: row.paidAt, status: "confirmed",
+        source: "legacy", externalRef: row.legacyReceipt.toUpperCase(), payerName: row.payer, note: [`Phiếu cũ ${row.legacyReceipt}`, row.note].filter(Boolean).join(" · "),
+        recordedBy: ctx.user.id, decidedBy: ctx.user.id, decidedAt: new Date(), decisionReason: `Nhập giao dịch cũ: ${note}`,
+      }).returning({ id: payments.id });
+      await tx.insert(financeLedger).values({ orderId: orderId!, centerId: x.centerId!, entryType: "payment", amount: -row.amount, refId: p!.id, note: `Hệ cũ ${row.legacyReceipt}`, actorId: ctx.user.id });
+      await tx.insert(orderEvents).values({ orderId: orderId!, event: "payment_imported", note: `${formatVnd(row.amount)} · phiếu cũ ${row.legacyReceipt} · ${row.paidAt}`, actorId: ctx.user.id });
+      touched.add(orderId!);
+      amount += row.amount;
+    }
+    for (const id of touched) await recomputeOrderStatus(tx, id, ctx.user.id, "Nhập giao dịch cũ", { accrue: false });
+    const summary = { payments: okRows.length, newOrders: created.size, orders: touched.size, errors: r.rows.filter((x) => x.status === "error").length, duplicates: r.rows.filter((x) => x.status === "duplicate").length };
+    await tx.update(importBatches).set({ okRows: okRows.length, skippedRows: r.rows.length - okRows.length, totalAmount: amount, summary }).where(eq(importBatches.id, batch!.id));
+    await writeAudit(tx, { actorId: ctx.user.id, action: "CREATE", module: "finance", entity: "import_batches", entityId: batch!.id, after: { kind: "legacy_payments", amount, ...summary }, reason: note, ip: ctx.ip });
+    return { batchId: batch!.id, amount, ...summary };
+  });
+}
+
+export async function listImportBatches(ctx: ProtectedContext, input: { kind?: "legacy_payments" | "bank_statement" }) {
+  requirePermission(ctx, "finance:read", { centerId: null });
+  const cc = confirmCenters(ctx);
+  if (!cc.length) return [];
+  const conds: SQL[] = [];
+  if (input.kind) conds.push(eq(importBatches.kind, input.kind));
+  if (!cc.includes(null)) conds.push(eq(importBatches.createdBy, ctx.user.id));
+  const rows = await ctx.db.select({ b: importBatches, creatorName: users.fullName }).from(importBatches).leftJoin(users, eq(users.id, importBatches.createdBy))
+    .where(conds.length ? and(...conds) : sql`true`).orderBy(desc(importBatches.createdAt)).limit(50);
+  return rows.map((x) => ({ ...x.b, creatorName: x.creatorName }));
+}

@@ -41,3 +41,4 @@ export { leadInput } from "./routers/admissions";
 export { verifyActivationCode } from "./services/parentAccounts";
 export { putObject, getObject, signedMediaUrl, verifyMediaSignature } from "./storage";
 export { registerUploadedMedia } from "./services/media";
+export { ingestBankTx } from "./services/bank";

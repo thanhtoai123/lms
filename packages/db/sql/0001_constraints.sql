@@ -63,3 +63,13 @@ ALTER TABLE payments DROP CONSTRAINT IF EXISTS payments_amount_check;
 ALTER TABLE payments ADD CONSTRAINT payments_amount_check CHECK (amount > 0 AND recorded_amount > 0);
 ALTER TABLE refunds DROP CONSTRAINT IF EXISTS refunds_amount_check;
 ALTER TABLE refunds ADD CONSTRAINT refunds_amount_check CHECK (amount > 0 AND amount <= proposed_amount);
+
+-- 8) Biến động số dư & hoa hồng
+ALTER TABLE bank_transactions DROP CONSTRAINT IF EXISTS bank_tx_amount_check;
+ALTER TABLE bank_transactions ADD CONSTRAINT bank_tx_amount_check CHECK (amount > 0);
+ALTER TABLE bank_transactions DROP CONSTRAINT IF EXISTS bank_tx_matched_check;
+ALTER TABLE bank_transactions ADD CONSTRAINT bank_tx_matched_check CHECK (status <> 'matched' OR (order_id IS NOT NULL AND payment_id IS NOT NULL));
+ALTER TABLE commissions DROP CONSTRAINT IF EXISTS commissions_sign_check;
+ALTER TABLE commissions ADD CONSTRAINT commissions_sign_check CHECK ((parent_id IS NULL AND amount >= 0 AND amount <= original_amount) OR (parent_id IS NOT NULL AND amount <= 0));
+ALTER TABLE commissions DROP CONSTRAINT IF EXISTS commissions_beneficiary_check;
+ALTER TABLE commissions ADD CONSTRAINT commissions_beneficiary_check CHECK (beneficiary_user_id IS NOT NULL OR beneficiary_parent_id IS NOT NULL);

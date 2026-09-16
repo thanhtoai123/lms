@@ -29,6 +29,7 @@ jobs:
       DATABASE_URL: postgres://postgres:postgres@localhost:5432/satarobo
       DEV_ACTOR_EMAIL: teacher1@satarobo.vn
       ALLOW_DEV_ACTOR: "1"
+      SEPAY_API_KEY: ci-sepay-key
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -99,7 +100,15 @@ jobs:
           done
           PID=$(curl -s -b "$K" "http://localhost:3000/api/trpc/finance.payments?input=%7B%22status%22%3A%22confirmed%22%7D" | grep -o '"id":"[0-9a-f-]\{36\}","amount"' | head -1 | cut -d'"' -f4)
           test -n "$PID" && curl -sf -b "$K" "http://localhost:3000/payments/$PID/phieu-thu" | grep -q "PHIẾU THU"
-          curl -sf -o /dev/null -b "$A" http://localhost:3000/bien-dong-so-du   # mục chưa xây vẫn mở đúng đường dẫn
+          for p in /bien-dong-so-du "/bien-dong-so-du?status=needs_review" /nhap-giao-dich-cu /crm/commission "/crm/commission?tab=rules"; do
+            curl -sf -o /dev/null -b "$K" "http://localhost:3000$p" || { echo "FAIL 4B $p"; exit 1; }
+          done
+          curl -sf -o /dev/null -b "$M" http://localhost:3000/crm/commission
+          # Webhook SePay: sai khoá → 401; đúng khoá → nhận + chống trùng
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Authorization: Apikey sai' -H 'Content-Type: application/json' -d '{}' http://localhost:3000/api/webhooks/sepay)" = "401"
+          BODY='{"id":990001,"gateway":"Vietcombank","transactionDate":"2026-01-02 10:00:00","accountNumber":"0000000000","code":null,"content":"chuyen khoan thu","transferType":"in","transferAmount":100000,"accumulated":0,"subAccount":null,"referenceCode":"CI1","description":""}'
+          curl -sf -X POST -H 'Authorization: Apikey ci-sepay-key' -H 'Content-Type: application/json' -d "$BODY" http://localhost:3000/api/webhooks/sepay | grep -q '"success":true'
+          curl -sf -X POST -H 'Authorization: Apikey ci-sepay-key' -H 'Content-Type: application/json' -d "$BODY" http://localhost:3000/api/webhooks/sepay | grep -q '"duplicate":true'
           curl -sfL -o /dev/null -w '%{url_effective}' -b "$M" http://localhost:3000/ops | grep -q "/dashboard"   # đường dẫn cũ
           curl -sL http://localhost:3000/dashboard | grep -q "Đăng nhập quản trị"   # chưa đăng nhập → trang login
           echo "smoke OK"

@@ -1,7 +1,7 @@
 import { auditLog, type Database } from "@satarobo/db";
 
 export interface AuditInput {
-  actorId: string;
+  actorId: string | null;
   action: "CREATE" | "UPDATE" | "DELETE" | "TRANSITION" | "PII_REVEAL";
   module: string;
   entity: string;

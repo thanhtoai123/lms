@@ -1,6 +1,7 @@
+import { sql } from "drizzle-orm";
 import { pgTable, text, uuid, boolean, integer, bigint, date, timestamp, pgEnum, jsonb, index, uniqueIndex, smallint } from "drizzle-orm/pg-core";
 import { id, timestamps } from "./_common";
-import { ORDER_TYPES, ORDER_STATUSES, PAYMENT_STATUSES, PAYMENT_METHOD_KINDS, REFUND_STATUSES, LEDGER_TYPES } from "@satarobo/core";
+import { ORDER_TYPES, ORDER_STATUSES, PAYMENT_STATUSES, PAYMENT_METHOD_KINDS, REFUND_STATUSES, LEDGER_TYPES, BANK_TX_STATUSES, BANK_TX_SOURCES, COMMISSION_KINDS, COMMISSION_STATUSES, RATE_TYPES } from "@satarobo/core";
 import { centers } from "./org";
 import { users } from "./identity";
 import { parents, students } from "./people";
@@ -199,4 +200,120 @@ export const financeLedger = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("finance_ledger_order_idx").on(t.orderId, t.createdAt), index("finance_ledger_center_idx").on(t.centerId, t.createdAt)],
+);
+
+export const bankTxStatusEnum = pgEnum("bank_tx_status", BANK_TX_STATUSES);
+export const commissionKindEnum = pgEnum("commission_kind", COMMISSION_KINDS);
+export const commissionStatusEnum = pgEnum("commission_status", COMMISSION_STATUSES);
+export const rateTypeEnum = pgEnum("rate_type", RATE_TYPES);
+
+/** Lô nhập file (giao dịch cũ / sao kê) */
+export const importBatches = pgTable(
+  "import_batches",
+  {
+    id: id(),
+    /** legacy_payments | bank_statement */
+    kind: text("kind").notNull(),
+    fileName: text("file_name"),
+    note: text("note").notNull(),
+    totalRows: integer("total_rows").notNull().default(0),
+    okRows: integer("ok_rows").notNull().default(0),
+    skippedRows: integer("skipped_rows").notNull().default(0),
+    totalAmount: money("total_amount").notNull().default(0),
+    summary: jsonb("summary").$type<Record<string, unknown>>(),
+    createdBy: uuid("created_by").references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("import_batches_kind_idx").on(t.kind, t.createdAt)],
+);
+
+/** Biến động số dư: webhook SePay hoặc nhập sao kê */
+export const bankTransactions = pgTable(
+  "bank_transactions",
+  {
+    id: id(),
+    source: text("source", { enum: BANK_TX_SOURCES }).notNull(),
+    externalId: text("external_id").notNull(),
+    gateway: text("gateway"),
+    accountNo: text("account_no").notNull(),
+    paymentMethodId: uuid("payment_method_id").references(() => paymentMethods.id),
+    /** Cơ sở suy ra từ tài khoản nhận (null = tài khoản dùng chung) hoặc từ đơn khi đã khớp */
+    centerId: uuid("center_id").references(() => centers.id),
+    occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull(),
+    amount: money("amount").notNull(),
+    direction: text("direction", { enum: ["in", "out"] }).notNull(),
+    content: text("content").notNull().default(""),
+    referenceCode: text("reference_code"),
+    accumulated: money("accumulated"),
+    status: bankTxStatusEnum("status").notNull(),
+    matchNote: text("match_note"),
+    orderId: uuid("order_id").references(() => orders.id),
+    paymentId: uuid("payment_id").references(() => payments.id),
+    handledBy: uuid("handled_by").references(() => users.id),
+    handledAt: timestamp("handled_at", { withTimezone: true }),
+    importBatchId: uuid("import_batch_id").references(() => importBatches.id),
+    raw: jsonb("raw"),
+    receivedAt: timestamp("received_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("bank_tx_external_unique").on(t.source, t.externalId),
+    index("bank_tx_status_idx").on(t.status, t.occurredAt),
+    index("bank_tx_center_idx").on(t.centerId, t.occurredAt),
+    uniqueIndex("bank_tx_payment_unique").on(t.paymentId),
+  ],
+);
+
+/** Quy tắc hoa hồng */
+export const commissionRules = pgTable("commission_rules", {
+  id: id(),
+  name: text("name").notNull(),
+  kind: commissionKindEnum("kind").notNull(),
+  centerId: uuid("center_id").references(() => centers.id, { onDelete: "cascade" }),
+  orderType: orderTypeEnum("order_type"),
+  rateType: rateTypeEnum("rate_type").notNull(),
+  /** percent: điểm cơ bản (500 = 5%); fixed: VND */
+  value: money("value").notNull(),
+  maxAmount: money("max_amount"),
+  minOrderTotal: money("min_order_total").notNull().default(0),
+  effectiveFrom: date("effective_from").notNull(),
+  effectiveTo: date("effective_to"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdBy: uuid("created_by").references(() => users.id),
+  ...timestamps,
+});
+
+/** Hoa hồng phát sinh theo đơn (dòng âm = thu hồi khi hoàn tiền sau khi đã chi) */
+export const commissions = pgTable(
+  "commissions",
+  {
+    id: id(),
+    orderId: uuid("order_id").notNull().references(() => orders.id),
+    centerId: uuid("center_id").notNull().references(() => centers.id),
+    kind: commissionKindEnum("kind").notNull(),
+    ruleId: uuid("rule_id").references(() => commissionRules.id),
+    parentId: uuid("parent_id"),
+    beneficiaryUserId: uuid("beneficiary_user_id").references(() => users.id),
+    beneficiaryParentId: uuid("beneficiary_parent_id").references(() => parents.id),
+    beneficiaryName: text("beneficiary_name").notNull(),
+    baseAmount: money("base_amount").notNull(),
+    rateLabel: text("rate_label").notNull(),
+    originalAmount: money("original_amount").notNull(),
+    amount: money("amount").notNull(),
+    /** YYYY-MM — kỳ tính theo ngày đơn thu đủ */
+    period: text("period").notNull(),
+    status: commissionStatusEnum("status").notNull().default("accrued"),
+    note: text("note"),
+    approvedBy: uuid("approved_by").references(() => users.id),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    paidBy: uuid("paid_by").references(() => users.id),
+    paidAt: timestamp("paid_at", { withTimezone: true }),
+    payoutRef: text("payout_ref"),
+    cancelReason: text("cancel_reason"),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("commissions_order_kind_unique").on(t.orderId, t.kind).where(sql`parent_id is null`),
+    index("commissions_period_idx").on(t.period, t.status),
+    index("commissions_beneficiary_idx").on(t.beneficiaryUserId, t.period),
+  ],
 );
