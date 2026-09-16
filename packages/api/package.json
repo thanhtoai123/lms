@@ -1,0 +1,28 @@
+{
+  "name": "@satarobo/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "echo 'api tests run via web e2e'"
+  },
+  "dependencies": {
+    "@satarobo/core": "workspace:*",
+    "@satarobo/db": "workspace:*",
+    "@supabase/supabase-js": "^2.57.4",
+    "@trpc/server": "^11.5.1",
+    "drizzle-orm": "^0.44.5",
+    "superjson": "^2.2.2",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^22.18.0",
+    "typescript": "^5.9.2"
+  }
+}

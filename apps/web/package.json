@@ -1,0 +1,39 @@
+{
+  "name": "@satarobo/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "echo \"lint: configure eslint in phase 2\"",
+    "test": "echo 'web: no unit tests yet'"
+  },
+  "dependencies": {
+    "@satarobo/api": "workspace:*",
+    "@satarobo/core": "workspace:*",
+    "@satarobo/db": "workspace:*",
+    "@supabase/ssr": "^0.7.0",
+    "@supabase/supabase-js": "^2.57.4",
+    "@tanstack/react-query": "^5.90.2",
+    "@trpc/client": "^11.5.1",
+    "@trpc/server": "^11.5.1",
+    "@trpc/tanstack-react-query": "^11.5.1",
+    "next": "^16.1.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "server-only": "^0.0.1",
+    "superjson": "^2.2.2",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.13",
+    "@types/node": "^22.18.0",
+    "@types/react": "^19.1.13",
+    "@types/react-dom": "^19.1.9",
+    "tailwindcss": "^4.1.13",
+    "typescript": "^5.9.2"
+  }
+}

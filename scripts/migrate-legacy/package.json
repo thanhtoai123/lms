@@ -1,0 +1,23 @@
+{
+  "name": "@satarobo/migrate-legacy",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "echo 'no tests'"
+  },
+  "dependencies": {
+    "@satarobo/core": "workspace:*",
+    "@satarobo/db": "workspace:*",
+    "dotenv": "^17.2.1",
+    "drizzle-orm": "^0.44.5",
+    "postgres": "^3.4.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.18.0",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.2"
+  }
+}

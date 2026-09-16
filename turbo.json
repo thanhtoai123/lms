@@ -1,0 +1,26 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "ui": "tui",
+  "globalEnv": ["DATABASE_URL", "NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY", "DEV_ACTOR_EMAIL", "NODE_ENV"],
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": [".next/**", "!.next/cache/**", "dist/**"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "test": {
+      "dependsOn": ["^build"],
+      "outputs": []
+    },
+    "typecheck": {
+      "dependsOn": ["^build"],
+      "outputs": []
+    },
+    "lint": {
+      "outputs": []
+    }
+  }
+}

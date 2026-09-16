@@ -1,0 +1,28 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-50: #fff4ec;
+  --color-brand-100: #ffe4cc;
+  --color-brand-500: #f97316;
+  --color-brand-600: #ea580c;
+  --color-brand-700: #c2410c;
+  --color-ink-900: #1f1a2e;
+  --color-ink-600: #4b4660;
+  --color-ink-400: #8b86a0;
+  --color-surface: #fafaf8;
+  --color-ok: #16a34a;
+  --color-warn: #d97706;
+  --color-danger: #dc2626;
+  --font-sans: "Be Vietnam Pro", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+html, body { height: 100%; }
+body { background: var(--color-surface); color: var(--color-ink-900); -webkit-font-smoothing: antialiased; }
+
+.card { @apply rounded-2xl bg-white shadow-sm border border-black/5; }
+.btn { @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed; }
+.btn-primary { @apply btn bg-brand-500 text-white hover:bg-brand-600 active:bg-brand-700; }
+.btn-ghost { @apply btn bg-black/5 text-ink-900 hover:bg-black/10; }
+.chip { @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium; }
+.input { @apply w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100; }
+.label { @apply block text-xs font-semibold uppercase tracking-wide text-ink-400 mb-1; }

@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: satarobo
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/satarobo
+      DEV_ACTOR_EMAIL: teacher1@satarobo.vn
+      NODE_ENV: development
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --no-frozen-lockfile
+      - name: Build core
+        run: pnpm --filter @satarobo/core build
+      - name: Unit tests (core)
+        run: pnpm --filter @satarobo/core test
+      - name: Typecheck all packages
+        run: pnpm -r typecheck
+      - name: DB push + constraints + seed
+        run: |
+          pnpm db:push -- --force
+          pnpm --filter @satarobo/db exec tsx src/apply-sql.ts
+          pnpm db:seed
+      - name: Build web
+        run: pnpm --filter @satarobo/web build
+      - name: Smoke test (server renders Teacher app with seeded data)
+        run: |
+          (cd apps/web && pnpm start -p 3000 &)
+          for i in $(seq 1 30); do curl -sf http://localhost:3000/login >/dev/null && break; sleep 1; done
+          curl -sf -c cj -b cj -X POST -d 'email=teacher1@satarobo.vn' http://localhost:3000/login >/dev/null || true
+          curl -sf -b "x-dev-actor=teacher1@satarobo.vn" http://localhost:3000/teacher | grep -q "Hôm nay"
+          curl -sf -b "x-dev-actor=manager.cs1@example.test" http://localhost:3000/ops | grep -q "Việc cần xử lý"
+          echo "smoke OK"

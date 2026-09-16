@@ -1,0 +1,26 @@
+{
+  "name": "@satarobo/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Domain core: scheduling, session lifecycle, attendance rules, policy engine. Zero runtime dependencies.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test --import tsx src/**/*.test.ts src/*.test.ts",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.2",
+    "@types/node": "^22.18.0"
+  }
+}
