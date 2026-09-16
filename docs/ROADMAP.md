@@ -3,9 +3,10 @@
 | Giai đoạn | Phạm vi | Định nghĩa xong |
 |---|---|---|
 | **1. Nền tảng + Academics + Teacher app** (repo này) | Monorepo, core rules + test, schema, tRPC, Teacher app (Hôm nay → điểm danh → nhận xét → hoàn tất), Ops (hàng đợi, lớp, buổi, mở lớp), migrate script, CI | GV chốt được buổi trong 1 màn; hàng đợi quá hạn tự giảm; CI xanh |
-| 2. Admissions + Engagement | Lead inbox theo SLA, timeline hợp nhất, automation rules (outbox + worker), ZNS/push, nhận xét buổi → PH, NPS, rủi ro → việc chăm sóc, OpenAPI cho Zalo Mini App | CRM cũ tắt được; tracking Meta/GA4 chạy |
-| 3. Finance + People | Ledger bất biến, đơn/thu/nợ/hoàn theo buổi đã học, VietQR, đối soát MISA, hoa hồng, chấm công, kho | Module tài chính cũ tắt được |
-| 4. Parent/Student app + Public site | Nối `sata-ui` vào backend thật (PWA, offline điểm danh cho GV, push), Public site SSG + CMS, báo cáo/BI, DSAR | Cut-over hoàn tất, hệ cũ read-only |
+| **2. Admissions + Engagement** (đã có, CI #11) | 10 trạng thái lead (có "Đang học thử"), LeadChild, chia lead 3 chế độ + bảng sale + đặt lại lượt, bàn giao hàng loạt, chuyển lead liên cơ sở, lead lâu chưa chăm, chốt hàng loạt (tài khoản PH chờ kích hoạt, consent ảnh), SLA/tham số theo cơ sở, Kanban + CRM summary, outbox + rule engine + worker, việc chăm sóc, thông báo nội bộ, form web công khai | CRM cũ tắt được (còn: import Excel, OTP Zalo kích hoạt PH, affiliate/hoa hồng, ZNS thật) |
+| 3. Lớp/Buổi nâng cao (ADMIN-SPEC §15 dòng 1–2) | Lịch nhiều giai đoạn + "áp lịch mới"/"kiểm tra lệch lịch", duyệt mở lớp, loại buổi, trợ giảng, checklist, nhận xét + điểm từng HS, học bạ năng lực theo tiêu chí (mốc 5/12), ảnh lớp có duyệt + consent + signed URL, lớp Trial | Giáo vụ + GV vận hành hoàn toàn trên hệ mới |
+| 4. Finance + People | Ledger bất biến, đơn/kế hoạch trả góp/QR/SePay đối khớp, sale ghi nhận → kế toán xác nhận, công nợ, hoàn theo buổi, hoa hồng, MISA; chấm công, đơn từ, kỳ công | Module tài chính cũ tắt được |
+| 5. LMS + Parent app + Public site + Báo cáo | Giáo trình/bài học/bài tập/SCORM, kho, CMS, nối `sata-ui` vào backend thật (PWA, push), 9 báo cáo, cài đặt vận hành, DSAR | Cut-over hoàn tất, hệ cũ read-only |
 
 ## Việc kỹ thuật còn lại trong Giai đoạn 1 (sau khi CI xanh)
 
