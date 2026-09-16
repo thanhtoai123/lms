@@ -47,9 +47,14 @@ WHERE s.status IN ('scheduled', 'in_progress', 'attendance_done', 'notes_done')
   AND s.date < CURRENT_DATE;
 
 -- 6) Sổ cái tài chính append-only
+CREATE OR REPLACE FUNCTION finance_ledger_immutable() RETURNS trigger AS $$
+BEGIN
+  RAISE EXCEPTION 'finance_ledger is append-only: ghi bút toán điều chỉnh thay vì sửa/xoá';
+END;
+$$ LANGUAGE plpgsql;
 DROP TRIGGER IF EXISTS finance_ledger_no_update ON finance_ledger;
 CREATE TRIGGER finance_ledger_no_update BEFORE UPDATE OR DELETE ON finance_ledger
-  FOR EACH ROW EXECUTE FUNCTION audit_log_immutable();
+  FOR EACH ROW EXECUTE FUNCTION finance_ledger_immutable();
 
 -- 7) Tiền không âm
 ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_amounts_check;

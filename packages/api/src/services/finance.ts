@@ -688,6 +688,7 @@ export async function payRefund(ctx: ProtectedContext, input: { id: string; paym
   const to = wrapRule(() => refundTransition(r.status, "pay"));
   const method = await ctx.db.query.paymentMethods.findFirst({ where: eq(paymentMethods.id, input.paymentMethodId) });
   if (!method || (method.centerId && method.centerId !== r.centerId)) throw bad("Phương thức chi không hợp lệ");
+  if (r.decidedBy === ctx.user.id && !hasRole(ctx.actor, "SUPER_ADMIN")) throw pre("Người duyệt hoàn tiền không đồng thời chi tiền — cần kế toán khác thực hiện");
   if (method.kind === "bank_transfer" && !input.payoutRef?.trim()) throw bad("Chi hoàn bằng chuyển khoản cần mã giao dịch");
   await ctx.db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${"order:" + r.orderId}))`);
@@ -733,7 +734,7 @@ export async function listRefunds(ctx: ProtectedContext, input: { status?: Refun
       ...x.r, orderCode: x.orderCode, orderTotal: x.orderTotal, customerName: x.customerName, centerCode: x.centerCode, studentName: x.studentName, classCode: x.classCode,
       paid: Number(x.paid), requesterName: x.requesterName, deciderName: x.deciderName,
       canApprove: x.r.status === "pending" && can(ctx, "finance:approve", x.r.centerId) && (x.r.requestedBy !== ctx.user.id || hasRole(ctx.actor, "SUPER_ADMIN")),
-      canPay: x.r.status === "approved" && can(ctx, "finance:confirm", x.r.centerId),
+      canPay: x.r.status === "approved" && can(ctx, "finance:confirm", x.r.centerId) && (x.r.decidedBy !== ctx.user.id || hasRole(ctx.actor, "SUPER_ADMIN")),
     })),
   };
 }
