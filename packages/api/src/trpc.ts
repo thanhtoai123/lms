@@ -26,8 +26,10 @@ const mapDomainErrors = t.middleware(async ({ next }) => {
   try {
     return await next();
   } catch (e) {
-    if (e instanceof ForbiddenError) throw new TRPCError({ code: "FORBIDDEN", message: e.message, cause: e });
-    if (e instanceof SessionTransitionError) throw new TRPCError({ code: "PRECONDITION_FAILED", message: e.message, cause: e });
+    // So sánh theo name vì @satarobo/core có thể được nạp 2 lần (src qua Turbopack + dist) → instanceof không đáng tin
+    const name = (e as { name?: string })?.name;
+    if (e instanceof ForbiddenError || name === "ForbiddenError") throw new TRPCError({ code: "FORBIDDEN", message: (e as Error).message, cause: e as Error });
+    if (e instanceof SessionTransitionError || name === "SessionTransitionError" || name === "LeadTransitionError") throw new TRPCError({ code: "PRECONDITION_FAILED", message: (e as Error).message, cause: e as Error });
     throw e;
   }
 });
