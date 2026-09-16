@@ -23,7 +23,7 @@ pnpm install
 cp .env.example .env            # DATABASE_URL trỏ tới Postgres local hoặc Supabase
 docker compose up -d postgres    # nếu chưa có Postgres
 pnpm db:push                     # tạo bảng từ Drizzle schema
-pnpm --filter @satarobo/db exec tsx src/apply-sql.ts   # EXCLUDE constraints, audit trigger, view
+pnpm db:apply-sql                # EXCLUDE constraints, audit trigger, view
 pnpm db:seed                     # dữ liệu mẫu (không dùng dữ liệu thật)
 pnpm dev                         # http://localhost:3000
 ```

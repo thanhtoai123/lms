@@ -16,6 +16,7 @@
     "push": "drizzle-kit push",
     "studio": "drizzle-kit studio",
     "seed": "tsx src/seed.ts",
+    "apply-sql": "tsx src/apply-sql.ts",
     "test": "echo 'no tests in db'"
   },
   "dependencies": {

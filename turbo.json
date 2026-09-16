@@ -1,7 +1,7 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "ui": "tui",
-  "globalEnv": ["DATABASE_URL", "NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY", "DEV_ACTOR_EMAIL", "NODE_ENV"],
+  "globalEnv": ["DATABASE_URL", "NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY", "DEV_ACTOR_EMAIL", "ALLOW_DEV_ACTOR", "NODE_ENV"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],

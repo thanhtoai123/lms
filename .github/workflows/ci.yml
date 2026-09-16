@@ -24,7 +24,7 @@ jobs:
     env:
       DATABASE_URL: postgres://postgres:postgres@localhost:5432/satarobo
       DEV_ACTOR_EMAIL: teacher1@satarobo.vn
-      NODE_ENV: development
+      ALLOW_DEV_ACTOR: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -41,7 +41,7 @@ jobs:
       - name: DB push + constraints + seed
         run: |
           pnpm db:push -- --force
-          pnpm --filter @satarobo/db exec tsx src/apply-sql.ts
+          pnpm db:apply-sql
           pnpm db:seed
       - name: Build web
         run: pnpm --filter @satarobo/web build
@@ -49,7 +49,6 @@ jobs:
         run: |
           (cd apps/web && pnpm start -p 3000 &)
           for i in $(seq 1 30); do curl -sf http://localhost:3000/login >/dev/null && break; sleep 1; done
-          curl -sf -c cj -b cj -X POST -d 'email=teacher1@satarobo.vn' http://localhost:3000/login >/dev/null || true
           curl -sf -b "x-dev-actor=teacher1@satarobo.vn" http://localhost:3000/teacher | grep -q "Hôm nay"
           curl -sf -b "x-dev-actor=manager.cs1@example.test" http://localhost:3000/ops | grep -q "Việc cần xử lý"
           echo "smoke OK"

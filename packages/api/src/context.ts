@@ -32,7 +32,7 @@ export async function createContext(opts: { headers: Headers; ip?: string }): Pr
     }
   }
 
-  if (!email && process.env.NODE_ENV !== "production" && process.env.DEV_ACTOR_EMAIL) {
+  if (!email && process.env.ALLOW_DEV_ACTOR === "1" && process.env.DEV_ACTOR_EMAIL) {
     email = opts.headers.get("x-dev-actor") ?? process.env.DEV_ACTOR_EMAIL;
   }
 

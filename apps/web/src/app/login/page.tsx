@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createServerClient } from "@supabase/ssr";
 
-const DEV = process.env.NODE_ENV !== "production";
+const DEV = process.env.ALLOW_DEV_ACTOR === "1";
 const hasSupabase = !!process.env.NEXT_PUBLIC_SUPABASE_URL && !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 async function devLogin(formData: FormData) {
