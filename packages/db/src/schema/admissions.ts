@@ -1,9 +1,9 @@
 import { pgTable, text, uuid, boolean, integer, timestamp, pgEnum, jsonb, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { id, timestamps, softDelete } from "./_common";
-import { LEAD_STATUSES, DISTRIBUTION_MODES } from "@satarobo/core";
+import { LEAD_STATUSES, DISTRIBUTION_MODES, TRIAL_STATUSES } from "@satarobo/core";
 import { centers } from "./org";
 import { users } from "./identity";
-import { courses } from "./academics";
+import { courses, sessions } from "./academics";
 import { parents, students } from "./people";
 
 export const leadStatusEnum = pgEnum("lead_status", LEAD_STATUSES);
@@ -170,4 +170,36 @@ export const leadTransfers = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("lead_transfers_lead_idx").on(t.leadId), index("lead_transfers_created_idx").on(t.createdAt)],
+);
+
+export const trialStatusEnum = pgEnum("trial_status", TRIAL_STATUSES);
+
+/**
+ * Lớp Trial: một lượt học thử của lead (hoặc một con trong lead) tại một buổi học có sẵn.
+ * Đổi lịch = dòng cũ chuyển "rescheduled" + dòng mới trỏ rescheduledFromId; mọi thay đổi có lý do.
+ */
+export const trialBookings = pgTable(
+  "trial_bookings",
+  {
+    id: id(),
+    leadId: uuid("lead_id").notNull().references(() => leads.id, { onDelete: "cascade" }),
+    childId: uuid("child_id").references(() => leadChildren.id, { onDelete: "set null" }),
+    sessionId: uuid("session_id").notNull().references(() => sessions.id, { onDelete: "cascade" }),
+    centerId: uuid("center_id").references(() => centers.id),
+    status: trialStatusEnum("status").notNull().default("booked"),
+    childName: text("child_name"),
+    note: text("note"),
+    reason: text("reason"),
+    resultNote: text("result_note"),
+    rescheduledFromId: uuid("rescheduled_from_id"),
+    bookedBy: uuid("booked_by").references(() => users.id),
+    resultBy: uuid("result_by").references(() => users.id),
+    resultAt: timestamp("result_at", { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [
+    index("trial_bookings_session_idx").on(t.sessionId, t.status),
+    index("trial_bookings_lead_idx").on(t.leadId),
+    index("trial_bookings_center_idx").on(t.centerId, t.createdAt),
+  ],
 );

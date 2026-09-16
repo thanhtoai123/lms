@@ -8,6 +8,7 @@ import { dashboardRouter } from "./routers/dashboard";
 import { studentsRouter, orgRouter } from "./routers/students";
 import { scheduleRouter } from "./routers/schedule";
 import { learningRouter } from "./routers/learning";
+import { systemRouter, reportsRouter, trialsRouter } from "./routers/system";
 
 export const appRouter = router({
   auth: authRouter,
@@ -16,13 +17,15 @@ export const appRouter = router({
     classes: classesRouter,
   }),
   teacher: teacherRouter,
-  admissions: router({ leads: leadsRouter }),
+  admissions: router({ leads: leadsRouter, trials: trialsRouter }),
   engagement: engagementRouter,
   dashboard: dashboardRouter,
   students: studentsRouter,
   org: orgRouter,
   schedule: scheduleRouter,
   learning: learningRouter,
+  system: systemRouter,
+  reports: reportsRouter,
 });
 
 export type AppRouter = typeof appRouter;

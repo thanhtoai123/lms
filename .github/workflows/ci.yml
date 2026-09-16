@@ -64,6 +64,16 @@ jobs:
           for p in /students /students/new /students/tai-khoan /students/sap-het-khoa /enrollments /enrollments/new /chuyen-lop /centers /rooms /lich /attendance /hoc-bu "/hoc-bu?status=requested" /canh-bao-rui-ro /hoc-ba /report-cards /report-cards/criteria /hoan-thanh-khoa /media /duyet-media; do
             curl -sf -o /dev/null -b "$M" "http://localhost:3000$p" || { echo "FAIL $p"; exit 1; }
           done
+          for p in /lop-trial "/lop-trial?status=attended" /bao-cao/lead /bao-cao/trial /bao-cao/dao-tao /bao-cao/hieu-suat-gv; do
+            curl -sf -o /dev/null -b "$M" "http://localhost:3000$p" || { echo "FAIL $p"; exit 1; }
+          done
+          for p in /users "/users?status=locked" /roles "/roles?role=TEACHER" /audit-log /bao-cao/lead; do
+            curl -sf -o /dev/null -b "$A" "http://localhost:3000$p" || { echo "FAIL admin $p"; exit 1; }
+          done
+          curl -sf -b "$M" http://localhost:3000/lop-trial | grep -q "Lớp Trial"
+          curl -sf -b "$M" http://localhost:3000/users | grep -q "chưa có quyền"   # quản lý cơ sở không xem được tài khoản
+          UID1=$(curl -s -b "$A" "http://localhost:3000/api/trpc/system.users" | grep -o '"id":"[0-9a-f-]\{36\}"' | head -1 | cut -d'"' -f4)
+          test -n "$UID1" && curl -sf -o /dev/null -b "$A" "http://localhost:3000/users/$UID1"
           SID=$(curl -s -b "$M" "http://localhost:3000/api/trpc/students.list" | grep -o '"id":"[0-9a-f-]\{36\}"' | head -1 | cut -d'"' -f4)
           test -n "$SID" && curl -sf -o /dev/null -b "$M" "http://localhost:3000/students/$SID" && curl -sf -o /dev/null -b "$M" "http://localhost:3000/students/$SID/edit"
           curl -sf -o /dev/null -b "$A" http://localhost:3000/orders   # mục chưa xây vẫn mở đúng đường dẫn

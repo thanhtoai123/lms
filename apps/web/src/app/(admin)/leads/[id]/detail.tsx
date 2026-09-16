@@ -142,6 +142,7 @@ export function LeadDetail({ id, classes, assignees, centers }: { id: string; cl
               <div className="flex flex-wrap gap-2">
                 {events.map((e) => <button key={e} className={e === "lose" ? "btn-ghost text-red-700" : "btn-ghost"} disabled={busy} onClick={() => doEvent(e)}>{EVENT_VI[e] ?? e}</button>)}
               </div>
+              {!["enrolled", "lost"].includes(l.status) && <p className="text-xs text-ink-600">Muốn xếp bé vào một buổi học cụ thể (có kiểm tra chỗ trống, báo GV)? <Link href={`/lop-trial?lead=${id}`} className="font-semibold text-brand-600 hover:underline">Xếp vào Lớp Trial →</Link></p>}
               {events.includes("schedule_trial") && <div><label className="label">Thời gian học thử (cho "Hẹn học thử")</label><input type="datetime-local" className="input max-w-xs" value={trialAt} onChange={(e) => setTrialAt(e.target.value)} /></div>}
               {events.includes("lose") && <div><label className="label">Lý do mất (cho "Mất")</label><input className="input max-w-xs" value={lostReason} onChange={(e) => setLostReason(e.target.value)} placeholder="Học phí / xa / chọn nơi khác…" /></div>}
             </section>

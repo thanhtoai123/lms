@@ -20,6 +20,8 @@ export const users = pgTable(
     isActive: boolean("is_active").notNull().default(true),
     mfaEnabled: boolean("mfa_enabled").notNull().default(false),
     lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
+    lockedAt: timestamp("locked_at", { withTimezone: true }),
+    lockedReason: text("locked_reason"),
     ...timestamps,
   },
   (t) => [uniqueIndex("users_email_idx").on(t.email)],
@@ -60,5 +62,10 @@ export const auditLog = pgTable(
     ip: text("ip"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index("audit_entity_idx").on(t.entity, t.entityId), index("audit_actor_idx").on(t.actorId, t.createdAt)],
+  (t) => [
+    index("audit_entity_idx").on(t.entity, t.entityId),
+    index("audit_actor_idx").on(t.actorId, t.createdAt),
+    index("audit_created_idx").on(t.createdAt),
+    index("audit_module_idx").on(t.module, t.createdAt),
+  ],
 );

@@ -32,6 +32,7 @@ export function SessionWorkflow({ sessionId }: { sessionId: string }) {
   const record = useMutation(trpc.academics.sessions.recordAttendance.mutationOptions({ onSuccess: () => { setError(null); invalidate(); }, onError: onErr }));
   const saveNote = useMutation(trpc.academics.sessions.saveNote.mutationOptions({ onSuccess: () => { setError(null); invalidate(); }, onError: onErr }));
   const transition = useMutation(trpc.academics.sessions.transition.mutationOptions({ onSuccess: () => { setError(null); invalidate(); }, onError: onErr }));
+  const trialResult = useMutation(trpc.admissions.trials.result.mutationOptions({ onSuccess: () => { setError(null); invalidate(); }, onError: onErr }));
 
   const s = q.data;
   const roster = s?.roster ?? [];
@@ -140,6 +141,31 @@ export function SessionWorkflow({ sessionId }: { sessionId: string }) {
           </button>
         )}
       </section>
+
+      {s.trialGuests.length > 0 && (
+        <section className="card p-4 space-y-2">
+          <h2 className="font-bold">Học thử trong buổi <span className="text-ink-400 font-normal text-sm">({s.trialGuests.length})</span></h2>
+          <p className="text-xs text-ink-600">Bé học thử không nằm trong danh sách điểm danh. Ghi nhận bé có đến hay không để tư vấn gọi chốt.</p>
+          <ul className="divide-y divide-black/5">
+            {s.trialGuests.map((g) => (
+              <li key={g.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                <div className="min-w-0">
+                  <div className="text-sm font-medium">{g.childName ?? "Bé học thử"} <span className="chip ml-1 bg-fuchsia-100 text-fuchsia-800">Học thử</span></div>
+                  {g.note && <div className="text-xs text-ink-400">{g.note}</div>}
+                </div>
+                {g.status === "booked" ? (
+                  <div className="flex gap-1">
+                    <button className="btn-primary !px-2 !py-1 text-xs" disabled={trialResult.isPending || isFuture} onClick={() => trialResult.mutate({ bookingId: g.id, result: "attend" })}>Có đến</button>
+                    <button className="btn-ghost !px-2 !py-1 text-xs" disabled={trialResult.isPending || isFuture} onClick={() => trialResult.mutate({ bookingId: g.id, result: "no_show" })}>Không đến</button>
+                  </div>
+                ) : (
+                  <span className={`chip ${g.status === "attended" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-700"}`}>{g.status === "attended" ? "Đã học thử" : "Không đến"}</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {/* Bước 2: Nhận xét buổi */}
       <section className={`card p-4 space-y-3 ${step < 2 ? "opacity-60" : ""}`}>

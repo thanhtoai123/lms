@@ -1,6 +1,6 @@
 import { and, eq, inArray, sql, asc, gte, lte } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
-import { sessions, classes, enrollments, attendance, students, teachers, rooms, centers, lessons } from "@satarobo/db";
+import { sessions, classes, enrollments, attendance, students, teachers, rooms, centers, lessons, trialBookings, leads } from "@satarobo/db";
 import {
   transition, nextStep, isOverdue, OPEN_STATUSES, toISODate, visibleCenterIds, detectRisks,
   type SessionEvent, type SessionStatus, type AttendanceStatus, type AttendanceRecord,
@@ -65,9 +65,16 @@ export async function getSessionDetail(ctx: ProtectedContext, sessionId: string)
   const [teacher] = s.session.teacherId ? await ctx.db.select({ id: teachers.id, fullName: teachers.fullName }).from(teachers).where(eq(teachers.id, s.session.teacherId)) : [null];
   const [lesson] = s.session.lessonId ? await ctx.db.select({ title: lessons.title, objectives: lessons.objectives, isReportCardMilestone: lessons.isReportCardMilestone }).from(lessons).where(eq(lessons.id, s.session.lessonId)) : [null];
 
+  const trialGuests = await ctx.db
+    .select({ id: trialBookings.id, childName: trialBookings.childName, status: trialBookings.status, note: trialBookings.note, resultNote: trialBookings.resultNote, parentName: leads.parentName })
+    .from(trialBookings).innerJoin(leads, eq(leads.id, trialBookings.leadId))
+    .where(and(eq(trialBookings.sessionId, sessionId), inArray(trialBookings.status, ["booked", "attended", "no_show"])))
+    .orderBy(asc(trialBookings.createdAt));
+
   const today = todayISO();
   return {
     ...s.session,
+    trialGuests,
     classCode: s.classCode,
     className: s.className,
     centerId: s.centerId,

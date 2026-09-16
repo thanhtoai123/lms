@@ -14,3 +14,6 @@ export * from "./calendar/week.js";
 export * from "./makeup/rules.js";
 export * from "./reportcards/rules.js";
 export * from "./media/consent.js";
+export * from "./trials/rules.js";
+export * from "./reports/metrics.js";
+export * from "./policy/accounts.js";

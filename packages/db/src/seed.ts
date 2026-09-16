@@ -10,7 +10,7 @@ import {
   centers, rooms, users, userRoles, teachers, parents, students, studentGuardians,
   courses, curricula, lessons, classes, classSchedules, sessions, enrollments, attendance,
   enrollmentEvents, competencyCriteria, reportCards, reportCardScores, sessionMedia,
-  leads, leadChildren, leadActivities, leadTasks, leadAssignees, admissionsSettings,
+  leads, leadChildren, leadActivities, leadTasks, leadAssignees, admissionsSettings, trialBookings, auditLog,
 } from "./schema/index";
 import { generateSessions, buildClassCode, buildStudentCode, toISODate, addDays } from "@satarobo/core";
 
@@ -240,6 +240,27 @@ async function main() {
   await db.insert(leadTasks).values([
     { leadId: leadRows[0]!.id, title: "Gọi tư vấn lần đầu", dueAt: new Date(Date.now() - 45 * 60e3), assigneeId: sale1U!.id, createdByRule: "NEW_LEAD_FIRST_CALL" },
     { leadId: leadRows[5]!.id, title: "Gọi chốt sau học thử", dueAt: new Date(Date.now() - 6 * 3600e3), assigneeId: sale1U!.id, createdByRule: "TRIAL_DONE_FOLLOW_UP" },
+  ]);
+
+  // ---- Lớp Trial mẫu: 1 buổi sắp tới (đã xếp), 1 đã học thử, 1 không đến ----
+  const futureA = sessionRows.filter((x) => x.classId === classA!.id && x.date > today).sort((a, b) => a.sequenceNo - b.sequenceNo);
+  const futureB = sessionRows.filter((x) => x.classId === classB!.id && x.date > today).sort((a, b) => a.sequenceNo - b.sequenceNo);
+  const trialRows: (typeof trialBookings.$inferInsert)[] = [];
+  if (futureA[0]) trialRows.push({ leadId: leadRows[3]!.id, sessionId: futureA[0].id, centerId: cs1!.id, status: "booked", childName: leadRows[3]!.childName, note: "PH đưa đón (mẫu)", bookedBy: sale1U!.id });
+  if (futureB[0]) trialRows.push({ leadId: leadRows[4]!.id, sessionId: futureB[0].id, centerId: cs2!.id, status: "booked", childName: leadRows[4]!.childName, bookedBy: sale2U!.id });
+  if (toComplete.length >= 2) {
+    trialRows.push({ leadId: leadRows[5]!.id, sessionId: toComplete[toComplete.length - 1]!.id, centerId: cs1!.id, status: "attended", childName: leadRows[5]!.childName, resultNote: "Con hào hứng, lắp xong mô hình", resultBy: t1U!.id, resultAt: h(30), bookedBy: sale1U!.id });
+    trialRows.push({ leadId: leadRows[7]!.id, sessionId: toComplete[toComplete.length - 2]!.id, centerId: cs1!.id, status: "no_show", childName: leadRows[7]!.childName, resultNote: "PH báo bận đột xuất", resultBy: mgrU!.id, resultAt: h(200), bookedBy: sale1U!.id });
+    trialRows.push({ leadId: leadRows[8]!.id, sessionId: toComplete[0]!.id, centerId: cs1!.id, status: "attended", childName: leadRows[8]!.childName, resultBy: t1U!.id, resultAt: h(520), bookedBy: sale1U!.id });
+  }
+  if (trialRows.length) await db.insert(trialBookings).values(trialRows);
+  await db.insert(leadActivities).values([
+    { leadId: leadRows[9]!.id, type: "status_change" as const, content: "Mất lead", meta: { from: "consulting", to: "lost", event: "lose" }, createdAt: h(650) },
+    { leadId: leadRows[8]!.id, type: "status_change" as const, content: "Đăng ký", meta: { from: "trial_done", to: "enrolled", event: "enroll" }, createdAt: h(500) },
+  ]);
+  await db.insert(auditLog).values([
+    { actorId: adminU!.id, action: "UPDATE", module: "system", entity: "admissions_settings", entityId: null, before: { maxTrialsPerLead: 1 }, after: { maxTrialsPerLead: 2 }, reason: "Cho phép học thử 2 buổi (mẫu)", createdAt: h(72) },
+    { actorId: mgrU!.id, action: "TRANSITION", module: "academics", entity: "enrollments", entityId: enrollA[9]!.id, before: { status: "active" }, after: { status: "paused" }, reason: "Gia đình đi xa (dữ liệu mẫu)", createdAt: h(2) },
   ]);
 
   console.log(`✔ Seeded: 2 centers, 3 rooms, 7 users, 3 teachers, ${lessonRows.length} lessons, 2 classes, ${sessionRows.length} sessions, 16 students, ${leadRows.length} leads`);

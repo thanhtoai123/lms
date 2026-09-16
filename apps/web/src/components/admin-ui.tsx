@@ -119,3 +119,14 @@ export const RC_CHIP: Record<ReportCardStatus, string> = {
 export function ReportCardChip({ status }: { status: ReportCardStatus }) {
   return <span className={`chip ${RC_CHIP[status]}`}>{REPORT_CARD_STATUS_VI[status]}</span>;
 }
+
+export function NoAccess({ title, perm }: { title: string; perm: string }) {
+  return (
+    <div className="space-y-4">
+      <PageHeader title={title} />
+      <div className="card p-6 text-sm text-ink-600">
+        Tài khoản của bạn chưa có quyền xem mục này (<code className="font-mono text-xs">{perm}</code>). Liên hệ Quản trị hệ thống nếu cần cấp quyền.
+      </div>
+    </div>
+  );
+}

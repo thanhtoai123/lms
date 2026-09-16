@@ -8,6 +8,16 @@
 | 4. Finance + People | Ledger bất biến, đơn/kế hoạch trả góp/QR/SePay đối khớp, sale ghi nhận → kế toán xác nhận, công nợ, hoàn theo buổi, hoa hồng, MISA; chấm công, đơn từ, kỳ công | Module tài chính cũ tắt được |
 | 5. LMS + Parent app + Public site + Báo cáo | Giáo trình/bài học/bài tập/SCORM, kho, CMS, nối `sata-ui` vào backend thật (PWA, push), 9 báo cáo, cài đặt vận hành, DSAR | Cut-over hoàn tất, hệ cũ read-only |
 
+## Tiến độ Giai đoạn 3 (khu quản trị mới, menu giống admin.satarobo.vn)
+
+| Đợt | Nội dung | Trạng thái |
+|---|---|---|
+| 3A | Học viên, tài khoản PH (mã kích hoạt, khoá), đăng ký học (bảo lưu ≤ 3 tháng, đổi gói), chuyển lớp / cơ sở, sắp hết khoá, cơ sở, phòng học | Xong |
+| 3B | Lịch tổng theo tuần, điểm danh theo lớp (sửa hồi tố có lý do + báo GV), học bù, cảnh báo rủi ro | Xong |
+| 3C | Tiêu chí học bạ, học bạ theo mốc (GV viết → duyệt → gửi PH), sổ học bạ, hoàn thành khoá + chứng chỉ, ảnh lớp (upload, consent, duyệt, signed URL) | Xong |
+| 3D | **Lớp Trial** (xếp khách vào buổi có sẵn, kiểm tra chỗ + trần lượt thử, khoá chống tranh chỗ, đổi lịch/huỷ có lý do + báo GV, GV ghi có đến/không đến ngay trong màn buổi học, kết quả đẩy trạng thái lead và tạo việc gọi chốt); **Tài khoản** (tạo, cấp/gỡ vai trò theo cơ sở, khoá/mở có lý do, không tự khoá, luôn còn ≥ 1 Quản trị tối cao); **Vai trò & quyền** (ma trận đọc từ policy engine); **Audit Log** (lọc theo phân hệ / đối tượng / người / ngày, xem trước → sau); **Báo cáo Lead / trải nghiệm / đào tạo / hiệu suất GV** (lọc kỳ + cơ sở theo quyền, xuất CSV) | Xong |
+| 3E | Lịch nhiều giai đoạn + áp lịch mới, duyệt mở lớp, loại buổi, trợ giảng, checklist buổi | Tiếp theo |
+
 ## Việc kỹ thuật còn lại trong Giai đoạn 1 (sau khi CI xanh)
 
 1. Supabase MFA cho SUPER_ADMIN/HO_*; middleware `proxy.ts` chặn route theo role.
