@@ -2,7 +2,8 @@ import { and, eq, inArray, sql, asc, gte, lte } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { sessions, classes, enrollments, attendance, students, teachers, rooms, centers, lessons, trialBookings, leads } from "@satarobo/db";
 import {
-  transition, nextStep, isOverdue, OPEN_STATUSES, toISODate, visibleCenterIds, detectRisks,
+  transition, nextStep, isOverdue, OPEN_STATUSES, toISODate, visibleCenterIds, detectRisks, missingRequiredChecklist, sessionLabel, SESSION_CHECKLIST,
+  type ChecklistState,
   type SessionEvent, type SessionStatus, type AttendanceStatus, type AttendanceRecord,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
@@ -53,6 +54,7 @@ export async function getSessionDetail(ctx: ProtectedContext, sessionId: string)
       startSequenceNo: enrollments.startSequenceNo,
       attendanceStatus: attendance.status,
       studentRemark: attendance.studentRemark,
+      rating: attendance.rating,
       attendanceId: attendance.id,
     })
     .from(enrollments)
@@ -86,6 +88,9 @@ export async function getSessionDetail(ctx: ProtectedContext, sessionId: string)
     attendanceCount: roster.filter((r) => r.attendanceStatus).length,
     nextStep: nextStep(s.session.status),
     isOverdue: isOverdue(s.session.status, s.session.date, today),
+    label: sessionLabel(s.session.sequenceNo, s.session.kind),
+    checklistTemplate: SESSION_CHECKLIST,
+    checklistMissing: missingRequiredChecklist(s.session.checklist).map((m) => m.key),
     today,
   };
 }
@@ -96,7 +101,7 @@ export async function getSessionDetail(ctx: ProtectedContext, sessionId: string)
  */
 export async function recordAttendance(
   ctx: ProtectedContext,
-  input: { sessionId: string; records: { enrollmentId: string; status: AttendanceStatus; studentRemark?: string | null; makeupForSessionId?: string | null }[] },
+  input: { sessionId: string; records: { enrollmentId: string; status: AttendanceStatus; studentRemark?: string | null; makeupForSessionId?: string | null; rating?: number | null }[] },
 ) {
   const s = await loadSessionForAuth(ctx, input.sessionId);
   requirePermission(ctx, "attendance:write", { centerId: s.centerId, ownerIds: s.ownerIds });
@@ -112,13 +117,14 @@ export async function recordAttendance(
           enrollmentId: r.enrollmentId,
           status: r.status,
           studentRemark: r.studentRemark ?? null,
+          rating: r.rating ?? null,
           makeupForSessionId: r.makeupForSessionId ?? null,
           recordedBy: ctx.user.id,
           recordedAt: new Date(),
         })
         .onConflictDoUpdate({
           target: [attendance.sessionId, attendance.enrollmentId],
-          set: { status: r.status, studentRemark: r.studentRemark ?? null, makeupForSessionId: r.makeupForSessionId ?? null, recordedBy: ctx.user.id, recordedAt: new Date() },
+          set: { status: r.status, studentRemark: r.studentRemark ?? null, rating: r.rating ?? null, makeupForSessionId: r.makeupForSessionId ?? null, recordedBy: ctx.user.id, recordedAt: new Date() },
         });
     }
     await writeAudit(tx as unknown as typeof ctx.db, {
@@ -160,12 +166,27 @@ export async function saveSessionNote(ctx: ProtectedContext, input: { sessionId:
   return getSessionDetail(ctx, input.sessionId);
 }
 
+/** Lưu checklist chuẩn bị / sau buổi và ghi chú nội bộ */
+export async function saveSessionChecklist(ctx: ProtectedContext, input: { sessionId: string; checklist: ChecklistState; privateNote?: string | null }) {
+  const s = await loadSessionForAuth(ctx, input.sessionId);
+  requirePermission(ctx, "session:update", { centerId: s.centerId, ownerIds: s.ownerIds });
+  if (["cancelled", "rescheduled"].includes(s.session.status)) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Buổi học đã huỷ/dời" });
+  const pick = (items: { key: string }[], v?: Record<string, boolean>) => Object.fromEntries(items.map((i) => [i.key, !!v?.[i.key]]));
+  const checklist: ChecklistState = { pre: pick(SESSION_CHECKLIST.pre, input.checklist.pre), post: pick(SESSION_CHECKLIST.post, input.checklist.post) };
+  await ctx.db.update(sessions).set({ checklist, ...(input.privateNote !== undefined ? { privateNote: input.privateNote } : {}) }).where(eq(sessions.id, input.sessionId));
+  return getSessionDetail(ctx, input.sessionId);
+}
+
 /** Chuyển trạng thái theo state machine — mọi guard ở @satarobo/core */
 export async function transitionSession(ctx: ProtectedContext, input: { sessionId: string; event: SessionEvent; reason?: string }) {
   const s = await loadSessionForAuth(ctx, input.sessionId);
   requirePermission(ctx, "session:update", { centerId: s.centerId, ownerIds: s.ownerIds });
   const detail = await getSessionDetail(ctx, input.sessionId);
 
+  if (input.event === "complete") {
+    const miss = missingRequiredChecklist(detail.checklist);
+    if (miss.length) throw new TRPCError({ code: "PRECONDITION_FAILED", message: `Chưa hoàn thành checklist sau buổi: ${miss.map((m) => m.label).join("; ")}` });
+  }
   const to: SessionStatus = transition(detail.status, input.event, {
     enrolledCount: detail.enrolledCount,
     attendanceCount: detail.attendanceCount,
@@ -177,7 +198,7 @@ export async function transitionSession(ctx: ProtectedContext, input: { sessionI
   await ctx.db.transaction(async (tx) => {
     await tx
       .update(sessions)
-      .set({ status: to, ...(to === "completed" ? { completedAt: new Date(), completedBy: ctx.user.id } : {}) })
+      .set({ status: to, ...(to === "completed" ? { completedAt: new Date(), completedBy: ctx.user.id } : {}), ...(input.event === "start" ? { startedAt: new Date() } : {}) })
       .where(eq(sessions.id, input.sessionId));
     await writeAudit(tx as unknown as typeof ctx.db, {
       actorId: ctx.user.id, action: "TRANSITION", module: "academics", entity: "sessions", entityId: input.sessionId,
@@ -212,7 +233,7 @@ export async function listSessions(
   const rows = await ctx.db
     .select({
       id: sessions.id, classId: sessions.classId, classCode: classes.code, className: classes.name, centerId: classes.centerId, centerCode: centers.code,
-      sequenceNo: sessions.sequenceNo, date: sessions.date, startTime: sessions.startTime, endTime: sessions.endTime, status: sessions.status, topic: sessions.topic,
+      sequenceNo: sessions.sequenceNo, kind: sessions.kind, date: sessions.date, startTime: sessions.startTime, endTime: sessions.endTime, status: sessions.status, topic: sessions.topic,
       roomId: sessions.roomId, roomCode: rooms.code, teacherId: sessions.teacherId, teacherName: teachers.fullName, courseId: classes.courseId, capacity: classes.capacity,
       enrolled: sql<number>`(select count(*)::int from ${enrollments} e where e.class_id = ${sessions.classId} and e.status in ('active','trial') and e.start_sequence_no <= ${sessions.sequenceNo})`,
       attended: sql<number>`(select count(*)::int from ${attendance} a where a.session_id = ${sessions.id})`,
@@ -226,7 +247,7 @@ export async function listSessions(
     .orderBy(asc(sessions.date), asc(sessions.startTime));
 
   const today = todayISO();
-  return rows.map((r) => ({ ...r, nextStep: nextStep(r.status), isOverdue: isOverdue(r.status, r.date, today) }));
+  return rows.map((r) => ({ ...r, label: sessionLabel(r.sequenceNo, r.kind), nextStep: nextStep(r.status), isOverdue: isOverdue(r.status, r.date, today) }));
 }
 
 /** Hàng đợi "buổi chưa hoàn tất đã qua ngày" theo cơ sở — thay cho card trên dashboard cũ */

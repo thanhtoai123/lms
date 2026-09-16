@@ -8,7 +8,7 @@ import { eq } from "drizzle-orm";
 import { createDb } from "./index";
 import {
   centers, rooms, users, userRoles, teachers, parents, students, studentGuardians,
-  courses, curricula, lessons, classes, classSchedules, sessions, enrollments, attendance,
+  courses, curricula, lessons, classes, classSchedules, sessions, enrollments, attendance, classEvents,
   enrollmentEvents, competencyCriteria, reportCards, reportCardScores, sessionMedia,
   leads, leadChildren, leadActivities, leadTasks, leadAssignees, admissionsSettings, trialBookings, auditLog,
 } from "./schema/index";
@@ -171,7 +171,7 @@ async function main() {
         recordedBy: t1U!.id,
       })),
     );
-    await db.update(sessions).set({ status: "completed", sessionNote: "Lớp học tốt, các con hoàn thành mục tiêu buổi.", completedAt: new Date(), completedBy: t1U!.id }).where(eq(sessions.id, s.id));
+    await db.update(sessions).set({ status: "completed", sessionNote: "Lớp học tốt, các con hoàn thành mục tiêu buổi.", completedAt: new Date(), completedBy: t1U!.id, checklist: { pre: { kit: true, lesson: true }, post: { cleanup: true, handover: true } } }).where(eq(sessions.id, s.id));
   }
 
   // ---- Học bạ năng lực: tiêu chí, lộ trình khoá, học bạ mẫu ----
@@ -241,6 +241,18 @@ async function main() {
     { leadId: leadRows[0]!.id, title: "Gọi tư vấn lần đầu", dueAt: new Date(Date.now() - 45 * 60e3), assigneeId: sale1U!.id, createdByRule: "NEW_LEAD_FIRST_CALL" },
     { leadId: leadRows[5]!.id, title: "Gọi chốt sau học thử", dueAt: new Date(Date.now() - 6 * 3600e3), assigneeId: sale1U!.id, createdByRule: "TRIAL_DONE_FOLLOW_UP" },
   ]);
+
+  // ---- Lớp chờ duyệt mẫu (chưa sinh buổi) + sĩ số tối thiểu ----
+  await db.update(classes).set({ minCapacity: 4, plannedSessions: 12 }).where(eq(classes.id, classA!.id));
+  await db.update(classes).set({ minCapacity: 4, plannedSessions: 12 }).where(eq(classes.id, classB!.id));
+  const sata1 = (await db.select().from(courses).where(eq(courses.code, "SATA1")))[0]!;
+  const [classC] = await db.insert(classes).values({
+    code: buildClassCode("CS1", "SATA1", 2026, 1), name: "Sata1 luyện thi T7 CS1", courseId: sata1.id, centerId: cs1!.id, homeRoomId: roomRows[1]!.id,
+    leadTeacherId: gv3!.id, assistantTeacherId: gv1!.id, capacity: 8, minCapacity: 4, plannedSessions: 12, startDate: addDays(today, 10), status: "pending_approval",
+    description: "Lớp luyện thi RoboSim (dữ liệu mẫu)", submittedAt: new Date(), submittedBy: mgrU!.id,
+  }).returning();
+  await db.insert(classSchedules).values({ classId: classC!.id, weekday: 6, startTime: "08:00", endTime: "09:30", roomId: roomRows[1]!.id, teacherId: gv3!.id, effectiveFrom: addDays(today, 10), effectiveTo: null, createdBy: mgrU!.id });
+  await db.insert(classEvents).values({ classId: classC!.id, event: "submit", fromStatus: "draft", toStatus: "pending_approval", actorId: mgrU!.id });
 
   // ---- Lớp Trial mẫu: 1 buổi sắp tới (đã xếp), 1 đã học thử, 1 không đến ----
   const futureA = sessionRows.filter((x) => x.classId === classA!.id && x.date > today).sort((a, b) => a.sequenceNo - b.sequenceNo);

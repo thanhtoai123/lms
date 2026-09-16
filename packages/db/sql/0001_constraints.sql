@@ -9,7 +9,8 @@ ALTER TABLE sessions ADD CONSTRAINT sessions_no_room_overlap
   EXCLUDE USING gist (
     room_id WITH =,
     tsrange((date + start_time)::timestamp, (date + end_time)::timestamp, '[)') WITH &&
-  ) WHERE (room_id IS NOT NULL AND status NOT IN ('cancelled', 'rescheduled'));
+  ) WHERE (room_id IS NOT NULL AND status NOT IN ('cancelled', 'rescheduled'))
+  DEFERRABLE INITIALLY IMMEDIATE;  -- "Áp lịch mới" hoãn kiểm tra tới cuối transaction khi xếp lại nhiều buổi
 
 -- 2) Không cho 1 giáo viên dạy 2 buổi trùng giờ
 ALTER TABLE sessions DROP CONSTRAINT IF EXISTS sessions_no_teacher_overlap;
@@ -17,7 +18,8 @@ ALTER TABLE sessions ADD CONSTRAINT sessions_no_teacher_overlap
   EXCLUDE USING gist (
     teacher_id WITH =,
     tsrange((date + start_time)::timestamp, (date + end_time)::timestamp, '[)') WITH &&
-  ) WHERE (teacher_id IS NOT NULL AND status NOT IN ('cancelled', 'rescheduled'));
+  ) WHERE (teacher_id IS NOT NULL AND status NOT IN ('cancelled', 'rescheduled'))
+  DEFERRABLE INITIALLY IMMEDIATE;
 
 -- 3) Giờ kết thúc phải sau giờ bắt đầu
 ALTER TABLE sessions DROP CONSTRAINT IF EXISTS sessions_time_order;

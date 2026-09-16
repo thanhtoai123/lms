@@ -16,7 +16,8 @@
 | 3B | Lịch tổng theo tuần, điểm danh theo lớp (sửa hồi tố có lý do + báo GV), học bù, cảnh báo rủi ro | Xong |
 | 3C | Tiêu chí học bạ, học bạ theo mốc (GV viết → duyệt → gửi PH), sổ học bạ, hoàn thành khoá + chứng chỉ, ảnh lớp (upload, consent, duyệt, signed URL) | Xong |
 | 3D | **Lớp Trial** (xếp khách vào buổi có sẵn, kiểm tra chỗ + trần lượt thử, khoá chống tranh chỗ, đổi lịch/huỷ có lý do + báo GV, GV ghi có đến/không đến ngay trong màn buổi học, kết quả đẩy trạng thái lead và tạo việc gọi chốt); **Tài khoản** (tạo, cấp/gỡ vai trò theo cơ sở, khoá/mở có lý do, không tự khoá, luôn còn ≥ 1 Quản trị tối cao); **Vai trò & quyền** (ma trận đọc từ policy engine); **Audit Log** (lọc theo phân hệ / đối tượng / người / ngày, xem trước → sau); **Báo cáo Lead / trải nghiệm / đào tạo / hiệu suất GV** (lọc kỳ + cơ sở theo quyền, xuất CSV) | Xong |
-| 3E | Lịch nhiều giai đoạn + áp lịch mới, duyệt mở lớp, loại buổi, trợ giảng, checklist buổi | Tiếp theo |
+| 3E | **Duyệt mở lớp** (Nháp → Chờ duyệt → Tuyển sinh tự sinh buổi → Đang chạy → Kết thúc; giáo vụ gửi, quản lý cơ sở duyệt; trả về / huỷ có lý do; sĩ số tối thiểu); **lịch nhiều giai đoạn + Áp lịch mới** (xem trước, chỉ dời buổi chưa diễn ra, giữ tổng buổi, bỏ ngày nghỉ, chặn trùng phòng/GV, báo GV + PH); **Kiểm tra lịch buổi học**; **buổi ngoài lộ trình** (coach 1-1/1-2/1-4, bù, vượt, bổ sung — đánh số riêng); **trợ giảng + đổi GV chính áp cho buổi sắp tới**; **checklist trước/sau buổi**, bắt đầu buổi, đánh giá sao từng HV, ghi chú nội bộ | Xong |
+| 3F | Giáo viên (hồ sơ, ngạch, tải dạy), ngày nghỉ theo cơ sở, chương trình học / khoá học | Tiếp theo |
 
 ## Việc kỹ thuật còn lại trong Giai đoạn 1 (sau khi CI xanh)
 

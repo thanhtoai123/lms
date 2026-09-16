@@ -82,7 +82,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "teacher:read", "staff:read", "finance:read", "report_card:*", "report:read", "makeup:*", "automation:*", "care:*", "inventory:*",
     "room:*", "center:read", "parent_account:*",
   ],
-  CENTER_CLASS_MANAGER: ["class:*", "session:*", "attendance:*", "session_note:*", "media:*", "student:read", "student:update", "enrollment:read", "enrollment:update", "makeup:*", "teacher:read", "room:*", "center:read", "report_card:*"],
+  CENTER_CLASS_MANAGER: ["class:read", "class:create", "class:update", "session:*", "attendance:*", "session_note:*", "media:*", "student:read", "student:update", "enrollment:read", "enrollment:update", "makeup:*", "teacher:read", "room:*", "center:read", "report_card:*"],
   CENTER_SALES_CSM: ["lead:*", "student:read", "student:create", "student:update", "enrollment:create", "enrollment:read", "enrollment:update", "class:read", "session:read", "makeup:*", "care:*", "parent_account:*", "center:read"],
   CENTER_ACCOUNTANT: ["finance:*", "enrollment:read", "student:read", "class:read"],
   CENTER_HR: ["staff:*", "teacher:*", "timesheet:*"],

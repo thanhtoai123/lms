@@ -3,7 +3,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { id, timestamps, softDelete } from "./_common";
-import { SESSION_STATUSES, ATTENDANCE_STATUSES, ENROLLMENT_STATUSES, CLASS_STATUSES } from "@satarobo/core";
+import { SESSION_STATUSES, ATTENDANCE_STATUSES, ENROLLMENT_STATUSES, CLASS_STATUSES, SESSION_KINDS, type ChecklistState } from "@satarobo/core";
 import { centers, rooms } from "./org";
 import { teachers, students, parents } from "./people";
 import { users } from "./identity";
@@ -12,6 +12,7 @@ export const sessionStatusEnum = pgEnum("session_status", SESSION_STATUSES);
 export const attendanceStatusEnum = pgEnum("attendance_status", ATTENDANCE_STATUSES);
 export const enrollmentStatusEnum = pgEnum("enrollment_status", ENROLLMENT_STATUSES);
 export const classStatusEnum = pgEnum("class_status", CLASS_STATUSES);
+export const sessionKindEnum = pgEnum("session_kind", SESSION_KINDS);
 
 /** Khoá học thương mại (Sata1..Sata8, combo) */
 export const courses = pgTable("courses", {
@@ -72,9 +73,19 @@ export const classes = pgTable(
     leadTeacherId: uuid("lead_teacher_id").references(() => teachers.id),
     assistantTeacherId: uuid("assistant_teacher_id").references(() => teachers.id),
     capacity: integer("capacity").notNull().default(12),
+    minCapacity: integer("min_capacity").notNull().default(1),
+    /** Tổng buổi chuẩn của lớp (mặc định theo khoá) — dùng khi duyệt để sinh buổi */
+    plannedSessions: integer("planned_sessions"),
+    /** Mô tả đặc thù để bàn giao khi đổi GV */
+    description: text("description"),
     startDate: date("start_date"),
     expectedEndDate: date("expected_end_date"),
     status: classStatusEnum("status").notNull().default("draft"),
+    submittedAt: timestamp("submitted_at", { withTimezone: true }),
+    submittedBy: uuid("submitted_by").references(() => users.id),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    approvedBy: uuid("approved_by").references(() => users.id),
+    statusReason: text("status_reason"),
     ...timestamps,
     ...softDelete,
   },
@@ -97,9 +108,30 @@ export const classSchedules = pgTable(
     teacherId: uuid("teacher_id").references(() => teachers.id),
     effectiveFrom: date("effective_from").notNull(),
     effectiveTo: date("effective_to"),
+    note: text("note"),
+    /** Lý do khi giai đoạn này sinh ra từ "Áp lịch mới" */
+    changeReason: text("change_reason"),
+    createdBy: uuid("created_by").references(() => users.id),
     ...timestamps,
   },
   (t) => [index("class_schedules_class_idx").on(t.classId)],
+);
+
+/** Lịch sử trạng thái lớp (gửi duyệt, duyệt, trả về, huỷ, áp lịch mới…) */
+export const classEvents = pgTable(
+  "class_events",
+  {
+    id: id(),
+    classId: uuid("class_id").notNull().references(() => classes.id, { onDelete: "cascade" }),
+    event: text("event").notNull(),
+    fromStatus: classStatusEnum("from_status"),
+    toStatus: classStatusEnum("to_status"),
+    reason: text("reason"),
+    meta: jsonb("meta").$type<Record<string, unknown>>(),
+    actorId: uuid("actor_id").references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("class_events_class_idx").on(t.classId, t.createdAt)],
 );
 
 /** Ngày nghỉ theo cơ sở (null = toàn hệ thống) */
@@ -121,6 +153,7 @@ export const sessions = pgTable(
     classId: uuid("class_id").notNull().references(() => classes.id, { onDelete: "cascade" }),
     lessonId: uuid("lesson_id").references(() => lessons.id),
     sequenceNo: integer("sequence_no").notNull(),
+    kind: sessionKindEnum("kind").notNull().default("regular"),
     date: date("date").notNull(),
     startTime: time("start_time").notNull(),
     endTime: time("end_time").notNull(),
@@ -130,6 +163,12 @@ export const sessions = pgTable(
     topic: text("topic"),
     /** Nhận xét chung của buổi (bắt buộc để hoàn tất) */
     sessionNote: text("session_note"),
+    /** Ghi chú nội bộ (PH không thấy) */
+    privateNote: text("private_note"),
+    /** Checklist chuẩn bị / sau buổi */
+    checklist: jsonb("checklist").$type<ChecklistState>(),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    createdBy: uuid("created_by").references(() => users.id),
     completedAt: timestamp("completed_at", { withTimezone: true }),
     completedBy: uuid("completed_by").references(() => users.id),
     /** Nếu là buổi dời từ buổi khác */
@@ -205,6 +244,8 @@ export const attendance = pgTable(
     note: text("note"),
     /** Nhận xét cá nhân cho HV trong buổi này (GV viết nhanh, PH thấy) */
     studentRemark: text("student_remark"),
+    /** Đánh giá nhanh trong buổi 1–5 sao */
+    rating: smallint("rating"),
     recordedBy: uuid("recorded_by").references(() => users.id),
     recordedAt: timestamp("recorded_at", { withTimezone: true }).notNull().defaultNow(),
     ...timestamps,

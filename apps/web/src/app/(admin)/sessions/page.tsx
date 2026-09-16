@@ -33,7 +33,7 @@ export default async function SessionsPage({ searchParams }: { searchParams: Pro
               {rows.map((s) => (
                 <tr key={s.id} className={s.isOverdue ? "bg-red-50/60" : ""}>
                   <td className="p-3 whitespace-nowrap">{fmtDate(s.date)} {fmtTime(s.startTime)}–{fmtTime(s.endTime)}</td>
-                  <td className="p-3"><Link href={`/teacher/sessions/${s.id}`} className="font-medium text-brand-700">{s.className}</Link><div className="text-xs text-ink-400">{s.classCode} · buổi {s.sequenceNo}{s.topic ? ` · ${s.topic}` : ""}</div></td>
+                  <td className="p-3"><Link href={`/teacher/sessions/${s.id}`} className="font-medium text-brand-700">{s.className}</Link><div className="text-xs text-ink-400">{s.classCode} · {s.label.toLowerCase()}{s.topic ? ` · ${s.topic}` : ""}</div></td>
                   <td className="p-3">{s.centerCode}{s.roomCode ? `/${s.roomCode}` : ""}</td>
                   <td className="p-3">{s.teacherName ?? "—"}</td>
                   <td className="p-3">{s.attended}/{s.enrolled}</td>

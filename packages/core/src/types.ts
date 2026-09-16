@@ -39,7 +39,7 @@ export const ENROLLMENT_STATUSES = [
 ] as const;
 export type EnrollmentStatus = (typeof ENROLLMENT_STATUSES)[number];
 
-export const CLASS_STATUSES = ["draft", "recruiting", "running", "finished", "cancelled"] as const;
+export const CLASS_STATUSES = ["draft", "pending_approval", "recruiting", "running", "finished", "cancelled"] as const;
 export type ClassStatus = (typeof CLASS_STATUSES)[number];
 
 export interface ScheduleRule {

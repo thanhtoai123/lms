@@ -5,6 +5,7 @@ import type { ProtectedContext } from "../trpc";
 import { todayISO, overdueQueue } from "./sessions";
 import { resolveAdmissionsPolicy } from "./admissionsAdmin";
 import { dueReportCards } from "./reportCards";
+import { pendingApprovals } from "./classOps";
 
 const TZ = "Asia/Ho_Chi_Minh";
 
@@ -45,6 +46,13 @@ export async function adminOverview(ctx: ProtectedContext) {
     const due = await dueReportCards(ctx, { limit: 500 });
     const overdue = due.filter((d) => d.date < addDaysISO(today, -3));
     queues.push({ key: "report_cards", title: "Học bạ kỳ chưa viết (buổi 5 / buổi 12)", count: due.length, overdue: overdue.length, href: "/report-cards", preview: due.slice(0, 3).map((d) => `${d.classCode} · ${d.studentName} · buổi ${d.seq}`) });
+  }
+
+  // 0b) Lớp chờ duyệt mở
+  if (actor.assignments.some((a) => authorize(actor, "class:approve", { centerId: a.centerId }).allowed)) {
+    const pend = await pendingApprovals(ctx);
+    const old = pend.filter((p) => p.submittedAt && now.getTime() - new Date(p.submittedAt).getTime() > 48 * 3600e3);
+    queues.push({ key: "class_approvals", title: "Lớp chờ duyệt mở", count: pend.length, overdue: old.length, href: "/classes?status=pending_approval", preview: pend.slice(0, 3).map((p) => `${p.code} · ${p.name}`) });
   }
 
   // 1) Buổi học chưa hoàn tất (đã qua ngày)

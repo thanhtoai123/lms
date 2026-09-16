@@ -17,3 +17,5 @@ export * from "./media/consent.js";
 export * from "./trials/rules.js";
 export * from "./reports/metrics.js";
 export * from "./policy/accounts.js";
+export * from "./classes/lifecycle.js";
+export * from "./scheduling/replan.js";

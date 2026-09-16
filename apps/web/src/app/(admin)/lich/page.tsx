@@ -51,7 +51,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
                     <div className="font-semibold">{fmtTime(s.startTime)}–{fmtTime(s.endTime)}</div>
                     <div className="truncate">{s.classCode}</div>
                     <div className="truncate text-ink-400">{s.roomCode ?? "—"} · {s.teacherName ?? "chưa phân GV"}</div>
-                    <div className="mt-1 flex items-center justify-between gap-1"><span className={`chip !px-1.5 !text-[10px] ${SESSION_CHIP[s.status]}`}>{SESSION_LABEL[s.status]}</span><span className="text-[10px] text-ink-400">B{s.sequenceNo} · {s.attended}/{s.enrolled}</span></div>
+                    <div className="mt-1 flex items-center justify-between gap-1"><span className={`chip !px-1.5 !text-[10px] ${SESSION_CHIP[s.status]}`}>{SESSION_LABEL[s.status]}</span><span className="text-[10px] text-ink-400">{s.kind === "regular" ? `B${s.sequenceNo}` : s.label} · {s.attended}/{s.enrolled}</span></div>
                   </Link>
                 ))}
                 {d.sessions.length === 0 && <div className="py-4 text-center text-[11px] text-ink-400">Không có buổi</div>}

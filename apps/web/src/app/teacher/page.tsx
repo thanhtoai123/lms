@@ -14,7 +14,7 @@ function SessionCard({ s, highlight }: { s: Row; highlight?: boolean }) {
         <div className="min-w-0">
           <div className="text-xs text-ink-400">{WEEKDAY_VI[weekdayOf(s.date)]} {fmtDate(s.date)} · {fmtTime(s.startTime)}–{fmtTime(s.endTime)} · {s.roomCode ?? "—"}</div>
           <div className="font-semibold truncate">{s.className}</div>
-          <div className="text-sm text-ink-600 truncate">Buổi {s.sequenceNo}{s.topic ? ` · ${s.topic}` : ""}</div>
+          <div className="text-sm text-ink-600 truncate">{s.label}{s.topic ? ` · ${s.topic}` : ""}</div>
         </div>
         <StatusChip status={s.status} />
       </div>
