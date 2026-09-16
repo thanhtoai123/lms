@@ -7,6 +7,7 @@ import {
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { writeAudit } from "./audit";
+import { enforcePrerequisites } from "./catalog";
 
 export async function listClasses(ctx: ProtectedContext, input: { centerId?: string; status?: ClassStatus; q?: string; teacherId?: string }) {
   const conds = [sql`${classes.deletedAt} is null`];
@@ -84,6 +85,7 @@ export async function enrollStudent(ctx: ProtectedContext, input: { classId: str
   if (!cls) throw new TRPCError({ code: "NOT_FOUND" });
   requirePermission(ctx, "enrollment:create", { centerId: cls.centerId });
   if (cls.status === "cancelled" || cls.status === "finished") throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Lớp đã kết thúc / huỷ" });
+  await enforcePrerequisites(ctx, { studentId: input.studentId, courseId: cls.courseId, centerId: cls.centerId });
   const [cnt] = await ctx.db.select({ n: sql<number>`count(*)::int` }).from(enrollments).where(and(eq(enrollments.classId, input.classId), inArray(enrollments.status, ["active", "trial"])));
   if ((cnt?.n ?? 0) >= cls.capacity) throw new TRPCError({ code: "PRECONDITION_FAILED", message: `Lớp đã đủ ${cls.capacity} học viên` });
   const [row] = await ctx.db

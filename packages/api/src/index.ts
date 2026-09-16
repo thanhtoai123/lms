@@ -9,6 +9,7 @@ import { studentsRouter, orgRouter } from "./routers/students";
 import { scheduleRouter } from "./routers/schedule";
 import { learningRouter } from "./routers/learning";
 import { systemRouter, reportsRouter, trialsRouter } from "./routers/system";
+import { catalogRouter } from "./routers/catalog";
 
 export const appRouter = router({
   auth: authRouter,
@@ -26,6 +27,7 @@ export const appRouter = router({
   learning: learningRouter,
   system: systemRouter,
   reports: reportsRouter,
+  catalog: catalogRouter,
 });
 
 export type AppRouter = typeof appRouter;

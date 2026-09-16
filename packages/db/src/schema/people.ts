@@ -19,9 +19,14 @@ export const teachers = pgTable(
     fullName: text("full_name").notNull(),
     phone: text("phone"),
     email: text("email"),
-    grade: text("grade"), // ngạch GV
+    grade: text("grade"), // ngạch GV: intern | junior | advanced | senior | expert
+    title: text("title"), // chức danh
     contractType: contractTypeEnum("contract_type").notNull().default("part_time"),
     maxLoadPerWeek: integer("max_load_per_week").notNull().default(20), // số buổi/tuần
+    /** active | on_leave | stopped — isActive = (workStatus != stopped) */
+    workStatus: text("work_status").notNull().default("active"),
+    hiredAt: date("hired_at"),
+    notes: text("notes"),
     isActive: boolean("is_active").notNull().default(true),
     ...timestamps,
     ...softDelete,

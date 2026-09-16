@@ -75,8 +75,26 @@ export function planScheduleChange(input: {
   holidays?: ISODate[];
 }): ReplanResult {
   const errors = validateWeeklySlots(input.slots);
+  const rules: ScheduleRule[] = input.slots.map((s) => ({ ...s, effectiveFrom: input.fromDate, effectiveTo: null }));
+  return planReflow({ sessions: input.sessions, rules, fromDate: input.fromDate, today: input.today, holidays: input.holidays, extraErrors: errors });
+}
+
+/**
+ * Xếp lại buổi chính thức chưa diễn ra từ `fromDate` theo các giai đoạn lịch (có hiệu lực) + ngày nghỉ.
+ * Dùng cho "Áp lịch mới" và "Thêm ngày nghỉ → dời buổi bị ảnh hưởng".
+ */
+export function planReflow(input: {
+  sessions: ExistingSession[];
+  rules: ScheduleRule[];
+  fromDate: ISODate;
+  today: ISODate;
+  holidays?: ISODate[];
+  extraErrors?: string[];
+}): ReplanResult {
+  const errors = [...(input.extraErrors ?? [])];
   const warnings: string[] = [];
   if (input.fromDate <= input.today) errors.push("Ngày áp dụng phải sau hôm nay (không sửa buổi đã/đang diễn ra)");
+  if (!input.rules.length) errors.push("Lớp chưa có lịch học");
   const movable = input.sessions
     .filter((s) => s.kind === "regular" && s.status === "scheduled" && s.date >= input.fromDate && !s.hasAttendance)
     .sort((a, b) => a.sequenceNo - b.sequenceNo);
@@ -88,23 +106,33 @@ export function planScheduleChange(input: {
   if (errors.length) return { errors, warnings, movable: movable.length, changes: [], newEndDate: null };
   if (!movable.length) return { errors: ["Không có buổi nào để áp lịch mới từ ngày này"], warnings, movable: 0, changes: [], newEndDate: null };
 
-  const rules: ScheduleRule[] = input.slots.map((s) => ({ ...s, effectiveFrom: input.fromDate, effectiveTo: null }));
   let planned;
   try {
-    planned = generateSessions({ classId: "replan", startDate: input.fromDate, totalSessions: movable.length, rules, holidays: input.holidays });
+    planned = generateSessions({ classId: "replan", startDate: input.fromDate, totalSessions: movable.length, rules: input.rules, holidays: input.holidays });
   } catch (e) {
     return { errors: [(e as Error).message], warnings, movable: movable.length, changes: [], newEndDate: null };
   }
   const changes: ReplanChange[] = movable.map((s, i) => {
     const p = planned[i]!;
     const from = { date: s.date, startTime: s.startTime.slice(0, 5), endTime: s.endTime.slice(0, 5), roomId: s.roomId, teacherId: s.teacherId };
-    const to = { date: p.date, startTime: p.startTime, endTime: p.endTime, roomId: p.roomId, teacherId: p.teacherId };
+    const to = { date: p.date, startTime: p.startTime.slice(0, 5), endTime: p.endTime.slice(0, 5), roomId: p.roomId, teacherId: p.teacherId };
     const changed = from.date !== to.date || from.startTime !== to.startTime || from.endTime !== to.endTime || from.roomId !== to.roomId || from.teacherId !== to.teacherId;
     return { sessionId: s.id, sequenceNo: s.sequenceNo, from, to, changed };
   });
   const allDates = [...input.sessions.filter((s) => s.kind === "regular" && s.status !== "cancelled" && s.status !== "rescheduled" && !movable.includes(s)).map((s) => s.date), ...changes.map((c) => c.to.date)];
   const newEndDate = allDates.length ? allDates.reduce((a, b) => (a > b ? a : b)) : null;
   return { errors: [], warnings, movable: movable.length, changes, newEndDate };
+}
+
+/** Các ngày trong khoảng [from, to] (tối đa 60 ngày) */
+export function dateRange(from: ISODate, to: ISODate, max = 60): ISODate[] {
+  const out: ISODate[] = [];
+  let d = from;
+  while (d <= to && out.length < max) {
+    out.push(d);
+    d = addDays(d, 1);
+  }
+  return out;
 }
 
 export type DriftCode = "COUNT" | "HOLIDAY" | "OFF_SCHEDULE" | "ORDER" | "BEFORE_START" | "SEQ_GAP";

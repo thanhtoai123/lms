@@ -9,6 +9,7 @@ import { resolveAdmissionsPolicy, autoPickAssignee, type Db } from "./admissions
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { writeAudit } from "./audit";
 import { emit } from "./outbox";
+import { enforcePrerequisites } from "./catalog";
 
 const nowIso = () => new Date().toISOString();
 
@@ -266,6 +267,8 @@ export interface ConvertLeadInput {
   /** Ghi nhận đã đóng tiền (đ) và ngày — chỉ ghi chú; đối soát ở module Tài chính */
   paidAmount?: number | null;
   paidAt?: string | null;
+  /** Miễn khoá tiên quyết (quản lý cơ sở, kèm lý do) — khách mới xếp lớp theo năng lực */
+  waiverReason?: string | null;
 }
 
 /**
@@ -282,6 +285,7 @@ export async function convertLead(ctx: ProtectedContext, input: ConvertLeadInput
   const child = input.childId ? await ctx.db.query.leadChildren.findFirst({ where: and(eq(leadChildren.id, input.childId), eq(leadChildren.leadId, lead.id)) }) : null;
   if (input.childId && !child) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy con trong lead" });
   if (child?.convertedStudentId) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Con này đã được chốt" });
+  const waiver = await enforcePrerequisites(ctx, { studentId: null, courseId: cls.courseId, centerId: cls.centerId, waiverReason: input.waiverReason });
 
   return ctx.db.transaction(async (tx) => {
     let parent = await tx.query.parents.findFirst({ where: eq(parents.phone, lead.phoneNormalized) });
@@ -322,7 +326,7 @@ export async function convertLead(ctx: ProtectedContext, input: ConvertLeadInput
     await tx.insert(leadActivities).values({
       leadId: lead.id, type: "status_change", actorId: ctx.user.id,
       content: `Ghi danh ${student!.fullName} vào lớp ${cls.code}${input.paidAmount ? ` · đã đóng ${input.paidAmount.toLocaleString("vi-VN")}đ` : ""}${accountPending ? " · tài khoản PH chờ kích hoạt" : ""}`,
-      meta: { from: lead.status, to: closeLead ? "enrolled" : lead.status, studentId: student!.id, enrollmentId: enr!.id, paidAmount: input.paidAmount ?? null, paidAt: input.paidAt ?? null, mediaConsent: !!input.mediaConsent },
+      meta: { from: lead.status, to: closeLead ? "enrolled" : lead.status, studentId: student!.id, enrollmentId: enr!.id, paidAmount: input.paidAmount ?? null, paidAt: input.paidAt ?? null, mediaConsent: !!input.mediaConsent, prerequisiteWaiver: waiver },
     });
     if (closeLead) await emit(tx as unknown as typeof ctx.db, { type: "lead.status_changed", leadId: lead.id, from: lead.status, to: "enrolled", actorId: ctx.user.id });
     await emit(tx as unknown as typeof ctx.db, { type: "enrollment.created", enrollmentId: enr!.id, studentId: student!.id, classId: cls.id });

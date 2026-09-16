@@ -38,6 +38,7 @@ const convertInput = z.object({
   leadId: z.string().uuid(), classId: z.string().uuid(), packageSessions: z.number().int().min(1).max(200),
   studentName: z.string().min(2).max(120).optional(), grade: z.number().int().min(1).max(12).nullish(), status: z.enum(["active", "trial"]).optional(),
   childId: z.string().uuid().nullish(), mediaConsent: z.boolean().optional(), paidAmount: z.number().int().min(0).nullish(), paidAt: z.string().nullish(),
+  waiverReason: z.string().max(300).nullish(),
 });
 const centerIdInput = z.object({ centerId: z.string().uuid().nullable() });
 export type LeadInput = z.infer<typeof leadInput>;

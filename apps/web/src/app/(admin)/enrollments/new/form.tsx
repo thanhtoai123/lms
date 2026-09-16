@@ -20,6 +20,7 @@ export function EnrollForm({ classes, initialStudent, initialClassId }: { classe
   const [startSeq, setStartSeq] = useState("");
   const [status, setStatus] = useState<"active" | "trial">("active");
   const [note, setNote] = useState("");
+  const [waiver, setWaiver] = useState("");
   const [error, setError] = useState<string | null>(null);
   const m = useMutation(trpc.students.enroll.mutationOptions({ onSuccess: () => router.push(`/students/${student!.id}`), onError: (e) => setError(e.message) }));
   const shown = useMemo(() => classes.filter((c) => !filter || `${c.code} ${c.name} ${c.courseCode} ${c.centerCode}`.toLowerCase().includes(filter.toLowerCase())), [classes, filter]);
@@ -34,7 +35,7 @@ export function EnrollForm({ classes, initialStudent, initialClassId }: { classe
         if (!student) return setError("Chọn học viên");
         if (!cls) return setError("Chọn lớp");
         setError(null);
-        m.mutate({ studentId: student.id, classId: cls.id, packageSessions: Number(pkg || suggestedPkg), startSequenceNo: Number(startSeq || suggestedStart), status, note: note || null });
+        m.mutate({ studentId: student.id, classId: cls.id, packageSessions: Number(pkg || suggestedPkg), startSequenceNo: Number(startSeq || suggestedStart), status, note: note || null, waiverReason: waiver.trim() || null });
       }}
     >
       <section className="card space-y-2 p-5">
@@ -69,6 +70,12 @@ export function EnrollForm({ classes, initialStudent, initialClassId }: { classe
         <p className="text-xs text-ink-400 sm:col-span-3">Để trống sẽ dùng gợi ý: số buổi còn lại của lớp và vào từ buổi kế tiếp. Học phí được xử lý ở module Tài chính.</p>
       </section>
       {error && <ErrorBox>{error}</ErrorBox>}
+      {(error?.includes("tiên quyết") || waiver) && (
+        <section className="card space-y-1 p-4">
+          <label className="label">Miễn điều kiện tiên quyết (chỉ quản lý cơ sở)</label>
+          <input className="input" maxLength={300} placeholder="Lý do — VD: đã kiểm tra đầu vào, đạt trình độ tương đương" value={waiver} onChange={(e) => setWaiver(e.target.value)} />
+        </section>
+      )}
       <button className="btn-primary" disabled={m.isPending}>{m.isPending ? "Đang ghi danh…" : "Ghi danh"}</button>
     </form>
   );

@@ -13,7 +13,7 @@ export default async function CentersPage() {
   const canEdit = !!ctx.actor && hasPermission(ctx.actor as Actor, "center:update");
   return (
     <div className="space-y-4">
-      <PageHeader title="Cơ sở" desc="Các cơ sở đào tạo. Thêm/sửa cơ sở thuộc quyền Quản trị tối cao (Cây tổ chức)." />
+      <PageHeader title="Cơ sở" desc="Các cơ sở đào tạo. Thêm/sửa cơ sở thuộc quyền Quản trị tối cao (Cây tổ chức)." actions={<Link href="/centers/ngay-nghi" className="btn-ghost">Ngày nghỉ</Link>} />
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {rows.map((c) => (
           <div key={c.id} className={`card space-y-2 p-4 ${c.isActive ? "" : "opacity-60"}`}>

@@ -79,10 +79,10 @@ export const ADMIN_NAV: NavGroup[] = [
     key: "lms",
     label: "LMS / Học liệu",
     items: [
-      { label: "Chương trình học", href: "/curriculums", perm: "curriculum:read", phase: 5, desc: "Giáo trình theo khoá: bài học, mục tiêu, học cụ." },
+      { label: "Chương trình học", href: "/curriculums", perm: "curriculum:read", ready: true, desc: "Giáo trình theo khoá: bài học, mục tiêu, học cụ." },
       { label: "Đề xuất sửa giáo án", href: "/de-xuat-giao-an", perm: "curriculum:read", phase: 5, desc: "GV đề xuất chỉnh bài học; Đào tạo duyệt." },
-      { label: "Khoá học", href: "/courses", perm: "course:read", phase: 5, desc: "Khoá dạy: mã, độ tuổi, số buổi, học phí niêm yết." },
-      { label: "Khoá tiên quyết", href: "/course-prerequisites", perm: "course:read", phase: 5, desc: "Khoá phải học trước; chặn ghi danh khi chưa đạt." },
+      { label: "Khoá học", href: "/courses", perm: "course:read", ready: true, desc: "Khoá dạy: mã, độ tuổi, số buổi, học phí niêm yết." },
+      { label: "Khoá tiên quyết", href: "/course-prerequisites", perm: "course:read", ready: true, desc: "Khoá phải học trước; chặn ghi danh khi chưa đạt." },
       { label: "Tài liệu giảng dạy", href: "/documents", perm: "document:read", phase: 5, desc: "Kho tài liệu theo khoá/bài." },
       { label: "Bài tập về nhà", href: "/assignments", perm: "assignment:read", phase: 5, desc: "Giao bài, nộp bài, chấm; mẫu bài tập." },
       { label: "Tài liệu lớp tôi", href: "/teaching-materials", perm: "class:read", phase: 5, desc: "Tài liệu của các lớp GV đang dạy." },
@@ -108,7 +108,7 @@ export const ADMIN_NAV: NavGroup[] = [
     key: "hr",
     label: "Nhân sự & Giáo viên",
     items: [
-      { label: "Giáo viên", href: "/teachers", perm: "teacher:read", phase: 4, desc: "Hồ sơ GV, ngạch, tải dạy, lịch dạy." },
+      { label: "Giáo viên", href: "/teachers", perm: "teacher:read", ready: true, desc: "Hồ sơ GV, ngạch, tải dạy, lịch dạy." },
       { label: "Nhân sự", href: "/nhan-su", perm: "staff:read", phase: 4, desc: "Hồ sơ nhân sự; lương/BHXH chỉ HR, Kế toán, Super Admin thấy." },
       { label: "Vị trí công việc", href: "/nhan-su/vi-tri", perm: "staff:read", phase: 4, desc: "Chính / kiêm nhiệm / uỷ quyền, có hiệu lực." },
       { label: "Chấm công", href: "/cham-cong", perm: "timesheet:read", phase: 4, desc: "Bảng công ngày, kỳ công, phân ca, quét có bán kính, ghi đè có lý do." },

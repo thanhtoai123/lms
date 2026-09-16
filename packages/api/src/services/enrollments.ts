@@ -7,6 +7,7 @@ import {
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { writeAudit } from "./audit";
+import { enforcePrerequisites } from "./catalog";
 import { emit } from "./outbox";
 import { consumedSql, centerScope, canSeeFullPhone } from "./students";
 
@@ -61,13 +62,14 @@ async function logEvent(db: Db, e: { enrollmentId: string; type: typeof enrollme
 }
 
 /** Ghi danh mới (kiểm tra sức chứa, trùng ghi danh mở) */
-export async function createEnrollment(ctx: ProtectedContext, input: { studentId: string; classId: string; packageSessions: number; startSequenceNo?: number; status?: "active" | "trial"; note?: string | null }) {
+export async function createEnrollment(ctx: ProtectedContext, input: { studentId: string; classId: string; packageSessions: number; startSequenceNo?: number; status?: "active" | "trial"; note?: string | null; waiverReason?: string | null }) {
   const cls = await ctx.db.query.classes.findFirst({ where: eq(classes.id, input.classId) });
   if (!cls) throw new TRPCError({ code: "NOT_FOUND", message: "Lớp không tồn tại" });
   requirePermission(ctx, "enrollment:create", { centerId: cls.centerId });
   if (cls.status === "finished" || cls.status === "cancelled") throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Lớp đã kết thúc hoặc bị huỷ" });
   const st = await ctx.db.query.students.findFirst({ where: and(eq(students.id, input.studentId), isNull(students.deletedAt)) });
   if (!st) throw new TRPCError({ code: "NOT_FOUND", message: "Học viên không tồn tại" });
+  const waiver = await enforcePrerequisites(ctx, { studentId: st.id, courseId: cls.courseId, centerId: cls.centerId, waiverReason: input.waiverReason });
 
   return ctx.db.transaction(async (tx) => {
     const [cnt] = await tx.select({ n: sql<number>`count(*)::int` }).from(enrollments).where(and(eq(enrollments.classId, cls.id), inArray(enrollments.status, ["active", "trial", "paused"])));
@@ -76,7 +78,7 @@ export async function createEnrollment(ctx: ProtectedContext, input: { studentId
     if (dup) throw new TRPCError({ code: "CONFLICT", message: "Học viên đã có đăng ký đang mở ở lớp này" });
     const status = input.status ?? "active";
     const [row] = await tx.insert(enrollments).values({ studentId: st.id, classId: cls.id, packageSessions: input.packageSessions, startSequenceNo: input.startSequenceNo ?? 1, status, createdBy: ctx.user.id }).returning();
-    await logEvent(tx as unknown as Db, { enrollmentId: row!.id, type: "created", to: status, reason: input.note ?? null, meta: { packageSessions: input.packageSessions }, actorId: ctx.user.id });
+    await logEvent(tx as unknown as Db, { enrollmentId: row!.id, type: "created", to: status, reason: [input.note, waiver].filter(Boolean).join(" · ") || null, meta: { packageSessions: input.packageSessions, prerequisiteWaived: !!waiver }, actorId: ctx.user.id });
     if (st.status === "prospect" || st.status === "alumni" || st.status === "withdrawn" || (st.status === "trial" && status === "active")) {
       await tx.update(students).set({ status: status === "trial" ? "trial" : "active", homeCenterId: st.homeCenterId ?? cls.centerId }).where(eq(students.id, st.id));
     }
@@ -176,9 +178,12 @@ export async function previewTransfer(ctx: ProtectedContext, input: { enrollment
 }
 
 /** Chuyển lớp / cơ sở: đóng ghi danh cũ (transfer_out) + mở ghi danh mới mang số buổi còn lại */
-export async function transferEnrollment(ctx: ProtectedContext, input: { enrollmentId: string; targetClassId: string; reason: string; startSequenceNo?: number }) {
+export async function transferEnrollment(ctx: ProtectedContext, input: { enrollmentId: string; targetClassId: string; reason: string; startSequenceNo?: number; waiverReason?: string | null }) {
   const p = await previewTransfer(ctx, input);
   if (!p.ok) throw new TRPCError({ code: "PRECONDITION_FAILED", message: p.errors.join("; ") });
+  const waiver = p.target.courseId !== p.source.courseId
+    ? await enforcePrerequisites(ctx, { studentId: p.source.studentId, courseId: p.target.courseId, centerId: p.target.centerId, waiverReason: input.waiverReason })
+    : null;
   if (!input.reason.trim()) throw new TRPCError({ code: "BAD_REQUEST", message: "Cần nhập lý do chuyển" });
   const e = p.source;
   return ctx.db.transaction(async (tx) => {
@@ -188,7 +193,7 @@ export async function transferEnrollment(ctx: ProtectedContext, input: { enrollm
       studentId: e.studentId, classId: p.target.id, packageSessions: p.carrySessions, startSequenceNo: input.startSequenceNo ?? 1,
       status: e.status === "trial" ? "trial" : "active", transferredFromId: e.id, createdBy: ctx.user.id,
     }).returning();
-    await logEvent(tx as unknown as Db, { enrollmentId: n!.id, type: "transfer_in", to: n!.status, reason: input.reason, meta: { fromClassId: e.classId, fromEnrollmentId: e.id, carry: p.carrySessions }, actorId: ctx.user.id });
+    await logEvent(tx as unknown as Db, { enrollmentId: n!.id, type: "transfer_in", to: n!.status, reason: waiver ? `${input.reason} · ${waiver}` : input.reason, meta: { fromClassId: e.classId, fromEnrollmentId: e.id, carry: p.carrySessions, prerequisiteWaived: !!waiver }, actorId: ctx.user.id });
     if (p.crossCenter) await tx.update(students).set({ homeCenterId: p.target.centerId }).where(eq(students.id, e.studentId));
     await syncStudentStatus(tx as unknown as Db, e.studentId);
     await emit(tx as unknown as Db, { type: "enrollment.created", enrollmentId: n!.id, studentId: e.studentId, classId: p.target.id });

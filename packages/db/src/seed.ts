@@ -11,6 +11,7 @@ import {
   courses, curricula, lessons, classes, classSchedules, sessions, enrollments, attendance, classEvents,
   enrollmentEvents, competencyCriteria, reportCards, reportCardScores, sessionMedia,
   leads, leadChildren, leadActivities, leadTasks, leadAssignees, admissionsSettings, trialBookings, auditLog,
+  holidays, coursePrerequisites, teacherCourses, teacherEvaluations,
 } from "./schema/index";
 import { generateSessions, buildClassCode, buildStudentCode, toISODate, addDays } from "@satarobo/core";
 
@@ -63,9 +64,9 @@ async function main() {
   const [gv1, gv2, gv3] = await db
     .insert(teachers)
     .values([
-      { userId: t1U!.id, centerId: cs1!.id, code: "GV001", fullName: "GV Minh (mẫu)", email: t1U!.email, contractType: "full_time" },
-      { userId: t2U!.id, centerId: cs2!.id, code: "GV002", fullName: "GV Lan (mẫu)", email: t2U!.email },
-      { userId: t3U!.id, centerId: cs1!.id, code: "GV003", fullName: "GV Hùng (mẫu)", email: t3U!.email },
+      { userId: t1U!.id, centerId: cs1!.id, code: "GV001", fullName: "GV Minh (mẫu)", email: t1U!.email, contractType: "full_time", grade: "senior", title: "Giáo viên chính", maxLoadPerWeek: 16 },
+      { userId: t2U!.id, centerId: cs2!.id, code: "GV002", fullName: "GV Lan (mẫu)", email: t2U!.email, grade: "junior", title: "Giáo viên" },
+      { userId: t3U!.id, centerId: cs1!.id, code: "GV003", fullName: "GV Hùng (mẫu)", email: t3U!.email, grade: "advanced", title: "Giáo viên", maxLoadPerWeek: 10 },
     ])
     .returning();
 
@@ -253,6 +254,23 @@ async function main() {
   }).returning();
   await db.insert(classSchedules).values({ classId: classC!.id, weekday: 6, startTime: "08:00", endTime: "09:30", roomId: roomRows[1]!.id, teacherId: gv3!.id, effectiveFrom: addDays(today, 10), effectiveTo: null, createdBy: mgrU!.id });
   await db.insert(classEvents).values({ classId: classC!.id, event: "submit", fromStatus: "draft", toStatus: "pending_approval", actorId: mgrU!.id });
+
+  // ---- Hồ sơ GV: khoá được dạy, đánh giá; khoá tiên quyết; ngày nghỉ; giáo trình nháp v2 ----
+  await db.insert(teacherCourses).values([
+    { teacherId: gv1!.id, courseId: sata4!.id }, { teacherId: gv1!.id, courseId: sata1.id },
+    { teacherId: gv2!.id, courseId: sata6!.id },
+    { teacherId: gv3!.id, courseId: sata1.id }, { teacherId: gv3!.id, courseId: sata4!.id },
+  ]);
+  await db.insert(teacherEvaluations).values({ teacherId: gv1!.id, score: 4, comment: "Dẫn dắt lớp tốt, cần quản lý thời gian phần thực hành chặt hơn (mẫu)", observedOn: addDays(today, -7), evaluatorId: mgrU!.id });
+  await db.insert(coursePrerequisites).values({ courseId: sata6!.id, requiredCourseId: sata4!.id, note: "Học xong Sata4 mới lên Sata6", createdBy: adminU!.id });
+  const monday = (() => { let d = addDays(today, 20); while (new Date(d + "T00:00:00Z").getUTCDay() !== 1) d = addDays(d, 1); return d; })();
+  await db.insert(holidays).values([
+    { centerId: null, date: monday, name: "Nghỉ lễ (mẫu)", createdBy: adminU!.id },
+    { centerId: cs1!.id, date: addDays(monday, 1), name: "Bảo trì cơ sở (mẫu)", createdBy: mgrU!.id },
+  ]);
+  await db.update(curricula).set({ status: "active", description: "Giáo trình chuẩn 2026" }).where(eq(curricula.id, cur4!.id));
+  const [cur4v2] = await db.insert(curricula).values({ courseId: sata4!.id, name: "Sata4 v2 (nháp)", version: 2, status: "draft", isActive: false, createdBy: adminU!.id }).returning();
+  await db.insert(lessons).values(lessonTitles.slice(0, 3).map((title, i) => ({ curriculumId: cur4v2!.id, sequenceNo: i + 1, title, materials: "Bộ kit Sata4" })));
 
   // ---- Lớp Trial mẫu: 1 buổi sắp tới (đã xếp), 1 đã học thử, 1 không đến ----
   const futureA = sessionRows.filter((x) => x.classId === classA!.id && x.date > today).sort((a, b) => a.sequenceNo - b.sequenceNo);

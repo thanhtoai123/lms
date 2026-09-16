@@ -17,6 +17,7 @@ export function TransferWizard({ classes, initialStudent }: { classes: Cls[]; in
   const [targetId, setTargetId] = useState("");
   const [reason, setReason] = useState("");
   const [startSeq, setStartSeq] = useState("");
+  const [waiver, setWaiver] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const open = useQuery({ ...trpc.students.openEnrollments.queryOptions({ studentId: student?.id ?? "00000000-0000-0000-0000-000000000000" }), enabled: !!student });
@@ -73,12 +74,15 @@ export function TransferWizard({ classes, initialStudent }: { classes: Cls[]; in
               {p.errors.map((x) => <ErrorBox key={x}>{x}</ErrorBox>)}
               {p.warnings.map((x) => <div key={x} className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">⚠ {x}</div>)}
               {p.ok && (
-                <form className="space-y-2" onSubmit={(e) => { e.preventDefault(); setError(null); doIt.mutate({ enrollmentId, targetClassId: targetId, reason, startSequenceNo: startSeq ? Number(startSeq) : undefined }); }}>
+                <form className="space-y-2" onSubmit={(e) => { e.preventDefault(); setError(null); doIt.mutate({ enrollmentId, targetClassId: targetId, reason, startSequenceNo: startSeq ? Number(startSeq) : undefined, waiverReason: waiver.trim() || null }); }}>
                   <div className="grid gap-2 sm:grid-cols-[1fr_160px]">
                     <div><label className="label">Lý do chuyển *</label><input className="input" required minLength={3} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Đổi lịch học, chuyển nhà, lên trình độ…" /></div>
                     <div><label className="label">Vào lớp đích từ buổi</label><input type="number" min={1} className="input" value={startSeq} onChange={(e) => setStartSeq(e.target.value)} /></div>
                   </div>
                   {error && <ErrorBox>{error}</ErrorBox>}
+                  {(error?.includes("tiên quyết") || waiver) && (
+                    <input className="input" maxLength={300} placeholder="Miễn điều kiện tiên quyết — lý do (quản lý cơ sở)" value={waiver} onChange={(e) => setWaiver(e.target.value)} />
+                  )}
                   <button className="btn-primary" disabled={doIt.isPending}>{doIt.isPending ? "Đang chuyển…" : "Xác nhận chuyển lớp"}</button>
                 </form>
               )}

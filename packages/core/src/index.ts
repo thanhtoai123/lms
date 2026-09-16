@@ -19,3 +19,5 @@ export * from "./reports/metrics.js";
 export * from "./policy/accounts.js";
 export * from "./classes/lifecycle.js";
 export * from "./scheduling/replan.js";
+export * from "./academics/catalog.js";
+export * from "./people/teachers.js";

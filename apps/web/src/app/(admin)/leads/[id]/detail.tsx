@@ -20,7 +20,7 @@ export function LeadDetail({ id, classes, assignees, centers }: { id: string; cl
   const [noteType, setNoteType] = useState<"call" | "message" | "note">("call");
   const [trialAt, setTrialAt] = useState("");
   const [lostReason, setLostReason] = useState("");
-  const [conv, setConv] = useState({ classId: classes[0]?.id ?? "", packageSessions: 48, status: "active" as "active" | "trial", childId: "", mediaConsent: false, paidAmount: "", paidAt: "" });
+  const [conv, setConv] = useState({ classId: classes[0]?.id ?? "", packageSessions: 48, status: "active" as "active" | "trial", childId: "", mediaConsent: false, paidAmount: "", paidAt: "", waiverReason: "" });
   const [child, setChild] = useState({ fullName: "", grade: "", school: "" });
   const [showChild, setShowChild] = useState(false);
   const [xfer, setXfer] = useState({ toCenterId: "", reason: "" });
@@ -171,8 +171,11 @@ export function LeadDetail({ id, classes, assignees, centers }: { id: string; cl
               <div className="flex items-center gap-3">
                 <label className="text-sm flex items-center gap-1"><input type="radio" checked={conv.status === "active"} onChange={() => setConv({ ...conv, status: "active" })} /> Chính thức</label>
                 <label className="text-sm flex items-center gap-1"><input type="radio" checked={conv.status === "trial"} onChange={() => setConv({ ...conv, status: "trial" })} /> Học thử trong lớp</label>
-                <button className="btn-primary ml-auto" disabled={busy || !conv.classId || (openChildren.length > 0 && !conv.childId)} onClick={() => convert.mutate({ leadId: id, classId: conv.classId, packageSessions: conv.packageSessions, status: conv.status, childId: conv.childId || null, mediaConsent: conv.mediaConsent, paidAmount: conv.paidAmount ? Number(conv.paidAmount) : null, paidAt: conv.paidAt || null })}>{convert.isPending ? "Đang ghi danh…" : "Ghi danh"}</button>
+                <button className="btn-primary ml-auto" disabled={busy || !conv.classId || (openChildren.length > 0 && !conv.childId)} onClick={() => convert.mutate({ leadId: id, classId: conv.classId, packageSessions: conv.packageSessions, status: conv.status, childId: conv.childId || null, mediaConsent: conv.mediaConsent, paidAmount: conv.paidAmount ? Number(conv.paidAmount) : null, paidAt: conv.paidAt || null, waiverReason: conv.waiverReason.trim() || null })}>{convert.isPending ? "Đang ghi danh…" : "Ghi danh"}</button>
               </div>
+              {(error?.includes("tiên quyết") || conv.waiverReason) && (
+                <input className="input" maxLength={300} placeholder="Miễn điều kiện tiên quyết — lý do (quản lý cơ sở), VD: đã test đầu vào" value={conv.waiverReason} onChange={(e) => setConv({ ...conv, waiverReason: e.target.value })} />
+              )}
               <p className="text-[11px] text-ink-400">Sau chốt: tài khoản PH ở trạng thái "chờ kích hoạt" — PH tự kích hoạt bằng OTP Zalo. Học phí đối soát ở module Tài chính.</p>
             </section>
           )}

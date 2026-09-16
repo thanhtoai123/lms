@@ -45,7 +45,7 @@ export const studentsRouter = router({
     .input(z.object({ q: z.string().max(100).optional(), centerId: uuid.optional(), classId: uuid.optional(), status: z.enum(ENROLLMENT_STATUSES).optional(), page: z.number().int().min(1).optional(), pageSize: z.number().int().min(1).max(100).optional() }).default({}))
     .query(({ ctx, input }) => E.listEnrollments(ctx, input)),
   enroll: protectedProcedure
-    .input(z.object({ studentId: uuid, classId: uuid, packageSessions: z.number().int().min(1).max(200), startSequenceNo: z.number().int().min(1).max(200).optional(), status: z.enum(["active", "trial"]).optional(), note: nstr(300) }))
+    .input(z.object({ studentId: uuid, classId: uuid, packageSessions: z.number().int().min(1).max(200), startSequenceNo: z.number().int().min(1).max(200).optional(), status: z.enum(["active", "trial"]).optional(), note: nstr(300), waiverReason: nstr(300) }))
     .mutation(({ ctx, input }) => E.createEnrollment(ctx, input)),
   enrollmentTransition: protectedProcedure
     .input(z.object({ enrollmentId: uuid, event: z.enum(["activate", "pause", "resume", "withdraw", "complete"]), reason: z.string().max(300).optional(), pauseFrom: isoDate.optional(), pauseUntil: isoDate.optional() }))
@@ -54,7 +54,7 @@ export const studentsRouter = router({
   nearingEnd: protectedProcedure.input(z.object({ threshold: z.number().int().min(0).max(48).optional(), centerId: uuid.optional() }).default({})).query(({ ctx, input }) => E.nearingEnd(ctx, input)),
   openEnrollments: protectedProcedure.input(z.object({ studentId: uuid })).query(({ ctx, input }) => E.openEnrollmentsOf(ctx, input.studentId)),
   previewTransfer: protectedProcedure.input(z.object({ enrollmentId: uuid, targetClassId: uuid })).query(({ ctx, input }) => E.previewTransfer(ctx, input)),
-  transfer: protectedProcedure.input(z.object({ enrollmentId: uuid, targetClassId: uuid, reason: z.string().min(3, "Cần nhập lý do").max(300), startSequenceNo: z.number().int().min(1).max(200).optional() })).mutation(({ ctx, input }) => E.transferEnrollment(ctx, input)),
+  transfer: protectedProcedure.input(z.object({ enrollmentId: uuid, targetClassId: uuid, reason: z.string().min(3, "Cần nhập lý do").max(300), startSequenceNo: z.number().int().min(1).max(200).optional(), waiverReason: z.string().max(300).nullish() })).mutation(({ ctx, input }) => E.transferEnrollment(ctx, input)),
 
   // Tài khoản phụ huynh
   parentAccounts: protectedProcedure

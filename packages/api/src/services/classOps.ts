@@ -13,6 +13,7 @@ import {
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { writeAudit } from "./audit";
 import { todayISO } from "./sessions";
+import { assertTeacherQualified } from "./teachers";
 
 type Db = ProtectedContext["db"];
 
@@ -161,6 +162,8 @@ export async function createClass(ctx: ProtectedContext, input: CreateClassInput
   const course = await ctx.db.query.courses.findFirst({ where: eq(courses.id, input.courseId) });
   const center = await ctx.db.query.centers.findFirst({ where: eq(centers.id, input.centerId) });
   if (!course || !center) throw new TRPCError({ code: "BAD_REQUEST", message: "Khoá học / cơ sở không hợp lệ" });
+  await assertTeacherQualified(ctx.db, input.leadTeacherId, input.courseId);
+  await assertTeacherQualified(ctx.db, input.assistantTeacherId, input.courseId);
   const slotErrs = validateWeeklySlots(input.schedules.map((s) => ({ weekday: s.weekday as Weekday, startTime: s.startTime, endTime: s.endTime, roomId: null, teacherId: null })));
   if (slotErrs.length) throw new TRPCError({ code: "BAD_REQUEST", message: slotErrs.join("; ") });
   const year = Number(input.startDate.slice(0, 4));
@@ -308,6 +311,8 @@ export async function updateClassInfo(ctx: ProtectedContext, input: UpdateClassI
   }
   const today = todayISO();
   const teacherChanged = (input.leadTeacherId ?? null) !== cls.leadTeacherId;
+  if (teacherChanged) await assertTeacherQualified(ctx.db, input.leadTeacherId, cls.courseId);
+  if ((input.assistantTeacherId ?? null) !== cls.assistantTeacherId) await assertTeacherQualified(ctx.db, input.assistantTeacherId, cls.courseId);
   let movedSessions = 0;
   const after = {
     name: input.name.trim(), description: input.description?.trim() || null, homeRoomId: input.homeRoomId ?? null,
@@ -520,6 +525,7 @@ export async function addExtraSession(ctx: ProtectedContext, input: { classId: s
   if (slotErr.length) throw new TRPCError({ code: "BAD_REQUEST", message: slotErr.join("; ") });
   const roomId = input.roomId ?? cls.homeRoomId;
   const teacherId = input.teacherId ?? cls.leadTeacherId;
+  if (input.teacherId && input.teacherId !== cls.leadTeacherId && input.teacherId !== cls.assistantTeacherId) await assertTeacherQualified(ctx.db, input.teacherId, cls.courseId);
   if (roomId) {
     const r = await ctx.db.query.rooms.findFirst({ where: eq(rooms.id, roomId) });
     if (!r || r.centerId !== cls.centerId) throw new TRPCError({ code: "BAD_REQUEST", message: "Phòng không thuộc cơ sở của lớp" });

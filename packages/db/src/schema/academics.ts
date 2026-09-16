@@ -27,9 +27,53 @@ export const courses = pgTable("courses", {
   listPrice: numeric("list_price", { precision: 12, scale: 0 }).notNull().default("0"),
   /** Gợi ý khoá tiếp theo khi hoàn thành (lộ trình) */
   nextCourseId: uuid("next_course_id"),
+  description: text("description"),
+  level: text("level"),
   isActive: boolean("is_active").notNull().default(true),
   ...timestamps,
 });
+
+/** Khoá tiên quyết: muốn học courseId phải hoàn thành requiredCourseId */
+export const coursePrerequisites = pgTable(
+  "course_prerequisites",
+  {
+    id: id(),
+    courseId: uuid("course_id").notNull().references(() => courses.id, { onDelete: "cascade" }),
+    requiredCourseId: uuid("required_course_id").notNull().references(() => courses.id, { onDelete: "cascade" }),
+    note: text("note"),
+    createdBy: uuid("created_by").references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("course_prereq_unique").on(t.courseId, t.requiredCourseId)],
+);
+
+/** Khoá được dạy của giáo viên */
+export const teacherCourses = pgTable(
+  "teacher_courses",
+  {
+    id: id(),
+    teacherId: uuid("teacher_id").notNull().references(() => teachers.id, { onDelete: "cascade" }),
+    courseId: uuid("course_id").notNull().references(() => courses.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("teacher_courses_unique").on(t.teacherId, t.courseId)],
+);
+
+/** Đánh giá GV (dự giờ) */
+export const teacherEvaluations = pgTable(
+  "teacher_evaluations",
+  {
+    id: id(),
+    teacherId: uuid("teacher_id").notNull().references(() => teachers.id, { onDelete: "cascade" }),
+    sessionId: uuid("session_id"),
+    score: smallint("score").notNull(),
+    comment: text("comment").notNull(),
+    observedOn: date("observed_on").notNull(),
+    evaluatorId: uuid("evaluator_id").references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("teacher_eval_idx").on(t.teacherId, t.observedOn)],
+);
 
 /** Giáo trình: một khoá có thể có nhiều phiên bản giáo trình */
 export const curricula = pgTable(
@@ -39,7 +83,11 @@ export const curricula = pgTable(
     courseId: uuid("course_id").notNull().references(() => courses.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     version: integer("version").notNull().default(1),
+    /** draft | active | archived — isActive = (status = active) */
+    status: text("status").notNull().default("active"),
+    description: text("description"),
     isActive: boolean("is_active").notNull().default(true),
+    createdBy: uuid("created_by").references(() => users.id),
     ...timestamps,
   },
   (t) => [index("curricula_course_idx").on(t.courseId)],
@@ -53,6 +101,8 @@ export const lessons = pgTable(
     sequenceNo: integer("sequence_no").notNull(),
     title: text("title").notNull(),
     objectives: text("objectives"),
+    /** Học cụ / chuẩn bị */
+    materials: text("materials"),
     /** Mốc học bạ: buổi 5, buổi 12 … */
     isReportCardMilestone: boolean("is_report_card_milestone").notNull().default(false),
     ...timestamps,
@@ -135,12 +185,18 @@ export const classEvents = pgTable(
 );
 
 /** Ngày nghỉ theo cơ sở (null = toàn hệ thống) */
-export const holidays = pgTable("holidays", {
-  id: id(),
-  centerId: uuid("center_id").references(() => centers.id, { onDelete: "cascade" }),
-  date: date("date").notNull(),
-  name: text("name").notNull(),
-});
+export const holidays = pgTable(
+  "holidays",
+  {
+    id: id(),
+    centerId: uuid("center_id").references(() => centers.id, { onDelete: "cascade" }),
+    date: date("date").notNull(),
+    name: text("name").notNull(),
+    createdBy: uuid("created_by").references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("holidays_date_idx").on(t.date, t.centerId)],
+);
 
 /**
  * Buổi học cụ thể. Trạng thái theo state machine trong @satarobo/core.
