@@ -46,6 +46,9 @@ export const parents = pgTable("parents", {
   accountStatus: parentAccountStatusEnum("account_status").notNull().default("none"),
   activationRequestedAt: timestamp("activation_requested_at", { withTimezone: true }),
   activatedAt: timestamp("activated_at", { withTimezone: true }),
+  /** Mã kích hoạt cấp tại quầy: chỉ lưu băm SHA-256, hiển thị mã gốc đúng một lần */
+  activationCodeHash: text("activation_code_hash"),
+  activationCodeExpiresAt: timestamp("activation_code_expires_at", { withTimezone: true }),
   ...timestamps,
   ...softDelete,
 });
@@ -69,6 +72,10 @@ export const students = pgTable(
     dateOfBirth: date("date_of_birth"),
     grade: integer("grade"), // lớp 1..8
     school: text("school"),
+    gender: text("gender"), // male | female | other
+    /** Khối sức khoẻ: dị ứng, lưu ý y tế — chỉ nhân sự có quyền student:read thấy */
+    healthNotes: text("health_notes"),
+    interests: text("interests"),
     homeCenterId: uuid("home_center_id").references(() => centers.id),
     status: studentStatusEnum("status").notNull().default("prospect"),
     avatarKey: text("avatar_key"), // object key trong bucket private

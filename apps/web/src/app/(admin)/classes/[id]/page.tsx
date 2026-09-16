@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { EnrollmentChip } from "@/components/admin-ui";
 import { getServerCaller } from "@/lib/trpc/server";
 import { StatusChip, fmtDate, fmtTime, WEEKDAY_VI } from "@/components/ui";
 
@@ -28,16 +29,16 @@ export default async function ClassDetail({ params }: { params: Promise<{ id: st
 
       <div className="grid lg:grid-cols-2 gap-6">
         <section className="space-y-2">
-          <h2 className="font-bold">Học viên & rủi ro</h2>
+          <div className="flex items-center justify-between"><h2 className="font-bold">Học viên & rủi ro</h2><Link href={`/enrollments/new?classId=${c.id}`} className="btn-ghost !py-1 text-xs">+ Ghi danh vào lớp</Link></div>
           <div className="card divide-y divide-black/5">
             {c.roster.map((r) => (
               <div key={r.enrollmentId} className="p-3 flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <div className="font-medium truncate">{r.fullName} <span className="text-xs text-ink-400">{r.code}</span></div>
+                  <div className="font-medium truncate"><Link href={`/students/${r.studentId}`} className="hover:text-brand-600">{r.fullName}</Link> <span className="text-xs text-ink-400">{r.code}</span></div>
                   <div className="text-xs text-ink-600">Chuyên cần {Math.round(r.attendance.rate * 100)}% · {r.attendance.attended}/{r.attendance.total} buổi · gói {r.packageSessions}</div>
                 </div>
                 <div className="flex flex-col items-end gap-1">
-                  <span className={`chip ${r.status === "active" ? "bg-green-100 text-green-800" : r.status === "trial" ? "bg-amber-100 text-amber-800" : "bg-black/5"}`}>{r.status}</span>
+                  <EnrollmentChip status={r.status} />
                   {r.risks.map((k) => <span key={k.code} className="chip bg-red-100 text-red-700" title={k.detail}>{k.code === "CONSECUTIVE_ABSENCE" ? "Nghỉ liên tiếp" : k.code === "LOW_ATTENDANCE" ? "Chuyên cần thấp" : "Chờ học bù"}</span>)}
                 </div>
               </div>

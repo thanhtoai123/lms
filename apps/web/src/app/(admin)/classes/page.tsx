@@ -8,11 +8,11 @@ export const metadata = { title: "Lớp học" };
 
 const STATUS_VI: Record<ClassStatus, string> = { draft: "Nháp", recruiting: "Tuyển sinh", running: "Đang chạy", finished: "Kết thúc", cancelled: "Huỷ" };
 
-export default async function ClassesPage({ searchParams }: { searchParams: Promise<{ q?: string; status?: string }> }) {
+export default async function ClassesPage({ searchParams }: { searchParams: Promise<{ q?: string; status?: string; center?: string }> }) {
   const sp = await searchParams;
   const status = CLASS_STATUSES.includes(sp.status as ClassStatus) ? (sp.status as ClassStatus) : undefined;
   const { caller } = await getServerCaller();
-  const rows = await caller.academics.classes.list({ q: sp.q || undefined, status });
+  const [rows, ref] = await Promise.all([caller.academics.classes.list({ q: sp.q || undefined, status, centerId: sp.center || undefined }), caller.academics.classes.referenceData()]);
 
   return (
     <div className="space-y-4">
@@ -25,6 +25,10 @@ export default async function ClassesPage({ searchParams }: { searchParams: Prom
         <select name="status" defaultValue={sp.status ?? ""} className="input max-w-[180px]">
           <option value="">Mọi trạng thái</option>
           {CLASS_STATUSES.map((s) => <option key={s} value={s}>{STATUS_VI[s]}</option>)}
+        </select>
+        <select name="center" defaultValue={sp.center ?? ""} className="input max-w-[220px]">
+          <option value="">Mọi cơ sở</option>
+          {ref.centers.map((c) => <option key={c.id} value={c.id}>{c.code} — {c.name}</option>)}
         </select>
         <button className="btn-ghost" type="submit">Lọc</button>
       </form>

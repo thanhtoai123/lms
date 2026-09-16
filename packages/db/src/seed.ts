@@ -9,6 +9,7 @@ import { createDb } from "./index";
 import {
   centers, rooms, users, userRoles, teachers, parents, students, studentGuardians,
   courses, curricula, lessons, classes, classSchedules, sessions, enrollments, attendance,
+  enrollmentEvents,
   leads, leadChildren, leadActivities, leadTasks, leadAssignees, admissionsSettings,
 } from "./schema/index";
 import { generateSessions, buildClassCode, buildStudentCode, toISODate, addDays } from "@satarobo/core";
@@ -134,14 +135,18 @@ async function main() {
   // ---- Parents, students, enrollments ----
   const parentRows = await db
     .insert(parents)
-    .values(Array.from({ length: 16 }, (_, i) => ({ fullName: `Phụ huynh mẫu ${i + 1}`, phone: `09000000${String(i + 1).padStart(2, "0")}`, mediaConsent: i % 4 !== 0 })))
+    .values(Array.from({ length: 16 }, (_, i) => ({ fullName: `Phụ huynh mẫu ${i + 1}`, phone: `849110000${String(i + 1).padStart(2, "0")}`, mediaConsent: i % 4 !== 0, mediaConsentAt: i % 4 !== 0 ? new Date() : null,
+      accountStatus: (i % 5 === 0 ? "active" : i % 5 === 1 ? "pending_activation" : "none") as "active" | "pending_activation" | "none",
+      activatedAt: i % 5 === 0 ? new Date(Date.now() - 20 * 86_400_000) : null, activationRequestedAt: i % 5 <= 1 ? new Date(Date.now() - 25 * 86_400_000) : null })))
     .returning();
   const studentRows = await db
     .insert(students)
     .values(
       Array.from({ length: 16 }, (_, i) => ({
         code: buildStudentCode(i < 10 ? "CS1" : "CS2", 2026, i + 1), fullName: `Học viên mẫu ${i + 1}`, grade: 3 + (i % 4),
-        homeCenterId: i < 10 ? cs1!.id : cs2!.id, status: "active" as const,
+        homeCenterId: i < 10 ? cs1!.id : cs2!.id, status: (i < 10 ? "active" : "trial") as "active" | "trial",
+        dateOfBirth: `${2019 - (i % 4)}-${String((i % 12) + 1).padStart(2, "0")}-${String((i % 27) + 1).padStart(2, "0")}`,
+        gender: i % 2 === 0 ? "male" : "female", school: `Tiểu học mẫu ${(i % 3) + 1}`, healthNotes: i === 3 ? "Dị ứng đậu phộng" : null,
       })),
     )
     .returning();
@@ -149,9 +154,11 @@ async function main() {
 
   const enrollA = await db
     .insert(enrollments)
-    .values(studentRows.slice(0, 10).map((s) => ({ studentId: s.id, classId: classA!.id, packageSessions: 48, createdBy: mgrU!.id })))
+    // HV 9 mua gói ngắn để xuất hiện ở "Sắp hết khoá"
+    .values(studentRows.slice(0, 10).map((s, i) => ({ studentId: s.id, classId: classA!.id, packageSessions: i === 8 ? 8 : 48, createdBy: mgrU!.id })))
     .returning();
-  await db.insert(enrollments).values(studentRows.slice(10).map((s) => ({ studentId: s.id, classId: classB!.id, packageSessions: 48, status: "trial" as const })));
+  const enrollB = await db.insert(enrollments).values(studentRows.slice(10).map((s) => ({ studentId: s.id, classId: classB!.id, packageSessions: 48, status: "trial" as const }))).returning();
+  await db.insert(enrollmentEvents).values([...enrollA, ...enrollB].map((e) => ({ enrollmentId: e.id, type: "created" as const, toStatus: e.status, meta: { packageSessions: e.packageSessions }, actorId: mgrU!.id })));
 
   // ---- Điểm danh cho các buổi đã qua của lớp A (để lại 1 buổi quá hạn chưa chốt) ----
   const pastA = sessionRows.filter((s) => s.classId === classA!.id && s.date < today).sort((a, b) => a.sequenceNo - b.sequenceNo);
@@ -166,6 +173,13 @@ async function main() {
     );
     await db.update(sessions).set({ status: "completed", sessionNote: "Lớp học tốt, các con hoàn thành mục tiêu buổi.", completedAt: new Date(), completedBy: t1U!.id }).where(eq(sessions.id, s.id));
   }
+
+  // ---- Một ca bảo lưu mẫu ----
+  const pauseFrom = today;
+  const pauseUntil = addDays(today, 45);
+  await db.update(enrollments).set({ status: "paused", pausedAt: pauseFrom, pauseUntil }).where(eq(enrollments.id, enrollA[9]!.id));
+  await db.update(students).set({ status: "paused" }).where(eq(students.id, studentRows[9]!.id));
+  await db.insert(enrollmentEvents).values({ enrollmentId: enrollA[9]!.id, type: "pause", fromStatus: "active", toStatus: "paused", reason: "Gia đình đi xa (dữ liệu mẫu)", meta: { pausedAt: pauseFrom, pauseUntil }, actorId: mgrU!.id });
 
   // ---- Tuyển sinh: cấu hình chia lead, bảng sale, lead mẫu (dữ liệu giả) ----
   await db.insert(admissionsSettings).values({ centerId: cs1!.id, distributionMode: "round_robin", dedupeDays: 30, maxTrialsPerLead: 2, staleAfterDays: 7, updatedBy: adminU!.id });

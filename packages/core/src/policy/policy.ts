@@ -80,9 +80,10 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   CENTER_MANAGER: [
     "lead:*", "student:*", "enrollment:*", "class:*", "session:*", "attendance:*", "session_note:*", "media:*",
     "teacher:read", "staff:read", "finance:read", "report_card:*", "report:read", "makeup:*", "automation:*", "care:*", "inventory:*",
+    "room:*", "center:read", "parent_account:*",
   ],
-  CENTER_CLASS_MANAGER: ["class:*", "session:*", "attendance:*", "session_note:*", "media:*", "student:read", "enrollment:read", "makeup:*", "teacher:read"],
-  CENTER_SALES_CSM: ["lead:*", "student:read", "enrollment:create", "enrollment:read", "class:read", "session:read", "makeup:*", "care:*"],
+  CENTER_CLASS_MANAGER: ["class:*", "session:*", "attendance:*", "session_note:*", "media:*", "student:read", "student:update", "enrollment:read", "enrollment:update", "makeup:*", "teacher:read", "room:*", "center:read"],
+  CENTER_SALES_CSM: ["lead:*", "student:read", "student:create", "student:update", "enrollment:create", "enrollment:read", "enrollment:update", "class:read", "session:read", "makeup:*", "care:*", "parent_account:*", "center:read"],
   CENTER_ACCOUNTANT: ["finance:*", "enrollment:read", "student:read", "class:read"],
   CENTER_HR: ["staff:*", "teacher:*", "timesheet:*"],
   TEACHER: ["class:read_own", "session:read_own", "session:update_own", "attendance:write_own", "session_note:write_own", "media:write_own", "report_card:write_own", "student:read_own"],

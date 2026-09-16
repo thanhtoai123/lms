@@ -1,6 +1,7 @@
 import {
   pgTable, text, uuid, boolean, integer, date, time, timestamp, pgEnum, jsonb, index, uniqueIndex, smallint, numeric,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { id, timestamps, softDelete } from "./_common";
 import { SESSION_STATUSES, ATTENDANCE_STATUSES, ENROLLMENT_STATUSES, CLASS_STATUSES } from "@satarobo/core";
 import { centers, rooms } from "./org";
@@ -156,14 +157,38 @@ export const enrollments = pgTable(
     enrolledAt: timestamp("enrolled_at", { withTimezone: true }).notNull().defaultNow(),
     endedAt: timestamp("ended_at", { withTimezone: true }),
     endReason: text("end_reason"),
+    pausedAt: date("paused_at"),
+    pauseUntil: date("pause_until"),
+    /** Chuyển lớp: ghi danh mới trỏ về ghi danh cũ */
+    transferredFromId: uuid("transferred_from_id"),
     createdBy: uuid("created_by").references(() => users.id),
     ...timestamps,
   },
   (t) => [
-    uniqueIndex("enrollments_active_unique").on(t.studentId, t.classId),
+    // Chỉ chặn trùng khi ghi danh còn mở — cho phép học lại lớp cũ sau khi đã nghỉ/chuyển
+    uniqueIndex("enrollments_active_unique").on(t.studentId, t.classId).where(sql`status in ('trial','active','paused')`),
     index("enrollments_class_idx").on(t.classId, t.status),
     index("enrollments_student_idx").on(t.studentId),
   ],
+);
+
+export const enrollmentEventTypeEnum = pgEnum("enrollment_event_type", ["created", "activate", "pause", "resume", "withdraw", "complete", "transfer_out", "transfer_in", "package_change"]);
+
+/** Mốc thời gian của ghi danh — lịch sử bất biến */
+export const enrollmentEvents = pgTable(
+  "enrollment_events",
+  {
+    id: id(),
+    enrollmentId: uuid("enrollment_id").notNull().references(() => enrollments.id, { onDelete: "cascade" }),
+    type: enrollmentEventTypeEnum("type").notNull(),
+    fromStatus: enrollmentStatusEnum("from_status"),
+    toStatus: enrollmentStatusEnum("to_status"),
+    reason: text("reason"),
+    meta: jsonb("meta").$type<Record<string, unknown>>(),
+    actorId: uuid("actor_id").references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("enrollment_events_enr_idx").on(t.enrollmentId, t.createdAt)],
 );
 
 export const attendance = pgTable(
