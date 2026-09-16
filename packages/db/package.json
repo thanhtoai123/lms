@@ -13,7 +13,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "generate": "drizzle-kit generate",
     "migrate": "drizzle-kit migrate",
-    "push": "drizzle-kit push",
+    "push": "drizzle-kit push --force",
     "studio": "drizzle-kit studio",
     "seed": "tsx src/seed.ts",
     "apply-sql": "tsx src/apply-sql.ts",

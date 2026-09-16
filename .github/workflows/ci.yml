@@ -43,7 +43,7 @@ jobs:
       - name: Typecheck all packages
         run: pnpm -r typecheck
       - name: DB push (drizzle-kit)
-        run: set -o pipefail; pnpm db:push -- --force 2>&1 | tee /tmp/ci-1-push.log
+        run: set -o pipefail; pnpm --filter @satarobo/db exec drizzle-kit push --force 2>&1 | tee /tmp/ci-1-push.log
       - name: DB constraints (SQL)
         run: set -o pipefail; pnpm db:apply-sql 2>&1 | tee /tmp/ci-2-sql.log
       - name: DB seed
