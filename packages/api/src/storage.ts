@@ -16,20 +16,20 @@ function safePath(key: string) {
 
 export async function putObject(key: string, data: Uint8Array) {
   const p = safePath(key);
-  await mkdir(path.dirname(p), { recursive: true });
-  await writeFile(p, data);
+  await mkdir(/* turbopackIgnore: true */ path.dirname(p), { recursive: true });
+  await writeFile(/* turbopackIgnore: true */ p, data);
 }
 
 export async function getObject(key: string): Promise<Buffer | null> {
   try {
-    return await readFile(safePath(key));
+    return await readFile(/* turbopackIgnore: true */ safePath(key));
   } catch {
     return null;
   }
 }
 
 export async function deleteObject(key: string) {
-  try { await unlink(safePath(key)); } catch { /* đã xoá */ }
+  try { await unlink(/* turbopackIgnore: true */ safePath(key)); } catch { /* đã xoá */ }
 }
 
 function sign(key: string, exp: number) {
