@@ -53,7 +53,7 @@ export async function updateSettings(
   await ctx.db.transaction(async (tx) => {
     if (existing) await tx.update(admissionsSettings).set(patch).where(eq(admissionsSettings.id, existing.id));
     else await tx.insert(admissionsSettings).values({ centerId: input.centerId, ...patch });
-    await writeAudit(tx as unknown as Db, { actorId: ctx.user.id, action: "UPDATE", module: "admissions", entity: "admissions_settings", entityId: input.centerId ?? "global", before: existing ?? null, after: patch, ip: ctx.ip });
+    await writeAudit(tx as unknown as Db, { actorId: ctx.user.id, action: "UPDATE", module: "admissions", entity: "admissions_settings", entityId: input.centerId ?? null, before: existing ?? null, after: patch, ip: ctx.ip });
   });
   return getSettings(ctx, input.centerId);
 }
@@ -137,7 +137,7 @@ export async function resetRounds(ctx: ProtectedContext, centerId: string | null
     const [existing] = await tx.select({ id: admissionsSettings.id }).from(admissionsSettings).where(centerId ? eq(admissionsSettings.centerId, centerId) : isNull(admissionsSettings.centerId)).limit(1);
     if (existing) await tx.update(admissionsSettings).set({ roundsResetAt: new Date(), updatedBy: ctx.user.id }).where(eq(admissionsSettings.id, existing.id));
     else await tx.insert(admissionsSettings).values({ centerId, roundsResetAt: new Date(), updatedBy: ctx.user.id });
-    await writeAudit(tx as unknown as Db, { actorId: ctx.user.id, action: "UPDATE", module: "admissions", entity: "lead_assignees", entityId: centerId ?? "global", reason: "Đặt lại lượt", ip: ctx.ip });
+    await writeAudit(tx as unknown as Db, { actorId: ctx.user.id, action: "UPDATE", module: "admissions", entity: "lead_assignees", entityId: centerId ?? null, reason: "Đặt lại lượt", ip: ctx.ip });
   });
   return distributionBoard(ctx, centerId);
 }
