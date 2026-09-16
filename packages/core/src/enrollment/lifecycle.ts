@@ -47,8 +47,11 @@ export function enrollmentTransition(from: EnrollmentStatus, event: EnrollmentEv
   return to;
 }
 
-export function enrollmentEventsFor(status: EnrollmentStatus): EnrollmentEvent[] {
-  return (Object.keys(T[status] ?? {}) as EnrollmentEvent[]).filter((e) => e !== "transfer_out");
+/** Sự kiện thao tác được từ màn hồ sơ (chuyển lớp đi qua wizard riêng) */
+export type ManualEnrollmentEvent = Exclude<EnrollmentEvent, "transfer_out">;
+
+export function enrollmentEventsFor(status: EnrollmentStatus): ManualEnrollmentEvent[] {
+  return (Object.keys(T[status] ?? {}) as EnrollmentEvent[]).filter((e): e is ManualEnrollmentEvent => e !== "transfer_out");
 }
 
 export const OPEN_ENROLLMENT_STATUSES: readonly EnrollmentStatus[] = ["trial", "active", "paused"];
