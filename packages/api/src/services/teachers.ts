@@ -28,14 +28,14 @@ async function loadTeacher(ctx: ProtectedContext, id: string) {
 /** Khoá được dạy của GV — dùng khi phân lớp */
 export async function assertTeacherQualified(db: Db, teacherId: string | null | undefined, courseId: string) {
   if (!teacherId) return;
+  const [st] = await db.select({ s: teachers.workStatus }).from(teachers).where(eq(teachers.id, teacherId));
+  if (st && st.s !== "active") throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Giáo viên đang tạm nghỉ / ngưng — không phân lớp được" });
   const rows = await db.select({ courseId: teacherCourses.courseId }).from(teacherCourses).where(eq(teacherCourses.teacherId, teacherId));
   if (!canTeachCourse(rows.map((r) => r.courseId), courseId)) {
     const [t] = await db.select({ name: teachers.fullName }).from(teachers).where(eq(teachers.id, teacherId));
     const [c] = await db.select({ code: courses.code }).from(courses).where(eq(courses.id, courseId));
     throw new TRPCError({ code: "PRECONDITION_FAILED", message: `${t?.name ?? "Giáo viên"} chưa được khai báo dạy khoá ${c?.code ?? ""} — cập nhật hồ sơ GV trước` });
   }
-  const [st] = await db.select({ s: teachers.workStatus }).from(teachers).where(eq(teachers.id, teacherId));
-  if (st && st.s !== "active") throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Giáo viên đang tạm nghỉ / ngưng — không phân lớp được" });
 }
 
 /* ------------------------------------------------------------------ */

@@ -289,7 +289,7 @@ export async function cloneCurriculum(ctx: ProtectedContext, input: { id: string
   return ctx.db.transaction(async (tx) => {
     const [v] = await tx.select({ n: sql<number>`coalesce(max(${curricula.version}), 0)::int` }).from(curricula).where(eq(curricula.courseId, c.courseId));
     const version = (v?.n ?? 0) + 1;
-    const [row] = await tx.insert(curricula).values({ courseId: c.courseId, name: input.name?.trim() || `${c.name.replace(/\s*\(.*\)$/, "")} v${version}`, description: c.description, version, status: "draft", isActive: false, createdBy: ctx.user.id }).returning({ id: curricula.id });
+    const [row] = await tx.insert(curricula).values({ courseId: c.courseId, name: input.name?.trim() || `${c.name.replace(/\s*\(.*\)$/, "").replace(/\s+v\d+$/i, "")} v${version}`, description: c.description, version, status: "draft", isActive: false, createdBy: ctx.user.id }).returning({ id: curricula.id });
     const ls = await tx.select().from(lessons).where(eq(lessons.curriculumId, c.id));
     if (ls.length) await tx.insert(lessons).values(ls.map((l) => ({ curriculumId: row!.id, sequenceNo: l.sequenceNo, title: l.title, objectives: l.objectives, materials: l.materials, isReportCardMilestone: l.isReportCardMilestone })));
     await writeAudit(tx as unknown as Db, { actorId: ctx.user.id, action: "CREATE", module: "academics", entity: "curricula", entityId: row!.id, after: { clonedFrom: c.id, version, lessons: ls.length }, ip: ctx.ip });
