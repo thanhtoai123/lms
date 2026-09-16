@@ -6,3 +6,6 @@ export * from "./scheduling/conflicts.js";
 export * from "./sessions/stateMachine.js";
 export * from "./attendance/rules.js";
 export * from "./policy/policy.js";
+export * from "./admissions/leadMachine.js";
+export * from "./engagement/events.js";
+export * from "./engagement/automation.js";
