@@ -14,6 +14,8 @@ export type DomainEvent =
   | { type: "enrollment.created"; enrollmentId: string; studentId: string; classId: string }
   | { type: "risk.detected"; studentId: string; enrollmentId: string; code: string; severity: number; detail: string }
   | { type: "attendance.corrected"; sessionId: string; enrollmentId: string; studentId: string; from: string | null; to: string; reason: string; actorId: string }
+  | { type: "report_card.published"; reportCardId: string; enrollmentId: string; studentId: string }
+  | { type: "course.completed"; enrollmentId: string; studentId: string; courseId: string; nextCourseId: string | null }
   | { type: "report_card.due"; enrollmentId: string; sessionId: string; sequenceNo: number };
 
 export type DomainEventType = DomainEvent["type"];

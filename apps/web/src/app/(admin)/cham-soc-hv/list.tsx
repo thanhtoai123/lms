@@ -9,7 +9,7 @@ import { Empty } from "@/components/ui";
 
 type Item = { id: string; code: string; title: string; severity: number; status: string; dueAt: Date; overdue: boolean; studentName: string; studentCode: string | null; className: string | null; classId: string | null; outcome: string | null };
 
-const CODE_VI: Record<string, string> = { CONSECUTIVE_ABSENCE: "Nghỉ liên tiếp", LOW_ATTENDANCE: "Chuyên cần thấp", PENDING_MAKEUP: "Chờ học bù", MANUAL: "Thủ công" };
+const CODE_VI: Record<string, string> = { CONSECUTIVE_ABSENCE: "Nghỉ liên tiếp", LOW_ATTENDANCE: "Chuyên cần thấp", PENDING_MAKEUP: "Chờ học bù", MANUAL: "Thủ công", RENEWAL: "Tái tục" };
 
 export function CareList({ initial }: { initial: Item[] }) {
   const trpc = useTRPC();

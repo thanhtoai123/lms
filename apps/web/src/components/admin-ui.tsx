@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ENROLLMENT_STATUS_VI, type EnrollmentStatus } from "@satarobo/core";
+import { ENROLLMENT_STATUS_VI, REPORT_CARD_STATUS_VI, type EnrollmentStatus, type ReportCardStatus } from "@satarobo/core";
 
 export const STUDENT_STATUS_VI: Record<string, string> = {
   prospect: "Tiềm năng",
@@ -107,4 +107,15 @@ export function ErrorBox({ children }: { children: React.ReactNode }) {
 }
 export function OkBox({ children }: { children: React.ReactNode }) {
   return <div className="rounded-xl border border-green-200 bg-green-50 p-3 text-sm text-green-800">{children}</div>;
+}
+
+export const RC_CHIP: Record<ReportCardStatus, string> = {
+  draft: "bg-slate-100 text-slate-700",
+  submitted: "bg-amber-100 text-amber-800",
+  returned: "bg-red-100 text-red-700",
+  approved: "bg-sky-100 text-sky-800",
+  published: "bg-green-100 text-green-800",
+};
+export function ReportCardChip({ status }: { status: ReportCardStatus }) {
+  return <span className={`chip ${RC_CHIP[status]}`}>{REPORT_CARD_STATUS_VI[status]}</span>;
 }

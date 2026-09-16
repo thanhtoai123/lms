@@ -24,6 +24,8 @@ export const courses = pgTable("courses", {
   totalSessions: integer("total_sessions").notNull(), // 12 / 48
   sessionMinutes: integer("session_minutes").notNull().default(90),
   listPrice: numeric("list_price", { precision: 12, scale: 0 }).notNull().default("0"),
+  /** Gợi ý khoá tiếp theo khi hoàn thành (lộ trình) */
+  nextCourseId: uuid("next_course_id"),
   isActive: boolean("is_active").notNull().default(true),
   ...timestamps,
 });
@@ -226,6 +228,9 @@ export const sessionMedia = pgTable(
     uploadedBy: uuid("uploaded_by").references(() => users.id),
     reviewedBy: uuid("reviewed_by").references(() => users.id),
     reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    rejectReason: text("reject_reason"),
+    mimeType: text("mime_type"),
+    sizeBytes: integer("size_bytes"),
     ...timestamps,
   },
   (t) => [index("session_media_session_idx").on(t.sessionId), index("session_media_status_idx").on(t.status)],
@@ -245,3 +250,79 @@ export const makeupRequests = pgTable("makeup_requests", {
   note: text("note"),
   ...timestamps,
 });
+
+/* ------------------------------------------------------------------ */
+/* Học bạ năng lực & hoàn thành khoá                                  */
+/* ------------------------------------------------------------------ */
+
+/** Tiêu chí năng lực theo khoá (Cấu hình tiêu chí học bạ) */
+export const competencyCriteria = pgTable(
+  "competency_criteria",
+  {
+    id: id(),
+    courseId: uuid("course_id").notNull().references(() => courses.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    isActive: boolean("is_active").notNull().default(true),
+    ...timestamps,
+  },
+  (t) => [index("criteria_course_idx").on(t.courseId, t.sortOrder)],
+);
+
+export const reportCardStatusEnum = pgEnum("report_card_status", ["draft", "submitted", "returned", "approved", "published"]);
+
+/** Học bạ theo mốc buổi (5/12 mỗi kỳ) của một ghi danh */
+export const reportCards = pgTable(
+  "report_cards",
+  {
+    id: id(),
+    enrollmentId: uuid("enrollment_id").notNull().references(() => enrollments.id, { onDelete: "cascade" }),
+    milestoneSeq: integer("milestone_seq").notNull(),
+    sessionId: uuid("session_id").references(() => sessions.id, { onDelete: "set null" }),
+    status: reportCardStatusEnum("status").notNull().default("draft"),
+    teacherComment: text("teacher_comment"),
+    strengths: text("strengths"),
+    improvements: text("improvements"),
+    averageScore: numeric("average_score", { precision: 3, scale: 1 }),
+    authorId: uuid("author_id").references(() => users.id),
+    submittedAt: timestamp("submitted_at", { withTimezone: true }),
+    reviewedBy: uuid("reviewed_by").references(() => users.id),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    returnReason: text("return_reason"),
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex("report_cards_unique").on(t.enrollmentId, t.milestoneSeq), index("report_cards_status_idx").on(t.status)],
+);
+
+export const reportCardScores = pgTable(
+  "report_card_scores",
+  {
+    reportCardId: uuid("report_card_id").notNull().references(() => reportCards.id, { onDelete: "cascade" }),
+    criterionId: uuid("criterion_id").notNull().references(() => competencyCriteria.id, { onDelete: "cascade" }),
+    score: smallint("score"),
+    comment: text("comment"),
+  },
+  (t) => [uniqueIndex("rc_scores_pk").on(t.reportCardId, t.criterionId)],
+);
+
+/** Hoàn thành khoá & chứng chỉ */
+export const courseCompletions = pgTable(
+  "course_completions",
+  {
+    id: id(),
+    enrollmentId: uuid("enrollment_id").notNull().references(() => enrollments.id, { onDelete: "cascade" }),
+    courseId: uuid("course_id").notNull().references(() => courses.id),
+    grade: text("grade").notNull(),
+    teacherEvaluation: text("teacher_evaluation").notNull(),
+    averageScore: numeric("average_score", { precision: 3, scale: 1 }),
+    certificateNo: text("certificate_no").notNull(),
+    nextCourseId: uuid("next_course_id").references(() => courses.id),
+    issuedAt: timestamp("issued_at", { withTimezone: true }).notNull().defaultNow(),
+    issuedBy: uuid("issued_by").references(() => users.id),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex("completions_enrollment_unique").on(t.enrollmentId), uniqueIndex("completions_cert_unique").on(t.certificateNo)],
+);

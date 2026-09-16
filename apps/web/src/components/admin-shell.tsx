@@ -90,8 +90,8 @@ export function AdminShell({ nav, me, canRunWorker, children }: { nav: NavGroup[
   );
 
   return (
-    <div className="min-h-dvh bg-surface lg:grid lg:grid-cols-[256px_1fr]">
-      <aside className="hidden lg:block sticky top-0 h-dvh border-r border-black/5 bg-white">{sidebar}</aside>
+    <div className="min-h-dvh bg-surface lg:grid lg:grid-cols-[256px_1fr] print:block">
+      <aside className="hidden lg:block sticky top-0 h-dvh border-r border-black/5 bg-white print:!hidden">{sidebar}</aside>
 
       {mobileOpen && (
         <div className="fixed inset-0 z-40 lg:hidden" role="dialog" aria-modal="true">
@@ -101,7 +101,7 @@ export function AdminShell({ nav, me, canRunWorker, children }: { nav: NavGroup[
       )}
 
       <div className="min-w-0">
-        <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-black/5 bg-white/95 px-4 backdrop-blur md:px-6">
+        <header className="print:hidden sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-black/5 bg-white/95 px-4 backdrop-blur md:px-6">
           <button className="rounded-lg p-2 hover:bg-black/5 lg:hidden" onClick={() => setMobileOpen(true)} aria-label="Mở menu">☰</button>
           <form
             className="hidden flex-1 md:block max-w-md"

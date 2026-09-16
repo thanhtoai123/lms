@@ -9,7 +9,7 @@ import { createDb } from "./index";
 import {
   centers, rooms, users, userRoles, teachers, parents, students, studentGuardians,
   courses, curricula, lessons, classes, classSchedules, sessions, enrollments, attendance,
-  enrollmentEvents,
+  enrollmentEvents, competencyCriteria, reportCards, reportCardScores, sessionMedia,
   leads, leadChildren, leadActivities, leadTasks, leadAssignees, admissionsSettings,
 } from "./schema/index";
 import { generateSessions, buildClassCode, buildStudentCode, toISODate, addDays } from "@satarobo/core";
@@ -172,6 +172,27 @@ async function main() {
       })),
     );
     await db.update(sessions).set({ status: "completed", sessionNote: "Lớp học tốt, các con hoàn thành mục tiêu buổi.", completedAt: new Date(), completedBy: t1U!.id }).where(eq(sessions.id, s.id));
+  }
+
+  // ---- Học bạ năng lực: tiêu chí, lộ trình khoá, học bạ mẫu ----
+  await db.update(courses).set({ nextCourseId: sata6!.id }).where(eq(courses.id, sata4!.id));
+  const critNames = ["Tư duy lập trình", "Lắp ráp & cơ khí", "Giải quyết vấn đề", "Làm việc nhóm", "Thuyết trình"];
+  const crit4 = await db.insert(competencyCriteria).values(critNames.map((name, i) => ({ courseId: sata4!.id, name, sortOrder: i + 1 }))).returning();
+  await db.insert(competencyCriteria).values(critNames.slice(0, 4).map((name, i) => ({ courseId: sata6!.id, name, sortOrder: i + 1 })));
+  const m5 = sessionRows.find((x) => x.classId === classA!.id && x.sequenceNo === 5);
+  if (m5 && m5.date <= today) {
+    const [rc1] = await db.insert(reportCards).values({ enrollmentId: enrollA[0]!.id, milestoneSeq: 5, sessionId: m5.id, status: "submitted", teacherComment: "Con tiếp thu nhanh, chủ động hỏi bài và giúp bạn cùng nhóm lắp ráp mô hình.", strengths: "Tư duy logic tốt", improvements: "Cần cẩn thận hơn khi đi dây", averageScore: "4.2", authorId: t1U!.id, submittedAt: new Date() }).returning();
+    await db.insert(reportCardScores).values(crit4.map((c, i) => ({ reportCardId: rc1!.id, criterionId: c.id, score: [5, 4, 4, 4, 4][i]! })));
+    await db.insert(reportCards).values({ enrollmentId: enrollA[1]!.id, milestoneSeq: 5, sessionId: m5.id, status: "draft", teacherComment: "Đang viết…", authorId: t1U!.id });
+  }
+
+  // ---- Ảnh lớp mẫu (tệp giữ chỗ, chờ duyệt) ----
+  const pastWithMedia = sessionRows.filter((x) => x.classId === classA!.id && x.date < today).slice(-2);
+  for (const [k, ss] of pastWithMedia.entries()) {
+    await db.insert(sessionMedia).values([
+      { sessionId: ss.id, objectKey: `seed/lop-a-buoi-${ss.sequenceNo}-1.svg`, caption: "Các con lắp robot theo nhóm", status: "pending" as const, taggedStudentIds: [studentRows[1]!.id, studentRows[2]!.id], uploadedBy: t1U!.id, createdAt: new Date(Date.now() - (k === 0 ? 50 : 3) * 3600e3) },
+      { sessionId: ss.id, objectKey: `seed/lop-a-buoi-${ss.sequenceNo}-2.svg`, caption: "Thử nghiệm mô hình", status: "pending" as const, taggedStudentIds: [studentRows[0]!.id, studentRows[3]!.id], uploadedBy: t1U!.id, createdAt: new Date(Date.now() - (k === 0 ? 50 : 3) * 3600e3) },
+    ]);
   }
 
   // ---- Một ca bảo lưu mẫu ----

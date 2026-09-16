@@ -7,6 +7,7 @@ import { engagementRouter } from "./routers/engagement";
 import { dashboardRouter } from "./routers/dashboard";
 import { studentsRouter, orgRouter } from "./routers/students";
 import { scheduleRouter } from "./routers/schedule";
+import { learningRouter } from "./routers/learning";
 
 export const appRouter = router({
   auth: authRouter,
@@ -21,6 +22,7 @@ export const appRouter = router({
   students: studentsRouter,
   org: orgRouter,
   schedule: scheduleRouter,
+  learning: learningRouter,
 });
 
 export type AppRouter = typeof appRouter;
@@ -30,3 +32,5 @@ export { createLead } from "./services/leads";
 export { processOutbox, scanLeadSla } from "./services/engagement";
 export { leadInput } from "./routers/admissions";
 export { verifyActivationCode } from "./services/parentAccounts";
+export { putObject, getObject, signedMediaUrl, verifyMediaSignature } from "./storage";
+export { registerUploadedMedia } from "./services/media";

@@ -1,9 +1,10 @@
 import { and, eq, inArray, isNull, or, sql, desc, gte, type SQL } from "drizzle-orm";
 import { leads, students, sessions, classes, careTasks, sessionMedia } from "@satarobo/db";
-import { OPEN_LEAD_STATUSES, computeSla, authorize, maskPhone, hasRole, visibleCenterIds, type LeadStatus, type Permission } from "@satarobo/core";
+import { addDays as addDaysISO, OPEN_LEAD_STATUSES, computeSla, authorize, maskPhone, hasRole, visibleCenterIds, type LeadStatus, type Permission } from "@satarobo/core";
 import type { ProtectedContext } from "../trpc";
 import { todayISO, overdueQueue } from "./sessions";
 import { resolveAdmissionsPolicy } from "./admissionsAdmin";
+import { dueReportCards } from "./reportCards";
 
 const TZ = "Asia/Ho_Chi_Minh";
 
@@ -39,6 +40,13 @@ export async function adminOverview(ctx: ProtectedContext) {
 
   const queues: QueueItem[] = [];
 
+  // 0) Học bạ kỳ chưa viết (buổi 5 / buổi 12)
+  if (can("report_card:read")) {
+    const due = await dueReportCards(ctx, { limit: 500 });
+    const overdue = due.filter((d) => d.date < addDaysISO(today, -3));
+    queues.push({ key: "report_cards", title: "Học bạ kỳ chưa viết (buổi 5 / buổi 12)", count: due.length, overdue: overdue.length, href: "/report-cards", preview: due.slice(0, 3).map((d) => `${d.classCode} · ${d.studentName} · buổi ${d.seq}`) });
+  }
+
   // 1) Buổi học chưa hoàn tất (đã qua ngày)
   if (canClass) {
     const q = await overdueQueue(ctx, { limit: 3 });
@@ -61,8 +69,8 @@ export async function adminOverview(ctx: ProtectedContext) {
     const open = and(inArray(careTasks.status, ["open", "in_progress", "escalated"]), scope(careTasks.centerId));
     const rows = await db
       .select({
-        auto: sql<number>`count(*) filter (where ${careTasks.code} <> 'MANUAL')::int`,
-        autoOver: sql<number>`count(*) filter (where ${careTasks.code} <> 'MANUAL' and ${careTasks.dueAt} < now())::int`,
+        auto: sql<number>`count(*) filter (where ${careTasks.code} in ('CONSECUTIVE_ABSENCE','LOW_ATTENDANCE','PENDING_MAKEUP'))::int`,
+        autoOver: sql<number>`count(*) filter (where ${careTasks.code} in ('CONSECUTIVE_ABSENCE','LOW_ATTENDANCE','PENDING_MAKEUP') and ${careTasks.dueAt} < now())::int`,
         all: sql<number>`count(*)::int`,
         allOver: sql<number>`count(*) filter (where ${careTasks.dueAt} < now())::int`,
       })
@@ -75,7 +83,7 @@ export async function adminOverview(ctx: ProtectedContext) {
       .where(open)
       .orderBy(careTasks.severity, careTasks.dueAt)
       .limit(3);
-    queues.push({ key: "risks", title: "Cảnh báo rủi ro HV", count: rows[0]?.auto ?? 0, overdue: rows[0]?.autoOver ?? 0, href: "/canh-bao-rui-ro", preview: top.filter((t) => t.code !== "MANUAL").map((t) => `${t.name} — ${t.code}`) });
+    queues.push({ key: "risks", title: "Cảnh báo rủi ro HV", count: rows[0]?.auto ?? 0, overdue: rows[0]?.autoOver ?? 0, href: "/canh-bao-rui-ro", preview: top.filter((t) => ["CONSECUTIVE_ABSENCE", "LOW_ATTENDANCE", "PENDING_MAKEUP"].includes(t.code)).map((t) => `${t.name} — ${t.code}`) });
     queues.push({ key: "care", title: "Việc chăm sóc HV", count: rows[0]?.all ?? 0, overdue: rows[0]?.allOver ?? 0, href: "/cham-soc-hv", preview: top.map((t) => `${t.title} — ${t.name}`) });
   }
 

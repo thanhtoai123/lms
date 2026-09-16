@@ -80,6 +80,19 @@ export const DEFAULT_RULES: AutomationRule[] = [
     actions: (e) => (e.type === "report_card.due" ? [{ kind: "notify_user", userId: null, role: "TEACHER", title: "Đến hạn viết học bạ", body: `Buổi ${e.sequenceNo} — viết học bạ năng lực cho học viên`, link: `/teacher/sessions/${e.sessionId}`, priority: 2 }] : []),
   },
   {
+    code: "COURSE_COMPLETED_RENEWAL",
+    name: "Hoàn thành khoá → việc tư vấn tái tục khoá tiếp theo",
+    enabled: true,
+    on: "course.completed",
+    actions: (e) =>
+      e.type === "course.completed"
+        ? [
+            { kind: "create_care_task", studentId: e.studentId, enrollmentId: e.enrollmentId, code: "RENEWAL", title: e.nextCourseId ? "Tư vấn tái tục: gợi ý khoá tiếp theo" : "Tư vấn tái tục sau hoàn thành khoá", dueInHours: 72, severity: 2 },
+            { kind: "notify_user", userId: null, role: "CENTER_SALES_CSM", title: "Học viên hoàn thành khoá", body: "Gọi chúc mừng và tư vấn khoá tiếp theo", link: `/students/${e.studentId}`, priority: 2 },
+          ]
+        : [],
+  },
+  {
     code: "TRIAL_DONE_FOLLOWUP",
     name: "Học thử xong → việc gọi chốt trong 24h",
     enabled: true,

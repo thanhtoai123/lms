@@ -12,3 +12,5 @@ export * from "./engagement/automation.js";
 export * from "./enrollment/lifecycle.js";
 export * from "./calendar/week.js";
 export * from "./makeup/rules.js";
+export * from "./reportcards/rules.js";
+export * from "./media/consent.js";

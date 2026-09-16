@@ -123,7 +123,7 @@ export async function correctAttendance(ctx: ProtectedContext, input: { sessionI
 export async function riskOverview(ctx: ProtectedContext, input: { centerId?: string }) {
   requirePermission(ctx, "care:read", { centerId: input.centerId ?? null });
   const visible = visibleCenterIds(ctx.actor);
-  const conds = [sql`${careTasks.code} <> 'MANUAL'`, inArray(careTasks.status, ["open", "in_progress", "escalated"])];
+  const conds = [inArray(careTasks.code, ["CONSECUTIVE_ABSENCE", "LOW_ATTENDANCE", "PENDING_MAKEUP"]), inArray(careTasks.status, ["open", "in_progress", "escalated"])];
   if (input.centerId) conds.push(eq(careTasks.centerId, input.centerId));
   if (visible !== null) conds.push(visible.length ? inArray(careTasks.centerId, visible) : sql`false`);
   const rows = await ctx.db
