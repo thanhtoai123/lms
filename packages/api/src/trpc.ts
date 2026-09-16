@@ -7,8 +7,11 @@ import type { Context } from "./context";
 const t = initTRPC.context<Context>().create({
   transformer: superjson,
   errorFormatter({ shape, error }) {
+    const zod = error.cause instanceof ZodError ? error.cause : null;
     return {
       ...shape,
+      // Thông báo dễ đọc cho người dùng thay vì JSON thô của zod
+      message: zod ? [...new Set(zod.issues.map((i) => i.message))].join("; ") : shape.message,
       data: {
         ...shape.data,
         zodError: error.cause instanceof ZodError ? error.cause.flatten() : null,
