@@ -12,3 +12,4 @@ coverage
 .DS_Store
 .vercel
 drizzle/meta/_journal.json.bak
+*.tsbuildinfo
