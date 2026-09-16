@@ -1,3 +1,4 @@
+import { hasPermission, type Actor } from "@satarobo/core";
 import { getServerCaller } from "@/lib/trpc/server";
 import { PageHeader } from "@/components/admin-ui";
 import { Empty } from "@/components/ui";
@@ -8,7 +9,10 @@ export const metadata = { title: "Điểm danh" };
 
 export default async function AttendancePage({ searchParams }: { searchParams: Promise<{ class?: string }> }) {
   const sp = await searchParams;
-  const { caller } = await getServerCaller();
+  const { caller, ctx } = await getServerCaller();
+  if (!ctx.actor || !hasPermission(ctx.actor as Actor, "attendance:read")) {
+    return <div className="card p-6 text-sm">Bạn không có quyền xem điểm danh. Liên hệ quản lý cơ sở nếu cần.</div>;
+  }
   const opts = await caller.schedule.classOptions();
   const active = opts.filter((c) => c.status === "running" || c.status === "recruiting" || c.status === "finished");
   const classId = sp.class && opts.some((c) => c.id === sp.class) ? sp.class : active.find((c) => c.status === "running")?.id;

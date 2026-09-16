@@ -98,8 +98,8 @@ export async function correctAttendance(ctx: ProtectedContext, input: { sessionI
       .values({ sessionId: input.sessionId, enrollmentId: input.enrollmentId, status: input.status, note: input.reason ?? null, recordedBy: ctx.user.id, recordedAt: new Date() })
       .onConflictDoUpdate({ target: [attendance.sessionId, attendance.enrollmentId], set: { status: input.status, note: input.reason ?? null, recordedBy: ctx.user.id, recordedAt: new Date(), updatedAt: new Date() } });
     await writeAudit(tx as unknown as Db, {
-      actorId: ctx.user.id, action: "UPDATE", module: "academics", entity: "attendance", entityId: `${input.sessionId}:${input.enrollmentId}`,
-      before: { status: before?.status ?? null }, after: { status: input.status, retroactive: retro }, reason: input.reason ?? null, ip: ctx.ip,
+      actorId: ctx.user.id, action: "UPDATE", module: "academics", entity: "attendance", entityId: input.enrollmentId,
+      before: { sessionId: input.sessionId, status: before?.status ?? null }, after: { sessionId: input.sessionId, status: input.status, retroactive: retro }, reason: input.reason ?? null, ip: ctx.ip,
     });
     if (retro) {
       await emit(tx as unknown as Db, { type: "attendance.corrected", sessionId: input.sessionId, enrollmentId: input.enrollmentId, studentId: enr.studentId, from: before?.status ?? null, to: input.status, reason: input.reason!, actorId: ctx.user.id });
