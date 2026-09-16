@@ -2,7 +2,7 @@ import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import { ZodError } from "zod";
 import { ForbiddenError, SessionTransitionError, assertAuthorized, type Permission, type ResourceRef } from "@satarobo/core";
-import type { Context } from "./context.js";
+import type { Context } from "./context";
 
 const t = initTRPC.context<Context>().create({
   transformer: superjson,

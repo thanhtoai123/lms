@@ -5,11 +5,11 @@
  */
 import "dotenv/config";
 import { eq } from "drizzle-orm";
-import { createDb } from "./index.js";
+import { createDb } from "./index";
 import {
   centers, rooms, users, userRoles, teachers, parents, students, studentGuardians,
   courses, curricula, lessons, classes, classSchedules, sessions, enrollments, attendance,
-} from "./schema/index.js";
+} from "./schema/index";
 import { generateSessions, buildClassCode, buildStudentCode, toISODate, addDays } from "@satarobo/core";
 
 const db = createDb();

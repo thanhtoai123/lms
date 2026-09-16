@@ -5,8 +5,8 @@ import {
   generateSessions, expectedEndDate, findConflicts, buildClassCode, visibleCenterIds, summarize, detectRisks,
   type ScheduleRule, type Weekday, type ClassStatus, type AttendanceRecord,
 } from "@satarobo/core";
-import { requirePermission, type ProtectedContext } from "../trpc.js";
-import { writeAudit } from "./audit.js";
+import { requirePermission, type ProtectedContext } from "../trpc";
+import { writeAudit } from "./audit";
 
 export async function listClasses(ctx: ProtectedContext, input: { centerId?: string; status?: ClassStatus; q?: string; teacherId?: string }) {
   const conds = [sql`${classes.deletedAt} is null`];

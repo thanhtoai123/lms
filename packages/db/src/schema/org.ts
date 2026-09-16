@@ -1,5 +1,5 @@
 import { pgTable, text, uuid, boolean, integer, index } from "drizzle-orm/pg-core";
-import { id, timestamps } from "./_common.js";
+import { id, timestamps } from "./_common";
 
 export const centers = pgTable("centers", {
   id: id(),

@@ -1,7 +1,7 @@
-import { router, createCallerFactory } from "./trpc.js";
-import { authRouter } from "./routers/auth.js";
-import { sessionsRouter, classesRouter } from "./routers/academics.js";
-import { teacherRouter } from "./routers/teacher.js";
+import { router, createCallerFactory } from "./trpc";
+import { authRouter } from "./routers/auth";
+import { sessionsRouter, classesRouter } from "./routers/academics";
+import { teacherRouter } from "./routers/teacher";
 
 export const appRouter = router({
   auth: authRouter,
@@ -14,4 +14,4 @@ export const appRouter = router({
 
 export type AppRouter = typeof appRouter;
 export const createCaller = createCallerFactory(appRouter);
-export { createContext, type Context } from "./context.js";
+export { createContext, type Context } from "./context";

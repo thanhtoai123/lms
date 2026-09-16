@@ -15,7 +15,7 @@ import "dotenv/config";
 import postgres from "postgres";
 import { createHmac, createCipheriv, randomBytes } from "node:crypto";
 import { createDb, centers, rooms, courses, teachers, parents, parentPrivate, students, studentGuardians, classes, classSchedules, sessions, enrollments, attendance } from "@satarobo/db";
-import { MAPPING, SESSION_STATUS_MAP, ATTENDANCE_STATUS_MAP, parseLegacySchedule } from "./mapping.js";
+import { MAPPING, SESSION_STATUS_MAP, ATTENDANCE_STATUS_MAP, parseLegacySchedule } from "./mapping";
 
 const args = new Set(process.argv.slice(2));
 const dryRun = args.has("--dry-run") || !args.has("--write");

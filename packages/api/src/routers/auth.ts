@@ -1,4 +1,4 @@
-import { router, publicProcedure } from "../trpc.js";
+import { router, publicProcedure } from "../trpc";
 import { visibleCenterIds } from "@satarobo/core";
 
 export const authRouter = router({

@@ -1,11 +1,11 @@
 import {
   pgTable, text, uuid, boolean, integer, date, time, timestamp, pgEnum, jsonb, index, uniqueIndex, smallint, numeric,
 } from "drizzle-orm/pg-core";
-import { id, timestamps, softDelete } from "./_common.js";
+import { id, timestamps, softDelete } from "./_common";
 import { SESSION_STATUSES, ATTENDANCE_STATUSES, ENROLLMENT_STATUSES, CLASS_STATUSES } from "@satarobo/core";
-import { centers, rooms } from "./org.js";
-import { teachers, students, parents } from "./people.js";
-import { users } from "./identity.js";
+import { centers, rooms } from "./org";
+import { teachers, students, parents } from "./people";
+import { users } from "./identity";
 
 export const sessionStatusEnum = pgEnum("session_status", SESSION_STATUSES);
 export const attendanceStatusEnum = pgEnum("attendance_status", ATTENDANCE_STATUSES);

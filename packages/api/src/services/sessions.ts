@@ -5,8 +5,8 @@ import {
   transition, nextStep, isOverdue, OPEN_STATUSES, toISODate, visibleCenterIds,
   type SessionEvent, type SessionStatus, type AttendanceStatus,
 } from "@satarobo/core";
-import { requirePermission, type ProtectedContext } from "../trpc.js";
-import { writeAudit } from "./audit.js";
+import { requirePermission, type ProtectedContext } from "../trpc";
+import { writeAudit } from "./audit";
 
 export function todayISO() {
   // Múi giờ vận hành: Asia/Ho_Chi_Minh (UTC+7)

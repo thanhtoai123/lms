@@ -1,7 +1,7 @@
 import { pgTable, text, uuid, boolean, date, pgEnum, index, integer } from "drizzle-orm/pg-core";
-import { id, timestamps, softDelete } from "./_common.js";
-import { users } from "./identity.js";
-import { centers } from "./org.js";
+import { id, timestamps, softDelete } from "./_common";
+import { users } from "./identity";
+import { centers } from "./org";
 
 export const contractTypeEnum = pgEnum("contract_type", ["full_time", "part_time", "collaborator"]);
 

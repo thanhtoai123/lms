@@ -3,9 +3,9 @@ import { eq } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { teachers } from "@satarobo/db";
 import { addDays, hasRole } from "@satarobo/core";
-import { router, protectedProcedure } from "../trpc.js";
-import { listSessions, todayISO } from "../services/sessions.js";
-import { listClasses } from "../services/classes.js";
+import { router, protectedProcedure } from "../trpc";
+import { listSessions, todayISO } from "../services/sessions";
+import { listClasses } from "../services/classes";
 
 async function myTeacherId(ctx: { db: import("@satarobo/db").Database; user: { id: string }; actor: import("@satarobo/core").Actor }) {
   const t = await ctx.db.query.teachers.findFirst({ where: eq(teachers.userId, ctx.user.id), columns: { id: true, fullName: true, centerId: true } });

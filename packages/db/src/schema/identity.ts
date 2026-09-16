@@ -1,7 +1,7 @@
 import { pgTable, text, uuid, boolean, timestamp, pgEnum, jsonb, index, uniqueIndex } from "drizzle-orm/pg-core";
-import { id, timestamps } from "./_common.js";
+import { id, timestamps } from "./_common";
 import { ROLES } from "@satarobo/core";
-import { centers } from "./org.js";
+import { centers } from "./org";
 
 export const roleEnum = pgEnum("role", ROLES);
 

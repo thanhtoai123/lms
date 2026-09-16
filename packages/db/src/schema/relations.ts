@@ -1,8 +1,8 @@
 import { relations } from "drizzle-orm";
-import { centers, rooms } from "./org.js";
-import { users, userRoles } from "./identity.js";
-import { teachers, students, parents, studentGuardians } from "./people.js";
-import { courses, curricula, lessons, classes, classSchedules, sessions, enrollments, attendance, sessionMedia } from "./academics.js";
+import { centers, rooms } from "./org";
+import { users, userRoles } from "./identity";
+import { teachers, students, parents, studentGuardians } from "./people";
+import { courses, curricula, lessons, classes, classSchedules, sessions, enrollments, attendance, sessionMedia } from "./academics";
 
 export const centersRelations = relations(centers, ({ many }) => ({ rooms: many(rooms), classes: many(classes) }));
 export const roomsRelations = relations(rooms, ({ one }) => ({ center: one(centers, { fields: [rooms.centerId], references: [centers.id] }) }));

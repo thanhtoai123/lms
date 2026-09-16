@@ -1,8 +1,8 @@
 import { z } from "zod";
-import { router, protectedProcedure } from "../trpc.js";
+import { router, protectedProcedure } from "../trpc";
 import { ATTENDANCE_STATUSES, CLASS_STATUSES } from "@satarobo/core";
-import * as S from "../services/sessions.js";
-import * as C from "../services/classes.js";
+import * as S from "../services/sessions";
+import * as C from "../services/classes";
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "YYYY-MM-DD");
 const hhmm = z.string().regex(/^\d{2}:\d{2}$/, "HH:mm");
