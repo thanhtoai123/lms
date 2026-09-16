@@ -5,6 +5,10 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+  issues: write
+
 jobs:
   build-test:
     runs-on: ubuntu-latest
@@ -39,13 +43,13 @@ jobs:
       - name: Typecheck all packages
         run: pnpm -r typecheck
       - name: DB push (drizzle-kit)
-        run: pnpm db:push -- --force
+        run: set -o pipefail; pnpm db:push -- --force 2>&1 | tee /tmp/ci-1-push.log
       - name: DB constraints (SQL)
-        run: pnpm db:apply-sql
+        run: set -o pipefail; pnpm db:apply-sql 2>&1 | tee /tmp/ci-2-sql.log
       - name: DB seed
-        run: pnpm db:seed
+        run: set -o pipefail; pnpm db:seed 2>&1 | tee /tmp/ci-3-seed.log
       - name: Build web
-        run: pnpm --filter @satarobo/web build
+        run: set -o pipefail; pnpm --filter @satarobo/web build 2>&1 | tee /tmp/ci-4-build.log
       - name: Smoke test (server renders Teacher app with seeded data)
         run: |
           (cd apps/web && pnpm start -p 3000 &)
@@ -53,3 +57,10 @@ jobs:
           curl -sf -b "x-dev-actor=teacher1@satarobo.vn" http://localhost:3000/teacher | grep -q "Hôm nay"
           curl -sf -b "x-dev-actor=manager.cs1@example.test" http://localhost:3000/ops | grep -q "Việc cần xử lý"
           echo "smoke OK"
+      - name: Report failure as GitHub issue
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          { echo "Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"; echo; for f in /tmp/ci-*.log; do [ -f "$f" ] || continue; echo "### $f"; echo '```'; tail -c 5000 "$f"; echo '```'; done; } > /tmp/body.md
+          gh issue create --title "CI failed: ${{ github.sha }}" --body-file /tmp/body.md || true
