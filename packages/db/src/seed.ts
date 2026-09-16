@@ -12,8 +12,9 @@ import {
   enrollmentEvents, competencyCriteria, reportCards, reportCardScores, sessionMedia,
   leads, leadChildren, leadActivities, leadTasks, leadAssignees, admissionsSettings, trialBookings, auditLog,
   holidays, coursePrerequisites, teacherCourses, teacherEvaluations,
+  paymentMethods, orders, orderItems, orderInstallments, orderEvents, payments, refunds, financeLedger,
 } from "./schema/index";
-import { generateSessions, buildClassCode, buildStudentCode, toISODate, addDays } from "@satarobo/core";
+import { generateSessions, buildClassCode, buildStudentCode, toISODate, addDays, orderCode, receiptNumber, packagePrice, buildInstallmentPlan } from "@satarobo/core";
 
 const db = createDb();
 
@@ -271,6 +272,58 @@ async function main() {
   await db.update(curricula).set({ status: "active", description: "Giáo trình chuẩn 2026" }).where(eq(curricula.id, cur4!.id));
   const [cur4v2] = await db.insert(curricula).values({ courseId: sata4!.id, name: "Sata4 v2 (nháp)", version: 2, status: "draft", isActive: false, createdBy: adminU!.id }).returning();
   await db.insert(lessons).values(lessonTitles.slice(0, 3).map((title, i) => ({ curriculumId: cur4v2!.id, sequenceNo: i + 1, title, materials: "Bộ kit Sata4" })));
+
+  // ---- Tài chính mẫu: kế toán CS1, phương thức TT, đơn học phí, khoản thu, hoàn tiền ----
+  const [ktU] = await db.insert(users).values({ email: "ketoan.cs1@example.test", fullName: "Kế toán CS1 (mẫu)" }).returning();
+  await db.insert(userRoles).values({ userId: ktU!.id, role: "CENTER_ACCOUNTANT", centerId: cs1!.id });
+  const [pmCash, pmBank] = await db.insert(paymentMethods).values([
+    { code: "TM-CS1", name: "Tiền mặt tại CS1", kind: "cash", centerId: cs1!.id, allowFor: ["course", "product"], sortOrder: 1 },
+    { code: "CK-VCB", name: "Chuyển khoản Vietcombank", kind: "bank_transfer", centerId: null, bankBin: "970436", bankName: "Vietcombank", accountNo: "0000000000", accountName: "CONG TY SATA ROBO (MAU)", allowFor: ["course", "product", "exam"], sortOrder: 2, description: "Tài khoản mẫu — thay bằng tài khoản thật" },
+  ]).returning();
+  const sata4Price = Number(sata4!.listPrice);
+  let orderSeq = 0;
+  let receiptSeq = 0;
+  const yr = new Date().getFullYear();
+  const mkOrder = async (i: number, opts: { installments?: number; firstDue?: string; pay?: { amount: number; status: "confirmed" | "recorded"; daysAgo: number }[] }) => {
+    const e = enrollA[i]!;
+    const par = parentRows[i]!;
+    const total = packagePrice(sata4Price, sata4!.totalSessions, e.packageSessions);
+    const [o] = await db.insert(orders).values({
+      code: orderCode(yr, ++orderSeq), type: "course", status: "pending_payment", centerId: cs1!.id, parentId: par.id, studentId: e.studentId, enrollmentId: e.id,
+      customerName: par.fullName, customerPhone: par.phone, subtotal: total, discountAmount: 0, total, paymentMethodId: pmBank!.id, createdBy: sale1U!.id,
+      createdAt: new Date(Date.now() - 40 * 86400e3),
+    }).returning();
+    await db.insert(orderItems).values({ orderId: o!.id, courseId: sata4!.id, description: `Học phí ${sata4!.code} — gói ${e.packageSessions} buổi`, quantity: 1, unitPrice: total, amount: total, packageSessions: e.packageSessions });
+    await db.insert(orderInstallments).values(buildInstallmentPlan(total, opts.installments ?? 1, opts.firstDue ?? addDays(today, -30)).map((p) => ({ orderId: o!.id, ...p })));
+    await db.insert(orderEvents).values({ orderId: o!.id, event: "create", toStatus: "pending_payment", actorId: sale1U!.id });
+    await db.insert(financeLedger).values({ orderId: o!.id, centerId: cs1!.id, entryType: "charge", amount: total, refId: o!.id, note: "Tạo đơn", actorId: sale1U!.id });
+    let confirmed = 0;
+    for (const p of opts.pay ?? []) {
+      const [pay] = await db.insert(payments).values({
+        orderId: o!.id, centerId: cs1!.id, recordedAmount: p.amount, amount: p.amount, paymentMethodId: p.status === "confirmed" ? pmCash!.id : pmBank!.id, paidAt: addDays(today, -p.daysAgo),
+        status: p.status, recordedBy: sale1U!.id, recordedAt: new Date(Date.now() - p.daysAgo * 86400e3),
+        ...(p.status === "confirmed" ? { decidedBy: ktU!.id, decidedAt: new Date(Date.now() - (p.daysAgo - 1) * 86400e3), receiptNo: receiptNumber("CS1", yr, ++receiptSeq) } : {}),
+      }).returning();
+      if (p.status === "confirmed") {
+        confirmed += p.amount;
+        await db.insert(financeLedger).values({ orderId: o!.id, centerId: cs1!.id, entryType: "payment", amount: -p.amount, refId: pay!.id, note: "Thu học phí", actorId: ktU!.id });
+      }
+    }
+    const status = confirmed <= 0 ? "pending_payment" : confirmed >= total ? "paid" : "partially_paid";
+    await db.update(orders).set({ status }).where(eq(orders.id, o!.id));
+    return { order: o!, total };
+  };
+  await mkOrder(0, { pay: [{ amount: packagePrice(sata4Price, 48, 48), status: "confirmed", daysAgo: 35 }] });
+  const inst = await mkOrder(1, { installments: 3, firstDue: addDays(today, -45), pay: [{ amount: 3_200_000, status: "confirmed", daysAgo: 44 }] });
+  void inst;
+  await mkOrder(2, { pay: [{ amount: 2_000_000, status: "recorded", daysAgo: 1 }] });
+  const paidFull = await mkOrder(4, { pay: [{ amount: packagePrice(sata4Price, 48, 48), status: "confirmed", daysAgo: 30 }] });
+  await mkOrder(5, { installments: 2, firstDue: addDays(today, 2) });
+  // enrollA[3] không có đơn → "Thiếu học phí: chưa lập đơn"
+  await db.insert(refunds).values({
+    orderId: paidFull.order.id, enrollmentId: enrollA[4]!.id, centerId: cs1!.id, status: "pending", amount: 6_000_000, proposedAmount: 7_600_000,
+    sessionsUsed: 10, sessionsTotal: 48, reason: "Gia đình chuyển vào TP.HCM (mẫu)", requestedBy: mgrU!.id,
+  });
 
   // ---- Lớp Trial mẫu: 1 buổi sắp tới (đã xếp), 1 đã học thử, 1 không đến ----
   const futureA = sessionRows.filter((x) => x.classId === classA!.id && x.date > today).sort((a, b) => a.sequenceNo - b.sequenceNo);

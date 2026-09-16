@@ -10,6 +10,7 @@ import { scheduleRouter } from "./routers/schedule";
 import { learningRouter } from "./routers/learning";
 import { systemRouter, reportsRouter, trialsRouter } from "./routers/system";
 import { catalogRouter } from "./routers/catalog";
+import { financeRouter } from "./routers/finance";
 
 export const appRouter = router({
   auth: authRouter,
@@ -28,6 +29,7 @@ export const appRouter = router({
   system: systemRouter,
   reports: reportsRouter,
   catalog: catalogRouter,
+  finance: financeRouter,
 });
 
 export type AppRouter = typeof appRouter;

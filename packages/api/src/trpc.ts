@@ -32,7 +32,7 @@ const mapDomainErrors = t.middleware(async ({ next }) => {
     // So sánh theo name vì @satarobo/core có thể được nạp 2 lần (src qua Turbopack + dist) → instanceof không đáng tin
     const name = (e as { name?: string })?.name;
     if (e instanceof ForbiddenError || name === "ForbiddenError") throw new TRPCError({ code: "FORBIDDEN", message: (e as Error).message, cause: e as Error });
-    if (e instanceof SessionTransitionError || name === "SessionTransitionError" || name === "LeadTransitionError" || name === "EnrollmentTransitionError" || name === "MakeupTransitionError" || name === "ReportCardTransitionError" || name === "TrialTransitionError") throw new TRPCError({ code: "PRECONDITION_FAILED", message: (e as Error).message, cause: e as Error });
+    if (e instanceof SessionTransitionError || name === "SessionTransitionError" || name === "LeadTransitionError" || name === "EnrollmentTransitionError" || name === "MakeupTransitionError" || name === "ReportCardTransitionError" || name === "TrialTransitionError" || name === "FinanceRuleError" || name === "ClassTransitionError") throw new TRPCError({ code: "PRECONDITION_FAILED", message: (e as Error).message, cause: e as Error });
     throw e;
   }
 });

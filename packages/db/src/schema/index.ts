@@ -5,3 +5,4 @@ export * from "./academics";
 export * from "./relations";
 export * from "./admissions";
 export * from "./engagement";
+export * from "./finance";

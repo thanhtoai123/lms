@@ -6,6 +6,7 @@ import { todayISO, overdueQueue } from "./sessions";
 import { resolveAdmissionsPolicy } from "./admissionsAdmin";
 import { dueReportCards } from "./reportCards";
 import { pendingApprovals } from "./classOps";
+import { financeQueues } from "./finance";
 
 const TZ = "Asia/Ho_Chi_Minh";
 
@@ -54,6 +55,9 @@ export async function adminOverview(ctx: ProtectedContext) {
     const old = pend.filter((p) => p.submittedAt && now.getTime() - new Date(p.submittedAt).getTime() > 48 * 3600e3);
     queues.push({ key: "class_approvals", title: "Lớp chờ duyệt mở", count: pend.length, overdue: old.length, href: "/classes?status=pending_approval", preview: pend.slice(0, 3).map((p) => `${p.code} · ${p.name}`) });
   }
+
+  // 0c) Tài chính: khoản thu chờ xác nhận, hoàn tiền chờ duyệt / chờ chi
+  for (const f of await financeQueues(ctx)) queues.push({ ...f, preview: [] });
 
   // 1) Buổi học chưa hoàn tất (đã qua ngày)
   if (canClass) {

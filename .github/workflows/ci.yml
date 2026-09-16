@@ -89,7 +89,17 @@ jobs:
           test -n "$UID1" && curl -sf -o /dev/null -b "$A" "http://localhost:3000/users/$UID1"
           SID=$(curl -s -b "$M" "http://localhost:3000/api/trpc/students.list" | grep -o '"id":"[0-9a-f-]\{36\}"' | head -1 | cut -d'"' -f4)
           test -n "$SID" && curl -sf -o /dev/null -b "$M" "http://localhost:3000/students/$SID" && curl -sf -o /dev/null -b "$M" "http://localhost:3000/students/$SID/edit"
-          curl -sf -o /dev/null -b "$A" http://localhost:3000/orders   # mục chưa xây vẫn mở đúng đường dẫn
+          K="x-dev-actor=ketoan.cs1@example.test"
+          for p in /orders /orders/new /payments "/payments?status=recorded" /cong-no /thieu-hoc-phi /hoan-tien /payment-methods; do
+            curl -sf -o /dev/null -b "$K" "http://localhost:3000$p" || { echo "FAIL finance $p"; exit 1; }
+            curl -sf -o /dev/null -b "$M" "http://localhost:3000$p" || { echo "FAIL finance(M) $p"; exit 1; }
+          done
+          for OID in $(curl -s -b "$K" "http://localhost:3000/api/trpc/finance.orders" | grep -o '"id":"[0-9a-f-]\{36\}","code"' | cut -d'"' -f4); do
+            curl -sf -o /dev/null -b "$K" "http://localhost:3000/orders/$OID" || { echo "FAIL order $OID"; exit 1; }
+          done
+          PID=$(curl -s -b "$K" "http://localhost:3000/api/trpc/finance.payments?input=%7B%22status%22%3A%22confirmed%22%7D" | grep -o '"id":"[0-9a-f-]\{36\}","amount"' | head -1 | cut -d'"' -f4)
+          test -n "$PID" && curl -sf -b "$K" "http://localhost:3000/payments/$PID/phieu-thu" | grep -q "PHIẾU THU"
+          curl -sf -o /dev/null -b "$A" http://localhost:3000/bien-dong-so-du   # mục chưa xây vẫn mở đúng đường dẫn
           curl -sfL -o /dev/null -w '%{url_effective}' -b "$M" http://localhost:3000/ops | grep -q "/dashboard"   # đường dẫn cũ
           curl -sL http://localhost:3000/dashboard | grep -q "Đăng nhập quản trị"   # chưa đăng nhập → trang login
           echo "smoke OK"

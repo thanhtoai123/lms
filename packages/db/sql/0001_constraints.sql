@@ -45,3 +45,16 @@ FROM sessions s
 JOIN classes c ON c.id = s.class_id
 WHERE s.status IN ('scheduled', 'in_progress', 'attendance_done', 'notes_done')
   AND s.date < CURRENT_DATE;
+
+-- 6) Sổ cái tài chính append-only
+DROP TRIGGER IF EXISTS finance_ledger_no_update ON finance_ledger;
+CREATE TRIGGER finance_ledger_no_update BEFORE UPDATE OR DELETE ON finance_ledger
+  FOR EACH ROW EXECUTE FUNCTION audit_log_immutable();
+
+-- 7) Tiền không âm
+ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_amounts_check;
+ALTER TABLE orders ADD CONSTRAINT orders_amounts_check CHECK (subtotal >= 0 AND discount_amount >= 0 AND total >= 0 AND total = subtotal - discount_amount);
+ALTER TABLE payments DROP CONSTRAINT IF EXISTS payments_amount_check;
+ALTER TABLE payments ADD CONSTRAINT payments_amount_check CHECK (amount > 0 AND recorded_amount > 0);
+ALTER TABLE refunds DROP CONSTRAINT IF EXISTS refunds_amount_check;
+ALTER TABLE refunds ADD CONSTRAINT refunds_amount_check CHECK (amount > 0 AND amount <= proposed_amount);

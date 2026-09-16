@@ -79,5 +79,5 @@ test("ma trận quyền", () => {
   assert.equal(accessLevel("AUDITOR", "finance").level, "read");
   assert.equal(accessLevel("TEACHER", "session").level, "own");
   assert.equal(accessLevel("CENTER_SALES_CSM", "student").level, "write");
-  assert.equal(accessLevel("CENTER_SALES_CSM", "finance").level, "none");
+  assert.equal(accessLevel("CENTER_SALES_CSM", "timesheet").level, "none");
 });
