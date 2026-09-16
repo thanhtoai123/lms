@@ -31,7 +31,7 @@ export const DEFAULT_RULES: AutomationRule[] = [
       e.type === "risk.detected"
         ? [
             { kind: "create_care_task", studentId: e.studentId, enrollmentId: e.enrollmentId, code: e.code, title: `Chăm sóc: ${e.detail}`, dueInHours: e.severity === 1 ? 24 : 72, severity: e.severity },
-            { kind: "notify_user", userId: null, role: "CENTER_SALES_CSM", title: "Học viên cần chăm sóc", body: e.detail, link: `/ops/care`, priority: e.severity as 1 | 2 | 3 },
+            { kind: "notify_user", userId: null, role: "CENTER_SALES_CSM", title: "Học viên cần chăm sóc", body: e.detail, link: `/cham-soc-hv`, priority: e.severity as 1 | 2 | 3 },
           ]
         : [],
   },
@@ -40,7 +40,7 @@ export const DEFAULT_RULES: AutomationRule[] = [
     name: "Lead mới vừa chia cho tôi → báo tư vấn viên được chia",
     enabled: true,
     on: "lead.assigned",
-    actions: (e) => (e.type === "lead.assigned" ? [{ kind: "notify_user", userId: e.assigneeId, title: "Bạn vừa nhận lead mới", body: `Chế độ chia: ${e.mode}. Gọi trong 15 phút.`, link: `/ops/leads/${e.leadId}`, priority: 1 }] : []),
+    actions: (e) => (e.type === "lead.assigned" ? [{ kind: "notify_user", userId: e.assigneeId, title: "Bạn vừa nhận lead mới", body: `Chế độ chia: ${e.mode}. Gọi trong 15 phút.`, link: `/leads/${e.leadId}`, priority: 1 }] : []),
   },
   {
     code: "LEAD_TRANSFERRED_NOTIFY",
@@ -48,7 +48,7 @@ export const DEFAULT_RULES: AutomationRule[] = [
     enabled: true,
     on: "lead.transferred",
     when: (e) => e.type === "lead.transferred" && !!e.toUserId,
-    actions: (e) => (e.type === "lead.transferred" ? [{ kind: "notify_user", userId: e.toUserId, title: "Bạn được bàn giao lead", body: e.reason ?? "Không có lý do", link: `/ops/leads/${e.leadId}`, priority: 2 }] : []),
+    actions: (e) => (e.type === "lead.transferred" ? [{ kind: "notify_user", userId: e.toUserId, title: "Bạn được bàn giao lead", body: e.reason ?? "Không có lý do", link: `/leads/${e.leadId}`, priority: 2 }] : []),
   },
   {
     code: "NEW_LEAD_FIRST_CALL",
@@ -63,7 +63,7 @@ export const DEFAULT_RULES: AutomationRule[] = [
     enabled: true,
     on: "lead.sla_breached",
     when: (e) => e.type === "lead.sla_breached" && e.overdueMinutes >= 60,
-    actions: (e) => (e.type === "lead.sla_breached" ? [{ kind: "notify_user", userId: null, role: "CENTER_MANAGER", title: "Lead quá SLA", body: `Lead ${e.leadId} quá hạn ${e.overdueMinutes} phút ở trạng thái ${e.status}`, link: `/ops/leads/${e.leadId}`, priority: 2 }] : []),
+    actions: (e) => (e.type === "lead.sla_breached" ? [{ kind: "notify_user", userId: null, role: "CENTER_MANAGER", title: "Lead quá SLA", body: `Lead ${e.leadId} quá hạn ${e.overdueMinutes} phút ở trạng thái ${e.status}`, link: `/leads/${e.leadId}`, priority: 2 }] : []),
   },
   {
     code: "REPORT_CARD_MILESTONE",

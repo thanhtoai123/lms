@@ -12,7 +12,7 @@ export default async function MyClasses() {
     <div className="space-y-3">
       <h1 className="text-lg font-bold">Lớp của tôi</h1>
       {rows.map((c) => (
-        <Link key={c.id} href={`/ops/classes/${c.id}`} className="card block p-4">
+        <Link key={c.id} href={`/classes/${c.id}`} className="card block p-4">
           <div className="flex justify-between gap-2">
             <div>
               <div className="font-semibold">{c.name}</div>

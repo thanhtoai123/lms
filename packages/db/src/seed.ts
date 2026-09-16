@@ -208,7 +208,7 @@ async function main() {
   ]);
 
   console.log(`✔ Seeded: 2 centers, 3 rooms, 7 users, 3 teachers, ${lessonRows.length} lessons, 2 classes, ${sessionRows.length} sessions, 16 students, ${leadRows.length} leads`);
-  console.log("  Dev login: DEV_ACTOR_EMAIL=teacher1@satarobo.vn (GV lớp A) | manager.cs1@example.test | sale1.cs1@example.test | superadmin@example.test");
+  console.log("  Dev login (/login → tài khoản mẫu): superadmin@example.test | manager.cs1@example.test | sale1.cs1@example.test | teacher1@satarobo.vn");
 }
 
 main()

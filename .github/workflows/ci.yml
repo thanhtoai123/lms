@@ -55,7 +55,15 @@ jobs:
           (cd apps/web && pnpm start -p 3000 &)
           for i in $(seq 1 30); do curl -sf http://localhost:3000/login >/dev/null && break; sleep 1; done
           curl -sf -b "x-dev-actor=teacher1@satarobo.vn" http://localhost:3000/teacher | grep -q "Hôm nay"
-          curl -sf -b "x-dev-actor=manager.cs1@example.test" http://localhost:3000/ops | grep -q "Việc cần xử lý"
+          M="x-dev-actor=manager.cs1@example.test"; A="x-dev-actor=superadmin@example.test"
+          curl -sf -b "$M" http://localhost:3000/dashboard | grep -q "CẦN XỬ LÝ\|Cần xử lý"
+          curl -sf -b "$A" http://localhost:3000/dashboard | grep -q "Báo cáo Lead"   # sidebar đủ nhóm cho Super Admin
+          for p in /crm /leads "/leads?view=kanban" /nhap-khach-hang /leads/bulk-convert /quan-ly-chia-lead /ban-giao-lead /lead-nguoi /leads/bao-cao-chuyen /classes /sessions /cham-soc-hv /cau-hinh-van-hanh; do
+            curl -sf -o /dev/null -b "$M" "http://localhost:3000$p" || { echo "FAIL $p"; exit 1; }
+          done
+          curl -sf -o /dev/null -b "$A" http://localhost:3000/orders   # mục chưa xây vẫn mở đúng đường dẫn
+          curl -sfL -o /dev/null -w '%{url_effective}' -b "$M" http://localhost:3000/ops | grep -q "/dashboard"   # đường dẫn cũ
+          curl -sL http://localhost:3000/dashboard | grep -q "Đăng nhập quản trị"   # chưa đăng nhập → trang login
           echo "smoke OK"
       - name: Report failure as GitHub issue
         if: failure()

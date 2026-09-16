@@ -25,6 +25,29 @@ export const ROLES = [
 ] as const;
 export type Role = (typeof ROLES)[number];
 
+/** Nhãn hiển thị (khớp cách gọi trên admin.satarobo.vn) */
+export const ROLE_LABEL_VI: Record<Role, string> = {
+  SUPER_ADMIN: "Quản trị tối cao",
+  HO_ACCOUNTANT: "Kế toán Hội sở",
+  HO_HR: "Nhân sự Hội sở",
+  HO_MARKETING: "Marketing Hội sở",
+  HO_SALE: "Tư vấn Hội sở",
+  TRAINING: "Đào tạo",
+  AUDITOR: "Kiểm soát",
+  CENTER_MANAGER: "Quản lý cơ sở",
+  CENTER_CLASS_MANAGER: "Giáo vụ cơ sở",
+  CENTER_SALES_CSM: "Tư vấn / CSKH cơ sở",
+  CENTER_ACCOUNTANT: "Kế toán cơ sở",
+  CENTER_HR: "Nhân sự cơ sở",
+  TEACHER: "Giáo viên",
+  ASSISTANT_TEACHER: "Trợ giảng",
+  PARENT: "Phụ huynh",
+  STUDENT: "Học viên",
+};
+
+/** Vai trò được vào khu quản trị (admin). PH/HV dùng app riêng. */
+export const STAFF_ROLES: readonly Role[] = ROLES.filter((r) => r !== "PARENT" && r !== "STUDENT");
+
 export type Permission = `${string}:${string}`;
 
 /** Role được gán theo phạm vi: null centerId = toàn hệ thống (Hội sở) */
@@ -56,7 +79,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   AUDITOR: ["*:read"],
   CENTER_MANAGER: [
     "lead:*", "student:*", "enrollment:*", "class:*", "session:*", "attendance:*", "session_note:*", "media:*",
-    "teacher:read", "staff:read", "finance:read", "report_card:*", "report:read", "makeup:*", "automation:*", "care:*",
+    "teacher:read", "staff:read", "finance:read", "report_card:*", "report:read", "makeup:*", "automation:*", "care:*", "inventory:*",
   ],
   CENTER_CLASS_MANAGER: ["class:*", "session:*", "attendance:*", "session_note:*", "media:*", "student:read", "enrollment:read", "makeup:*", "teacher:read"],
   CENTER_SALES_CSM: ["lead:*", "student:read", "enrollment:create", "enrollment:read", "class:read", "session:read", "makeup:*", "care:*"],
@@ -129,6 +152,16 @@ export class ForbiddenError extends Error {
 export function visibleCenterIds(actor: Actor): string[] | null {
   if (actor.assignments.some((a) => a.centerId === null)) return null;
   return [...new Set(actor.assignments.map((a) => a.centerId!).filter(Boolean))];
+}
+
+/**
+ * Kiểm tra "có quyền này ở đâu đó không" — bỏ qua phạm vi cơ sở và quyền sở hữu.
+ * Dùng để hiện/ẩn menu; kiểm tra thật vẫn là authorize() ở service.
+ */
+export function hasPermission(actor: Actor, wanted: Permission): boolean {
+  const [res, act] = wanted.split(":") as [string, string];
+  const own: Permission = act.endsWith("_own") ? wanted : `${res}:${act}_own`;
+  return actor.assignments.some((a) => (ROLE_PERMISSIONS[a.role] ?? []).some((p) => matches(p, wanted) || matches(p, own)));
 }
 
 export function hasRole(actor: Actor, ...roles: Role[]): boolean {

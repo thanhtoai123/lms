@@ -1,4 +1,3 @@
-import Link from "next/link";
 import type { LeadStatus } from "@satarobo/core";
 import { LEAD_STATUS_VI } from "@satarobo/core";
 
@@ -49,25 +48,3 @@ export const EVENT_VI: Record<string, string> = {
   lose: "Mất",
   reopen: "Mở lại",
 };
-
-
-export const LEAD_SUBNAV = [
-  { href: "/ops/leads", label: "Hộp thư lead" },
-  { href: "/ops/leads/board", label: "Kanban" },
-  { href: "/ops/leads/bulk-convert", label: "Chốt hàng loạt" },
-  { href: "/ops/leads/distribution", label: "Chia lead" },
-  { href: "/ops/leads/handover", label: "Bàn giao" },
-  { href: "/ops/leads/stale", label: "Lâu chưa chăm" },
-  { href: "/ops/leads/transfers", label: "Sổ chuyển lead" },
-  { href: "/ops/leads/settings", label: "SLA & tham số" },
-];
-
-export function LeadSubnav({ active }: { active: string }) {
-  return (
-    <nav className="flex gap-1 overflow-x-auto text-sm border-b border-black/5 pb-1">
-      {LEAD_SUBNAV.map((n) => (
-        <Link key={n.href} href={n.href} className={`px-3 py-1.5 rounded-lg whitespace-nowrap ${active === n.href ? "bg-brand-500 text-white" : "hover:bg-brand-50 text-ink-600"}`}>{n.label}</Link>
-      ))}
-    </nav>
-  );
-}

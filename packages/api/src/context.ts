@@ -13,7 +13,7 @@ export interface Context {
 
 /**
  * Xác thực: ưu tiên Supabase JWT (Authorization: Bearer <access_token>),
- * fallback DEV_ACTOR_EMAIL khi chạy development để không cần Supabase.
+ * hoặc cookie x-dev-actor (tài khoản mẫu chọn ở /login) khi ALLOW_DEV_ACTOR=1.
  */
 export async function createContext(opts: { headers: Headers; ip?: string }): Promise<Context> {
   const db = getDb();
@@ -32,8 +32,9 @@ export async function createContext(opts: { headers: Headers; ip?: string }): Pr
     }
   }
 
-  if (!email && process.env.ALLOW_DEV_ACTOR === "1" && process.env.DEV_ACTOR_EMAIL) {
-    email = opts.headers.get("x-dev-actor") ?? process.env.DEV_ACTOR_EMAIL;
+  // Dev: chỉ nhận tài khoản mẫu chọn ở trang /login (cookie x-dev-actor) — không tự đăng nhập ngầm
+  if (!email && process.env.ALLOW_DEV_ACTOR === "1") {
+    email = opts.headers.get("x-dev-actor");
   }
 
   if (!email) return { db, actor: null, user: null, ip: opts.ip };

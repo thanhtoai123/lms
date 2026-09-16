@@ -21,7 +21,7 @@ export default async function TeacherLayout({ children }: { children: React.Reac
         <div className="mx-auto max-w-md grid grid-cols-3 text-center text-xs font-medium">
           <Link href="/teacher" className="py-3 hover:text-brand-600">Hôm nay</Link>
           <Link href="/teacher/classes" className="py-3 hover:text-brand-600">Lớp của tôi</Link>
-          <Link href="/ops" className="py-3 hover:text-brand-600">Ops</Link>
+          <Link href="/dashboard" className="py-3 hover:text-brand-600">Trang quản trị</Link>
         </div>
       </nav>
     </div>

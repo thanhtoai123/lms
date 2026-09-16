@@ -5,7 +5,7 @@ Nền tảng vận hành trung tâm giáo dục thế hệ mới cho Sata Robo �
 ## Kiến trúc
 
 ```
-apps/web                Next.js 16 (App Router) — /teacher (PWA mobile-first), /ops (console), /login
+apps/web                Next.js 16 (App Router) — /login (đăng nhập quản trị) → khu quản trị theo đúng menu admin.satarobo.vn (/dashboard, /crm, /leads, /classes …); /teacher (PWA giáo viên)
 packages/core           Lõi nghiệp vụ thuần TypeScript, 0 dependency, có unit test
 packages/db             Drizzle schema + client + seed + SQL constraints (EXCLUDE, audit append-only)
 packages/api            tRPC v11 routers + services (phân quyền, transaction, audit)

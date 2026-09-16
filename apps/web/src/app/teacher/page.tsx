@@ -33,7 +33,7 @@ export default async function TeacherToday() {
   try {
     data = await caller.teacher.today();
   } catch (e) {
-    return <Empty>{(e as Error).message}. Tài khoản này chưa gắn hồ sơ giáo viên — hãy đăng nhập bằng tài khoản GV hoặc sang <Link className="underline" href="/ops">Ops</Link>.</Empty>;
+    return <Empty>{(e as Error).message}. Tài khoản này chưa gắn hồ sơ giáo viên — hãy đăng nhập bằng tài khoản GV hoặc sang <Link className="underline" href="/dashboard">Trang quản trị</Link>.</Empty>;
   }
 
   return (

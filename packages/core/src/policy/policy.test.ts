@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { authorize, visibleCenterIds, type Actor } from "./policy.js";
+import { authorize, visibleCenterIds, hasPermission, ROLE_LABEL_VI, ROLES, STAFF_ROLES, type Actor } from "./policy.js";
 
 const superAdmin: Actor = { userId: "u0", assignments: [{ role: "SUPER_ADMIN", centerId: null }] };
 const cs1Manager: Actor = { userId: "u1", assignments: [{ role: "CENTER_MANAGER", centerId: "cs1" }] };
@@ -34,4 +34,15 @@ test("phụ huynh chỉ đọc dữ liệu con mình", () => {
 test("auditor chỉ đọc", () => {
   assert.equal(authorize(auditor, "finance:read", { centerId: "cs2" }).allowed, true);
   assert.equal(authorize(auditor, "finance:update", { centerId: "cs2" }).allowed, false);
+});
+
+test("hasPermission dùng cho menu: bỏ qua phạm vi và quyền sở hữu", () => {
+  const teacher: Actor = { userId: "t", assignments: [{ role: "TEACHER", centerId: "cs1" }] };
+  assert.equal(hasPermission(teacher, "class:read"), true); // có class:read_own → thấy menu Lớp của tôi
+  assert.equal(hasPermission(teacher, "finance:read"), false);
+  assert.equal(hasPermission(cs1Manager, "lead:read"), true);
+  assert.equal(hasPermission(cs1Manager, "system:read"), false);
+  assert.equal(hasPermission(superAdmin, "system:read"), true);
+  assert.equal(ROLES.every((r) => !!ROLE_LABEL_VI[r]), true);
+  assert.equal(STAFF_ROLES.includes("PARENT"), false);
 });

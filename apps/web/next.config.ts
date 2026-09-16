@@ -3,6 +3,30 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   transpilePackages: ["@satarobo/api", "@satarobo/core", "@satarobo/db"],
   serverExternalPackages: ["postgres"],
+  // Đường dẫn cũ của bản thử nghiệm (/ops) → đường dẫn chuẩn giống admin.satarobo.vn
+  async redirects() {
+    const map: [string, string][] = [
+      ["/ops", "/dashboard"],
+      ["/ops/leads", "/leads"],
+      ["/ops/leads/board", "/crm"],
+      ["/ops/leads/new", "/nhap-khach-hang"],
+      ["/ops/leads/bulk-convert", "/leads/bulk-convert"],
+      ["/ops/leads/distribution", "/quan-ly-chia-lead"],
+      ["/ops/leads/handover", "/ban-giao-lead"],
+      ["/ops/leads/stale", "/lead-nguoi"],
+      ["/ops/leads/transfers", "/leads/bao-cao-chuyen"],
+      ["/ops/leads/settings", "/cau-hinh-van-hanh"],
+      ["/ops/care", "/cham-soc-hv"],
+      ["/ops/sessions", "/sessions"],
+      ["/ops/classes", "/classes"],
+    ];
+    return [
+      ...map.map(([source, destination]) => ({ source, destination, permanent: false })),
+      { source: "/ops/leads/:id", destination: "/leads/:id", permanent: false },
+      { source: "/ops/classes/:path*", destination: "/classes/:path*", permanent: false },
+      { source: "/admin", destination: "/dashboard", permanent: false },
+    ];
+  },
   async headers() {
     // CSP thật (không report-only), có nonce sẽ được thêm ở proxy.ts khi cần script bên thứ ba.
     const csp = [
