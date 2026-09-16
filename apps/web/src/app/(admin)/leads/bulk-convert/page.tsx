@@ -2,6 +2,7 @@ import { getServerCaller } from "@/lib/trpc/server";
 import { BulkConvert } from "./table";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Chốt hàng loạt" };
 
 export default async function BulkConvertPage({ searchParams }: { searchParams: Promise<{ center?: string; q?: string }> }) {
   const sp = await searchParams;

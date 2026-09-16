@@ -2,6 +2,7 @@ import { getServerCaller } from "@/lib/trpc/server";
 import { HandoverForm } from "./form";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Bàn giao lead" };
 
 export default async function HandoverPage() {
   const { caller } = await getServerCaller();

@@ -4,6 +4,7 @@ import { StatusChip, fmtDate, fmtTime, Empty } from "@/components/ui";
 import { addDays, toISODate } from "@satarobo/core";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Buổi học" };
 
 export default async function SessionsPage({ searchParams }: { searchParams: Promise<{ from?: string; to?: string; open?: string }> }) {
   const sp = await searchParams;

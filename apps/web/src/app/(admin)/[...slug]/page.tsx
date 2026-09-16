@@ -8,6 +8,12 @@ export const dynamic = "force-dynamic";
 
 const PHASE_VI: Record<number, string> = { 3: "Giai đoạn 3 — Lớp/Buổi nâng cao", 4: "Giai đoạn 4 — Tài chính & Nhân sự", 5: "Giai đoạn 5 — LMS, App PH, Website, Báo cáo" };
 
+export async function generateMetadata({ params }: { params: Promise<{ slug: string[] }> }) {
+  const { slug } = await params;
+  const item = ALL_NAV_ITEMS.find((i) => i.href === "/" + slug.join("/"));
+  return { title: item?.label ?? "Không tìm thấy" };
+}
+
 /** Mọi mục menu của hệ cũ chưa xây trên hệ mới: giữ đúng đường dẫn, nêu phạm vi theo đặc tả */
 export default async function PlannedScreen({ params }: { params: Promise<{ slug: string[] }> }) {
   const { slug } = await params;

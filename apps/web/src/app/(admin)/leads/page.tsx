@@ -6,6 +6,7 @@ import { LeadKanban } from "@/components/lead-kanban";
 import { Empty } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Leads" };
 
 export default async function LeadsInbox({ searchParams }: { searchParams: Promise<{ scope?: string; status?: string; q?: string; view?: string }> }) {
   const sp = await searchParams;

@@ -3,6 +3,7 @@ import { getServerCaller } from "@/lib/trpc/server";
 import { StatusChip, fmtDate, fmtTime, WEEKDAY_VI } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Chi tiết lớp" };
 
 export default async function ClassDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

@@ -2,6 +2,7 @@ import { getServerCaller } from "@/lib/trpc/server";
 import { NewClassForm } from "./form";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Mở lớp mới" };
 
 export default async function NewClassPage() {
   const { caller } = await getServerCaller();

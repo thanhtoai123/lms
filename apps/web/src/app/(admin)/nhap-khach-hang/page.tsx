@@ -2,6 +2,7 @@ import { getServerCaller } from "@/lib/trpc/server";
 import { NewLeadForm } from "./form";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Nhập khách hàng" };
 
 export default async function NewLeadPage() {
   const { caller } = await getServerCaller();

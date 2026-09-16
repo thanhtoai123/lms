@@ -11,7 +11,8 @@ const fmtN = (n: number) => n.toLocaleString("vi-VN");
 export default async function Dashboard() {
   const { caller } = await getServerCaller();
   const [me, d] = await Promise.all([caller.auth.me(), caller.dashboard.overview()]);
-  const firstName = me?.user.fullName.split(/\s+/).slice(-1)[0] ?? "";
+  // Hiển thị tên như hệ cũ ("Xin chào, Admin"): bỏ phần ghi chú trong ngoặc
+  const displayName = (me?.user.fullName ?? "").replace(/\s*\(.*?\)\s*/g, " ").trim();
   const dateVi = new Date().toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh", weekday: "long", day: "numeric", month: "long" });
   const L = d.leads;
   const growth = L && L.kpi.newLastMonth > 0 ? Math.round(((L.kpi.newThisMonth - L.kpi.newLastMonth) / L.kpi.newLastMonth) * 100) : null;
@@ -21,7 +22,7 @@ export default async function Dashboard() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-bold">Xin chào, {firstName} 👋</h1>
+        <h1 className="text-2xl font-bold">Xin chào, {displayName} 👋</h1>
         <p className="text-sm text-ink-400 first-letter:uppercase">{dateVi}</p>
       </div>
 

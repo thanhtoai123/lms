@@ -2,6 +2,7 @@ import { getServerCaller } from "@/lib/trpc/server";
 import { DistributionBoard } from "./board";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Quản lý chia lead" };
 
 export default async function DistributionPage({ searchParams }: { searchParams: Promise<{ center?: string }> }) {
   const sp = await searchParams;

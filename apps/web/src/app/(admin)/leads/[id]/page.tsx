@@ -2,6 +2,7 @@ import { getServerCaller } from "@/lib/trpc/server";
 import { LeadDetail } from "./detail";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Chi tiết lead" };
 
 export default async function LeadPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

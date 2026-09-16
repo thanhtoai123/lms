@@ -29,7 +29,11 @@ export function AdminShell({ nav, me, canRunWorker, children }: { nav: NavGroup[
       if (raw) setCollapsed(JSON.parse(raw) as Record<string, boolean>);
     } catch {}
   }, []);
-  useEffect(() => setMobileOpen(false), [pathname]);
+  useEffect(() => {
+    setMobileOpen(false);
+    // đưa mục đang mở vào tầm nhìn của sidebar (menu dài 93 mục)
+    document.querySelector('aside a[aria-current="page"]')?.scrollIntoView({ block: "nearest" });
+  }, [pathname]);
 
   const toggle = (key: string) =>
     setCollapsed((c) => {

@@ -4,6 +4,7 @@ import { LeadChip, fmtDateTime } from "@/components/lead-ui";
 import { Empty } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Báo cáo chuyển lead liên cơ sở" };
 const KIND_VI: Record<string, string> = { handover: "Bàn giao", center_transfer: "Chuyển cơ sở", redistribute: "Chia lại" };
 
 export default async function TransfersPage({ searchParams }: { searchParams: Promise<{ month?: string; kind?: string }> }) {

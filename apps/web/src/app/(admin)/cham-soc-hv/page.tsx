@@ -2,6 +2,7 @@ import { getServerCaller } from "@/lib/trpc/server";
 import { CareList } from "./list";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Chăm sóc học viên" };
 
 export default async function CarePage() {
   const { caller } = await getServerCaller();

@@ -4,6 +4,7 @@ import { LeadChip, fmtDateTime } from "@/components/lead-ui";
 import { Empty } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Lead lâu ngày chưa chăm" };
 
 export default async function StalePage({ searchParams }: { searchParams: Promise<{ days?: string; center?: string }> }) {
   const sp = await searchParams;

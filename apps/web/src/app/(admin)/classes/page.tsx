@@ -4,6 +4,7 @@ import { fmtDate, Empty } from "@/components/ui";
 import { CLASS_STATUSES, type ClassStatus } from "@satarobo/core";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Lớp học" };
 
 const STATUS_VI: Record<ClassStatus, string> = { draft: "Nháp", recruiting: "Tuyển sinh", running: "Đang chạy", finished: "Kết thúc", cancelled: "Huỷ" };
 
