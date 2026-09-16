@@ -136,7 +136,7 @@ export const ADMIN_NAV: NavGroup[] = [
       { label: "Công nợ", href: "/cong-no", perm: "finance:read", ready: true, desc: "Công nợ theo học viên / cơ sở." },
       { label: "Thiếu học phí", href: "/thieu-hoc-phi", perm: "finance:read", ready: true, desc: "Ghi danh đang học nhưng chưa đủ học phí." },
       { label: "Nhập giao dịch cũ", href: "/nhap-giao-dich-cu", perm: "finance:confirm", ready: true, desc: "Import giao dịch từ hệ cũ / sổ sách." },
-      { label: "Biến động số dư", href: "/bien-dong-so-du", perm: "finance:read", ready: true, desc: "Webhook SePay, đối khớp tự động với đơn." },
+      { label: "Biến động số dư", href: "/bien-dong-so-du", perm: "finance:approve", ready: true, desc: "Webhook SePay, đối khớp tự động với đơn." },
       { label: "Hoàn tiền", href: "/hoan-tien", perm: "finance:read", ready: true, desc: "Hoàn theo số buổi chưa học, có duyệt." },
       { label: "Phương thức TT", href: "/payment-methods", perm: "finance:read", ready: true, desc: "Tài khoản nhận tiền theo cơ sở." },
       { label: "Hoa hồng", href: "/crm/commission", perm: "finance:read", ready: true, desc: "Hoa hồng sale / người giới thiệu." },

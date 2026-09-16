@@ -124,7 +124,8 @@ function confirmCenters(ctx: ProtectedContext) {
 function bankScope(ctx: ProtectedContext): SQL {
   const cc = confirmCenters(ctx);
   if (cc.includes(null)) return sql`true`;
-  const readable = ctx.actor.assignments.filter((a) => can(ctx, "finance:read", a.centerId)).map((a) => a.centerId!).filter(Boolean);
+  // Sao kê tài khoản công ty: chỉ kế toán (xác nhận) và quản lý (duyệt) xem, sale không xem
+  const readable = ctx.actor.assignments.filter((a) => can(ctx, "finance:approve", a.centerId) || can(ctx, "finance:confirm", a.centerId)).map((a) => a.centerId!).filter(Boolean);
   const parts: SQL[] = [];
   if (readable.length) parts.push(inArray(bankTransactions.centerId, readable));
   if (cc.length) parts.push(isNull(bankTransactions.centerId));
@@ -138,6 +139,9 @@ function canHandle(ctx: ProtectedContext, centerId: string | null) {
 
 export async function listBankTx(ctx: ProtectedContext, input: { status?: BankTxStatus; q?: string; from?: string; to?: string; page?: number }) {
   requirePermission(ctx, "finance:read", { centerId: null });
+  if (!ctx.actor.assignments.some((a) => can(ctx, "finance:approve", a.centerId) || can(ctx, "finance:confirm", a.centerId))) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "Biến động số dư chỉ dành cho kế toán / quản lý" });
+  }
   const conds: SQL[] = [bankScope(ctx)];
   if (input.from) conds.push(gte(bankTransactions.occurredAt, new Date(`${input.from}T00:00:00+07:00`)));
   if (input.to) conds.push(lte(bankTransactions.occurredAt, new Date(`${input.to}T23:59:59+07:00`)));
@@ -330,6 +334,8 @@ export async function importStatement(ctx: ProtectedContext, input: { csv: strin
   const r = parseStatementCsv(input.csv, digitsOnly(m.accountNo), m.bankName ?? m.name);
   if (r.headerErrors.length) throw bad(r.headerErrors);
   if (!r.txs.length) throw bad("Không có giao dịch tiền vào hợp lệ");
+  const existing = await ctx.db.select({ e: bankTransactions.externalId }).from(bankTransactions).where(and(eq(bankTransactions.source, "statement"), inArray(bankTransactions.externalId, r.txs.map((t) => t.externalId))));
+  if (existing.length >= new Set(r.txs.map((t) => t.externalId)).size) throw pre("Tất cả giao dịch trong file đã được nhập trước đó");
   const [batch] = await ctx.db.insert(importBatches).values({ kind: "bank_statement", fileName: input.fileName?.slice(0, 200) || null, note, totalRows: r.txs.length + r.errors.length + r.skippedOut, createdBy: ctx.user.id }).returning({ id: importBatches.id });
   const res = { imported: 0, duplicates: 0, matched: 0, needs_review: 0, unmatched: 0, ignored: 0, amount: 0 };
   for (const t of r.txs) {

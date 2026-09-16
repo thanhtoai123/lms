@@ -22,7 +22,7 @@ const dt = (d: Date | string) => new Date(d).toLocaleString("vi-VN", { timeZone:
 export default async function BankTxPage({ searchParams }: { searchParams: Promise<{ status?: string; q?: string; from?: string; to?: string; page?: string }> }) {
   const sp = await searchParams;
   const { caller, ctx } = await getServerCaller();
-  if (!ctx.actor || !hasPermission(ctx.actor as Actor, "finance:read")) return <NoAccess title="Biến động số dư" perm="finance:read" />;
+  if (!ctx.actor || !(hasPermission(ctx.actor as Actor, "finance:confirm") || hasPermission(ctx.actor as Actor, "finance:approve"))) return <NoAccess title="Biến động số dư" perm="finance:confirm" />;
   const status = BANK_TX_STATUSES.includes(sp.status as BankTxStatus) ? (sp.status as BankTxStatus) : undefined;
   const d = await caller.finance.bankTxs({ status, q: sp.q || undefined, from: sp.from || undefined, to: sp.to || undefined, page: Math.max(1, Number(sp.page) || 1) });
   return (
