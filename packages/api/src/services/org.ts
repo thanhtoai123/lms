@@ -6,6 +6,7 @@ import { requirePermission, type ProtectedContext } from "../trpc";
 import { writeAudit } from "./audit";
 
 type Db = ProtectedContext["db"];
+const CENTER_ID = sql.raw('"centers"."id"');
 
 function scopeCenters(ctx: ProtectedContext) {
   const v = visibleCenterIds(ctx.actor);
@@ -17,9 +18,9 @@ export async function listCenters(ctx: ProtectedContext) {
   return ctx.db
     .select({
       id: centers.id, code: centers.code, name: centers.name, address: centers.address, phone: centers.phone, isActive: centers.isActive,
-      rooms: sql<number>`(select count(*)::int from ${rooms} r where r.center_id = ${centers.id} and r.is_active)`,
-      runningClasses: sql<number>`(select count(*)::int from ${classes} c where c.center_id = ${centers.id} and c.status in ('recruiting','running') and c.deleted_at is null)`,
-      activeStudents: sql<number>`(select count(*)::int from ${students} s where s.home_center_id = ${centers.id} and s.status in ('active','trial') and s.deleted_at is null)`,
+      rooms: sql<number>`(select count(*)::int from ${rooms} r where r.center_id = ${CENTER_ID} and r.is_active)`,
+      runningClasses: sql<number>`(select count(*)::int from ${classes} c where c.center_id = ${CENTER_ID} and c.status in ('recruiting','running') and c.deleted_at is null)`,
+      activeStudents: sql<number>`(select count(*)::int from ${students} s where s.home_center_id = ${CENTER_ID} and s.status in ('active','trial') and s.deleted_at is null)`,
     })
     .from(centers).where(scopeCenters(ctx)).orderBy(asc(centers.code));
 }

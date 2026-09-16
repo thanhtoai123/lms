@@ -6,6 +6,7 @@ import { requirePermission, type ProtectedContext } from "../trpc";
 import { writeAudit } from "./audit";
 
 type Db = ProtectedContext["db"];
+const STUDENT_ID = sql.raw('"students"."id"');
 
 /** Số buổi đã tiêu thụ của một ghi danh (có mặt, muộn, vắng không phép) — dùng chung cho mọi màn */
 export const consumedSql = sql<number>`(select count(*)::int from ${attendance} a where a.enrollment_id = ${enrollments.id} and a.status in ('present','late','absent_unexcused'))`;
@@ -34,7 +35,7 @@ export async function listStudents(ctx: ProtectedContext, input: { q?: string; c
       or(
         ilike(students.fullName, `%${input.q}%`),
         ilike(students.code, `%${input.q}%`),
-        pn ? sql`exists (select 1 from ${studentGuardians} g join ${parents} p on p.id = g.parent_id where g.student_id = ${students.id} and p.phone = ${pn})` : sql`false`,
+        pn ? sql`exists (select 1 from ${studentGuardians} g join ${parents} p on p.id = g.parent_id where g.student_id = ${STUDENT_ID} and p.phone = ${pn})` : sql`false`,
       )!,
     );
   }

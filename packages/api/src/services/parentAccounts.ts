@@ -8,6 +8,8 @@ import { writeAudit } from "./audit";
 import { canSeeFullPhone } from "./students";
 
 type Db = ProtectedContext["db"];
+/** Tham chiếu đủ tên bảng cho truy vấn con tương quan (select 1 bảng, drizzle không kèm tên bảng) */
+const PARENT_ID = sql.raw('"parents"."id"');
 export const PARENT_ACCOUNT_STATUSES = ["none", "pending_activation", "active", "locked"] as const;
 export type ParentAccountStatus = (typeof PARENT_ACCOUNT_STATUSES)[number];
 
@@ -19,7 +21,7 @@ function parentScope(ctx: ProtectedContext) {
   const visible = visibleCenterIds(ctx.actor);
   if (visible === null) return sql`true`;
   if (!visible.length) return sql`false`;
-  return sql`exists (select 1 from ${studentGuardians} g join ${students} s on s.id = g.student_id where g.parent_id = ${parents.id} and ${inArray(sql`s.home_center_id`, visible)})`;
+  return sql`exists (select 1 from ${studentGuardians} g join ${students} s on s.id = g.student_id where g.parent_id = ${PARENT_ID} and ${inArray(sql`s.home_center_id`, visible)})`;
 }
 
 export async function listParentAccounts(ctx: ProtectedContext, input: { q?: string; status?: ParentAccountStatus; page?: number; pageSize?: number }) {
@@ -46,7 +48,7 @@ export async function listParentAccounts(ctx: ProtectedContext, input: { q?: str
       id: parents.id, fullName: parents.fullName, phone: parents.phone, email: parents.email, accountStatus: parents.accountStatus,
       activationRequestedAt: parents.activationRequestedAt, activatedAt: parents.activatedAt, activationCodeExpiresAt: parents.activationCodeExpiresAt,
       mediaConsent: parents.mediaConsent, createdAt: parents.createdAt,
-      children: sql<string | null>`(select string_agg(s.full_name || coalesce(' (' || c.code || ')', ''), ', ') from ${studentGuardians} g join ${students} s on s.id = g.student_id left join ${centers} c on c.id = s.home_center_id where g.parent_id = ${parents.id})`,
+      children: sql<string | null>`(select string_agg(s.full_name || coalesce(' (' || c.code || ')', ''), ', ') from ${studentGuardians} g join ${students} s on s.id = g.student_id left join ${centers} c on c.id = s.home_center_id where g.parent_id = ${PARENT_ID})`,
     })
     .from(parents).where(and(...conds)).orderBy(desc(parents.createdAt)).limit(pageSize).offset((page - 1) * pageSize);
   const full = canSeeFullPhone(ctx);
