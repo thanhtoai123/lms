@@ -10,3 +10,5 @@ export * from "./admissions/leadMachine.js";
 export * from "./engagement/events.js";
 export * from "./engagement/automation.js";
 export * from "./enrollment/lifecycle.js";
+export * from "./calendar/week.js";
+export * from "./makeup/rules.js";

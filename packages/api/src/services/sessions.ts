@@ -189,9 +189,10 @@ export async function transitionSession(ctx: ProtectedContext, input: { sessionI
 /** Danh sách buổi trong một khoảng ngày, theo GV hoặc cơ sở (dùng cho Teacher "Hôm nay" và Ops "Buổi học") */
 export async function listSessions(
   ctx: ProtectedContext,
-  input: { from: string; to: string; teacherId?: string; centerId?: string; onlyOpen?: boolean; classId?: string },
+  input: { from: string; to: string; teacherId?: string; centerId?: string; onlyOpen?: boolean; classId?: string; roomId?: string },
 ) {
   const conds = [gte(sessions.date, input.from), lte(sessions.date, input.to)];
+  if (input.roomId) conds.push(eq(sessions.roomId, input.roomId));
   if (input.teacherId) conds.push(eq(sessions.teacherId, input.teacherId));
   if (input.classId) conds.push(eq(sessions.classId, input.classId));
   if (input.centerId) conds.push(eq(classes.centerId, input.centerId));
@@ -205,7 +206,7 @@ export async function listSessions(
     .select({
       id: sessions.id, classId: sessions.classId, classCode: classes.code, className: classes.name, centerId: classes.centerId, centerCode: centers.code,
       sequenceNo: sessions.sequenceNo, date: sessions.date, startTime: sessions.startTime, endTime: sessions.endTime, status: sessions.status, topic: sessions.topic,
-      roomCode: rooms.code, teacherId: sessions.teacherId, teacherName: teachers.fullName,
+      roomId: sessions.roomId, roomCode: rooms.code, teacherId: sessions.teacherId, teacherName: teachers.fullName, courseId: classes.courseId, capacity: classes.capacity,
       enrolled: sql<number>`(select count(*)::int from ${enrollments} e where e.class_id = ${sessions.classId} and e.status in ('active','trial') and e.start_sequence_no <= ${sessions.sequenceNo})`,
       attended: sql<number>`(select count(*)::int from ${attendance} a where a.session_id = ${sessions.id})`,
     })

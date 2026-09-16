@@ -6,6 +6,7 @@ import { leadsRouter } from "./routers/admissions";
 import { engagementRouter } from "./routers/engagement";
 import { dashboardRouter } from "./routers/dashboard";
 import { studentsRouter, orgRouter } from "./routers/students";
+import { scheduleRouter } from "./routers/schedule";
 
 export const appRouter = router({
   auth: authRouter,
@@ -19,6 +20,7 @@ export const appRouter = router({
   dashboard: dashboardRouter,
   students: studentsRouter,
   org: orgRouter,
+  schedule: scheduleRouter,
 });
 
 export type AppRouter = typeof appRouter;

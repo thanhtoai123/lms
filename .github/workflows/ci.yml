@@ -61,7 +61,7 @@ jobs:
           for p in /crm /leads "/leads?view=kanban" /nhap-khach-hang /leads/bulk-convert /quan-ly-chia-lead /ban-giao-lead /lead-nguoi /leads/bao-cao-chuyen /classes /sessions /cham-soc-hv /cau-hinh-van-hanh; do
             curl -sf -o /dev/null -b "$M" "http://localhost:3000$p" || { echo "FAIL $p"; exit 1; }
           done
-          for p in /students /students/new /students/tai-khoan /students/sap-het-khoa /enrollments /enrollments/new /chuyen-lop /centers /rooms; do
+          for p in /students /students/new /students/tai-khoan /students/sap-het-khoa /enrollments /enrollments/new /chuyen-lop /centers /rooms /lich /attendance /hoc-bu "/hoc-bu?status=requested" /canh-bao-rui-ro; do
             curl -sf -o /dev/null -b "$M" "http://localhost:3000$p" || { echo "FAIL $p"; exit 1; }
           done
           SID=$(curl -s -b "$M" "http://localhost:3000/api/trpc/students.list" | grep -o '"id":"[0-9a-f-]\{36\}"' | head -1 | cut -d'"' -f4)

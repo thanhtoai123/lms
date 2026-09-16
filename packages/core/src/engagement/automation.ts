@@ -51,6 +51,13 @@ export const DEFAULT_RULES: AutomationRule[] = [
     actions: (e) => (e.type === "lead.transferred" ? [{ kind: "notify_user", userId: e.toUserId, title: "Bạn được bàn giao lead", body: e.reason ?? "Không có lý do", link: `/leads/${e.leadId}`, priority: 2 }] : []),
   },
   {
+    code: "ATTENDANCE_CORRECTED_NOTIFY_TEACHER",
+    name: "Điểm danh bị sửa hồi tố → báo GV phụ trách buổi",
+    enabled: true,
+    on: "attendance.corrected",
+    actions: (e) => (e.type === "attendance.corrected" ? [{ kind: "notify_user", userId: null, role: "TEACHER", title: "Điểm danh buổi học đã được sửa", body: `${e.from ?? "chưa có"} → ${e.to}. Lý do: ${e.reason}`, link: `/teacher/sessions/${e.sessionId}`, priority: 2 }] : []),
+  },
+  {
     code: "NEW_LEAD_FIRST_CALL",
     name: "Lead mới → việc gọi trong 15 phút",
     enabled: true,
