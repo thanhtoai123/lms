@@ -2,6 +2,8 @@ import { router, createCallerFactory } from "./trpc";
 import { authRouter } from "./routers/auth";
 import { sessionsRouter, classesRouter } from "./routers/academics";
 import { teacherRouter } from "./routers/teacher";
+import { leadsRouter } from "./routers/admissions";
+import { engagementRouter } from "./routers/engagement";
 
 export const appRouter = router({
   auth: authRouter,
@@ -10,8 +12,13 @@ export const appRouter = router({
     classes: classesRouter,
   }),
   teacher: teacherRouter,
+  admissions: router({ leads: leadsRouter }),
+  engagement: engagementRouter,
 });
 
 export type AppRouter = typeof appRouter;
 export const createCaller = createCallerFactory(appRouter);
 export { createContext, type Context } from "./context";
+export { createLead } from "./services/leads";
+export { processOutbox, scanLeadSla } from "./services/engagement";
+export { leadInput } from "./routers/admissions";

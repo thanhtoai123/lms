@@ -20,7 +20,8 @@
     "db:seed": "pnpm --filter @satarobo/db seed",
     "db:apply-sql": "pnpm --filter @satarobo/db apply-sql",
     "db:studio": "pnpm --filter @satarobo/db studio",
-    "migrate:legacy": "pnpm --filter @satarobo/migrate-legacy start"
+    "migrate:legacy": "pnpm --filter @satarobo/migrate-legacy start",
+    "worker": "pnpm --filter @satarobo/api worker"
   },
   "devDependencies": {
     "turbo": "^2.5.6",

@@ -10,7 +10,8 @@
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "echo 'api tests run via web e2e'"
+    "test": "echo 'api tests run via web e2e'",
+    "worker": "tsx src/worker.ts"
   },
   "dependencies": {
     "@satarobo/core": "workspace:*",
@@ -23,6 +24,8 @@
   },
   "devDependencies": {
     "@types/node": "^22.18.0",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "tsx": "^4.20.5",
+    "dotenv": "^17.2.1"
   }
 }

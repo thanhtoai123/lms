@@ -2,11 +2,12 @@ import { and, eq, inArray, sql, asc, gte, lte } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { sessions, classes, enrollments, attendance, students, teachers, rooms, centers, lessons } from "@satarobo/db";
 import {
-  transition, nextStep, isOverdue, OPEN_STATUSES, toISODate, visibleCenterIds,
-  type SessionEvent, type SessionStatus, type AttendanceStatus,
+  transition, nextStep, isOverdue, OPEN_STATUSES, toISODate, visibleCenterIds, detectRisks,
+  type SessionEvent, type SessionStatus, type AttendanceStatus, type AttendanceRecord,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { writeAudit } from "./audit";
+import { emit } from "./outbox";
 
 export function todayISO() {
   // Múi giờ vận hành: Asia/Ho_Chi_Minh (UTC+7)
@@ -117,6 +118,29 @@ export async function recordAttendance(
       actorId: ctx.user.id, action: "UPDATE", module: "academics", entity: "attendance", entityId: input.sessionId,
       after: { count: input.records.length }, ip: ctx.ip,
     });
+
+    // Phát hiện rủi ro cho từng HV từ toàn bộ lịch sử điểm danh trong lớp → event cho automation
+    const enrollmentIds = input.records.map((r) => r.enrollmentId);
+    const history = await tx
+      .select({ enrollmentId: attendance.enrollmentId, studentId: enrollments.studentId, status: attendance.status, date: sessions.date, seq: sessions.sequenceNo })
+      .from(attendance)
+      .innerJoin(sessions, eq(sessions.id, attendance.sessionId))
+      .innerJoin(enrollments, eq(enrollments.id, attendance.enrollmentId))
+      .where(and(inArray(attendance.enrollmentId, enrollmentIds), eq(sessions.classId, s.session.classId)));
+    const byEnrollment = new Map<string, { studentId: string; recs: AttendanceRecord[] }>();
+    for (const h of history) {
+      const e = byEnrollment.get(h.enrollmentId) ?? { studentId: h.studentId, recs: [] };
+      e.recs.push({ sessionDate: h.date, sequenceNo: h.seq, status: h.status });
+      byEnrollment.set(h.enrollmentId, e);
+    }
+    for (const r of input.records) {
+      const e = byEnrollment.get(r.enrollmentId);
+      if (!e) continue;
+      await emit(tx as unknown as typeof ctx.db, { type: "attendance.recorded", sessionId: input.sessionId, enrollmentId: r.enrollmentId, studentId: e.studentId, status: r.status, sequenceNo: s.session.sequenceNo });
+      for (const risk of detectRisks(e.recs)) {
+        await emit(tx as unknown as typeof ctx.db, { type: "risk.detected", studentId: e.studentId, enrollmentId: r.enrollmentId, code: risk.code, severity: risk.severity, detail: risk.detail });
+      }
+    }
   });
   return getSessionDetail(ctx, input.sessionId);
 }
@@ -152,6 +176,12 @@ export async function transitionSession(ctx: ProtectedContext, input: { sessionI
       actorId: ctx.user.id, action: "TRANSITION", module: "academics", entity: "sessions", entityId: input.sessionId,
       before: { status: detail.status }, after: { status: to, event: input.event }, reason: input.reason ?? null, ip: ctx.ip,
     });
+    if (to === "completed") {
+      await emit(tx as unknown as typeof ctx.db, { type: "session.completed", sessionId: input.sessionId, classId: detail.classId, date: detail.date, teacherId: detail.teacherId });
+      if (detail.lesson?.isReportCardMilestone) {
+        for (const r of detail.roster) await emit(tx as unknown as typeof ctx.db, { type: "report_card.due", enrollmentId: r.enrollmentId, sessionId: input.sessionId, sequenceNo: detail.sequenceNo });
+      }
+    }
   });
   return getSessionDetail(ctx, input.sessionId);
 }

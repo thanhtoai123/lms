@@ -1,0 +1,7611 @@
+{
+ "/dashboard": {
+  "url": "/dashboard",
+  "title": "Quản trị | Sata Robo",
+  "heads": [
+   "Xin chào, Admin 👋",
+   "CẦN XỬ LÝ",
+   "Leads 14 ngày qua",
+   "Phân bố theo trạng thái",
+   "Phễu lead theo tuần",
+   "Leads mới nhất"
+  ],
+  "inputs": [],
+  "tables": [
+   {
+    "headers": [
+     "PHỤ HUYNH",
+     "PHONE",
+     "STATUS",
+     "THỜI GIAN"
+    ],
+    "rows": 8
+   }
+  ],
+  "buttons": [],
+  "tabs": [],
+  "links": [
+   "/report-cards",
+   "/sessions",
+   "/media",
+   "/canh-bao-rui-ro",
+   "/cham-soc-hv",
+   "/leads?status=DA_DANG_KY",
+   "/leads"
+  ],
+  "cards": [
+   "CẦN XỬ LÝ 151 quá hạn 606 việc",
+   "151 quá hạn",
+   "68 quá hạn",
+   "50 quá hạn",
+   "15 quá hạn",
+   "8 quá hạn",
+   "2 quá hạn",
+   "+44% so với tháng trước",
+   "111 ghi danh còn nợ",
+   "Mới"
+  ],
+  "empty": [],
+  "hints": []
+ },
+ "/crm": {
+  "url": "/crm",
+  "title": "CRM Dashboard | Admin",
+  "heads": [
+   "CRM Dashboard",
+   "Phễu chuyển đổi",
+   "Lead theo nguồn",
+   "Hiệu suất đội sale",
+   "Chi tiết: <tên>"
+  ],
+  "inputs": [],
+  "tables": [
+   {
+    "headers": [
+     "NHÂN VIÊN",
+     "LEAD ĐƯỢC GIAO",
+     "ĐÃ CHỐT",
+     "TỈ LỆ CHỐT"
+    ],
+    "rows": 4
+   }
+  ],
+  "buttons": [],
+  "tabs": [],
+  "links": [
+   "/leads?view=kanban"
+  ],
+  "cards": [],
+  "empty": [],
+  "hints": []
+ },
+ "/leads": {
+  "url": "/leads",
+  "title": "Leads | Admin",
+  "heads": [
+   "Danh sách Lead"
+  ],
+  "inputs": [
+   {
+    "tag": "input",
+    "type": "text",
+    "name": "q",
+    "label": "Tên / SĐT / tên con"
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "name": "centerId",
+    "label": "centerId",
+    "options": [
+     "Tất cả",
+     "CS1 - 211 Nguyễn Hữu Thọ",
+     "CS2 - 114 Hoàng Diệu"
+    ]
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "name": "assignedToId",
+    "label": "assignedToId",
+    "options": [
+     "<danh sách nhân sự>"
+    ]
+   },
+   {
+    "tag": "input",
+    "type": "text",
+    "name": "source",
+    "label": "vd: sata1, sale-form, quatang"
+   },
+   {
+    "tag": "input",
+    "type": "date",
+    "name": "dateFrom",
+    "label": "dateFrom"
+   },
+   {
+    "tag": "input",
+    "type": "date",
+    "name": "dateTo",
+    "label": "dateTo"
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "label": "",
+    "options": [
+     "Tất cả trạng thái",
+     "Mới",
+     "Đã liên hệ",
+     "Đang tư vấn",
+     "Đã hẹn học thử",
+     "Đang học thử",
+     "Đã học thử",
+     "Chờ quyết định",
+     "Đã đăng ký",
+     "Đang nuôi dưỡng",
+     "Đã mất"
+    ]
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "label": "Hiển thị",
+    "options": [
+     "10",
+     "20",
+     "50",
+     "100"
+    ]
+   }
+  ],
+  "tables": [
+   {
+    "headers": [
+     "PHỤ HUYNH / HỌC SINH",
+     "SỐ ĐIỆN THOẠI",
+     "KHÓA QUAN TÂM",
+     "TRẠNG THÁI",
+     "CƠ SỞ",
+     "SALE PHỤ TRÁCH",
+     "NGÀY NHẬN LEAD",
+     "HÀNH ĐỘNG"
+    ],
+    "rows": 20
+   }
+  ],
+  "buttons": [
+   "Lọc",
+   "Làm mới",
+   "Cột hiển thị"
+  ],
+  "tabs": [],
+  "links": [
+   "/leads?view=table",
+   "/leads?view=kanban",
+   "/api/admin/templates/leads",
+   "/leads/import",
+   "/leads/bulk-convert",
+   "/nhap-khach-hang",
+   "/leads?view=table&status=DA_DANG_KY",
+   "/api/admin/leads/export",
+   "/leads?sort=moi_nhat&page=1"
+  ],
+  "cards": [
+   "Xoá"
+  ],
+  "empty": [],
+  "hints": []
+ },
+ "/nhap-khach-hang": {
+  "url": "/nhap-khach-hang",
+  "title": "Nhập khách hàng | Sata Robo",
+  "heads": [
+   "Nhập khách hàng",
+   "Đã nhập trong phiên này"
+  ],
+  "inputs": [
+   {
+    "tag": "input",
+    "type": "text",
+    "label": "Tên phụ huynh"
+   },
+   {
+    "tag": "input",
+    "type": "text",
+    "label": "SĐT phụ huynh"
+   },
+   {
+    "tag": "input",
+    "type": "text",
+    "label": "Tên bé thứ 1"
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "label": "Khoá quan tâm của bé thứ 1",
+    "options": [
+     "— Khoá quan tâm —",
+     "Combo — Full Lộ Trình Luyện Thi",
+     "Sata1 — Robosim Master",
+     "Sata2 — Đấu trường Robot",
+     "Sata3 — Ươm Mầm Tài Năng",
+     "Sata4 — Bứt Phá Giới Hạn",
+     "Sata5 — Khơi Nguồn Sáng Tạo",
+     "Sata6 — Chinh Phục Đấu Trường",
+     "Sata7 — Kiến Tạo Tương Lai",
+     "Sata8 — Vé Vàng Chung Kết"
+    ]
+   },
+   {
+    "tag": "input",
+    "type": "text",
+    "label": "Nguồn"
+   },
+   {
+    "tag": "input",
+    "type": "text",
+    "label": "Link Facebook"
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "label": "Cơ sở phụ huynh chọn",
+    "options": [
+     "— Để hệ thống tự chia —",
+     "CS1 - 211 Nguyễn Hữu Thọ",
+     "CS2 - 114 Hoàng Diệu"
+    ]
+   },
+   {
+    "tag": "textarea",
+    "type": "textarea",
+    "label": "Ghi chú"
+   }
+  ],
+  "tables": [],
+  "buttons": [
+   "+ Thêm con",
+   "Lưu và nhập phiếu tiếp"
+  ],
+  "tabs": [],
+  "links": [],
+  "cards": [],
+  "empty": [],
+  "hints": [
+   "Không ô nào bắt buộc — điền được tới đâu lưu tới đó. Mã nhân viên hệ thống tự lấy từ tài khoản bạn đang đăng nhập."
+  ]
+ },
+ "/leads/bulk-convert": {
+  "url": "/leads/bulk-convert",
+  "title": "Chốt hàng loạt | Admin",
+  "heads": [
+   "Chốt hàng loạt — lead đã đăng ký"
+  ],
+  "inputs": [
+   {
+    "tag": "select",
+    "type": "select-one",
+    "label": "",
+    "options": [
+     "Tất cả",
+     "CS1",
+     "CS2"
+    ]
+   },
+   {
+    "tag": "input",
+    "type": "text",
+    "label": "Gõ để lọc…"
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "label": "",
+    "options": [
+     "— Chọn lớp —",
+     "[CS2] CS2.SATA4.26.007 · sata4.15h45-CN.CS2-301 · Sata4 — Bứt Phá Giới Hạn",
+     "[CS2] CS2.SATA3.26.004 · sata3.14h-CN.CS2-P302 · Sata3 — Ươm Mầm Tài Năng",
+     "[CS1] CS1.SATA4.26.004 · sata4.09h45-CN.CS1-1-1 · Sata4 — Bứt Phá Giới Hạn",
+     "[CS1] CS1.SATA3.26.004 · sata3.08h-T7.CS1-201 · Sata3 — Ươm Mầm Tài Năng",
+     "[CS2] CS2.SATA6.26.003 · sata6.15h45-T7.CS2-P302 · Sata6 — Chinh Phục Đấu Trường",
+     "[CS2] CS2.SATA3.26.003 · sata3.15h45-CN.CS2-P302 · Sata3 — Ươm Mầm Tài Năng",
+     "[CS1] CS1.SATA6.26.002 · sata6.14h-CN.CS1-101 · Sata6 — Chinh Phục Đấu Trường",
+     "[CS1] CS1.SATA4.26.003 · sata4.09h45-CN.CS1-101 · Sata4 — Bứt Phá Giới Hạn",
+     "[CS1] CS1.SATA3.26.003 · sata3.09h45-CN.CS1-201 · Sata3 — Ươm Mầm Tài Năng",
+     "[CS2] CS2.SATA4.26.003 · sata4.10h-T7.CS2-301 · Sata4 — Bứt Phá Giới Hạn",
+     "[CS1] CS1.SATA2.26.001 · sata2.09h-CN.CS1-101 · Sata2 — Đấu trường Robot",
+     "…(+10)"
+    ]
+   },
+   {
+    "tag": "input",
+    "type": "checkbox",
+    "label": "Ẩn lead đã chốt xong"
+   },
+   {
+    "tag": "input",
+    "type": "checkbox",
+    "label": ""
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "label": "",
+    "options": [
+     "— Chọn lớp —",
+     "CS2.SATA4.26.007 · sata4.15h45-CN.CS2-301 · Sata4 — Bứt Phá Giới Hạn · 11.520.000đ",
+     "CS2.SATA4.26.003 · sata4.10h-T7.CS2-301 · Sata4 — Bứt Phá Giới Hạn · 11.520.000đ",
+     "CS2.SATA4.26.002 · sata4.18h-T5.CS2-P302 · Sata4 — Bứt Phá Giới Hạn · 11.520.000đ",
+     "CS2.SATA4.26.001 · sata4.18h-T4.CS2-P302 · Sata4 — Bứt Phá Giới Hạn · 11.520.000đ"
+    ]
+   },
+   {
+    "tag": "input",
+    "type": "checkbox",
+    "label": ""
+   },
+   {
+    "tag": "input",
+    "type": "text",
+    "label": "Bỏ trống nếu chưa rõ"
+   },
+   {
+    "tag": "input",
+    "type": "date",
+    "label": ""
+   },
+   {
+    "tag": "input",
+    "type": "checkbox",
+    "label": ""
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "label": "",
+    "options": [
+     "— Chọn lớp —",
+     "CS1.SATA3.26.004 · sata3.08h-T7.CS1-201 · Sata3 — Ươm Mầm Tài Năng · 10.560.000đ",
+     "CS1.SATA3.26.003 · sata3.09h45-CN.CS1-201 · Sata3 — Ươm Mầm Tài Năng · 10.560.000đ",
+     "CS1.SATA3.26.001 · sata3.15h45-T7.CS1-201 · Sata3 — Ươm Mầm Tài Năng · 10.560.000đ",
+     "CS1.SATA3.26.002 · sata3.10h-T7.CS1-201 · Sata3 — Ươm Mầm Tài Năng · 10.560.000đ"
+    ]
+   },
+   {
+    "tag": "input",
+    "type": "checkbox",
+    "label": ""
+   },
+   {
+    "tag": "input",
+    "type": "text",
+    "label": "Bỏ trống nếu chưa rõ"
+   },
+   {
+    "tag": "input",
+    "type": "date",
+    "label": ""
+   }
+  ],
+  "tables": [
+   {
+    "headers": [
+     "PHỤ HUYNH",
+     "HỌC VIÊN",
+     "LỚP",
+     "ẢNH: ĐỒNG Ý",
+     "ĐÃ ĐÓNG (Đ) · NGÀY",
+     "KẾT QUẢ"
+    ],
+    "rows": 2
+   }
+  ],
+  "buttons": [
+   "Áp dụng",
+   "Tick tất cả đang hiển thị",
+   "Bỏ tick",
+   "Đồng ý ảnh: tick tất cả",
+   "Chốt 0 lead"
+  ],
+  "tabs": [],
+  "links": [
+   "/leads",
+   "/students/tai-khoan"
+  ],
+  "cards": [
+   "Điền \"đã đóng\" theo file Excel (lead đã tick)",
+   "Đã tick: 0 · Đủ điều kiện: 0"
+  ],
+  "empty": [
+   "Tỉnh/TP: Đà Nẵng Nhân viên nhập: NV.SR.022 ⚠️ Phiếu không có tên phụ huynh — cần hỏi lại khi gọi. ⚠️ Mã nhân viên \"NV.SR.022\" không có trong hệ thống — lead được chia tự động."
+  ],
+  "hints": [
+   "Sau khi chốt: tài khoản phụ huynh ở trạng thái chờ kích hoạt — phụ huynh vào satarobo.vn/kich-hoat, nhập SĐT để nhận mã OTP qua Zalo và tự đặt mật khẩu. Quản lý danh sách chờ kích hoạt tại màn Tài khoản phụ huynh."
+  ]
+ },
+ "/quan-ly-chia-lead": {
+  "url": "/quan-ly-chia-lead",
+  "title": "Quản lý chia lead | Admin",
+  "heads": [
+   "Quản lý chia lead"
+  ],
+  "inputs": [
+   {
+    "tag": "select",
+    "type": "select-one",
+    "label": "Khu vực Khối Đà Nẵng Chưa gắn khu vực",
+    "options": [
+     "Khối Đà Nẵng",
+     "Chưa gắn khu vực"
+    ]
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "label": "Cơ sở Hội sở",
+    "options": [
+     "Hội sở"
+    ]
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "label": "Chế độ chia Luân phiên đều lượt Theo tỷ lệ chốt Quản lý giao tay",
+    "options": [
+     "Luân phiên đều lượt",
+     "Theo tỷ lệ chốt",
+     "Quản lý giao tay"
+    ]
+   }
+  ],
+  "tables": [
+   {
+    "headers": [
+     "SALE",
+     "NHẬN LEAD",
+     "LƯỢT ĐÃ NHẬN",
+     "TỔNG LEAD ĐANG GIỮ",
+     "LẦN CHIA GẦN NHẤT",
+     "GHI CHÚ"
+    ],
+    "rows": 1
+   }
+  ],
+  "buttons": [
+   "Đặt lại lượt toàn cơ sở"
+  ],
+  "tabs": [],
+  "links": [
+   "/quan-ly-chia-lead?co_so=hoi-so&tab=pool",
+   "/quan-ly-chia-lead?co_so=hoi-so&tab=so-chia",
+   "/quan-ly-chia-lead/lich-su?co_so=hoi-so"
+  ],
+  "cards": [],
+  "empty": [
+   "Cơ sở này chưa có sale nào."
+  ],
+  "hints": [
+   "Ai đang nhận lead tự động, và vòng chia đã chia cho ai."
+  ]
+ },
+ "/ban-giao-lead": {
+  "url": "/ban-giao-lead",
+  "title": "Bàn giao lead | Admin",
+  "heads": [
+   "Bàn giao lead"
+  ],
+  "inputs": [
+   {
+    "tag": "select",
+    "type": "select-one",
+    "label": "Sale bàn giao (nguồn) — Chọn — Huỳnh Thị Diệu Lê Thị Phương Liên Nguyễn Thị Lộc Tô Thị Thuý Vân",
+    "options": [
+     "<danh sách nhân sự>"
+    ]
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "label": "Sale nhận (đích) — Chọn — Huỳnh Thị Diệu Lê Thị Phương Liên Nguyễn Thị Lộc Tô Thị Thuý Vân",
+    "options": [
+     "<danh sách nhân sự>"
+    ]
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "label": "Chiến dịch (utmCampaign) — Mọi chiến dịch — zalo",
+    "options": [
+     "— Mọi chiến dịch —",
+     "zalo"
+    ]
+   },
+   {
+    "tag": "input",
+    "type": "checkbox",
+    "label": "Chỉ lead chưa đóng (bỏ \"Đã mất\")"
+   },
+   {
+    "tag": "textarea",
+    "type": "textarea",
+    "label": "Lý do bàn giao"
+   }
+  ],
+  "tables": [],
+  "buttons": [
+   "Mới",
+   "Đã liên hệ",
+   "Đang tư vấn",
+   "Đã hẹn học thử",
+   "Đang học thử",
+   "Đã học thử",
+   "Chờ quyết định",
+   "Đã đăng ký",
+   "Đang nuôi dưỡng",
+   "Xem trước số lead",
+   "Thực hiện bàn giao"
+  ],
+  "tabs": [],
+  "links": [],
+  "cards": [],
+  "empty": [
+   "Lọc trạng thái (để trống = tất cả)"
+  ],
+  "hints": []
+ },
+ "/lead-nguoi": {
+  "url": "/lead-nguoi",
+  "title": "Quản trị | Sata Robo",
+  "heads": [
+   "Lead lâu ngày chưa chăm"
+  ],
+  "inputs": [
+   {
+    "tag": "input",
+    "type": "number",
+    "label": "Không ai chăm từ (ngày)"
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "label": "Cơ sở Tất cả cơ sở trong tầm nhìn CS1 — CS1 - 211 Nguyễn Hữu Thọ CS2 — CS2 - 114 Hoàng Diệu HO — Hội sở",
+    "options": [
+     "Tất cả cơ sở trong tầm nhìn",
+     "CS1 — CS1 - 211 Nguyễn Hữu Thọ",
+     "CS2 — CS2 - 114 Hoàng Diệu",
+     "HO — Hội sở"
+    ]
+   }
+  ],
+  "tables": [
+   {
+    "headers": [
+     "Phụ huynh",
+     "Số điện thoại",
+     "Trạng thái",
+     "Đang giữ",
+     "Im bao lâu"
+    ],
+    "rows": 25
+   }
+  ],
+  "buttons": [
+   "Lọc lại"
+  ],
+  "tabs": [],
+  "links": [],
+  "cards": [
+   "122 ngày (~4 tháng)",
+   "121 ngày (~4 tháng)",
+   "120 ngày (~4 tháng)",
+   "119 ngày (~3 tháng)",
+   "Im 122 ngày (~4 tháng)",
+   "Im 121 ngày (~4 tháng)",
+   "Im 120 ngày (~4 tháng)",
+   "Im 119 ngày (~3 tháng)"
+  ],
+  "empty": [],
+  "hints": []
+ },
+ "/leads/bao-cao-chuyen": {
+  "url": "/leads/bao-cao-chuyen",
+  "title": "Báo cáo chuyển lead liên cơ sở | Admin",
+  "heads": [
+   "Chuyển lead liên cơ sở"
+  ],
+  "inputs": [],
+  "tables": [
+   {
+    "headers": [
+     "LEAD",
+     "CHUYỂN",
+     "NGƯỜI CHUYỂN",
+     "LÝ DO / BÀN GIAO",
+     "KẾT QUẢ",
+     "NGÀY"
+    ],
+    "rows": 1
+   }
+  ],
+  "buttons": [],
+  "tabs": [],
+  "links": [
+   "/leads/bao-cao-chuyen?month=2026-08",
+   "/leads/bao-cao-chuyen?month=2026-10"
+  ],
+  "cards": [
+   "1/1",
+   "Đã chốt"
+  ],
+  "empty": [],
+  "hints": []
+ },
+ "/affiliates": {
+  "url": "/affiliates",
+  "title": "Nguồn giới thiệu | Admin",
+  "heads": [
+   "Nguồn giới thiệu (Affiliate)"
+  ],
+  "inputs": [],
+  "tables": [],
+  "buttons": [
+   "Thêm nguồn giới thiệu"
+  ],
+  "tabs": [],
+  "links": [],
+  "cards": [],
+  "empty": [
+   "Chưa có nguồn giới thiệu nào."
+  ],
+  "hints": []
+ },
+ "/crm/messenger": {
+  "url": "/crm/messenger",
+  "title": "Inbox Messenger | Admin",
+  "heads": [
+   "Inbox Messenger"
+  ],
+  "inputs": [],
+  "tables": [],
+  "buttons": [],
+  "tabs": [],
+  "links": [],
+  "cards": [],
+  "empty": [
+   "Chưa có hội thoại nào trong phạm vi của bạn."
+  ],
+  "hints": []
+ },
+ "/lop-trial": {
+  "url": "/lop-trial",
+  "title": "Lớp Trial | Admin",
+  "heads": [
+   "Lớp Trial"
+  ],
+  "inputs": [
+   {
+    "tag": "input",
+    "type": "search",
+    "name": "q",
+    "label": "Tìm theo tên lớp hoặc mã lớp…"
+   }
+  ],
+  "tables": [
+   {
+    "headers": [
+     "LỚP",
+     "BUỔI KẾ TIẾP",
+     "SĨ SỐ",
+     "SỐ BUỔI",
+     "TRẠNG THÁI",
+     "THAO TÁC"
+    ],
+    "rows": 8
+   }
+  ],
+  "buttons": [
+   "Tìm"
+  ],
+  "tabs": [],
+  "links": [
+   "/lop-trial/moi"
+  ],
+  "cards": [
+   "Đang mở"
+  ],
+  "empty": [],
+  "hints": [
+   "Tạo lớp chỉ cần cơ sở và khoá trải nghiệm; tên lớp hệ thống tự đặt. Ngày, giờ, phòng và giáo viên chọn khi thêm buổi — mỗi buổi có thể khác nhau.",
+   "Đổi lịch hoặc huỷ một buổi phải ghi lý do — lý do đó được gửi thẳng cho giáo viên phụ trách buổi."
+  ]
+ },
+ "/leads/import": {
+  "url": "/leads/import",
+  "title": "Quản trị | Sata Robo",
+  "heads": [
+   "Nhập lead từ Excel",
+   "Nhập lead",
+   "Cột trong file (cố định)",
+   "Những điều dễ nhầm"
+  ],
+  "inputs": [
+   {
+    "tag": "input",
+    "type": "file",
+    "label": ""
+   }
+  ],
+  "tables": [],
+  "buttons": [],
+  "tabs": [],
+  "links": [
+   "/leads",
+   "/leads/import/registered",
+   "/api/admin/templates/leads"
+  ],
+  "cards": [
+   "Nhập danh sách đã đăng ký →",
+   "Tải file mẫu"
+  ],
+  "empty": [
+   "Cơ sở (mã CS, để trống)",
+   "Sale phụ trách (email hoặc mã NV, để trống)",
+   "điền vào những ô lead đang để trống"
+  ],
+  "hints": [
+   ".xlsx / .xls — tối đa 10MB, 5000 dòng",
+   "SĐT bắt buộc và phải hợp lệ (09xx / +84). Để ô kiểu text trong Excel, nếu không số 0 đầu bị nuốt mất.",
+   "Cơ sở: quản lý cơ sở để trống → lead về cơ sở của mình. Điền mã (vd CS1) khi nhập hộ cơ sở khác — cần quyền HO/Super Admin."
+  ]
+ },
+ "/students": {
+  "url": "/students",
+  "title": "Học viên | Admin",
+  "heads": [
+   "Học viên"
+  ],
+  "inputs": [
+   {
+    "tag": "input",
+    "type": "text",
+    "name": "q",
+    "label": "Tên / mã / phụ huynh / SĐT phụ huynh..."
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "name": "status",
+    "label": "status",
+    "options": [
+     "Tất cả trạng thái",
+     "Đang học",
+     "Bảo lưu",
+     "Hoàn thành",
+     "Nghỉ học"
+    ]
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "name": "centerId",
+    "label": "centerId",
+    "options": [
+     "Tất cả cơ sở",
+     "CS1 - 211 Nguyễn Hữu Thọ",
+     "CS2 - 114 Hoàng Diệu"
+    ]
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "name": "grade",
+    "label": "grade",
+    "options": [
+     "Tất cả lớp",
+     "Lớp 1",
+     "Lớp 2",
+     "Lớp 3",
+     "Lớp 4",
+     "Lớp 5",
+     "Lớp 6",
+     "Lớp 7",
+     "Lớp 8",
+     "Lớp 9",
+     "Lớp 10",
+     "Lớp 11",
+     "…(+1)"
+    ]
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "label": "Hiển thị",
+    "options": [
+     "10",
+     "20",
+     "50",
+     "100"
+    ]
+   }
+  ],
+  "tables": [
+   {
+    "headers": [
+     "ẢNH",
+     "HỌC VIÊN",
+     "LỚP",
+     "PHỤ HUYNH",
+     "CƠ SỞ",
+     "KHOÁ",
+     "TRẠNG THÁI",
+     "NGÀY TẠO",
+     "HÀNH ĐỘNG"
+    ],
+    "rows": 20
+   }
+  ],
+  "buttons": [
+   "Áp dụng"
+  ],
+  "tabs": [],
+  "links": [
+   "/students/tai-khoan",
+   "/students/new",
+   "/students/import"
+  ],
+  "cards": [
+   "Đang học"
+  ],
+  "empty": [],
+  "hints": []
+ },
+ "/students/tai-khoan": {
+  "url": "/students/tai-khoan",
+  "title": "Tài khoản phụ huynh | Admin",
+  "heads": [
+   "Tài khoản phụ huynh"
+  ],
+  "inputs": [
+   {
+    "tag": "input",
+    "type": "text",
+    "label": "Tìm theo tên PH / SĐT / tên học viên…"
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "label": "Hiển thị",
+    "options": [
+     "10",
+     "20",
+     "50",
+     "100"
+    ]
+   }
+  ],
+  "tables": [
+   {
+    "headers": [
+     "PHỤ HUYNH",
+     "HỌC VIÊN",
+     "CƠ SỞ",
+     "TRẠNG THÁI",
+     "ZNS BÁO CẤP TK",
+     "HÀNH ĐỘNG"
+    ],
+    "rows": 20
+   }
+  ],
+  "buttons": [
+   "Xuất CSV",
+   "Gửi ZNS tất cả chưa nhận"
+  ],
+  "tabs": [],
+  "links": [
+   "/students",
+   "/students/tai-khoan",
+   "/students/tai-khoan?status=all"
+  ],
+  "cards": [
+   "Chờ kích hoạt",
+   "Lỗi gửi — rê chuột xem"
+  ],
+  "empty": [],
+  "hints": []
+ },
+ "/enrollments": {
+  "url": "/enrollments",
+  "title": "Đăng ký: <tên>",
+  "heads": [
+   "Đăng ký: <tên>"
+  ],
+  "inputs": [
+   {
+    "tag": "input",
+    "type": "text",
+    "name": "q",
+    "label": "Tìm HS / SĐT PH / tên lớp / mã lớp..."
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "name": "status",
+    "label": "status",
+    "options": [
+     "Đang hoạt động (mặc định)",
+     "Tất cả trạng thái",
+     "Chờ xếp",
+     "Đã xếp",
+     "Đang học",
+     "Bảo lưu",
+     "Hoàn thành",
+     "Đã rút",
+     "Đã chuyển"
+    ]
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "name": "classId",
+    "label": "classId",
+    "options": [
+     "Tất cả lớp",
+     "CS2.Combo.26.001 · combo.10h-T2&10h-T4&15h30-T7.CS2-P302",
+     "CS1.COMBO.26.002 · combo.10h-T4&19h30-T5.CS1-101",
+     "CS1.COMBO.26.001 · combo.14h-T5&10h-T7.CS1-101",
+     "CS1.SATA1.26.001 · sata1.19h30-T4&19h30-T5.CS1-101",
+     "CS1.SATA2.26.001 · sata2.09h-CN.CS1-101",
+     "CS1.SATA3.26.004 · sata3.08h-T7.CS1-201",
+     "CS1.SATA3.26.003 · sata3.09h45-CN.CS1-201",
+     "CS1.SATA3.26.002 · sata3.10h-T7.CS1-201",
+     "CS2.SATA3.26.004 · sata3.14h-CN.CS2-P302",
+     "CS2.SATA3.26.003 · sata3.15h45-CN.CS2-P302",
+     "CS1.SATA3.26.001 · sata3.15h45-T7.CS1-201",
+     "…(+13)"
+    ]
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "name": "centerId",
+    "label": "centerId",
+    "options": [
+     "Tất cả cơ sở",
+     "CS1 - 211 Nguyễn Hữu Thọ",
+     "CS2 - 114 Hoàng Diệu"
+    ]
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "label": "Hiển thị",
+    "options": [
+     "10",
+     "20",
+     "50",
+     "100"
+    ]
+   }
+  ],
+  "tables": [
+   {
+    "headers": [
+     "HỌC VIÊN",
+     "LỚP / CƠ SỞ",
+     "TRẠNG THÁI",
+     "NGÀY ĐĂNG KÝ",
+     "HÀNH ĐỘNG"
+    ],
+    "rows": 20
+   }
+  ],
+  "buttons": [
+   "Áp dụng bộ lọc"
+  ],
+  "tabs": [],
+  "links": [
+   "/enrollments/new"
+  ],
+  "cards": [
+   "Đang học (legacy)",
+   "Xoá"
+  ],
+  "empty": [],
+  "hints": []
+ },
+ "/chuyen-lop": {
+  "url": "/chuyen-lop",
+  "title": "Chuyển lớp / cơ sở | Admin",
+  "heads": [
+   "Chuyển lớp / chuyển cơ sở"
+  ],
+  "inputs": [
+   {
+    "tag": "select",
+    "type": "select-one",
+    "label": "Bước 1 — Cơ sở nguồn — Chọn cơ sở — CS1 - 211 Nguyễn Hữu Thọ…",
+    "options": [
+     "— Chọn cơ sở —",
+     "CS1 - 211 Nguyễn Hữu Thọ",
+     "CS2 - 114 Hoàng Diệu"
+    ]
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "label": "Bước 2 — Học viên — Chọn cơ sở nguồn trước —",
+    "options": [
+     "— Chọn cơ sở nguồn trước —"
+    ]
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "label": "Bước 3 — Lớp hiện tại — Chọn —",
+    "options": [
+     "— Chọn —"
+    ]
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "label": "Bước 4 — Cơ sở đích (tuỳ chọn) — Mọi cơ sở — CS1 - 211 Nguyễ…",
+    "options": [
+     "— Mọi cơ sở —",
+     "CS1 - 211 Nguyễn Hữu Thọ",
+     "CS2 - 114 Hoàng Diệu"
+    ]
+   },
+   {
+    "tag": "textarea",
+    "type": "textarea",
+    "label": "Lý do chuyển"
+   }
+  ],
+  "tables": [
+   {
+    "headers": [
+     "Học viên",
+     "Trạng thái",
+     "Lý do",
+     "Ngày",
+     "Thao tác"
+    ],
+    "rows": 1
+   }
+  ],
+  "buttons": [
+   "Tìm lớp đích phù hợp"
+  ],
+  "tabs": [],
+  "links": [],
+  "cards": [
+   "Yêu cầu đang chờ"
+  ],
+  "empty": [
+   "Không có yêu cầu."
+  ],
+  "hints": []
+ },
+ "/students/sap-het-khoa": {
+  "url": "/students/sap-het-khoa",
+  "title": "Sắp hết khoá | Admin",
+  "heads": [
+   "Sắp hết khoá"
+  ],
+  "inputs": [],
+  "tables": [],
+  "buttons": [],
+  "tabs": [],
+  "links": [],
+  "cards": [],
+  "empty": [
+   "Chưa có học viên nào sắp hết khoá."
+  ],
+  "hints": []
+ },
+ "/hoan-thanh-khoa": {
+  "url": "/hoan-thanh-khoa",
+  "title": "Hoàn thành khoá | Admin",
+  "heads": [
+   "Hoàn thành khoá & chứng chỉ",
+   "Hoàn thành khoá hàng loạt theo lớp"
+  ],
+  "inputs": [
+   {
+    "tag": "select",
+    "type": "select-one",
+    "label": "Bước 1 — Học viên — Chọn — BÙI GIA KHANG (CS1-26-QK47V2) BÙI…",
+    "options": [
+     "<danh sách học viên>"
+    ]
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "label": "Bước 2 — Khoá đang học — Chọn học viên trước —",
+    "options": [
+     "<danh sách học viên>"
+    ]
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "label": "Bước 3 — Lớp (theo khoá) — Chọn khoá trước —",
+    "options": [
+     "— Chọn khoá trước —"
+    ]
+   },
+   {
+    "tag": "input",
+    "type": "text",
+    "label": "Xếp loại cuối khoá"
+   },
+   {
+    "tag": "textarea",
+    "type": "textarea",
+    "label": "Đánh giá cuối khoá của GV *"
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "label": "Bước 1 — Chọn lớp — Chọn lớp — sata4.15h45-CN.CS2-301 (CS2.S…",
+    "options": [
+     "— Chọn lớp —",
+     "sata4.15h45-CN.CS2-301 (CS2.SATA4.26.007) · Sata4 — Bứt Phá Giới Hạn · CS2 - 114 Hoàng Diệu",
+     "sata3.14h-CN.CS2-P302 (CS2.SATA3.26.004) · Sata3 — Ươm Mầm Tài Năng · CS2 - 114 Hoàng Diệu",
+     "sata3.08h-T7.CS1-201 (CS1.SATA3.26.004) · Sata3 — Ươm Mầm Tài Năng · CS1 - 211 Nguyễn Hữu Thọ",
+     "sata4.9h45-CN.CS2-P302 (CS2.SATA4.26.006) · Sata4 — Bứt Phá Giới Hạn · CS2 - 114 Hoàng Diệu",
+     "sata4.09h45-CN.CS1-1-1 (CS1.SATA4.26.004) · Sata4 — Bứt Phá Giới Hạn · CS1 - 211 Nguyễn Hữu Thọ",
+     "sata4.09h45-CN.CS1-101 (CS1.SATA4.26.003) · Sata4 — Bứt Phá Giới Hạn · CS1 - 211 Nguyễn Hữu Thọ",
+     "sata6.14h-CN.CS1-101 (CS1.SATA6.26.002) · Sata6 — Chinh Phục Đấu Trường · CS1 - 211 Nguyễn Hữu Thọ",
+     "sata3.09h45-CN.CS1-201 (CS1.SATA3.26.003) · Sata3 — Ươm Mầm Tài Năng · CS1 - 211 Nguyễn Hữu Thọ",
+     "sata3.15h45-CN.CS2-P302 (CS2.SATA3.26.003) · Sata3 — Ươm Mầm Tài Năng · CS2 - 114 Hoàng Diệu",
+     "sata6.15h45-T7.CS2-P302 (CS2.SATA6.26.003) · Sata6 — Chinh Phục Đấu Trường · CS2 - 114 Hoàng Diệu",
+     "sata4.10h-T7.CS2-301 (CS2.SATA4.26.003) · Sata4 — Bứt Phá Giới Hạn · CS2 - 114 Hoàng Diệu",
+     "…(+13)"
+    ]
+   }
+  ],
+  "tables": [
+   {
+    "headers": [
+     "Học viên",
+     "Khoá",
+     "Xếp loại",
+     "Khoá tiếp theo",
+     "Ngày",
+     "Chứng chỉ"
+    ],
+    "rows": 1
+   }
+  ],
+  "buttons": [
+   "Đánh dấu hoàn thành & sinh chứng chỉ"
+  ],
+  "tabs": [],
+  "links": [],
+  "cards": [
+   "Đề xuất chờ duyệt",
+   "Đã hoàn thành gần đây"
+  ],
+  "empty": [
+   "Không có đề xuất nào đang chờ. Đề xuất do giáo viên gửi từ màn “Hoàn thành khoá” của site giáo viên sẽ hiện ở đây.",
+   "Chưa có dữ liệu."
+  ],
+  "hints": [
+   "Chốt kết quả cuối khoá và cấp chứng chỉ",
+   "Đánh dấu học viên hoàn thành khoá, nhập đánh giá cuối khoá của GV → sinh chứng chỉ, gợi ý khoá tiếp theo, tạo việc chăm sóc tái tục và đẩy email chúc mừng."
+  ]
+ },
+ "/hoc-ba": {
+  "url": "/hoc-ba",
+  "title": "Học bạ | Admin",
+  "heads": [
+   "Học bạ học viên"
+  ],
+  "inputs": [
+   {
+    "tag": "select",
+    "type": "select-one",
+    "name": "studentId",
+    "label": "studentId",
+    "options": [
+     "<danh sách học viên>"
+    ]
+   }
+  ],
+  "tables": [],
+  "buttons": [
+   "Xem"
+  ],
+  "tabs": [],
+  "links": [],
+  "cards": [],
+  "empty": [],
+  "hints": []
+ },
+ "/report-cards": {
+  "url": "/report-cards",
+  "title": "Học bạ năng lực | Admin",
+  "heads": [
+   "Học bạ năng lực"
+  ],
+  "inputs": [
+   {
+    "tag": "select",
+    "type": "select-one",
+    "name": "classId",
+    "label": "classId",
+    "options": [
+     "— Chọn lớp —",
+     "CS2.SATA4.26.007 · sata4.15h45-CN.CS2-301 (Sata4 — Bứt Phá Giới Hạn)",
+     "CS2.SATA3.26.004 · sata3.14h-CN.CS2-P302 (Sata3 — Ươm Mầm Tài Năng)",
+     "CS1.SATA4.26.004 · sata4.09h45-CN.CS1-1-1 (Sata4 — Bứt Phá Giới Hạn)",
+     "CS1.SATA3.26.004 · sata3.08h-T7.CS1-201 (Sata3 — Ươm Mầm Tài Năng)",
+     "CS2.SATA6.26.003 · sata6.15h45-T7.CS2-P302 (Sata6 — Chinh Phục Đấu Trường)",
+     "CS2.SATA4.26.006 · sata4.9h45-CN.CS2-P302 (Sata4 — Bứt Phá Giới Hạn)",
+     "CS2.SATA3.26.003 · sata3.15h45-CN.CS2-P302 (Sata3 — Ươm Mầm Tài Năng)",
+     "CS1.SATA6.26.002 · sata6.14h-CN.CS1-101 (Sata6 — Chinh Phục Đấu Trường)",
+     "CS1.SATA4.26.003 · sata4.09h45-CN.CS1-101 (Sata4 — Bứt Phá Giới Hạn)",
+     "CS1.SATA3.26.003 · sata3.09h45-CN.CS1-201 (Sata3 — Ươm Mầm Tài Năng)",
+     "CS2.SATA4.26.003 · sata4.10h-T7.CS2-301 (Sata4 — Bứt Phá Giới Hạn)",
+     "…(+13)"
+    ]
+   }
+  ],
+  "tables": [],
+  "buttons": [
+   "Xem học viên"
+  ],
+  "tabs": [],
+  "links": [
+   "/report-cards/criteria"
+  ],
+  "cards": [],
+  "empty": [],
+  "hints": []
+ },
+ "/satacoin": {
+  "url": "/satacoin",
+  "title": "SataCoin | Admin",
+  "heads": [
+   "SataCoin — điểm thưởng nội bộ",
+   "QUY TẮC THƯỞNG",
+   "CẤP / ĐIỀU CHỈNH COIN"
+  ],
+  "inputs": [
+   {
+    "tag": "input",
+    "type": "text",
+    "label": "MÃ (ATTENDANCE)"
+   },
+   {
+    "tag": "input",
+    "type": "text",
+    "label": "Tên rule"
+   },
+   {
+    "tag": "input",
+    "type": "number",
+    "label": "Số coin"
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "label": "",
+    "options": [
+     "<danh sách học viên>"
+    ]
+   },
+   {
+    "tag": "input",
+    "type": "number",
+    "label": "Số coin (âm = trừ)"
+   },
+   {
+    "tag": "input",
+    "type": "text",
+    "label": "Lý do (mã/ghi chú ngắn)"
+   },
+   {
+    "tag": "input",
+    "type": "text",
+    "label": "Ghi chú (tuỳ chọn)"
+   }
+  ],
+  "tables": [
+   {
+    "headers": [
+     "Học viên",
+     "Loại",
+     "Lý do",
+     "Coin",
+     "Ngày",
+     "Thao tác"
+    ],
+    "rows": 1
+   }
+  ],
+  "buttons": [
+   "Thêm rule",
+   "Ghi giao dịch"
+  ],
+  "tabs": [],
+  "links": [],
+  "cards": [
+   "Sổ cái gần đây"
+  ],
+  "empty": [
+   "Chưa có rule.",
+   "Chưa có giao dịch."
+  ],
+  "hints": [
+   "Sổ cái bất biến: không sửa/xoá giao dịch. Điều chỉnh = ghi giao dịch đảo. Số dư = tổng giao dịch."
+  ]
+ },
+ "/lop-trial/moi": {
+  "url": "/lop-trial/moi",
+  "title": "Lớp Trial | Admin",
+  "heads": [
+   "Lớp Trial",
+   "Tạo lớp trải nghiệm"
+  ],
+  "inputs": [
+   {
+    "tag": "input",
+    "type": "text",
+    "label": "Tên lớp Tự sinh theo quy ước Cơ sở_Lớp trial số; số thứ tự d…"
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "label": "Cơ sở * CS1 - 211 Nguyễn Hữu Thọ CS2 - 114 Hoàng Diệu",
+    "options": [
+     "CS1 - 211 Nguyễn Hữu Thọ",
+     "CS2 - 114 Hoàng Diệu"
+    ]
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "label": "Khoá trải nghiệm — chưa chọn khoá — Combo — Full Lộ Trình Lu…",
+    "options": [
+     "— chưa chọn khoá —",
+     "Combo — Full Lộ Trình Luyện Thi",
+     "Sata1 — Robosim Master",
+     "Sata2 — Đấu trường Robot",
+     "Sata3 — Ươm Mầm Tài Năng",
+     "Sata4 — Bứt Phá Giới Hạn",
+     "Sata5 — Khơi Nguồn Sáng Tạo",
+     "Sata6 — Chinh Phục Đấu Trường",
+     "Sata7 — Kiến Tạo Tương Lai",
+     "Sata8 — Vé Vàng Chung Kết"
+    ]
+   }
+  ],
+  "tables": [],
+  "buttons": [
+   "Tạo lớp"
+  ],
+  "tabs": [],
+  "links": [
+   "/lop-trial"
+  ],
+  "cards": [],
+  "empty": [
+   "Lớp là một khung giờ dùng lại nhiều lần, không gắn ngày khai giảng. Tạo xong nhớ thêm buổi, vì lớp chưa có buổi thì không xếp được học viên."
+  ],
+  "hints": [
+   "Tạo lớp chỉ cần cơ sở và khoá trải nghiệm; tên lớp hệ thống tự đặt. Ngày, giờ, phòng và giáo viên chọn khi thêm buổi — mỗi buổi có thể khác nhau.",
+   "Đổi lịch hoặc huỷ một buổi phải ghi lý do — lý do đó được gửi thẳng cho giáo viên phụ trách buổi."
+  ]
+ },
+ "/students/new": {
+  "url": "/students/new",
+  "title": "Quản trị | Sata Robo",
+  "heads": [
+   "Thêm học viên mới",
+   "THÔNG TIN HỌC VIÊN",
+   "HỌC VẤN",
+   "PHỤ HUYNH",
+   "ĐỊA CHỈ",
+   "THÔNG TIN SATA ROBO"
+  ],
+  "inputs": [
+   {
+    "tag": "input",
+    "type": "file",
+    "label": ""
+   },
+   {
+    "tag": "input",
+    "type": "text",
+    "name": "name",
+    "label": "Họ và tên*"
+   },
+   {
+    "tag": "input",
+    "type": "text",
+    "name": "studentCode",
+    "label": "VD: SR.HV.001"
+   },
+   {
+    "tag": "input",
+    "type": "date",
+    "name": "dateOfBirth",
+    "label": "Ngày sinh"
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "name": "gender",
+    "label": "Giới tính — Không chọn — Nam Nữ Khác",
+    "options": [
+     "— Không chọn —",
+     "Nam",
+     "Nữ",
+     "Khác"
+    ]
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "name": "status",
+    "label": "status",
+    "options": [
+     "Đang học",
+     "Bảo lưu",
+     "Hoàn thành"
+    ]
+   },
+   {
+    "tag": "input",
+    "type": "text",
+    "name": "phone",
+    "label": "SĐT học viên (nếu có)"
+   },
+   {
+    "tag": "input",
+    "type": "email",
+    "name": "email",
+    "label": "Email học viên (nếu có)"
+   },
+   {
+    "tag": "input",
+    "type": "number",
+    "name": "currentGrade",
+    "label": "Lớp hiện tại"
+   },
+   {
+    "tag": "input",
+    "type": "text",
+    "name": "school",
+    "label": "Trường đang học"
+   },
+   {
+    "tag": "input",
+    "type": "text",
+    "name": "parentName",
+    "label": "Họ tên PH chính*"
+   },
+   {
+    "tag": "input",
+    "type": "text",
+    "name": "parentPhone",
+    "label": "SĐT PH chính*"
+   },
+   {
+    "tag": "input",
+    "type": "text",
+    "name": "parentRelation",
+    "label": "Quan hệ"
+   },
+   {
+    "tag": "input",
+    "type": "email",
+    "name": "parentEmail",
+    "label": "Email PH chính"
+   },
+   {
+    "tag": "input",
+    "type": "text",
+    "name": "parentNationalId",
+    "label": "Số CCCD/CMND phụ huynh"
+   },
+   {
+    "tag": "input",
+    "type": "text",
+    "name": "parent2Name",
+    "label": "Họ tên PH 2"
+   },
+   {
+    "tag": "input",
+    "type": "text",
+    "name": "parent2Phone",
+    "label": "SĐT PH 2"
+   },
+   {
+    "tag": "input",
+    "type": "text",
+    "name": "parent2Relation",
+    "label": "Quan hệ"
+   },
+   {
+    "tag": "input",
+    "type": "text",
+    "name": "address",
+    "label": "Số nhà, đường"
+   },
+   {
+    "tag": "input",
+    "type": "text",
+    "name": "ward",
+    "label": "Phường"
+   },
+   {
+    "tag": "input",
+    "type": "text",
+    "name": "district",
+    "label": "Quận / Huyện"
+   },
+   {
+    "tag": "input",
+    "type": "text",
+    "name": "city",
+    "label": "Tỉnh / TP"
+   },
+   {
+    "tag": "input",
+    "type": "date",
+    "name": "enrollmentDate",
+    "label": "Ngày đăng ký lần đầu"
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "name": "preferredOrgUnitId",
+    "label": "preferredOrgUnitId",
+    "options": [
+     "— Chưa chọn —",
+     "CS1 - 211 Nguyễn Hữu Thọ",
+     "CS2 - 114 Hoàng Diệu"
+    ]
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "name": "orgUnitId",
+    "label": "orgUnitId",
+    "options": [
+     "— Chọn cơ sở —",
+     "CS1 - 211 Nguyễn Hữu Thọ",
+     "CS2 - 114 Hoàng Diệu"
+    ]
+   },
+   {
+    "tag": "textarea",
+    "type": "textarea",
+    "name": "notes",
+    "label": "Ghi chú nội bộ"
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "name": "bloodType",
+    "label": "Nhóm máu— Không khai —A+A−B+B−O+O−AB+AB−Chưa biết",
+    "options": [
+     "— Không khai —",
+     "A+",
+     "A−",
+     "B+",
+     "B−",
+     "O+",
+     "O−",
+     "AB+",
+     "AB−",
+     "Chưa biết"
+    ]
+   },
+   {
+    "tag": "textarea",
+    "type": "textarea",
+    "name": "healthNotes",
+    "label": "Ghi chú sức khoẻ"
+   }
+  ],
+  "tables": [],
+  "buttons": [
+   "Thêm mục",
+   "Tạo học viên",
+   "Huỷ"
+  ],
+  "tabs": [],
+  "links": [],
+  "cards": [],
+  "empty": [
+   "Chưa có mục. Bấm \"Thêm mục\" để bắt đầu."
+  ],
+  "hints": [
+   "JPG, PNG, WebP, GIF — tối đa 10MB"
+  ]
+ },
+ "/enrollments/new": {
+  "url": "/enrollments/new",
+  "title": "Quản trị | Sata Robo",
+  "heads": [
+   "Đăng ký: <tên>"
+  ],
+  "inputs": [
+   {
+    "tag": "select",
+    "type": "select-one",
+    "label": "Lớp học * — Chọn lớp — CS1.SATA3.26.004 · sata3.08h-T7.CS1-2…",
+    "options": [
+     "— Chọn lớp —",
+     "CS1.SATA3.26.004 · sata3.08h-T7.CS1-201 · CS1 - 211 Nguyễn Hữu Thọ · 2/12",
+     "CS2.SATA3.26.004 · sata3.14h-CN.CS2-P302 · CS2 - 114 Hoàng Diệu · 0/12",
+     "CS2.SATA4.26.007 · sata4.15h45-CN.CS2-301 · CS2 - 114 Hoàng Diệu · 0/12",
+     "CS1.SATA6.26.002 · sata6.14h-CN.CS1-101 · CS1 - 211 Nguyễn Hữu Thọ · 2/12",
+     "CS2.SATA6.26.003 · sata6.15h45-T7.CS2-P302 · CS2 - 114 Hoàng Diệu · 2/12",
+     "CS1.COMBO.26.002 · combo.10h-T4&19h30-T5.CS1-101 · CS1 - 211 Nguyễn Hữu Thọ · 6/12",
+     "CS1.SATA2.26.001 · sata2.09h-CN.CS1-101 · CS1 - 211 Nguyễn Hữu Thọ · 6/12",
+     "CS1.SATA3.26.003 · sata3.09h45-CN.CS1-201 · CS1 - 211 Nguyễn Hữu Thọ · 6/12",
+     "CS1.SATA3.26.002 · sata3.10h-T7.CS1-201 · CS1 - 211 Nguyễn Hữu Thọ · 7/12",
+     "CS2.SATA3.26.003 · sata3.15h45-CN.CS2-P302 · CS2 - 114 Hoàng Diệu · 7/12",
+     "CS1.SATA3.26.001 · sata3.15h45-T7.CS1-201 · CS1 - 211 Nguyễn Hữu Thọ · 4/12",
+     "…(+10)"
+    ]
+   },
+   {
+    "tag": "textarea",
+    "type": "textarea",
+    "label": "Ghi chú"
+   }
+  ],
+  "tables": [],
+  "buttons": [
+   "Tạo đăng ký",
+   "Huỷ"
+  ],
+  "tabs": [],
+  "links": [],
+  "cards": [],
+  "empty": [],
+  "hints": []
+ },
+ "/classes": {
+  "url": "/classes",
+  "title": "Quản trị | Sata Robo",
+  "heads": [
+   "Lớp học"
+  ],
+  "inputs": [
+   {
+    "tag": "input",
+    "type": "text",
+    "name": "q",
+    "label": "Tìm tên / mã lớp..."
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "name": "status",
+    "label": "Lọc theo trạng thái",
+    "options": [
+     "Mọi trạng thái",
+     "Đang lên KH",
+     "Tuyển sinh",
+     "Chờ duyệt",
+     "Đang dạy",
+     "Hoàn thành",
+     "Huỷ"
+    ]
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "name": "centerId",
+    "label": "Lọc theo cơ sở",
+    "options": [
+     "Tất cả cơ sở",
+     "CS1 - 211 Nguyễn Hữu Thọ",
+     "CS2 - 114 Hoàng Diệu"
+    ]
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "name": "courseId",
+    "label": "Lọc theo khoá học",
+    "options": [
+     "Tất cả khoá",
+     "Combo — Full Lộ Trình Luyện Thi",
+     "Sata1 — Robosim Master",
+     "Sata2 — Đấu trường Robot",
+     "Sata3 — Ươm Mầm Tài Năng",
+     "Sata4 — Bứt Phá Giới Hạn",
+     "Sata5 — Khơi Nguồn Sáng Tạo",
+     "Sata6 — Chinh Phục Đấu Trường",
+     "Sata7 — Kiến Tạo Tương Lai",
+     "Sata8 — Vé Vàng Chung Kết"
+    ]
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "name": "teacherId",
+    "label": "Lọc theo giáo viên",
+    "options": [
+     "<danh sách nhân sự>"
+    ]
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "label": "Hiển thị",
+    "options": [
+     "10",
+     "20",
+     "50",
+     "100"
+    ]
+   }
+  ],
+  "tables": [
+   {
+    "headers": [
+     "TÊN LỚP",
+     "KHOÁ HỌC",
+     "CƠ SỞ / PHÒNG",
+     "LỊCH",
+     "GV CHÍNH",
+     "SỨC CHỨA",
+     "KHAI GIẢNG",
+     "TRẠNG THÁI",
+     "HÀNH ĐỘNG"
+    ],
+    "rows": 20
+   }
+  ],
+  "buttons": [
+   "Áp dụng bộ lọc"
+  ],
+  "tabs": [],
+  "links": [
+   "/classes/new",
+   "/classes/import",
+   "/classes/kiem-tra-lich"
+  ],
+  "cards": [
+   "Xoá",
+   "Đang dạy"
+  ],
+  "empty": [],
+  "hints": []
+ },
+ "/classes/new": {
+  "url": "/classes/new",
+  "title": "Quản trị | Sata Robo",
+  "heads": [
+   "Thêm lớp học mới",
+   "THÔNG TIN LỚP HỌC",
+   "PHÂN CÔNG",
+   "KẾ HOẠCH LỊCH HỌC *"
+  ],
+  "inputs": [
+   {
+    "tag": "input",
+    "type": "text",
+    "name": "name",
+    "label": "sata4.17h30-T2&17h30-T6.P302"
+   },
+   {
+    "tag": "input",
+    "type": "text",
+    "name": "classCode",
+    "label": "SR-LR-2026-01"
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "name": "courseId",
+    "label": "Khoá học* — Chọn khoá cụ thể — Combo — Full Lộ Trình Luyện T…",
+    "options": [
+     "— Chọn khoá cụ thể —",
+     "Combo — Full Lộ Trình Luyện Thi",
+     "Sata1 — Robosim Master",
+     "Sata2 — Đấu trường Robot",
+     "Sata8 — Vé Vàng Chung Kết",
+     "Sata3 — Ươm Mầm Tài Năng",
+     "Sata4 — Bứt Phá Giới Hạn",
+     "Sata5 — Khơi Nguồn Sáng Tạo",
+     "Sata6 — Chinh Phục Đấu Trường",
+     "Sata7 — Kiến Tạo Tương Lai"
+    ]
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "name": "orgUnitId",
+    "label": "Cơ sở* — Chọn cơ sở — CS1 - 211 Nguyễn Hữu Thọ CS2 - 114 Hoà…",
+    "options": [
+     "— Chọn cơ sở —",
+     "CS1 - 211 Nguyễn Hữu Thọ",
+     "CS2 - 114 Hoàng Diệu"
+    ]
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "name": "status",
+    "label": "Trạng thái* Đang lên KH Tuyển sinh Đang dạy Hoàn thành",
+    "options": [
+     "Đang lên KH",
+     "Tuyển sinh",
+     "Đang dạy",
+     "Hoàn thành"
+    ]
+   },
+   {
+    "tag": "textarea",
+    "type": "textarea",
+    "name": "description",
+    "label": "Đặc thù của lớp để bàn giao khi đổi giáo viên. Ví dụ:\n- Minh…"
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "name": "curriculumId",
+    "label": "curriculumId",
+    "options": [
+     "— Khoá chưa có giáo trình ACTIVE —"
+    ]
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "name": "roomId",
+    "label": "roomId",
+    "options": [
+     "— Chọn phòng học —",
+     "CS2-301 — CS2-301",
+     "CS2-P302 — CS2-302",
+     "CS1-101 — CS1-101",
+     "CS1-201 — CS1-201"
+    ]
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "name": "teacherId",
+    "label": "teacherId",
+    "options": [
+     "<danh sách nhân sự>"
+    ]
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "name": "assistantId",
+    "label": "assistantId",
+    "options": [
+     "<danh sách nhân sự>"
+    ]
+   },
+   {
+    "tag": "input",
+    "type": "date",
+    "name": "startDate",
+    "label": "Ngày khai giảng*"
+   },
+   {
+    "tag": "input",
+    "type": "date",
+    "name": "endDate",
+    "label": "endDate"
+   },
+   {
+    "tag": "input",
+    "type": "date",
+    "label": "Từ ngày *"
+   },
+   {
+    "tag": "input",
+    "type": "date",
+    "label": "Đến ngày (để trống = đến hết khoá)"
+   },
+   {
+    "tag": "input",
+    "type": "text",
+    "label": "Ghi chú"
+   },
+   {
+    "tag": "input",
+    "type": "number",
+    "name": "minStudents",
+    "label": "minStudents"
+   },
+   {
+    "tag": "input",
+    "type": "number",
+    "name": "maxStudents",
+    "label": "Số HS tối đa*"
+   }
+  ],
+  "tables": [],
+  "buttons": [
+   "T2",
+   "T3",
+   "T4",
+   "T5",
+   "T6",
+   "T7",
+   "CN",
+   "Thêm kế hoạch lịch",
+   "Tạo lớp",
+   "Huỷ"
+  ],
+  "tabs": [],
+  "links": [],
+  "cards": [],
+  "empty": [
+   "— Khoá chưa có giáo trình ACTIVE —",
+   "Một lớp có thể đổi nhịp học giữa khoá — ví dụ tháng 7 học 2 buổi/tuần, tháng 8 còn 1 buổi/tuần. Mỗi giai đoạn khai khoảng ngày + các thứ trong tuần + giờ của từng thứ. Giai đoạn cuối bỏ trống ô \"đến ngày\" để kéo dài tới khi học đủ số buổi.",
+   "(để trống = đến hết khoá)"
+  ],
+  "hints": []
+ },
+ "/sessions": {
+  "url": "/sessions",
+  "title": "Quản trị | Sata Robo",
+  "heads": [
+   "Buổi học"
+  ],
+  "inputs": [
+   {
+    "tag": "select",
+    "type": "select-one",
+    "label": "",
+    "options": [
+     "Tất cả lớp",
+     "combo.10h-T2&10h-T4&15h30-T7.CS2-P302",
+     "combo.10h-T4&19h30-T5.CS1-101",
+     "combo.14h-T5&10h-T7.CS1-101",
+     "sata1.19h30-T4&19h30-T5.CS1-101",
+     "sata2.09h-CN.CS1-101",
+     "sata3.08h-T7.CS1-201",
+     "sata3.09h45-CN.CS1-201",
+     "sata3.10h-T7.CS1-201",
+     "sata3.14h-CN.CS2-P302",
+     "sata3.15h45-CN.CS2-P302",
+     "sata3.15h45-T7.CS1-201",
+     "…(+13)"
+    ]
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "label": "Hiển thị",
+    "options": [
+     "10",
+     "20",
+     "50",
+     "100"
+    ]
+   }
+  ],
+  "tables": [
+   {
+    "headers": [
+     "THỜI GIAN",
+     "LỚP / CHỦ ĐỀ",
+     "ĐIỂM DANH",
+     "THAO TÁC"
+    ],
+    "rows": 20
+   }
+  ],
+  "buttons": [
+   "Sắp tới",
+   "Đã diễn ra",
+   "Tất cả"
+  ],
+  "tabs": [],
+  "links": [
+   "/sessions/new"
+  ],
+  "cards": [
+   "Sắp tới"
+  ],
+  "empty": [
+   "Chưa có",
+   "Chưa có",
+   "Chưa có"
+  ],
+  "hints": []
+ },
+ "/lich": {
+  "url": "/lich",
+  "title": "Quản trị | Sata Robo",
+  "heads": [
+   "Lịch dạy"
+  ],
+  "inputs": [],
+  "tables": [],
+  "buttons": [],
+  "tabs": [],
+  "links": [],
+  "cards": [],
+  "empty": [],
+  "hints": []
+ },
+ "/attendance": {
+  "url": "/attendance",
+  "title": "Điểm danh | Admin",
+  "heads": [
+   "Điểm danh"
+  ],
+  "inputs": [
+   {
+    "tag": "input",
+    "type": "search",
+    "label": "Tìm lớp"
+   },
+   {
+    "tag": "input",
+    "type": "text",
+    "label": ""
+   },
+   {
+    "tag": "input",
+    "type": "text",
+    "label": ""
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "label": "Hiển thị",
+    "options": [
+     "10",
+     "20",
+     "50",
+     "100"
+    ]
+   }
+  ],
+  "tables": [
+   {
+    "headers": [
+     "LỚP",
+     "CƠ SỞ",
+     "GIÁO VIÊN",
+     "SĨ SỐ",
+     "BUỔI ĐÃ DẠY",
+     "CHƯA CHỐT",
+     "TRẠNG THÁI",
+     "MỞ"
+    ],
+    "rows": 20
+   }
+  ],
+  "buttons": [
+   "Tất cả cơ sở",
+   "Mọi trạng thái"
+  ],
+  "tabs": [],
+  "links": [],
+  "cards": [
+   "Đang dạy"
+  ],
+  "empty": [],
+  "hints": []
+ },
+ "/media": {
+  "url": "/media",
+  "title": "Ảnh lớp học | Admin",
+  "heads": [
+   "Ảnh lớp học",
+   "ĐĂNG ẢNH LỚP",
+   "THƯ VIỆN (24)"
+  ],
+  "inputs": [
+   {
+    "tag": "select",
+    "type": "select-one",
+    "label": "",
+    "options": [
+     "— Chọn lớp —",
+     "CS2.SATA4.26.007 · sata4.15h45-CN.CS2-301",
+     "CS2.SATA3.26.004 · sata3.14h-CN.CS2-P302",
+     "CS1.SATA4.26.004 · sata4.09h45-CN.CS1-1-1",
+     "CS1.SATA3.26.004 · sata3.08h-T7.CS1-201",
+     "CS2.SATA6.26.003 · sata6.15h45-T7.CS2-P302",
+     "CS2.SATA4.26.006 · sata4.9h45-CN.CS2-P302",
+     "CS2.SATA3.26.003 · sata3.15h45-CN.CS2-P302",
+     "CS1.SATA6.26.002 · sata6.14h-CN.CS1-101",
+     "CS1.SATA4.26.003 · sata4.09h45-CN.CS1-101",
+     "CS1.SATA3.26.003 · sata3.09h45-CN.CS1-201",
+     "CS2.SATA4.26.003 · sata4.10h-T7.CS2-301",
+     "…(+13)"
+    ]
+   },
+   {
+    "tag": "textarea",
+    "type": "textarea",
+    "label": "Chú thích (tuỳ chọn)"
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "label": "Lọc trạng thái ảnh",
+    "options": [
+     "Chờ duyệt / Đã duyệt / Từ chối",
+     "Trong kho (GV chưa gửi)"
+    ]
+   }
+  ],
+  "tables": [],
+  "buttons": [
+   "Đăng ảnh"
+  ],
+  "tabs": [],
+  "links": [],
+  "cards": [
+   "Chờ",
+   "Từ chối",
+   "Duyệt"
+  ],
+  "empty": [],
+  "hints": []
+ },
+ "/duyet-media": {
+  "url": "/duyet-media",
+  "title": "Duyệt ảnh lớp học | Admin",
+  "heads": [
+   "Duyệt ảnh lớp học"
+  ],
+  "inputs": [],
+  "tables": [],
+  "buttons": [
+   "Thứ Tư, 16/09 — 3 lớp chờ duyệt",
+   "Chủ Nhật, 13/09 — 5 lớp chờ duyệt Quá hạn",
+   "Thứ Bảy, 12/09 — 8 lớp chờ duyệt Quá hạn",
+   "Thứ Năm, 10/09 — 3 lớp chờ duyệt Quá hạn",
+   "Thứ Tư, 09/09 — 3 lớp chờ duyệt Quá hạn",
+   "Chủ Nhật, 06/09 — 3 lớp chờ duyệt Quá hạn",
+   "Thứ Bảy, 05/09 — 8 lớp chờ duyệt Quá hạn",
+   "Thứ Năm, 03/09 — 3 lớp chờ duyệt Quá hạn",
+   "Thứ Bảy, 29/08 — 9 lớp chờ duyệt Quá hạn",
+   "Thứ Năm, 27/08 — 4 lớp chờ duyệt Quá hạn",
+   "Thứ Tư, 26/08 — 3 lớp chờ duyệt Quá hạn",
+   "Thứ Bảy, 22/08 — 9 lớp chờ duyệt Quá hạn",
+   "Thứ Năm, 20/08 — 4 lớp chờ duyệt Quá hạn",
+   "Thứ Tư, 19/08 — 3 lớp chờ duyệt Quá hạn",
+   "Thứ Hai, 17/08 — 1 lớp chờ duyệt Quá hạn"
+  ],
+  "tabs": [],
+  "links": [],
+  "cards": [],
+  "empty": [
+   "Chưa có ảnh nào",
+   "Chưa có ảnh nào",
+   "Chưa có ảnh nào"
+  ],
+  "hints": []
+ },
+ "/hoc-bu": {
+  "url": "/hoc-bu",
+  "title": "Học bù | Admin",
+  "heads": [
+   "Học bù"
+  ],
+  "inputs": [],
+  "tables": [],
+  "buttons": [
+   "Gợi ý buổi bù",
+   "Huỷ"
+  ],
+  "tabs": [],
+  "links": [],
+  "cards": [
+   "LÊ KHÁNH LINHsata4.18h-T4.CS2-P302 Chờ xếp bù",
+   "Chờ xếp bù",
+   "Huỷ",
+   "NGUYỄN GIA HUYsata3.10h-T7.CS1-201 Chờ xếp bù",
+   "TRẦN MINH PHÚCsata3.10h-T7.CS1-201 Chờ xếp bù",
+   "NGUYỄN LÊ PHƯỚC HUYcombo.10h-T4&19h30-T5.CS1-101 Chờ xếp bù",
+   "PHAN ĐỨC NAMsata4.18h-T4.CS2-P302 Chờ xếp bù",
+   "CẤN HOÀNG KHẢIcombo.10h-T4&19h30-T5.CS1-101 Chờ xếp bù",
+   "NGUYỄN MINH TIẾNsata3.10h-T7.CS1-201 Chờ xếp bù",
+   "TRẦN NGUYỄN MINH KHÔIsata3.15h45-T7.CS1-201 Chờ xếp bù",
+   "KHẢI LẠCsata3.15h45-T7.CS1-201 Chờ xếp bù",
+   "VŨ ĐÌNH PHONGsata6.10h-T7.CS2-P302 Chờ xếp bù",
+   "LÊ CÔNG PHÚC LÂMsata4.10h-T7.CS2-301 Chờ xếp bù",
+   "HUỲNH BÁ ĐỨC HUYcombo.10h-T4&19h30-T5.CS1-101 Chờ xếp bù",
+   "PHAN TRỊNH HỒNG TÂMsata3.15h45-T7.CS1-201 Chờ xếp bù",
+   "ĐỖ NGUYÊN KHANGsata4.15h45-T7.CS1-101 Chờ xếp bù",
+   "NGUYỄN MINH KHÔIsata4.15h45-T7.CS1-101 Chờ xếp bù",
+   "KHẢI ANsata4.15h45-T7.CS1-101 Chờ xếp bù",
+   "HỒ GIA HÂNcombo.10h-T4&19h30-T5.CS1-101 Chờ xếp bù",
+   "Nguyễn Thành Đạtsata3.10h-T7.CS1-201 Chờ xếp bù"
+  ],
+  "empty": [],
+  "hints": [
+   "Buổi vắng cần bù → gợi ý buổi bù cùng khoá/bài (không vượt tiến độ) → xếp → đánh dấu đã bù."
+  ]
+ },
+ "/centers": {
+  "url": "/centers",
+  "title": "Quản trị | Sata Robo",
+  "heads": [
+   "Cơ sở"
+  ],
+  "inputs": [],
+  "tables": [
+   {
+    "headers": [
+     "CƠ SỞ",
+     "LIÊN HỆ",
+     "LIÊN KẾT",
+     "TRẠNG THÁI",
+     "THAO TÁC"
+    ],
+    "rows": 3
+   }
+  ],
+  "buttons": [],
+  "tabs": [],
+  "links": [
+   "/centers/import",
+   "/centers/new",
+   "/centers/co-so-nguyen-huu-tho/edit",
+   "/centers/co-so-hoang-dieu/edit",
+   "/centers/hoi-so/edit"
+  ],
+  "cards": [
+   "15 lớp",
+   "Đang hoạt động",
+   "11 lớp",
+   "0 lớp"
+  ],
+  "empty": [],
+  "hints": []
+ },
+ "/rooms": {
+  "url": "/rooms",
+  "title": "Quản trị | Sata Robo",
+  "heads": [
+   "Phòng học"
+  ],
+  "inputs": [
+   {
+    "tag": "input",
+    "type": "text",
+    "name": "q",
+    "label": "Tìm theo tên hoặc mã phòng..."
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "name": "centerId",
+    "label": "centerId",
+    "options": [
+     "Tất cả cơ sở",
+     "CS1 - 211 Nguyễn Hữu Thọ",
+     "CS2 - 114 Hoàng Diệu"
+    ]
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "name": "status",
+    "label": "status",
+    "options": [
+     "Tất cả trạng thái",
+     "Hoạt động",
+     "Bảo trì",
+     "Tạm ngừng"
+    ]
+   }
+  ],
+  "tables": [
+   {
+    "headers": [
+     "MÃ / TÊN",
+     "CƠ SỞ",
+     "SỨC CHỨA",
+     "THIẾT BỊ",
+     "TRẠNG THÁI",
+     "ORDER",
+     "THAO TÁC"
+    ],
+    "rows": 4
+   }
+  ],
+  "buttons": [
+   "Lọc"
+  ],
+  "tabs": [],
+  "links": [
+   "/rooms/import",
+   "/rooms/new"
+  ],
+  "cards": [
+   "Hoạt động"
+  ],
+  "empty": [],
+  "hints": []
+ },
+ "/report-cards/criteria": {
+  "url": "/report-cards/criteria",
+  "title": "Tiêu chí học bạ | Admin",
+  "heads": [
+   "Cấu hình tiêu chí năng lực",
+   "Sata1 — Robosim Master",
+   "Sata2 — Đấu trường Robot",
+   "Combo — Full Lộ Trình Luyện Thi",
+   "Sata8 — Vé Vàng Chung Kết",
+   "Sata3 — Ươm Mầm Tài Năng",
+   "Sata4 — Bứt Phá Giới Hạn",
+   "Sata5 — Khơi Nguồn Sáng Tạo",
+   "Sata6 — Chinh Phục Đấu Trường",
+   "Sata7 — Kiến Tạo Tương Lai"
+  ],
+  "inputs": [
+   {
+    "tag": "input",
+    "type": "text",
+    "label": "Tên tiêu chí mới"
+   },
+   {
+    "tag": "input",
+    "type": "text",
+    "label": "Tên tiêu chí mới"
+   },
+   {
+    "tag": "input",
+    "type": "text",
+    "label": "Tên tiêu chí mới"
+   },
+   {
+    "tag": "input",
+    "type": "text",
+    "label": "Tên tiêu chí mới"
+   },
+   {
+    "tag": "input",
+    "type": "text",
+    "label": "Tên tiêu chí mới"
+   },
+   {
+    "tag": "input",
+    "type": "text",
+    "label": "Tên tiêu chí mới"
+   },
+   {
+    "tag": "input",
+    "type": "text",
+    "label": "Tên tiêu chí mới"
+   },
+   {
+    "tag": "input",
+    "type": "text",
+    "label": "Tên tiêu chí mới"
+   },
+   {
+    "tag": "input",
+    "type": "text",
+    "label": "Tên tiêu chí mới"
+   }
+  ],
+  "tables": [],
+  "buttons": [
+   "Thêm"
+  ],
+  "tabs": [],
+  "links": [
+   "/report-cards"
+  ],
+  "cards": [
+   "Sata1 — Robosim Master Khoá dạy",
+   "Sata2 — Đấu trường Robot Khoá dạy",
+   "Combo — Full Lộ Trình Luyện Thi Khoá dạy",
+   "Sata8 — Vé Vàng Chung Kết Khoá dạy",
+   "Sata3 — Ươm Mầm Tài Năng Khoá dạy",
+   "Sata4 — Bứt Phá Giới Hạn Khoá dạy",
+   "Sata5 — Khơi Nguồn Sáng Tạo Khoá dạy",
+   "Sata6 — Chinh Phục Đấu Trường Khoá dạy",
+   "Sata7 — Kiến Tạo Tương Lai Khoá dạy"
+  ],
+  "empty": [
+   "Chưa có tiêu chí.",
+   "Chưa có tiêu chí.",
+   "Chưa có tiêu chí."
+  ],
+  "hints": []
+ },
+ "/curriculums": {
+  "url": "/curriculums",
+  "title": "Chương trình học | Admin",
+  "heads": [
+   "Giáo trình"
+  ],
+  "inputs": [
+   {
+    "tag": "input",
+    "type": "text",
+    "name": "q",
+    "label": "Tìm theo tên giáo trình..."
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "name": "courseId",
+    "label": "courseId",
+    "options": [
+     "Tất cả khoá học",
+     "Combo — Full Lộ Trình Luyện Thi",
+     "Sata1 — Robosim Master",
+     "Sata2 — Đấu trường Robot",
+     "Sata3 — Ươm Mầm Tài Năng",
+     "Sata4 — Bứt Phá Giới Hạn",
+     "Sata5 — Khơi Nguồn Sáng Tạo",
+     "Sata6 — Chinh Phục Đấu Trường",
+     "Sata7 — Kiến Tạo Tương Lai",
+     "Sata8 — Vé Vàng Chung Kết"
+    ]
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "name": "isActive",
+    "label": "isActive",
+    "options": [
+     "Mọi trạng thái",
+     "Đang sử dụng",
+     "Không sử dụng"
+    ]
+   }
+  ],
+  "tables": [
+   {
+    "headers": [
+     "TÊN GIÁO TRÌNH",
+     "KHOÁ HỌC",
+     "TRẠNG THÁI",
+     "SỐ BÀI",
+     "HÀNH ĐỘNG"
+    ],
+    "rows": 9
+   }
+  ],
+  "buttons": [
+   "Áp dụng bộ lọc"
+  ],
+  "tabs": [],
+  "links": [
+   "/curriculums/new"
+  ],
+  "cards": [
+   "Đang sử dụng"
+  ],
+  "empty": [],
+  "hints": []
+ },
+ "/de-xuat-giao-an": {
+  "url": "/de-xuat-giao-an",
+  "title": "Đề xuất sửa giáo án | Admin",
+  "heads": [
+   "Đề xuất sửa giáo án"
+  ],
+  "inputs": [],
+  "tables": [],
+  "buttons": [],
+  "tabs": [],
+  "links": [
+   "/de-xuat-giao-an?status=OPEN",
+   "/de-xuat-giao-an?status=ACCEPTED",
+   "/de-xuat-giao-an?status=REJECTED"
+  ],
+  "cards": [],
+  "empty": [
+   "Không có đề xuất nào."
+  ],
+  "hints": []
+ },
+ "/courses": {
+  "url": "/courses",
+  "title": "Khoá dạy | Admin",
+  "heads": [
+   "Khoá dạy (chương trình giảng)"
+  ],
+  "inputs": [],
+  "tables": [
+   {
+    "headers": [
+     "Tên khoá",
+     "Độ tuổi",
+     "Trình độ",
+     "Giá",
+     "Ưu đãi",
+     "Trạng thái"
+    ],
+    "rows": 11
+   }
+  ],
+  "buttons": [],
+  "tabs": [],
+  "links": [
+   "/course-packages"
+  ],
+  "cards": [
+   "Tên khoá Độ tuổi Trình độ Giá Ưu đãi Trạng thái",
+   "Lập trình Robot /laptrinhrobot — — 0đ 0 Tắt",
+   "Lập trình Robot",
+   "Luyện thi Robosim /luyenthirobosim — — 0đ 0 Tắt",
+   "Luyện thi Robosim",
+   "Sata1 — Robosim Master /sata1 — — 2.400.000đ 0 Hoạt động",
+   "Sata1 — Robosim Master",
+   "Hoạt động",
+   "Sata2 — Đấu trường Robot /sata2 — — 3.040.000đ 0 Hoạt động",
+   "Sata2 — Đấu trường Robot",
+   "Combo — Full Lộ Trình Luyện Thi",
+   "Sata8 — Vé Vàng Chung Kết /sata8 — — 2.500.000đ 0 Hoạt động",
+   "Sata8 — Vé Vàng Chung Kết",
+   "Sata3 — Ươm Mầm Tài Năng /sata3 — — 10.560.000đ 0 Hoạt động",
+   "Sata3 — Ươm Mầm Tài Năng",
+   "Sata4 — Bứt Phá Giới Hạn /sata4 — — 11.520.000đ 0 Hoạt động",
+   "Sata4 — Bứt Phá Giới Hạn",
+   "Sata5 — Khơi Nguồn Sáng Tạo",
+   "Sata6 — Chinh Phục Đấu Trường",
+   "Sata7 — Kiến Tạo Tương Lai"
+  ],
+  "empty": [],
+  "hints": []
+ },
+ "/course-prerequisites": {
+  "url": "/course-prerequisites",
+  "title": "Khoá tiên quyết | Admin",
+  "heads": [
+   "Khoá tiên quyết"
+  ],
+  "inputs": [],
+  "tables": [
+   {
+    "headers": [
+     "KHOÁ",
+     "PHẢI HOÀN THÀNH TRƯỚC",
+     "THAO TÁC"
+    ],
+    "rows": 1
+   }
+  ],
+  "buttons": [
+   "Thêm điều kiện tiên quyết"
+  ],
+  "tabs": [],
+  "links": [],
+  "cards": [],
+  "empty": [],
+  "hints": [
+   "Khoá phải hoàn thành trước khi đăng ký",
+   "Khoá phải hoàn thành trước khi đăng ký. Khi đăng ký học viên vào lớp, hệ thống chặn nếu học viên chưa hoàn thành (trạng thái “Hoàn thành”) các khoá yêu cầu."
+  ]
+ },
+ "/documents": {
+  "url": "/documents",
+  "title": "Tài liệu giảng dạy | Admin",
+  "heads": [
+   "Tài liệu giảng dạy"
+  ],
+  "inputs": [
+   {
+    "tag": "input",
+    "type": "text",
+    "name": "q",
+    "label": "Tìm tiêu đề / tên file / mã..."
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "name": "type",
+    "label": "type",
+    "options": [
+     "Mọi loại",
+     "PDF",
+     "Ảnh",
+     "Video",
+     "Slide",
+     "Worksheet",
+     "Audio",
+     "Khác"
+    ]
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "name": "lessonId",
+    "label": "lessonId",
+    "options": [
+     "Mọi bài học",
+     "Giáo trình Sata 1 — Bài 1: Giới thiệu cuộc thi Sáng tạo Robotics năm 2026",
+     "Giáo trình Sata 1 — Bài 2: Dự án xe robot di chuyển",
+     "Giáo trình Sata 1 — Bài 3: Tìm hiểu cảm biến dò line",
+     "Giáo trình Sata 1 — Bài 4: Dự án xe robot tự hành",
+     "Giáo trình Sata 1 — Bài 5: Phân tích thể lệ thi đấu",
+     "Giáo trình Sata 1 — Bài 6: Thiết kế lắp ráp robot thi đấu",
+     "Giáo trình Sata 1 — Bài 7: Giải đề nhiệm vụ thi đấu lần 1",
+     "Giáo trình Sata 1 — Bài 8: Giải đề nhiệm vụ thi đấu lần 2",
+     "Giáo trình Sata 1 — Bài 9: Giải đề nhiệm vụ thi đấu lần 3",
+     "Giáo trình Sata 1 — Bài 10: Giải đề nhiệm vụ thi đấu lần 4",
+     "Giáo trình Sata 1 — Bài 11: Giải đề nhiệm vụ thi đấu lần 5",
+     "…(+13)"
+    ]
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "name": "isPublic",
+    "label": "isPublic",
+    "options": [
+     "Mọi quyền truy cập",
+     "Public",
+     "Private (chỉ admin/GV)"
+    ]
+   }
+  ],
+  "tables": [
+   {
+    "headers": [
+     "TÀI LIỆU",
+     "LOẠI",
+     "BÀI HỌC",
+     "KÍCH THƯỚC",
+     "PUBLIC",
+     "TAGS",
+     "NGƯỜI TẢI",
+     "HÀNH ĐỘNG"
+    ],
+    "rows": 1
+   }
+  ],
+  "buttons": [
+   "Áp dụng bộ lọc"
+  ],
+  "tabs": [],
+  "links": [
+   "/documents/new"
+  ],
+  "cards": [],
+  "empty": [
+   "Chưa có tài liệu giảng dạy nào"
+  ],
+  "hints": []
+ },
+ "/assignments": {
+  "url": "/assignments",
+  "title": "Quản trị | Sata Robo",
+  "heads": [
+   "Bài tập"
+  ],
+  "inputs": [
+   {
+    "tag": "input",
+    "type": "text",
+    "name": "q",
+    "label": "Tìm tiêu đề..."
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "name": "status",
+    "label": "status",
+    "options": [
+     "Mọi trạng thái",
+     "Đang soạn",
+     "Đã giao",
+     "Đã đóng",
+     "Lưu trữ"
+    ]
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "name": "classId",
+    "label": "classId",
+    "options": [
+     "Mọi lớp",
+     "CS2.Combo.26.001 · combo.10h-T2&10h-T4&15h30-T7.CS2-P302",
+     "CS1.COMBO.26.002 · combo.10h-T4&19h30-T5.CS1-101",
+     "CS1.COMBO.26.001 · combo.14h-T5&10h-T7.CS1-101",
+     "CS1.SATA1.26.001 · sata1.19h30-T4&19h30-T5.CS1-101",
+     "CS1.SATA2.26.001 · sata2.09h-CN.CS1-101",
+     "CS1.SATA3.26.004 · sata3.08h-T7.CS1-201",
+     "CS1.SATA3.26.003 · sata3.09h45-CN.CS1-201",
+     "CS1.SATA3.26.002 · sata3.10h-T7.CS1-201",
+     "CS2.SATA3.26.004 · sata3.14h-CN.CS2-P302",
+     "CS2.SATA3.26.003 · sata3.15h45-CN.CS2-P302",
+     "CS1.SATA3.26.001 · sata3.15h45-T7.CS1-201",
+     "…(+13)"
+    ]
+   }
+  ],
+  "tables": [
+   {
+    "headers": [
+     "TIÊU ĐỀ",
+     "LỚP",
+     "HẠN NỘP",
+     "TRẠNG THÁI",
+     "TÀI LIỆU",
+     "NỘP / CHẤM",
+     "HÀNH ĐỘNG"
+    ],
+    "rows": 1
+   }
+  ],
+  "buttons": [
+   "Áp dụng bộ lọc"
+  ],
+  "tabs": [],
+  "links": [
+   "/assignments/templates",
+   "/assignments/new"
+  ],
+  "cards": [],
+  "empty": [
+   "Chưa có bài tập nào"
+  ],
+  "hints": []
+ },
+ "/teaching-materials": {
+  "url": "/teaching-materials",
+  "title": "Tài liệu lớp tôi | Admin",
+  "heads": [
+   "Tài liệu lớp tôi"
+  ],
+  "inputs": [
+   {
+    "tag": "select",
+    "type": "select-one",
+    "name": "classId",
+    "label": "classId",
+    "options": [
+     "— Chọn lớp bạn dạy —",
+     "combo.10h-T2&10h-T4&15h30-T7.CS2-P302 (CS2.Combo.26.001)",
+     "combo.10h-T4&19h30-T5.CS1-101 (CS1.COMBO.26.002)",
+     "combo.14h-T5&10h-T7.CS1-101 (CS1.COMBO.26.001)",
+     "sata1.19h30-T4&19h30-T5.CS1-101 (CS1.SATA1.26.001)",
+     "sata2.09h-CN.CS1-101 (CS1.SATA2.26.001)",
+     "sata3.08h-T7.CS1-201 (CS1.SATA3.26.004)",
+     "sata3.09h45-CN.CS1-201 (CS1.SATA3.26.003)",
+     "sata3.10h-T7.CS1-201 (CS1.SATA3.26.002)",
+     "sata3.14h-CN.CS2-P302 (CS2.SATA3.26.004)",
+     "sata3.15h45-CN.CS2-P302 (CS2.SATA3.26.003)",
+     "sata3.15h45-T7.CS1-201 (CS1.SATA3.26.001)",
+     "…(+13)"
+    ]
+   }
+  ],
+  "tables": [],
+  "buttons": [
+   "Mở"
+  ],
+  "tabs": [],
+  "links": [],
+  "cards": [],
+  "empty": [],
+  "hints": []
+ },
+ "/scorm": {
+  "url": "/scorm",
+  "title": "SCORM / Học liệu tương tác | Admin",
+  "heads": [
+   "SCORM / Học liệu tương tác"
+  ],
+  "inputs": [
+   {
+    "tag": "select",
+    "type": "select-one",
+    "label": "KHOÁ HỌC — Chọn khoá học — Sata1 — Robosim Master (Sata1) Sa…",
+    "options": [
+     "— Chọn khoá học —",
+     "Sata1 — Robosim Master (Sata1)",
+     "Sata2 — Đấu trường Robot (Sata2)",
+     "Combo — Full Lộ Trình Luyện Thi (Combo)",
+     "Sata8 — Vé Vàng Chung Kết (Sata8)",
+     "Sata3 — Ươm Mầm Tài Năng (Sata3)",
+     "Sata4 — Bứt Phá Giới Hạn (Sata4)",
+     "Sata5 — Khơi Nguồn Sáng Tạo (Sata5)",
+     "Sata6 — Chinh Phục Đấu Trường (Sata6)",
+     "Sata7 — Kiến Tạo Tương Lai (Sata7)"
+    ]
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "label": "BUỔI HỌC — Chọn khoá học trước —",
+    "options": [
+     "— Chọn khoá học trước —"
+    ]
+   }
+  ],
+  "tables": [],
+  "buttons": [],
+  "tabs": [],
+  "links": [],
+  "cards": [],
+  "empty": [],
+  "hints": []
+ },
+ "/tin-nhan": {
+  "url": "/tin-nhan",
+  "title": "Tin nhắn | Admin",
+  "heads": [],
+  "inputs": [
+   {
+    "tag": "input",
+    "type": "text",
+    "label": "Tìm hội thoại hoặc phụ huynh"
+   }
+  ],
+  "tables": [],
+  "buttons": [],
+  "tabs": [],
+  "links": [],
+  "cards": [],
+  "empty": [
+   "Chưa có hội thoại nào.",
+   "Chưa có hội thoại nào. Nhóm lớp được tạo tự động khi lớp chuyển sang trạng thái hoạt động — quản lý cơ sở được thêm vào nhóm của các lớp thuộc cơ sở mình."
+  ],
+  "hints": []
+ },
+ "/hoi-thoai": {
+  "url": "/hoi-thoai",
+  "title": "Quản trị hội thoại | Admin",
+  "heads": [
+   "Quản trị hội thoại"
+  ],
+  "inputs": [
+   {
+    "tag": "input",
+    "type": "text",
+    "name": "q",
+    "label": "Tìm theo lớp / người"
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "name": "center",
+    "label": "Cơ sở",
+    "options": [
+     "— Tất cả —",
+     "CS1 - 211 Nguyễn Hữu Thọ",
+     "CS2 - 114 Hoàng Diệu",
+     "Hội sở"
+    ]
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "name": "type",
+    "label": "Loại",
+    "options": [
+     "— Tất cả —",
+     "Nhóm lớp",
+     "1-1 GV↔PH"
+    ]
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "name": "status",
+    "label": "Trạng thái",
+    "options": [
+     "— Tất cả —",
+     "Đang hoạt động",
+     "Đang khoá",
+     "Đã lưu trữ"
+    ]
+   }
+  ],
+  "tables": [
+   {
+    "headers": [
+     "Hội thoại",
+     "Loại",
+     "Cơ sở",
+     "Trạng thái",
+     "Thành viên",
+     "Số tin",
+     "Hoạt động cuối"
+    ],
+    "rows": 20
+   }
+  ],
+  "buttons": [
+   "Tìm"
+  ],
+  "tabs": [],
+  "links": [
+   "/audit-log",
+   "/hoi-thoai/doi-soat"
+  ],
+  "cards": [
+   "Tìm theo lớp / người",
+   "Nhắn riêng 1-1 GV↔PH — Đang hoạt động 2 0 — Mở hồ sơ →",
+   "Nhắn riêng 1-1 Sale↔PH — Đang hoạt động 2 0 — Mở hồ sơ →"
+  ],
+  "empty": [],
+  "hints": [
+   "Tra cứu khi xử lý khiếu nại và khoá nhóm vi phạm. Trang này chỉ hiện thông tin hồ sơ — nội dung tin nhắn chỉ mở được sau khi nhập lý do, và mỗi lần mở đều ghi vào nhật ký kèm tên người xem."
+  ]
+ },
+ "/parent-requests": {
+  "url": "/parent-requests",
+  "title": "Yêu cầu phụ huynh | Admin",
+  "heads": [
+   "Yêu cầu phụ huynh"
+  ],
+  "inputs": [],
+  "tables": [],
+  "buttons": [],
+  "tabs": [],
+  "links": [
+   "/parent-requests",
+   "/parent-requests?type=ABSENCE",
+   "/parent-requests?type=MAKEUP",
+   "/parent-requests?type=TRANSFER_CLASS",
+   "/parent-requests?type=TRANSFER_CENTER",
+   "/parent-requests?type=RESERVE",
+   "/parent-requests?type=CONSENT_CHANGE",
+   "/parent-requests?type=OTHER",
+   "/parent-requests?status=PENDING",
+   "/parent-requests?status=APPROVED",
+   "/parent-requests?status=REJECTED",
+   "/parent-requests?status=CANCELLED"
+  ],
+  "cards": [
+   "GẤP"
+  ],
+  "empty": [],
+  "hints": []
+ },
+ "/parent-feedback": {
+  "url": "/parent-feedback",
+  "title": "Đánh giá phụ huynh | Admin",
+  "heads": [
+   "Đánh giá phụ huynh"
+  ],
+  "inputs": [],
+  "tables": [],
+  "buttons": [],
+  "tabs": [],
+  "links": [],
+  "cards": [],
+  "empty": [
+   "Chưa có đánh giá nào."
+  ],
+  "hints": []
+ },
+ "/khao-sat": {
+  "url": "/khao-sat",
+  "title": "Khảo sát / NPS | Admin",
+  "heads": [
+   "Khảo sát / NPS",
+   "TẠO KHẢO SÁT (NPS) BẢN CŨ",
+   "KHẢO SÁT"
+  ],
+  "inputs": [
+   {
+    "tag": "input",
+    "type": "text",
+    "label": "Tiêu đề khảo sát"
+   },
+   {
+    "tag": "textarea",
+    "type": "textarea",
+    "label": "Câu hỏi NPS (thang 0-10)"
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "label": "Mốc gửi Sau học thử Sau 3 buổi Giữa khoá Cuối khoá Sau khiếu…",
+    "options": [
+     "Sau học thử",
+     "Sau 3 buổi",
+     "Giữa khoá",
+     "Cuối khoá",
+     "Sau khiếu nại",
+     "Chung"
+    ]
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "label": "Đối tượng (cơ sở) Mọi cơ sở Hội sở CS1 - 211 Nguyễn Hữu Thọ …",
+    "options": [
+     "Mọi cơ sở",
+     "Hội sở",
+     "CS1 - 211 Nguyễn Hữu Thọ",
+     "CS2 - 114 Hoàng Diệu"
+    ]
+   }
+  ],
+  "tables": [],
+  "buttons": [
+   "Tạo khảo sát"
+  ],
+  "tabs": [],
+  "links": [
+   "/evaluations"
+  ],
+  "cards": [
+   "BẢN CŨ"
+  ],
+  "empty": [
+   "Chưa có khảo sát."
+  ],
+  "hints": [
+   "Chỉ số NPS làm cơ sở KPI cho bộ phận CSKH."
+  ]
+ },
+ "/notifications": {
+  "url": "/notifications",
+  "title": "Thông báo | Admin",
+  "heads": [
+   "Thông báo phụ huynh",
+   "SOẠN THÔNG BÁO",
+   "ĐÃ ĐĂNG (100)"
+  ],
+  "inputs": [
+   {
+    "tag": "input",
+    "type": "text",
+    "label": "Tiêu đề"
+   },
+   {
+    "tag": "textarea",
+    "type": "textarea",
+    "label": "Nội dung thông báo…"
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "label": "",
+    "options": [
+     "<danh sách học viên>"
+    ]
+   }
+  ],
+  "tables": [],
+  "buttons": [
+   "Đăng thông báo",
+   "Ẩn",
+   "Xoá"
+  ],
+  "tabs": [],
+  "links": [],
+  "cards": [
+   "Hiển thị",
+   "Xoá"
+  ],
+  "empty": [],
+  "hints": [
+   "Thay đổi lịch học Hiển thị Lớp sata3.09h45-CN.CS1-101 có buổi được điều chỉnh. Vui lòng kiểm tra lịch mới. Theo lớp · 6/9/2026 · Hệ thống Ẩn Xoá",
+   "Lớp sata3.09h45-CN.CS1-101 có buổi được điều chỉnh. Vui lòng kiểm tra lịch mới.",
+   "Thay đổi lịch học Hiển thị Lớp combo.10h-T4&19h30-T5.CS1-101 có buổi được điều chỉnh. Vui lòng kiểm tra lịch mới. Theo lớp · 6/9/2026 · Hệ thống Ẩn Xoá",
+   "Lớp combo.10h-T4&19h30-T5.CS1-101 có buổi được điều chỉnh. Vui lòng kiểm tra lịch mới.",
+   "Thay đổi lịch học Hiển thị Lớp combo.10h-T4&19h30-T5.CS1-101 có buổi được điều chỉnh. Vui lòng kiểm tra lịch mới. Theo lớp · 6/9/2026 · Hệ thống Ẩn Xoá",
+   "Lớp combo.10h-T4&19h30-T5.CS1-101 có buổi được điều chỉnh. Vui lòng kiểm tra lịch mới.",
+   "Thay đổi lịch học Hiển thị Lớp combo.10h-T4&19h30-T5.CS1-101 có buổi được điều chỉnh. Vui lòng kiểm tra lịch mới. Theo lớp · 6/9/2026 · Hệ thống Ẩn Xoá",
+   "Lớp combo.10h-T4&19h30-T5.CS1-101 có buổi được điều chỉnh. Vui lòng kiểm tra lịch mới.",
+   "Thay đổi lịch học Hiển thị Lớp sata3.15h45-T7.CS1-201 có buổi được điều chỉnh. Vui lòng kiểm tra lịch mới. Theo lớp · 6/9/2026 · Hệ thống Ẩn Xoá",
+   "Lớp sata3.15h45-T7.CS1-201 có buổi được điều chỉnh. Vui lòng kiểm tra lịch mới.",
+   "Thay đổi lịch học Hiển thị Lớp sata4.18h-T4.CS2-P302 có buổi được điều chỉnh. Vui lòng kiểm tra lịch mới. Theo lớp · 3/9/2026 · Hệ thống Ẩn Xoá",
+   "Lớp sata4.18h-T4.CS2-P302 có buổi được điều chỉnh. Vui lòng kiểm tra lịch mới."
+  ]
+ },
+ "/canh-bao-rui-ro": {
+  "url": "/canh-bao-rui-ro",
+  "title": "Cảnh báo rủi ro HV | Admin",
+  "heads": [
+   "Cảnh báo rủi ro học viên"
+  ],
+  "inputs": [],
+  "tables": [],
+  "buttons": [
+   "Đã xử lý",
+   "Chuyển cấp"
+  ],
+  "tabs": [],
+  "links": [],
+  "cards": [
+   "NGUYỄN LÊ PHƯỚC HUYNghỉ 2 buổi liên tiếp HIGH",
+   "HIGH",
+   "Đã xử lý",
+   "Chuyển cấp",
+   "TRẦN NGUYỄN MINH KHÔINghỉ 2 buổi liên tiếp HIGH",
+   "HUỲNH BÁ ĐỨC HUYNghỉ 2 buổi liên tiếp HIGH",
+   "CẤN HOÀNG KHẢINghỉ 2 buổi liên tiếp HIGH",
+   "NGUYỄN MINH TIẾNNghỉ 2 buổi liên tiếp HIGH",
+   "VÕ HỒNG DANHNghỉ 2 buổi liên tiếp HIGH",
+   "PHAN TRỊNH HỒNG TÂMNghỉ 2 buổi liên tiếp HIGH",
+   "PHẠM DUY BẢONghỉ 2 buổi liên tiếp HIGH"
+  ],
+  "empty": [],
+  "hints": [
+   "Học viên có nguy cơ rời bỏ — cần chăm sóc kịp thời.",
+   "Học viên vắng 2 buổi liên tiếp gần nhất — cần liên hệ phụ huynh.",
+   "Học viên vắng 2 buổi liên tiếp gần nhất — cần liên hệ phụ huynh.",
+   "Học viên vắng 2 buổi liên tiếp gần nhất — cần liên hệ phụ huynh.",
+   "Học viên vắng 2 buổi liên tiếp gần nhất — cần liên hệ phụ huynh.",
+   "Học viên vắng 2 buổi liên tiếp gần nhất — cần liên hệ phụ huynh."
+  ]
+ },
+ "/cham-soc-hv": {
+  "url": "/cham-soc-hv",
+  "title": "Chăm sóc học viên | Admin",
+  "heads": [
+   "Việc chăm sóc học viên"
+  ],
+  "inputs": [],
+  "tables": [],
+  "buttons": [
+   "Hoàn tất"
+  ],
+  "tabs": [],
+  "links": [],
+  "cards": [
+   "(quá hạn)",
+   "Hoàn tất"
+  ],
+  "empty": [],
+  "hints": []
+ },
+ "/sinh-nhat": {
+  "url": "/sinh-nhat",
+  "title": "Sinh nhật học viên | Admin",
+  "heads": [
+   "Sinh nhật học viên"
+  ],
+  "inputs": [],
+  "tables": [],
+  "buttons": [
+   "Chạy quét sinh nhật"
+  ],
+  "tabs": [],
+  "links": [],
+  "cards": [],
+  "empty": [
+   "Không có sinh nhật nào trong 30 ngày tới. Nếu vừa nhập ngày sinh, bấm “Chạy quét sinh nhật”."
+  ],
+  "hints": [
+   "Không có sinh nhật nào trong 30 ngày tới. Nếu vừa nhập ngày sinh, bấm “Chạy quét sinh nhật”."
+  ]
+ },
+ "/teachers": {
+  "url": "/teachers",
+  "title": "Giáo viên | Admin",
+  "heads": [
+   "Giáo viên"
+  ],
+  "inputs": [
+   {
+    "tag": "input",
+    "type": "text",
+    "name": "q",
+    "label": "Tìm theo tên, email..."
+   }
+  ],
+  "tables": [
+   {
+    "headers": [
+     "TÊN",
+     "CƠ SỞ",
+     "NGẠCH",
+     "LOẠI HĐ",
+     "TRẠNG THÁI",
+     "LỚP",
+     "TẢI / TUẦN"
+    ],
+    "rows": 10
+   }
+  ],
+  "buttons": [
+   "Tìm"
+  ],
+  "tabs": [],
+  "links": [
+   "/nhan-su"
+  ],
+  "cards": [],
+  "empty": [
+   "Chưa có hồ sơ",
+   "Chưa có hồ sơ",
+   "Chưa có hồ sơ"
+  ],
+  "hints": []
+ },
+ "/nhan-su": {
+  "url": "/nhan-su",
+  "title": "Quản lý nhân sự | Admin",
+  "heads": [
+   "Quản lý nhân sự"
+  ],
+  "inputs": [
+   {
+    "tag": "input",
+    "type": "text",
+    "name": "q",
+    "label": "Tìm theo tên, SĐT, email, mã NV..."
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "name": "department",
+    "label": "department",
+    "options": [
+     "Tất cả phòng ban",
+     "Ban Giám Đốc",
+     "Đào Tạo",
+     "Marketing",
+     "Kinh Doanh",
+     "IT",
+     "Hành Chính Nhân Sự",
+     "Kế Toán",
+     "Tuyển Sinh",
+     "Giáo Vụ",
+     "Giảng Dạy"
+    ]
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "name": "centerId",
+    "label": "centerId",
+    "options": [
+     "Tất cả cơ sở",
+     "CS1 - 211 Nguyễn Hữu Thọ",
+     "CS2 - 114 Hoàng Diệu",
+     "Hội sở"
+    ]
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "name": "status",
+    "label": "status",
+    "options": [
+     "Mọi trạng thái",
+     "Đang làm",
+     "Tạm nghỉ",
+     "Đã nghỉ",
+     "Cho nghỉ"
+    ]
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "label": "Hiển thị",
+    "options": [
+     "10",
+     "20",
+     "50",
+     "100"
+    ]
+   }
+  ],
+  "tables": [
+   {
+    "headers": [
+     "HỌ TÊN",
+     "EMAIL",
+     "SĐT",
+     "CƠ SỞ",
+     "BỘ PHẬN",
+     "VAI TRÒ",
+     "TRẠNG THÁI",
+     "NGÀY VÀO LÀM",
+     "HÀNH ĐỘNG"
+    ],
+    "rows": 18
+   }
+  ],
+  "buttons": [
+   "Lọc"
+  ],
+  "tabs": [],
+  "links": [
+   "/nhan-su/import",
+   "/nhan-su/new",
+   "/nhan-su",
+   "/nhan-su?department=MARKETING",
+   "/nhan-su?department=DAO_TAO",
+   "/nhan-su?department=KINH_DOANH",
+   "/nhan-su?department=BAN_GIAM_DOC",
+   "/nhan-su?department=KE_TOAN",
+   "/nhan-su?department=IT"
+  ],
+  "cards": [
+   "HO (Hội sở)",
+   "Quản lý cơ sở",
+   "Đang làm",
+   "Quản trị tối cao",
+   "Giáo viên",
+   "Tư vấn & Chăm sóc",
+   "Kế toán",
+   "Marketing",
+   "Đào tạo"
+  ],
+  "empty": [],
+  "hints": []
+ },
+ "/nhan-su/vi-tri": {
+  "url": "/nhan-su/vi-tri",
+  "title": "Quản trị | Sata Robo",
+  "heads": [
+   "Vị trí công việc",
+   "Thêm vị trí",
+   "Phân công người vào vị trí",
+   "ĐANG HIỆU LỰC",
+   "Điều động tác nghiệp",
+   "ĐANG HIỆU LỰC"
+  ],
+  "inputs": [
+   {
+    "tag": "input",
+    "type": "text",
+    "label": "Tên vị trí *"
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "label": "Đơn vị trực thuộc * — Chọn đơn vị — CS1 · Cơ sở 1 CS2 · Cơ s…",
+    "options": [
+     "— Chọn đơn vị —",
+     "CS1 · Cơ sở 1",
+     "CS2 · Cơ sở 2",
+     "DANANG · Khối Đà Nẵng",
+     "HO · Hội sở"
+    ]
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "label": "Báo cáo cho — Không có —",
+    "options": [
+     "— Không có —"
+    ]
+   },
+   {
+    "tag": "input",
+    "type": "checkbox",
+    "label": "Là vị trí quản lý"
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "label": "Người * — Chọn người — Admin <tên NV> <tên NV> …",
+    "options": [
+     "<danh sách nhân sự>"
+    ]
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "label": "Vị trí * — Chọn vị trí —",
+    "options": [
+     "— Chọn vị trí —"
+    ]
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "label": "Kiểu Chính Kiêm nhiệm Uỷ quyền",
+    "options": [
+     "Chính",
+     "Kiêm nhiệm",
+     "Uỷ quyền"
+    ]
+   },
+   {
+    "tag": "input",
+    "type": "date",
+    "label": "Hiệu lực từ *"
+   },
+   {
+    "tag": "input",
+    "type": "date",
+    "label": "Đến ngày (để trống = vô thời hạn)"
+   },
+   {
+    "tag": "input",
+    "type": "text",
+    "label": "Ghi chú (số quyết định, lý do…)"
+   }
+  ],
+  "tables": [
+   {
+    "headers": [
+     "VỊ TRÍ",
+     "ĐƠN VỊ",
+     "BỘ VAI TRÒ",
+     "BÁO CÁO CHO",
+     "ĐANG GIỮ",
+     "THAO TÁC"
+    ],
+    "rows": 1
+   },
+   {
+    "headers": [
+     "NGƯỜI",
+     "VỊ TRÍ",
+     "KIỂU",
+     "HIỆU LỰC",
+     "GHI CHÚ",
+     "THAO TÁC"
+    ],
+    "rows": 1
+   },
+   {
+    "headers": [
+     "NGƯỜI — VỊ TRÍ",
+     "NƠI TÁC NGHIỆP",
+     "LÝ DO",
+     "HIỆU LỰC",
+     "GHI CHÚ",
+     "THAO TÁC"
+    ],
+    "rows": 1
+   }
+  ],
+  "buttons": [
+   "Trợ giảng",
+   "Kiểm toán đào tạo (chỉ đọc)",
+   "Kế toán cơ sở",
+   "Quản lý lớp học",
+   "Nhân sự cơ sở",
+   "Quản lý cơ sở",
+   "Tư vấn & CSKH cơ sở",
+   "Kế toán Hội sở",
+   "Nhân sự Hội sở",
+   "Marketing Hội sở",
+   "Sale Hội sở (phiếu mình nhập)",
+   "Phụ huynh",
+   "Quản trị tối cao",
+   "Giáo viên",
+   "Đào tạo (toàn LMS)",
+   "Tạo vị trí",
+   "Phân công",
+   "Xem cả lịch sử"
+  ],
+  "tabs": [],
+  "links": [],
+  "cards": [],
+  "empty": [
+   "— Không có —",
+   "Chưa có vị trí nào. Tạo vị trí đầu tiên ở khối phía trên.",
+   "Đến ngày (để trống = vô thời hạn)"
+  ],
+  "hints": [
+   "Mỗi người có đúng một phân công Chính còn hiệu lực; Kiêm nhiệm và Uỷ quyền không giới hạn. Hết hạn là quyền tự tắt ở lần truy cập kế tiếp — không ai phải đi gỡ tay."
+  ]
+ },
+ "/cham-cong": {
+  "url": "/cham-cong",
+  "title": "Bảng công ngày | Admin",
+  "heads": [
+   "Bảng công ngày"
+  ],
+  "inputs": [
+   {
+    "tag": "input",
+    "type": "text",
+    "name": "q",
+    "label": "Tìm theo tên nhân sự"
+   },
+   {
+    "tag": "input",
+    "type": "date",
+    "name": "date",
+    "label": "Ngày công"
+   }
+  ],
+  "tables": [
+   {
+    "headers": [
+     "NHÂN SỰ",
+     "CA",
+     "QUÉT",
+     "GIỜ / KH",
+     "CÔNG",
+     "CỜ",
+     "CHI TIẾT"
+    ],
+    "rows": 4
+   }
+  ],
+  "buttons": [
+   "Xem"
+  ],
+  "tabs": [],
+  "links": [
+   "/cham-cong/man-hinh?centerId=co-so-nguyen-huu-tho",
+   "/cham-cong/phan-ca/import?ky=2026-09&coSo=co-so-nguyen-huu-tho",
+   "/cham-cong?coSo=co-so-nguyen-huu-tho&date=2026-09-16",
+   "/cham-cong?coSo=co-so-hoang-dieu&date=2026-09-16",
+   "/cham-cong?coSo=hoi-so&date=2026-09-16",
+   "/cham-cong?coSo=co-so-nguyen-huu-tho&date=2026-08-01",
+   "/cham-cong?coSo=co-so-nguyen-huu-tho&date=2026-10-01",
+   "/cham-cong/ky-cong?ky=2026-09&coSo=co-so-nguyen-huu-tho",
+   "/huong-dan/nhan-su-giao-vien",
+   "/cham-cong?coSo=co-so-nguyen-huu-tho&date=2026-09-16&loc=co",
+   "/cham-cong?coSo=co-so-nguyen-huu-tho&date=2026-09-16&loc=ghide",
+   "/cham-cong?coSo=co-so-nguyen-huu-tho&date=2026-09-16&loc=chuaquet"
+  ],
+  "cards": [
+   "Đang mở",
+   "Không có lượt",
+   "Thiếu giờ",
+   "Thiếu lượt ra"
+  ],
+  "empty": [
+   "Không có lượt",
+   "Không có lượt",
+   "Không có lượt"
+  ],
+  "hints": [
+   "Công đếm theo lịch đã xếp; lượt quét chỉ sinh cờ để quản lý rà.",
+   "Mỗi dòng là một người trong ngày đang chọn. Công được tính theo ca đã xếp trong lưới phân ca — lượt quét vào/ra chỉ dùng để gắn cờ (đi muộn, thiếu lượt, ngoài vùng…) cho quản lý rà lại, không tự trừ công.",
+   "Số đỏ trên dải ngày là số người có cờ cần rà của ngày đó. Bấm tên một người để xem từng lượt quét và ghi đè công (phải ghi lý do; mọi lần ghi đè đều được lưu vết)."
+  ]
+ },
+ "/don-tu": {
+  "url": "/don-tu",
+  "title": "Duyệt đơn từ | Admin",
+  "heads": [
+   "Duyệt đơn từ"
+  ],
+  "inputs": [],
+  "tables": [],
+  "buttons": [],
+  "tabs": [],
+  "links": [
+   "/don-tu/cua-toi",
+   "/don-tu?status=PENDING",
+   "/don-tu?coSo=co-so-nguyen-huu-tho&status=PENDING",
+   "/don-tu?coSo=co-so-hoang-dieu&status=PENDING",
+   "/don-tu?coSo=hoi-so&status=PENDING",
+   "/huong-dan/nhan-su-giao-vien",
+   "/don-tu?status=APPROVED"
+  ],
+  "cards": [],
+  "empty": [
+   "Không có đơn chờ duyệt ở các cơ sở bạn duyệt"
+  ],
+  "hints": []
+ },
+ "/cham-cong/lich-ca": {
+  "url": "/cham-cong/lich-ca",
+  "title": "Lịch ca của tôi | Admin",
+  "heads": [
+   "Lịch ca của tôi"
+  ],
+  "inputs": [],
+  "tables": [],
+  "buttons": [],
+  "tabs": [],
+  "links": [
+   "/don-tu/cua-toi",
+   "/cham-cong/checkin",
+   "/cham-cong/lich-ca?month=2026-08",
+   "/cham-cong/lich-ca?month=2026-10",
+   "/huong-dan/nhan-su-giao-vien"
+  ],
+  "cards": [],
+  "empty": [
+   "Tháng 09/2026 chưa có ca nào xếp cho bạn",
+   "Người Hội sở và người thuộc diện miễn chấm công không có lịch ca — đây không phải lỗi. Nếu bạn có ca mà chưa thấy, hỏi Quản lý cơ sở đã sinh lưới tháng này chưa."
+  ],
+  "hints": []
+ },
+ "/jobs": {
+  "url": "/jobs",
+  "title": "Quản trị | Sata Robo",
+  "heads": [
+   "Tuyển dụng"
+  ],
+  "inputs": [],
+  "tables": [
+   {
+    "headers": [
+     "TIÊU ĐỀ",
+     "PHÒNG BAN",
+     "TRẠNG THÁI",
+     "CHỈ TIÊU",
+     "HẠN NỘP",
+     "NGƯỜI TẠO",
+     "CẬP NHẬT"
+    ],
+    "rows": 1
+   }
+  ],
+  "buttons": [],
+  "tabs": [],
+  "links": [
+   "/jobs/new",
+   "/jobs",
+   "/jobs?status=OPEN",
+   "/jobs?status=DRAFT",
+   "/jobs?status=CLOSED",
+   "/jobs?status=ON_HOLD"
+  ],
+  "cards": [],
+  "empty": [
+   "Chưa có tin tuyển dụng nào"
+  ],
+  "hints": []
+ },
+ "/kits": {
+  "url": "/kits",
+  "title": "Quản trị | Sata Robo",
+  "heads": [
+   "Học Cụ (ZMRobo Kits)"
+  ],
+  "inputs": [],
+  "tables": [
+   {
+    "headers": [
+     "SẢN PHẨM",
+     "BRAND / SERIES",
+     "THƯ VIỆN ẢNH",
+     "GIÁ",
+     "TRẠNG THÁI",
+     "THAO TÁC"
+    ],
+    "rows": 3
+   }
+  ],
+  "buttons": [],
+  "tabs": [],
+  "links": [
+   "/kits/new",
+   "/hoc-cu#alpha",
+   "/hoc-cu#beta",
+   "/hoc-cu#intelligence-storm"
+  ],
+  "cards": [
+   "Đã đăng",
+   "Có sẵn"
+  ],
+  "empty": [],
+  "hints": []
+ },
+ "/products": {
+  "url": "/products",
+  "title": "Sản phẩm | Admin",
+  "heads": [
+   "Sản phẩm"
+  ],
+  "inputs": [
+   {
+    "tag": "input",
+    "type": "text",
+    "name": "q",
+    "label": "SKU hoặc tên..."
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "name": "category",
+    "label": "category",
+    "options": [
+     "Tất cả loại",
+     "Kit Robot",
+     "Cảm biến",
+     "Khối nhiệm vụ",
+     "Phụ kiện",
+     "Sách/Tài liệu",
+     "Vật tư tiêu hao",
+     "Khác"
+    ]
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "name": "status",
+    "label": "status",
+    "options": [
+     "Tất cả trạng thái",
+     "Nháp",
+     "Đang bán",
+     "Tạm ngưng",
+     "Ngừng KD"
+    ]
+   }
+  ],
+  "tables": [
+   {
+    "headers": [
+     "SKU",
+     "TÊN",
+     "LOẠI",
+     "GIÁ BÁN",
+     "THUÊ/THÁNG",
+     "TỒN KHO",
+     "TRẠNG THÁI",
+     "THAO TÁC"
+    ],
+    "rows": 1
+   }
+  ],
+  "buttons": [
+   "Áp dụng"
+  ],
+  "tabs": [],
+  "links": [
+   "/products/new",
+   "/products",
+   "/products?lowStock=1"
+  ],
+  "cards": [
+   "Tất cả"
+  ],
+  "empty": [
+   "Không có sản phẩm nào"
+  ],
+  "hints": []
+ },
+ "/inventory/dashboard": {
+  "url": "/inventory/dashboard",
+  "title": "Kho — Tổng quan | Admin",
+  "heads": [
+   "Tổng quan Kho",
+   "TỒN KHO THEO CƠ SỞ"
+  ],
+  "inputs": [],
+  "tables": [
+   {
+    "headers": [
+     "CƠ SỞ",
+     "MẶT HÀNG CÓ TỒN",
+     "TỔNG GIÁ TRỊ",
+     "CẢNH BÁO THẤP",
+     "HOẠT ĐỘNG GẦN NHẤT"
+    ],
+    "rows": 1
+   }
+  ],
+  "buttons": [],
+  "tabs": [],
+  "links": [
+   "/inventory/items",
+   "/inventory/movements",
+   "/inventory/audit"
+  ],
+  "cards": [],
+  "empty": [
+   "Chưa có cơ sở nào có tồn kho."
+  ],
+  "hints": []
+ },
+ "/inventory/audit": {
+  "url": "/inventory/audit",
+  "title": "Kho — Kiểm kê | Admin",
+  "heads": [
+   "Kiểm kê (Audit)"
+  ],
+  "inputs": [
+   {
+    "tag": "select",
+    "type": "select-one",
+    "name": "status",
+    "label": "status",
+    "options": [
+     "Mọi trạng thái",
+     "Đang soạn",
+     "Hoàn thành",
+     "Đã huỷ"
+    ]
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "name": "centerId",
+    "label": "centerId",
+    "options": [
+     "Mọi cơ sở",
+     "Hội sở",
+     "CS1 - 211 Nguyễn Hữu Thọ",
+     "CS2 - 114 Hoàng Diệu"
+    ]
+   }
+  ],
+  "tables": [
+   {
+    "headers": [
+     "MÃ PHIẾU",
+     "CƠ SỞ",
+     "TRẠNG THÁI",
+     "DÒNG",
+     "ĐÃ ĐIỀU CHỈNH",
+     "+/−",
+     "NGƯỜI LÀM",
+     "THỜI GIAN",
+     "HÀNH ĐỘNG"
+    ],
+    "rows": 1
+   }
+  ],
+  "buttons": [
+   "Áp dụng bộ lọc"
+  ],
+  "tabs": [],
+  "links": [
+   "/inventory/items",
+   "/inventory/audit/new"
+  ],
+  "cards": [],
+  "empty": [
+   "Chưa có phiếu kiểm kê nào"
+  ],
+  "hints": []
+ },
+ "/orders": {
+  "url": "/orders",
+  "title": "Đơn hàng | Admin",
+  "heads": [
+   "Đơn hàng"
+  ],
+  "inputs": [
+   {
+    "tag": "input",
+    "type": "date",
+    "label": "Từ ngày"
+   },
+   {
+    "tag": "input",
+    "type": "date",
+    "label": "Đến ngày"
+   },
+   {
+    "tag": "input",
+    "type": "text",
+    "label": ""
+   },
+   {
+    "tag": "input",
+    "type": "text",
+    "label": ""
+   },
+   {
+    "tag": "input",
+    "type": "text",
+    "label": "Mã đơn / SĐT / Tên KH"
+   }
+  ],
+  "tables": [
+   {
+    "headers": [
+     "Mã đơn",
+     "Khách hàng",
+     "Loại",
+     "Số tiền (VND)",
+     "Phương thức",
+     "Trạng thái",
+     "Người tạo",
+     "Tạo lúc",
+     "Chi tiết"
+    ],
+    "rows": 20
+   }
+  ],
+  "buttons": [
+   "Tạo đơn thủ công",
+   "ALL",
+   "Xoá",
+   "Áp dụng",
+   "Tải thêm"
+  ],
+  "tabs": [],
+  "links": [
+   "/orders/new"
+  ],
+  "cards": [
+   "Đã xác nhận đơn",
+   "Hoàn tất"
+  ],
+  "empty": [],
+  "hints": []
+ },
+ "/payments": {
+  "url": "/payments",
+  "title": "Thanh toán | Admin",
+  "heads": [
+   "Thanh toán",
+   "Học phí nhập từ file Excel"
+  ],
+  "inputs": [],
+  "tables": [
+   {
+    "headers": [
+     "Đơn hàng",
+     "Tên bé",
+     "Lớp",
+     "Số tiền",
+     "Hình thức",
+     "Ngày thu",
+     "Người thu",
+     "Nguồn HV",
+     "Tên PH",
+     "CCCD PH",
+     "Địa chỉ",
+     "Sale",
+     "Kế toán",
+     "Phiếu thu",
+     "Thao tác"
+    ],
+    "rows": 30
+   }
+  ],
+  "buttons": [
+   "Xem thử",
+   "Ghi nhận khoản",
+   "Xem đầy đủ"
+  ],
+  "tabs": [],
+  "links": [],
+  "cards": [
+   "Xem đầy đủ",
+   "Chờ kế toán"
+  ],
+  "empty": [],
+  "hints": [
+   "Ghi nhận khoản thu (Sale) & xác nhận / từ chối / điều chỉnh (Kế toán)",
+   "CCCD phụ huynh & địa chỉ được che mặc định (thông tin nhạy cảm). Mở xem đầy đủ cần lý do và sẽ được ghi log."
+  ]
+ },
+ "/cong-no": {
+  "url": "/cong-no",
+  "title": "Công nợ | Admin",
+  "heads": [
+   "Công nợ"
+  ],
+  "inputs": [
+   {
+    "tag": "input",
+    "type": "text",
+    "label": ""
+   },
+   {
+    "tag": "input",
+    "type": "text",
+    "label": "Tên HV / đơn / phụ huynh..."
+   }
+  ],
+  "tables": [
+   {
+    "headers": [
+     "Nhóm",
+     "Số đăng ký",
+     "Tổng nợ"
+    ],
+    "rows": 111
+   }
+  ],
+  "buttons": [
+   "enrollment",
+   "Lọc"
+  ],
+  "tabs": [],
+  "links": [],
+  "cards": [
+   "Tổng nợ (đăng ký)",
+   "Chưa quá hạn",
+   "Quá hạn 1-7 ngày",
+   "Quá hạn 8-30 ngày",
+   "Quá hạn > 30 ngày",
+   "Nhóm Số đăng ký Tổng nợ",
+   "Đỗ Đăng Khoa · Sata6 — Chinh Phục Đấu Trường 1 13.440.000 đ",
+   "Trần Gia Bảo · Sata6 — Chinh Phục Đấu Trường 1 13.440.000 đ",
+   "Patel Trần Son Ty · Sata4 — Bứt Phá Giới Hạn 1 11.520.000 đ",
+   "Thái Nhật Khang · Sata4 — Bứt Phá Giới Hạn 1 11.520.000 đ",
+   "Minh Khang · Sata4 — Bứt Phá Giới Hạn 1 11.520.000 đ",
+   "Trần Tuấn Phong · Sata4 — Bứt Phá Giới Hạn 1 11.520.000 đ",
+   "Trần Thiện Khiêm · Sata3 — Ươm Mầm Tài Năng 1 10.560.000 đ",
+   "Nguyễn hoàng bách · Sata3 — Ươm Mầm Tài Năng 1 10.560.000 đ",
+   "Nguyễn Thành Đạt · Sata3 — Ươm Mầm Tài Năng 1 10.560.000 đ",
+   "Huỳnh Quốc Hưng · Sata3 — Ươm Mầm Tài Năng 1 10.560.000 đ",
+   "Hồ Ngọc Gia Hưng · Sata3 — Ươm Mầm Tài Năng 1 10.560.000 đ",
+   "Châu Ngọc Vỹ · Sata3 — Ươm Mầm Tài Năng 1 10.560.000 đ",
+   "Phan Minh Huy · Sata3 — Ươm Mầm Tài Năng 1 10.560.000 đ",
+   "Ngô Duy Anh · Sata3 — Ươm Mầm Tài Năng 1 10.560.000 đ"
+  ],
+  "empty": [],
+  "hints": [
+   "“Tổng nợ (đăng ký)” tính theo ghi danh = học phí − khoản kế toán ĐÃ xác nhận. Các ô tuổi nợ tính theo đợt thanh toán đơn hàng có hạn (chỉ đơn có lịch trả góp) — hai phạm vi khác nhau nên có thể không bằng nhau."
+  ]
+ },
+ "/thieu-hoc-phi": {
+  "url": "/thieu-hoc-phi",
+  "title": "Thiếu học phí · Sata Robo",
+  "heads": [
+   "Thiếu học phí"
+  ],
+  "inputs": [],
+  "tables": [
+   {
+    "headers": [
+     "PHỤ HUYNH · HỌC VIÊN",
+     "CƠ SỞ",
+     "TRẠNG THÁI",
+     "HỌC PHÍ",
+     "THAO TÁC"
+    ],
+    "rows": 103
+   }
+  ],
+  "buttons": [],
+  "tabs": [],
+  "links": [],
+  "cards": [
+   "101",
+   "9.110.400đ",
+   "PHỤ HUYNH · HỌC VIÊN CƠ SỞ TRẠNG THÁI HỌC PHÍ THAO TÁC",
+   "Chưa có đơn hàng",
+   "Đã thu một phần",
+   "thiếu 8.976.000đ",
+   "thiếu 134.400đ"
+  ],
+  "empty": [
+   "CHƯA CÓ ĐƠN",
+   "Chưa có đơn hàng",
+   "chưa có số liệu"
+  ],
+  "hints": []
+ },
+ "/nhap-giao-dich-cu": {
+  "url": "/nhap-giao-dich-cu",
+  "title": "Nhập giao dịch cũ · Sata Robo",
+  "heads": [
+   "Nhập giao dịch cũ",
+   "1 · Chọn file Excel"
+  ],
+  "inputs": [],
+  "tables": [],
+  "buttons": [],
+  "tabs": [],
+  "links": [],
+  "cards": [],
+  "empty": [],
+  "hints": [
+   "File được đọc ngay trong trình duyệt; chỉ tên, số điện thoại, số tiền, ngày và ghi chú được gửi lên máy chủ. CCCD và địa chỉ trong file không rời máy bạn."
+  ]
+ },
+ "/bien-dong-so-du": {
+  "url": "/bien-dong-so-du",
+  "title": "Biến động số dư | Admin",
+  "heads": [
+   "Biến động số dư",
+   "Tiền thừa chưa xử lý",
+   "Nhật ký webhook SePay (lịch sử)"
+  ],
+  "inputs": [
+   {
+    "tag": "input",
+    "type": "text",
+    "label": "Tìm theo mã đơn / nội dung CK / mã tham chiếu / số tiền / tê…"
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "label": "Hiển thị",
+    "options": [
+     "10",
+     "20",
+     "50",
+     "100"
+    ]
+   },
+   {
+    "tag": "input",
+    "type": "text",
+    "label": "Tìm theo mã đơn / nội dung CK / mã tham chiếu / số tiền / tê…"
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "label": "Hiển thị",
+    "options": [
+     "10",
+     "20",
+     "50",
+     "100"
+    ]
+   }
+  ],
+  "tables": [
+   {
+    "headers": [
+     "THỜI GIAN",
+     "SỐ TIỀN",
+     "NỘI DUNG CK",
+     "CỔNG",
+     "TRẠNG THÁI",
+     "RÓT VÀO PHIẾU THU",
+     "XỬ LÝ"
+    ],
+    "rows": 20
+   },
+   {
+    "headers": [
+     "THỜI GIAN",
+     "SỐ TIỀN",
+     "NỘI DUNG CK",
+     "ĐƠN KHỚP",
+     "KẾT QUẢ",
+     "GHI CHÚ"
+    ],
+    "rows": 20
+   }
+  ],
+  "buttons": [],
+  "tabs": [],
+  "links": [
+   "/bien-dong-so-du",
+   "/bien-dong-so-du?status=unmatched",
+   "/bien-dong-so-du?status=matched"
+  ],
+  "cards": [
+   "Cần xử lý",
+   "Chưa rót vào phiếu nào — dùng nút bên phải",
+   "Đã khớp",
+   "ORD-260913-000001",
+   "(đã đủ)",
+   "ORD-260912-000002",
+   "ORD-260912-000001",
+   "ORD-260911-000001",
+   "ORD-260910-000009",
+   "ORD-260910-000001",
+   "(thu một phần)",
+   "ORD-260908-000001",
+   "ORD-260908-000002",
+   "Không tra ra đơn",
+   "Đã khớp phiếu thu"
+  ],
+  "empty": [],
+  "hints": [
+   "Chỉ hiện 200 giao dịch gần nhất. Bảng trống nghĩa là chưa có tiền về qua cổng (webhook chưa bật) — không phải lỗi.",
+   "Tiền còn dư sau khi đã rót hết các đợt của đơn. Hệ thống không tự hoàn và không tự trừ sang đơn khác — kế toán quyết rồi ghi nhận ở nơi xử lý tương ứng. Đây là danh sách chỉ để xem.",
+   "Nhật ký kỹ thuật của webhook SePay — giữ lại để tra các đơn xử lý TRƯỚC khi chuyển sang sổ giao dịch ở trên. Không phải nguồn đối soát chính nữa; 100 dòng gần nhất."
+  ]
+ },
+ "/hoan-tien": {
+  "url": "/hoan-tien",
+  "title": "Hoàn tiền | Admin",
+  "heads": [
+   "Hoàn tiền"
+  ],
+  "inputs": [],
+  "tables": [
+   {
+    "headers": [
+     "Học viên / Lớp",
+     "Lý do",
+     "Đã thu",
+     "Buổi (học/tổng)",
+     "Đề xuất hoàn",
+     "Trạng thái",
+     "Thao tác"
+    ],
+    "rows": 1
+   }
+  ],
+  "buttons": [],
+  "tabs": [],
+  "links": [
+   "/hoan-tien?status=PENDING",
+   "/hoan-tien?status=APPROVED",
+   "/hoan-tien?status=REJECTED",
+   "/hoan-tien?status=PAID",
+   "/hoan-tien?status=ALL"
+  ],
+  "cards": [
+   "Không có yêu cầu hoàn tiền"
+  ],
+  "empty": [
+   "Không có yêu cầu hoàn tiền"
+  ],
+  "hints": []
+ },
+ "/payment-methods": {
+  "url": "/payment-methods",
+  "title": "Phương thức thanh toán | Admin",
+  "heads": [
+   "Phương thức thanh toán"
+  ],
+  "inputs": [],
+  "tables": [
+   {
+    "headers": [
+     "Thứ tự",
+     "Mã",
+     "Tên",
+     "Loại",
+     "Cơ sở",
+     "Cho phép",
+     "Trạng thái",
+     "Thao tác"
+    ],
+    "rows": 4
+   }
+  ],
+  "buttons": [
+   "Thêm phương thức"
+  ],
+  "tabs": [],
+  "links": [
+   "/payment-methods/new"
+  ],
+  "cards": [
+   "Thứ tự Mã Tên Loại Cơ sở Cho phép Trạng thái Thao tác",
+   "Hoạt động"
+  ],
+  "empty": [],
+  "hints": [
+   "Quản lý các phương thức thanh toán: tiền mặt, chuyển khoản, gateway online. Phương thức gắn cơ sở CHỈ hiện ở đơn của cơ sở đó."
+  ]
+ },
+ "/crm/commission": {
+  "url": "/crm/commission",
+  "title": "Hoa hồng | Admin",
+  "heads": [
+   "Bảng hoa hồng theo kỳ"
+  ],
+  "inputs": [],
+  "tables": [
+   {
+    "headers": [
+     "Kỳ",
+     "Trạng thái",
+     "Số dòng",
+     "Tổng (VND)",
+     "Hành động"
+    ],
+    "rows": 1
+   }
+  ],
+  "buttons": [],
+  "tabs": [],
+  "links": [
+   "/api/admin/crm/commission-export?period=2026-09"
+  ],
+  "cards": [
+   "Kỳ Trạng thái Số dòng Tổng (VND) Hành động",
+   "2026-09 DRAFT 3 316.800 Export Excel Duyệt"
+  ],
+  "empty": [],
+  "hints": []
+ },
+ "/news": {
+  "url": "/news",
+  "title": "Quản trị | Sata Robo",
+  "heads": [
+   "Tin Tức"
+  ],
+  "inputs": [],
+  "tables": [
+   {
+    "headers": [
+     "TIÊU ĐỀ",
+     "DANH MỤC",
+     "TRẠNG THÁI",
+     "NGÀY ĐĂNG",
+     "THAO TÁC"
+    ],
+    "rows": 1
+   }
+  ],
+  "buttons": [],
+  "tabs": [],
+  "links": [
+   "/news/new"
+  ],
+  "cards": [],
+  "empty": [],
+  "hints": []
+ },
+ "/site-content": {
+  "url": "/site-content",
+  "title": "Hình ảnh & nội dung trang | Admin",
+  "heads": [
+   "Hình ảnh & nội dung trang"
+  ],
+  "inputs": [
+   {
+    "tag": "input",
+    "type": "file",
+    "label": ""
+   },
+   {
+    "tag": "input",
+    "type": "text",
+    "label": "Để trống = dùng mặc định"
+   },
+   {
+    "tag": "textarea",
+    "type": "textarea",
+    "label": "Để trống = dùng mặc định"
+   }
+  ],
+  "tables": [],
+  "buttons": [
+   "Lưu"
+  ],
+  "tabs": [],
+  "links": [],
+  "cards": [],
+  "empty": [
+   "Để trống ô và bấm Lưu → reset về giá trị mặc định."
+  ],
+  "hints": [
+   "Override hero image + title + subtitle cho từng public page. Để trống ô = fallback về Unsplash mặc định (lib/page-images.ts).",
+   "JPG, PNG, WebP, GIF — tối đa 10MB",
+   "Để trống ô và bấm Lưu → reset về giá trị mặc định.",
+   "Public page tự revalidate sau khi lưu."
+  ]
+ },
+ "/marketing": {
+  "url": "/marketing",
+  "title": "Quản trị | Sata Robo",
+  "heads": [
+   "Marketing Dashboard",
+   "Phễu chuyển đổi Lead",
+   "Theo nguồn khóa học",
+   "Theo UTM Source",
+   "Theo UTM Campaign",
+   "Trạng thái Tracking"
+  ],
+  "inputs": [],
+  "tables": [],
+  "buttons": [],
+  "tabs": [],
+  "links": [],
+  "cards": [],
+  "empty": [],
+  "hints": []
+ },
+ "/marketing/funnel": {
+  "url": "/marketing/funnel",
+  "title": "Funnel Marketing | Admin",
+  "heads": [
+   "Funnel Marketing"
+  ],
+  "inputs": [],
+  "tables": [],
+  "buttons": [],
+  "tabs": [],
+  "links": [],
+  "cards": [
+   "L1 (hội thoại)",
+   "L2 (đạt SĐT)",
+   "L3 (chốt)",
+   "104",
+   "CR L1→L2",
+   "0.0%",
+   "CR L2→L3",
+   "Chi phí QC",
+   "CPL",
+   "CPA",
+   "ROAS",
+   "0.00"
+  ],
+  "empty": [],
+  "hints": []
+ },
+ "/email-templates": {
+  "url": "/email-templates",
+  "title": "Email Templates | Admin",
+  "heads": [
+   "Email Templates",
+   "Xác nhận đơn hàng",
+   "Biên nhận thanh toán",
+   "Thông báo bảo lưu",
+   "Thông báo nghỉ học",
+   "Nhắc tái tục",
+   "Nhắc buổi học",
+   "Gửi thủ công"
+  ],
+  "inputs": [],
+  "tables": [
+   {
+    "headers": [
+     "Code",
+     "Tên",
+     "Tiêu đề",
+     "Đã gửi",
+     "Status",
+     "Thao tác"
+    ],
+    "rows": 1
+   },
+   {
+    "headers": [
+     "Code",
+     "Tên",
+     "Tiêu đề",
+     "Đã gửi",
+     "Status",
+     "Thao tác"
+    ],
+    "rows": 1
+   },
+   {
+    "headers": [
+     "Code",
+     "Tên",
+     "Tiêu đề",
+     "Đã gửi",
+     "Status",
+     "Thao tác"
+    ],
+    "rows": 1
+   },
+   {
+    "headers": [
+     "Code",
+     "Tên",
+     "Tiêu đề",
+     "Đã gửi",
+     "Status",
+     "Thao tác"
+    ],
+    "rows": 1
+   },
+   {
+    "headers": [
+     "Code",
+     "Tên",
+     "Tiêu đề",
+     "Đã gửi",
+     "Status",
+     "Thao tác"
+    ],
+    "rows": 1
+   },
+   {
+    "headers": [
+     "Code",
+     "Tên",
+     "Tiêu đề",
+     "Đã gửi",
+     "Status",
+     "Thao tác"
+    ],
+    "rows": 1
+   },
+   {
+    "headers": [
+     "Code",
+     "Tên",
+     "Tiêu đề",
+     "Đã gửi",
+     "Status",
+     "Thao tác"
+    ],
+    "rows": 2
+   }
+  ],
+  "buttons": [
+   "Thêm template"
+  ],
+  "tabs": [],
+  "links": [
+   "/email-templates/new"
+  ],
+  "cards": [
+   "Hoạt động",
+   "Sửa"
+  ],
+  "empty": [],
+  "hints": [
+   "Mẫu email tự động + thủ công. Trigger integration sẽ active từ Sprint 5.13.1."
+  ]
+ },
+ "/email-logs": {
+  "url": "/email-logs",
+  "title": "Email Logs | Admin",
+  "heads": [
+   "Email Logs"
+  ],
+  "inputs": [
+   {
+    "tag": "input",
+    "type": "text",
+    "name": "q",
+    "label": "Email hoặc subject..."
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "name": "status",
+    "label": "status",
+    "options": [
+     "Tất cả",
+     "Chờ gửi",
+     "Đã gửi",
+     "Thất bại",
+     "Bị bounce"
+    ]
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "name": "templateId",
+    "label": "templateId",
+    "options": [
+     "Tất cả",
+     "Báo cáo tiến độ học tập (Phụ huynh)",
+     "Biên nhận thanh toán (Tiếng Việt)",
+     "Nhắc gia hạn khóa học (14 ngày trước)",
+     "Nhắc lịch học (24h trước)",
+     "Thông báo bảo lưu (Tiếng Việt)",
+     "Thông báo Lead mới (Nội bộ)",
+     "Xác nhận đơn hàng (Tiếng Việt)",
+     "Xác nhận thôi học (Tiếng Việt)"
+    ]
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "label": "Hiển thị",
+    "options": [
+     "10",
+     "20",
+     "50",
+     "100"
+    ]
+   }
+  ],
+  "tables": [
+   {
+    "headers": [
+     "Thời gian",
+     "Đến",
+     "Subject",
+     "Template",
+     "Trigger",
+     "Status",
+     "Người gửi"
+    ],
+    "rows": 20
+   }
+  ],
+  "buttons": [
+   "Áp dụng"
+  ],
+  "tabs": [],
+  "links": [],
+  "cards": [
+   "Nhắc lịch học (24h trước)"
+  ],
+  "empty": [],
+  "hints": []
+ },
+ "/otp-logs": {
+  "url": "/otp-logs",
+  "title": "OTP Logs | Admin",
+  "heads": [
+   "OTP Logs"
+  ],
+  "inputs": [
+   {
+    "tag": "input",
+    "type": "text",
+    "name": "q",
+    "label": "84905… hoặc email…"
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "name": "purpose",
+    "label": "purpose",
+    "options": [
+     "Tất cả",
+     "Kích hoạt",
+     "Quên mật khẩu",
+     "Đổi liên hệ"
+    ]
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "label": "Hiển thị",
+    "options": [
+     "10",
+     "20",
+     "50",
+     "100"
+    ]
+   }
+  ],
+  "tables": [
+   {
+    "headers": [
+     "LÚC",
+     "NGƯỜI NHẬN",
+     "MỤC ĐÍCH",
+     "CÁC LẦN GỬI",
+     "TRẠNG THÁI MÃ"
+    ],
+    "rows": 10
+   }
+  ],
+  "buttons": [
+   "Lọc"
+  ],
+  "tabs": [],
+  "links": [],
+  "cards": [
+   "Tin đã gửi hôm nay",
+   "Ngưỡng tự ngắt",
+   "Chi phí ZNS hôm nay (ước)",
+   "ZNS lỗi người nhận hôm nay",
+   "EMAIL · SENT",
+   "ZALO · SENT"
+  ],
+  "empty": [],
+  "hints": []
+ },
+ "/users": {
+  "url": "/users",
+  "title": "Tài khoản đăng nhập | Admin",
+  "heads": [
+   "Tài khoản đăng nhập"
+  ],
+  "inputs": [
+   {
+    "tag": "select",
+    "type": "select-one",
+    "label": "Hiển thị",
+    "options": [
+     "10",
+     "20",
+     "50",
+     "100"
+    ]
+   }
+  ],
+  "tables": [
+   {
+    "headers": [
+     "EMAIL",
+     "TÊN",
+     "ROLE",
+     "NHÂN SỰ",
+     "CƠ SỞ",
+     "TRẠNG THÁI",
+     "ĐĂNG NHẬP CUỐI",
+     "HÀNH ĐỘNG"
+    ],
+    "rows": 20
+   }
+  ],
+  "buttons": [],
+  "tabs": [],
+  "links": [
+   "/users/new"
+  ],
+  "cards": [
+   "Hoạt động",
+   "Chưa từng"
+  ],
+  "empty": [],
+  "hints": [
+   "125 tài khoản · chỉ SUPER_ADMIN có quyền quản lý"
+  ]
+ },
+ "/user-groups": {
+  "url": "/user-groups",
+  "title": "Nhóm người dùng | Admin",
+  "heads": [
+   "Nhóm người dùng",
+   "Tạo nhóm mới"
+  ],
+  "inputs": [
+   {
+    "tag": "input",
+    "type": "text",
+    "label": "Tên nhóm"
+   },
+   {
+    "tag": "input",
+    "type": "text",
+    "label": "Mô tả"
+   }
+  ],
+  "tables": [
+   {
+    "headers": [
+     "Tên nhóm",
+     "Mô tả",
+     "Thành viên",
+     "Grant"
+    ],
+    "rows": 1
+   }
+  ],
+  "buttons": [
+   "Tạo nhóm"
+  ],
+  "tabs": [],
+  "links": [],
+  "cards": [
+   "Tên nhóm Mô tả Thành viên Grant",
+   "Giáo viên — 11 0"
+  ],
+  "empty": [],
+  "hints": []
+ },
+ "/roles": {
+  "url": "/roles",
+  "title": "Quản trị | Sata Robo",
+  "heads": [
+   "Vai trò & quyền (RBAC)",
+   "Tạo role mới"
+  ],
+  "inputs": [
+   {
+    "tag": "input",
+    "type": "text",
+    "label": "Mã (IN HOA)"
+   },
+   {
+    "tag": "input",
+    "type": "text",
+    "label": "Tên"
+   },
+   {
+    "tag": "input",
+    "type": "text",
+    "label": "Lý do"
+   }
+  ],
+  "tables": [
+   {
+    "headers": [
+     "Mã",
+     "Tên",
+     "Loại",
+     "Số quyền",
+     "Người dùng"
+    ],
+    "rows": 15
+   }
+  ],
+  "buttons": [
+   "Tạo role"
+  ],
+  "tabs": [],
+  "links": [],
+  "cards": [
+   "Mã Tên Loại Số quyền Người dùng",
+   "PARENT Phụ huynh Hệ thống 3 0",
+   "SUPER_ADMIN Quản trị tối cao Hệ thống 29 4",
+   "ASSISTANT_TEACHER Trợ giảng Hoạt động 9 0",
+   "AUDITOR Kiểm toán đào tạo (chỉ đọc) Hoạt động 5 0",
+   "CENTER_ACCOUNTANT Kế toán cơ sở Hoạt động 19 0",
+   "CENTER_CLASS_MANAGER Quản lý lớp học Hoạt động 15 4",
+   "CENTER_HR Nhân sự cơ sở Hoạt động 18 2",
+   "CENTER_MANAGER Quản lý cơ sở Hoạt động 97 6",
+   "CENTER_SALES_CSM Tư vấn & CSKH cơ sở Hoạt động 35 5",
+   "HO_ACCOUNTANT Kế toán Hội sở Hoạt động 36 1",
+   "HO_HR Nhân sự Hội sở Hoạt động 41 0",
+   "HO_MARKETING Marketing Hội sở Hoạt động 39 1",
+   "HO_SALE Sale Hội sở (phiếu mình nhập) Hoạt động 8 1",
+   "TEACHER Giáo viên Hoạt động 43 19",
+   "TRAINING Đào tạo (toàn LMS) Hoạt động 55 2"
+  ],
+  "empty": [],
+  "hints": []
+ },
+ "/to-chuc": {
+  "url": "/to-chuc",
+  "title": "Cây tổ chức | Admin",
+  "heads": [
+   "Cây tổ chức"
+  ],
+  "inputs": [],
+  "tables": [],
+  "buttons": [
+   "Thêm đơn vị",
+   "Sửa",
+   "Đơn vị con",
+   "Xoá"
+  ],
+  "tabs": [],
+  "links": [],
+  "cards": [
+   "Xoá"
+  ],
+  "empty": [],
+  "hints": [
+   "Mở cơ sở mới là thêm đơn vị ở đây — không cần lập trình viên."
+  ]
+ },
+ "/audit-log": {
+  "url": "/audit-log",
+  "title": "Audit Log | Admin",
+  "heads": [
+   "Audit Log"
+  ],
+  "inputs": [
+   {
+    "tag": "input",
+    "type": "date",
+    "label": "Từ ngày"
+   },
+   {
+    "tag": "input",
+    "type": "date",
+    "label": "Đến ngày"
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "label": "Thực hiện bởi",
+    "options": [
+     "<danh sách nhân sự>"
+    ]
+   },
+   {
+    "tag": "input",
+    "type": "text",
+    "label": "Module"
+   },
+   {
+    "tag": "input",
+    "type": "text",
+    "label": "Hành động"
+   },
+   {
+    "tag": "input",
+    "type": "text",
+    "label": "Đối tượng (loại / ID)"
+   },
+   {
+    "tag": "input",
+    "type": "text",
+    "label": "Tìm trong lý do"
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "label": "Hiển thị",
+    "options": [
+     "10",
+     "20",
+     "50",
+     "100"
+    ]
+   }
+  ],
+  "tables": [
+   {
+    "headers": [
+     "THỜI GIAN",
+     "HÀNH ĐỘNG",
+     "MODULE / ĐỐI TƯỢNG",
+     "THỰC HIỆN BỞI",
+     "CHI TIẾT"
+    ],
+    "rows": 20
+   }
+  ],
+  "buttons": [
+   "Xem đầy đủ",
+   "Export CSV",
+   "Xoá log > 365 ngày",
+   "Xoá filter",
+   "Áp dụng",
+   "Tải thêm"
+  ],
+  "tabs": [],
+  "links": [
+   "/audit-log/legacy"
+  ],
+  "cards": [
+   "Xem đầy đủ",
+   "Xoá log > 365 ngày",
+   "status",
+   "childName",
+   "childAge",
+   "note",
+   "parentName",
+   "centerId",
+   "thuTu",
+   "userId",
+   "effectiveTo",
+   "soDong",
+   "periodKeys",
+   "importKhungCa",
+   "patterns",
+   "assignments",
+   "maxStudents",
+   "name",
+   "classCode",
+   "courseId"
+  ],
+  "empty": [],
+  "hints": [
+   "Nhật ký thay đổi hợp nhất toàn hệ thống. Quản lý cơ sở chỉ thấy log cơ sở mình; PII (SĐT/email) che mặc định, xem đầy đủ có kiểm soát."
+  ]
+ },
+ "/compliance": {
+  "url": "/compliance",
+  "title": "Quản trị | Sata Robo",
+  "heads": [
+   "Tuân thủ dữ liệu (NĐ13)"
+  ],
+  "inputs": [],
+  "tables": [],
+  "buttons": [],
+  "tabs": [],
+  "links": [],
+  "cards": [],
+  "empty": [
+   "Không có học viên nào quá hạn lưu trữ."
+  ],
+  "hints": [
+   "Học viên đã nghỉ & quá hạn lưu trữ (5năm) — rà soát xoá ẩn danh. Quyền: xuất dữ liệu (DSAR) & xoá ẩn danh chỉ SUPER_ADMIN."
+  ]
+ },
+ "/crm/webhook-replay": {
+  "url": "/crm/webhook-replay",
+  "title": "Webhook replay | Admin",
+  "heads": [
+   "Webhook lỗi — Replay"
+  ],
+  "inputs": [],
+  "tables": [
+   {
+    "headers": [
+     "Nguồn",
+     "External ID",
+     "Nhận lúc",
+     "Lỗi",
+     "Hành động"
+    ],
+    "rows": 1
+   }
+  ],
+  "buttons": [],
+  "tabs": [],
+  "links": [],
+  "cards": [
+   "Nguồn External ID Nhận lúc Lỗi Hành động",
+   "Không có webhook FAILED."
+  ],
+  "empty": [
+   "Không có webhook FAILED."
+  ],
+  "hints": []
+ },
+ "/tich-hop": {
+  "url": "/tich-hop",
+  "title": "Tích hợp | Admin",
+  "heads": [
+   "Tích hợp ngoài",
+   "Rate limit (Upstash Redis)",
+   "Zalo OA / ZNS",
+   "MISA AMIS (kế toán)"
+  ],
+  "inputs": [
+   {
+    "tag": "select",
+    "type": "select-one",
+    "label": "Hiển thị",
+    "options": [
+     "10",
+     "20",
+     "50",
+     "100"
+    ]
+   }
+  ],
+  "tables": [
+   {
+    "headers": [
+     "SĐT",
+     "Template",
+     "Trạng thái",
+     "Fallback email",
+     "Ghi chú",
+     "Thời gian"
+    ],
+    "rows": 20
+   },
+   {
+    "headers": [
+     "Hành động",
+     "Trạng thái",
+     "Ghi chú",
+     "Thời gian"
+    ],
+    "rows": 1
+   }
+  ],
+  "buttons": [
+   "Gửi thử",
+   "Bật sync",
+   "Chạy thử"
+  ],
+  "tabs": [],
+  "links": [],
+  "cards": [
+   "Rate limit (Upstash Redis) Redis (bền vững)",
+   "Redis (bền vững)",
+   "Zalo OA / ZNS Đang bật (live)",
+   "Đang bật (live)",
+   "FAILED",
+   "MISA AMIS (kế toán) Đang tắt Bật sync Chạy thử",
+   "Bật sync"
+  ],
+  "empty": [
+   "Chưa có credential (MISA_CLIENT_ID/SECRET/API_URL) → sync bị bỏ qua, không push.",
+   "Chưa có log."
+  ],
+  "hints": [
+   "Env Upstash đã nạp. Lưu ý: lỗi runtime (URL sai, DB đã xoá) vẫn tự rơi về memory từng request — thấy log [rate-limit] Upstash error thì kiểm console.upstash.com.",
+   "Gửi 1 mã ngẫu nhiên tới số bên dưới để đối chiếu nội dung tin. Khi OA còn ở chế độ development, chỉ SĐT quản trị viên OA nhận được (số khác trả -127). Mỗi tin gửi thành công tốn ~300đ · tối đa 5 lần/giờ."
+  ]
+ },
+ "/cau-hinh-van-hanh": {
+  "url": "/cau-hinh-van-hanh",
+  "title": "Cấu hình vận hành | Admin Sata Robo",
+  "heads": [
+   "Cấu hình vận hành",
+   "Cần thực hiện1/11 bật",
+   "Tin nhắn PH0/1 bật",
+   "Việc mới7/12 bật",
+   "Đến hạn1/4 bật",
+   "Hệ thống3/8 bật"
+  ],
+  "inputs": [
+   {
+    "tag": "select",
+    "type": "select-one",
+    "label": "Nhóm cấu hình",
+    "options": [
+     "<danh sách học viên>"
+    ]
+   },
+   {
+    "tag": "input",
+    "type": "checkbox",
+    "label": "Hiện mã kỹ thuật"
+   }
+  ],
+  "tables": [],
+  "buttons": [
+   "Thông báo đẩy",
+   "Tin Zalo",
+   "Đăng nhập",
+   "Học viên",
+   "Lớp & giáo viên",
+   "Chấm công",
+   "Khách hàng",
+   "Thanh toán",
+   "Nhắc tự động",
+   "Công ty",
+   "Nâng cao"
+  ],
+  "tabs": [
+   "Thông báo đẩy",
+   "Tin Zalo",
+   "Đăng nhập",
+   "Học viên",
+   "Lớp & giáo viên",
+   "Chấm công",
+   "Khách hàng",
+   "Thanh toán",
+   "Nhắc tự động",
+   "Công ty",
+   "Nâng cao"
+  ],
+  "links": [],
+  "cards": [],
+  "empty": [
+   "Ca trải nghiệm chưa có giáo viên",
+   "Thường · Bộ phận Đào tạo (ca trải nghiệm chưa có giáo viên)",
+   "Thường · Giáo viên dạy buổi (không có thì GV chính của lớp)"
+  ],
+  "hints": [
+   "Mỗi tab là một nhóm việc. Đổi xong bấm Lưu ngay dòng đó — thay đổi có hiệu lực luôn, không cần chờ ai cài đặt lại gì.",
+   "Tắt thì không ai nhận được gì ngoài chuông trong trang quản trị. Bật xong mỗi người vẫn phải tự vào Cài đặt bấm “Bật thông báo” một lần trên máy của mình.",
+   "Buổi trải nghiệm vừa bị sửa Thường · Giáo viên đang được phân buổi sau khi sửa",
+   "Thường · Giáo viên đang được phân buổi sau khi sửa",
+   "Đơn của tôi đã được quyết Thường · Người nộp đơn (và người nhận ca/làm thay nếu có)",
+   "Thường · Người nộp đơn (và người nhận ca/làm thay nếu có)"
+  ]
+ },
+ "/settings": {
+  "url": "/settings",
+  "title": "Quản trị | Sata Robo",
+  "heads": [
+   "Cài đặt",
+   "Thông tin tài khoản",
+   "Đổi mật khẩu",
+   "Thông báo đẩy",
+   "Hướng dẫn sử dụng",
+   "Danh sách cơ sở",
+   "Thông tin môi trường"
+  ],
+  "inputs": [
+   {
+    "tag": "input",
+    "type": "password",
+    "name": "currentPassword",
+    "label": "currentPassword"
+   },
+   {
+    "tag": "input",
+    "type": "password",
+    "name": "newPassword",
+    "label": "newPassword"
+   },
+   {
+    "tag": "input",
+    "type": "password",
+    "name": "confirmPassword",
+    "label": "confirmPassword"
+   }
+  ],
+  "tables": [],
+  "buttons": [
+   "Cập nhật mật khẩu"
+  ],
+  "tabs": [],
+  "links": [
+   "/huong-dan"
+  ],
+  "cards": [
+   "Hoạt động"
+  ],
+  "empty": [
+   "Chưa có thiết bị nào."
+  ],
+  "hints": [
+   "Mật khẩu tối thiểu 8 ký tự, bao gồm chữ hoa và số",
+   "Bạn đã chặn thông báo cho trang này nên trình duyệt sẽ không hỏi lại. Mở phần cài đặt quyền của trình duyệt cho địa chỉ này, đổi Thông báo sang Cho phép, rồi tải lại trang."
+  ]
+ },
+ "/bao-cao/lead": {
+  "url": "/bao-cao/lead",
+  "title": "Báo cáo Lead | Admin",
+  "heads": [
+   "Báo cáo Lead",
+   "Phễu chuyển đổi (số lead ĐÃ TỪNG tới mỗi bước)",
+   "Tỷ lệ chuyển từng bước",
+   "Tỷ lệ chốt theo từng sale",
+   "Lead theo nguồn",
+   "Lead theo cơ sở",
+   "Lead theo tháng",
+   "Lead theo nguồn hoa hồng",
+   "Lead rụng ở bậc nào"
+  ],
+  "inputs": [
+   {
+    "tag": "select",
+    "type": "select-one",
+    "name": "center",
+    "label": "center",
+    "options": [
+     "Tất cả cơ sở",
+     "CS1 - 211 Nguyễn Hữu Thọ",
+     "CS2 - 114 Hoàng Diệu"
+    ]
+   },
+   {
+    "tag": "input",
+    "type": "date",
+    "name": "dateFrom",
+    "label": "dateFrom"
+   },
+   {
+    "tag": "input",
+    "type": "date",
+    "name": "dateTo",
+    "label": "dateTo"
+   }
+  ],
+  "tables": [
+   {
+    "headers": [
+     "Bước",
+     "Đã từng tới",
+     "Đang ở đây trở lên"
+    ],
+    "rows": 7
+   },
+   {
+    "headers": [
+     "Bước",
+     "Tỷ lệ chuyển"
+    ],
+    "rows": 6
+   },
+   {
+    "headers": [
+     "Sale",
+     "Cơ sở",
+     "Tổng lead",
+     "Đã chốt",
+     "Tỷ lệ chốt"
+    ],
+    "rows": 5
+   },
+   {
+    "headers": [
+     "Nguồn hoa hồng",
+     "Tổng",
+     "Đã chốt",
+     "Tỷ lệ"
+    ],
+    "rows": 1
+   },
+   {
+    "headers": [
+     "Rụng ở bậc",
+     "Số lead",
+     "Lý do hay gặp"
+    ],
+    "rows": 5
+   }
+  ],
+  "buttons": [
+   "Lọc"
+  ],
+  "tabs": [],
+  "links": [
+   "/bao-cao/lead"
+  ],
+  "cards": [],
+  "empty": [
+   "Một người ôm lead ở hai cơ sở sẽ có hai dòng — cố ý, để tỷ lệ của cơ sở này không bị pha lẫn lead của cơ sở kia. Dòng \"Chưa chia cho ai\" là lead chưa có người phụ trách, thường là chỗ hở lớn nhất của phễu."
+  ],
+  "hints": [
+   "169/1122 lead có sổ trạng thái. Sổ chỉ ghi từ 25/08/2026 và cố ý không dựng lại quá khứ, nên 953 lead cũ vẫn đếm theo trạng thái hiện tại — với những lead đó, hai cột trên bằng nhau.",
+   "PH bảo con vào học không có thời gian, tư vấn nếu muốn thử sức robotics thì connect (1)"
+  ]
+ },
+ "/bao-cao/trial": {
+  "url": "/bao-cao/trial",
+  "title": "Báo cáo lớp trải nghiệm | Admin",
+  "heads": [
+   "Báo cáo lớp trải nghiệm",
+   "Phễu học thử → đăng ký",
+   "Theo cơ sở (%)"
+  ],
+  "inputs": [
+   {
+    "tag": "select",
+    "type": "select-one",
+    "name": "center",
+    "label": "center",
+    "options": [
+     "Tất cả cơ sở",
+     "CS1 - 211 Nguyễn Hữu Thọ",
+     "CS2 - 114 Hoàng Diệu"
+    ]
+   },
+   {
+    "tag": "input",
+    "type": "date",
+    "name": "dateFrom",
+    "label": "dateFrom"
+   },
+   {
+    "tag": "input",
+    "type": "date",
+    "name": "dateTo",
+    "label": "dateTo"
+   }
+  ],
+  "tables": [
+   {
+    "headers": [
+     "Cơ sở",
+     "Lớp",
+     "Lấp đầy",
+     "Dự đủ buổi",
+     "Đã dự / Đăng ký",
+     "Chuyển đổi"
+    ],
+    "rows": 2
+   }
+  ],
+  "buttons": [
+   "Lọc"
+  ],
+  "tabs": [],
+  "links": [
+   "/bao-cao/trial"
+  ],
+  "cards": [
+   "Sĩ số lấp đầy",
+   "Dự đủ N buổi",
+   "Chuyển đổi trial → đăng ký",
+   "Đang học thử"
+  ],
+  "empty": [],
+  "hints": []
+ },
+ "/bao-cao/dao-tao": {
+  "url": "/bao-cao/dao-tao",
+  "title": "Báo cáo đào tạo | Admin",
+  "heads": [
+   "Báo cáo đào tạo",
+   "Tỷ lệ chuyên cần theo lớp",
+   "Chi tiết: <tên>"
+  ],
+  "inputs": [
+   {
+    "tag": "select",
+    "type": "select-one",
+    "name": "center",
+    "label": "center",
+    "options": [
+     "Tất cả cơ sở",
+     "CS1 - 211 Nguyễn Hữu Thọ",
+     "CS2 - 114 Hoàng Diệu"
+    ]
+   },
+   {
+    "tag": "input",
+    "type": "date",
+    "name": "dateFrom",
+    "label": "dateFrom"
+   },
+   {
+    "tag": "input",
+    "type": "date",
+    "name": "dateTo",
+    "label": "dateTo"
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "label": "Hiển thị",
+    "options": [
+     "10",
+     "20",
+     "50",
+     "100"
+    ]
+   }
+  ],
+  "tables": [
+   {
+    "headers": [
+     "Lớp",
+     "Buổi tính",
+     "Đi học",
+     "Vắng",
+     "Chờ bù",
+     "Đã bù",
+     "Chuyên cần"
+    ],
+    "rows": 20
+   }
+  ],
+  "buttons": [
+   "Lọc"
+  ],
+  "tabs": [],
+  "links": [
+   "/bao-cao/dao-tao"
+  ],
+  "cards": [
+   "94%",
+   "309",
+   "Chi tiết: <tên>",
+   "160",
+   "117"
+  ],
+  "empty": [],
+  "hints": [
+   "Chuyên cần, bài tập và học bù theo cơ sở",
+   "Chuyên cần, hoàn thành bài tập, buổi thiếu đề thi và ca học bù — theo phạm vi cơ sở của bạn."
+  ]
+ },
+ "/bao-cao/trung-tam": {
+  "url": "/bao-cao/trung-tam",
+  "title": "Báo cáo trung tâm | Admin",
+  "heads": [
+   "Báo cáo trung tâm",
+   "Xu hướng doanh thu theo tháng",
+   "Doanh thu & công nợ theo cơ sở",
+   "Chi tiết: <tên>"
+  ],
+  "inputs": [
+   {
+    "tag": "select",
+    "type": "select-one",
+    "name": "center",
+    "label": "center",
+    "options": [
+     "Tất cả cơ sở",
+     "CS1 - 211 Nguyễn Hữu Thọ",
+     "CS2 - 114 Hoàng Diệu"
+    ]
+   },
+   {
+    "tag": "input",
+    "type": "date",
+    "name": "dateFrom",
+    "label": "dateFrom"
+   },
+   {
+    "tag": "input",
+    "type": "date",
+    "name": "dateTo",
+    "label": "dateTo"
+   }
+  ],
+  "tables": [
+   {
+    "headers": [
+     "Cơ sở",
+     "Đã xác nhận",
+     "Chờ xác nhận",
+     "Phải thu",
+     "Công nợ"
+    ],
+    "rows": 2
+   }
+  ],
+  "buttons": [
+   "Lọc"
+  ],
+  "tabs": [],
+  "links": [
+   "/bao-cao/trung-tam"
+  ],
+  "cards": [
+   "3.686.000 đ",
+   "887.587.000 đ",
+   "841.493.000 đ",
+   "2.6%",
+   "Chi tiết: <tên>",
+   "509.056.000 đ",
+   "453.338.000 đ",
+   "0 đ",
+   "378.531.000 đ",
+   "388.155.000 đ"
+  ],
+  "empty": [],
+  "hints": []
+ },
+ "/bao-cao/hieu-suat-gv": {
+  "url": "/bao-cao/hieu-suat-gv",
+  "title": "Báo cáo hiệu suất GV | Admin",
+  "heads": [
+   "Báo cáo hiệu suất giáo viên",
+   "Số buổi đã dạy theo giáo viên",
+   "Chi tiết: <tên>"
+  ],
+  "inputs": [
+   {
+    "tag": "select",
+    "type": "select-one",
+    "name": "center",
+    "label": "center",
+    "options": [
+     "Tất cả cơ sở",
+     "CS1 - 211 Nguyễn Hữu Thọ",
+     "CS2 - 114 Hoàng Diệu"
+    ]
+   },
+   {
+    "tag": "input",
+    "type": "date",
+    "name": "dateFrom",
+    "label": "dateFrom"
+   },
+   {
+    "tag": "input",
+    "type": "date",
+    "name": "dateTo",
+    "label": "dateTo"
+   }
+  ],
+  "tables": [
+   {
+    "headers": [
+     "Giáo viên",
+     "Buổi đã dạy",
+     "Chuyên cần",
+     "Học viên",
+     "Điểm học bạ TB"
+    ],
+    "rows": 6
+   }
+  ],
+  "buttons": [
+   "Lọc"
+  ],
+  "tabs": [],
+  "links": [
+   "/bao-cao/hieu-suat-gv"
+  ],
+  "cards": [
+   "Chi tiết: <tên>"
+  ],
+  "empty": [],
+  "hints": [
+   "Buổi dạy, chuyên cần và điểm học bạ theo giáo viên",
+   "Số buổi đã dạy, chuyên cần lớp phụ trách, số học viên và điểm học bạ trung bình — theo phạm vi cơ sở của bạn."
+  ]
+ },
+ "/bao-cao/cohort": {
+  "url": "/bao-cao/cohort",
+  "title": "Báo cáo cohort | Admin",
+  "heads": [
+   "Báo cáo cohort",
+   "Tiến độ trung bình theo cohort",
+   "Trạng thái học viên theo cohort",
+   "Chi tiết: <tên>"
+  ],
+  "inputs": [
+   {
+    "tag": "select",
+    "type": "select-one",
+    "name": "center",
+    "label": "center",
+    "options": [
+     "Tất cả cơ sở",
+     "CS1 - 211 Nguyễn Hữu Thọ",
+     "CS2 - 114 Hoàng Diệu"
+    ]
+   },
+   {
+    "tag": "input",
+    "type": "date",
+    "name": "dateFrom",
+    "label": "dateFrom"
+   },
+   {
+    "tag": "input",
+    "type": "date",
+    "name": "dateTo",
+    "label": "dateTo"
+   }
+  ],
+  "tables": [
+   {
+    "headers": [
+     "Kỳ bắt đầu",
+     "Ghi danh",
+     "Tiến độ TB",
+     "Hoàn thành",
+     "Đang học",
+     "Rút"
+    ],
+    "rows": 2
+   }
+  ],
+  "buttons": [
+   "Lọc"
+  ],
+  "tabs": [],
+  "links": [
+   "/bao-cao/cohort"
+  ],
+  "cards": [
+   "Chi tiết: <tên>",
+   "0 (0%)",
+   "7 (8.1%)"
+  ],
+  "empty": [],
+  "hints": []
+ },
+ "/bao-cao/churn": {
+  "url": "/bao-cao/churn",
+  "title": "Báo cáo churn / rời lớp | Admin",
+  "heads": [
+   "Báo cáo churn / rời lớp",
+   "Xu hướng rời lớp theo tháng",
+   "Tỉ lệ churn theo tháng",
+   "Rời lớp theo cơ sở"
+  ],
+  "inputs": [
+   {
+    "tag": "select",
+    "type": "select-one",
+    "name": "center",
+    "label": "center",
+    "options": [
+     "Tất cả cơ sở",
+     "CS1 - 211 Nguyễn Hữu Thọ",
+     "CS2 - 114 Hoàng Diệu"
+    ]
+   },
+   {
+    "tag": "input",
+    "type": "date",
+    "name": "dateFrom",
+    "label": "dateFrom"
+   },
+   {
+    "tag": "input",
+    "type": "date",
+    "name": "dateTo",
+    "label": "dateTo"
+   }
+  ],
+  "tables": [
+   {
+    "headers": [
+     "Kỳ",
+     "Đang học đầu kỳ",
+     "Rời lớp",
+     "Tỉ lệ churn"
+    ],
+    "rows": 2
+   },
+   {
+    "headers": [
+     "Cơ sở",
+     "Tổng",
+     "Rời lớp",
+     "Tỉ lệ rời"
+    ],
+    "rows": 2
+   }
+  ],
+  "buttons": [
+   "Lọc"
+  ],
+  "tabs": [],
+  "links": [
+   "/bao-cao/churn"
+  ],
+  "cards": [],
+  "empty": [],
+  "hints": []
+ },
+ "/bao-cao/doanh-thu": {
+  "url": "/bao-cao/doanh-thu",
+  "title": "Báo cáo doanh thu vs mục tiêu | Admin",
+  "heads": [
+   "Doanh thu vs mục tiêu",
+   "Đặt / sửa mục tiêu doanh thu",
+   "Doanh thu thực vs mục tiêu theo kỳ",
+   "Tỉ lệ đạt mục tiêu theo kỳ (%)",
+   "Chi tiết: <tên>"
+  ],
+  "inputs": [
+   {
+    "tag": "select",
+    "type": "select-one",
+    "name": "center",
+    "label": "center",
+    "options": [
+     "Tất cả cơ sở",
+     "CS1 - 211 Nguyễn Hữu Thọ",
+     "CS2 - 114 Hoàng Diệu"
+    ]
+   },
+   {
+    "tag": "input",
+    "type": "date",
+    "name": "dateFrom",
+    "label": "dateFrom"
+   },
+   {
+    "tag": "input",
+    "type": "date",
+    "name": "dateTo",
+    "label": "dateTo"
+   },
+   {
+    "tag": "select",
+    "type": "select-one",
+    "name": "centerId",
+    "label": "Cơ sở",
+    "options": [
+     "Toàn hệ thống",
+     "CS1 - 211 Nguyễn Hữu Thọ",
+     "CS2 - 114 Hoàng Diệu"
+    ]
+   },
+   {
+    "tag": "input",
+    "type": "month",
+    "name": "period",
+    "label": "Kỳ (YYYY-MM)"
+   },
+   {
+    "tag": "input",
+    "type": "text",
+    "label": "Mục tiêu (VNĐ)"
+   },
+   {
+    "tag": "input",
+    "type": "text",
+    "name": "note",
+    "label": "Ghi chú"
+   }
+  ],
+  "tables": [
+   {
+    "headers": [
+     "Kỳ",
+     "Doanh thu thực",
+     "Mục tiêu",
+     "Chênh lệch",
+     "% đạt",
+     "Trạng thái"
+    ],
+    "rows": 1
+   }
+  ],
+  "buttons": [
+   "Lọc",
+   "Lưu mục tiêu"
+  ],
+  "tabs": [],
+  "links": [
+   "/bao-cao/doanh-thu"
+  ],
+  "cards": [],
+  "empty": [],
+  "hints": []
+ },
+ "/bao-cao/chat-pilot": {
+  "url": "/bao-cao/chat-pilot",
+  "title": "Đo pilot chat | Admin",
+  "heads": [
+   "Đo pilot chat theo lớp"
+  ],
+  "inputs": [
+   {
+    "tag": "select",
+    "type": "select-one",
+    "name": "center",
+    "label": "Cơ sở",
+    "options": [
+     "Tất cả cơ sở",
+     "CS1 - 211 Nguyễn Hữu Thọ",
+     "CS2 - 114 Hoàng Diệu"
+    ]
+   }
+  ],
+  "tables": [
+   {
+    "headers": [
+     "Lớp",
+     "Cơ sở",
+     "PH trong nhóm",
+     "Đã kích hoạt",
+     "Đã đăng nhập",
+     "Đồng ý quy định",
+     "Thông báo đầu",
+     "Đọc ≤ 48h",
+     "Đã đọc (mọi lúc)"
+    ],
+    "rows": 18
+   }
+  ],
+  "buttons": [
+   "Lọc"
+  ],
+  "tabs": [],
+  "links": [],
+  "cards": [
+   "chưa có thông báo"
+  ],
+  "empty": [
+   "chưa có thông báo",
+   "chưa có thông báo",
+   "chưa có thông báo"
+  ],
+  "hints": [
+   "• Mốc \"đã đọc\" ghi khi phụ huynh cuộn tới thông báo (hiện ≥50% trên màn hình), không phải khi mở ứng dụng."
+  ]
+ },
+ "/classes/kiem-tra-lich": {
+  "url": "/classes/kiem-tra-lich",
+  "title": "Kiểm tra lịch buổi học | Admin",
+  "heads": [
+   "Kiểm tra lịch buổi học"
+  ],
+  "inputs": [],
+  "tables": [
+   {
+    "headers": [
+     "LỚP",
+     "VẤN ĐỀ",
+     "KHAI GIẢNG",
+     "BUỔI 1 HIỆN TẠI",
+     "BUỔI 1 ĐÚNG LỊCH",
+     "BUỔI LỆCH",
+     "XỬ LÝ"
+    ],
+    "rows": 8
+   }
+  ],
+  "buttons": [],
+  "tabs": [],
+  "links": [
+   "/classes"
+  ],
+  "cards": [
+   "Neo sai ngày khai giảng",
+   "Chưa có buổi nào",
+   "Lệch giữa khoá"
+  ],
+  "empty": [
+   "Chưa có buổi nào",
+   "Lớp đang hoạt động nhưng CHƯA có buổi học nào — bấm “Sinh buổi học” để xếp theo ngày khai giảng."
+  ],
+  "hints": [
+   "Đối chiếu dãy buổi đã sinh với ngày khai giảng + lịch học của từng lớp (đã trừ ngày nghỉ). Chỉ liệt kê lớp có vấn đề — danh sách rỗng nghĩa là mọi lớp đều khớp.",
+   "Buổi 1 đang là 2026-06-17 18:00 nhưng theo ngày khai giảng + lịch học phải là 2026-06-03 18:00 — cả dãy 48 buổi bị neo sai (47 buổi lệch ngày). Bấm “Xếp lại buổi theo lịch” để sửa.",
+   "Buổi 1 đang là 2026-06-18 18:00 nhưng theo ngày khai giảng + lịch học phải là 2026-06-11 18:00 — cả dãy 48 buổi bị neo sai (48 buổi lệch ngày). Bấm “Xếp lại buổi theo lịch” để sửa.",
+   "Buổi 1 đang là 2026-06-22 18:00 nhưng theo ngày khai giảng + lịch học phải là 2026-08-26 18:00 — cả dãy 48 buổi bị neo sai (48 buổi lệch ngày). Bấm “Xếp lại buổi theo lịch” để sửa.",
+   "Buổi 1 đang là 2026-09-13 14:00 nhưng theo ngày khai giảng + lịch học phải là 2026-09-19 15:45 — cả dãy 48 buổi bị neo sai (48 buổi lệch ngày). Bấm “Xếp lại buổi theo lịch” để sửa.",
+   "Buổi 22 trở đi lệch so với lịch hiện tại (1 buổi lệch ngày, 1 buổi lệch giờ). Thường gặp khi lớp đổi lịch giữa khoá — kiểm tra rồi xếp lại nếu cần.",
+   "Buổi 2 trở đi lệch so với lịch hiện tại (47 buổi lệch ngày, 0 buổi lệch giờ). Thường gặp khi lớp đổi lịch giữa khoá — kiểm tra rồi xếp lại nếu cần.",
+   "Buổi 1 trở đi lệch so với lịch hiện tại (0 buổi lệch ngày, 48 buổi lệch giờ). Thường gặp khi lớp đổi lịch giữa khoá — kiểm tra rồi xếp lại nếu cần.",
+   "\"Xếp lại\" neo lại cả dãy buổi từ ngày khai giảng theo lịch hiện tại. Chỉ đổi ngày — không tạo, không xoá buổi; buổi đã điểm danh / có nhận xét / đã giao bài / có ảnh / đã hoàn tất giữ nguyên ngày và chiếm chỗ ngày đó."
+  ]
+ },
+ "/course-packages": {
+  "url": "/course-packages",
+  "title": "Quản trị | Sata Robo",
+  "heads": [
+   "Gói khoá học (để bán)"
+  ],
+  "inputs": [],
+  "tables": [
+   {
+    "headers": [
+     "MÃ",
+     "TÊN GÓI",
+     "CẤP ĐỘ",
+     "KHOÁ DẠY",
+     "GIÁ",
+     "SỐ BUỔI",
+     "TRẠNG THÁI",
+     "THAO TÁC"
+    ],
+    "rows": 9
+   }
+  ],
+  "buttons": [],
+  "tabs": [],
+  "links": [
+   "/course-packages/new"
+  ],
+  "cards": [
+   "Sata1 — Robosim Master (Sata1)",
+   "Đã đăng",
+   "Nổi bật",
+   "Sata2 — Đấu trường Robot (Sata2)",
+   "Sata3 — Ươm Mầm Tài Năng (Sata3)",
+   "Sata4 — Bứt Phá Giới Hạn (Sata4)",
+   "Sata5 — Khơi Nguồn Sáng Tạo (Sata5)",
+   "Sata6 — Chinh Phục Đấu Trường (Sata6)",
+   "Sata7 — Kiến Tạo Tương Lai (Sata7)",
+   "Sata8 — Vé Vàng Chung Kết (Sata8)",
+   "Combo — Full Lộ Trình Luyện Thi (Combo)"
+  ],
+  "empty": [],
+  "hints": []
+ },
+ "/assignments/templates": {
+  "url": "/leads",
+  "title": "Leads | Admin",
+  "heads": [],
+  "inputs": [],
+  "tables": [],
+  "buttons": [],
+  "tabs": [],
+  "links": [],
+  "cards": [],
+  "empty": [],
+  "hints": []
+ },
+ "/leads/:id": {
+  "url": "/leads/:id",
+  "title": "Chi tiết: <tên>",
+  "heads": [
+   "PH của: <tên>",
+   "Thông tin khách hàng",
+   "Con của phụ huynh (0)",
+   "Thanh toán",
+   "Ghi nhanh hoạt động"
+  ],
+  "tabs": [],
+  "labels": [
+   "TÊN CON",
+   "TUỔI",
+   "KHOÁ QUAN TÂM",
+   "CƠ SỞ",
+   "NGUỒN",
+   "SALE PHỤ TRÁCH",
+   "NGÀY NHẬN LEAD",
+   "LẦN NHẬP GẦN NHẤT",
+   "GHI CHÚ"
+  ],
+  "inputs": [
+   "select-one",
+   "Người gọi",
+   "Thời lượng (phút)",
+   "Nội dung trao đổi..."
+  ],
+  "selects": [
+   {
+    "label": "?",
+    "options": [
+     "Mới",
+     "Đã liên hệ",
+     "Đang tư vấn",
+     "Đã hẹn học thử",
+     "Đang học thử",
+     "Đã học thử",
+     "Chờ quyết định",
+     "Đã đăng ký",
+     "Đang nuôi dưỡng",
+     "Đã mất"
+    ]
+   },
+   {
+    "label": "?",
+    "options": [
+     "Gán cho…",
+     "Lê Thị Phương Liên",
+     "Tô Thị Thuý Vân"
+    ]
+   }
+  ],
+  "buttons": [
+   "Chuyển lead",
+   "Chia lại lead",
+   "Thêm con",
+   "Tạo LeadChild mới",
+   "Gọi điện",
+   "Nhắn tin",
+   "Ghi chú",
+   "Email",
+   "Ghi hoạt động",
+   "Lịch sử tương tác của Lead (1)"
+  ],
+  "hints": []
+ },
+ "/classes/:id": {
+  "url": "/classes/:id",
+  "title": "Quản trị | Sata Robo",
+  "heads": [
+   "sata4.15h45-CN.CS2-301",
+   "PHÊ DUYỆT LỚP",
+   "BUỔI HỌC THEO LỊCH",
+   "THÔNG TIN LỚP HỌC",
+   "PHÂN CÔNG",
+   "KẾ HOẠCH LỊCH HỌC *",
+   "ÁP LỊCH MỚI CHO CÁC BUỔI ĐÃ SINH"
+  ],
+  "tabs": [
+   "Thông tin",
+   "Chương trình",
+   "Buổi & Điểm danh",
+   "Ảnh lớp",
+   "Học bù",
+   "Tài liệu SCORM",
+   "Đánh giá & Nhận xét",
+   "Gửi duyệt",
+   "Sinh buổi học",
+   "Xếp lại buổi theo lịch",
+   "Xem trước dời",
+   "T2",
+   "T3",
+   "T4",
+   "T5",
+   "T6",
+   "T7",
+   "CN",
+   "Thêm kế hoạch lịch",
+   "Lưu kế hoạch"
+  ],
+  "labels": [
+   "LỊCH HỌC",
+   "GIỜ",
+   "GV CHÍNH",
+   "SĨ SỐ",
+   "PHÊ DUYỆT LỚP",
+   "BUỔI HỌC THEO LỊCH",
+   "THÔNG TIN LỚP HỌC",
+   "Tên lớp*",
+   "Mã lớp",
+   "Mô tả chi tiết đặc thù lớp học",
+   "PHÂN CÔNG",
+   "Ngày khai giảng*",
+   "Ngày bế giảng",
+   "KẾ HOẠCH LỊCH HỌC *",
+   "Từ ngày *",
+   "Đến ngày (để trống = đến hết khoá)",
+   "Ghi chú",
+   "Lý do thay đổi",
+   "ÁP LỊCH MỚI CHO CÁC BUỔI ĐÃ SINH",
+   "Áp dụng từ ngày",
+   "Số HS tối thiểu*",
+   "Số HS tối đa*"
+  ],
+  "inputs": [
+   "sata4.17h30-T2&17h30-T6.P302",
+   "SR-LR-2026-01",
+   "Khoá học* — Chọn khoá cụ thể — Combo — Full Lộ Trì",
+   "Cơ sở* — Chọn cơ sở — CS1 - 211 Nguyễn Hữu Thọ CS2",
+   "Trạng thái* Đang lên KH Tuyển sinh Đang dạy Hoàn t",
+   "Đặc thù của lớp để bàn giao khi đổi giáo viên. Ví ",
+   "roomId",
+   "teacherId",
+   "assistantId",
+   "Ngày khai giảng*",
+   "endDate",
+   "Từ ngày *",
+   "Đến ngày (để trống = đến hết khoá)",
+   "Giờ bắt đầu CN — giai đoạn 1",
+   "Giờ kết thúc CN — giai đoạn 1",
+   "Ghi chú",
+   "Lý do thay đổi",
+   "Áp dụng từ ngày",
+   "minStudents",
+   "Số HS tối đa*"
+  ],
+  "selects": [
+   {
+    "label": "Khoá học* — Chọn khoá cụ thể —",
+    "options": [
+     "— Chọn khoá cụ thể —",
+     "Combo — Full Lộ Trình Luyện Thi",
+     "Sata1 — Robosim Master",
+     "Sata2 — Đấu trường Robot",
+     "Sata8 — Vé Vàng Chung Kết",
+     "Sata3 — Ươm Mầm Tài Năng",
+     "Sata4 — Bứt Phá Giới Hạn",
+     "Sata5 — Khơi Nguồn Sáng Tạo",
+     "Sata6 — Chinh Phục Đấu Trường",
+     "Sata7 — Kiến Tạo Tương Lai"
+    ]
+   },
+   {
+    "label": "Cơ sở* — Chọn cơ sở — CS1 - 21",
+    "options": [
+     "— Chọn cơ sở —",
+     "CS1 - 211 Nguyễn Hữu Thọ",
+     "CS2 - 114 Hoàng Diệu"
+    ]
+   },
+   {
+    "label": "Trạng thái* Đang lên KH Tuyển ",
+    "options": [
+     "Đang lên KH",
+     "Tuyển sinh",
+     "Đang dạy",
+     "Hoàn thành"
+    ]
+   },
+   {
+    "label": "roomId",
+    "options": [
+     "— Chọn phòng học —",
+     "CS2-301 — CS2-301",
+     "CS2-P302 — CS2-302"
+    ]
+   },
+   {
+    "label": "teacherId",
+    "options": [
+     "<danh sách nhân sự>"
+    ]
+   },
+   {
+    "label": "assistantId",
+    "options": [
+     "<danh sách nhân sự>"
+    ]
+   }
+  ],
+  "buttons": [
+   "Thông tin",
+   "Chương trình",
+   "Buổi & Điểm danh",
+   "Ảnh lớp",
+   "Học bù",
+   "Tài liệu SCORM",
+   "Đánh giá & Nhận xét",
+   "Gửi duyệt",
+   "Sinh buổi học",
+   "Xếp lại buổi theo lịch",
+   "Xem trước dời",
+   "T2",
+   "T3",
+   "T4",
+   "T5",
+   "T6",
+   "T7",
+   "CN",
+   "Thêm kế hoạch lịch",
+   "Lưu kế hoạch",
+   "Xem trước",
+   "Áp dụng",
+   "Cập nhật",
+   "Huỷ"
+  ],
+  "hints": [
+   "\"Sinh buổi học\" tạo buổi theo lịch lớp + số buổi chuẩn của khoá, bỏ qua ngày nghỉ (chỉ khi lớp CHƯA có buổi). Lớp duyệt ACTIVE tự sinh.",
+   "\"Xem trước dời\" chỉ áp lịch cho các buổi CHƯA diễn ra; buổi trùng lịch nghỉ cơ sở sẽ dời sang buổi kế (giữ đủ tổng buổi). Buổi đã diễn ra giữ nguyên."
+  ]
+ },
+ "/sessions/:id": {
+  "url": "/sessions/:id",
+  "title": "Chi tiết: <tên>",
+  "heads": [
+   "CS2.SATA3.26.001 · sata3.18h-T4.CS2-301",
+   "CHUẨN BỊ TRƯỚC BUỔI HỌC",
+   "QUY TRÌNH SAU BUỔI (CHECKLIST)",
+   "PHIẾU NHẬN XÉT ĐÃ LƯU (0)",
+   "NHẬN XÉT TỪNG HỌC SINH"
+  ],
+  "tabs": [],
+  "labels": [
+   "KHOÁ",
+   "GV CHÍNH",
+   "BÀI HỌC",
+   "CHUẨN BỊ TRƯỚC BUỔI HỌC",
+   "QUY TRÌNH SAU BUỔI (CHECKLIST)",
+   "CHUẨN BỊ",
+   "TRONG / SAU BUỔI",
+   "Ghi chú buổi học (GV)",
+   "PHIẾU NHẬN XÉT ĐÃ LƯU (0)",
+   "NHẬN XÉT TỪNG HỌC SINH"
+  ],
+  "inputs": [
+   "Tóm tắt nội dung đã dạy, tình hình lớp, lưu ý cho ",
+   "Nhận xét cho học sinh này trong buổi…"
+  ],
+  "selects": [
+   {
+    "label": "?",
+    "options": []
+   },
+   {
+    "label": "?",
+    "options": []
+   },
+   {
+    "label": "?",
+    "options": []
+   },
+   {
+    "label": "?",
+    "options": []
+   },
+   {
+    "label": "?",
+    "options": []
+   },
+   {
+    "label": "?",
+    "options": []
+   }
+  ],
+  "buttons": [
+   "Lưu tiến trình",
+   "Bắt đầu buổi",
+   "Hoàn tất buổi học",
+   "Phiếu đánh giá buổi học"
+  ],
+  "hints": []
+ },
+ "/orders/:id": {
+  "url": "/orders/:id",
+  "title": "Chi tiết: <tên>",
+  "heads": [
+   "ORD-260913-000102",
+   "CÔNG NỢ ĐƠN HÀNG",
+   "THÔNG TIN KHÁCH HÀNG",
+   "SẢN PHẨM (1)",
+   "PHƯƠNG THỨC THANH TOÁN",
+   "KẾ HOẠCH THANH TOÁN",
+   "GHI CHÚ",
+   "LỊCH SỬ TRẠNG THÁI (0)",
+   "THANH TOÁN & QR"
+  ],
+  "tabs": [],
+  "labels": [
+   "CÔNG NỢ ĐƠN HÀNG",
+   "TỔNG PHẢI ĐÓNG",
+   "ĐÃ THU",
+   "CÒN THIẾU",
+   "CHỜ KẾ TOÁN XÁC NHẬN",
+   "THÔNG TIN KHÁCH HÀNG",
+   "SẢN PHẨM (1)",
+   "Tên",
+   "SL",
+   "Đơn giá",
+   "Thành tiền",
+   "PHƯƠNG THỨC THANH TOÁN",
+   "KẾ HOẠCH THANH TOÁN",
+   "SỔ KẾ TOÁN",
+   "hoặc đợt",
+   "Số tiền (đ)",
+   "Đã thu — không cần hạn",
+   "đã thu",
+   "Nhắc công nợ trước (ngày)",
+   "GHI CHÚ",
+   "LỊCH SỬ TRẠNG THÁI (0)",
+   "THANH TOÁN & QR"
+  ],
+  "inputs": [
+   "hoặc đợt",
+   "Số tiền (đ)",
+   "Đã thu — không cần hạn",
+   "đã thu",
+   "number",
+   "textarea"
+  ],
+  "selects": [],
+  "buttons": [
+   "Gửi email",
+   "1 lần",
+   "2 học phần",
+   "3 học phần",
+   "4 học phần",
+   "Lưu kế hoạch 1 đợt",
+   "Lưu ghi chú",
+   "LỊCH SỬ TRẠNG THÁI (0)",
+   "Phóng to",
+   "Đổi trạng thái"
+  ],
+  "hints": []
+ },
+ "/students/:id/edit": {
+  "url": "/students/:id/edit",
+  "title": "Quản trị | Sata Robo",
+  "heads": [
+   "Sửa học viên: <tên>",
+   "THÔNG TIN HỌC VIÊN",
+   "HỌC VẤN",
+   "PHỤ HUYNH",
+   "ĐỊA CHỈ",
+   "THÔNG TIN SATA ROBO",
+   "LIFECYCLE HỌC VIÊN",
+   "Tài khoản phụ huynh (Portal)",
+   "LỊCH SỬ BẢO LƯU",
+   "Tiến độ học tập",
+   "sata3.15h45-CN.CS2-P302",
+   "Lịch sử học tập",
+   "Hồ sơ năng lực robotics"
+  ],
+  "tabs": [],
+  "labels": [
+   "THÔNG TIN HỌC VIÊN",
+   "Ảnh đại diện",
+   "Họ và tên*",
+   "Mã học viên",
+   "Ngày sinh",
+   "Giới tính — Không chọn — Nam Nữ Khác",
+   "Trạng thái* Đang học Bảo lưu Hoàn thành",
+   "SĐT học viên (nếu có)",
+   "Email học viên (nếu có)",
+   "HỌC VẤN",
+   "Lớp hiện tại",
+   "Trường đang học",
+   "PHỤ HUYNH",
+   "Họ tên PH chính*",
+   "SĐT PH chính*",
+   "Quan hệ",
+   "Email PH chính",
+   "CCCD phụ huynh",
+   "ĐỊA CHỈ",
+   "Số nhà, đường",
+   "Phường",
+   "Quận / Huyện",
+   "Tỉnh / TP",
+   "THÔNG TIN SATA ROBO",
+   "Ngày đăng ký lần đầu",
+   "Ghi chú nội bộ",
+   "SỨC KHOẺ (TUỲ CHỌN)",
+   "LIFECYCLE HỌC VIÊN",
+   "LỊCH SỬ BẢO LƯU",
+   "ĐIỂM DANH",
+   "BÀI HỌC",
+   "BÀI TẬP",
+   "ĐIỂM TB",
+   "LỚP / KHOÁ",
+   "BUỔI (ĐÃ HỌC/TỔNG)",
+   "TRẠNG THÁI",
+   "BẮT ĐẦU",
+   "KẾT THÚC"
+  ],
+  "inputs": [
+   "file",
+   "Họ và tên*",
+   "VD: SR.HV.001",
+   "Ngày sinh",
+   "Giới tính — Không chọn — Nam Nữ Khác",
+   "status",
+   "SĐT học viên (nếu có)",
+   "Email học viên (nếu có)",
+   "Lớp hiện tại",
+   "Trường đang học",
+   "Họ tên PH chính*",
+   "SĐT PH chính*",
+   "Quan hệ",
+   "Email PH chính",
+   "Số CCCD/CMND phụ huynh",
+   "parent2Name",
+   "parent2Phone",
+   "parent2Relation",
+   "Số nhà, đường",
+   "Phường",
+   "Quận / Huyện",
+   "Tỉnh / TP",
+   "Ngày đăng ký lần đầu",
+   "preferredOrgUnitId",
+   "orgUnitId",
+   "Ghi chú nội bộ",
+   "bloodType",
+   "Bệnh nền, lưu ý đặc biệt để GV chăm sóc đúng cách",
+   "Tìm HV chưa có phụ huynh (tên/mã/SĐT)…",
+   "select-one",
+   "Ghi chú (tuỳ chọn)"
+  ],
+  "selects": [
+   {
+    "label": "Giới tính — Không chọn — Nam N",
+    "options": [
+     "— Không chọn —",
+     "Nam",
+     "Nữ",
+     "Khác"
+    ]
+   },
+   {
+    "label": "status",
+    "options": [
+     "Đang học",
+     "Bảo lưu",
+     "Hoàn thành"
+    ]
+   },
+   {
+    "label": "preferredOrgUnitId",
+    "options": [
+     "— Chưa chọn —",
+     "CS1 - 211 Nguyễn Hữu Thọ",
+     "CS2 - 114 Hoàng Diệu"
+    ]
+   },
+   {
+    "label": "orgUnitId",
+    "options": [
+     "— Chọn cơ sở —",
+     "CS1 - 211 Nguyễn Hữu Thọ",
+     "CS2 - 114 Hoàng Diệu"
+    ]
+   },
+   {
+    "label": "bloodType",
+    "options": []
+   },
+   {
+    "label": "?",
+    "options": [
+     "— chưa chấm —",
+     "Cần hỗ trợ",
+     "Cơ bản",
+     "Tốt",
+     "Xuất sắc"
+    ]
+   },
+   {
+    "label": "?",
+    "options": [
+     "— chưa chấm —",
+     "Cần hỗ trợ",
+     "Cơ bản",
+     "Tốt",
+     "Xuất sắc"
+    ]
+   },
+   {
+    "label": "?",
+    "options": [
+     "— chưa chấm —",
+     "Cần hỗ trợ",
+     "Cơ bản",
+     "Tốt",
+     "Xuất sắc"
+    ]
+   },
+   {
+    "label": "?",
+    "options": [
+     "— chưa chấm —",
+     "Cần hỗ trợ",
+     "Cơ bản",
+     "Tốt",
+     "Xuất sắc"
+    ]
+   },
+   {
+    "label": "?",
+    "options": [
+     "— chưa chấm —",
+     "Cần hỗ trợ",
+     "Cơ bản",
+     "Tốt",
+     "Xuất sắc"
+    ]
+   },
+   {
+    "label": "?",
+    "options": [
+     "— chưa chấm —",
+     "Cần hỗ trợ",
+     "Cơ bản",
+     "Tốt",
+     "Xuất sắc"
+    ]
+   },
+   {
+    "label": "?",
+    "options": [
+     "— chưa chấm —",
+     "Cần hỗ trợ",
+     "Cơ bản",
+     "Tốt",
+     "Xuất sắc"
+    ]
+   }
+  ],
+  "buttons": [
+   "Cập nhật",
+   "Huỷ",
+   "🟡 Bảo lưu",
+   "❌ Nghỉ học hẳn",
+   "Gửi lại mã kích hoạt",
+   "Cấp mã tại quầy",
+   "Gỡ",
+   "Tìm",
+   "Tạo PDF",
+   "Lưu năng lực"
+  ],
+  "hints": [
+   "JPG, PNG, WebP, GIF — tối đa 10MB"
+  ]
+ },
+ "/enrollments/:id/edit": {
+  "url": "/enrollments/:id/edit",
+  "title": "Quản trị | Sata Robo",
+  "heads": [
+   "Đăng ký: <tên>",
+   "HỌC VIÊN",
+   "LỚP HỌC",
+   "MỐC THỜI GIAN",
+   "AUDIT LOG (0)"
+  ],
+  "tabs": [],
+  "labels": [
+   "HỌC VIÊN",
+   "LỚP HỌC",
+   "Khoá",
+   "Cơ sở",
+   "GV chính",
+   "Lịch",
+   "Khai giảng",
+   "MỐC THỜI GIAN",
+   "Ngày đăng ký",
+   "Xác nhận xếp lớp",
+   "Bắt đầu học",
+   "Kết thúc",
+   "AUDIT LOG (0)"
+  ],
+  "inputs": [],
+  "selects": [],
+  "buttons": [
+   "Đổi trạng thái",
+   "Chuyển lớp"
+  ],
+  "hints": []
+ },
+ "/nhan-su/:id/edit": {
+  "url": "/nhan-su/:id/edit",
+  "title": "Sửa: <tên>",
+  "heads": [
+   "Sửa: <tên>",
+   "Thông tin cơ bản",
+   "Liên hệ & HR",
+   "Tài khoản đăng nhập"
+  ],
+  "tabs": [],
+  "labels": [
+   "Mã nhân viên *",
+   "Họ tên *",
+   "Chức danh *",
+   "Phòng ban *",
+   "Email công ty",
+   "Ngày vào làm",
+   "Avatar",
+   "Bio (Markdown)",
+   "Đang làm việc (legacy)",
+   "Hiển thị public",
+   "CEO Quote auto-link",
+   "Miễn tính công (chấm công)",
+   "Số điện thoại",
+   "Nhân viên HO (Hội sở)",
+   "Ngày sinh",
+   "Giới tính",
+   "Loại hợp đồng",
+   "Quản lý trực tiếp",
+   "CCCD / CMND",
+   "Địa chỉ",
+   "Liên hệ khẩn cấp",
+   "Ghi chú nội bộ",
+   "Bậc (SR.QD.200)",
+   "Mức",
+   "Lương đóng BHXH (VNĐ)",
+   "EMAIL",
+   "VAI TRÒ",
+   "TRẠNG THÁI",
+   "LẦN ĐĂNG NHẬP CUỐI",
+   "NGÀY TẠO"
+  ],
+  "inputs": [
+   "SR.NV.001",
+   "text",
+   "select-one",
+   "email",
+   "date",
+   "file",
+   "Giới thiệu ngắn về nhân sự — hỗ trợ Markdown.",
+   "checkbox",
+   "12 số CCCD hoặc 9 số CMND",
+   "Số nhà, đường, phường, quận, thành phố",
+   "Tên - Quan hệ - SĐT",
+   "Ghi chú HR nội bộ — không hiển thị public.",
+   "1-9",
+   "1-5",
+   "5.000.000",
+   "number"
+  ],
+  "selects": [
+   {
+    "label": "?",
+    "options": [
+     "Ban Giám đốc",
+     "Phòng Đào tạo",
+     "Phòng Marketing",
+     "Phòng Kinh doanh / Sale",
+     "Phòng IT / Công nghệ",
+     "Hành chính - Nhân sự",
+     "Phòng Kế toán",
+     "Phòng Tuyển sinh",
+     "Giáo vụ",
+     "Giảng dạy"
+    ]
+   },
+   {
+    "label": "?",
+    "options": [
+     "Đang làm",
+     "Tạm nghỉ",
+     "Đã nghỉ",
+     "Cho nghỉ"
+    ]
+   },
+   {
+    "label": "?",
+    "options": [
+     "— Không chỉ định —",
+     "CS1 - 211 Nguyễn Hữu Thọ",
+     "CS2 - 114 Hoàng Diệu",
+     "Hội sở"
+    ]
+   },
+   {
+    "label": "?",
+    "options": [
+     "— Không chỉ định —",
+     "Nam",
+     "Nữ",
+     "Khác"
+    ]
+   },
+   {
+    "label": "?",
+    "options": [
+     "— Không chỉ định —",
+     "Toàn thời gian",
+     "Bán thời gian",
+     "Thực tập sinh",
+     "Cộng tác viên"
+    ]
+   },
+   {
+    "label": "?",
+    "options": [
+     "— Không có —",
+     "<tên NV> — Tổng Giám đốc",
+     "<tên NV> — Trưởng phòng Công Nghệ",
+     "<tên NV> — Giáo viên Parttime",
+     "Huỳnh Thị Diệu — Tư Vấn Tuyển Sinh",
+     "<tên NV> — Giáo viên Parttime",
+     "Lê Thị Phương Liên — Tư vấn khách hàng",
+     "<tên NV> — Giáo viên PT",
+     "<tên NV> — Giáo viên Parttime",
+     "Nguyễn Thị Bích Huệ — Kế toán tổng hợp",
+     "<tên NV> — Giáo viên PT",
+     "Nguyễn Thị Linh — Trưởng phòng Marketing"
+    ]
+   }
+  ],
+  "buttons": [
+   "Đổi vai trò",
+   "Cập nhật",
+   "Huỷ"
+  ],
+  "hints": [
+   "JPG, PNG, WebP, GIF — tối đa 10MB",
+   "💰 Lương (chỉ HR / Accountant / SUPER_ADMIN thấy)"
+  ]
+ },
+ "/teachers/:id": {
+  "url": "/teachers/:id",
+  "title": "Hồ sơ giáo viên | Admin",
+  "heads": [
+   "THÔNG TIN CƠ BẢN",
+   "HỒ SƠ CHUYÊN MÔN",
+   "LỚP ĐANG PHỤ TRÁCH",
+   "LỊCH DẠY TRONG TUẦN",
+   "TẢI GIẢNG DẠY / TUẦN",
+   "SỐ BUỔI ĐÃ DẠY TRONG THÁNG",
+   "ĐÁNH GIÁ GIÁO VIÊN"
+  ],
+  "tabs": [],
+  "labels": [
+   "THÔNG TIN CƠ BẢN",
+   "EMAIL",
+   "MÃ NV",
+   "CHỨC DANH",
+   "SĐT",
+   "CƠ SỞ",
+   "HỒ SƠ CHUYÊN MÔN",
+   "Ngạch Tập sự Junior Advanced Senior Expert",
+   "Loại hợp đồng Toàn thời gian Bán thời gian",
+   "Trạng thái Đang dạy Tạm nghỉ Ngưng",
+   "Giới thiệu / ghi chú chuyên môn",
+   "LỚP ĐANG PHỤ TRÁCH",
+   "LỊCH DẠY TRONG TUẦN",
+   "TẢI GIẢNG DẠY / TUẦN",
+   "SỐ BUỔI ĐÃ DẠY TRONG THÁNG",
+   "ĐÁNH GIÁ GIÁO VIÊN",
+   "Điểm 5 sao 4 sao 3 sao 2 sao 1 sao"
+  ],
+  "inputs": [
+   "Ngạch Tập sự Junior Advanced Senior Expert",
+   "Loại hợp đồng Toàn thời gian Bán thời gian",
+   "Trạng thái Đang dạy Tạm nghỉ Ngưng",
+   "Giới thiệu / ghi chú chuyên môn",
+   "select-one",
+   "month",
+   "Nhận xét dự giờ (bắt buộc)…"
+  ],
+  "selects": [
+   {
+    "label": "Ngạch Tập sự Junior Advanced S",
+    "options": [
+     "Tập sự",
+     "Junior",
+     "Advanced",
+     "Senior",
+     "Expert"
+    ]
+   },
+   {
+    "label": "Loại hợp đồng Toàn thời gian B",
+    "options": [
+     "Toàn thời gian",
+     "Bán thời gian"
+    ]
+   },
+   {
+    "label": "Trạng thái Đang dạy Tạm nghỉ N",
+    "options": [
+     "Đang dạy",
+     "Tạm nghỉ",
+     "Ngưng"
+    ]
+   },
+   {
+    "label": "?",
+    "options": [
+     "— Chọn lớp để gán —",
+     "CS2.SATA3.26.003 · sata3.15h45-CN.CS2-P302",
+     "CS2.SATA3.26.001 · sata3.18h-T4.CS2-301",
+     "CS2.SATA4.26.003 · sata4.10h-T7.CS2-301",
+     "CS2.SATA4.26.007 · sata4.15h45-CN.CS2-301",
+     "CS2.SATA4.26.002 · sata4.18h-T5.CS2-P302",
+     "CS2.SATA6.26.003 · sata6.15h45-T7.CS2-P302"
+    ]
+   },
+   {
+    "label": "?",
+    "options": [
+     "GV chính",
+     "Trợ giảng"
+    ]
+   },
+   {
+    "label": "Điểm 5 sao 4 sao 3 sao 2 sao 1",
+    "options": [
+     "5 sao",
+     "4 sao",
+     "3 sao",
+     "2 sao",
+     "1 sao"
+    ]
+   }
+  ],
+  "buttons": [
+   "Sata1 · Sata1 — Robosim Master",
+   "Sata2 · Sata2 — Đấu trường Robot",
+   "Combo · Combo — Full Lộ Trình Luyện Thi",
+   "Sata8 · Sata8 — Vé Vàng Chung Kết",
+   "Sata3 · Sata3 — Ươm Mầm Tài Năng",
+   "Sata4 · Sata4 — Bứt Phá Giới Hạn",
+   "Sata5 · Sata5 — Khơi Nguồn Sáng Tạo",
+   "Sata6 · Sata6 — Chinh Phục Đấu Trường",
+   "Sata7 · Sata7 — Kiến Tạo Tương Lai",
+   "Lưu hồ sơ",
+   "Gán",
+   "Xem",
+   "Ghi đánh giá"
+  ],
+  "hints": [
+   "Đã dạy 3 buổi trong 2026-09 (chỉ tính buổi đã diễn ra)."
+  ]
+ },
+ "/curriculums/new": {
+  "url": "/curriculums/new",
+  "title": "Quản trị | Sata Robo",
+  "heads": [
+   "Thêm giáo trình mới"
+  ],
+  "tabs": [],
+  "labels": [
+   "Tên giáo trình *",
+   "Mô tả",
+   "Trạng thái giáo trình Nháp Đang dùng"
+  ],
+  "inputs": [
+   "Khoá học * — Chọn khoá học — Combo — Full Lộ Trình",
+   "Tên giáo trình *",
+   "Mô tả",
+   "Trạng thái giáo trình Nháp Đang dùng",
+   "Đang sử dụng (lớp mới sẽ dùng giáo trình này)"
+  ],
+  "selects": [
+   {
+    "label": "Khoá học * — Chọn khoá học — C",
+    "options": [
+     "— Chọn khoá học —",
+     "Combo — Full Lộ Trình Luyện Thi",
+     "Sata1 — Robosim Master",
+     "Sata2 — Đấu trường Robot",
+     "Sata3 — Ươm Mầm Tài Năng",
+     "Sata4 — Bứt Phá Giới Hạn",
+     "Sata5 — Khơi Nguồn Sáng Tạo",
+     "Sata6 — Chinh Phục Đấu Trường",
+     "Sata7 — Kiến Tạo Tương Lai",
+     "Sata8 — Vé Vàng Chung Kết"
+    ]
+   },
+   {
+    "label": "Trạng thái giáo trình Nháp Đan",
+    "options": [
+     "Nháp",
+     "Đang dùng"
+    ]
+   }
+  ],
+  "buttons": [
+   "Tạo giáo trình",
+   "Huỷ"
+  ],
+  "hints": []
+ },
+ "/documents/new": {
+  "url": "/documents/new",
+  "title": "Quản trị | Sata Robo",
+  "heads": [
+   "Tải lên tài liệu giảng dạy",
+   "FILE",
+   "THÔNG TIN TÀI LIỆU"
+  ],
+  "tabs": [],
+  "labels": [
+   "FILE",
+   "THÔNG TIN TÀI LIỆU",
+   "Tiêu đề *",
+   "Mã tài liệu",
+   "Mô tả",
+   "Public (HS/PH xem được)",
+   "Ghi chú nội bộ"
+  ],
+  "inputs": [
+   "file",
+   "Tiêu đề *",
+   "Mã tài liệu",
+   "Mô tả",
+   "Bài học (tuỳ chọn) — Không gắn — Giáo trình Sata 1",
+   "Public (HS/PH xem được)",
+   "Ghi chú nội bộ"
+  ],
+  "selects": [
+   {
+    "label": "Bài học (tuỳ chọn) — Không gắn",
+    "options": [
+     "— Không gắn —",
+     "Giáo trình Sata 1 — Bài 1: Giới thiệu cuộc thi Sáng tạo Robotics năm 2026",
+     "Giáo trình Sata 1 — Bài 2: Dự án xe robot di chuyển",
+     "Giáo trình Sata 1 — Bài 3: Tìm hiểu cảm biến dò line",
+     "Giáo trình Sata 1 — Bài 4: Dự án xe robot tự hành",
+     "Giáo trình Sata 1 — Bài 5: Phân tích thể lệ thi đấu",
+     "Giáo trình Sata 1 — Bài 6: Thiết kế lắp ráp robot thi đấu",
+     "Giáo trình Sata 1 — Bài 7: Giải đề nhiệm vụ thi đấu lần 1",
+     "Giáo trình Sata 1 — Bài 8: Giải đề nhiệm vụ thi đấu lần 2",
+     "Giáo trình Sata 1 — Bài 9: Giải đề nhiệm vụ thi đấu lần 3",
+     "Giáo trình Sata 1 — Bài 10: Giải đề nhiệm vụ thi đấu lần 4",
+     "Giáo trình Sata 1 — Bài 11: Giải đề nhiệm vụ thi đấu lần 5"
+    ]
+   }
+  ],
+  "buttons": [
+   "Thêm mục",
+   "Tạo tài liệu",
+   "Huỷ"
+  ],
+  "hints": []
+ },
+ "/assignments/new": {
+  "url": "/assignments/new",
+  "title": "Quản trị | Sata Robo",
+  "heads": [
+   "Tạo bài tập mới",
+   "THÔNG TIN BÀI TẬP"
+  ],
+  "tabs": [],
+  "labels": [
+   "THÔNG TIN BÀI TẬP",
+   "Tiêu đề *",
+   "Loại bài Bài trên lớp Bài tập về nhà",
+   "Mô tả *",
+   "Hướng dẫn chi tiết",
+   "Tổng điểm *",
+   "Hạn nộp",
+   "Cho phép trả lời text",
+   "Cho phép nộp file"
+  ],
+  "inputs": [
+   "Tiêu đề *",
+   "Loại bài Bài trên lớp Bài tập về nhà",
+   "Mô tả *",
+   "Hướng dẫn chi tiết",
+   "Lớp học * — Chọn lớp — CS2.Combo.26.001 · combo.10",
+   "Bài học (tuỳ chọn) — Không gắn — Giáo trình Sata 1",
+   "Tổng điểm *",
+   "Hạn nộp",
+   "Cho phép trả lời text",
+   "Cho phép nộp file"
+  ],
+  "selects": [
+   {
+    "label": "Loại bài Bài trên lớp Bài tập ",
+    "options": [
+     "Bài trên lớp",
+     "Bài tập về nhà"
+    ]
+   },
+   {
+    "label": "Lớp học * — Chọn lớp — CS2.Com",
+    "options": [
+     "— Chọn lớp —",
+     "CS2.Combo.26.001 · combo.10h-T2&10h-T4&15h30-T7.CS2-P302",
+     "CS1.COMBO.26.002 · combo.10h-T4&19h30-T5.CS1-101",
+     "CS1.COMBO.26.001 · combo.14h-T5&10h-T7.CS1-101",
+     "CS1.SATA1.26.001 · sata1.19h30-T4&19h30-T5.CS1-101",
+     "CS1.SATA2.26.001 · sata2.09h-CN.CS1-101",
+     "CS1.SATA3.26.004 · sata3.08h-T7.CS1-201",
+     "CS1.SATA3.26.003 · sata3.09h45-CN.CS1-201",
+     "CS1.SATA3.26.002 · sata3.10h-T7.CS1-201",
+     "CS2.SATA3.26.004 · sata3.14h-CN.CS2-P302",
+     "CS2.SATA3.26.003 · sata3.15h45-CN.CS2-P302",
+     "CS1.SATA3.26.001 · sata3.15h45-T7.CS1-201"
+    ]
+   },
+   {
+    "label": "Bài học (tuỳ chọn) — Không gắn",
+    "options": [
+     "— Không gắn —",
+     "Giáo trình Sata 1 — Bài 1: Giới thiệu cuộc thi Sáng tạo Robotics năm 2026",
+     "Giáo trình Sata 1 — Bài 2: Dự án xe robot di chuyển",
+     "Giáo trình Sata 1 — Bài 3: Tìm hiểu cảm biến dò line",
+     "Giáo trình Sata 1 — Bài 4: Dự án xe robot tự hành",
+     "Giáo trình Sata 1 — Bài 5: Phân tích thể lệ thi đấu",
+     "Giáo trình Sata 1 — Bài 6: Thiết kế lắp ráp robot thi đấu",
+     "Giáo trình Sata 1 — Bài 7: Giải đề nhiệm vụ thi đấu lần 1",
+     "Giáo trình Sata 1 — Bài 8: Giải đề nhiệm vụ thi đấu lần 2",
+     "Giáo trình Sata 1 — Bài 9: Giải đề nhiệm vụ thi đấu lần 3",
+     "Giáo trình Sata 1 — Bài 10: Giải đề nhiệm vụ thi đấu lần 4",
+     "Giáo trình Sata 1 — Bài 11: Giải đề nhiệm vụ thi đấu lần 5"
+    ]
+   }
+  ],
+  "buttons": [
+   "Tạo bài tập",
+   "Huỷ"
+  ],
+  "hints": []
+ },
+ "/sessions/new": {
+  "url": "/sessions/new",
+  "title": "Quản trị | Sata Robo",
+  "heads": [
+   "Thêm buổi học",
+   "THÔNG TIN BUỔI HỌC"
+  ],
+  "tabs": [],
+  "labels": [
+   "THÔNG TIN BUỔI HỌC",
+   "Chủ đề buổi học",
+   "Ghi chú riêng buổi này (vs template bài học)",
+   "Ghi chú"
+  ],
+  "inputs": [
+   "Lớp * — Chọn lớp — combo.10h-T2&10h-T4&15h30-T7.CS",
+   "Thời gian (ngày + giờ) * Chọn ngày + giờ bắt đầu b",
+   "Chủ đề buổi học",
+   "Phân loại buổi — Chưa phân loại (tính như Học chín",
+   "Bài học trong giáo trình — Chọn lớp trước — Gắn bà",
+   "Ghi chú riêng buổi này (vs template bài học)",
+   "Ghi chú"
+  ],
+  "selects": [
+   {
+    "label": "Lớp * — Chọn lớp — combo.10h-T",
+    "options": [
+     "— Chọn lớp —",
+     "combo.10h-T2&10h-T4&15h30-T7.CS2-P302 · Combo — Full Lộ Trình Luyện Thi · CS2 - 114 Hoàng Diệu",
+     "combo.10h-T4&19h30-T5.CS1-101 · Combo — Full Lộ Trình Luyện Thi · CS1 - 211 Nguyễn Hữu Thọ",
+     "combo.14h-T5&10h-T7.CS1-101 · Combo — Full Lộ Trình Luyện Thi · CS1 - 211 Nguyễn Hữu Thọ",
+     "sata1.19h30-T4&19h30-T5.CS1-101 · Sata1 — Robosim Master · CS1 - 211 Nguyễn Hữu Thọ",
+     "sata2.09h-CN.CS1-101 · Sata2 — Đấu trường Robot · CS1 - 211 Nguyễn Hữu Thọ",
+     "sata3.08h-T7.CS1-201 · Sata3 — Ươm Mầm Tài Năng · CS1 - 211 Nguyễn Hữu Thọ",
+     "sata3.09h45-CN.CS1-201 · Sata3 — Ươm Mầm Tài Năng · CS1 - 211 Nguyễn Hữu Thọ",
+     "sata3.10h-T7.CS1-201 · Sata3 — Ươm Mầm Tài Năng · CS1 - 211 Nguyễn Hữu Thọ",
+     "sata3.14h-CN.CS2-P302 · Sata3 — Ươm Mầm Tài Năng · CS2 - 114 Hoàng Diệu",
+     "sata3.15h45-CN.CS2-P302 · Sata3 — Ươm Mầm Tài Năng · CS2 - 114 Hoàng Diệu",
+     "sata3.15h45-T7.CS1-201 · Sata3 — Ươm Mầm Tài Năng · CS1 - 211 Nguyễn Hữu Thọ"
+    ]
+   },
+   {
+    "label": "Phân loại buổi — Chưa phân loạ",
+    "options": [
+     "— Chưa phân loại (tính như Học chính thức) —",
+     "Học chính thức",
+     "Lớp Coach (1-1, 1-2, 1-4)",
+     "Học bù",
+     "Học vượt",
+     "Workshop",
+     "Sự kiện",
+     "Hỗ trợ Đào tạo & Vận hành"
+    ]
+   },
+   {
+    "label": "Bài học trong giáo trình — Chọ",
+    "options": [
+     "— Chọn lớp trước —"
+    ]
+   }
+  ],
+  "buttons": [
+   "Tạo buổi học",
+   "Huỷ"
+  ],
+  "hints": []
+ },
+ "/orders/new": {
+  "url": "/orders/new",
+  "title": "Tạo đơn hàng | Admin",
+  "heads": [
+   "Tạo đơn hàng thủ công",
+   "THÔNG TIN ĐƠN",
+   "KHÁCH HÀNG",
+   "SẢN PHẨM",
+   "ĐỊNH GIÁ"
+  ],
+  "tabs": [],
+  "labels": [
+   "THÔNG TIN ĐƠN",
+   "Loại đơn *",
+   "Trạng thái ban đầu",
+   "Trung tâm",
+   "Phương thức TT *",
+   "KHÁCH HÀNG",
+   "Tên phụ huynh *",
+   "SĐT *",
+   "Email (không bắt buộc)",
+   "CCCD/CMND",
+   "Địa chỉ (số nhà, đường)",
+   "Tỉnh/Thành",
+   "Phường/Xã",
+   "SẢN PHẨM",
+   "Khoá học *",
+   "Số lượng",
+   "Đơn giá (VND) *",
+   "ĐỊNH GIÁ",
+   "Giảm giá",
+   "Ghi chú khách hàng",
+   "Ghi chú nội bộ"
+  ],
+  "inputs": [
+   "text",
+   "09xxxxxxxx",
+   "Kênh dự phòng — bỏ trống nếu khách không dùng",
+   "9 hoặc 12 chữ số",
+   "Tìm tỉnh/thành...",
+   "Chọn tỉnh/thành trước",
+   "number",
+   "Số tiền giảm",
+   "textarea"
+  ],
+  "selects": [],
+  "buttons": [
+   "Khoá học",
+   "Chờ thanh toán",
+   "— Không gán —",
+   "Tiền mặt",
+   "Chọn...",
+   "Theo số tiền",
+   "Theo %",
+   "Tạo đơn",
+   "Huỷ"
+  ],
+  "hints": []
+ },
+ "/payment-methods/new": {
+  "url": "/payment-methods/new",
+  "title": "Thêm phương thức thanh toán | Admin",
+  "heads": [
+   "Thêm phương thức thanh toán",
+   "THÔNG TIN CHUNG",
+   "CHO PHÉP THANH TOÁN CHO"
+  ],
+  "tabs": [],
+  "labels": [
+   "THÔNG TIN CHUNG",
+   "Mã *",
+   "Tên *",
+   "Loại *",
+   "Cơ sở áp dụng *",
+   "Mô tả",
+   "URL hình ảnh (logo)",
+   "CHO PHÉP THANH TOÁN CHO",
+   "Khoá học offline",
+   "Gói khoá học",
+   "Kỳ thi",
+   "Sản phẩm (kit, sensor...)",
+   "Nạp ví (reserved)",
+   "Thứ tự hiển thị",
+   "Kích hoạt"
+  ],
+  "inputs": [
+   "Mã *",
+   "Tên *",
+   "text",
+   "Mô tả",
+   "URL hình ảnh (logo)",
+   "canBuyCourse",
+   "canBuyPackage",
+   "canBuyExam",
+   "canBuyProduct",
+   "canDeposit",
+   "Thứ tự hiển thị",
+   "isActive"
+  ],
+  "selects": [],
+  "buttons": [
+   "Tiền mặt",
+   "Dùng chung (mọi cơ sở)",
+   "Tạo mới",
+   "Huỷ"
+  ],
+  "hints": []
+ },
+ "/users/new": {
+  "url": "/users/new",
+  "title": "Tạo tài khoản mới | Admin",
+  "heads": [
+   "Tạo tài khoản mới"
+  ],
+  "tabs": [],
+  "labels": [
+   "Tên hiển thị *",
+   "Email *",
+   "Số điện thoại (tài khoản đăng nhập)",
+   "Mật khẩu *",
+   "Vai trò * (chọn nhiều)",
+   "Quản trị tối cao",
+   "Quản lý cơ sở",
+   "Nhân sự",
+   "Tư vấn & Chăm sóc",
+   "Giáo viên",
+   "Đào tạo",
+   "Marketing",
+   "Kế toán",
+   "Phụ huynh",
+   "Đơn vị *",
+   "Nhân sự liên kết"
+  ],
+  "inputs": [
+   "Tên hiển thị *",
+   "Email *",
+   "Số điện thoại (tài khoản đăng nhập)",
+   "Mật khẩu *",
+   "Quản trị tối cao",
+   "Quản lý cơ sở",
+   "Nhân sự",
+   "Tư vấn & Chăm sóc",
+   "Giáo viên",
+   "Đào tạo",
+   "Marketing",
+   "Kế toán",
+   "Phụ huynh",
+   "Đơn vị *",
+   "Nhân sự liên kết"
+  ],
+  "selects": [
+   {
+    "label": "Đơn vị *",
+    "options": [
+     "— Chọn đơn vị —",
+     "CS1 - 211 Nguyễn Hữu Thọ",
+     "CS2 - 114 Hoàng Diệu",
+     "Hội sở"
+    ]
+   },
+   {
+    "label": "Nhân sự liên kết",
+    "options": [
+     "— Không gán —"
+    ]
+   }
+  ],
+  "buttons": [
+   "Đặt chính",
+   "Vai trò chính",
+   "Tạo tài khoản",
+   "Huỷ"
+  ],
+  "hints": [
+   "Nhân sự đăng nhập bằng SĐT (hoặc email). Thông tin tài khoản sẽ được gửi qua email + Zalo sau khi tạo.",
+   "User sẽ đổi mật khẩu sau khi đăng nhập lần đầu.",
+   "Quyền = hợp của tất cả vai trò. Vai trò chính dùng cho dashboard mặc định. Hội sở (HO) không phải vai trò — chọn ở ô Đơn vị.",
+   "Bắt buộc: quyền (RBAC) được gán tại đơn vị này. Chọn Hội sở = vai trò xuyên cơ sở."
+  ]
+ },
+ "/nhan-su/new": {
+  "url": "/nhan-su/new",
+  "title": "Thêm nhân sự | Admin",
+  "heads": [
+   "Thêm nhân sự mới",
+   "Thông tin cơ bản",
+   "Liên hệ & HR",
+   "Chuyên môn giảng dạy"
+  ],
+  "tabs": [],
+  "labels": [
+   "Mã nhân viên *",
+   "Họ tên *",
+   "Chức danh *",
+   "Phòng ban *",
+   "Email công ty",
+   "Ngày vào làm",
+   "Avatar",
+   "Bio (Markdown)",
+   "Đang làm việc (legacy)",
+   "Hiển thị public",
+   "CEO Quote auto-link",
+   "Miễn tính công (chấm công)",
+   "Số điện thoại",
+   "Nhân viên HO (Hội sở)",
+   "Ngày sinh",
+   "Giới tính",
+   "Loại hợp đồng",
+   "Quản lý trực tiếp",
+   "CCCD / CMND",
+   "Địa chỉ",
+   "Liên hệ khẩn cấp",
+   "Ghi chú nội bộ",
+   "Bậc (SR.QD.200)",
+   "Mức",
+   "Lương đóng BHXH (VNĐ)",
+   "Môn dạy",
+   "Chứng chỉ chuyên môn"
+  ],
+  "inputs": [
+   "SR.NV.001",
+   "text",
+   "select-one",
+   "email",
+   "date",
+   "file",
+   "Giới thiệu ngắn về nhân sự — hỗ trợ Markdown.",
+   "checkbox",
+   "12 số CCCD hoặc 9 số CMND",
+   "Số nhà, đường, phường, quận, thành phố",
+   "Tên - Quan hệ - SĐT",
+   "Ghi chú HR nội bộ — không hiển thị public.",
+   "1-9",
+   "1-5",
+   "5.000.000",
+   "number"
+  ],
+  "selects": [
+   {
+    "label": "?",
+    "options": [
+     "Ban Giám đốc",
+     "Phòng Đào tạo",
+     "Phòng Marketing",
+     "Phòng Kinh doanh / Sale",
+     "Phòng IT / Công nghệ",
+     "Hành chính - Nhân sự",
+     "Phòng Kế toán",
+     "Phòng Tuyển sinh",
+     "Giáo vụ",
+     "Giảng dạy"
+    ]
+   },
+   {
+    "label": "?",
+    "options": [
+     "Đang làm",
+     "Tạm nghỉ",
+     "Đã nghỉ",
+     "Cho nghỉ"
+    ]
+   },
+   {
+    "label": "?",
+    "options": [
+     "— Không chỉ định —",
+     "CS1 - 211 Nguyễn Hữu Thọ",
+     "CS2 - 114 Hoàng Diệu",
+     "Hội sở"
+    ]
+   },
+   {
+    "label": "?",
+    "options": [
+     "— Không chỉ định —",
+     "Nam",
+     "Nữ",
+     "Khác"
+    ]
+   },
+   {
+    "label": "?",
+    "options": [
+     "— Không chỉ định —",
+     "Toàn thời gian",
+     "Bán thời gian",
+     "Thực tập sinh",
+     "Cộng tác viên"
+    ]
+   },
+   {
+    "label": "?",
+    "options": [
+     "— Không có —",
+     "<tên NV> — Quản lý cơ sở",
+     "<tên NV> — Tổng Giám đốc",
+     "<tên NV> — Trưởng phòng Công Nghệ",
+     "<tên NV> — Giáo viên Parttime",
+     "Huỳnh Thị Diệu — Tư Vấn Tuyển Sinh",
+     "<tên NV> — Giáo viên Parttime",
+     "Lê Thị Phương Liên — Tư vấn khách hàng",
+     "<tên NV> — Giáo viên PT",
+     "<tên NV> — Giáo viên Parttime",
+     "Nguyễn Thị Bích Huệ — Kế toán tổng hợp",
+     "<tên NV> — Giáo viên PT"
+    ]
+   }
+  ],
+  "buttons": [
+   "Thêm mục",
+   "Tạo nhân sự",
+   "Huỷ"
+  ],
+  "hints": [
+   "Mã NV tự động đề xuất: SR.NV.017",
+   "JPG, PNG, WebP, GIF — tối đa 10MB",
+   "💰 Lương (chỉ HR / Accountant / SUPER_ADMIN thấy)"
+  ]
+ },
+ "/jobs/new": {
+  "url": "/jobs/new",
+  "title": "Quản trị | Sata Robo",
+  "heads": [
+   "Tạo tin tuyển dụng mới",
+   "Thông tin cơ bản",
+   "Nội dung tin tuyển",
+   "Lương & Chỉ tiêu",
+   "Thông tin liên hệ",
+   "Trạng thái"
+  ],
+  "tabs": [],
+  "labels": [
+   "Tiêu đề *",
+   "Slug (URL) *",
+   "Phòng ban *",
+   "Địa điểm *",
+   "Hình thức *",
+   "Giờ làm việc",
+   "Yêu cầu kinh nghiệm",
+   "Trách nhiệm công việc",
+   "Yêu cầu ứng viên",
+   "Quyền lợi",
+   "Lương min (VND)",
+   "Lương max (VND)",
+   "Số chỉ tiêu",
+   "Hạn nộp CV",
+   "Email liên hệ",
+   "SĐT liên hệ"
+  ],
+  "inputs": [
+   "Ví dụ: Giáo viên Robotics cơ sở Nguyễn Hữu Thọ",
+   "giao-vien-robotics-hai-chau",
+   "department",
+   "location",
+   "type",
+   "VD: Thứ 2-6, 8h-17h",
+   "select-one",
+   "Giới thiệu chung về vị trí, đội nhóm, văn hoá...",
+   "7.000.000",
+   "15.000.000",
+   "Thoả thuận theo năng lực",
+   "openings",
+   "closesAt",
+   "hr@satarobo.vn",
+   "status"
+  ],
+  "selects": [
+   {
+    "label": "department",
+    "options": [
+     "-- Chọn --",
+     "Marketing & Tuyển sinh",
+     "Đào tạo & Giáo viên",
+     "Marketing",
+     "Công nghệ thông tin",
+     "Vận hành & Hành chính",
+     "Kế toán & Tài chính",
+     "R&D & Sản phẩm"
+    ]
+   },
+   {
+    "label": "location",
+    "options": [
+     "Đà Nẵng",
+     "Online / Hybrid",
+     "Remote toàn thời gian"
+    ]
+   },
+   {
+    "label": "type",
+    "options": [
+     "Toàn thời gian",
+     "Bán thời gian",
+     "Thực tập",
+     "Hợp đồng dự án"
+    ]
+   },
+   {
+    "label": "?",
+    "options": [
+     "— Không yêu cầu —",
+     "Mới ra trường",
+     "1-2 năm",
+     "3-5 năm",
+     "5+ năm",
+     "Chuyên gia 10+ năm"
+    ]
+   },
+   {
+    "label": "status",
+    "options": [
+     "Bản nháp",
+     "Đang tuyển",
+     "Đã đóng",
+     "Tạm dừng"
+    ]
+   }
+  ],
+  "buttons": [
+   "Thêm mục",
+   "Tạo JD",
+   "Huỷ"
+  ],
+  "hints": []
+ },
+ "/kits/new": {
+  "url": "/kits/new",
+  "title": "Quản trị | Sata Robo",
+  "heads": [
+   "Thêm Kit mới",
+   "THÔNG TIN SẢN PHẨM",
+   "THÔNG SỐ KỸ THUẬT (SPECS)",
+   "ĐẶC ĐIỂM CHÍNH (FEATURES)",
+   "ĐIỂM NỔI BẬT (HIGHLIGHTS)",
+   "HÌNH ẢNH",
+   "TRẠNG THÁI"
+  ],
+  "tabs": [],
+  "labels": [
+   "THÔNG TIN SẢN PHẨM",
+   "Tiêu đề (Title)*",
+   "Slug",
+   "Subtitle*",
+   "Brand*",
+   "Series*",
+   "Code",
+   "Mô tả ngắn (shortDescription)*",
+   "Mô tả đầy đủ (description)*",
+   "Giá hiển thị (priceDisplay)*",
+   "Source URL (link gốc, tuỳ chọn)",
+   "THÔNG SỐ KỸ THUẬT (SPECS)",
+   "ĐẶC ĐIỂM CHÍNH (FEATURES)",
+   "ĐIỂM NỔI BẬT (HIGHLIGHTS)",
+   "HÌNH ẢNH",
+   "Ảnh chính (mainImage)*",
+   "TRẠNG THÁI",
+   "Đã đăng (hiển thị trên /hoc-cu)",
+   "Available (còn hàng)",
+   "Display Order"
+  ],
+  "inputs": [
+   "Tiêu đề (Title)*",
+   "Slug",
+   "Subtitle*",
+   "Brand*",
+   "Series*",
+   "Code",
+   "Mô tả ngắn (shortDescription)*",
+   "Mô tả đầy đủ (description)*",
+   "Giá hiển thị (priceDisplay)*",
+   "Source URL (link gốc, tuỳ chọn)",
+   "file",
+   "Đã đăng (hiển thị trên /hoc-cu)",
+   "Available (còn hàng)",
+   "Display Order"
+  ],
+  "selects": [],
+  "buttons": [
+   "Thêm spec",
+   "+pieces",
+   "+age",
+   "+level",
+   "+brand",
+   "+weight",
+   "+compatibility",
+   "Thêm mục",
+   "Tạo Kit",
+   "Huỷ"
+  ],
+  "hints": [
+   "JPG, PNG, WebP, GIF — tối đa 10MB"
+  ]
+ },
+ "/products/new": {
+  "url": "/products/new",
+  "title": "Thêm sản phẩm | Admin",
+  "heads": [
+   "Thêm sản phẩm",
+   "THÔNG TIN CƠ BẢN",
+   "GIÁ (VND)",
+   "TỒN KHO",
+   "LIÊN KẾT CATALOG KIT (TUỲ CHỌN)",
+   "GHI CHÚ",
+   "ẢNH SẢN PHẨM"
+  ],
+  "tabs": [],
+  "labels": [
+   "THÔNG TIN CƠ BẢN",
+   "SKU *",
+   "Trạng thái *",
+   "Tên *",
+   "Mô tả",
+   "Loại *",
+   "GIÁ (VND)",
+   "Giá bán *",
+   "Giá vốn (nội bộ)",
+   "Giá thuê / tháng",
+   "TỒN KHO",
+   "Tồn kho hiện tại",
+   "Ngưỡng cảnh báo",
+   "LIÊN KẾT CATALOG KIT (TUỲ CHỌN)",
+   "ZMRoboKit",
+   "GHI CHÚ",
+   "ẢNH SẢN PHẨM",
+   "URL ảnh (mỗi dòng 1 URL, tối đa 10)"
+  ],
+  "inputs": [
+   "VD: KIT-SMART-V2",
+   "text",
+   "textarea",
+   "number",
+   "https://..."
+  ],
+  "selects": [],
+  "buttons": [
+   "DRAFT",
+   "KIT_ROBOT",
+   "NONE",
+   "Tạo sản phẩm",
+   "Huỷ"
+  ],
+  "hints": []
+ },
+ "/inventory/audit/new": {
+  "url": "/inventory/audit/new",
+  "title": "Quản trị | Sata Robo",
+  "heads": [
+   "Tạo phiếu kiểm kê"
+  ],
+  "tabs": [],
+  "labels": [
+   "Ghi chú"
+  ],
+  "inputs": [
+   "Cơ sở * — Chọn cơ sở — CS1 - 211 Nguyễn Hữu Thọ CS",
+   "Mã phiếu (tuỳ chọn) Tuỳ chọn — duy nhất toàn hệ th",
+   "Ghi chú"
+  ],
+  "selects": [
+   {
+    "label": "Cơ sở * — Chọn cơ sở — CS1 - 2",
+    "options": [
+     "— Chọn cơ sở —",
+     "CS1 - 211 Nguyễn Hữu Thọ",
+     "CS2 - 114 Hoàng Diệu"
+    ]
+   }
+  ],
+  "buttons": [
+   "Bắt đầu kiểm kê →",
+   "Huỷ"
+  ],
+  "hints": []
+ }
+}
