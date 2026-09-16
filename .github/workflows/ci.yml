@@ -38,11 +38,12 @@ jobs:
         run: pnpm --filter @satarobo/core test
       - name: Typecheck all packages
         run: pnpm -r typecheck
-      - name: DB push + constraints + seed
-        run: |
-          pnpm db:push -- --force
-          pnpm db:apply-sql
-          pnpm db:seed
+      - name: DB push (drizzle-kit)
+        run: pnpm db:push -- --force
+      - name: DB constraints (SQL)
+        run: pnpm db:apply-sql
+      - name: DB seed
+        run: pnpm db:seed
       - name: Build web
         run: pnpm --filter @satarobo/web build
       - name: Smoke test (server renders Teacher app with seeded data)
