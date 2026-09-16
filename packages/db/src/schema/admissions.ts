@@ -1,6 +1,6 @@
 import { pgTable, text, uuid, boolean, integer, timestamp, pgEnum, jsonb, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { id, timestamps, softDelete } from "./_common";
-import { LEAD_STATUSES } from "@satarobo/core";
+import { LEAD_STATUSES, DISTRIBUTION_MODES } from "@satarobo/core";
 import { centers } from "./org";
 import { users } from "./identity";
 import { courses } from "./academics";
@@ -100,7 +100,74 @@ export const leadAssignees = pgTable(
     centerId: uuid("center_id").references(() => centers.id, { onDelete: "cascade" }),
     isAvailable: boolean("is_available").notNull().default(true),
     weight: integer("weight").notNull().default(1),
+    /** Lượt đã nhận trong chu kỳ chia hiện tại — "Đặt lại lượt toàn cơ sở" đưa về 0 */
+    roundsReceived: integer("rounds_received").notNull().default(0),
+    lastAssignedAt: timestamp("last_assigned_at", { withTimezone: true }),
+    note: text("note"),
     ...timestamps,
   },
   (t) => [uniqueIndex("lead_assignees_unique").on(t.userId, t.centerId)],
+);
+
+/** Con của phụ huynh trong lead — một lead có thể có nhiều con (LeadChild) */
+export const leadChildren = pgTable(
+  "lead_children",
+  {
+    id: id(),
+    leadId: uuid("lead_id").notNull().references(() => leads.id, { onDelete: "cascade" }),
+    fullName: text("full_name").notNull(),
+    birthYear: integer("birth_year"),
+    grade: integer("grade"),
+    school: text("school"),
+    interestedCourseId: uuid("interested_course_id").references(() => courses.id),
+    notes: text("notes"),
+    /** Khi chốt: học viên được tạo từ dòng này */
+    convertedStudentId: uuid("converted_student_id").references(() => students.id),
+    ...timestamps,
+  },
+  (t) => [index("lead_children_lead_idx").on(t.leadId)],
+);
+
+export const distributionModeEnum = pgEnum("lead_distribution_mode", DISTRIBUTION_MODES);
+
+/**
+ * Tham số tuyển sinh theo cơ sở (center_id null = mặc định toàn hệ thống):
+ * chế độ chia lead, khử trùng, SLA theo phút từng trạng thái (ADMIN-SPEC §13.1).
+ */
+export const admissionsSettings = pgTable(
+  "admissions_settings",
+  {
+    id: id(),
+    centerId: uuid("center_id").references(() => centers.id, { onDelete: "cascade" }),
+    distributionMode: distributionModeEnum("distribution_mode").notNull().default("round_robin"),
+    dedupeDays: integer("dedupe_days").notNull().default(30),
+    maxTrialsPerLead: integer("max_trials_per_lead").notNull().default(2),
+    staleAfterDays: integer("stale_after_days").notNull().default(7),
+    /** { new: 15, contacted: 1440, ... } phút; null = không áp */
+    slaMinutes: jsonb("sla_minutes").$type<Record<string, number | null>>(),
+    roundsResetAt: timestamp("rounds_reset_at", { withTimezone: true }),
+    updatedBy: uuid("updated_by").references(() => users.id),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex("admissions_settings_center_unique").on(t.centerId)],
+);
+
+export const leadTransferKindEnum = pgEnum("lead_transfer_kind", ["handover", "center_transfer", "redistribute"]);
+
+/** Sổ bàn giao / chuyển lead: ai chuyển cho ai, cơ sở nào, lý do — làm báo cáo "Chuyển lead liên cơ sở" */
+export const leadTransfers = pgTable(
+  "lead_transfers",
+  {
+    id: id(),
+    leadId: uuid("lead_id").notNull().references(() => leads.id, { onDelete: "cascade" }),
+    kind: leadTransferKindEnum("kind").notNull(),
+    fromUserId: uuid("from_user_id").references(() => users.id),
+    toUserId: uuid("to_user_id").references(() => users.id),
+    fromCenterId: uuid("from_center_id").references(() => centers.id),
+    toCenterId: uuid("to_center_id").references(() => centers.id),
+    reason: text("reason"),
+    actorId: uuid("actor_id").references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("lead_transfers_lead_idx").on(t.leadId), index("lead_transfers_created_idx").on(t.createdAt)],
 );

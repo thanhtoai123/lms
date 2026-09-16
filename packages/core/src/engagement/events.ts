@@ -8,6 +8,9 @@ export type DomainEvent =
   | { type: "lead.created"; leadId: string; centerId: string | null; source: string | null }
   | { type: "lead.status_changed"; leadId: string; from: string; to: string; actorId: string | null }
   | { type: "lead.sla_breached"; leadId: string; status: string; overdueMinutes: number }
+  | { type: "lead.assigned"; leadId: string; assigneeId: string; mode: string; actorId: string | null }
+  | { type: "lead.transferred"; leadId: string; kind: string; fromUserId: string | null; toUserId: string | null; toCenterId: string | null; reason: string | null }
+  | { type: "parent.account_pending"; parentId: string; phone: string }
   | { type: "enrollment.created"; enrollmentId: string; studentId: string; classId: string }
   | { type: "risk.detected"; studentId: string; enrollmentId: string; code: string; severity: number; detail: string }
   | { type: "report_card.due"; enrollmentId: string; sessionId: string; sequenceNo: number };

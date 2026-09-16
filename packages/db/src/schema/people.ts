@@ -1,9 +1,12 @@
-import { pgTable, text, uuid, boolean, date, pgEnum, index, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, uuid, boolean, date, pgEnum, index, integer, timestamp } from "drizzle-orm/pg-core";
 import { id, timestamps, softDelete } from "./_common";
 import { users } from "./identity";
 import { centers } from "./org";
 
 export const contractTypeEnum = pgEnum("contract_type", ["full_time", "part_time", "collaborator"]);
+
+/** Tài khoản PH: none = chưa cấp; pending_activation = đã chốt, chờ PH nhập SĐT nhận OTP và đặt mật khẩu; active */
+export const parentAccountStatusEnum = pgEnum("parent_account_status", ["none", "pending_activation", "active", "locked"]);
 
 /** Giáo viên / trợ giảng — là hồ sơ nhân sự, liên kết (tuỳ chọn) với tài khoản đăng nhập */
 export const teachers = pgTable(
@@ -39,6 +42,10 @@ export const parents = pgTable("parents", {
   zaloId: text("zalo_id"),
   /** Đồng ý cho đăng ảnh con (NĐ13) — enforce ở service khi publish media */
   mediaConsent: boolean("media_consent").notNull().default(false),
+  mediaConsentAt: timestamp("media_consent_at", { withTimezone: true }),
+  accountStatus: parentAccountStatusEnum("account_status").notNull().default("none"),
+  activationRequestedAt: timestamp("activation_requested_at", { withTimezone: true }),
+  activatedAt: timestamp("activated_at", { withTimezone: true }),
   ...timestamps,
   ...softDelete,
 });

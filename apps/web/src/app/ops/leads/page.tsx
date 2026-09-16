@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getServerCaller } from "@/lib/trpc/server";
 import { LEAD_STATUSES, LEAD_STATUS_VI, OPEN_LEAD_STATUSES, type LeadStatus } from "@satarobo/core";
-import { LeadChip, SlaChip, fmtDateTime } from "@/components/lead-ui";
+import { LeadChip, SlaChip, fmtDateTime, LeadSubnav } from "@/components/lead-ui";
 import { Empty } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
@@ -15,6 +15,7 @@ export default async function LeadsInbox({ searchParams }: { searchParams: Promi
 
   return (
     <div className="space-y-4">
+      <LeadSubnav active="/ops/leads" />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">Tuyển sinh — hộp thư lead</h1>

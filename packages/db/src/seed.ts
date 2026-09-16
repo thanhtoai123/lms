@@ -9,6 +9,7 @@ import { createDb } from "./index";
 import {
   centers, rooms, users, userRoles, teachers, parents, students, studentGuardians,
   courses, curricula, lessons, classes, classSchedules, sessions, enrollments, attendance,
+  leads, leadChildren, leadActivities, leadTasks, leadAssignees, admissionsSettings,
 } from "./schema/index";
 import { generateSessions, buildClassCode, buildStudentCode, toISODate, addDays } from "@satarobo/core";
 
@@ -35,7 +36,7 @@ async function main() {
     .returning();
 
   // ---- Users & roles ----
-  const [adminU, mgrU, t1U, t2U, t3U] = await db
+  const [adminU, mgrU, t1U, t2U, t3U, sale1U, sale2U] = await db
     .insert(users)
     .values([
       { email: "superadmin@example.test", fullName: "Quản trị hệ thống" },
@@ -43,6 +44,8 @@ async function main() {
       { email: "teacher1@satarobo.vn", fullName: "GV Minh (mẫu)" },
       { email: "teacher2@satarobo.vn", fullName: "GV Lan (mẫu)" },
       { email: "teacher3@satarobo.vn", fullName: "GV Hùng (mẫu)" },
+      { email: "sale1.cs1@example.test", fullName: "Tư vấn Hoa (mẫu)" },
+      { email: "sale2.cs1@example.test", fullName: "Tư vấn Nam (mẫu)" },
     ])
     .returning();
 
@@ -52,6 +55,8 @@ async function main() {
     { userId: t1U!.id, role: "TEACHER", centerId: cs1!.id },
     { userId: t2U!.id, role: "TEACHER", centerId: cs2!.id },
     { userId: t3U!.id, role: "TEACHER", centerId: cs1!.id },
+    { userId: sale1U!.id, role: "CENTER_SALES_CSM", centerId: cs1!.id },
+    { userId: sale2U!.id, role: "CENTER_SALES_CSM", centerId: cs1!.id },
   ]);
 
   const [gv1, gv2, gv3] = await db
@@ -162,8 +167,48 @@ async function main() {
     await db.update(sessions).set({ status: "completed", sessionNote: "Lớp học tốt, các con hoàn thành mục tiêu buổi.", completedAt: new Date(), completedBy: t1U!.id }).where(eq(sessions.id, s.id));
   }
 
-  console.log(`✔ Seeded: 2 centers, 3 rooms, 5 users, 3 teachers, ${lessonRows.length} lessons, 2 classes, ${sessionRows.length} sessions, 16 students`);
-  console.log("  Dev login: DEV_ACTOR_EMAIL=teacher1@satarobo.vn (GV lớp A) | manager.cs1@example.test | superadmin@example.test");
+  // ---- Tuyển sinh: cấu hình chia lead, bảng sale, lead mẫu (dữ liệu giả) ----
+  await db.insert(admissionsSettings).values({ centerId: cs1!.id, distributionMode: "round_robin", dedupeDays: 30, maxTrialsPerLead: 2, staleAfterDays: 7, updatedBy: adminU!.id });
+  await db.insert(leadAssignees).values([
+    { userId: sale1U!.id, centerId: cs1!.id, isAvailable: true, roundsReceived: 3, lastAssignedAt: new Date(Date.now() - 3 * 3600e3) },
+    { userId: sale2U!.id, centerId: cs1!.id, isAvailable: true, roundsReceived: 2, lastAssignedAt: new Date(Date.now() - 26 * 3600e3) },
+    { userId: mgrU!.id, centerId: cs1!.id, isAvailable: false, note: "Chỉ nhận khi thiếu người" },
+  ]);
+  const h = (n: number) => new Date(Date.now() - n * 3600e3);
+  const leadRows = await db
+    .insert(leads)
+    .values([
+      { centerId: cs1!.id, status: "new", parentName: "PH Mẫu 01", phone: "0900000001", phoneNormalized: "84900000001", childName: "Bé An", childGrade: 3, source: "web-form", utmCampaign: "he-2026", assignedToId: sale1U!.id, assignedAt: h(1), lastTouchAt: h(1), consentAt: h(1) },
+      { centerId: cs1!.id, status: "new", parentName: "PH Mẫu 02", phone: "0900000002", phoneNormalized: "84900000002", childName: "Bé Bình", childGrade: 5, source: "ads", utmSource: "facebook", assignedToId: null, lastTouchAt: h(0.2) },
+      { centerId: cs1!.id, status: "contacted", parentName: "PH Mẫu 03", phone: "0900000003", phoneNormalized: "84900000003", childName: "Bé Chi", childGrade: 2, source: "referral", assignedToId: sale2U!.id, assignedAt: h(30), lastTouchAt: h(30) },
+      { centerId: cs1!.id, status: "trial_scheduled", parentName: "PH Mẫu 04", phone: "0900000004", phoneNormalized: "84900000004", childName: "Bé Dũng", childGrade: 4, source: "walk-in", interestedCourseId: sata4!.id, assignedToId: sale1U!.id, assignedAt: h(50), lastTouchAt: h(20), nextActionAt: new Date(Date.now() + 26 * 3600e3) },
+      { centerId: cs1!.id, status: "trial_in_progress", parentName: "PH Mẫu 05", phone: "0900000005", phoneNormalized: "84900000005", childName: "Bé Em", childGrade: 6, source: "web-form", interestedCourseId: sata6!.id, assignedToId: sale2U!.id, assignedAt: h(100), lastTouchAt: h(40) },
+      { centerId: cs1!.id, status: "trial_done", parentName: "PH Mẫu 06", phone: "0900000006", phoneNormalized: "84900000006", childName: "Bé Giang", childGrade: 3, source: "ads", utmSource: "google", assignedToId: sale1U!.id, assignedAt: h(120), lastTouchAt: h(30) },
+      { centerId: cs1!.id, status: "deciding", parentName: "PH Mẫu 07", phone: "0900000007", phoneNormalized: "84900000007", childName: "Bé Hà", childGrade: 4, source: "referral", assignedToId: sale2U!.id, assignedAt: h(200), lastTouchAt: h(100) },
+      { centerId: cs1!.id, status: "nurturing", parentName: "PH Mẫu 08", phone: "0900000008", phoneNormalized: "84900000008", childName: "Bé Khoa", childGrade: 1, source: "web-form", assignedToId: sale1U!.id, assignedAt: h(400), lastTouchAt: h(300) },
+      { centerId: cs1!.id, status: "enrolled", parentName: "PH Mẫu 09", phone: "0900000009", phoneNormalized: "84900000009", childName: "Bé Lâm", childGrade: 5, source: "ads", assignedToId: sale1U!.id, assignedAt: h(600), lastTouchAt: h(500), convertedAt: h(500) },
+      { centerId: cs1!.id, status: "lost", parentName: "PH Mẫu 10", phone: "0900000010", phoneNormalized: "84900000010", childName: "Bé Minh", childGrade: 7, source: "web-form", assignedToId: sale2U!.id, assignedAt: h(700), lastTouchAt: h(650), lostReason: "Chọn trung tâm gần nhà" },
+      { centerId: cs2!.id, status: "new", parentName: "PH Mẫu 11", phone: "0900000011", phoneNormalized: "84900000011", childName: "Bé Ngân", childGrade: 3, source: "web-form", assignedToId: null, lastTouchAt: h(5) },
+    ])
+    .returning();
+  await db.insert(leadChildren).values(
+    leadRows.flatMap((l, i) => [
+      { leadId: l.id, fullName: l.childName!, grade: l.childGrade, interestedCourseId: l.interestedCourseId },
+      ...(i === 6 ? [{ leadId: l.id, fullName: "Bé Hải (em)", grade: 2, interestedCourseId: sata4!.id }] : []),
+    ]),
+  );
+  await db.insert(leadActivities).values(leadRows.flatMap((l) => [
+    { leadId: l.id, type: "system" as const, content: `Tạo lead từ ${l.source}`, createdAt: l.assignedAt ?? l.lastTouchAt },
+    ...(l.assignedToId ? [{ leadId: l.id, type: "assignment" as const, content: "Chia tự động (round_robin)", meta: { assignedToId: l.assignedToId, mode: "round_robin" }, createdAt: l.assignedAt ?? l.lastTouchAt }] : []),
+    ...(l.status === "trial_scheduled" || l.status === "trial_in_progress" || l.status === "trial_done" ? [{ leadId: l.id, type: "trial_booked" as const, content: "Hẹn học thử", meta: { from: "contacted", to: "trial_scheduled", event: "schedule_trial" }, createdAt: l.lastTouchAt }] : []),
+  ]));
+  await db.insert(leadTasks).values([
+    { leadId: leadRows[0]!.id, title: "Gọi tư vấn lần đầu", dueAt: new Date(Date.now() - 45 * 60e3), assigneeId: sale1U!.id, createdByRule: "NEW_LEAD_FIRST_CALL" },
+    { leadId: leadRows[5]!.id, title: "Gọi chốt sau học thử", dueAt: new Date(Date.now() - 6 * 3600e3), assigneeId: sale1U!.id, createdByRule: "TRIAL_DONE_FOLLOW_UP" },
+  ]);
+
+  console.log(`✔ Seeded: 2 centers, 3 rooms, 7 users, 3 teachers, ${lessonRows.length} lessons, 2 classes, ${sessionRows.length} sessions, 16 students, ${leadRows.length} leads`);
+  console.log("  Dev login: DEV_ACTOR_EMAIL=teacher1@satarobo.vn (GV lớp A) | manager.cs1@example.test | sale1.cs1@example.test | superadmin@example.test");
 }
 
 main()

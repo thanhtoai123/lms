@@ -36,6 +36,21 @@ export const DEFAULT_RULES: AutomationRule[] = [
         : [],
   },
   {
+    code: "LEAD_ASSIGNED_NOTIFY",
+    name: "Lead mới vừa chia cho tôi → báo tư vấn viên được chia",
+    enabled: true,
+    on: "lead.assigned",
+    actions: (e) => (e.type === "lead.assigned" ? [{ kind: "notify_user", userId: e.assigneeId, title: "Bạn vừa nhận lead mới", body: `Chế độ chia: ${e.mode}. Gọi trong 15 phút.`, link: `/ops/leads/${e.leadId}`, priority: 1 }] : []),
+  },
+  {
+    code: "LEAD_TRANSFERRED_NOTIFY",
+    name: "Lead được bàn giao/chuyển → báo người nhận",
+    enabled: true,
+    on: "lead.transferred",
+    when: (e) => e.type === "lead.transferred" && !!e.toUserId,
+    actions: (e) => (e.type === "lead.transferred" ? [{ kind: "notify_user", userId: e.toUserId, title: "Bạn được bàn giao lead", body: e.reason ?? "Không có lý do", link: `/ops/leads/${e.leadId}`, priority: 2 }] : []),
+  },
+  {
     code: "NEW_LEAD_FIRST_CALL",
     name: "Lead mới → việc gọi trong 15 phút",
     enabled: true,

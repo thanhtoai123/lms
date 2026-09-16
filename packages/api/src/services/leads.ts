@@ -1,10 +1,11 @@
-import { and, eq, inArray, sql, asc, desc, ilike, or, isNull, lte } from "drizzle-orm";
+import { and, eq, inArray, sql, asc, desc, ilike, or, isNull, lte, gte } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
-import { leads, leadActivities, leadTasks, leadAssignees, users, centers, courses, parents, students, studentGuardians, enrollments, classes } from "@satarobo/db";
+import { leads, leadActivities, leadTasks, leadAssignees, leadChildren, users, centers, courses, parents, students, studentGuardians, enrollments, classes } from "@satarobo/db";
 import {
-  leadTransition, computeSla, pickAssignee, normalizeVnPhone, maskPhone, OPEN_LEAD_STATUSES, visibleCenterIds, hasRole, buildStudentCode,
+  leadTransition, computeSla, normalizeVnPhone, maskPhone, OPEN_LEAD_STATUSES, visibleCenterIds, hasRole, buildStudentCode,
   type LeadStatus, type LeadEvent,
 } from "@satarobo/core";
+import { resolveAdmissionsPolicy, autoPickAssignee, type Db } from "./admissionsAdmin";
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { writeAudit } from "./audit";
 import { emit } from "./outbox";
@@ -33,6 +34,10 @@ export interface CreateLeadInput {
   notes?: string | null;
   consent?: boolean;
   autoAssign?: boolean;
+  /** Giao tay ngay khi tạo (bỏ qua chế độ chia) */
+  assignedToId?: string | null;
+  /** Nhiều con / lead (LeadChild). Nếu rỗng nhưng có childName → tạo 1 dòng từ childName */
+  children?: { fullName: string; birthYear?: number | null; grade?: number | null; school?: string | null; interestedCourseId?: string | null; notes?: string | null }[];
 }
 
 /**
@@ -46,8 +51,10 @@ export async function createLead(db: ProtectedContext["db"], input: CreateLeadIn
   if (!phoneNormalized) throw new TRPCError({ code: "BAD_REQUEST", message: "Số điện thoại không hợp lệ" });
 
   return db.transaction(async (tx) => {
+    const policy = await resolveAdmissionsPolicy(tx as unknown as Db, input.centerId ?? null);
+    const dedupeSince = new Date(Date.now() - policy.dedupeDays * 86_400_000);
     const existing = await tx.query.leads.findFirst({
-      where: and(eq(leads.phoneNormalized, phoneNormalized), inArray(leads.status, [...OPEN_LEAD_STATUSES]), isNull(leads.deletedAt)),
+      where: and(eq(leads.phoneNormalized, phoneNormalized), inArray(leads.status, [...OPEN_LEAD_STATUSES]), isNull(leads.deletedAt), gte(leads.lastTouchAt, dedupeSince)),
     });
     if (existing) {
       await tx.insert(leadActivities).values({
@@ -59,17 +66,11 @@ export async function createLead(db: ProtectedContext["db"], input: CreateLeadIn
       return { lead: existing, duplicated: true as const };
     }
 
-    let assignedToId: string | null = null;
-    if (input.autoAssign !== false) {
-      const cands = await tx
-        .select({
-          id: leadAssignees.userId,
-          isAvailable: leadAssignees.isAvailable,
-          openLeads: sql<number>`(select count(*)::int from ${leads} l where l.assigned_to_id = ${leadAssignees.userId} and l.status in ('new','contacted','nurturing','trial_scheduled','trial_done','consulting','deciding') and l.deleted_at is null)`,
-        })
-        .from(leadAssignees)
-        .where(input.centerId ? or(eq(leadAssignees.centerId, input.centerId), isNull(leadAssignees.centerId))! : sql`true`);
-      assignedToId = pickAssignee(cands);
+    let assignedToId: string | null = input.assignedToId ?? null;
+    let assignMode: string = assignedToId ? "manual" : policy.distributionMode;
+    if (!assignedToId && input.autoAssign !== false) {
+      assignedToId = await autoPickAssignee(tx as unknown as Db, input.centerId ?? null, policy.distributionMode);
+      assignMode = policy.distributionMode;
     }
 
     const [lead] = await tx
@@ -84,8 +85,20 @@ export async function createLead(db: ProtectedContext["db"], input: CreateLeadIn
       })
       .returning();
 
+    const children = (input.children ?? []).filter((c) => c.fullName?.trim());
+    if (children.length === 0 && input.childName?.trim()) children.push({ fullName: input.childName.trim(), grade: input.childGrade ?? null, birthYear: input.childBirthYear ?? null, school: input.school ?? null, interestedCourseId: input.interestedCourseId ?? null });
+    if (children.length > 0) {
+      await tx.insert(leadChildren).values(children.map((c) => ({ leadId: lead!.id, fullName: c.fullName.trim(), birthYear: c.birthYear ?? null, grade: c.grade ?? null, school: c.school ?? null, interestedCourseId: c.interestedCourseId ?? null, notes: c.notes ?? null })));
+      if (!lead!.childName) await tx.update(leads).set({ childName: children[0]!.fullName, childGrade: children[0]!.grade ?? null }).where(eq(leads.id, lead!.id));
+    }
+
     await tx.insert(leadActivities).values({ leadId: lead!.id, type: "system", actorId, content: `Tạo lead từ ${input.source ?? "Ops"}` });
-    if (assignedToId) await tx.insert(leadActivities).values({ leadId: lead!.id, type: "assignment", actorId, content: "Tự động phân bổ", meta: { assignedToId } });
+    if (assignedToId) {
+      await tx.insert(leadActivities).values({ leadId: lead!.id, type: "assignment", actorId, content: assignMode === "manual" ? "Giao tay" : `Chia tự động (${assignMode})`, meta: { assignedToId, mode: assignMode } });
+      await tx.update(leadAssignees).set({ roundsReceived: sql`${leadAssignees.roundsReceived} + 1`, lastAssignedAt: new Date() })
+        .where(and(eq(leadAssignees.userId, assignedToId), input.centerId ? or(eq(leadAssignees.centerId, input.centerId), isNull(leadAssignees.centerId))! : sql`true`));
+      await emit(tx as unknown as typeof db, { type: "lead.assigned", leadId: lead!.id, assigneeId: assignedToId, mode: assignMode, actorId });
+    }
     await emit(tx as unknown as typeof db, { type: "lead.created", leadId: lead!.id, centerId: lead!.centerId, source: lead!.source });
     if (actorId) await writeAudit(tx as unknown as typeof db, { actorId, action: "CREATE", module: "admissions", entity: "leads", entityId: lead!.id, after: { source: input.source } });
     return { lead: lead!, duplicated: false as const };
@@ -124,8 +137,9 @@ export async function leadInbox(ctx: ProtectedContext, input: { scope: "mine" | 
 
   const now = nowIso();
   const full = canSeeFullPhone(ctx);
+  const policy = await resolveAdmissionsPolicy(ctx.db, input.centerId ?? null);
   const items = rows
-    .map((r) => ({ ...r, phone: full ? r.phoneNormalized : maskPhone(r.phoneNormalized), sla: computeSla(r.status, r.lastTouchAt.toISOString(), now) }))
+    .map((r) => ({ ...r, phone: full ? r.phoneNormalized : maskPhone(r.phoneNormalized), sla: computeSla(r.status, r.lastTouchAt.toISOString(), now, policy.sla) }))
     .sort((a, b) => b.sla.overdueMinutes - a.sla.overdueMinutes || a.lastTouchAt.getTime() - b.lastTouchAt.getTime());
   return {
     items,
@@ -142,21 +156,24 @@ export async function getLead(ctx: ProtectedContext, id: string) {
   const lead = await ctx.db.query.leads.findFirst({ where: and(eq(leads.id, id), isNull(leads.deletedAt)) });
   if (!lead) throw new TRPCError({ code: "NOT_FOUND" });
   requirePermission(ctx, "lead:read", { centerId: lead.centerId, ownerIds: [lead.assignedToId ?? ""].filter(Boolean) });
-  const [activities, tasks, assignee, course, center] = await Promise.all([
+  const [activities, tasks, assignee, course, center, children] = await Promise.all([
     ctx.db.select({ id: leadActivities.id, type: leadActivities.type, content: leadActivities.content, meta: leadActivities.meta, createdAt: leadActivities.createdAt, actorName: users.fullName })
       .from(leadActivities).leftJoin(users, eq(users.id, leadActivities.actorId)).where(eq(leadActivities.leadId, id)).orderBy(desc(leadActivities.createdAt)).limit(100),
     ctx.db.select().from(leadTasks).where(eq(leadTasks.leadId, id)).orderBy(asc(leadTasks.doneAt), asc(leadTasks.dueAt)),
     lead.assignedToId ? ctx.db.query.users.findFirst({ where: eq(users.id, lead.assignedToId), columns: { id: true, fullName: true } }) : null,
     lead.interestedCourseId ? ctx.db.query.courses.findFirst({ where: eq(courses.id, lead.interestedCourseId), columns: { id: true, code: true, name: true } }) : null,
     lead.centerId ? ctx.db.query.centers.findFirst({ where: eq(centers.id, lead.centerId), columns: { id: true, code: true, name: true } }) : null,
+    ctx.db.select({ id: leadChildren.id, fullName: leadChildren.fullName, birthYear: leadChildren.birthYear, grade: leadChildren.grade, school: leadChildren.school, interestedCourseId: leadChildren.interestedCourseId, courseCode: courses.code, notes: leadChildren.notes, convertedStudentId: leadChildren.convertedStudentId })
+      .from(leadChildren).leftJoin(courses, eq(courses.id, leadChildren.interestedCourseId)).where(eq(leadChildren.leadId, id)).orderBy(asc(leadChildren.createdAt)),
   ]);
+  const policy = await resolveAdmissionsPolicy(ctx.db, lead.centerId);
   const full = canSeeFullPhone(ctx);
   return {
     ...lead,
     phone: full ? lead.phone : maskPhone(lead.phoneNormalized),
     phoneNormalized: full ? lead.phoneNormalized : maskPhone(lead.phoneNormalized),
-    sla: computeSla(lead.status, lead.lastTouchAt.toISOString(), nowIso()),
-    activities, tasks, assignee: assignee ?? null, course: course ?? null, center: center ?? null,
+    sla: computeSla(lead.status, lead.lastTouchAt.toISOString(), nowIso(), policy.sla),
+    activities, tasks, children, assignee: assignee ?? null, course: course ?? null, center: center ?? null,
   };
 }
 
@@ -181,6 +198,11 @@ export async function addActivity(ctx: ProtectedContext, input: { leadId: string
 export async function transitionLead(ctx: ProtectedContext, input: { leadId: string; event: LeadEvent; note?: string; lostReason?: string; trialAt?: string }) {
   const lead = await loadForWrite(ctx, input.leadId);
   const to = leadTransition(lead.status, input.event);
+  if (input.event === "schedule_trial") {
+    const policy = await resolveAdmissionsPolicy(ctx.db, lead.centerId);
+    const [c] = await ctx.db.select({ n: sql<number>`count(*)::int` }).from(leadActivities).where(and(eq(leadActivities.leadId, lead.id), eq(leadActivities.type, "trial_booked")));
+    if ((c?.n ?? 0) >= policy.maxTrialsPerLead) throw new TRPCError({ code: "PRECONDITION_FAILED", message: `Khách đã hẹn học thử ${c?.n} lần — vượt trần ${policy.maxTrialsPerLead} buổi thử/khách` });
+  }
   await ctx.db.transaction(async (tx) => {
     await tx.update(leads).set({
       status: to, lastTouchAt: new Date(),
@@ -197,14 +219,19 @@ export async function transitionLead(ctx: ProtectedContext, input: { leadId: str
   return getLead(ctx, input.leadId);
 }
 
-export async function assignLead(ctx: ProtectedContext, input: { leadId: string; assigneeId: string | null }) {
+export async function assignLead(ctx: ProtectedContext, input: { leadId: string; assigneeId: string | null; reason?: string }) {
   const lead = await ctx.db.query.leads.findFirst({ where: eq(leads.id, input.leadId) });
   if (!lead) throw new TRPCError({ code: "NOT_FOUND" });
   requirePermission(ctx, "lead:update", { centerId: lead.centerId }); // chỉ quản lý/CSKH cơ sở, không phải owner
   await ctx.db.transaction(async (tx) => {
     await tx.update(leads).set({ assignedToId: input.assigneeId, assignedAt: input.assigneeId ? new Date() : null, lastTouchAt: new Date() }).where(eq(leads.id, lead.id));
-    await tx.insert(leadActivities).values({ leadId: lead.id, type: "assignment", actorId: ctx.user.id, meta: { from: lead.assignedToId, to: input.assigneeId } });
+    await tx.insert(leadActivities).values({ leadId: lead.id, type: "assignment", actorId: ctx.user.id, content: input.reason ?? "Giao tay", meta: { from: lead.assignedToId, to: input.assigneeId, mode: "manual" } });
     await tx.update(leadTasks).set({ assigneeId: input.assigneeId }).where(and(eq(leadTasks.leadId, lead.id), isNull(leadTasks.doneAt)));
+    if (input.assigneeId) {
+      await tx.update(leadAssignees).set({ roundsReceived: sql`${leadAssignees.roundsReceived} + 1`, lastAssignedAt: new Date() })
+        .where(and(eq(leadAssignees.userId, input.assigneeId), lead.centerId ? or(eq(leadAssignees.centerId, lead.centerId), isNull(leadAssignees.centerId))! : sql`true`));
+      await emit(tx as unknown as typeof ctx.db, { type: "lead.assigned", leadId: lead.id, assigneeId: input.assigneeId, mode: "manual", actorId: ctx.user.id });
+    }
   });
   return getLead(ctx, input.leadId);
 }
@@ -225,36 +252,102 @@ export async function completeTask(ctx: ProtectedContext, input: { taskId: strin
  * CHUYỂN ĐỔI: lead → parent (ghép theo SĐT nếu đã có) + student + enrollment vào lớp.
  * Một transaction; emit enrollment.created; lead sang enrolled.
  */
-export async function convertLead(ctx: ProtectedContext, input: { leadId: string; classId: string; packageSessions: number; studentName?: string; grade?: number | null; status?: "active" | "trial" }) {
+export interface ConvertLeadInput {
+  leadId: string;
+  classId: string;
+  packageSessions: number;
+  studentName?: string;
+  grade?: number | null;
+  status?: "active" | "trial";
+  /** Chốt cho một con cụ thể (LeadChild); nếu bỏ trống dùng childName của lead */
+  childId?: string | null;
+  /** PH đồng ý cho đăng ảnh con (NĐ13) */
+  mediaConsent?: boolean;
+  /** Ghi nhận đã đóng tiền (đ) và ngày — chỉ ghi chú; đối soát ở module Tài chính */
+  paidAmount?: number | null;
+  paidAt?: string | null;
+}
+
+/**
+ * CHUYỂN ĐỔI: lead → parent (ghép theo SĐT nếu đã có) + student + enrollment vào lớp.
+ * Một transaction; emit enrollment.created; lead sang enrolled (nếu mọi con đã chốt) hoặc giữ mở khi còn con chưa chốt.
+ * Quy tắc sau chốt: tài khoản PH ở trạng thái "chờ kích hoạt" (PH nhập SĐT nhận OTP Zalo, tự đặt mật khẩu).
+ */
+export async function convertLead(ctx: ProtectedContext, input: ConvertLeadInput) {
   const lead = await loadForWrite(ctx, input.leadId);
   if (lead.status === "enrolled") throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Lead đã chuyển đổi" });
   const cls = await ctx.db.query.classes.findFirst({ where: eq(classes.id, input.classId), with: { center: true } });
   if (!cls) throw new TRPCError({ code: "NOT_FOUND", message: "Lớp không tồn tại" });
   requirePermission(ctx, "enrollment:create", { centerId: cls.centerId });
+  const child = input.childId ? await ctx.db.query.leadChildren.findFirst({ where: and(eq(leadChildren.id, input.childId), eq(leadChildren.leadId, lead.id)) }) : null;
+  if (input.childId && !child) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy con trong lead" });
+  if (child?.convertedStudentId) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Con này đã được chốt" });
 
   return ctx.db.transaction(async (tx) => {
     let parent = await tx.query.parents.findFirst({ where: eq(parents.phone, lead.phoneNormalized) });
+    let accountPending = false;
     if (!parent) {
-      [parent] = await tx.insert(parents).values({ fullName: lead.parentName, phone: lead.phoneNormalized, email: lead.email ?? null }).returning();
+      [parent] = await tx.insert(parents).values({
+        fullName: lead.parentName, phone: lead.phoneNormalized, email: lead.email ?? null,
+        mediaConsent: !!input.mediaConsent, mediaConsentAt: input.mediaConsent ? new Date() : null,
+        accountStatus: "pending_activation", activationRequestedAt: new Date(),
+      }).returning();
+      accountPending = true;
+    } else {
+      const patch: Partial<typeof parents.$inferInsert> = {};
+      if (input.mediaConsent && !parent.mediaConsent) { patch.mediaConsent = true; patch.mediaConsentAt = new Date(); }
+      if (parent.accountStatus === "none" && !parent.userId) { patch.accountStatus = "pending_activation"; patch.activationRequestedAt = new Date(); accountPending = true; }
+      if (Object.keys(patch).length) await tx.update(parents).set(patch).where(eq(parents.id, parent.id));
     }
     const [cnt] = await tx.select({ n: sql<number>`count(*)::int` }).from(students).where(eq(students.homeCenterId, cls.centerId));
     const [student] = await tx
       .insert(students)
       .values({
         code: buildStudentCode(cls.center.code, new Date().getFullYear(), (cnt?.n ?? 0) + 1),
-        fullName: input.studentName ?? lead.childName ?? `Con của ${lead.parentName}`,
-        grade: input.grade ?? lead.childGrade ?? null, school: lead.school ?? null, homeCenterId: cls.centerId, status: input.status === "trial" ? "trial" : "active",
+        fullName: input.studentName ?? child?.fullName ?? lead.childName ?? `Con của ${lead.parentName}`,
+        grade: input.grade ?? child?.grade ?? lead.childGrade ?? null, school: child?.school ?? lead.school ?? null, homeCenterId: cls.centerId, status: input.status === "trial" ? "trial" : "active",
       })
       .returning();
     await tx.insert(studentGuardians).values({ studentId: student!.id, parentId: parent!.id, isPrimary: true });
     const [enr] = await tx.insert(enrollments).values({ studentId: student!.id, classId: cls.id, packageSessions: input.packageSessions, status: input.status ?? "active", createdBy: ctx.user.id }).returning();
-    await tx.update(leads).set({ status: "enrolled", convertedParentId: parent!.id, convertedStudentId: student!.id, convertedAt: new Date(), lastTouchAt: new Date() }).where(eq(leads.id, lead.id));
-    await tx.insert(leadActivities).values({ leadId: lead.id, type: "status_change", actorId: ctx.user.id, content: `Ghi danh vào lớp ${cls.code}`, meta: { from: lead.status, to: "enrolled", studentId: student!.id, enrollmentId: enr!.id } });
-    await emit(tx as unknown as typeof ctx.db, { type: "lead.status_changed", leadId: lead.id, from: lead.status, to: "enrolled", actorId: ctx.user.id });
+    if (child) await tx.update(leadChildren).set({ convertedStudentId: student!.id }).where(eq(leadChildren.id, child.id));
+
+    // Lead đóng khi không còn con nào chưa chốt
+    const [remaining] = await tx.select({ n: sql<number>`count(*)::int` }).from(leadChildren).where(and(eq(leadChildren.leadId, lead.id), isNull(leadChildren.convertedStudentId)));
+    const closeLead = (remaining?.n ?? 0) === 0;
+    await tx.update(leads).set({
+      ...(closeLead ? { status: "enrolled" as const } : {}),
+      convertedParentId: parent!.id, convertedStudentId: lead.convertedStudentId ?? student!.id, convertedAt: new Date(), lastTouchAt: new Date(),
+    }).where(eq(leads.id, lead.id));
+    await tx.insert(leadActivities).values({
+      leadId: lead.id, type: "status_change", actorId: ctx.user.id,
+      content: `Ghi danh ${student!.fullName} vào lớp ${cls.code}${input.paidAmount ? ` · đã đóng ${input.paidAmount.toLocaleString("vi-VN")}đ` : ""}${accountPending ? " · tài khoản PH chờ kích hoạt" : ""}`,
+      meta: { from: lead.status, to: closeLead ? "enrolled" : lead.status, studentId: student!.id, enrollmentId: enr!.id, paidAmount: input.paidAmount ?? null, paidAt: input.paidAt ?? null, mediaConsent: !!input.mediaConsent },
+    });
+    if (closeLead) await emit(tx as unknown as typeof ctx.db, { type: "lead.status_changed", leadId: lead.id, from: lead.status, to: "enrolled", actorId: ctx.user.id });
     await emit(tx as unknown as typeof ctx.db, { type: "enrollment.created", enrollmentId: enr!.id, studentId: student!.id, classId: cls.id });
-    await writeAudit(tx as unknown as typeof ctx.db, { actorId: ctx.user.id, action: "CREATE", module: "admissions", entity: "conversion", entityId: lead.id, after: { studentId: student!.id, enrollmentId: enr!.id }, ip: ctx.ip });
-    return { studentId: student!.id, enrollmentId: enr!.id, parentId: parent!.id };
+    if (accountPending) await emit(tx as unknown as typeof ctx.db, { type: "parent.account_pending", parentId: parent!.id, phone: parent!.phone });
+    await writeAudit(tx as unknown as typeof ctx.db, { actorId: ctx.user.id, action: "CREATE", module: "admissions", entity: "conversion", entityId: lead.id, after: { studentId: student!.id, enrollmentId: enr!.id, paidAmount: input.paidAmount ?? null }, ip: ctx.ip });
+    return { studentId: student!.id, enrollmentId: enr!.id, parentId: parent!.id, leadClosed: closeLead, accountPending };
   });
+}
+
+/** Thêm / xoá con trong lead */
+export async function addLeadChild(ctx: ProtectedContext, input: { leadId: string; fullName: string; birthYear?: number | null; grade?: number | null; school?: string | null; interestedCourseId?: string | null; notes?: string | null }) {
+  await loadForWrite(ctx, input.leadId);
+  await ctx.db.transaction(async (tx) => {
+    await tx.insert(leadChildren).values({ leadId: input.leadId, fullName: input.fullName.trim(), birthYear: input.birthYear ?? null, grade: input.grade ?? null, school: input.school ?? null, interestedCourseId: input.interestedCourseId ?? null, notes: input.notes ?? null });
+    await tx.insert(leadActivities).values({ leadId: input.leadId, type: "system", actorId: ctx.user.id, content: `Thêm con: ${input.fullName.trim()}` });
+  });
+  return getLead(ctx, input.leadId);
+}
+export async function removeLeadChild(ctx: ProtectedContext, input: { leadId: string; childId: string }) {
+  await loadForWrite(ctx, input.leadId);
+  const child = await ctx.db.query.leadChildren.findFirst({ where: and(eq(leadChildren.id, input.childId), eq(leadChildren.leadId, input.leadId)) });
+  if (!child) throw new TRPCError({ code: "NOT_FOUND" });
+  if (child.convertedStudentId) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Con đã chốt, không xoá được" });
+  await ctx.db.delete(leadChildren).where(eq(leadChildren.id, child.id));
+  return getLead(ctx, input.leadId);
 }
 
 /** Việc lead đến hạn/quá hạn của tôi — cho widget "Hôm nay" của sale */
