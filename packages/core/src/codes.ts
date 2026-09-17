@@ -21,9 +21,14 @@ export function parseClassCode(code: string): ParsedClassCode | null {
   return { centerCode: m[1]!, courseCode: m[2]!, year: 2000 + Number(m[3]), seq: Number(m[4]) };
 }
 
+/** Mã học viên dạng "CS1-26-000123" */
+export function buildStudentCode(centerCode: string, year: number, seq: number): string {
+  return `${centerCode.toUpperCase()}-${String(year).slice(-2)}-${String(seq).padStart(6, "0")}`;
+}
+
 /**
- * Số thứ tự mã lớp kế tiếp theo (cơ sở, khoá, năm) = max(seq) + 1 trong các mã đã có
- * — không đếm số lớp (mã nhập từ hệ cũ / lớp đã xoá làm lệch phép đếm và gây trùng mã).
+ * Số thứ tự mã lớp kế tiếp theo (cơ sở, khoá, năm) = max(seq) + 1 trong các mã đã có.
+ * Dùng max thay vì đếm số lớp: mã nhập từ hệ cũ, mã nhập tay hay lớp đã xoá đều không gây trùng.
  */
 export function nextClassSeq(codes: readonly (string | null | undefined)[], centerCode: string, courseCode: string, year: number): number {
   const prefix = buildClassCode(centerCode, courseCode, year, 0).slice(0, -3);
@@ -33,26 +38,6 @@ export function nextClassSeq(codes: readonly (string | null | undefined)[], cent
     if (!t.startsWith(prefix)) continue;
     const rest = t.slice(prefix.length);
     if (/^\d{1,6}$/.test(rest)) max = Math.max(max, Number(rest));
-  }
-  return max + 1;
-}
-
-/** Mã học viên dạng "CS1-26-000123" */
-export function buildStudentCode(centerCode: string, year: number, seq: number): string {
-  return `${centerCode.toUpperCase()}-${String(year).slice(-2)}-${String(seq).padStart(6, "0")}`;
-}
-
-/**
- * Số thứ tự mã lớp kế tiếp = max(seq) của các mã đúng quy ước cùng (cơ sở, khoá, năm) + 1.
- * Dùng max thay vì đếm để không trùng mã nhập từ hệ cũ / mã nhập tay.
- */
-export function nextClassSeq(codes: readonly string[], centerCode: string, courseCode: string, year: number): number {
-  const c = centerCode.toUpperCase();
-  const k = courseCode.toUpperCase();
-  let max = 0;
-  for (const code of codes) {
-    const p = parseClassCode(code);
-    if (p && p.centerCode === c && p.courseCode === k && p.year % 100 === year % 100) max = Math.max(max, p.seq);
   }
   return max + 1;
 }
