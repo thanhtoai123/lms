@@ -1,6 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { leadTransition, computeSla, pickAssignee, pickAssigneeByMode, normalizeVnPhone, maskPhone, LeadTransitionError, leadEventsFor, LEAD_STATUSES, OPEN_LEAD_STATUSES } from "./leadMachine.js";
+import {
+  leadTransition, computeSla, pickAssignee, pickAssigneeByMode, normalizeVnPhone, maskPhone, LeadTransitionError, leadEventsFor, LEAD_STATUSES, OPEN_LEAD_STATUSES,
+  checkDropReason, leadNextStates, MANUAL_LEAD_EVENTS, DEFAULT_ADMISSIONS_POLICY,
+} from "./leadMachine.js";
 
 test("luồng chuẩn: new → contacted → trial_scheduled → trial_done → enrolled", () => {
   let s = leadTransition("new", "contact");
@@ -13,7 +16,7 @@ test("luồng chuẩn: new → contacted → trial_scheduled → trial_done → 
 test("no-show quay về nuôi dưỡng; enrolled là trạng thái cuối", () => {
   assert.equal(leadTransition("trial_scheduled", "trial_no_show"), "nurturing");
   assert.throws(() => leadTransition("enrolled", "lose"), LeadTransitionError);
-  assert.deepEqual(leadEventsFor("lost"), ["reopen"]);
+  assert.deepEqual(leadEventsFor("lost"), ["reopen", "contact"]);
 });
 
 test("SLA: lead mới quá 15 phút là overdue, gần hạn là warning", () => {
@@ -67,4 +70,35 @@ test("chia lead theo tỷ lệ chốt (làm trơn): sale chốt tốt được �
     { id: "new", openLeads: 0, totalAssigned: 0, converted: 0, ...base }, // 1/2 = 0.5 → tie với a, ít lead mở hơn
   ]), "new");
   assert.equal(pickAssigneeByMode("manual", [{ id: "a", openLeads: 0, totalAssigned: 0, converted: 0, ...base }]), null);
+});
+
+test("lý do bắt buộc 3–500 ký tự khi nuôi dưỡng / mất; hệ thống tự chuyển thì không cần", () => {
+  assert.throws(() => leadTransition("contacted", "lose"), /lý do/);
+  assert.throws(() => leadTransition("contacted", "nurture", { reason: " ab " }), LeadTransitionError);
+  assert.throws(() => leadTransition("contacted", "lose", { reason: "x".repeat(501) }), /500/);
+  assert.equal(leadTransition("contacted", "lose", { reason: "Học phí cao" }), "lost");
+  assert.equal(leadTransition("deciding", "nurture", { reason: "Chưa sắp được lịch" }), "nurturing");
+  assert.equal(leadTransition("deciding", "nurture", { requireReason: false }), "nurturing");
+  assert.equal(leadTransition("trial_scheduled", "trial_no_show"), "nurturing");
+  assert.deepEqual(checkDropReason("  ok!  "), { ok: true, reason: "ok!" });
+  assert.equal(checkDropReason(null).ok, false);
+});
+
+test("cạnh bổ sung theo bản gốc", () => {
+  assert.equal(leadTransition("new", "consult"), "consulting");
+  assert.equal(leadTransition("contacted", "await_decision"), "deciding");
+  assert.equal(leadTransition("nurturing", "await_decision"), "deciding");
+  assert.equal(leadTransition("trial_done", "nurture", { reason: "Hẹn tháng sau" }), "nurturing");
+  assert.equal(leadTransition("lost", "contact"), "contacted");
+  assert.equal(leadTransition("deciding", "schedule_trial"), "trial_scheduled");
+});
+
+test("ô chọn trạng thái không có 'Ghi danh'; đánh dấu sự kiện cần lý do / giờ học thử", () => {
+  const next = leadNextStates("trial_done");
+  assert.ok(!next.some((n) => (n.event as string) === "enroll"));
+  assert.deepEqual(next.find((n) => n.event === "lose"), { event: "lose", to: "lost", needsReason: true, needsTrialAt: false });
+  assert.equal(leadNextStates("contacted").find((n) => n.event === "schedule_trial")?.needsTrialAt, true);
+  assert.deepEqual(leadNextStates("enrolled"), []);
+  assert.ok(!(MANUAL_LEAD_EVENTS as readonly string[]).includes("enroll"));
+  assert.equal(DEFAULT_ADMISSIONS_POLICY.dedupeDays, 0);
 });

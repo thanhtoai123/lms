@@ -133,6 +133,7 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
             <div><b>{o.customerName}</b></div>
             <div>{o.customerPhone}{o.customerEmail ? ` · ${o.customerEmail}` : ""}</div>
             {o.student && <div>Học viên: <Link href={`/students/${o.student.id}`} className="text-brand-600">{o.student.fullName}</Link></div>}
+            {o.lead && <div>Lead: <Link href={`/leads/${o.lead.id}`} className="text-brand-600">{o.lead.parentName}</Link></div>}
             {o.enrollment && <div>Lớp: <Link href={`/classes/${o.enrollment.classId}`} className="text-brand-600">{o.enrollment.classCode}</Link> · đã học {o.enrollment.consumed}/{o.enrollment.packageSessions} buổi</div>}
             {o.customerPrivate && <div className="text-xs text-ink-600">CCCD: {o.customerPrivate.idNumber ?? "—"} · {[o.customerPrivate.address, o.customerPrivate.ward, o.customerPrivate.province].filter(Boolean).join(", ")}</div>}
             {o.customerPrivate?.hasIdNumber && o.perms.confirm && <RevealCustomer orderId={o.id} />}

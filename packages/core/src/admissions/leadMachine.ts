@@ -43,29 +43,68 @@ export type LeadEvent =
   | "reopen";
 
 const T: Record<LeadStatus, Partial<Record<LeadEvent, LeadStatus>>> = {
-  new: { contact: "contacted", nurture: "nurturing", schedule_trial: "trial_scheduled", lose: "lost" },
-  contacted: { nurture: "nurturing", schedule_trial: "trial_scheduled", consult: "consulting", lose: "lost" },
-  nurturing: { contact: "contacted", schedule_trial: "trial_scheduled", consult: "consulting", lose: "lost" },
+  new: { contact: "contacted", consult: "consulting", nurture: "nurturing", schedule_trial: "trial_scheduled", lose: "lost" },
+  contacted: { nurture: "nurturing", schedule_trial: "trial_scheduled", consult: "consulting", await_decision: "deciding", lose: "lost" },
+  nurturing: { contact: "contacted", schedule_trial: "trial_scheduled", consult: "consulting", await_decision: "deciding", lose: "lost" },
   trial_scheduled: { start_trial: "trial_in_progress", trial_attended: "trial_done", trial_no_show: "nurturing", schedule_trial: "trial_scheduled", lose: "lost" },
   trial_in_progress: { trial_attended: "trial_done", trial_no_show: "nurturing", enroll: "enrolled", lose: "lost" },
-  trial_done: { consult: "consulting", await_decision: "deciding", enroll: "enrolled", lose: "lost" },
-  consulting: { await_decision: "deciding", enroll: "enrolled", schedule_trial: "trial_scheduled", lose: "lost" },
-  deciding: { enroll: "enrolled", consult: "consulting", nurture: "nurturing", lose: "lost" },
+  trial_done: { consult: "consulting", await_decision: "deciding", nurture: "nurturing", enroll: "enrolled", lose: "lost" },
+  consulting: { await_decision: "deciding", enroll: "enrolled", schedule_trial: "trial_scheduled", nurture: "nurturing", lose: "lost" },
+  deciding: { enroll: "enrolled", consult: "consulting", schedule_trial: "trial_scheduled", nurture: "nurturing", lose: "lost" },
   enrolled: {},
-  lost: { reopen: "new" },
+  lost: { reopen: "new", contact: "contacted" },
 };
 
+/**
+ * Sự kiện đưa lead RỜI phễu (Đang nuôi dưỡng / Đã mất): bắt buộc lý do 3–500 ký tự
+ * để báo cáo biết vì sao mất, không chỉ biết mất ở bậc nào.
+ */
+export const LEAD_DROP_EVENTS = ["nurture", "lose"] as const satisfies readonly LeadEvent[];
+export const LEAD_DROP_REASON_MIN = 3;
+export const LEAD_DROP_REASON_MAX = 500;
+
+/** Sự kiện người dùng được chọn tay (chốt "enroll" chỉ đi qua màn Chuyển đổi) */
+export const MANUAL_LEAD_EVENTS = ["contact", "nurture", "schedule_trial", "start_trial", "trial_attended", "trial_no_show", "consult", "await_decision", "lose", "reopen"] as const satisfies readonly LeadEvent[];
+export type ManualLeadEvent = (typeof MANUAL_LEAD_EVENTS)[number];
+
+export function isDropEvent(event: LeadEvent): boolean {
+  return (LEAD_DROP_EVENTS as readonly LeadEvent[]).includes(event);
+}
+
 export class LeadTransitionError extends Error {
-  constructor(public readonly from: LeadStatus, public readonly event: LeadEvent) {
-    super(`Không thể ${event} từ trạng thái ${from}`);
+  constructor(public readonly from: LeadStatus, public readonly event: LeadEvent, message?: string) {
+    super(message ?? `Không thể ${event} từ trạng thái ${from}`);
     this.name = "LeadTransitionError";
   }
 }
 
-export function leadTransition(from: LeadStatus, event: LeadEvent): LeadStatus {
+/** Kiểm tra lý do rời phễu; trả về lý do đã cắt khoảng trắng hoặc thông báo lỗi */
+export function checkDropReason(reason: string | null | undefined): { ok: true; reason: string } | { ok: false; error: string } {
+  const r = (reason ?? "").trim();
+  if (r.length < LEAD_DROP_REASON_MIN) return { ok: false, error: `Nhập lý do lead rời phễu (tối thiểu ${LEAD_DROP_REASON_MIN} ký tự)` };
+  if (r.length > LEAD_DROP_REASON_MAX) return { ok: false, error: `Lý do tối đa ${LEAD_DROP_REASON_MAX} ký tự` };
+  return { ok: true, reason: r };
+}
+
+/**
+ * Chuyển trạng thái theo bảng luật. Sự kiện rời phễu (nuôi dưỡng / mất) bắt buộc lý do,
+ * trừ khi hệ thống tự chuyển (requireReason: false — vd không đến học thử).
+ */
+export function leadTransition(from: LeadStatus, event: LeadEvent, opts?: { reason?: string | null; requireReason?: boolean }): LeadStatus {
   const to = T[from]?.[event];
   if (!to) throw new LeadTransitionError(from, event);
+  if (isDropEvent(event) && opts?.requireReason !== false) {
+    const c = checkDropReason(opts?.reason);
+    if (!c.ok) throw new LeadTransitionError(from, event, c.error);
+  }
   return to;
+}
+
+/** Trạng thái có thể tới từ trạng thái hiện tại (cho ô chọn trạng thái) — không gồm "enroll" */
+export function leadNextStates(status: LeadStatus): { event: ManualLeadEvent; to: LeadStatus; needsReason: boolean; needsTrialAt: boolean }[] {
+  return (Object.entries(T[status] ?? {}) as [LeadEvent, LeadStatus][])
+    .filter(([e]) => (MANUAL_LEAD_EVENTS as readonly LeadEvent[]).includes(e))
+    .map(([event, to]) => ({ event: event as ManualLeadEvent, to, needsReason: isDropEvent(event), needsTrialAt: event === "schedule_trial" }));
 }
 
 export function leadEventsFor(status: LeadStatus): LeadEvent[] {
@@ -200,7 +239,7 @@ export function pickAssigneeByMode(mode: DistributionMode, candidates: AssigneeC
 /** Bộ tham số SLA/tuyển sinh có thể cấu hình theo cơ sở (đối chiếu ADMIN-SPEC §13.1) */
 export interface AdmissionsPolicy {
   distributionMode: DistributionMode;
-  /** Trùng SĐT trong N ngày → gộp vào lead cũ thay vì tạo mới */
+  /** Trùng SĐT → gộp vào lead cũ thay vì tạo mới; 0 = so với mọi lead (mãi mãi), N = chỉ lead chạm trong N ngày */
   dedupeDays: number;
   /** Số buổi học thử tối đa cho một khách */
   maxTrialsPerLead: number;
@@ -211,7 +250,7 @@ export interface AdmissionsPolicy {
 
 export const DEFAULT_ADMISSIONS_POLICY: AdmissionsPolicy = {
   distributionMode: "round_robin",
-  dedupeDays: 30,
+  dedupeDays: 0,
   maxTrialsPerLead: 2,
   staleAfterDays: 7,
   sla: DEFAULT_SLA,

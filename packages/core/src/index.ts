@@ -7,6 +7,8 @@ export * from "./sessions/stateMachine.js";
 export * from "./attendance/rules.js";
 export * from "./policy/policy.js";
 export * from "./admissions/leadMachine.js";
+export * from "./admissions/intake.js";
+export * from "./admissions/distribution.js";
 export * from "./engagement/events.js";
 export * from "./engagement/automation.js";
 export * from "./enrollment/lifecycle.js";

@@ -35,6 +35,26 @@ export function fmtDateTime(d: Date | string) {
   return x.toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh", hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" });
 }
 
+/** Loại hoạt động trên timeline lead */
+export const ACTIVITY_VI: Record<string, { label: string; chip: string }> = {
+  call: { label: "Gọi điện", chip: "bg-sky-100 text-sky-800" },
+  message: { label: "Nhắn tin", chip: "bg-violet-100 text-violet-800" },
+  email: { label: "Email", chip: "bg-indigo-100 text-indigo-800" },
+  note: { label: "Ghi chú", chip: "bg-slate-100 text-slate-700" },
+  status_change: { label: "Đổi trạng thái", chip: "bg-amber-100 text-amber-800" },
+  assignment: { label: "Phân bổ", chip: "bg-teal-100 text-teal-800" },
+  handover: { label: "Bàn giao", chip: "bg-orange-100 text-orange-800" },
+  trial_booked: { label: "Học thử", chip: "bg-fuchsia-100 text-fuchsia-800" },
+  task_done: { label: "Xong việc", chip: "bg-green-100 text-green-800" },
+  system: { label: "Hệ thống", chip: "bg-black/5 text-ink-600" },
+};
+
+export function fmtDay(d: Date | string | null | undefined) {
+  if (!d) return "—";
+  const x = typeof d === "string" ? new Date(d) : d;
+  return x.toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh", day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
 export const EVENT_VI: Record<string, string> = {
   contact: "Đã liên hệ",
   nurture: "Nuôi dưỡng",

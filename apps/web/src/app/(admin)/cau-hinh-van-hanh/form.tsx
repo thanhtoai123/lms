@@ -29,7 +29,7 @@ export function SettingsForm({ centerId }: { centerId: string | null }) {
       {q.data?.inherited && <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800">Cơ sở này chưa có cấu hình riêng — đang hiển thị giá trị kế thừa. Lưu để tạo cấu hình riêng.</div>}
       <div className="grid sm:grid-cols-2 gap-3">
         <div><label className="label">Chế độ chia lead</label><select className="input" value={f.distributionMode} onChange={(e) => setF({ ...f, distributionMode: e.target.value as DistributionMode })}>{DISTRIBUTION_MODES.map((m) => <option key={m} value={m}>{DISTRIBUTION_MODE_VI[m]}</option>)}</select></div>
-        <div><label className="label">Khử trùng SĐT trong (ngày)</label><input type="number" min={0} className="input" value={f.dedupeDays} onChange={(e) => setF({ ...f, dedupeDays: Number(e.target.value) })} /></div>
+        <div><label className="label">Khử trùng SĐT trong (ngày, 0 = mọi lead)</label><input type="number" min={0} className="input" value={f.dedupeDays} onChange={(e) => setF({ ...f, dedupeDays: Number(e.target.value) })} /></div>
         <div><label className="label">Số buổi học thử tối đa / khách</label><input type="number" min={1} className="input" value={f.maxTrialsPerLead} onChange={(e) => setF({ ...f, maxTrialsPerLead: Number(e.target.value) })} /></div>
         <div><label className="label">"Lâu chưa chăm" sau (ngày)</label><input type="number" min={1} className="input" value={f.staleAfterDays} onChange={(e) => setF({ ...f, staleAfterDays: Number(e.target.value) })} /></div>
       </div>

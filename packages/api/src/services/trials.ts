@@ -71,7 +71,8 @@ async function loadLeadForWrite(ctx: ProtectedContext, leadId: string) {
   return lead;
 }
 
-async function countLeadTrials(db: Db, leadId: string, excludeId?: string) {
+/** Số lượt học thử đã dùng của lead (đổi lịch / huỷ không tính) */
+export async function countLeadTrials(db: Db, leadId: string, excludeId?: string) {
   const conds = [eq(trialBookings.leadId, leadId), inArray(trialBookings.status, [...TRIAL_COUNTED_STATUSES])];
   if (excludeId) conds.push(ne(trialBookings.id, excludeId));
   const [c] = await db.select({ n: sql<number>`count(*)::int` }).from(trialBookings).where(and(...conds));

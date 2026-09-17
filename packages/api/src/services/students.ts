@@ -146,7 +146,8 @@ export async function createStudent(
   });
 }
 
-async function nextStudentCode(db: Db, centerId: string, centerCode: string) {
+/** Mã học viên kế tiếp theo max(mã) của cơ sở + năm (dùng chung cho tạo HV và chốt lead; gọi trong transaction) */
+export async function nextStudentCode(db: Db, centerId: string, centerCode: string) {
   const year = new Date().getFullYear();
   const prefix = `${centerCode.toUpperCase()}-${String(year).slice(-2)}-`;
   const [row] = await db.select({ max: sql<string | null>`max(${students.code})` }).from(students).where(sql`${students.code} like ${prefix + "%"}`);

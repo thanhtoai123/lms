@@ -184,3 +184,13 @@ CREATE TRIGGER einvoices_lock BEFORE UPDATE ON einvoices FOR EACH ROW EXECUTE FU
 CREATE OR REPLACE FUNCTION einvoices_no_delete() RETURNS trigger AS $$ BEGIN RAISE EXCEPTION 'Không xoá hoá đơn'; END $$ LANGUAGE plpgsql;
 DROP TRIGGER IF EXISTS einvoices_nodel ON einvoices;
 CREATE TRIGGER einvoices_nodel BEFORE DELETE ON einvoices FOR EACH ROW EXECUTE FUNCTION einvoices_no_delete();
+
+-- 16) Tuyển sinh: sổ chia lead & lịch sử pool chỉ thêm (không sửa); lượt không âm
+DROP TRIGGER IF EXISTS lead_distribution_log_no_update ON lead_distribution_log;
+CREATE TRIGGER lead_distribution_log_no_update BEFORE UPDATE ON lead_distribution_log FOR EACH ROW EXECUTE FUNCTION append_only_guard();
+DROP TRIGGER IF EXISTS lead_pool_events_no_update ON lead_pool_events;
+CREATE TRIGGER lead_pool_events_no_update BEFORE UPDATE ON lead_pool_events FOR EACH ROW EXECUTE FUNCTION append_only_guard();
+ALTER TABLE lead_assignees DROP CONSTRAINT IF EXISTS lead_assignees_rounds_check;
+ALTER TABLE lead_assignees ADD CONSTRAINT lead_assignees_rounds_check CHECK (rounds_received >= 0 AND weight >= 1);
+ALTER TABLE leads DROP CONSTRAINT IF EXISTS leads_reentry_check;
+ALTER TABLE leads ADD CONSTRAINT leads_reentry_check CHECK (reentry_count >= 0);

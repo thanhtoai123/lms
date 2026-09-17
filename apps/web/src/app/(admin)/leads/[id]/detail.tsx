@@ -2,94 +2,158 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "@/lib/trpc/client";
-import { leadEventsFor, LEAD_STATUS_VI, type LeadEvent, type LeadStatus } from "@satarobo/core";
-import { LeadChip, SlaChip, EVENT_VI, fmtDateTime } from "@/components/lead-ui";
-
-type Cls = { id: string; code: string; name: string; centerCode: string; enrolled: number; capacity: number };
+import { LEAD_STATUS_VI, OPEN_LEAD_STATUSES, DISTRIBUTION_MODE_VI, HANDOVER_NOTE_MIN, type LeadStatus } from "@satarobo/core";
+import { LeadChip, SlaChip, ACTIVITY_VI, fmtDateTime, fmtDay } from "@/components/lead-ui";
+import { LeadStatusSelect, LeadDeleteButton } from "@/components/lead-status";
+import { OrderChip, vnd } from "@/components/finance-ui";
+import { LeadChildrenBlock } from "./children";
 
 type Center = { id: string; code: string; name: string };
+type Assignee = { id: string; fullName: string; centerId: string | null };
+type Course = { id: string; code: string; name: string };
+type ActType = "call" | "message" | "note" | "email";
 
-export function LeadDetail({ id, classes, assignees, centers }: { id: string; classes: Cls[]; assignees: { id: string; fullName: string }[]; centers: Center[] }) {
+export function LeadDetail({ id, assignees, centers, courses }: { id: string; assignees: Assignee[]; centers: Center[]; courses: Course[] }) {
   const trpc = useTRPC();
   const qc = useQueryClient();
+  const router = useRouter();
   const q = useQuery(trpc.admissions.leads.get.queryOptions({ id }));
   const [error, setError] = useState<string | null>(null);
-  const [note, setNote] = useState("");
-  const [noteType, setNoteType] = useState<"call" | "message" | "note">("call");
-  const [trialAt, setTrialAt] = useState("");
-  const [lostReason, setLostReason] = useState("");
-  const [conv, setConv] = useState({ classId: classes[0]?.id ?? "", packageSessions: 48, status: "active" as "active" | "trial", childId: "", mediaConsent: false, paidAmount: "", paidAt: "", waiverReason: "" });
-  const [child, setChild] = useState({ fullName: "", grade: "", school: "" });
-  const [showChild, setShowChild] = useState(false);
-  const [xfer, setXfer] = useState({ toCenterId: "", reason: "" });
-  const [showXfer, setShowXfer] = useState(false);
-
-  const refresh = () => { qc.invalidateQueries({ queryKey: trpc.admissions.leads.get.queryKey({ id }) }); qc.invalidateQueries({ queryKey: trpc.admissions.leads.inbox.queryKey() }); };
-  const onErr = (e: unknown) => setError((e as Error).message);
-  const act = useMutation(trpc.admissions.leads.addActivity.mutationOptions({ onSuccess: () => { setNote(""); setError(null); refresh(); }, onError: onErr }));
-  const tr = useMutation(trpc.admissions.leads.transition.mutationOptions({ onSuccess: () => { setError(null); refresh(); }, onError: onErr }));
-  const assign = useMutation(trpc.admissions.leads.assign.mutationOptions({ onSuccess: refresh, onError: onErr }));
-  const done = useMutation(trpc.admissions.leads.completeTask.mutationOptions({ onSuccess: refresh, onError: onErr }));
-  const convert = useMutation(trpc.admissions.leads.convert.mutationOptions({ onSuccess: (r) => { setError(null); setNotice(r.accountPending ? "Đã chốt. Tài khoản phụ huynh ở trạng thái chờ kích hoạt — PH vào /kich-hoat nhập SĐT nhận OTP Zalo để đặt mật khẩu." : "Đã chốt."); refresh(); }, onError: onErr }));
-  const addChild = useMutation(trpc.admissions.leads.addChild.mutationOptions({ onSuccess: () => { setChild({ fullName: "", grade: "", school: "" }); setShowChild(false); refresh(); }, onError: onErr }));
-  const rmChild = useMutation(trpc.admissions.leads.removeChild.mutationOptions({ onSuccess: refresh, onError: onErr }));
-  const transfer = useMutation(trpc.admissions.leads.transferCenter.mutationOptions({ onSuccess: () => { setShowXfer(false); setNotice("Đã chuyển lead sang cơ sở khác."); refresh(); }, onError: onErr }));
   const [notice, setNotice] = useState<string | null>(null);
+  const [act, setAct] = useState<{ type: ActType; content: string; caller: string; durationMin: string; platform: "Zalo" | "SMS" | "Messenger"; to: string; subject: string }>({ type: "call", content: "", caller: "", durationMin: "", platform: "Zalo", to: "", subject: "" });
+  const [panel, setPanel] = useState<"transfer" | "redistribute" | null>(null);
+  const [xfer, setXfer] = useState({ toCenterId: "", toUserId: "", handoverNote: "", reason: "" });
+  const [redis, setRedis] = useState("");
+
+  const refresh = () => {
+    qc.invalidateQueries({ queryKey: trpc.admissions.leads.get.queryKey({ id }) });
+    qc.invalidateQueries({ queryKey: trpc.admissions.leads.inbox.queryKey() });
+  };
+  const onErr = (e: { message: string }) => { setNotice(null); setError(e.message); };
+  const ok = (text: string) => { setError(null); setNotice(text); refresh(); };
+  const addAct = useMutation(trpc.admissions.leads.addActivity.mutationOptions({ onSuccess: () => { setAct((a) => ({ ...a, content: "", durationMin: "", subject: "" })); ok("Đã ghi hoạt động"); }, onError: onErr }));
+  const assign = useMutation(trpc.admissions.leads.assign.mutationOptions({ onSuccess: () => ok("Đã gán lead"), onError: onErr }));
+  const done = useMutation(trpc.admissions.leads.completeTask.mutationOptions({ onSuccess: refresh, onError: onErr }));
+  const transfer = useMutation(trpc.admissions.leads.transfer.mutationOptions({
+    onSuccess: (r) => { setPanel(null); setXfer({ toCenterId: "", toUserId: "", handoverNote: "", reason: "" }); ok(r.centerChanged ? (r.toUserId ? "Đã chuyển lead sang cơ sở khác và bàn giao cho sale nhận." : "Đã chuyển lead sang cơ sở khác — chưa có sale nhận, lead vào pool của cơ sở.") : "Đã bàn giao lead."); },
+    onError: onErr,
+  }));
+  const redistribute = useMutation(trpc.admissions.leads.redistribute.mutationOptions({
+    onSuccess: (r) => { setPanel(null); setRedis(""); ok(`Đã chia lại lead theo cấu hình cơ sở${r.assigneeName ? ` — giao cho ${r.assigneeName}` : ""}`); },
+    onError: onErr,
+  }));
 
   if (q.isLoading) return <div className="card p-6 text-sm text-ink-400">Đang tải…</div>;
   if (q.error || !q.data) return <div className="card p-6 text-sm text-danger">{q.error?.message ?? "Không tìm thấy"}</div>;
   const l = q.data;
-  const events = leadEventsFor(l.status);
-  const busy = act.isPending || tr.isPending || assign.isPending || done.isPending || convert.isPending || addChild.isPending || rmChild.isPending || transfer.isPending;
+  const busy = addAct.isPending || assign.isPending || done.isPending || transfer.isPending || redistribute.isPending;
+  const isOpen = (OPEN_LEAD_STATUSES as readonly LeadStatus[]).includes(l.status);
   const openChildren = l.children.filter((c) => !c.convertedStudentId);
+  const canConvert = l.perms.convert && l.status !== "lost" && (l.status !== "enrolled" || openChildren.length > 0);
+  const pay = l.payment;
+  const headerAssignees = [...new Map(assignees.map((a) => [a.id, a] as const)).values()];
+  const targetCenter = xfer.toCenterId || l.centerId;
+  const receivers = [...new Map(assignees.filter((a) => a.centerId === null || a.centerId === targetCenter).map((a) => [a.id, a] as const)).values()];
+  const phoneFull = !/x/i.test(l.phone);
 
-  const doEvent = (event: LeadEvent) => {
-    if (event === "schedule_trial" && !trialAt) return setError("Chọn thời gian học thử trước");
-    if (event === "lose" && !lostReason) return setError("Nhập lý do mất lead");
-    if (event === "enroll") return setError("Dùng khung 'Ghi danh' bên dưới để tạo học viên + đăng ký lớp");
-    tr.mutate({ leadId: id, event, trialAt: event === "schedule_trial" ? new Date(trialAt).toISOString() : undefined, lostReason: event === "lose" ? lostReason : undefined });
+  const submitActivity = () => {
+    const meta = act.type === "call" ? { caller: act.caller.trim() || null, durationMin: act.durationMin ? Number(act.durationMin) : null }
+      : act.type === "message" ? { platform: act.platform }
+      : act.type === "email" ? { to: act.to.trim() || null, subject: act.subject.trim() || null }
+      : null;
+    addAct.mutate({ leadId: id, type: act.type, content: act.content.trim(), meta });
   };
 
   return (
     <div className="space-y-4">
-      <Link href="/leads" className="text-sm text-ink-600">← Hộp thư lead</Link>
+      <Link href="/leads" className="text-sm text-ink-600">← Danh sách lead</Link>
 
-      <header className="card p-5 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-bold">{l.parentName} <span className="font-mono text-sm text-ink-600 ml-2">{l.phone}</span></h1>
-          <div className="text-sm text-ink-600">{l.childName ?? "Chưa có tên con"}{l.childGrade ? ` · lớp ${l.childGrade}` : ""}{l.school ? ` · ${l.school}` : ""}</div>
-          <div className="text-xs text-ink-400 mt-1">Nguồn: {l.source ?? "—"}{l.utmCampaign ? ` · ${l.utmCampaign}` : ""} · {l.course?.code ?? "chưa rõ khoá"} · {l.center?.code ?? "chưa rõ cơ sở"} · tạo {fmtDateTime(l.createdAt)}</div>
+      <header className="card flex flex-wrap items-start justify-between gap-3 p-5">
+        <div className="space-y-0.5">
+          <h1 className="text-xl font-bold">
+            {l.parentName}{" "}
+            {phoneFull ? <a href={`tel:${l.phone}`} className="ml-2 font-mono text-sm text-ink-600 hover:underline">{l.phone}</a> : <span className="ml-2 font-mono text-sm text-ink-600">{l.phone}</span>}
+          </h1>
+          <div className="text-sm text-ink-600">{l.childName ?? "Chưa có tên con"}{l.childGrade ? ` · lớp ${l.childGrade}` : ""}{l.school ? ` · ${l.school}` : ""}{l.email ? ` · ${l.email}` : ""}</div>
+          <div className="text-xs text-ink-400">
+            Nguồn: {l.source ?? "—"}{l.utmCampaign ? ` · ${l.utmCampaign}` : ""} · {l.course?.code ?? "chưa rõ khoá"} · {l.center?.code ?? "chưa rõ cơ sở"} · sale: {l.assignee?.fullName ?? "chưa phân công"}
+          </div>
+          <div className="text-xs text-ink-400">
+            Nhận lead: {fmtDateTime(l.createdAt)}
+            {l.reentryCount > 0 && <span className="ml-1 chip bg-amber-100 text-amber-800">nhập lại {l.reentryCount} lần{l.lastReentryAt ? ` · gần nhất ${fmtDateTime(l.lastReentryAt)}` : ""}</span>}
+            {l.creator && <> · nhân viên nhập: {l.creator.fullName}</>}
+            {l.facebookUrl && <> · <a href={/^https?:\/\//i.test(l.facebookUrl) ? l.facebookUrl : `https://${l.facebookUrl}`} target="_blank" rel="noreferrer" className="text-brand-600 hover:underline">Facebook</a></>}
+          </div>
+          {l.dropReason && (l.status === "lost" || l.status === "nurturing") && <div className="text-xs text-red-700">Lý do rời phễu: {l.dropReason}{l.droppedAt ? ` (${fmtDay(l.droppedAt)})` : ""}</div>}
+          {l.notes && <div className="whitespace-pre-line pt-1 text-xs text-ink-600">{l.notes}</div>}
         </div>
         <div className="flex flex-col items-end gap-2">
           <div className="flex gap-2"><LeadChip status={l.status} /><SlaChip sla={l.sla} /></div>
-          <select className="input !w-auto text-xs" value={l.assignedToId ?? ""} onChange={(e) => assign.mutate({ leadId: id, assigneeId: e.target.value || null })} disabled={busy}>
-            <option value="">— Chưa phân —</option>
-            {assignees.map((a) => <option key={a.id} value={a.id}>{a.fullName}</option>)}
-          </select>
-          {l.status !== "enrolled" && <button className="text-xs text-ink-600 underline" onClick={() => setShowXfer((v) => !v)}>Chuyển lead sang cơ sở khác</button>}
+          <div className="flex flex-wrap justify-end gap-2">
+            {l.perms.update && <LeadStatusSelect leadId={id} status={l.status} onDone={() => ok("Đã đổi trạng thái")} />}
+            {l.perms.update && <Link href={`/leads/${id}/edit`} className="btn-ghost !py-1.5 text-xs">Sửa</Link>}
+          </div>
+          {l.perms.assign && (
+            <select className="input !w-auto text-xs" value={l.assignedToId ?? ""} onChange={(e) => assign.mutate({ leadId: id, assigneeId: e.target.value || null })} disabled={busy} title="Gán cho sale (không tiêu lượt)">
+              <option value="">— Gán cho… —</option>
+              {headerAssignees.map((a) => <option key={a.id} value={a.id}>{a.fullName}</option>)}
+            </select>
+          )}
+          <div className="flex flex-wrap justify-end gap-3 text-xs">
+            {l.perms.assign && l.status !== "enrolled" && <button type="button" className="text-ink-600 underline" onClick={() => setPanel(panel === "transfer" ? null : "transfer")}>Chuyển lead</button>}
+            {l.perms.assign && isOpen && !l.convertedAt && l.distributionMode !== "manual" && <button type="button" className="text-ink-600 underline" onClick={() => setPanel(panel === "redistribute" ? null : "redistribute")}>Chia lại lead</button>}
+            {l.perms.delete && l.status !== "enrolled" && !l.convertedAt && <LeadDeleteButton leadId={id} name={l.parentName} onDeleted={() => router.push("/leads")} />}
+          </div>
         </div>
       </header>
-      {showXfer && (
-        <form className="card p-4 grid sm:grid-cols-[1fr_2fr_auto] gap-2 border-amber-300" onSubmit={(e) => { e.preventDefault(); transfer.mutate({ leadId: id, toCenterId: xfer.toCenterId, reason: xfer.reason }); }}>
-          <select className="input" required value={xfer.toCenterId} onChange={(e) => setXfer({ ...xfer, toCenterId: e.target.value })}>
-            <option value="">— Cơ sở đích —</option>
-            {centers.filter((c) => c.id !== l.centerId).map((c) => <option key={c.id} value={c.id}>{c.code} — {c.name}</option>)}
-          </select>
-          <input className="input" required minLength={3} placeholder="Lý do chuyển (bắt buộc)" value={xfer.reason} onChange={(e) => setXfer({ ...xfer, reason: e.target.value })} />
-          <button className="btn-primary" disabled={busy}>Chuyển</button>
+
+      {panel === "transfer" && (
+        <form className="card grid gap-2 border-amber-300 p-4 sm:grid-cols-2" onSubmit={(e) => { e.preventDefault(); transfer.mutate({ leadId: id, toCenterId: xfer.toCenterId || null, toUserId: xfer.toUserId || null, handoverNote: xfer.handoverNote, reason: xfer.reason || null }); }}>
+          <h2 className="font-semibold sm:col-span-2">Chuyển lead</h2>
+          <label className="text-xs text-ink-600">Cơ sở đích
+            <select className="input mt-1" value={xfer.toCenterId} onChange={(e) => setXfer({ ...xfer, toCenterId: e.target.value, toUserId: "" })}>
+              <option value="">— Giữ nguyên ({l.center?.code ?? "chưa rõ"}) —</option>
+              {centers.filter((c) => c.id !== l.centerId).map((c) => <option key={c.id} value={c.id}>{c.code} — {c.name}</option>)}
+            </select>
+          </label>
+          <label className="text-xs text-ink-600">Sale nhận
+            <select className="input mt-1" value={xfer.toUserId} onChange={(e) => setXfer({ ...xfer, toUserId: e.target.value })}>
+              <option value="">{xfer.toCenterId ? "— Để hệ thống chia theo cơ sở đích —" : "— Chọn sale —"}</option>
+              {receivers.map((a) => <option key={a.id} value={a.id} disabled={a.id === l.assignedToId}>{a.fullName}{a.id === l.assignedToId ? " (đang phụ trách)" : ""}</option>)}
+            </select>
+          </label>
+          <label className="text-xs text-ink-600 sm:col-span-2">Note bàn giao — đã tư vấn gì cho KH *
+            <textarea className="input mt-1 min-h-20" required minLength={HANDOVER_NOTE_MIN} maxLength={2000} value={xfer.handoverNote} onChange={(e) => setXfer({ ...xfer, handoverNote: e.target.value })} placeholder="Tóm tắt nội dung đã tư vấn để sale mới không hỏi lại…" />
+          </label>
+          <label className="text-xs text-ink-600 sm:col-span-2">Lý do chuyển (tuỳ chọn)
+            <input className="input mt-1" maxLength={300} value={xfer.reason} onChange={(e) => setXfer({ ...xfer, reason: e.target.value })} />
+          </label>
+          <div className="flex justify-end gap-2 sm:col-span-2">
+            <button type="button" className="btn-ghost" onClick={() => setPanel(null)}>Huỷ</button>
+            <button className="btn-primary" disabled={busy || xfer.handoverNote.trim().length < HANDOVER_NOTE_MIN}>Chuyển lead</button>
+          </div>
+        </form>
+      )}
+      {panel === "redistribute" && (
+        <form className="card flex flex-wrap items-end gap-2 border-amber-300 p-4" onSubmit={(e) => { e.preventDefault(); redistribute.mutate({ leadId: id, reason: redis }); }}>
+          <label className="min-w-64 flex-1 text-xs text-ink-600">Chia lại theo cấu hình cơ sở ({DISTRIBUTION_MODE_VI[l.distributionMode]}) — bỏ qua sale đang giữ. Lý do *
+            <input className="input mt-1" required minLength={3} maxLength={300} value={redis} onChange={(e) => setRedis(e.target.value)} placeholder="VD: sale nghỉ phép dài ngày" />
+          </label>
+          <button type="button" className="btn-ghost" onClick={() => setPanel(null)}>Huỷ</button>
+          <button className="btn-primary" disabled={busy || redis.trim().length < 3}>Chia lại lead</button>
         </form>
       )}
 
-      {error && <div className="rounded-xl bg-red-50 border border-red-200 p-3 text-sm text-red-700">{error}</div>}
-      {notice && <div className="rounded-xl bg-green-50 border border-green-200 p-3 text-sm text-green-800 flex justify-between gap-3"><span>{notice}</span><button className="text-xs underline" onClick={() => setNotice(null)}>Đóng</button></div>}
+      {error && <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
+      {notice && <div className="flex justify-between gap-3 rounded-xl border border-green-200 bg-green-50 p-3 text-sm text-green-800"><span>{notice}</span><button className="text-xs underline" onClick={() => setNotice(null)}>Đóng</button></div>}
 
-      <div className="grid lg:grid-cols-[1fr_380px] gap-4">
+      <div className="grid gap-4 lg:grid-cols-[1fr_380px]">
         <div className="space-y-4">
-          {/* Việc cần làm */}
           {l.tasks.filter((t) => !t.doneAt).length > 0 && (
-            <section className="card p-4 space-y-2">
+            <section className="card space-y-2 p-4">
               <h2 className="font-bold">Việc cần làm</h2>
               {l.tasks.filter((t) => !t.doneAt).map((t) => {
                 const overdue = new Date(t.dueAt).getTime() < Date.now();
@@ -103,104 +167,110 @@ export function LeadDetail({ id, classes, assignees, centers }: { id: string; cl
             </section>
           )}
 
-          {/* Con của phụ huynh (LeadChild) */}
-          <section className="card p-4 space-y-2">
-            <div className="flex items-center justify-between"><h2 className="font-bold">Con của phụ huynh <span className="text-xs font-normal text-ink-400">({l.children.length})</span></h2><button className="btn-ghost text-xs" onClick={() => setShowChild((v) => !v)}>+ Thêm con</button></div>
-            {l.children.length === 0 && <p className="text-xs text-ink-400">Chưa có thông tin con. Thêm để chốt theo từng con.</p>}
-            <ul className="divide-y divide-black/5">
-              {l.children.map((c) => (
-                <li key={c.id} className="py-2 flex items-center justify-between gap-3 text-sm">
-                  <div><span className="font-medium">{c.fullName}</span><span className="text-ink-400 text-xs">{c.grade ? ` · lớp ${c.grade}` : ""}{c.school ? ` · ${c.school}` : ""}{c.courseCode ? ` · ${c.courseCode}` : ""}</span></div>
-                  {c.convertedStudentId ? <span className="chip bg-green-100 text-green-800">Đã chốt</span> : <button className="text-xs text-ink-400 hover:text-red-700" disabled={busy} onClick={() => rmChild.mutate({ leadId: id, childId: c.id })}>Xoá</button>}
-                </li>
-              ))}
-            </ul>
-            {showChild && (
-              <form className="grid sm:grid-cols-[1fr_90px_1fr_auto] gap-2 pt-2" onSubmit={(e) => { e.preventDefault(); addChild.mutate({ leadId: id, fullName: child.fullName, grade: child.grade ? Number(child.grade) : null, school: child.school || null }); }}>
-                <input className="input" placeholder="Tên con *" required value={child.fullName} onChange={(e) => setChild({ ...child, fullName: e.target.value })} />
-                <input className="input" type="number" min={1} max={12} placeholder="Lớp" value={child.grade} onChange={(e) => setChild({ ...child, grade: e.target.value })} />
-                <input className="input" placeholder="Trường" value={child.school} onChange={(e) => setChild({ ...child, school: e.target.value })} />
-                <button className="btn-primary" disabled={busy}>Lưu</button>
-              </form>
+          {/* Thanh toán — điều kiện chốt */}
+          <section className="card space-y-3 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="font-bold">Thanh toán</h2>
+              {l.perms.createOrder && l.status !== "lost" && <Link href={`/orders/new?leadId=${id}`} className="text-sm font-semibold text-brand-600 hover:underline">+ Tạo đơn hàng cho lead này</Link>}
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-sm">
+              <div className="rounded-xl bg-black/[0.03] p-3"><div className="text-xs text-ink-400">Đã nộp</div><div className="text-lg font-bold tabular-nums text-green-700">{vnd(pay.paid)}</div>{pay.recorded > 0 && <div className="text-[11px] text-amber-700">{vnd(pay.recorded)} chờ kế toán</div>}</div>
+              <div className="rounded-xl bg-black/[0.03] p-3"><div className="text-xs text-ink-400">Tổng phải thu</div><div className="text-lg font-bold tabular-nums">{vnd(pay.total)}</div></div>
+              <div className="rounded-xl bg-black/[0.03] p-3"><div className="text-xs text-ink-400">Còn thiếu</div><div className={`text-lg font-bold tabular-nums ${pay.outstanding ? "text-red-700" : ""}`}>{vnd(pay.outstanding)}</div></div>
+            </div>
+            {pay.orders.length === 0 ? <p className="text-sm text-ink-400">Chưa có đơn hàng</p> : (
+              <ul className="divide-y divide-black/5 text-sm">
+                {pay.orders.map((o) => (
+                  <li key={o.id} className="flex flex-wrap items-center justify-between gap-2 py-1.5">
+                    <Link href={`/orders/${o.id}`} className="font-mono font-semibold text-brand-600">{o.code}</Link>
+                    <span className="text-xs text-ink-600">{vnd(o.total)} · đã ghi nhận {vnd(o.recorded)} · KT xác nhận {vnd(o.confirmed)}</span>
+                    <OrderChip status={o.status} />
+                  </li>
+                ))}
+              </ul>
+            )}
+            {canConvert && (
+              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-black/5 pt-3">
+                {pay.gate ? (
+                  <>
+                    <div className="text-sm font-medium text-amber-800">⚠ {pay.gate}</div>
+                    <div className="flex items-center gap-3">
+                      <Link href={`/leads/${id}/convert?hocbong=1`} className="text-xs text-ink-600 underline" title="Chỉ khi mọi học viên được học bổng toàn phần (đơn 0đ)">Chốt học bổng toàn phần</Link>
+                      <button type="button" className="btn-primary" disabled title={pay.gate}>Chuyển đổi</button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="text-sm text-green-800">Đủ điều kiện chốt{openChildren.length ? ` · ${openChildren.length} con chưa chốt` : ""}.</div>
+                    <Link href={`/leads/${id}/convert`} className="btn-primary">Chuyển đổi</Link>
+                  </>
+                )}
+              </div>
             )}
           </section>
 
-          {/* Ghi tương tác */}
-          <section className="card p-4 space-y-2">
-            <h2 className="font-bold">Ghi tương tác <span className="text-xs font-normal text-ink-400">(reset SLA)</span></h2>
-            <div className="flex gap-2">
-              {(["call", "message", "note"] as const).map((t) => <button key={t} type="button" className={`chip cursor-pointer ${noteType === t ? "bg-brand-500 text-white" : "bg-black/5"}`} onClick={() => setNoteType(t)}>{t === "call" ? "Gọi" : t === "message" ? "Nhắn" : "Ghi chú"}</button>)}
-            </div>
-            <textarea className="input min-h-20" placeholder="PH nói gì, hẹn gì, cần gì…" value={note} onChange={(e) => setNote(e.target.value)} />
-            <button className="btn-primary" disabled={busy || note.trim().length === 0} onClick={() => act.mutate({ leadId: id, type: noteType, content: note.trim() })}>Lưu tương tác</button>
-          </section>
+          <LeadChildrenBlock leadId={id} legacyChildName={l.childName} legacyGrade={l.childGrade} items={l.children} courses={courses} canEdit={l.perms.update && l.status !== "lost"} onChanged={refresh} />
+          {isOpen && <p className="px-1 text-xs text-ink-600">Muốn xếp bé vào một buổi học cụ thể (có kiểm tra chỗ trống, báo GV)? <Link href={`/lop-trial?lead=${id}`} className="font-semibold text-brand-600 hover:underline">Xếp vào Lớp Trial →</Link></p>}
 
-          {/* Chuyển trạng thái */}
-          {events.length > 0 && (
-            <section className="card p-4 space-y-3">
-              <h2 className="font-bold">Chuyển trạng thái</h2>
+          {/* Ghi nhanh hoạt động */}
+          {l.perms.update && (
+            <section className="card space-y-2 p-4">
+              <h2 className="font-bold">Ghi nhanh hoạt động <span className="text-xs font-normal text-ink-400">(reset SLA)</span></h2>
               <div className="flex flex-wrap gap-2">
-                {events.map((e) => <button key={e} className={e === "lose" ? "btn-ghost text-red-700" : "btn-ghost"} disabled={busy} onClick={() => doEvent(e)}>{EVENT_VI[e] ?? e}</button>)}
+                {(["call", "message", "note", "email"] as const).map((t) => (
+                  <button key={t} type="button" className={`chip cursor-pointer ${act.type === t ? "bg-brand-500 text-white" : "bg-black/5"}`} onClick={() => setAct({ ...act, type: t })}>{ACTIVITY_VI[t]!.label}</button>
+                ))}
               </div>
-              {!["enrolled", "lost"].includes(l.status) && <p className="text-xs text-ink-600">Muốn xếp bé vào một buổi học cụ thể (có kiểm tra chỗ trống, báo GV)? <Link href={`/lop-trial?lead=${id}`} className="font-semibold text-brand-600 hover:underline">Xếp vào Lớp Trial →</Link></p>}
-              {events.includes("schedule_trial") && <div><label className="label">Thời gian học thử (cho "Hẹn học thử")</label><input type="datetime-local" className="input max-w-xs" value={trialAt} onChange={(e) => setTrialAt(e.target.value)} /></div>}
-              {events.includes("lose") && <div><label className="label">Lý do mất (cho "Mất")</label><input className="input max-w-xs" value={lostReason} onChange={(e) => setLostReason(e.target.value)} placeholder="Học phí / xa / chọn nơi khác…" /></div>}
+              {act.type === "call" && (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <input className="input" placeholder="Người gọi" value={act.caller} onChange={(e) => setAct({ ...act, caller: e.target.value })} maxLength={120} />
+                  <input className="input" type="number" min={0} max={600} placeholder="Thời lượng (phút)" value={act.durationMin} onChange={(e) => setAct({ ...act, durationMin: e.target.value })} />
+                </div>
+              )}
+              {act.type === "message" && (
+                <select className="input max-w-xs" value={act.platform} onChange={(e) => setAct({ ...act, platform: e.target.value as "Zalo" | "SMS" | "Messenger" })}>
+                  {(["Zalo", "SMS", "Messenger"] as const).map((p) => <option key={p} value={p}>{p}</option>)}
+                </select>
+              )}
+              {act.type === "email" && (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <input className="input" type="email" placeholder="Người nhận (email)" value={act.to} onChange={(e) => setAct({ ...act, to: e.target.value })} />
+                  <input className="input" placeholder="Tiêu đề" value={act.subject} onChange={(e) => setAct({ ...act, subject: e.target.value })} maxLength={200} />
+                </div>
+              )}
+              <textarea
+                className="input min-h-20"
+                placeholder={act.type === "call" ? "Nội dung trao đổi…" : act.type === "message" ? "Nội dung tin nhắn…" : act.type === "email" ? "Nội dung email…" : "Ghi chú…"}
+                value={act.content}
+                maxLength={2000}
+                onChange={(e) => setAct({ ...act, content: e.target.value })}
+              />
+              <button className="btn-primary" disabled={busy || act.content.trim().length === 0} onClick={submitActivity}>Ghi hoạt động</button>
             </section>
           )}
 
-          {/* Ghi danh */}
-          {l.status !== "enrolled" && l.status !== "lost" && (
-            <section className="card p-4 space-y-3 border-brand-500/30">
-              <h2 className="font-bold">Ghi danh (chốt)</h2>
-              <p className="text-xs text-ink-600">Tạo phụ huynh (ghép theo SĐT nếu đã có), học viên và đăng ký lớp trong một bước. Lead chuyển sang "Đã đăng ký".</p>
-              <div className="grid sm:grid-cols-3 gap-2">
-                {openChildren.length > 0 && (
-                  <select className="input sm:col-span-3" value={conv.childId} onChange={(e) => setConv({ ...conv, childId: e.target.value })}>
-                    <option value="">— Chọn con để chốt —</option>
-                    {openChildren.map((c) => <option key={c.id} value={c.id}>{c.fullName}{c.grade ? ` · lớp ${c.grade}` : ""}</option>)}
-                  </select>
-                )}
-                <select className="input sm:col-span-2" value={conv.classId} onChange={(e) => setConv({ ...conv, classId: e.target.value })}>
-                  {classes.map((c) => <option key={c.id} value={c.id}>{c.code} · {c.name} ({c.enrolled}/{c.capacity})</option>)}
-                </select>
-                <input type="number" className="input" min={1} value={conv.packageSessions} onChange={(e) => setConv({ ...conv, packageSessions: Number(e.target.value) })} title="Số buổi gói" />
-                <input type="number" className="input" min={0} step={100000} placeholder="Đã đóng (đ)" value={conv.paidAmount} onChange={(e) => setConv({ ...conv, paidAmount: e.target.value })} />
-                <input type="date" className="input" value={conv.paidAt} onChange={(e) => setConv({ ...conv, paidAt: e.target.value })} title="Ngày đóng" />
-                <label className="text-sm flex items-center gap-2 px-1"><input type="checkbox" checked={conv.mediaConsent} onChange={(e) => setConv({ ...conv, mediaConsent: e.target.checked })} /> PH đồng ý đăng ảnh con</label>
-              </div>
-              <div className="flex items-center gap-3">
-                <label className="text-sm flex items-center gap-1"><input type="radio" checked={conv.status === "active"} onChange={() => setConv({ ...conv, status: "active" })} /> Chính thức</label>
-                <label className="text-sm flex items-center gap-1"><input type="radio" checked={conv.status === "trial"} onChange={() => setConv({ ...conv, status: "trial" })} /> Học thử trong lớp</label>
-                <button className="btn-primary ml-auto" disabled={busy || !conv.classId || (openChildren.length > 0 && !conv.childId)} onClick={() => convert.mutate({ leadId: id, classId: conv.classId, packageSessions: conv.packageSessions, status: conv.status, childId: conv.childId || null, mediaConsent: conv.mediaConsent, paidAmount: conv.paidAmount ? Number(conv.paidAmount) : null, paidAt: conv.paidAt || null, waiverReason: conv.waiverReason.trim() || null })}>{convert.isPending ? "Đang ghi danh…" : "Ghi danh"}</button>
-              </div>
-              {(error?.includes("tiên quyết") || conv.waiverReason) && (
-                <input className="input" maxLength={300} placeholder="Miễn điều kiện tiên quyết — lý do (quản lý cơ sở), VD: đã test đầu vào" value={conv.waiverReason} onChange={(e) => setConv({ ...conv, waiverReason: e.target.value })} />
-              )}
-              <p className="text-[11px] text-ink-400">Sau chốt: tài khoản PH ở trạng thái "chờ kích hoạt" — PH tự kích hoạt bằng OTP Zalo. Học phí đối soát ở module Tài chính.</p>
-            </section>
-          )}
-          {l.status === "enrolled" && l.convertedStudentId && (
-            <section className="card p-4 bg-green-50 border-green-200 text-sm">Đã ghi danh · <Link className="underline font-medium" href={`/classes`}>xem lớp</Link> · mã HV được tạo tự động.</section>
+          {l.status === "enrolled" && l.convertedStudentId && openChildren.length === 0 && (
+            <section className="card border-green-200 bg-green-50 p-4 text-sm">Đã đăng ký · <Link className="font-medium underline" href={`/students/${l.convertedStudentId}`}>xem học viên</Link>{l.convertedAt ? ` · chốt ${fmtDay(l.convertedAt)}` : ""}</section>
           )}
         </div>
 
-        {/* Timeline */}
         <aside className="card p-4">
-          <h2 className="font-bold mb-2">Timeline</h2>
+          <h2 className="mb-2 font-bold">Lịch sử tương tác <span className="text-xs font-normal text-ink-400">({l.activities.length})</span></h2>
           <ol className="space-y-3 text-sm">
             {l.activities.map((a) => {
-              const m = (a.meta ?? {}) as Record<string, string | null>;
+              const m = (a.meta ?? {}) as Record<string, string | number | boolean | null>;
+              const t = ACTIVITY_VI[a.type] ?? { label: a.type, chip: "bg-black/5" };
               return (
                 <li key={a.id} className="border-l-2 border-black/10 pl-3">
                   <div className="text-[11px] text-ink-400">{fmtDateTime(a.createdAt)} · {a.actorName ?? "Hệ thống"}</div>
                   <div>
-                    {a.type === "status_change" && <span className="font-medium">{LEAD_STATUS_VI[m.from as LeadStatus] ?? m.from ?? "?"} → {LEAD_STATUS_VI[m.to as LeadStatus] ?? m.to ?? "?"}</span>}
-                    {a.type === "trial_booked" && <span className="font-medium">Hẹn học thử {m.trialAt ? fmtDateTime(m.trialAt) : ""}</span>}
-                    {a.type === "assignment" && <span className="font-medium">Phân bổ</span>}
-                    {a.type === "call" && <span className="chip bg-sky-100 text-sky-800 mr-1">Gọi</span>}
-                    {a.type === "message" && <span className="chip bg-violet-100 text-violet-800 mr-1">Nhắn</span>}
-                    {a.type === "task_done" && <span className="chip bg-green-100 text-green-800 mr-1">Xong việc</span>}
-                    {a.content && <span className="text-ink-600"> {a.content}</span>}
+                    <span className={`chip mr-1 ${t.chip}`}>{t.label}</span>
+                    {a.type === "status_change" && m.from && m.to && <span className="font-medium">{LEAD_STATUS_VI[m.from as LeadStatus] ?? m.from} → {LEAD_STATUS_VI[m.to as LeadStatus] ?? m.to} </span>}
+                    {a.type === "trial_booked" && m.trialAt && <span className="font-medium">{fmtDateTime(String(m.trialAt))} </span>}
+                    {a.type === "call" && (m.caller || m.durationMin) ? <span className="text-xs text-ink-400">{[m.caller, m.durationMin ? `${m.durationMin} phút` : null].filter(Boolean).join(" · ")} </span> : null}
+                    {a.type === "message" && m.platform ? <span className="text-xs text-ink-400">{m.platform} </span> : null}
+                    {a.type === "email" && (m.to || m.subject) ? <span className="text-xs text-ink-400">{[m.to, m.subject].filter(Boolean).join(" · ")} </span> : null}
+                    {a.content && <span className="whitespace-pre-line text-ink-600">{a.content}</span>}
                   </div>
                 </li>
               );

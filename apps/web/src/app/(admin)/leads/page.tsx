@@ -5,6 +5,7 @@ import { Pager, fmtDate } from "@/components/admin-ui";
 import { CsvButton } from "@/components/csv-button";
 import { LeadChip, SlaChip, fmtDateTime } from "@/components/lead-ui";
 import { LeadKanban } from "@/components/lead-kanban";
+import { LeadDeleteButton } from "@/components/lead-status";
 import { Empty } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
@@ -43,6 +44,8 @@ export default async function LeadsInbox({ searchParams }: { searchParams: Promi
             <Link href={qs("")} className={`rounded-lg px-3 py-1.5 ${!kanban ? "bg-white shadow-sm font-semibold" : "text-ink-600"}`}>Bảng</Link>
             <Link href={qs("kanban")} className={`rounded-lg px-3 py-1.5 ${kanban ? "bg-white shadow-sm font-semibold" : "text-ink-600"}`}>Kanban</Link>
           </div>
+          <Link href="/leads/import" className="btn-ghost">Nhập từ file</Link>
+          <Link href="/leads/import/registered" className="btn-ghost">Nhập khách đã đăng ký</Link>
           <Link href="/leads/bulk-convert" className="btn-ghost">Chốt hàng loạt</Link>
           <Link href="/nhap-khach-hang" className="btn-primary">+ Nhập khách hàng</Link>
         </div>
@@ -106,14 +109,17 @@ export default async function LeadsInbox({ searchParams }: { searchParams: Promi
       </form>
 
       {kanban ? (
-        <LeadKanban items={items} />
+        <LeadKanban items={items.map((l) => ({
+          id: l.id, status: l.status, parentName: l.parentName, phone: l.phone, childName: l.childName, childGrade: l.childGrade, courseCode: l.courseCode, source: l.source,
+          assignedToId: l.assignedToId, assigneeName: l.assigneeName, createdAt: l.createdAt.toISOString(), canAssign: l.canAssign, sla: l.sla,
+        }))} />
       ) : items.length === 0 ? (
         <Empty>{filtered ? "Không có lead khớp bộ lọc." : "Không có lead nào. Thêm lead hoặc đợi form website gửi về."}</Empty>
       ) : (
         <div className="card overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="text-left text-xs uppercase text-ink-400">
-              <tr><th className="p-3">SLA</th><th className="p-3">Phụ huynh / con</th><th className="p-3">SĐT</th><th className="p-3">Quan tâm</th><th className="p-3">Trạng thái</th><th className="p-3">Nguồn</th><th className="p-3">Phụ trách</th><th className="p-3">Nhận lúc</th><th className="p-3">Chạm cuối</th><th className="p-3">Việc</th></tr>
+              <tr><th className="p-3">SLA</th><th className="p-3">Phụ huynh / con</th><th className="p-3">SĐT</th><th className="p-3">Quan tâm</th><th className="p-3">Trạng thái</th><th className="p-3">Nguồn</th><th className="p-3">Phụ trách</th><th className="p-3">Nhận lead</th><th className="p-3">Chạm cuối</th><th className="p-3">Việc</th><th className="p-3"></th></tr>
             </thead>
             <tbody className="divide-y divide-black/5">
               {items.map((l) => (
@@ -125,9 +131,12 @@ export default async function LeadsInbox({ searchParams }: { searchParams: Promi
                   <td className="p-3"><LeadChip status={l.status} /></td>
                   <td className="p-3 text-xs">{l.source ?? "—"}</td>
                   <td className="p-3">{l.assigneeName ?? <span className="text-ink-400">Chưa phân</span>}</td>
-                  <td className="p-3 whitespace-nowrap text-xs">{fmtDateTime(l.createdAt)}</td>
+                  <td className="p-3 whitespace-nowrap text-xs" title={`Nhận lần đầu: ${fmtDateTime(l.createdAt)}${l.lastReentryAt ? ` · nhập lại gần nhất ${fmtDateTime(l.lastReentryAt)}` : ""}`}>
+                    {fmtDateTime(l.createdAt)}{l.reentryCount > 0 && <span className="ml-1 chip bg-amber-100 text-amber-800">· nhập lại {l.reentryCount} lần</span>}
+                  </td>
                   <td className="p-3 whitespace-nowrap text-xs">{fmtDateTime(l.lastTouchAt)}</td>
                   <td className="p-3">{l.openTasks > 0 && <span className="chip bg-brand-100 text-brand-700">{l.openTasks}</span>}</td>
+                  <td className="p-3">{l.canDelete && <LeadDeleteButton leadId={l.id} name={l.parentName} />}</td>
                 </tr>
               ))}
             </tbody>

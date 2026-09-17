@@ -5,7 +5,7 @@ import {
   attendance, userRoles, userNotifications, users, trialBookings, studentGuardians, parentNotifications,
 } from "@satarobo/db";
 import {
-  generateSessions, expectedEndDate, findConflicts, buildClassCode, authorize, addDays,
+  generateSessions, expectedEndDate, findConflicts, buildClassCode, nextClassSeq, authorize, addDays,
   classTransition, classEventsFor, classReadiness, canFinishClass, CLASS_APPROVAL_EVENTS, CLASS_REASON_EVENTS, CLASS_EVENT_VI,
   planScheduleChange, checkScheduleDrift, validateWeeklySlots, nextExtraSequence, sessionLabel, requireReason,
   type ScheduleRule, type Weekday, type ClassEvent, type WeeklySlot, type ExistingSession, type SessionKind, type ClassStatus,
@@ -171,8 +171,10 @@ export async function createClass(ctx: ProtectedContext, input: CreateClassInput
   try {
     return await ctx.db.transaction(async (tx) => {
       await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${"classcode:" + input.centerId + ":" + input.courseId}))`);
-      const [cnt] = await tx.select({ n: sql<number>`count(*)::int` }).from(classes).where(and(eq(classes.centerId, input.centerId), eq(classes.courseId, input.courseId)));
-      const code = buildClassCode(center.code, course.code, year, (cnt?.n ?? 0) + 1);
+      // Số thứ tự = max theo (cơ sở, khoá, năm) trong các mã đã có — kể cả mã nhập từ hệ cũ; không đếm số lớp
+      const prefix = buildClassCode(center.code, course.code, year, 0).slice(0, -3);
+      const taken = await tx.select({ code: classes.code }).from(classes).where(sql`upper(${classes.code}) like ${prefix + "%"}`);
+      const code = buildClassCode(center.code, course.code, year, nextClassSeq(taken.map((c) => c.code), center.code, course.code, year));
       const status: ClassStatus = mode === "draft" ? "draft" : "pending_approval";
       const [cls] = await tx.insert(classes).values({
         code, name: input.name, courseId: input.courseId, curriculumId: input.curriculumId ?? null, centerId: input.centerId, homeRoomId: input.homeRoomId ?? null,
