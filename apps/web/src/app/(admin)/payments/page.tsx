@@ -5,7 +5,8 @@ import { NoAccess, PageHeader, Pager, StatTabs } from "@/components/admin-ui";
 import { Empty } from "@/components/ui";
 import { PaymentChip, vnd, fmtD } from "@/components/finance-ui";
 import { CsvButton } from "@/components/csv-button";
-import { DecidePayment } from "../orders/[id]/actions";
+import { DecidePayment, EditPendingPayment, AdjustConfirmedPayment } from "../orders/[id]/actions";
+import { BackfillBatch } from "./backfill";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Thanh toán" };
@@ -17,15 +18,19 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
   const { caller, ctx } = await getServerCaller();
   if (!ctx.actor || !hasPermission(ctx.actor as Actor, "finance:read")) return <NoAccess title="Thanh toán" perm="finance:read" />;
   const status = PAYMENT_STATUSES.includes(sp.status as PaymentStatus) ? (sp.status as PaymentStatus) : undefined;
-  const [ref, d] = await Promise.all([
+  const canConfirm = hasPermission(ctx.actor as Actor, "finance:confirm");
+  const [ref, d, backfill] = await Promise.all([
     caller.academics.classes.referenceData(),
     caller.finance.payments({ status, centerId: sp.center || undefined, from: sp.from || undefined, to: sp.to || undefined, q: sp.q || undefined, page: Number(sp.page) || 1 }),
+    canConfirm ? caller.finance.backfillPreview({}).catch(() => null) : Promise.resolve(null),
   ]);
+  const today = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10);
   return (
     <div className="space-y-4">
       <PageHeader title="Thanh toán" desc="Luồng hai vai: tư vấn / lễ tân ghi nhận khoản thu → kế toán xác nhận, từ chối hoặc điều chỉnh (người ghi nhận không tự xác nhận). Chỉ khoản đã xác nhận mới có phiếu thu và được trừ công nợ."
         actions={hasPermission(ctx.actor as Actor, "finance:create") ? <><Link href="/cong-no" className="btn-ghost">Công nợ</Link><Link href="/orders?status=pending_payment" className="btn-primary" title="Chọn đơn cần thu rồi bấm Ghi nhận khoản">+ Ghi nhận khoản</Link></> : undefined}
       />
+      {backfill && backfill.totals.pending > 0 && <BackfillBatch data={backfill} />}
       <form className="flex flex-wrap items-end gap-2">
         <input name="q" defaultValue={sp.q} placeholder="Mã đơn / phiếu thu / tên…" className="input max-w-xs" />
         <select name="center" defaultValue={sp.center ?? ""} className="input max-w-[160px]">
@@ -55,8 +60,14 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
                   <td className="p-3 text-right font-semibold tabular-nums">{vnd(p.amount)}{p.amount !== p.recordedAmount && <div className="text-[11px] font-normal text-ink-400">ghi nhận {vnd(p.recordedAmount)}</div>}</td>
                   <td className="p-3 text-xs">{p.methodName ?? "—"}<div>{fmtD(p.paidAt)}</div></td>
                   <td className="p-3 text-xs">{p.recorderName ?? "?"}<div className="text-ink-400">{p.deciderName ?? ""}</div>{p.decisionReason && <div className="text-amber-800">{p.decisionReason}</div>}</td>
-                  <td className="p-3"><PaymentChip status={p.status} /></td>
-                  <td className="p-3">{p.canDecide ? <DecidePayment paymentId={p.id} amount={p.amount} /> : p.status === "recorded" ? <span className="text-xs text-ink-400">chờ kế toán khác</span> : null}</td>
+                  <td className="p-3"><PaymentChip status={p.status} />{p.needsTarget && p.status === "recorded" && <div className="mt-1 text-[11px] text-amber-800" title="Chốt lead thành học viên (màn Chuyển đổi) là nút xác nhận sẽ hiện ra">chưa gắn ghi danh</div>}{p.evidenceUrl && <div><a href={p.evidenceUrl} target="_blank" rel="noreferrer" className="text-[11px] text-brand-600 hover:underline">Chứng từ</a></div>}</td>
+                  <td className="p-3">
+                    <div className="space-y-1">
+                      {p.canEdit && <EditPendingPayment paymentId={p.id} amount={p.amount} paidAt={p.paidAt} version={p.version} today={today} evidenceUrl={p.evidenceUrl} />}
+                      {p.canAdjust && <AdjustConfirmedPayment paymentId={p.id} amount={p.amount} version={p.version} />}
+                      {p.canDecide ? <DecidePayment paymentId={p.id} amount={p.amount} /> : p.status === "recorded" && !p.canEdit ? <span className="text-xs text-ink-400">chờ kế toán khác</span> : null}
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>

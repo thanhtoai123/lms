@@ -6,10 +6,10 @@ import {
 } from "@satarobo/db";
 import {
   authorize, hasRole, visibleCenterIds, addDays,
-  priceOrder, priceLine, priceLines, packagePrice, buildPlan, buildInstallmentPlan, validateInstallmentPlan, replanInstallments, orderBalance, deriveOrderStatus, canCancelOrder,
+  priceLines, packagePrice, buildPlan, validateInstallmentPlan, replanInstallments, orderBalance, deriveOrderStatus, canCancelOrder,
   allocateInstallments, agingBucket, agingBucketBy, agingBucketLabels, dueSoon, validatePaymentDecision, receiptNumber, orderCode, transferMemo, maskIdNumber,
   refundProposal, validateRefundRequest, refundTransition, vietQrImageUrl, requireReason, formatVnd, maskPhone, remainingSessions,
-  orderDisplayState, enrollmentDebtChip, formatUnitPrice, COACH_MULTIPLIER, MAX_INSTALLMENTS, DEBT_CHIPS,
+  orderDisplayState, enrollmentDebtChip, COACH_MULTIPLIER, MAX_INSTALLMENTS, DEBT_CHIPS,
   AGING_BUCKETS, FinanceRuleError,
   type OrderType, type OrderStatus, type PaymentStatus, type PaymentDecision, type RefundStatus, type PaymentMethodKind, type AgingBucket, type Discount, type Permission,
   type ClassFormat, type InstallmentKind, type LineDiscount, type DebtChip, type DebtAgeBucket,
@@ -59,6 +59,21 @@ export async function notify(db: Db, userIds: (string | null | undefined)[], tit
 export async function accountantsOf(db: Db, centerId: string) {
   return (await db.select({ u: userRoles.userId }).from(userRoles).innerJoin(users, eq(users.id, userRoles.userId))
     .where(and(eq(userRoles.role, "CENTER_ACCOUNTANT"), eq(userRoles.centerId, centerId), eq(users.isActive, true)))).map((r) => r.u);
+}
+
+/** Danh sách sale để gán phụ trách (nhập giao dịch cũ, chốt hàng loạt) */
+export async function saleOptions(ctx: ProtectedContext) {
+  requirePermission(ctx, "finance:read", { centerId: null });
+  const v = visibleCenterIds(ctx.actor);
+  const rows = await ctx.db.selectDistinct({ id: users.id, fullName: users.fullName })
+    .from(userRoles).innerJoin(users, eq(users.id, userRoles.userId))
+    .where(and(
+      eq(users.isActive, true),
+      inArray(userRoles.role, ["CENTER_SALES_CSM", "HO_SALE", "CENTER_MANAGER", "SUPER_ADMIN"]),
+      v === null ? sql`true` : v.length ? or(isNull(userRoles.centerId), inArray(userRoles.centerId, v))! : isNull(userRoles.centerId),
+    ))
+    .orderBy(asc(users.fullName)).limit(300);
+  return rows;
 }
 
 export async function managersOf(db: Db, centerId: string) {
@@ -428,8 +443,9 @@ export async function createOrder(ctx: ProtectedContext, input: CreateOrderInput
   const busy = await openOrderLineFor(ctx.db, allEnrollmentIds);
   if (busy[0]) throw new TRPCError({ code: "CONFLICT", message: `Đăng ký này đã có dòng đơn đang mở ở ${busy[0].orderCode} — huỷ dòng cũ hoặc tạo đơn bổ sung loại "Khác"` });
   const legacyEnrollmentId = input.enrollmentId ?? (lineEnrollmentIds.length === 1 ? lineEnrollmentIds[0]! : null);
-  const studentId = input.studentId ?? (legacyEnrollmentId ? enrollRows.find((x) => x.id === legacyEnrollmentId)?.studentId ?? null : null)
-    ?? ([...new Set(input.items.map((i) => i.studentId).filter((x): x is string => !!x))].length === 1 ? input.items.find((i) => i.studentId)!.studentId! : null);
+  const lineStudentIds = [...new Set(input.items.map((i) => i.studentId).filter((x): x is string => !!x))];
+  const enrollStudentId = legacyEnrollmentId ? (enrollRows.find((x) => x.id === legacyEnrollmentId)?.studentId ?? null) : null;
+  const studentId = input.studentId ?? enrollStudentId ?? (lineStudentIds.length === 1 ? lineStudentIds[0]! : null);
   if (input.discount && input.discount.value > 0 && (input.internalNote ?? "").trim().length < 3) throw bad("Đơn có giảm giá cần ghi chú nội bộ (lý do / chương trình ưu đãi)");
 
   return ctx.db.transaction(async (txx) => {
@@ -465,7 +481,7 @@ export async function createOrder(ctx: ProtectedContext, input: CreateOrderInput
     if (total > 0 && !planErrs.length) {
       await tx.insert(orderInstallments).values(plan.map((p, i) => ({
         orderId: o!.id, seq: i + 1, amount: p.amount, dueDate: p.dueDate, kind: p.kind ?? "installment",
-        studentId: p.studentId ?? null, orderItemId: p.orderItemIndex != null ? itemRows[p.orderItemIndex]?.id ?? null : null, createdBy: ctx.user.id,
+        studentId: p.studentId ?? null, orderItemId: p.orderItemIndex != null ? (itemRows[p.orderItemIndex]?.id ?? null) : null, createdBy: ctx.user.id,
       })));
     }
     await tx.insert(orderEvents).values({ orderId: o!.id, event: "create", toStatus: o!.status, note: discountAmount ? `Giảm ${formatVnd(discountAmount)}` : null, actorId: ctx.user.id });
@@ -1493,12 +1509,15 @@ export async function refundGaps(ctx: ProtectedContext, input: { centerId?: stri
   }).from(enrollments).innerJoin(students, eq(students.id, enrollments.studentId)).innerJoin(classes, eq(classes.id, enrollments.classId))
     .innerJoin(centers, eq(centers.id, classes.centerId)).where(and(...conds)).orderBy(desc(enrollments.endedAt)).limit(500);
   const ids = rows.map((r) => r.enrollmentId);
-  if (!ids.length) return { items: [] as never[] };
-  const lines = await ctx.db.select({ enrollmentId: orderItems.enrollmentId, orderId: orders.id, orderCode: orders.code, net: orderItems.netAmount, packageSessions: orderItems.packageSessions, itemId: orderItems.id })
-    .from(orderItems).innerJoin(orders, eq(orders.id, orderItems.orderId))
-    .where(and(inArray(orderItems.enrollmentId, ids), inArray(orders.status, ["partially_paid", "paid"])));
-  const legacy = await ctx.db.select({ enrollmentId: orders.enrollmentId, orderId: orders.id, orderCode: orders.code, net: orders.total })
-    .from(orders).where(and(inArray(orders.enrollmentId, ids), inArray(orders.status, ["partially_paid", "paid"])));
+  const lines = ids.length
+    ? await ctx.db.select({ enrollmentId: orderItems.enrollmentId, orderId: orders.id, orderCode: orders.code, net: orderItems.netAmount, packageSessions: orderItems.packageSessions })
+        .from(orderItems).innerJoin(orders, eq(orders.id, orderItems.orderId))
+        .where(and(inArray(orderItems.enrollmentId, ids), inArray(orders.status, ["partially_paid", "paid"])))
+    : [];
+  const legacy = ids.length
+    ? await ctx.db.select({ enrollmentId: orders.enrollmentId, orderId: orders.id, orderCode: orders.code, net: orders.total, packageSessions: sql<number | null>`null::int` })
+        .from(orders).where(and(inArray(orders.enrollmentId, ids), inArray(orders.status, ["partially_paid", "paid"])))
+    : [];
   const orderIds = [...new Set([...lines.map((l) => l.orderId), ...legacy.map((l) => l.orderId)])];
   const paid = orderIds.length
     ? await ctx.db.select({ orderId: payments.orderId, n: sql<number>`coalesce(sum(${payments.amount}), 0)::bigint` }).from(payments)
@@ -1511,7 +1530,7 @@ export async function refundGaps(ctx: ProtectedContext, input: { centerId?: stri
     const rs = existing.filter((x) => x.orderId === l.orderId);
     if (rs.some((x) => x.status === "pending" || x.status === "approved")) return null;
     const already = rs.filter((x) => x.status !== "rejected").reduce((s, x) => s + x.amount, 0);
-    const pkg = ("packageSessions" in l ? l.packageSessions : null) ?? r.packageSessions;
+    const pkg = l.packageSessions ?? r.packageSessions;
     const p = refundProposal({
       paid: Number(paid.find((x) => x.orderId === l.orderId)?.n ?? 0), packageValue: l.net,
       packageSessions: pkg, consumedSessions: r.consumed, alreadyRefunded: already,

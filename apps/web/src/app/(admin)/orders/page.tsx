@@ -3,7 +3,7 @@ import { hasPermission, ORDER_STATUSES, ORDER_STATUS_VI, ORDER_TYPE_VI, type Act
 import { getServerCaller } from "@/lib/trpc/server";
 import { NoAccess, PageHeader, Pager, StatTabs } from "@/components/admin-ui";
 import { Empty } from "@/components/ui";
-import { OrderChip, vnd, fmtD } from "@/components/finance-ui";
+import { OrderChip, OrderDisplayChip, vnd, fmtD } from "@/components/finance-ui";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Đơn hàng" };
@@ -24,7 +24,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
     <div className="space-y-4">
       <PageHeader
         title="Đơn hàng"
-        desc="Đơn học phí / sản phẩm. Trạng thái tự cập nhật theo khoản thu đã được kế toán xác nhận; khoản chờ xác nhận không trừ công nợ."
+        desc="Đơn học phí / sản phẩm. Badge chính suy từ tiền đã thu (kể cả khoản kế toán chưa đối soát); công nợ phụ huynh vẫn chỉ trừ khoản đã xác nhận."
         actions={<>{canCreate && <Link href="/thieu-hoc-phi?kind=no_order" className="btn-ghost">HV chưa lập đơn</Link>}{canCreate && <Link href="/orders/new" className="btn-primary">+ Tạo đơn</Link>}</>}
       />
       <form className="flex flex-wrap items-end gap-2">
@@ -54,7 +54,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
                   <td className="p-3 text-right tabular-nums text-green-700">{vnd(o.confirmed)}{o.pending > 0 && <div className="text-[11px] text-amber-700">+{vnd(o.pending)} chờ</div>}</td>
                   <td className={`p-3 text-right tabular-nums ${o.outstanding ? "font-semibold text-red-700" : "text-ink-400"}`}>{vnd(o.outstanding)}</td>
                   <td className="p-3 text-xs">{o.methodName ?? "—"}</td>
-                  <td className="p-3"><OrderChip status={o.status} /></td>
+                  <td className="p-3"><OrderDisplayChip state={o.display} /><div className="mt-1"><OrderChip status={o.status} /></div></td>
                   <td className="p-3 text-xs">{fmtD(o.createdAt)}<div className="text-ink-400">{o.creatorName ?? ""}</div></td>
                 </tr>
               ))}

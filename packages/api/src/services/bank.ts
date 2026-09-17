@@ -5,8 +5,8 @@ import {
   centers, users, enrollments, classes, courses, students, studentGuardians, parents,
 } from "@satarobo/db";
 import {
-  decideBankMatch, extractOrderRef, digitsOnly, parseStatementCsv, parseLegacyCsv, parseLegacyTuitionTable, planAllocation, matchLegacyStudent, legacyLineStatus,
-  normalizeLegacyPhone, normalizeName, packagePrice, formatVnd, allocateInstallments,
+  decideBankMatch, extractOrderRef, digitsOnly, parseStatementCsv, parseLegacyCsv, planAllocation, matchLegacyStudent, legacyLineStatus,
+  normalizeLegacyPhone, packagePrice, formatVnd, allocateInstallments,
   type BankTx, type BankTxSource, type BankTxStatus, type LegacyRow, type LegacyTuitionRow, type LegacyLineStatus,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";

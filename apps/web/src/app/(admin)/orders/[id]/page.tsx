@@ -3,15 +3,17 @@ import { notFound } from "next/navigation";
 import { hasPermission, ORDER_TYPE_VI, type Actor } from "@satarobo/core";
 import { getServerCaller } from "@/lib/trpc/server";
 import { NoAccess, PageHeader } from "@/components/admin-ui";
-import { OrderChip, PaymentChip, RefundChip, vnd, fmtD } from "@/components/finance-ui";
-import { RecordPayment, DecidePayment, CancelOrder, NotesEditor, RevealCustomer } from "./actions";
+import { OrderChip, OrderDisplayChip, PaymentChip, RefundChip, FormatChip, vnd, fmtD } from "@/components/finance-ui";
+import { RecordPayment, DecidePayment, CancelOrder, NotesEditor, RevealCustomer, PlanEditor, ChildInstallment, CancelInstallment, EditPendingPayment, AdjustConfirmedPayment } from "./actions";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Chi tiết đơn" };
 
 const EVENT_VI: Record<string, string> = {
   create: "Tạo đơn", status: "Đổi trạng thái", cancel: "Huỷ đơn", payment_recorded: "Ghi nhận thu", payment_confirmed: "Kế toán xác nhận", payment_adjusted: "Kế toán điều chỉnh",
-  payment_rejected: "Kế toán từ chối", refund_requested: "Đề xuất hoàn", refund_approved: "Duyệt hoàn", refund_rejected: "Từ chối hoàn", refund_paid: "Đã chi hoàn",
+  payment_rejected: "Kế toán từ chối", payment_updated: "Sửa khoản đang chờ", payment_unlinked: "Gỡ gắn giao dịch",
+  plan_changed: "Sửa kế hoạch thanh toán", installment_added: "Thêm đợt cho con", installment_cancelled: "Huỷ đợt", fee_changed: "Sửa học phí hợp đồng",
+  refund_requested: "Đề xuất hoàn", refund_approved: "Duyệt hoàn", refund_rejected: "Từ chối hoàn", refund_paid: "Đã chi hoàn",
 };
 const LEDGER_VI: Record<string, string> = { charge: "Ghi nợ", payment: "Thu tiền", refund: "Chi hoàn", cancel: "Huỷ nợ", adjustment: "Điều chỉnh" };
 
@@ -30,7 +32,7 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
       <PageHeader
         title={`Đơn ${o.code}`}
         desc={`${ORDER_TYPE_VI[o.type]} · ${o.center?.code ?? ""} · tạo ${fmtD(o.createdAt)} bởi ${o.creatorName ?? "?"}`}
-        actions={<><OrderChip status={o.status} />{o.enrollment && o.status !== "cancelled" && <Link href={`/hoan-tien?enrollment=${o.enrollment.id}`} className="btn-ghost">Hoàn tiền</Link>}</>}
+        actions={<><OrderDisplayChip state={o.display} /><OrderChip status={o.status} />{o.enrollment && o.status !== "cancelled" && <Link href={`/hoan-tien?enrollment=${o.enrollment.id}`} className="btn-ghost">Hoàn tiền</Link>}</>}
       />
       {o.status === "cancelled" && o.cancelReason && <div className="rounded-xl bg-slate-100 p-3 text-sm">Đã huỷ: {o.cancelReason}</div>}
 
@@ -41,6 +43,10 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
         <div className="card p-4"><div className="text-xs text-ink-400">Còn thiếu</div><div className={`text-xl font-bold tabular-nums ${b.outstanding && open ? "text-red-700" : ""}`}>{vnd(open ? b.outstanding : 0)}</div></div>
         <div className="card p-4"><div className="text-xs text-ink-400">Đã hoàn</div><div className="text-xl font-bold tabular-nums">{vnd(b.refunded)}</div></div>
       </div>
+      <p className="text-xs text-ink-400">
+        Đã thu = tiền hệ thống đã ghi nhận cho đơn này, kể cả khoản kế toán chưa đối soát — vì tiền đã về là đã về ({vnd(o.display.received)}).
+        Công nợ phụ huynh đang thấy chỉ giảm khi kế toán xác nhận ({vnd(o.display.outstanding)}).
+      </p>
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
@@ -49,22 +55,63 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
             <table className="w-full text-sm">
               <thead className="text-left text-xs uppercase text-ink-400"><tr><th className="p-2">Mô tả</th><th className="p-2">SL</th><th className="p-2 text-right">Đơn giá</th><th className="p-2 text-right">Thành tiền</th></tr></thead>
               <tbody className="divide-y divide-black/5">
-                {o.items.map((i) => <tr key={i.id}><td className="p-2">{i.description}{i.courseCode && <span className="chip ml-1 bg-black/5">{i.courseCode}{i.packageSessions ? ` · ${i.packageSessions} buổi` : ""}</span>}</td><td className="p-2">{i.quantity}</td><td className="p-2 text-right tabular-nums">{vnd(i.unitPrice)}</td><td className="p-2 text-right tabular-nums">{vnd(i.amount)}</td></tr>)}
-                {o.discountAmount > 0 && <tr><td className="p-2 text-ink-600" colSpan={3}>Giảm giá {o.discountType === "percent" ? `${o.discountValue}%` : ""}</td><td className="p-2 text-right tabular-nums">−{vnd(o.discountAmount)}</td></tr>}
+                {o.items.map((i) => (
+                  <tr key={i.id}>
+                    <td className="p-2">
+                      {i.description}
+                      {i.courseCode && <span className="chip ml-1 bg-black/5">{i.courseCode}{i.packageSessions ? ` · ${i.packageSessions} buổi` : ""}</span>}
+                      <FormatChip format={i.classFormat} />
+                      {i.studentName && <div className="text-xs text-ink-600">Học viên: {i.studentName}</div>}
+                      {i.discounts.map((d) => <div key={d.id} className="text-xs text-amber-800">−{vnd(d.amount)}{d.kind === "percent" ? ` (${d.value}%)` : ""} · {d.reason}</div>)}
+                    </td>
+                    <td className="p-2">{i.quantity}</td>
+                    <td className="p-2 text-right tabular-nums">{vnd(i.unitPrice)}</td>
+                    <td className="p-2 text-right tabular-nums">{vnd(i.netAmount)}{i.discountAmount > 0 && <div className="text-[11px] text-ink-400 line-through">{vnd(i.amount)}</div>}</td>
+                  </tr>
+                ))}
+                <tr><td className="p-2 text-ink-600" colSpan={3}>Tạm tính</td><td className="p-2 text-right tabular-nums">{vnd(o.subtotal)}</td></tr>
+                {o.discountAmount > 0 && <tr><td className="p-2 text-ink-600" colSpan={3}>Tổng giảm{o.discountType === "percent" ? ` (đơn: ${o.discountValue}%)` : ""}</td><td className="p-2 text-right tabular-nums">−{vnd(o.discountAmount)}</td></tr>}
                 <tr className="font-semibold"><td className="p-2" colSpan={3}>Tổng</td><td className="p-2 text-right tabular-nums">{vnd(o.total)}</td></tr>
               </tbody>
             </table>
           </section>
 
-          <section className="card overflow-x-auto p-4">
-            <h2 className="mb-2 font-semibold">Kế hoạch thanh toán</h2>
-            {o.installments.length === 0 ? <p className="text-sm text-ink-400">Không có.</p> : (
+          {o.childDebts.items.length > 1 && (
+            <section className="card space-y-2 p-4">
+              <h2 className="font-semibold">Công nợ theo con</h2>
+              <p className="text-xs text-ink-600">Một đơn nhận nhiều con — mỗi con có phần phải đóng riêng. Khoản thu chưa gắn con: {vnd(o.childDebts.unassigned.confirmed)} đã xác nhận{o.childDebts.unassigned.pending > 0 ? ` · ${vnd(o.childDebts.unassigned.pending)} chờ kế toán` : ""}.</p>
+              <ul className="divide-y divide-black/5 text-sm">
+                {o.childDebts.items.map((c) => (
+                  <li key={c.orderItemId} className="space-y-1 py-2">
+                    <div className="flex flex-wrap items-baseline justify-between gap-2">
+                      <span><b>{c.studentName ?? c.description}</b>{c.classCode ? <span className="text-xs text-ink-400"> · {c.classCode}</span> : null}</span>
+                      <span className="tabular-nums">Phải đóng {vnd(c.net)} · đã thu <b className="text-green-700">{vnd(c.confirmed)}</b>{c.pending > 0 ? <span className="text-amber-700"> +{vnd(c.pending)} chờ</span> : null} · <b className={c.outstanding ? "text-red-700" : ""}>còn nợ {vnd(c.outstanding)}</b></span>
+                    </div>
+                    {c.installments.length > 0 && (
+                      <div className="text-xs text-ink-600">
+                        {c.installments.map((p) => <span key={p.id} className="mr-2">Đợt {p.seq}: {vnd(p.amount)} · hạn {fmtD(p.dueDate)} {open && o.perms.create && <CancelInstallment installmentId={p.id} />}</span>)}
+                      </div>
+                    )}
+                    {open && <ChildInstallment orderId={o.id} orderItemId={c.orderItemId} outstanding={c.outstanding} covered={c.covered} today={o.today} canEdit={o.perms.create} />}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          <section className="card space-y-2 overflow-x-auto p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="font-semibold">Kế hoạch thanh toán</h2>
+              {open && <PlanEditor orderId={o.id} total={o.total} today={o.today} updatedAt={new Date(o.updatedAt).toISOString()} canEdit={o.perms.create}
+                current={o.installments.map((i) => ({ seq: i.seq, amount: i.amount, dueDate: i.dueDate, kind: (i.kind ?? "installment") as "deposit" | "installment", paid: i.paid }))} />}
+            </div>
+            {o.installments.length === 0 ? <p className="text-sm text-ink-400">Chưa có kế hoạch — bấm “Thiết lập kế hoạch”.</p> : (
               <table className="w-full text-sm">
-                <thead className="text-left text-xs uppercase text-ink-400"><tr><th className="p-2">Đợt</th><th className="p-2">Hạn</th><th className="p-2 text-right">Số tiền</th><th className="p-2 text-right">Đã thu</th><th className="p-2">Tình trạng</th></tr></thead>
+                <thead className="text-left text-xs uppercase text-ink-400"><tr><th className="p-2">Phiếu</th><th className="p-2">Hạn</th><th className="p-2 text-right">Số tiền</th><th className="p-2 text-right">Đã thu</th><th className="p-2">Tình trạng</th></tr></thead>
                 <tbody className="divide-y divide-black/5">
                   {o.installments.map((i) => (
                     <tr key={i.seq}>
-                      <td className="p-2">{i.seq}</td><td className="p-2">{fmtD(i.dueDate)}</td><td className="p-2 text-right tabular-nums">{vnd(i.amount)}</td><td className="p-2 text-right tabular-nums">{vnd(i.paid)}</td>
+                      <td className="p-2">{i.kind === "deposit" ? "Cọc" : `Đợt ${i.seq}`}</td><td className="p-2">{fmtD(i.dueDate)}</td><td className="p-2 text-right tabular-nums">{vnd(i.amount)}</td><td className="p-2 text-right tabular-nums">{vnd(i.paid)}</td>
                       <td className="p-2">{i.state === "paid" ? <span className="chip bg-green-100 text-green-800">Đã đủ</span> : i.overdueDays > 0 && open ? <span className="chip bg-red-100 text-red-700">Quá hạn {i.overdueDays} ngày</span> : i.state === "partial" ? <span className="chip bg-sky-100 text-sky-800">Thu một phần</span> : <span className="chip bg-black/5">Chưa đến hạn</span>}</td>
                     </tr>
                   ))}
@@ -86,7 +133,10 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
                       {p.decisionReason && <div className="text-xs text-amber-800">{p.decisionReason}</div>}
                     </div>
                     <div className="flex items-center gap-2">
+                      {p.evidenceUrl && <a href={p.evidenceUrl} target="_blank" rel="noreferrer" className="text-xs text-brand-600 hover:underline">Chứng từ</a>}
                       {p.receiptNo && <Link href={`/payments/${p.id}/phieu-thu`} className="font-mono text-xs text-brand-600 hover:underline">{p.receiptNo}</Link>}
+                      {p.status === "recorded" && o.perms.create && <EditPendingPayment paymentId={p.id} amount={p.amount} paidAt={p.paidAt} version={p.version} today={o.today} evidenceUrl={p.evidenceUrl} />}
+                      {p.status === "confirmed" && o.perms.confirm && <AdjustConfirmedPayment paymentId={p.id} amount={p.amount} version={p.version} />}
                       {p.status === "recorded" && o.perms.confirm && <DecidePayment paymentId={p.id} amount={p.amount} />}
                     </div>
                   </li>

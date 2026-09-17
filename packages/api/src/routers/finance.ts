@@ -145,6 +145,8 @@ export const financeRouter = router({
   statementPreview: protectedProcedure.input(z.object({ csv: z.string().min(1, "File trống").max(3_000_000), paymentMethodId: uuid })).mutation(({ ctx, input }) => B.previewStatement(ctx, input)),
   statementImport: protectedProcedure.input(z.object({ csv: z.string().min(1).max(3_000_000), paymentMethodId: uuid, fileName: ntext(200), note: z.string().max(300) })).mutation(({ ctx, input }) => B.importStatement(ctx, input)),
 
+  saleOptions: protectedProcedure.query(({ ctx }) => F.saleOptions(ctx)),
+
   // Nhập giao dịch cũ (khớp SĐT phụ huynh + họ tên — Đợt 2 mục 23). File đọc ở trình duyệt.
   legacyResolve: protectedProcedure
     .input(z.object({ rows: z.array(legacyRow).min(1, "Chưa có dòng nào").max(3000), choices: z.record(z.string(), uuid).optional(), force: z.array(z.number().int()).max(3000).optional() }))

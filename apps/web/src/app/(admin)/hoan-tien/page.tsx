@@ -4,7 +4,7 @@ import { getServerCaller } from "@/lib/trpc/server";
 import { NoAccess, PageHeader, StatTabs } from "@/components/admin-ui";
 import { Empty } from "@/components/ui";
 import { RefundChip, vnd, fmtD } from "@/components/finance-ui";
-import { RefundRequest, RefundActions } from "./actions";
+import { RefundRequest, RefundActions, RefundGapRow } from "./actions";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Hoàn tiền" };
@@ -15,14 +15,25 @@ export default async function RefundsPage({ searchParams }: { searchParams: Prom
   if (!ctx.actor || !hasPermission(ctx.actor as Actor, "finance:read")) return <NoAccess title="Hoàn tiền" perm="finance:read" />;
   const canRequest = hasPermission(ctx.actor as Actor, "finance:create");
   const status = REFUND_STATUSES.includes(sp.status as RefundStatus) ? (sp.status as RefundStatus) : undefined;
-  const [d, methods] = await Promise.all([
+  const [d, methods, gaps] = await Promise.all([
     caller.finance.refunds({ status, centerId: sp.center || undefined }),
     hasPermission(ctx.actor as Actor, "finance:confirm") ? caller.finance.methods({ activeOnly: true }) : Promise.resolve([]),
+    caller.finance.refundGaps({ centerId: sp.center || undefined }).catch(() => null),
   ]);
   return (
     <div className="space-y-4">
       <PageHeader title="Hoàn tiền" desc="Đề xuất hoàn tính theo buổi: đã thu − (buổi đã học × đơn giá buổi) − đã hoàn. Tư vấn / quản lý đề xuất → quản lý cơ sở duyệt (người đề xuất không tự duyệt) → kế toán chi và ghi sổ." />
       {canRequest && <RefundRequest initialEnrollmentId={sp.enrollment} />}
+      {gaps && gaps.items.length > 0 && (
+        <section className="card overflow-x-auto p-4">
+          <h2 className="mb-1 font-semibold">Tạo đề xuất cho ca chưa có ({gaps.items.length})</h2>
+          <p className="mb-2 text-xs text-ink-600">Ghi danh đã rút học / lớp bị huỷ, còn tiền đã thu chưa dùng hết mà chưa có đề xuất hoàn. Ca đã học hết khoá không nằm ở đây — không phải hoàn.</p>
+          <table className="w-full text-sm">
+            <thead className="text-left text-xs uppercase text-ink-400"><tr><th className="p-3">Học viên / lớp</th><th className="p-3">Lý do kết thúc</th><th className="p-3">Buổi</th><th className="p-3 text-right">Đề xuất hoàn</th><th className="p-3"></th></tr></thead>
+            <tbody className="divide-y divide-black/5">{gaps.items.map((g) => <RefundGapRow key={g.enrollmentId} gap={g} />)}</tbody>
+          </table>
+        </section>
+      )}
       <StatTabs basePath="/hoan-tien" params={sp} active={status ?? ""} tabs={[{ key: "", label: "Tất cả" }, ...REFUND_STATUSES.map((s) => ({ key: s, label: REFUND_STATUS_VI[s], count: d.counts?.[s] }))]} />
       {d.items.length === 0 ? <Empty>Không có yêu cầu hoàn tiền.</Empty> : (
         <div className="card overflow-x-auto">
@@ -36,7 +47,7 @@ export default async function RefundsPage({ searchParams }: { searchParams: Prom
                   <td className="p-3 tabular-nums">{r.sessionsUsed}/{r.sessionsTotal}</td>
                   <td className="p-3 text-right tabular-nums">{vnd(r.paid)}</td>
                   <td className="p-3 text-right tabular-nums"><div className="text-xs text-ink-400">{vnd(r.proposedAmount)}</div><b>{vnd(r.amount)}</b></td>
-                  <td className="p-3 text-xs">{r.reason}<div className="text-ink-400">{r.requesterName ?? "?"} · {fmtD(r.createdAt)}</div>{r.decisionNote && <div className="text-amber-800">{r.deciderName}: {r.decisionNote}</div>}{r.payoutRef && <div>Mã chi: {r.payoutRef}</div>}</td>
+                  <td className="p-3 text-xs">{r.reason}<div className="text-ink-400">{r.sourceLabel} · {r.requesterName ?? "?"} · {fmtD(r.createdAt)}</div>{r.decisionNote && <div className="text-amber-800">{r.deciderName}: {r.decisionNote}</div>}{r.payoutRef && <div>Mã chi: {r.payoutRef}</div>}</td>
                   <td className="p-3"><RefundChip status={r.status} /></td>
                   <td className="p-3"><RefundActions id={r.id} canApprove={r.canApprove} canPay={r.canPay} methods={methods.filter((m) => !m.centerId || m.centerId === r.centerId).map((m) => ({ id: m.id, name: m.name, kind: m.kind }))} /></td>
                 </tr>

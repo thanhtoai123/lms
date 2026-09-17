@@ -6,6 +6,7 @@ import { Empty } from "@/components/ui";
 import { Kpi } from "@/components/report-ui";
 import { OrderChip, vnd } from "@/components/finance-ui";
 import { CsvButton } from "@/components/csv-button";
+import { BackfillTuition } from "./actions";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Thiếu học phí" };
@@ -17,6 +18,7 @@ export default async function MissingTuitionPage({ searchParams }: { searchParam
   const canCreate = hasPermission(ctx.actor as Actor, "finance:create");
   const kind = sp.kind === "no_order" || sp.kind === "unpaid" ? sp.kind : undefined;
   const [ref, d] = await Promise.all([caller.academics.classes.referenceData(), caller.finance.missingTuition({ centerId: sp.center || undefined, kind })]);
+  const today = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10);
   const link = (k?: string) => { const u = new URLSearchParams(); if (sp.center) u.set("center", sp.center); if (k) u.set("kind", k); return `/thieu-hoc-phi${u.toString() ? `?${u}` : ""}`; };
   return (
     <div className="space-y-4">
@@ -51,7 +53,14 @@ export default async function MissingTuitionPage({ searchParams }: { searchParam
                   <td className="p-3">{i.order ? <><Link href={`/orders/${i.order.id}`} className="font-mono text-xs text-brand-600">{i.order.code}</Link> <OrderChip status={i.order.status} /><div className="text-xs text-ink-400">{vnd(i.order.total)} · đã đóng {i.paidRatio}%</div></> : <span className="chip bg-red-100 text-red-700">Chưa lập đơn</span>}</td>
                   <td className="p-3 text-right tabular-nums">{vnd(i.order?.confirmed ?? 0)}{i.order && i.order.pending > 0 && <div className="text-[11px] text-amber-700">+{vnd(i.order.pending)} chờ</div>}</td>
                   <td className="p-3 text-right font-semibold tabular-nums text-red-700">{vnd(i.outstanding)}</td>
-                  <td className="p-3">{!i.order && canCreate && <Link href={`/orders/new?enrollmentId=${i.enrollmentId}`} className="btn-primary !px-2 !py-1 text-xs">Tạo đơn</Link>}</td>
+                  <td className="p-3">
+                    {canCreate && (
+                      <div className="space-y-1">
+                        <BackfillTuition enrollmentId={i.enrollmentId} studentName={i.studentName} expected={i.expected} hasOrder={!!i.order} maxMore={i.outstanding} today={today} />
+                        {!i.order && <Link href={`/orders/new?enrollmentId=${i.enrollmentId}`} className="block text-xs text-brand-600 hover:underline">Tạo đơn đầy đủ</Link>}
+                      </div>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>

@@ -1,90 +1,170 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { useTRPC } from "@/lib/trpc/client";
+import { parseLegacyTuitionTable, LEGACY_TUITION_TEMPLATE, LEGACY_LINE_STATUS_VI, type LegacyTuitionRow } from "@satarobo/core";
 import { vnd, fmtD } from "@/components/finance-ui";
 import { CsvFileInput } from "@/components/csv-file-input";
 import { CsvButton } from "@/components/csv-button";
 import type { RouterOutputs } from "@/lib/trpc/types";
 
-type Preview = RouterOutputs["finance"]["legacyPreview"];
+type Resolved = RouterOutputs["finance"]["legacyResolve"];
 
-const TEMPLATE_HEADERS = ["ma_don", "ma_hv", "ma_lop", "tong_don", "so_tien", "ngay_thu", "phuong_thuc", "so_phieu", "nguoi_nop", "ghi_chu"];
 const TEMPLATE_ROWS = [
-  ["", "CS1-26-000001", "CS1.SATA4.26.001", "9600000", "4800000", "15/08/2026", "TM-CS1", "PT-CU-0001", "Phụ huynh A", "Đợt 1"],
-  ["DH26-000003", "", "", "", "2000000", "20/08/2026", "CK-VCB", "PT-CU-0002", "", ""],
+  ["HV-CU-001", "Nguyễn Hoàng Đức", "0905123456", "Đang học", "15/08/2026", "SATA4", "CS1", "4.800.000", "Đợt 1"],
+  ["HV-CU-002", "Trần Bảo Ngọc", "0912000000", "Đang học", "20/08/2026", "SATA2", "CS2", "2.000.000", ""],
 ];
 
-export function LegacyImporter() {
+const STATUS_CLS: Record<string, string> = {
+  will_write: "text-green-700",
+  already_paid: "text-ink-400",
+  needs_choice: "text-amber-800",
+  not_found: "text-red-700",
+  error: "text-red-700",
+};
+
+export function LegacyImporter({ sales }: { sales: { id: string; fullName: string }[] }) {
   const trpc = useTRPC();
   const router = useRouter();
-  const [csv, setCsv] = useState<{ text: string; name: string | null } | null>(null);
-  const [preview, setPreview] = useState<Preview | null>(null);
-  const [onlyErr, setOnlyErr] = useState(false);
+  const [sheet, setSheet] = useState("");
+  const [fileName, setFileName] = useState<string | null>(null);
+  const [rows, setRows] = useState<LegacyTuitionRow[]>([]);
+  const [parseErrors, setParseErrors] = useState<{ line: number; errors: string[] }[]>([]);
+  const [headerErrors, setHeaderErrors] = useState<string[]>([]);
+  const [resolved, setResolved] = useState<Resolved | null>(null);
+  const [choices, setChoices] = useState<Record<string, string>>({});
+  const [force, setForce] = useState<number[]>([]);
+  const [saleUserId, setSaleUserId] = useState("");
   const [note, setNote] = useState("");
+  const [onlyOpen, setOnlyOpen] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  const pv = useMutation(trpc.finance.legacyPreview.mutationOptions({ onSuccess: setPreview, onError: (e) => setMsg({ ok: false, text: e.message }) }));
-  const imp = useMutation(trpc.finance.legacyImport.mutationOptions({
-    onSuccess: (r) => { setMsg({ ok: true, text: `Đã nhập ${r.payments} khoản (${vnd(r.amount)}) vào ${r.orders} đơn, lập mới ${r.newOrders} đơn. Bỏ qua: ${r.errors} lỗi, ${r.duplicates} trùng.` }); setPreview(null); setCsv(null); setNote(""); router.refresh(); },
+
+  const today = useMemo(() => new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10), []);
+  const resolve = useMutation(trpc.finance.legacyResolve.mutationOptions({ onSuccess: setResolved, onError: (e) => setMsg({ ok: false, text: e.message }) }));
+  const write = useMutation(trpc.finance.legacyWrite.mutationOptions({
+    onSuccess: (r) => {
+      setMsg({ ok: true, text: `Đã ghi ${r.payments} khoản (${vnd(r.amount)}) vào ${r.orders} đơn, lập mới ${r.newOrders} đơn. Khoản đang ở trạng thái chờ kế toán — xác nhận cả lượt ở màn Thanh toán.` });
+      setResolved(null); setRows([]); setNote(""); router.refresh();
+    },
     onError: (e) => setMsg({ ok: false, text: e.message }),
   }));
-  const run = (text: string, name: string | null) => { setMsg(null); setPreview(null); setCsv({ text, name }); pv.mutate({ csv: text }); };
-  const rows = preview ? (onlyErr ? preview.rows.filter((r) => r.status !== "ok") : preview.rows) : [];
+
+  const read = (text: string, name: string | null) => {
+    setMsg(null); setResolved(null); setChoices({}); setForce([]);
+    const r = parseLegacyTuitionTable(text, today, { sheet: sheet.trim() || name || null });
+    setHeaderErrors(r.headerErrors);
+    setFileName(name);
+    setRows(r.rows.map((x) => x.row).filter((x): x is LegacyTuitionRow => !!x));
+    setParseErrors(r.rows.filter((x) => x.errors.length).map((x) => ({ line: x.line, errors: x.errors })));
+  };
+
+  const run = (nextChoices = choices, nextForce = force) => {
+    setMsg(null);
+    resolve.mutate({ rows, choices: nextChoices, force: nextForce });
+  };
+  const pick = (line: number, enrollmentId: string) => {
+    const next = { ...choices, [String(line)]: enrollmentId };
+    setChoices(next);
+    run(next, force);
+  };
+  const toggleForce = (line: number) => {
+    const next = force.includes(line) ? force.filter((x) => x !== line) : [...force, line];
+    setForce(next);
+    run(choices, next);
+  };
+
+  const lines = resolved ? (onlyOpen ? resolved.lines.filter((l) => l.status !== "will_write") : resolved.lines) : [];
+  const s = resolved?.summary;
+
   return (
     <section className="card space-y-3 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="font-semibold">1. Chọn file CSV</h2>
-        <CsvButton filename="mau-nhap-giao-dich-cu" headers={TEMPLATE_HEADERS} rows={TEMPLATE_ROWS} label="Tải file mẫu" />
+        <h2 className="font-semibold">Bước 1 · Chọn file</h2>
+        <CsvButton filename="mau-hoc-phi-cu" headers={LEGACY_TUITION_TEMPLATE} rows={TEMPLATE_ROWS} label="Tải file mẫu" />
       </div>
       <p className="text-xs text-ink-600">
-        Mỗi dòng: <b>ma_don</b> (đơn đã có) <i>hoặc</i> <b>ma_hv + ma_lop</b> (hệ thống tìm ghi danh; chưa có đơn thì lập đơn với <b>tong_don</b>, bỏ trống = giá gói theo số buổi).
-        Bắt buộc: <b>so_tien</b>, <b>ngay_thu</b> (dd/mm/yyyy), <b>phuong_thuc</b> (mã hoặc tên), <b>so_phieu</b>. Tổng các khoản không được vượt tổng đơn.
+        File được đọc <b>ngay trong trình duyệt</b>; chỉ tên, số điện thoại, số tiền, ngày và ghi chú được gửi lên máy chủ — CCCD và địa chỉ trong file không rời máy bạn.
+        Khớp theo <b>số điện thoại phụ huynh + họ tên</b>: mã học viên trong file và mã trên hệ thống là hai hệ đánh số khác nhau.
+        Excel nhiều sheet: lưu từng sheet thành CSV (hoặc dán từng sheet) và điền tên sheet bên dưới.
       </p>
-      <CsvFileInput onText={run} disabled={pv.isPending || imp.isPending} />
-      {pv.isPending && <div className="text-sm text-ink-600">Đang kiểm tra…</div>}
-      {preview && (preview.headerErrors.length ? <div className="text-sm text-red-700">{preview.headerErrors.join("; ")}</div> : (
+      <div className="flex flex-wrap items-end gap-2">
+        <label className="text-xs text-ink-600">Tên sheet (tháng / cơ sở)<input className="input mt-1" placeholder="VD: Tháng 7 2026 CS1" value={sheet} onChange={(e) => setSheet(e.target.value)} /></label>
+      </div>
+      <CsvFileInput onText={read} disabled={resolve.isPending || write.isPending} />
+      {headerErrors.length > 0 && <div className="text-sm text-red-700">{headerErrors.join("; ")}</div>}
+      {parseErrors.length > 0 && <div className="text-xs text-amber-800">{parseErrors.length} dòng lỗi định dạng sẽ bị bỏ: {parseErrors.slice(0, 5).map((e) => `dòng ${e.line}: ${e.errors.join(", ")}`).join(" · ")}</div>}
+      {rows.length > 0 && !resolved && (
+        <button className="btn-primary" disabled={resolve.isPending} onClick={() => run()}>Đối chiếu {rows.length} dòng với hệ thống</button>
+      )}
+
+      {resolved && s && (
         <div className="space-y-2">
-          <h2 className="font-semibold">2. Kiểm tra</h2>
+          <h2 className="font-semibold">Bước 2 · Đối chiếu</h2>
           <div className="flex flex-wrap items-center gap-3 text-sm">
-            <span>{preview.summary.rows} dòng</span>
-            <span className="text-green-700">Hợp lệ {preview.summary.ok} · {vnd(preview.summary.amount)}</span>
-            <span className="text-red-700">Lỗi {preview.summary.errors}</span>
-            <span className="text-ink-400">Trùng {preview.summary.duplicates}</span>
-            {preview.summary.newOrders > 0 && <span>Lập mới {preview.summary.newOrders} đơn</span>}
-            <label className="flex items-center gap-1 text-xs"><input type="checkbox" checked={onlyErr} onChange={(e) => setOnlyErr(e.target.checked)} /> Chỉ xem dòng lỗi</label>
-            <CsvButton filename="kiem-tra-nhap" label="Tải kết quả kiểm tra" headers={["Dòng", "Kết quả", "Lỗi", "Đơn", "Học viên", "Cơ sở", "Số tiền", "Ngày", "Phương thức", "Số phiếu"]} rows={preview.rows.map((r) => [r.line, r.status, r.errors.join("; "), r.orderCode, r.studentName, r.centerCode, r.row?.amount, r.row?.paidAt, r.methodName, r.row?.legacyReceipt])} />
+            <span className="text-green-700">Sẽ ghi {s.will_write} · {vnd(s.amount)}</span>
+            <span className="text-ink-400">Đã có tiền — bỏ qua {s.already_paid}</span>
+            <span className="text-amber-800">Cần chọn {s.needs_choice}</span>
+            <span className="text-red-700">Không tìm thấy {s.not_found}{s.errors ? ` · lỗi ${s.errors}` : ""}</span>
+            <span>Lập mới {s.newOrders} đơn</span>
+            <label className="flex items-center gap-1 text-xs"><input type="checkbox" checked={onlyOpen} onChange={(e) => setOnlyOpen(e.target.checked)} /> Chỉ xem dòng cần xử lý</label>
+            <CsvButton filename="doi-chieu-hoc-phi-cu" label="Tải kết quả đối chiếu"
+              headers={["Dòng", "Sheet", "Học viên (file)", "SĐT", "Số tiền", "Ngày", "Kết quả", "Học viên (hệ thống)", "Cơ sở", "Đơn"]}
+              rows={resolved.lines.map((l) => [l.line, l.row?.sheet, l.row?.name, l.row?.phone, l.row?.amount, l.row?.paidAt, LEGACY_LINE_STATUS_VI[l.status as "will_write"] ?? l.status, l.studentName, l.centerCode, l.orderCode])} />
           </div>
-          <div className="max-h-80 overflow-auto rounded-xl border border-black/10">
+          <div className="max-h-96 overflow-auto rounded-xl border border-black/10">
             <table className="w-full text-xs">
-              <thead className="sticky top-0 bg-white text-left text-ink-400"><tr><th className="p-2">Dòng</th><th className="p-2">Đơn</th><th className="p-2">Học viên</th><th className="p-2 text-right">Số tiền</th><th className="p-2">Ngày</th><th className="p-2">Phương thức</th><th className="p-2">Phiếu cũ</th><th className="p-2">Kết quả</th></tr></thead>
+              <thead className="sticky top-0 bg-white text-left text-ink-400">
+                <tr><th className="p-2">Dòng</th><th className="p-2">Học viên (file)</th><th className="p-2 text-right">Số tiền</th><th className="p-2">Ngày</th><th className="p-2">Khớp hồ sơ</th><th className="p-2">Kết quả</th></tr>
+              </thead>
               <tbody className="divide-y divide-black/5">
-                {rows.map((r) => (
-                  <tr key={r.line} className={r.status === "error" ? "bg-red-50/60" : r.status === "duplicate" ? "text-ink-400" : ""}>
-                    <td className="p-2">{r.line}</td>
-                    <td className="p-2 font-mono">{r.orderCode ?? "—"}{r.newOrder && <div className="font-sans text-ink-600">{r.newOrder.courseCode} · {vnd(r.newOrder.total)}</div>}</td>
-                    <td className="p-2">{r.studentName ?? "—"}{r.centerCode ? ` · ${r.centerCode}` : ""}</td>
-                    <td className="p-2 text-right tabular-nums">{r.row ? vnd(r.row.amount) : "—"}</td>
-                    <td className="p-2">{r.row ? fmtD(r.row.paidAt) : "—"}</td>
-                    <td className="p-2">{r.methodName ?? r.row?.method ?? "—"}</td>
-                    <td className="p-2 font-mono">{r.row?.legacyReceipt ?? "—"}</td>
-                    <td className="p-2">{r.status === "ok" ? <span className="text-green-700">OK</span> : <span className={r.status === "error" ? "text-red-700" : ""}>{r.errors.join("; ")}</span>}</td>
+                {lines.map((l) => (
+                  <tr key={l.line} className={l.status === "not_found" || l.status === "error" ? "bg-red-50/60" : l.status === "needs_choice" ? "bg-amber-50/60" : ""}>
+                    <td className="p-2">{l.line}{l.row?.sheet && <div className="text-ink-400">{l.row.sheet}</div>}</td>
+                    <td className="p-2">{l.row?.name}<div className="text-ink-400">{l.row?.phone ?? "không có SĐT"}{l.row?.courseText ? ` · ${l.row.courseText}` : ""}</div></td>
+                    <td className="p-2 text-right tabular-nums">{vnd(l.row?.amount ?? 0)}</td>
+                    <td className="p-2">{l.row ? fmtD(l.row.paidAt) : "—"}</td>
+                    <td className="p-2">
+                      {l.status === "needs_choice" ? (
+                        <select className="input !py-1 text-xs" value={choices[String(l.line)] ?? ""} onChange={(e) => e.target.value && pick(l.line, e.target.value)}>
+                          <option value="">— Chọn hồ sơ —</option>
+                          {l.candidates.map((c) => <option key={c.enrollmentId} value={c.enrollmentId}>{c.studentName} · {c.classCode} · {c.centerCode}{c.parentName ? ` · PH ${c.parentName}` : ""}</option>)}
+                        </select>
+                      ) : l.studentName && l.enrollmentId ? (
+                        <>{l.studentName}<div className="text-ink-400">{l.centerCode}{l.orderCode ? ` · ${l.orderCode}` : " · sẽ lập đơn mới"}</div>{choices[String(l.line)] && <div className="text-brand-600">Đã chọn tay</div>}</>
+                      ) : <span className="text-ink-400">—</span>}
+                    </td>
+                    <td className="p-2">
+                      <span className={STATUS_CLS[l.status]}>{LEGACY_LINE_STATUS_VI[l.status as "will_write"] ?? l.errors.join("; ")}</span>
+                      {l.errors.length > 0 && l.status !== "not_found" && <div className="text-red-700">{l.errors.join("; ")}</div>}
+                      {l.status === "already_paid" && <button className="block text-brand-600" onClick={() => toggleForce(l.line)}>Vẫn ghi</button>}
+                      {l.status === "will_write" && force.includes(l.line) && <button className="block text-amber-800" onClick={() => toggleForce(l.line)}>Sẽ ghi chồng — bấm để huỷ</button>}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          <h2 className="font-semibold">3. Nhập</h2>
-          <div className="flex flex-wrap gap-2">
-            <input className="input flex-1" placeholder="Ghi chú lô nhập (bắt buộc), VD: Phiếu thu tháng 8/2026 từ admin cũ" value={note} onChange={(e) => setNote(e.target.value)} />
-            <button className="btn-primary" disabled={!csv || note.trim().length < 5 || imp.isPending || preview.summary.ok === 0} onClick={() => csv && imp.mutate({ csv: csv.text, note: note.trim(), fileName: csv.name })}>
-              Nhập {preview.summary.ok} dòng hợp lệ
+
+          <h2 className="font-semibold">Bước 3 · Gán sale &amp; ghi</h2>
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="text-xs text-ink-600">Sale phụ trách *
+              <select className="input mt-1" value={saleUserId} onChange={(e) => setSaleUserId(e.target.value)}>
+                <option value="">— Chọn sale —</option>
+                {sales.map((u) => <option key={u.id} value={u.id}>{u.fullName}</option>)}
+              </select>
+            </label>
+            <input className="input flex-1" placeholder="Ghi chú lượt nhập (bắt buộc), VD: Học phí tháng 7–8/2026 từ admin cũ" value={note} onChange={(e) => setNote(e.target.value)} />
+            <button className="btn-primary" disabled={write.isPending || !saleUserId || note.trim().length < 5 || s.will_write === 0}
+              onClick={() => write.mutate({ rows, choices, force, saleUserId, note: note.trim(), fileName })}>
+              Ghi {s.will_write} dòng · {vnd(s.amount)}
             </button>
           </div>
-          {preview.summary.errors > 0 && <p className="text-xs text-amber-700">Dòng lỗi sẽ bị bỏ qua — sửa file rồi nhập lại (dòng đã nhập sẽ được nhận là trùng).</p>}
+          {!saleUserId && <p className="text-xs text-red-700">Chưa gán sale phụ trách cho lượt nhập.</p>}
+          <p className="text-xs text-ink-600">Mỗi em một đơn, mỗi đợt một khoản giữ đúng ngày đóng; khoản ở trạng thái <b>chờ kế toán</b> (không tự vào doanh thu).</p>
         </div>
-      ))}
+      )}
       {msg && <div className={`rounded-xl border p-3 text-sm ${msg.ok ? "border-green-200 bg-green-50 text-green-800" : "border-red-200 bg-red-50 text-red-700"}`}>{msg.text}</div>}
     </section>
   );

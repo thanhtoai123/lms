@@ -24,7 +24,10 @@ export default async function BankTxPage({ searchParams }: { searchParams: Promi
   const { caller, ctx } = await getServerCaller();
   if (!ctx.actor || !(hasPermission(ctx.actor as Actor, "finance:confirm") || hasPermission(ctx.actor as Actor, "finance:approve"))) return <NoAccess title="Biến động số dư" perm="finance:confirm" />;
   const status = BANK_TX_STATUSES.includes(sp.status as BankTxStatus) ? (sp.status as BankTxStatus) : undefined;
-  const d = await caller.finance.bankTxs({ status, q: sp.q || undefined, from: sp.from || undefined, to: sp.to || undefined, page: Math.max(1, Number(sp.page) || 1) });
+  const [d, surplus] = await Promise.all([
+    caller.finance.bankTxs({ status, q: sp.q || undefined, from: sp.from || undefined, to: sp.to || undefined, page: Math.max(1, Number(sp.page) || 1) }),
+    caller.finance.bankSurplus().catch(() => null),
+  ]);
   return (
     <div className="space-y-4">
       <PageHeader
@@ -78,7 +81,7 @@ export default async function BankTxPage({ searchParams }: { searchParams: Promi
                   <td className="p-3 text-xs"><div className="max-w-md break-words">{t.content || "—"}</div>{t.referenceCode && <div className="font-mono text-ink-400">{t.referenceCode}</div>}{t.orderRef && t.status !== "matched" && <div className="text-ink-600">Mã đơn đọc được: <b className="font-mono">{t.orderRef}</b></div>}</td>
                   <td className="p-3"><span className={`chip ${CHIP[t.status]}`}>{BANK_TX_STATUS_VI[t.status]}</span>{t.matchNote && <div className="mt-1 max-w-xs text-xs text-ink-600">{t.matchNote}</div>}{t.handlerName && <div className="text-xs text-ink-400">{t.handlerName}</div>}</td>
                   <td className="p-3 text-xs">{t.orderId ? <Link href={`/orders/${t.orderId}`} className="font-mono text-brand-600">{t.orderCode}</Link> : "—"}{t.customerName && <div>{t.customerName}</div>}{t.receiptNo && t.paymentId && <Link href={`/payments/${t.paymentId}/phieu-thu`} className="block font-mono text-green-700">{t.receiptNo}</Link>}</td>
-                  <td className="p-3">{t.canHandle && <BankRowActions id={t.id} amount={t.amount} status={t.status} />}</td>
+                  <td className="p-3">{t.surplusAmount > 0 && <div className="mb-1 chip bg-violet-100 text-violet-800">Thừa {vnd(t.surplusAmount)}</div>}{(t.canHandle || t.canUnlink) && <BankRowActions id={t.id} amount={t.amount} status={t.status} canUnlink={t.canUnlink} />}</td>
                 </tr>
               ))}
             </tbody>
@@ -86,6 +89,29 @@ export default async function BankTxPage({ searchParams }: { searchParams: Promi
         </div>
       )}
       <Pager basePath="/bien-dong-so-du" params={sp} page={d.page} pageSize={d.pageSize} total={d.total} />
+
+      {surplus && surplus.items.length > 0 && (
+        <section className="card space-y-2 p-4">
+          <h2 className="font-semibold">Tiền thừa chưa xử lý · {vnd(surplus.total)}</h2>
+          <p className="text-xs text-ink-600">Tiền còn dư sau khi đã rót hết các đợt của đơn. Hệ thống không tự hoàn và không tự trừ sang đơn khác — kế toán quyết rồi ghi nhận ở nơi xử lý tương ứng.</p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead className="text-left text-ink-400"><tr><th className="p-2">Thời gian</th><th className="p-2 text-right">Số tiền về</th><th className="p-2 text-right">Tiền thừa</th><th className="p-2">Đơn / khách</th><th className="p-2">Nội dung</th></tr></thead>
+              <tbody className="divide-y divide-black/5">
+                {surplus.items.map((s) => (
+                  <tr key={s.id}>
+                    <td className="p-2 whitespace-nowrap">{dt(s.occurredAt)}</td>
+                    <td className="p-2 text-right tabular-nums">{vnd(s.amount)}</td>
+                    <td className="p-2 text-right font-semibold tabular-nums text-violet-800">{vnd(s.surplusAmount)}</td>
+                    <td className="p-2">{s.orderId ? <Link href={`/orders/${s.orderId}`} className="font-mono text-brand-600">{s.orderCode}</Link> : "—"}<div className="text-ink-400">{s.customerName ?? ""}{s.centerCode ? ` · ${s.centerCode}` : ""}</div></td>
+                    <td className="p-2">{s.content}<div className="font-mono text-ink-400">{s.referenceCode ?? ""}</div></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
     </div>
   );
 }

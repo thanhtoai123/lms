@@ -64,6 +64,35 @@ export function RefundRequest({ initialEnrollmentId }: { initialEnrollmentId?: s
   );
 }
 
+/** “Tạo đề xuất cho ca chưa có”: ghi danh đã rút / lớp huỷ, còn tiền đã thu mà chưa có đề xuất */
+export function RefundGapRow({ gap }: {
+  gap: { enrollmentId: string; studentName: string; classCode: string; centerCode: string; orderId: string; orderCode: string; refundable: number; usedSessions: number; packageSessions: number; perSession: number; classCancelled: boolean; endReason: string | null; canRequest: boolean };
+}) {
+  const trpc = useTRPC();
+  const router = useRouter();
+  const [confirm, setConfirm] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const req = useMutation(trpc.finance.requestRefund.mutationOptions({ onSuccess: () => { setConfirm(false); router.refresh(); }, onError: (e) => setErr(e.message) }));
+  return (
+    <tr>
+      <td className="p-3">{gap.studentName}<div className="text-xs text-ink-400">{gap.classCode} · {gap.centerCode}{gap.classCancelled ? " · lớp đã huỷ" : ""}</div></td>
+      <td className="p-3 text-xs">{gap.endReason ?? "Đã rút học"}</td>
+      <td className="p-3 tabular-nums">{gap.usedSessions}/{gap.packageSessions}</td>
+      <td className="p-3 text-right font-semibold tabular-nums text-brand-700">{vnd(gap.refundable)}</td>
+      <td className="p-3 text-xs">
+        {!gap.canRequest ? <span className="text-ink-400">không có quyền đề xuất</span> : confirm ? (
+          <div className="flex gap-1">
+            <button className="btn-primary !px-2 !py-1 text-xs" disabled={req.isPending}
+              onClick={() => req.mutate({ enrollmentId: gap.enrollmentId, amount: gap.refundable, reason: `Tạo đề xuất cho ca chưa có (${gap.classCancelled ? "huỷ lớp" : "rút học"}): ${gap.endReason ?? gap.classCode}`.slice(0, 500), trigger: gap.classCancelled ? "class_cancel" : "withdraw" })}>Xác nhận tạo</button>
+            <button className="btn-ghost !px-2 !py-1 text-xs" onClick={() => setConfirm(false)}>Thôi</button>
+          </div>
+        ) : <button className="btn-ghost !px-2 !py-1 text-xs" onClick={() => setConfirm(true)}>Tạo đề xuất</button>}
+        {err && <div className="text-red-700">{err}</div>}
+      </td>
+    </tr>
+  );
+}
+
 export function RefundActions({ id, canApprove, canPay, methods }: { id: string; canApprove: boolean; canPay: boolean; methods: { id: string; name: string; kind: string }[] }) {
   const trpc = useTRPC();
   const router = useRouter();

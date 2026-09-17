@@ -13,14 +13,14 @@ const dt = (d: Date | string) => new Date(d).toLocaleString("vi-VN", { timeZone:
 export default async function LegacyImportPage() {
   const { caller, ctx } = await getServerCaller();
   if (!ctx.actor || !hasPermission(ctx.actor as Actor, "finance:confirm")) return <NoAccess title="Nhập giao dịch cũ" perm="finance:confirm" />;
-  const batches = await caller.finance.importBatches({});
+  const [batches, sales] = await Promise.all([caller.finance.importBatches({}), caller.finance.saleOptions().catch(() => [])]);
   return (
     <div className="space-y-4">
       <PageHeader
         title="Nhập giao dịch cũ"
-        desc="Đưa khoản đã thu từ hệ thống cũ / sổ sách vào đơn. Mỗi dòng cần số phiếu cũ để chống nhập trùng. Ghi danh chưa có đơn sẽ được lập đơn mới (không tính hoa hồng). Khoản nhập vào là đã xác nhận, không cấp số phiếu thu mới."
+        desc="Đưa học phí đã đóng trước khi lên hệ thống vào đúng hồ sơ từng em, để cổng phụ huynh thôi hiện nợ. Khớp theo số điện thoại phụ huynh + họ tên — mã học viên trong file và mã trên hệ thống là hai hệ đánh số khác nhau. Mỗi em một đơn, mỗi đợt một khoản giữ đúng ngày đóng; khoản ở trạng thái chờ kế toán."
       />
-      <LegacyImporter />
+      <LegacyImporter sales={sales} />
       <section className="space-y-2">
         <h2 className="font-semibold">Lịch sử nhập</h2>
         {batches.length === 0 ? <Empty>Chưa có lô nhập.</Empty> : (
