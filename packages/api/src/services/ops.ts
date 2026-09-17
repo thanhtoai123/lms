@@ -53,7 +53,7 @@ export async function healthCheck(db: Database) {
   return { ok, degraded: ok && worker !== "ok", checks, version: process.env.APP_VERSION ?? process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? "dev", at: now.toISOString() };
 }
 
-async function listBackups() {
+export async function listBackups() {
   const dir = process.env.BACKUP_DIR;
   if (!dir) return { configured: false, files: [] as { name: string; size: number; at: Date }[], latest: null as null | { at: string; db?: string; files?: string; dbBytes?: number; filesBytes?: number } };
   try {

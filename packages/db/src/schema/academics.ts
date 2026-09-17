@@ -251,6 +251,8 @@ export const enrollments = pgTable(
     status: enrollmentStatusEnum("status").notNull().default("active"),
     packageSessions: integer("package_sessions").notNull(), // số buổi đã mua
     startSequenceNo: integer("start_sequence_no").notNull().default(1), // vào lớp từ buổi mấy
+    /** Số buổi đã học ở hệ cũ (chuyển đổi) — cộng vào số buổi đã dùng */
+    carriedSessions: integer("carried_sessions").notNull().default(0),
     enrolledAt: timestamp("enrolled_at", { withTimezone: true }).notNull().defaultNow(),
     endedAt: timestamp("ended_at", { withTimezone: true }),
     endReason: text("end_reason"),

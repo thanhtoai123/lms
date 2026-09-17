@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getServerCaller } from "@/lib/trpc/server";
 import { SettingsForm } from "./form";
+import { DeliverySettingsPanel } from "./delivery";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Cấu hình vận hành" };
@@ -8,7 +9,7 @@ export const metadata = { title: "Cấu hình vận hành" };
 /** 11 nhóm tham số như trang Cấu hình vận hành của hệ cũ (ADMIN-SPEC §13.1) */
 const TABS = [
   { key: "thong-bao", label: "Thông báo đẩy", desc: "Bật/tắt push; 36 loại thông báo nội bộ, mức Khẩn/Thường, người nhận theo vai trò/ngữ cảnh." },
-  { key: "zalo", label: "Tin Zalo (ZNS)", desc: "Gửi thật/giả lập, template ID, ngưỡng chưa đọc, chặn bão tin mỗi PH/nhóm lớp." },
+  { key: "zalo", label: "Tin Zalo (ZNS) / SMS", ready: true },
   { key: "otp", label: "Đăng nhập/OTP", desc: "Hiệu lực mã, số lần nhập sai, thời gian chờ, trần theo số/máy/ngày." },
   { key: "hoc-vien", label: "Học viên", desc: "Ngưỡng sắp hết khoá, bảo lưu tối đa, 'hay vắng', sinh nhật, học bù liên cơ sở." },
   { key: "lop", label: "Lớp & GV", desc: "Sĩ số min/max, quá tải giờ/tuần, hạn link ảnh/video, PH xem điểm bài tập." },
@@ -47,7 +48,9 @@ export default async function OperationalSettings({ searchParams }: { searchPara
         ))}
       </nav>
 
-      {"ready" in tab ? (
+      {tab.key === "zalo" ? (
+        <DeliverySettingsPanel />
+      ) : "ready" in tab ? (
         <>
           <form className="flex items-center gap-2">
             <input type="hidden" name="tab" value="lead" />

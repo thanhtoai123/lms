@@ -20,7 +20,7 @@ export type DomainEvent =
 
 export type DomainEventType = DomainEvent["type"];
 
-export const NOTIFICATION_CHANNELS = ["in_app", "push", "zns", "email"] as const;
+export const NOTIFICATION_CHANNELS = ["in_app", "push", "zns", "email", "sms"] as const;
 export type NotificationChannel = (typeof NOTIFICATION_CHANNELS)[number];
 
 /** Hành động mà automation có thể tạo ra */

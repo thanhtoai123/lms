@@ -65,3 +65,22 @@ Xem `.env.example`. Bắt buộc khi chạy thật: `DATABASE_URL`, `NEXT_PUBLIC
 - **Hoá đơn điện tử**: Cấu hình tại /hoa-don?tab=settings (chỉ Hội sở). Nhà cung cấp `sandbox` chỉ để thử, bị chặn ở production (trừ khi đặt `EINVOICE_ALLOW_SANDBOX=1` cho môi trường staging). Khi đã ký nhà cung cấp thật: đặt `EINVOICE_API_URL`, `EINVOICE_API_KEY`, chọn nhà cung cấp `http`, nhập ký hiệu năm hiện tại (ví dụ `1C26TSR`) và ngày bắt đầu. Đầu năm mới phải đổi ký hiệu. Kế toán xử lý hằng ngày: tab danh sách → "Phát hành lỗi", "Quá hạn lập", "Khoản thu chưa có hoá đơn", "Hoàn tiền cần điều chỉnh".
 - **Thẻ QR**: In theo lớp tại /the-hoc-vien. Thẻ ký bằng `MEDIA_SIGNING_SECRET` — đổi khoá này làm mọi thẻ cũ mất hiệu lực (phải in lại). Mất thẻ → "Cấp lại thẻ" (thẻ cũ hết hiệu lực ngay).
 - **Cổng phụ huynh** (/ph): OTP gửi qua Zalo ZNS (`ZALO_ZNS_TOKEN`); khi chưa có ZNS, phụ huynh dùng mã kích hoạt do trung tâm cấp. Phiên 30 ngày; phụ huynh tự thu hồi thiết bị ở trang Tài khoản. Khoá tài khoản phụ huynh ở trang học viên sẽ chặn đăng nhập ngay.
+
+## Chuyển đổi dữ liệu và go-live (Giai đoạn 7)
+
+Thứ tự cho mỗi cơ sở:
+
+1. Tạo cơ sở, phòng, khoá học, lớp (đúng mã lớp như hệ cũ) trên hệ mới.
+2. /chuyen-doi → "Học viên + phụ huynh": xuất danh sách từ hệ cũ ra CSV (cột theo file mẫu), chọn file, xem kết quả kiểm tra, nhập. Dòng lỗi sửa trong file rồi nhập lại cả file — dòng đã nhập tự bỏ qua.
+3. "Ghi danh": mỗi dòng mã HV + mã lớp + số buổi gói + đã học (hoặc còn lại).
+4. "Phiếu thu cũ" (/nhap-giao-dich-cu).
+5. "Đối soát": nhập số liệu tổng đang thấy trên hệ cũ → "So và lưu" phải khớp; tải file buổi còn lại / công nợ từng học viên để so chi tiết.
+6. /go-live: đánh dấu danh mục, Hội sở chuyển sang "Chạy song song". Mỗi tối quản lý cơ sở ghi 4 số liệu của hệ cũ; lệch phải ghi nguyên nhân. Đủ 5 ngày khớp liên tiếp + danh mục → Hội sở chuyển "Chính thức", sau đó khoá hệ cũ và chuyển "Hệ cũ chỉ đọc" (không quay lại được).
+
+## Kênh gửi Zalo ZNS / SMS
+
+- Cấu hình tại /cau-hinh-van-hanh?tab=zalo (quản trị Hội sở). Biến môi trường: `ZALO_ZNS_TOKEN` (access token OA, cần làm mới định kỳ), `ZNS_API_URL` (tuỳ chọn), `SMS_API_URL`, `SMS_API_KEY`.
+- Chế độ "Giả lập" chỉ dùng khi thử nghiệm; bị chặn ở production trừ khi đặt `DELIVERY_ALLOW_SANDBOX=1` (staging).
+- Mẫu ZNS phải được Zalo duyệt trước; nhập template_id và ánh xạ tham số (ví dụ `otp=otp` cho mẫu OTP).
+- Worker gửi hàng đợi mỗi chu kỳ; tin không phải OTP chờ hết giờ yên lặng. Lỗi mạng thử lại 3 lần (5 / 30 / 120 phút); ZNS lỗi (không có Zalo…) chuyển SMS nếu bật dự phòng. Lỗi cấu hình (thiếu mẫu, thiếu biến) không chuyển SMS — sửa cấu hình rồi gửi lại.
+- Cổng SMS dùng hợp đồng HTTP chung: `POST SMS_API_URL` với `Authorization: Bearer SMS_API_KEY`, thân `{to, brandname, text, ref}`, trả `{id}`; nhà cung cấp khác định dạng cần một lớp chuyển đổi nhỏ.

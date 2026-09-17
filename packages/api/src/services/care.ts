@@ -17,6 +17,7 @@ import {
   type SurveyStatus, type SurveyAnswers, type RequestAction, type BroadcastChannel, type FeedbackTag,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
+import { deliverySettings } from "./delivery";
 import { writeAudit } from "./audit";
 import { todayISO } from "./sessions";
 import type { Database } from "@satarobo/db";
@@ -635,7 +636,7 @@ export async function listParentNotifications(ctx: ProtectedContext, input: { st
   return {
     page, counts: c, templates: templates.map((t) => t.t),
     canSend: ctx.actor.assignments.some((a) => can(ctx, "care:create", a.centerId)),
-    zns: { configured: !!process.env.ZALO_ZNS_TOKEN },
+    zns: { configured: (await deliverySettings(ctx.db)).zns.mode !== "off" },
     items: rows.map((r) => ({ ...r.n, parentName: r.parentName, studentName: r.studentName })),
     broadcasts: broadcasts.map((b) => ({ ...b.b, byName: b.byName })),
   };

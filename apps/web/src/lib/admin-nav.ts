@@ -175,6 +175,8 @@ export const ADMIN_NAV: NavGroup[] = [
       { label: "Tuân thủ dữ liệu", href: "/compliance", perm: "compliance:read", ready: true, desc: "Luật BVDLCN 2025 / NĐ 356: đồng ý, yêu cầu của chủ thể dữ liệu, sổ sự cố, lưu giữ." },
       { label: "Chạy lại webhook", href: "/crm/webhook-replay", perm: "system:read", ready: true, desc: "Xem và chạy lại webhook lỗi." },
       { label: "Tích hợp", href: "/tich-hop", perm: "system:read", ready: true, desc: "SePay, email, Zalo ZNS, OTP, cron, form công khai." },
+      { label: "Chuyển đổi dữ liệu", href: "/chuyen-doi", perm: "migration:read", ready: true, desc: "Nhập học viên, phụ huynh, ghi danh từ hệ cũ; đối soát số liệu tổng và từng học viên." },
+      { label: "Go-live cơ sở", href: "/go-live", perm: "cutover:read", ready: true, desc: "Chuẩn bị → chạy song song (sổ đối chiếu hằng ngày) → chính thức → hệ cũ chỉ đọc." },
       { label: "Vận hành & sao lưu", href: "/van-hanh", perm: "system:read", ready: true, desc: "Sức khoẻ hệ thống, biến môi trường, worker, sao lưu / khôi phục, hàng đợi, danh mục go-live." },
       { label: "Cấu hình vận hành", href: "/cau-hinh-van-hanh", perm: "automation:read", ready: true },
       { label: "Cài đặt", href: "/settings", perm: "system:read", ready: true, desc: "Thông tin trung tâm, thương hiệu." },

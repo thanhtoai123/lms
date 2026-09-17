@@ -14,6 +14,7 @@ import { candidateRetention } from "./services/recruit";
 import { syncAffiliateRewards } from "./services/affiliates";
 import { recordHeartbeat } from "./services/ops";
 import { syncInvoiceDrafts } from "./services/einvoice";
+import { dispatchParentMessages } from "./services/delivery";
 
 const db = createDb();
 const interval = Number(process.env.WORKER_INTERVAL_MS ?? 10_000);
@@ -28,6 +29,8 @@ async function tick() {
     const r = await processOutbox(db, { batch: 200 });
     const inv = await syncInvoiceDrafts(db, { limit: 50 });
     if (inv.drafted || inv.issued || inv.failed) console.log(new Date().toISOString(), `einvoice drafted=${inv.drafted} issued=${inv.issued} failed=${inv.failed}`);
+    const msg = await dispatchParentMessages(db, { limit: 100 });
+    if (msg.sent || msg.failed || msg.fallback) console.log(new Date().toISOString(), `zns/sms sent=${msg.sent} failed=${msg.failed} fallback=${msg.fallback} retry=${msg.retried}`);
     const em = await processEmailQueue(db, { limit: 50 });
     if (em.sent || em.failed) console.log(new Date().toISOString(), `email sent=${em.sent} failed=${em.failed}`);
     if (Date.now() - lastSurvey > 15 * 60_000) {

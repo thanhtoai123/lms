@@ -79,7 +79,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   AUDITOR: ["*:read"],
   CENTER_MANAGER: [
     "lead:*", "student:*", "enrollment:*", "class:*", "session:*", "attendance:*", "session_note:*", "media:*",
-    "teacher:read", "staff:read", "timesheet:read", "timesheet:approve", "finance:read", "finance:create", "finance:approve", "report_card:*", "report:read", "makeup:*", "automation:*", "care:*", "inventory:*", "coin:*", "document:read", "assignment:*", "compliance:read", "compliance:create", "marketing:read", "message:*", "affiliate:read", "affiliate:create", "affiliate:update", "affiliate:approve", "recruit:read", "recruit:update", "recruit:interview",
+    "teacher:read", "staff:read", "timesheet:read", "timesheet:approve", "finance:read", "finance:create", "finance:approve", "report_card:*", "report:read", "makeup:*", "automation:*", "care:*", "inventory:*", "coin:*", "document:read", "assignment:*", "compliance:read", "compliance:create", "marketing:read", "message:*", "affiliate:read", "affiliate:create", "affiliate:update", "affiliate:approve", "recruit:read", "recruit:update", "recruit:interview", "cutover:read", "cutover:create", "migration:read",
     "room:*", "center:read", "parent_account:*", "teacher:evaluate", "holiday:*", "course:read", "curriculum:read",
   ],
   CENTER_CLASS_MANAGER: ["class:read", "class:create", "class:update", "session:*", "attendance:*", "session_note:*", "media:*", "student:read", "student:update", "enrollment:read", "enrollment:update", "makeup:*", "teacher:read", "room:*", "center:read", "report_card:*", "holiday:read", "course:read", "curriculum:read", "inventory:read", "inventory:create", "coin:read", "coin:award", "coin:redeem", "document:read", "assignment:*", "message:read", "message:create"],

@@ -13,6 +13,7 @@ import {
   type EmailEvent, type EmailStatus, type OtpPurpose, type OtpStatus, type WebhookSource, type WebhookStatus, type AppSettings, type Department,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
+import { sendOtpMessage, deliverySettings, otpDeliveryReady } from "./delivery";
 import { writeAudit } from "./audit";
 import { ingestBankTx } from "./bank";
 import { createLead } from "./leads";
@@ -193,14 +194,15 @@ export async function requestOtp(db: Database, input: { phone: string; purpose: 
     return { ok: false as const, error: dec.reason, retryAfterSec: dec.retryAfterSec };
   }
   const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
-  const zns = !!process.env.ZALO_ZNS_TOKEN;
   await d.update(otpRequests).set({ status: "expired" }).where(and(eq(otpRequests.phone, phone), eq(otpRequests.purpose, input.purpose), inArray(otpRequests.status, ["sent", "queued"])));
   const [row] = await d.insert(otpRequests).values({
-    phone, purpose: input.purpose, codeHash: hashOtp(phone, input.purpose, code), channel: "zns", status: zns ? "sent" : "queued",
-    ip: input.ip, userAgent: input.userAgent?.slice(0, 200) ?? null, note: zns ? null : "Chưa cấu hình Zalo ZNS — mã chưa được gửi", expiresAt: new Date(now.getTime() + OTP_POLICY.ttlMinutes * 60_000),
+    phone, purpose: input.purpose, codeHash: hashOtp(phone, input.purpose, code), channel: "zns", status: "queued",
+    ip: input.ip, userAgent: input.userAgent?.slice(0, 200) ?? null, note: "Đang gửi", expiresAt: new Date(now.getTime() + OTP_POLICY.ttlMinutes * 60_000),
   }).returning({ id: otpRequests.id, expiresAt: otpRequests.expiresAt });
+  const sent = await sendOtpMessage(db, { phone, code, minutes: OTP_POLICY.ttlMinutes, requestId: row!.id });
+  await d.update(otpRequests).set({ channel: sent.channel ?? "none", status: sent.channel ? "sent" : "queued", note: sent.channel ? null : `Chưa gửi được: ${sent.error}`.slice(0, 300) }).where(eq(otpRequests.id, row!.id));
   const dev = process.env.ALLOW_DEV_ACTOR === "1" && process.env.NODE_ENV !== "production";
-  return { ok: true as const, requestId: row!.id, expiresAt: row!.expiresAt, delivered: zns, ...(dev ? { devCode: code } : {}) };
+  return { ok: true as const, requestId: row!.id, expiresAt: row!.expiresAt, delivered: !!sent.channel, channel: sent.channel, ...(dev ? { devCode: code } : {}) };
 }
 
 export async function verifyOtp(db: Database, input: { phone: string; purpose: OtpPurpose; code: string }) {
@@ -235,7 +237,7 @@ export async function listOtp(ctx: ProtectedContext, input: { status?: OtpStatus
   }).from(otpRequests).where(where);
   const now = Date.now();
   return {
-    page, pageSize: PAGE, counts: c, policy: OTP_POLICY, znsConfigured: !!process.env.ZALO_ZNS_TOKEN,
+    page, pageSize: PAGE, counts: c, policy: OTP_POLICY, znsConfigured: otpDeliveryReady(await deliverySettings(ctx.db)),
     items: rows.map((r) => ({ ...r, phone: r.phone.replace(/^(\d{3})\d+(\d{3})$/, "$1••••$2"), status: (r.status === "sent" || r.status === "queued") && r.expiresAt.getTime() < now ? "expired" : r.status })),
   };
 }
@@ -495,14 +497,15 @@ export async function integrations(ctx: ProtectedContext) {
   const [zn] = await ctx.db.select({ queued: sql<number>`count(*) filter (where ${parentNotifications.channel} = 'zns' and ${parentNotifications.status} = 'queued')::int` }).from(parentNotifications);
   const [ob] = await ctx.db.select({ pending: sql<number>`count(*) filter (where ${outbox.processedAt} is null)::int`, last: sql<string | null>`max(${outbox.processedAt})::text` }).from(outbox);
   const [otp] = await ctx.db.select({ n24: sql<number>`count(*) filter (where ${otpRequests.createdAt} > now() - interval '24 hours')::int` }).from(otpRequests);
+  const ds = await deliverySettings(ctx.db);
   type Item = { key: string; name: string; purpose: string; status: "ok" | "warn" | "off"; details: string[]; env: string[]; href?: string };
   const items: Item[] = [
     { key: "sepay", name: "SePay", purpose: "Biến động số dư → tự khớp đơn", status: e.SEPAY_API_KEY ? (wh?.rejected24 ? "warn" : "ok") : "off", env: ["SEPAY_API_KEY"], href: "/bien-dong-so-du",
       details: [`Webhook: /api/webhooks/sepay`, `Lần nhận gần nhất: ${bank?.last ?? "chưa có"}`, `24h: ${bank?.n24 ?? 0} giao dịch · bị từ chối ${wh?.rejected24 ?? 0}`] },
     { key: "email", name: "Email (Resend)", purpose: "Phiếu thu, nhắc học phí, đặt lại mật khẩu", status: e.RESEND_API_KEY ? (em?.failed ? "warn" : "ok") : "off", env: ["RESEND_API_KEY", "EMAIL_FROM"], href: "/email-logs",
       details: [`Người gửi: ${e.EMAIL_FROM ?? "Sata Robo <no-reply@satarobo.vn>"}`, `7 ngày: ${em?.sent7 ?? 0} đã gửi · chờ ${em?.queued ?? 0} · lỗi ${em?.failed ?? 0}`] },
-    { key: "zns", name: "Zalo OA / ZNS", purpose: "Thông báo & OTP qua Zalo", status: e.ZALO_ZNS_TOKEN ? "ok" : "off", env: ["ZALO_ZNS_TOKEN", "ZALO_OA_ID"], href: "/notifications?channel=zns",
-      details: [`Thông báo ZNS chờ gửi: ${zn?.queued ?? 0}`, `OTP 24h: ${otp?.n24 ?? 0}`] },
+    { key: "zns", name: "Zalo ZNS / SMS", purpose: "Thông báo & OTP qua Zalo, SMS dự phòng", status: ds.zns.mode === "live" ? (e.ZALO_ZNS_TOKEN ? "ok" : "warn") : ds.zns.mode === "sandbox" ? "warn" : "off", env: ["ZALO_ZNS_TOKEN", "ZNS_API_URL", "SMS_API_URL", "SMS_API_KEY"], href: "/cau-hinh-van-hanh?tab=zalo",
+      details: [`ZNS: ${ds.zns.mode} · SMS: ${ds.sms.mode}${ds.sms.fallback ? " (dự phòng)" : ""}`, `Thông báo ZNS chờ gửi: ${zn?.queued ?? 0}`, `OTP 24h: ${otp?.n24 ?? 0}`] },
     { key: "messenger", name: "Facebook Messenger", purpose: "Hộp thư Messenger CRM, tạo lead từ hội thoại", status: e.META_APP_SECRET && e.META_VERIFY_TOKEN ? (e.META_PAGE_TOKEN ? "ok" : "warn") : "off", env: ["META_VERIFY_TOKEN", "META_APP_SECRET", "META_PAGE_TOKEN"], href: "/crm/messenger",
       details: ["Webhook: /api/webhooks/messenger (kiểm tra X-Hub-Signature-256)", e.META_PAGE_TOKEN ? "Gửi trả lời: bật" : "Chưa có page token — trả lời chỉ lưu nội bộ"] },
     { key: "zalo_oa", name: "Zalo OA (tin tư vấn)", purpose: "Nhận / trả lời tin nhắn Zalo OA trong 7 ngày", status: e.ZALO_APP_ID && e.ZALO_OA_SECRET ? (e.ZALO_OA_ACCESS_TOKEN ? "ok" : "warn") : "off", env: ["ZALO_APP_ID", "ZALO_OA_SECRET", "ZALO_OA_ACCESS_TOKEN"], href: "/tin-nhan?channel=zalo",

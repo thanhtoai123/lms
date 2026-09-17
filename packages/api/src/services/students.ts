@@ -9,7 +9,7 @@ type Db = ProtectedContext["db"];
 const STUDENT_ID = sql.raw('"students"."id"');
 
 /** Số buổi đã tiêu thụ của một ghi danh (có mặt, muộn, vắng không phép) — dùng chung cho mọi màn */
-export const consumedSql = sql<number>`(select count(*)::int from ${attendance} a where a.enrollment_id = ${enrollments.id} and a.status in ('present','late','absent_unexcused'))`;
+export const consumedSql = sql<number>`((select count(*)::int from ${attendance} a where a.enrollment_id = ${enrollments.id} and a.status in ('present','late','absent_unexcused')) + ${enrollments.carriedSessions})`;
 
 export function canSeeFullPhone(ctx: ProtectedContext) {
   return hasRole(ctx.actor, "SUPER_ADMIN", "CENTER_MANAGER", "CENTER_SALES_CSM", "CENTER_CLASS_MANAGER", "HO_SALE");

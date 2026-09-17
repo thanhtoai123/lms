@@ -44,8 +44,9 @@ Các nhóm tính năng thường được giới thiệu (CloudEMS, Getfly Educa
 
 1. Nhập dữ liệu thật + đối soát với hệ thống cũ; chạy song song 1–2 tuần ở cơ sở pilot.
 2. Ký hợp đồng nhà cung cấp HĐĐT, chuyển từ sandbox sang bộ chuyển HTTP (đã xong phần hệ thống).
-3. Đăng ký mẫu ZNS (OTP đăng nhập PH, nhắc học phí, lịch học), SMS brandname dự phòng; push cho cổng PH.
+3. Đăng ký OA + mẫu ZNS (OTP đăng nhập PH, nhắc học phí, lịch học) và SMS brandname; khai báo tại Cấu hình vận hành → Tin Zalo (đã xong phần hệ thống). Push cho cổng PH.
 4. In và phát thẻ QR cho học viên cơ sở pilot.
+5. Xuất file học viên / ghi danh / phiếu thu từ hệ cũ → /chuyen-doi → đối soát → /go-live chạy song song ≥ 5 ngày khớp.
 5. Rà soát pháp lý điều khoản đồng ý và quy trình bởi luật sư.
 
 ## Nguồn

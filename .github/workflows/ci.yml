@@ -167,6 +167,10 @@ jobs:
           for p in /hoa-don "/hoa-don?tab=report" "/hoa-don?tab=settings" /the-hoc-vien; do
             curl -sf -o /dev/null -b "$K" "http://localhost:3000$p" || { echo "FAIL 6A/6B $p"; exit 1; }
           done
+          for p in /chuyen-doi "/chuyen-doi?tab=doi-soat" "/chuyen-doi?tab=ghi-danh" "/chuyen-doi?tab=lich-su" /go-live "/cau-hinh-van-hanh?tab=zalo"; do
+            curl -sf -o /dev/null -b "$A" "http://localhost:3000$p" || { echo "FAIL 7 $p"; exit 1; }
+          done
+          curl -sf -o /dev/null -b "$M" "http://localhost:3000/go-live" || { echo "FAIL go-live(M)"; exit 1; }
           for p in /ph/dang-nhap /tra-cuu-hoa-don "/tra-cuu-hoa-don?ma=KHONGCO123"; do
             curl -sf -o /dev/null "http://localhost:3000$p" || { echo "FAIL public $p"; exit 1; }
           done
