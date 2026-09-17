@@ -1,14 +1,13 @@
 import { and, eq, inArray, sql, asc, desc, ilike, or } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
-import { classes, classSchedules, sessions, enrollments, courses, centers, rooms, teachers, students, attendance } from "@satarobo/db";
+import { classes, classSchedules, sessions, enrollments, courses, centers, rooms, teachers, students, attendance, trialBookings } from "@satarobo/db";
 import {
   visibleCenterIds, summarize, detectRisks, riskFrom, sessionLabel,
   type ClassStatus, type AttendanceRecord,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { getOps } from "./opsSettings";
-import { writeAudit } from "./audit";
-import { enforcePrerequisites } from "./catalog";
+import { createEnrollment } from "./enrollments";
 
 export async function listClasses(ctx: ProtectedContext, input: { centerId?: string; status?: ClassStatus; q?: string; teacherId?: string }) {
   const conds = [sql`${classes.deletedAt} is null`];
@@ -76,26 +75,35 @@ export async function getClass(ctx: ProtectedContext, id: string) {
     return { ...r, attendance: summarize(recs), risks: detectRisks(recs, riskT) };
   });
 
-  return { ...c, sessions: sessionRows.map((x) => ({ ...x, label: sessionLabel(x.sequenceNo, x.kind) })), roster: rosterWithStats };
+  // Số điểm danh / nhận xét / học thử từng buổi (danh sách buổi ở trang lớp)
+  const perSession = await ctx.db
+    .select({
+      sessionId: sessions.id,
+      marked: sql<number>`(select count(*)::int from ${attendance} a where a.session_id = ${sql.raw('"sessions"."id"')})`,
+      remarks: sql<number>`(select count(*)::int from ${attendance} a where a.session_id = ${sql.raw('"sessions"."id"')} and coalesce(trim(a.student_remark), '') <> '')`,
+      trials: sql<number>`(select count(*)::int from ${trialBookings} tb where tb.session_id = ${sql.raw('"sessions"."id"')} and tb.status = 'booked')`,
+    })
+    .from(sessions).where(eq(sessions.classId, id));
+  const stat = new Map(perSession.map((p) => [p.sessionId, p]));
+
+  return {
+    ...c,
+    sessions: sessionRows.map((x) => ({
+      ...x,
+      label: sessionLabel(x.sequenceNo, x.kind, x.originalSequenceNo),
+      marked: stat.get(x.id)?.marked ?? 0,
+      remarks: stat.get(x.id)?.remarks ?? 0,
+      trials: stat.get(x.id)?.trials ?? 0,
+    })),
+    roster: rosterWithStats,
+  };
 }
 
 export { createClass, type CreateClassInput } from "./classOps";
 
-/** Ghi danh HV vào lớp (kiểm tra sức chứa) */
+/** Ghi danh HV vào lớp — dùng chung luồng ghi danh (sức chứa gồm cả bảo lưu, chặn trùng, lịch sử, ngày đăng ký đầu) */
 export async function enrollStudent(ctx: ProtectedContext, input: { classId: string; studentId: string; packageSessions: number; startSequenceNo?: number; status?: "active" | "trial" }) {
-  const cls = await ctx.db.query.classes.findFirst({ where: eq(classes.id, input.classId) });
-  if (!cls) throw new TRPCError({ code: "NOT_FOUND" });
-  requirePermission(ctx, "enrollment:create", { centerId: cls.centerId });
-  if (cls.status === "cancelled" || cls.status === "finished") throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Lớp đã kết thúc / huỷ" });
-  await enforcePrerequisites(ctx, { studentId: input.studentId, courseId: cls.courseId, centerId: cls.centerId });
-  const [cnt] = await ctx.db.select({ n: sql<number>`count(*)::int` }).from(enrollments).where(and(eq(enrollments.classId, input.classId), inArray(enrollments.status, ["active", "trial"])));
-  if ((cnt?.n ?? 0) >= cls.capacity) throw new TRPCError({ code: "PRECONDITION_FAILED", message: `Lớp đã đủ ${cls.capacity} học viên` });
-  const [row] = await ctx.db
-    .insert(enrollments)
-    .values({ classId: input.classId, studentId: input.studentId, packageSessions: input.packageSessions, startSequenceNo: input.startSequenceNo ?? 1, status: input.status ?? "active", createdBy: ctx.user.id })
-    .returning();
-  await writeAudit(ctx.db, { actorId: ctx.user.id, action: "CREATE", module: "academics", entity: "enrollments", entityId: row!.id, after: input, ip: ctx.ip });
-  return row!;
+  return createEnrollment(ctx, input);
 }
 
 /** Dữ liệu tham chiếu cho form (cache được ở client) */
