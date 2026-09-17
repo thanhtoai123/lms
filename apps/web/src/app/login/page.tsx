@@ -1,6 +1,8 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { createServerClient } from "@supabase/ssr";
+import { ACCESS_COOKIE, REFRESH_COOKIE, cookieOptions } from "@/lib/auth-session";
 
 export const metadata = { title: "Đăng nhập quản trị" };
 
@@ -34,7 +36,8 @@ async function supabaseLogin(formData: FormData) {
   });
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error || !data.session) redirect(`/login?error=1&next=${encodeURIComponent(next)}`);
-  c.set("sb-access-token", data.session.access_token, { httpOnly: true, sameSite: "lax", path: "/", secure: !DEV });
+  c.set(ACCESS_COOKIE, data.session.access_token, cookieOptions("access", data.session.expires_in));
+  c.set(REFRESH_COOKIE, data.session.refresh_token, cookieOptions("refresh"));
   redirect(next);
 }
 
@@ -71,6 +74,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           <h1 className="text-2xl font-bold">Đăng nhập quản trị</h1>
           <p className="mb-6 mt-1 text-sm text-ink-600">Dùng tài khoản nhân sự được cấp để vào khu quản trị.</p>
 
+          {sp.error === "session" && <p className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">Phiên đăng nhập đã hết — vui lòng đăng nhập lại.</p>}
           {sp.error === "forbidden" && <p className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">Tài khoản này không có quyền vào khu quản trị.</p>}
 
           {hasSupabase ? (
@@ -86,7 +90,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
               </div>
               {sp.error === "1" && <p className="text-sm text-danger">Email hoặc mật khẩu không đúng.</p>}
               <button className="btn-primary w-full" type="submit">Đăng nhập</button>
-              <p className="text-center text-xs text-ink-400">Quên mật khẩu? Liên hệ quản trị hệ thống để được cấp lại.</p>
+              <p className="text-center text-xs text-ink-400"><Link href="/quen-mat-khau" className="text-brand-600">Quên mật khẩu?</Link></p>
             </form>
           ) : (
             <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">Đăng nhập bằng email/mật khẩu sẽ bật khi cấu hình Supabase Auth (NEXT_PUBLIC_SUPABASE_URL).</p>

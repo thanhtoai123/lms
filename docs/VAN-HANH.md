@@ -102,3 +102,11 @@ Thứ tự cho mỗi cơ sở:
 
 - /cau-hinh-van-hanh: tab OTP và Nhắc tự động chỉ đặt ở mức toàn hệ thống (Quản trị Hội sở). Các tab Học viên, Lớp, Chấm công, Thanh toán: chọn cơ sở, bỏ "Theo mặc định" để đặt riêng; quản lý cơ sở sửa được cơ sở của mình. Mỗi lần lưu ghi vào Audit Log kèm lý do.
 - App giáo viên: nếu mất mạng khi đang ở trang buổi học, vẫn điểm danh và bấm lưu bình thường — dữ liệu lưu trên điện thoại, thanh trên cùng báo "chờ gửi", tự gửi khi có mạng (hoặc bấm "Gửi ngay"). Lưu ý: cần mở trang buổi học khi còn mạng; không đăng xuất / xoá dữ liệu trình duyệt khi còn buổi chờ gửi.
+
+## Đăng nhập nhân sự (Giai đoạn 11)
+
+- Biến môi trường khi chạy thật: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` (chỉ đặt ở máy chủ, không bao giờ đưa lên trình duyệt), `NEXT_PUBLIC_APP_URL` (địa chỉ công khai, dùng trong liên kết email), `REQUIRE_MFA_ROLES` (ví dụ `SUPER_ADMIN,HO_ACCOUNTANT`; mặc định `SUPER_ADMIN`). Trong Supabase: tắt tự đăng ký (signup), bật MFA TOTP, thời hạn phiên mặc định.
+- Tạo nhân sự: Người dùng → tạo tài khoản → mở trang người dùng → **Gửi lời mời**. Nhân sự bấm liên kết trong email (dùng một lần, hết hạn 1 giờ), đặt mật khẩu và vào thẳng hệ thống. Quên mật khẩu: trang đăng nhập → "Quên mật khẩu?", hoặc quản trị bấm **Gửi đặt lại mật khẩu**.
+- Xác thực 2 lớp: menu Tổng quan → **Bảo mật tài khoản**, quét mã QR bằng Google Authenticator / Microsoft Authenticator, nhập mã 6 số. Tài khoản bắt buộc 2 lớp sẽ được đưa tới trang này sau khi đăng nhập cho đến khi xác thực. Mất điện thoại: quản trị gỡ thiết bị trong Supabase (Authentication → Users → MFA) rồi nhân sự đăng ký lại.
+- Khoá tài khoản (Người dùng → Khoá) đồng thời cấm đăng nhập Supabase; mở khoá gỡ lệnh cấm. Nếu trang báo "chưa đồng bộ đăng nhập", kiểm tra `SUPABASE_SERVICE_ROLE_KEY`.
+- Phiên đăng nhập tự làm mới khi còn dưới 5 phút; đăng xuất thu hồi phiên trên Supabase.

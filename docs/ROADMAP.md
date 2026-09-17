@@ -40,7 +40,11 @@
 | 9B | **Kiểm tra dữ liệu trước pilot** (trong /go-live): 12 mục — phòng, quản lý, kế toán, học viên chưa có phụ huynh, lớp thiếu giáo viên / thiếu buổi, buổi 7 ngày tới thiếu giáo viên, SĐT phụ huynh sai, ghi danh chưa có đơn, học vượt gói, thiếu QR chuyển khoản, giáo viên chưa có tài khoản; mục chặn làm danh mục go-live chưa đạt | Xong |
 | 10A | **Cấu hình vận hành đầy đủ** (/cau-hinh-van-hanh): 11 tab đều dùng được — OTP (hiệu lực, số lần sai, chờ gửi lại, trần theo SĐT / IP), Học viên (sắp hết khoá, bảo lưu tối đa, hạn học bù, ngưỡng cảnh báo chuyên cần), Lớp (quét thẻ tính đi muộn), Chấm công (dung sai muộn / sớm), Thanh toán (nhắc đợt mặc định), Nhắc tự động (nhắc hạn bài tập); cơ sở ghi đè hoặc theo mặc định; mỗi thay đổi ghi nhật ký; tham số dùng thật trong nghiệp vụ | Xong |
 | 10B | **Điểm danh khi mất mạng** (app giáo viên): nháp điểm danh lưu trên máy, trang buổi học xem lại được khi mất kết nối, bấm lưu khi mất mạng thì xếp hàng và tự gửi khi có mạng (hiện số buổi chờ gửi, gửi ngay) | Xong |
-| 11 | Pilot thật tại 1 cơ sở (ký HĐĐT, Zalo ZNS, SMS, khoá VAPID), theo dõi báo cáo sau go-live 4 tuần, mở rộng cơ sở tiếp theo | Chờ quyết định cơ sở + hợp đồng |
+| 11A | **Phiên đăng nhập bền**: tự làm mới phiên Supabase trước khi hết hạn (không bị đăng xuất mỗi giờ), đăng xuất thu hồi phiên, phiên hỏng quay về trang đăng nhập | Xong |
+| 11B | **Mời nhân sự / đặt lại mật khẩu**: quản trị gửi email mời đặt mật khẩu từ trang người dùng, nhân sự tự "Quên mật khẩu" (không tiết lộ email có tồn tại, giới hạn số lần), trang đặt mật khẩu dùng liên kết một lần với chính sách mật khẩu (≥10 ký tự, có chữ và số) | Xong |
+| 11C | **Xác thực 2 lớp (TOTP)** (/bao-mat): mọi nhân sự tự bật bằng ứng dụng OTP; vai trò trong `REQUIRE_MFA_ROLES` (mặc định Quản trị hệ thống) bắt buộc — chưa xác thực thì mọi thao tác bị chặn ở máy chủ và bị chuyển tới /bao-mat | Xong |
+| 11D | **Khoá tài khoản đồng bộ đăng nhập**: khoá trong hệ thống đồng thời cấm tài khoản Supabase (không đăng nhập / làm mới phiên được) | Xong |
+| 12 | Pilot thật tại 1 cơ sở (ký HĐĐT, Zalo ZNS, SMS, khoá VAPID), theo dõi báo cáo sau go-live 4 tuần, mở rộng cơ sở tiếp theo | Chờ quyết định cơ sở + hợp đồng |
 
 ## Việc kỹ thuật còn lại trong Giai đoạn 1 (sau khi CI xanh)
 

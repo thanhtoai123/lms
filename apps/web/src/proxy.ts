@@ -1,20 +1,47 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { ACCESS_COOKIE, REFRESH_COOKIE, cookieOptions, needsRefresh, refreshSession, supabaseOn } from "@/lib/auth-session";
 
 /**
  * Chặn sớm: chưa có phiên đăng nhập thì chuyển về /login?next=… trước khi render
  * (không render trang quản trị rồi mới redirect). Kiểm tra quyền thật vẫn ở service/policy.
+ * Phiên Supabase sắp hết hạn thì làm mới tại đây (trang) và ở /api/trpc (gọi API).
  */
-const PUBLIC = [/^\/login(\/|$)/, /^\/ks(\/|$)/, /^\/bt(\/|$)/, /^\/tin-tuc(\/|$)/, /^\/gioi-thieu(\/|$)/, /^\/logout(\/|$)/, /^\/dang-ky(\/|$)/, /^\/tuyen-dung(\/|$)/, /^\/tn(\/|$)/, /^\/ph(\/|$)/, /^\/tra-cuu-hoa-don(\/|$)/, /^\/api\//, /^\/_next\//, /^\/manifest\.webmanifest$/, /^\/favicon/, /\.(?:png|jpg|jpeg|svg|ico|webp|txt|xml)$/];
+const PUBLIC = [/^\/login(\/|$)/, /^\/quen-mat-khau(\/|$)/, /^\/dat-mat-khau(\/|$)/, /^\/ks(\/|$)/, /^\/bt(\/|$)/, /^\/tin-tuc(\/|$)/, /^\/gioi-thieu(\/|$)/, /^\/logout(\/|$)/, /^\/dang-ky(\/|$)/, /^\/tuyen-dung(\/|$)/, /^\/tn(\/|$)/, /^\/ph(\/|$)/, /^\/tra-cuu-hoa-don(\/|$)/, /^\/api\//, /^\/_next\//, /^\/manifest\.webmanifest$/, /^\/favicon/, /\.(?:png|jpg|jpeg|svg|ico|webp|txt|xml)$/];
 
-export function proxy(req: NextRequest) {
+function toLogin(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
-  if (PUBLIC.some((r) => r.test(pathname))) return NextResponse.next();
-  const hasSession = req.cookies.has("sb-access-token") || (process.env.ALLOW_DEV_ACTOR === "1" && req.cookies.has("x-dev-actor"));
-  if (hasSession) return NextResponse.next();
   const url = req.nextUrl.clone();
   url.pathname = "/login";
   url.search = pathname === "/" ? "" : `?next=${encodeURIComponent(pathname + search)}`;
   return NextResponse.redirect(url);
+}
+
+export async function proxy(req: NextRequest) {
+  const { pathname } = req.nextUrl;
+  if (PUBLIC.some((r) => r.test(pathname))) return NextResponse.next();
+  const access = req.cookies.get(ACCESS_COOKIE)?.value;
+  const refresh = req.cookies.get(REFRESH_COOKIE)?.value;
+  const dev = process.env.ALLOW_DEV_ACTOR === "1" && req.cookies.has("x-dev-actor");
+
+  if (supabaseOn() && needsRefresh(access, refresh)) {
+    const s = await refreshSession(refresh!);
+    if (s && s !== "network") {
+      req.cookies.set(ACCESS_COOKIE, s.access_token);
+      req.cookies.set(REFRESH_COOKIE, s.refresh_token);
+      const res = NextResponse.next({ request: { headers: req.headers } });
+      res.cookies.set(ACCESS_COOKIE, s.access_token, cookieOptions("access", s.expires_in));
+      res.cookies.set(REFRESH_COOKIE, s.refresh_token, cookieOptions("refresh"));
+      return res;
+    }
+    if (s === null && !dev) {
+      const res = toLogin(req);
+      res.cookies.delete(ACCESS_COOKIE);
+      res.cookies.delete(REFRESH_COOKIE);
+      return res;
+    }
+  }
+  if (access || refresh || dev) return NextResponse.next();
+  return toLogin(req);
 }
 
 export const config = {

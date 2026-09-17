@@ -25,7 +25,7 @@ export const EMAIL_EVENTS = {
     label: "Chào mừng nhân sự mới",
     vars: ["ten", "email", "link"],
     subject: "Chào mừng {ten} đến với Sata Robo",
-    body: "Xin chào {ten},\n\nTài khoản quản trị của bạn đã được tạo với email {email}.\nĐăng nhập tại: {link}\n\nTrân trọng,\nSata Robo",
+    body: "Xin chào {ten},\n\nTài khoản quản trị của bạn đã được tạo với email {email}.\nĐặt mật khẩu và đăng nhập tại (liên kết dùng một lần, hết hạn sau 1 giờ): {link}\n\nTrân trọng,\nSata Robo",
   },
   PASSWORD_RESET: {
     label: "Đặt lại mật khẩu",

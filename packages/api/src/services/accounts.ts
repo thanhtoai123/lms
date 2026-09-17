@@ -7,6 +7,7 @@ import {
   type Role,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
+import { supabaseAdmin } from "./staffAuth";
 import { writeAudit } from "./audit";
 
 type Db = ProtectedContext["db"];
@@ -182,7 +183,15 @@ export async function setUserLock(ctx: ProtectedContext, input: { userId: string
     await tx.update(users).set(input.lock ? { isActive: false, lockedAt: new Date(), lockedReason: input.reason!.trim() } : { isActive: true, lockedAt: null, lockedReason: null }).where(eq(users.id, u.id));
     await writeAudit(tx as unknown as Db, { actorId: ctx.user.id, action: "UPDATE", module: "system", entity: "users", entityId: u.id, before: { isActive: u.isActive }, after: { isActive: !input.lock }, reason: input.reason ?? null, ip: ctx.ip });
   });
-  return { changed: true };
+  // Khoá cả tài khoản đăng nhập Supabase (chặn làm mới phiên); mở khoá thì gỡ chặn
+  let authSynced: boolean | null = null;
+  const admin = supabaseAdmin();
+  if (admin && u.authSubject) {
+    const { error } = await admin.auth.admin.updateUserById(u.authSubject, { ban_duration: input.lock ? "876000h" : "none" });
+    authSynced = !error;
+    if (error) console.error("[lock supabase]", error.message);
+  }
+  return { changed: true, authSynced };
 }
 
 /* ------------------------------------------------------------------ */

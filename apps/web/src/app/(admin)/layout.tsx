@@ -16,6 +16,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const actor = ctx.actor as Actor;
   const roles = me.assignments.map((a) => a.role);
   if (!roles.some((r) => STAFF_ROLES.includes(r))) redirect("/login?error=forbidden");
+  if (me.auth?.mfa.required && !me.auth.mfa.satisfied) redirect("/bao-mat");
 
   const nav = ADMIN_NAV.map((g) => ({ ...g, items: g.items.filter((i) => !i.perm || hasPermission(actor, i.perm)) })).filter((g) => g.items.length > 0);
   const main = PRIORITY.find((r) => roles.includes(r)) ?? roles[0]!;

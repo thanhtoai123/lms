@@ -16,7 +16,7 @@ test("vận hành: kiểm tra biến môi trường", () => {
   assert.ok(prod.some((c) => c.key === "DATABASE_URL (mật khẩu)"));
   assert.ok(prod.some((c) => c.key === "DATABASE_URL (SSL)"));
   const good = envChecks({
-    DATABASE_URL: "postgres://app:Str0ng@db.example:5432/x?sslmode=require", NEXT_PUBLIC_SUPABASE_URL: "https://x.supabase.co", NEXT_PUBLIC_SUPABASE_ANON_KEY: "k",
+    DATABASE_URL: "postgres://app:Str0ng@db.example:5432/x?sslmode=require", NEXT_PUBLIC_SUPABASE_URL: "https://x.supabase.co", NEXT_PUBLIC_SUPABASE_ANON_KEY: "k", SUPABASE_SERVICE_ROLE_KEY: "s", NEXT_PUBLIC_APP_URL: "https://admin.example",
     MEDIA_SIGNING_SECRET: "a".repeat(40), OTP_PEPPER: "b".repeat(20), CRON_SECRET: "c".repeat(30), STORAGE_DIR: "/srv/sata/uploads",
   }, true);
   assert.equal(envSummary(good).ready, true);

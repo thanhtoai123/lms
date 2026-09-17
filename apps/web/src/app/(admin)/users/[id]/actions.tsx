@@ -25,7 +25,8 @@ export function UserActions({ user, roles, roleOptions, centers, canEdit }: { us
   const revoke = useMutation(trpc.system.revokeRole.mutationOptions({ onSuccess: () => ok("Đã gỡ vai trò."), onError }));
   const lock = useMutation(trpc.system.setLock.mutationOptions({ onSuccess: () => { setLockReason(""); ok(user.isActive ? "Đã khoá tài khoản — người dùng bị đăng xuất ở lần gọi kế tiếp." : "Đã mở khoá tài khoản."); }, onError }));
   const update = useMutation(trpc.system.updateUser.mutationOptions({ onSuccess: () => { setEdit(false); ok("Đã lưu thông tin."); }, onError }));
-  const busy = grant.isPending || revoke.isPending || lock.isPending || update.isPending;
+  const link = useMutation(trpc.system.sendLoginLink.mutationOptions({ onSuccess: (r) => setMsg({ ok: true, text: r.type === "invite" ? `Đã gửi lời mời đặt mật khẩu tới ${r.to}.` : `Đã gửi liên kết đặt lại mật khẩu tới ${r.to}.` }), onError }));
+  const busy = link.isPending || grant.isPending || revoke.isPending || lock.isPending || update.isPending;
   const isGlobal = roleOptions.find((r) => r.role === newRole.role)?.global ?? false;
 
   return (
@@ -73,6 +74,13 @@ export function UserActions({ user, roles, roleOptions, centers, canEdit }: { us
             ) : (
               <dl className="space-y-1 text-sm"><div><dt className="inline text-ink-400">Email: </dt><dd className="inline">{user.email}</dd></div><div><dt className="inline text-ink-400">Điện thoại: </dt><dd className="inline">{user.phone ?? "—"}</dd></div></dl>
             )}
+          </section>
+        )}
+        {canEdit && user.isActive && (
+          <section className="card space-y-2 p-4">
+            <h2 className="font-semibold">Đăng nhập</h2>
+            <p className="text-xs text-ink-600">{user.hasAuth ? "Gửi email đặt lại mật khẩu cho người dùng." : "Tài khoản chưa có mật khẩu — gửi email mời đặt mật khẩu."} Liên kết dùng một lần, hết hạn sau 1 giờ.</p>
+            <button className="btn-ghost" disabled={busy} onClick={() => link.mutate({ userId: user.id })}>{user.hasAuth ? "Gửi đặt lại mật khẩu" : "Gửi lời mời"}</button>
           </section>
         )}
         {canEdit && (

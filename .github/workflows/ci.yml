@@ -179,6 +179,11 @@ jobs:
           done
           curl -sf -o /dev/null -b "$A" http://localhost:3000/huong-dan || { echo "FAIL huong-dan"; exit 1; }
           curl -sf -o /dev/null -b "x-dev-actor=teacher1@satarobo.vn" http://localhost:3000/huong-dan || { echo "FAIL huong-dan(GV)"; exit 1; }
+          for p in /quen-mat-khau /dat-mat-khau "/dat-mat-khau?token_hash=abc&type=recovery"; do
+            curl -sf -o /dev/null "http://localhost:3000$p" || { echo "FAIL auth $p"; exit 1; }
+          done
+          curl -sf -o /dev/null -b "$A" http://localhost:3000/bao-mat || { echo "FAIL bao-mat"; exit 1; }
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X POST -b "$A" -H 'Content-Type: application/json' -H 'Origin: http://localhost:3000' -d '{"action":"status"}' http://localhost:3000/api/auth/mfa)" = "400"
           curl -sfI http://localhost:3000/ph/sw.js | grep -qi "service-worker-allowed"
           curl -sf http://localhost:3000/ph/manifest.webmanifest | grep -q '"scope"'
           test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/api/ph/push)" = "401"

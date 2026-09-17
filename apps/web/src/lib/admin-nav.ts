@@ -27,6 +27,7 @@ export const ADMIN_NAV: NavGroup[] = [
     items: [
       { label: "Dashboard", href: "/dashboard", ready: true },
       { label: "Hướng dẫn & đào tạo", href: "/huong-dan", ready: true, desc: "Bài hướng dẫn theo vai trò, có câu hỏi kiểm tra." },
+      { label: "Bảo mật tài khoản", href: "/bao-mat", ready: true, desc: "Xác thực 2 lớp bằng ứng dụng OTP." },
       { label: "CRM", href: "/crm", perm: "lead:read", ready: true },
     ],
   },

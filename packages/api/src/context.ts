@@ -1,7 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { eq } from "drizzle-orm";
 import { getDb, users, userRoles, teachers, parents, type Database } from "@satarobo/db";
-import type { Actor } from "@satarobo/core";
+import { decodeJwtPayload, mfaRequiredRoles, mfaState, type Actor } from "@satarobo/core";
 
 export interface Context {
   db: Database;
@@ -9,6 +9,8 @@ export interface Context {
   /** Hồ sơ người dùng đăng nhập (đã rút gọn) */
   user: { id: string; email: string; fullName: string } | null;
   ip?: string;
+  /** Cách đăng nhập + trạng thái xác thực 2 lớp */
+  auth?: { via: "supabase" | "dev"; aal: string | null; mfa: { required: boolean; satisfied: boolean } };
 }
 
 /**
@@ -20,6 +22,7 @@ export async function createContext(opts: { headers: Headers; ip?: string }): Pr
   const auth = opts.headers.get("authorization");
   let email: string | null = null;
   let authSubject: string | null = null;
+  let aal: string | null = null;
 
   if (auth?.startsWith("Bearer ") && process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
@@ -29,6 +32,7 @@ export async function createContext(opts: { headers: Headers; ip?: string }): Pr
     if (data.user) {
       authSubject = data.user.id;
       email = data.user.email ?? null;
+      aal = decodeJwtPayload(auth.slice(7))?.aal ?? null;
     }
   }
 
@@ -59,5 +63,7 @@ export async function createContext(opts: { headers: Headers; ip?: string }): Pr
     personId: teacher?.id ?? parent?.id ?? null,
     assignments: roles.map((r) => ({ role: r.role, centerId: r.centerId })),
   };
-  return { db, actor, user: { id: u.id, email: u.email, fullName: u.fullName }, ip: opts.ip };
+  const via = authSubject ? "supabase" as const : "dev" as const;
+  const mfa = mfaState({ roles: actor.assignments.map((a) => a.role), required: mfaRequiredRoles(process.env.REQUIRE_MFA_ROLES), viaSupabase: via === "supabase", aal });
+  return { db, actor, user: { id: u.id, email: u.email, fullName: u.fullName }, ip: opts.ip, auth: { via, aal, mfa } };
 }

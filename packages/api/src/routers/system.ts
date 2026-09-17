@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { ROLES, TRIAL_STATUSES } from "@satarobo/core";
-import { router, protectedProcedure } from "../trpc";
+import { router, protectedProcedure, requirePermission } from "../trpc";
 import * as Acc from "../services/accounts";
+import * as StaffAuth from "../services/staffAuth";
 import * as Rep from "../services/reports";
 import * as Tr from "../services/trials";
 import * as Ops from "../services/ops";
@@ -30,6 +31,8 @@ export const systemRouter = router({
     .mutation(({ ctx, input }) => Acc.updateUser(ctx, input)),
   grantRole: protectedProcedure.input(roleAssign.extend({ userId: uuid })).mutation(({ ctx, input }) => Acc.grantRole(ctx, input)),
   revokeRole: protectedProcedure.input(z.object({ roleId: uuid, reason: z.string().max(300).nullish() })).mutation(({ ctx, input }) => Acc.revokeRole(ctx, input)),
+  sendLoginLink: protectedProcedure.input(z.object({ userId: uuid })).mutation(({ ctx, input }) => StaffAuth.sendLoginLink(ctx, input)),
+  authStatus: protectedProcedure.query(({ ctx }) => { requirePermission(ctx, "system:read"); return StaffAuth.authStatus(); }),
   setLock: protectedProcedure.input(z.object({ userId: uuid, lock: z.boolean(), reason: z.string().max(300).nullish() })).mutation(({ ctx, input }) => Acc.setUserLock(ctx, input)),
   roles: protectedProcedure.query(({ ctx }) => Acc.rolesMatrix(ctx)),
   audit: protectedProcedure

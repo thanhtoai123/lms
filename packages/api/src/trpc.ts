@@ -37,8 +37,9 @@ const mapDomainErrors = t.middleware(async ({ next }) => {
   }
 });
 
-export const protectedProcedure = t.procedure.use(mapDomainErrors).use(({ ctx, next }) => {
+export const protectedProcedure = t.procedure.use(mapDomainErrors).use(({ ctx, next, path }) => {
   if (!ctx.actor || !ctx.user) throw new TRPCError({ code: "UNAUTHORIZED", message: "Chưa đăng nhập" });
+  if (ctx.auth?.mfa.required && !ctx.auth.mfa.satisfied && !path.startsWith("auth.")) throw new TRPCError({ code: "FORBIDDEN", message: "Cần xác thực 2 lớp (vào Bảo mật tài khoản)" });
   return next({ ctx: { ...ctx, actor: ctx.actor, user: ctx.user } });
 });
 
