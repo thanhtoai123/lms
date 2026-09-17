@@ -43,6 +43,9 @@ export const OPS_GROUPS = {
   ],
   "thanh-toan": [
     { key: "orderRemindDays", label: "Nhắc đợt thanh toán trước hạn (mặc định cho đơn mới)", type: "int", min: 0, max: 30, unit: "ngày", def: 3, scope: "center", usedBy: "Đơn hàng, công nợ sắp đến hạn" },
+    { key: "maxLineDiscountPercent", label: "Trần giảm giá theo dòng đơn", type: "int", min: 1, max: 100, unit: "%", def: 50, scope: "center", usedBy: "Tạo đơn, sửa dòng đơn (mỗi khoản giảm cần lý do)" },
+    { key: "debtAgingWarnDays", label: "Tuổi nợ — mốc nhóm 1", type: "int", min: 1, max: 60, unit: "ngày", def: 7, scope: "center", usedBy: "Công nợ theo ghi danh (Quá hạn 1–N ngày)" },
+    { key: "debtAgingBadDays", label: "Tuổi nợ — mốc nhóm 2", type: "int", min: 2, max: 180, unit: "ngày", def: 30, scope: "center", usedBy: "Công nợ theo ghi danh (Quá hạn N+1–M, rồi > M)" },
   ],
   nhac: [
     { key: "homeworkReminderHours", label: "Nhắc phụ huynh khi bài tập còn", type: "int", min: 2, max: 72, unit: "giờ", def: 24, scope: "global", usedBy: "Nhắc hạn bài tập" },
@@ -90,6 +93,11 @@ export function validateOps(group: OpsGroup, values: Record<string, number | boo
     const w = values.otpPerPhoneWindowMin;
     const c = values.otpCooldownSec;
     if (typeof w === "number" && typeof c === "number" && c > w * 60) e.push("Thời gian chờ giữa hai lần gửi không được dài hơn khoảng đếm theo SĐT");
+  }
+  if (group === "thanh-toan") {
+    const a = values.debtAgingWarnDays;
+    const b = values.debtAgingBadDays;
+    if (typeof a === "number" && typeof b === "number" && b <= a) e.push("Mốc tuổi nợ thứ hai phải lớn hơn mốc thứ nhất");
   }
   return e;
 }

@@ -22,7 +22,7 @@ test("kế hoạch trả góp", () => {
   assert.deepEqual(p.map((x) => x.dueDate), ["2026-09-20", "2026-10-20", "2026-11-19"]);
   const q = buildInstallmentPlan(1_000_500, 2, "2026-09-20");
   assert.equal(q[0]!.amount + q[1]!.amount, 1_000_500);
-  assert.throws(() => buildInstallmentPlan(100, 5, "2026-09-20"), FinanceRuleError);
+  assert.throws(() => buildInstallmentPlan(100, 13, "2026-09-20"), FinanceRuleError);
   assert.deepEqual(validateInstallmentPlan(300, [{ amount: 100, dueDate: "2026-01-01" }, { amount: 200, dueDate: "2026-02-01" }]), []);
   assert.match(validateInstallmentPlan(300, [{ amount: 100, dueDate: "2026-02-01" }, { amount: 100, dueDate: "2026-01-01" }]).join(), /phải bằng.*tăng dần/);
 });

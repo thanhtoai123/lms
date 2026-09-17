@@ -123,6 +123,67 @@ export function decideBankMatch(input: { direction: "in" | "out"; amount: number
 }
 
 /* ------------------------------------------------------------------ */
+/* Phân bổ một giao dịch cho nhiều dòng đơn (nhiều con)                 */
+/* ------------------------------------------------------------------ */
+
+export interface AllocationLine {
+  orderItemId: string;
+  /** Số còn thiếu của dòng (Σ net − đã rót) */
+  outstanding: number;
+  label?: string;
+}
+export interface AllocationRequest { orderItemId: string; amount: number }
+export interface AllocationPlan {
+  allocations: { orderItemId: string; amount: number }[];
+  allocated: number;
+  /** Tiền còn dư sau khi rót — không tự hoàn, không tự trừ sang đơn khác */
+  surplus: number;
+  /** Khớp đủ / Đang thừa / Còn thiếu */
+  fit: "exact" | "surplus" | "short";
+  errors: string[];
+}
+
+/** Chia số tiền của một giao dịch cho từng dòng đơn (từng con). Tiền là số nguyên VND. */
+export function planAllocation(amount: number, lines: readonly AllocationLine[], requested: readonly AllocationRequest[]): AllocationPlan {
+  const errors: string[] = [];
+  if (!Number.isInteger(amount) || amount <= 0) errors.push("Số tiền giao dịch không hợp lệ");
+  const seen = new Set<string>();
+  const allocations: { orderItemId: string; amount: number }[] = [];
+  for (const r of requested) {
+    if (!Number.isInteger(r.amount) || r.amount < 0) {
+      errors.push("Số tiền phân bổ phải là số nguyên ≥ 0");
+      continue;
+    }
+    if (r.amount === 0) continue;
+    if (seen.has(r.orderItemId)) {
+      errors.push("Một dòng đơn chỉ được phân bổ một lần");
+      continue;
+    }
+    seen.add(r.orderItemId);
+    const line = lines.find((l) => l.orderItemId === r.orderItemId);
+    if (!line) {
+      errors.push("Dòng đơn không thuộc đơn này");
+      continue;
+    }
+    if (r.amount > line.outstanding) {
+      errors.push(`${line.label ?? "Dòng đơn"}: rót ${formatVnd(r.amount)} vượt số còn thiếu ${formatVnd(line.outstanding)}`);
+      continue;
+    }
+    allocations.push({ orderItemId: r.orderItemId, amount: r.amount });
+  }
+  const allocated = allocations.reduce((s, a) => s + a.amount, 0);
+  if (allocated > amount) errors.push(`Tổng phân bổ ${formatVnd(allocated)} vượt số tiền giao dịch ${formatVnd(amount)}`);
+  const surplus = Math.max(0, amount - allocated);
+  return {
+    allocations,
+    allocated,
+    surplus,
+    fit: allocated === amount ? "exact" : allocated < amount ? "surplus" : "short",
+    errors: [...new Set(errors)],
+  };
+}
+
+/* ------------------------------------------------------------------ */
 /* CSV                                                                 */
 /* ------------------------------------------------------------------ */
 
@@ -271,6 +332,157 @@ export function parseLegacyCsv(text: string, today: string, maxRows = 2000): { r
     return { line, row, errors };
   });
   return { rows, headerErrors };
+}
+
+/* ------------------------------------------------------------------ */
+/* Nhập giao dịch cũ: khớp theo SĐT phụ huynh + họ tên                  */
+/* ------------------------------------------------------------------ */
+
+/** Chuẩn hoá họ tên để so khớp: bỏ dấu, thường, gộp khoảng trắng */
+export function normalizeName(s: string | null | undefined): string {
+  return (s ?? "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[đĐ]/g, "d")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** SĐT Việt Nam về 84xxxxxxxxx (mã hai hệ khác nhau nên chỉ khớp được bằng SĐT + tên) */
+export function normalizeLegacyPhone(raw: string | null | undefined): string | null {
+  const d = digitsOnly(raw);
+  if (d.length < 9) return null;
+  if (d.startsWith("84") && d.length === 11) return d;
+  if (d.startsWith("0") && d.length === 10) return `84${d.slice(1)}`;
+  if (d.length === 9) return `84${d}`;
+  return null;
+}
+
+export interface LegacyCandidate {
+  /** id ghi danh hoặc học viên tuỳ ngữ cảnh gọi */
+  id: string;
+  fullName: string;
+  /** Các SĐT phụ huynh đã chuẩn hoá (84…) */
+  parentPhones: readonly string[];
+}
+export type LegacyMatchKind = "one" | "many" | "none";
+
+/** Khớp một dòng file cũ với hồ sơ hệ mới: SĐT phụ huynh trước, rồi họ tên đã chuẩn hoá */
+export function matchLegacyStudent(row: { name: string; phone: string | null }, candidates: readonly LegacyCandidate[]): { kind: LegacyMatchKind; ids: string[] } {
+  const phone = normalizeLegacyPhone(row.phone);
+  const name = normalizeName(row.name);
+  const byPhone = phone ? candidates.filter((c) => c.parentPhones.includes(phone)) : [];
+  const pool = byPhone.length ? byPhone : candidates;
+  const byName = name ? pool.filter((c) => normalizeName(c.fullName) === name) : [];
+  if (byName.length === 1) return { kind: "one", ids: [byName[0]!.id] };
+  if (byName.length > 1) return { kind: "many", ids: byName.map((c) => c.id) };
+  if (byPhone.length === 1) return { kind: "one", ids: [byPhone[0]!.id] };
+  if (byPhone.length > 1) return { kind: "many", ids: byPhone.map((c) => c.id) };
+  return { kind: "none", ids: [] };
+}
+
+export const LEGACY_TUITION_ALIASES = {
+  studentCode: ["ma_hv", "ma_hoc_vien", "student_code", "ma_hs"],
+  name: ["ho_va_ten_hoc_vien", "ho_ten_hoc_vien", "ten_hoc_vien", "ho_va_ten", "ho_ten", "ten_hv", "hoc_vien", "ten_hoc_sinh"],
+  phone: ["so_dien_thoai", "sdt", "dien_thoai", "sdt_phu_huynh", "phone"],
+  amount: ["hoc_phi", "so_tien", "so_tien_dong", "da_dong", "amount"],
+  paidAt: ["ngay", "ngay_dong", "ngay_thu", "ngay_nop", "paid_at"],
+  status: ["tinh_trang", "trang_thai"],
+  course: ["khoa_hoc_dang_ky", "khoa_hoc", "khoa", "course"],
+  centerCode: ["co_so", "ma_co_so", "ma_cs", "center"],
+  orderCode: ["ma_don", "order_code", "ma_don_hang"],
+  note: ["ghi_chu", "note", "dien_giai"],
+} as const satisfies Record<string, readonly string[]>;
+export type LegacyTuitionKey = keyof typeof LEGACY_TUITION_ALIASES;
+export const LEGACY_TUITION_TEMPLATE = ["mã hv", "họ và tên học viên", "số điện thoại", "tình trạng", "ngày", "khóa học đăng ký", "cơ sở", "học phí", "ghi chú"];
+export const LEGACY_TUITION_MAX_ROWS = 3000;
+
+export interface LegacyTuitionRow {
+  line: number;
+  sheet: string | null;
+  studentCode: string | null;
+  name: string;
+  phone: string | null;
+  amount: number;
+  paidAt: string;
+  courseText: string | null;
+  centerCode: string | null;
+  orderCode: string | null;
+  note: string | null;
+}
+
+/**
+ * Đọc bảng học phí cũ (CSV / dán từ Excel). Chỉ tên, SĐT, số tiền, ngày, ghi chú được giữ —
+ * CCCD và địa chỉ trong file không cần gửi lên máy chủ.
+ */
+export function parseLegacyTuitionTable(
+  text: string,
+  today: string,
+  opts: { sheet?: string | null; maxRows?: number } = {},
+): { headerErrors: string[]; rows: { line: number; row: LegacyTuitionRow | null; errors: string[] }[] } {
+  const maxRows = opts.maxRows ?? LEGACY_TUITION_MAX_ROWS;
+  const all = parseCsv(text);
+  if (all.length < 2) return { headerErrors: ["File cần dòng tiêu đề và ít nhất 1 dòng dữ liệu"], rows: [] };
+  const { index } = mapHeaders(all[0]!, LEGACY_TUITION_ALIASES as unknown as Record<LegacyTuitionKey, string[]>);
+  const headerErrors: string[] = [];
+  if (index.name === undefined) headerErrors.push("Thiếu cột họ và tên học viên");
+  if (index.amount === undefined) headerErrors.push("Thiếu cột học phí");
+  if (index.paidAt === undefined) headerErrors.push("Thiếu cột ngày");
+  if (index.phone === undefined && index.orderCode === undefined && index.studentCode === undefined) headerErrors.push("Cần cột số điện thoại (hoặc mã đơn / mã hv)");
+  if (all.length - 1 > maxRows) headerErrors.push(`Tối đa ${maxRows} dòng mỗi lần`);
+  if (headerErrors.length) return { headerErrors, rows: [] };
+  const get = (r: string[], k: LegacyTuitionKey) => (index[k] === undefined ? "" : (r[index[k]!] ?? "").trim());
+  const rows = all.slice(1).map((r, i) => {
+    const line = i + 2;
+    const errors: string[] = [];
+    const name = get(r, "name");
+    if (name.length < 2) errors.push("Thiếu họ tên học viên");
+    const amount = parseVnAmount(get(r, "amount"));
+    if (amount == null) errors.push("Học phí không hợp lệ");
+    const paidAt = parseVnDate(get(r, "paidAt"));
+    if (!paidAt) errors.push("Ngày đóng không hợp lệ (dd/mm/yyyy)");
+    else if (paidAt > today) errors.push("Ngày đóng ở tương lai");
+    const phoneRaw = get(r, "phone");
+    const phone = phoneRaw ? normalizeLegacyPhone(phoneRaw) : null;
+    if (phoneRaw && !phone) errors.push("Số điện thoại không hợp lệ");
+    const orderCodeRaw = get(r, "orderCode").toUpperCase();
+    const row: LegacyTuitionRow | null = errors.length
+      ? null
+      : {
+          line,
+          sheet: opts.sheet ?? null,
+          studentCode: get(r, "studentCode") || null,
+          name: name.slice(0, 120),
+          phone,
+          amount: amount!,
+          paidAt: paidAt!,
+          courseText: get(r, "course").slice(0, 120) || null,
+          centerCode: get(r, "centerCode").slice(0, 30) || null,
+          orderCode: orderCodeRaw ? (extractOrderRef(orderCodeRaw) ?? orderCodeRaw.slice(0, 30)) : null,
+          note: get(r, "note").slice(0, 300) || null,
+        };
+    return { line, row, errors };
+  });
+  return { headerErrors, rows };
+}
+
+export const LEGACY_LINE_STATUSES = ["will_write", "already_paid", "needs_choice", "not_found"] as const;
+export type LegacyLineStatus = (typeof LEGACY_LINE_STATUSES)[number];
+export const LEGACY_LINE_STATUS_VI: Record<LegacyLineStatus, string> = {
+  will_write: "Sẽ ghi",
+  already_paid: "Đã có tiền — bỏ qua",
+  needs_choice: "Cần chọn",
+  not_found: "Không tìm thấy",
+};
+
+/** Trạng thái một dòng sau khi tra hệ mới (chống cộng đôi: đã có khoản ≥ số tiền dòng thì bỏ qua) */
+export function legacyLineStatus(p: { matched: LegacyMatchKind; existingPaid: number; amount: number; forced?: boolean }): LegacyLineStatus {
+  if (p.matched === "none") return "not_found";
+  if (p.matched === "many") return "needs_choice";
+  if (!p.forced && p.existingPaid >= p.amount && p.amount > 0) return "already_paid";
+  return "will_write";
 }
 
 export const STATEMENT_ALIASES = {
