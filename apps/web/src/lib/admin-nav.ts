@@ -194,6 +194,7 @@ export const ADMIN_NAV: NavGroup[] = [
       { label: "Cohort tiến độ", href: "/bao-cao/cohort", perm: "report:read", ready: true, desc: "Theo kỳ bắt đầu: hoàn thành / đang học / rút." },
       { label: "Churn / rời bỏ", href: "/bao-cao/churn", perm: "report:read", ready: true, desc: "Rời lớp theo tháng, theo cơ sở." },
       { label: "Doanh thu vs mục tiêu", href: "/bao-cao/doanh-thu", perm: "report:read", ready: true, desc: "Mục tiêu theo cơ sở/kỳ và thực đạt." },
+      { label: "Sau go-live", href: "/bao-cao/sau-go-live", perm: "report:read", ready: true, desc: "Mức độ dùng hệ mới theo tuần: điểm danh đúng hạn, tự khớp chuyển khoản, hoá đơn, phụ huynh dùng cổng, OTP, tin gửi." },
       { label: "Đo pilot chat", href: "/bao-cao/chat-pilot", perm: "report:read", ready: true, desc: "PH trong nhóm, kích hoạt, đăng nhập, đọc ≤48h." },
     ],
   },

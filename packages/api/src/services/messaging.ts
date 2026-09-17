@@ -204,7 +204,7 @@ export async function sendMessage(ctx: ProtectedContext, input: { id: string; bo
   });
   if (flags.length) await writeAudit(ctx.db, { actorId: ctx.user.id, action: "UPDATE", module: "message", entity: "messages", entityId: c.id, after: { flags }, reason: "Tin nhắn nhân viên bị gắn cờ", ip: ctx.ip });
   if (c.channel === "portal" && c.parentId) {
-    await ctx.db.insert(parentNotifications).values({ parentId: c.parentId, channel: "in_app", template: "MESSAGE_NEW", title: "Tin nhắn mới từ Sata Robo", body: preview(body), link: null, status: "sent", sentAt: now, createdBy: ctx.user.id });
+    await ctx.db.insert(parentNotifications).values({ parentId: c.parentId, channel: "in_app", template: "MESSAGE_NEW", title: "Tin nhắn mới từ Sata Robo", body: preview(body), link: `/ph/tin-nhan?id=${c.id}`, status: "sent", sentAt: now, createdBy: ctx.user.id });
   }
   return { status: d.status, error: d.error ?? null, tag: win.tag };
 }

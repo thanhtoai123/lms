@@ -433,6 +433,8 @@ export interface CutoverState {
   streak: number;
   parallelDays: number;
   openIssues: number;
+  /** phản hồi pilot mức "chặn công việc" chưa xử lý */
+  openHighFeedback?: number;
 }
 
 /** Điều kiện chuyển giai đoạn — trả danh sách lý do chặn (rỗng = được) */
@@ -453,5 +455,6 @@ export function cutoverBlockers(s: CutoverState, to: CutoverStage): string[] {
     if (s.openIssues > 0) e.push(`Còn ${s.openIssues} chênh lệch chưa giải thích`);
   }
   if (to === "legacy_readonly" && s.openIssues > 0) e.push(`Còn ${s.openIssues} chênh lệch chưa giải thích`);
+  if ((to === "live" || to === "legacy_readonly") && (s.openHighFeedback ?? 0) > 0) e.push(`Còn ${s.openHighFeedback} phản hồi pilot mức chặn công việc chưa xử lý`);
   return e;
 }

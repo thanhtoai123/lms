@@ -29,6 +29,9 @@ const DEFS: { key: string; level: EnvLevel | ((prod: boolean) => EnvLevel); grou
   { key: "EINVOICE_API_URL", level: "optional", group: "Hoá đơn điện tử", note: "Cổng kết nối nhà cung cấp hoá đơn điện tử" },
   { key: "EINVOICE_API_KEY", level: "optional", group: "Hoá đơn điện tử", note: "Khoá kết nối nhà cung cấp" },
   { key: "ZNS_API_URL", level: "optional", group: "Zalo OA", note: "Đổi endpoint gửi ZNS khi Zalo cập nhật (mặc định business.openapi.zalo.me/message/template)" },
+  { key: "VAPID_PUBLIC_KEY", level: "optional", group: "Thông báo đẩy", note: "Khoá công khai Web Push (node scripts/ops/vapid-keys.mjs)" },
+  { key: "VAPID_PRIVATE_KEY", level: "optional", group: "Thông báo đẩy", note: "Khoá bí mật Web Push — không đổi sau khi phụ huynh đã đăng ký" },
+  { key: "VAPID_SUBJECT", level: "optional", group: "Thông báo đẩy", note: "mailto: liên hệ gửi kèm cho dịch vụ đẩy" },
   { key: "SMS_API_URL", level: "optional", group: "SMS brandname", note: "Cổng gửi SMS dự phòng" },
   { key: "SMS_API_KEY", level: "optional", group: "SMS brandname", note: "Khoá cổng SMS" },
 ];

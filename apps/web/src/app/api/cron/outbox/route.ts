@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@satarobo/db";
-import { processOutbox, scanLeadSla, runSurveyTriggers, processEmailQueue, remindDueHomework, publishDuePosts, syncAffiliateRewards, recordHeartbeat, syncInvoiceDrafts, dispatchParentMessages } from "@satarobo/api";
+import { processOutbox, scanLeadSla, runSurveyTriggers, processEmailQueue, remindDueHomework, publishDuePosts, syncAffiliateRewards, recordHeartbeat, syncInvoiceDrafts, dispatchParentMessages, dispatchPush } from "@satarobo/api";
 
 /**
  * GET /api/cron/outbox — Vercel Cron (mỗi phút) hoặc gọi tay. Bảo vệ bằng CRON_SECRET.
@@ -17,10 +17,11 @@ export async function GET(req: Request) {
   const surveyInvites = await runSurveyTriggers(db);
   const invoices = await syncInvoiceDrafts(db, { limit: 100 });
   const messages = await dispatchParentMessages(db, { limit: 200 });
+  const push = await dispatchPush(db, { limit: 200 });
   const email = await processEmailQueue(db, { limit: 100 });
   const homeworkReminders = await remindDueHomework(db);
   const postsPublished = await publishDuePosts(db);
   const affiliates = await syncAffiliateRewards(db);
   await recordHeartbeat(db, "cron", { processed: r.processed, failed: r.failed });
-  return NextResponse.json({ ok: true, slaEvents: sla, surveyInvites, email, homeworkReminders, postsPublished, affiliates, invoices, messages, ...r });
+  return NextResponse.json({ ok: true, slaEvents: sla, surveyInvites, email, homeworkReminders, postsPublished, affiliates, invoices, messages, push, ...r });
 }

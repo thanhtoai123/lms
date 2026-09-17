@@ -14,6 +14,7 @@ import {
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { sendOtpMessage, deliverySettings, otpDeliveryReady } from "./delivery";
+import { pushOverview } from "./pilot";
 import { writeAudit } from "./audit";
 import { ingestBankTx } from "./bank";
 import { createLead } from "./leads";
@@ -498,6 +499,7 @@ export async function integrations(ctx: ProtectedContext) {
   const [ob] = await ctx.db.select({ pending: sql<number>`count(*) filter (where ${outbox.processedAt} is null)::int`, last: sql<string | null>`max(${outbox.processedAt})::text` }).from(outbox);
   const [otp] = await ctx.db.select({ n24: sql<number>`count(*) filter (where ${otpRequests.createdAt} > now() - interval '24 hours')::int` }).from(otpRequests);
   const ds = await deliverySettings(ctx.db);
+  const pu = await pushOverview(ctx.db);
   type Item = { key: string; name: string; purpose: string; status: "ok" | "warn" | "off"; details: string[]; env: string[]; href?: string };
   const items: Item[] = [
     { key: "sepay", name: "SePay", purpose: "Biến động số dư → tự khớp đơn", status: e.SEPAY_API_KEY ? (wh?.rejected24 ? "warn" : "ok") : "off", env: ["SEPAY_API_KEY"], href: "/bien-dong-so-du",
@@ -506,6 +508,8 @@ export async function integrations(ctx: ProtectedContext) {
       details: [`Người gửi: ${e.EMAIL_FROM ?? "Sata Robo <no-reply@satarobo.vn>"}`, `7 ngày: ${em?.sent7 ?? 0} đã gửi · chờ ${em?.queued ?? 0} · lỗi ${em?.failed ?? 0}`] },
     { key: "zns", name: "Zalo ZNS / SMS", purpose: "Thông báo & OTP qua Zalo, SMS dự phòng", status: ds.zns.mode === "live" ? (e.ZALO_ZNS_TOKEN ? "ok" : "warn") : ds.zns.mode === "sandbox" ? "warn" : "off", env: ["ZALO_ZNS_TOKEN", "ZNS_API_URL", "SMS_API_URL", "SMS_API_KEY"], href: "/cau-hinh-van-hanh?tab=zalo",
       details: [`ZNS: ${ds.zns.mode} · SMS: ${ds.sms.mode}${ds.sms.fallback ? " (dự phòng)" : ""}`, `Thông báo ZNS chờ gửi: ${zn?.queued ?? 0}`, `OTP 24h: ${otp?.n24 ?? 0}`] },
+    { key: "webpush", name: "Thông báo đẩy (Web Push)", purpose: "Đẩy tin mới tới điện thoại phụ huynh đã bật thông báo ở cổng /ph", status: e.VAPID_PUBLIC_KEY && e.VAPID_PRIVATE_KEY ? "ok" : "off", env: ["VAPID_PUBLIC_KEY", "VAPID_PRIVATE_KEY", "VAPID_SUBJECT"], href: "/bao-cao/sau-go-live",
+      details: [`Thiết bị đang nhận: ${pu.devices} (${pu.parents} phụ huynh)`, `Đăng ký đã hết hạn / tắt: ${pu.revoked}`] },
     { key: "messenger", name: "Facebook Messenger", purpose: "Hộp thư Messenger CRM, tạo lead từ hội thoại", status: e.META_APP_SECRET && e.META_VERIFY_TOKEN ? (e.META_PAGE_TOKEN ? "ok" : "warn") : "off", env: ["META_VERIFY_TOKEN", "META_APP_SECRET", "META_PAGE_TOKEN"], href: "/crm/messenger",
       details: ["Webhook: /api/webhooks/messenger (kiểm tra X-Hub-Signature-256)", e.META_PAGE_TOKEN ? "Gửi trả lời: bật" : "Chưa có page token — trả lời chỉ lưu nội bộ"] },
     { key: "zalo_oa", name: "Zalo OA (tin tư vấn)", purpose: "Nhận / trả lời tin nhắn Zalo OA trong 7 ngày", status: e.ZALO_APP_ID && e.ZALO_OA_SECRET ? (e.ZALO_OA_ACCESS_TOKEN ? "ok" : "warn") : "off", env: ["ZALO_APP_ID", "ZALO_OA_SECRET", "ZALO_OA_ACCESS_TOKEN"], href: "/tin-nhan?channel=zalo",

@@ -3,7 +3,9 @@ import { getServerCaller } from "@/lib/trpc/server";
 import { NoAccess, PageHeader } from "@/components/admin-ui";
 import { Kpi, Section, th } from "@/components/report-ui";
 import { vnd } from "@/components/finance-ui";
-import { ChecklistToggle, LogDayForm, ExplainForm, StageButton } from "./client";
+import Link from "next/link";
+import { PILOT_FB_CATEGORIES, PILOT_FB_CATEGORY_VI, PILOT_FB_SEVERITIES, PILOT_FB_SEVERITY_VI, PILOT_FB_STATUSES, PILOT_FB_STATUS_VI, type PilotFbStatus } from "@satarobo/core";
+import { ChecklistToggle, LogDayForm, ExplainForm, StageButton, FeedbackForm, FeedbackAction } from "./client";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Go-live cơ sở" };
@@ -11,22 +13,66 @@ const STAGE_CLS: Record<string, string> = { preparing: "bg-slate-100 text-ink-60
 const val = (m: string, v: number | undefined) => (v === undefined ? "—" : m === "collected" ? vnd(v) : v.toLocaleString("vi-VN"));
 const dmy = (d: string) => d.split("-").reverse().join("/");
 
-export default async function GoLivePage() {
+export default async function GoLivePage({ searchParams }: { searchParams: Promise<{ tab?: string; status?: string }> }) {
+  const sp = await searchParams;
   const { caller, ctx } = await getServerCaller();
   const actor = ctx.actor as Actor | null;
   if (!actor || !hasPermission(actor, "cutover:read")) return <NoAccess title="Go-live cơ sở" perm="cutover:read" />;
   const d = await caller.cutover.overview();
+  const tab = sp.tab === "phan-hoi" ? "phan-hoi" : "co-so";
+  const nav = (
+    <nav className="flex gap-1 border-b border-black/10 text-sm">
+      {([["co-so", "Cơ sở"], ["phan-hoi", "Phản hồi pilot"]] as const).map(([k, l]) => <Link key={k} href={k === "co-so" ? "/go-live" : `/go-live?tab=${k}`} className={`px-3 py-2 ${tab === k ? "border-b-2 border-brand-500 font-semibold" : "text-ink-600"}`}>{l}</Link>)}
+    </nav>
+  );
+  if (tab === "phan-hoi") {
+    const status = PILOT_FB_STATUSES.includes(sp.status as PilotFbStatus) ? (sp.status as PilotFbStatus) : null;
+    const fb = await caller.pilot.feedback({ status });
+    return (
+      <div className="space-y-4">
+        <PageHeader title="Go-live cơ sở" desc="Sổ phản hồi trong thời gian pilot: nhân viên ghi lỗi, sai dữ liệu, chỗ chưa biết thao tác; Hội sở xử lý. Mức “chặn công việc” phải xử lý trong 4 giờ và chặn việc khoá hệ cũ." />
+        {nav}
+        <FeedbackForm centers={d.centers.map((c) => ({ id: c.id, code: c.code }))} categories={PILOT_FB_CATEGORIES.map((k) => ({ key: k, label: PILOT_FB_CATEGORY_VI[k] }))} severities={PILOT_FB_SEVERITIES.map((k) => ({ key: k, label: PILOT_FB_SEVERITY_VI[k] }))} />
+        <div className="flex flex-wrap gap-2 text-sm">
+          <Link href="/go-live?tab=phan-hoi" className={`chip ${!status ? "bg-brand-100 text-brand-700" : "bg-slate-100"}`}>Tất cả</Link>
+          {PILOT_FB_STATUSES.map((k) => <Link key={k} href={`/go-live?tab=phan-hoi&status=${k}`} className={`chip ${status === k ? "bg-brand-100 text-brand-700" : "bg-slate-100"}`}>{PILOT_FB_STATUS_VI[k]}</Link>)}
+        </div>
+        <Section title={`Phản hồi (${fb.items.length})`}>
+          {fb.items.length === 0 ? <p className="p-4 text-sm text-ink-600">Chưa có phản hồi.</p> : (
+            <ul className="divide-y divide-black/5">{fb.items.map((f) => (
+              <li key={f.id} className={`space-y-1 p-4 text-sm ${f.overdue ? "bg-red-50/60" : ""}`}>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className={`chip ${f.severity === "high" ? "bg-red-100 text-red-700" : f.severity === "medium" ? "bg-amber-100 text-amber-800" : "bg-slate-100"}`}>{f.severityLabel}</span>
+                  <span className="chip bg-slate-100">{f.categoryLabel}</span>
+                  <span className="font-semibold">{f.title}</span>
+                  <span className="text-xs text-ink-400">{f.centerCode} · {f.by ?? "—"} · {new Date(f.createdAt).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })}</span>
+                  <span className="chip bg-sky-50 text-sky-800">{f.statusLabel}</span>
+                  {f.overdue && <span className="chip bg-red-100 text-red-700">Quá hạn xử lý</span>}
+                </div>
+                {f.detail && <p className="whitespace-pre-line text-ink-600">{f.detail}</p>}
+                {f.pageUrl && <div className="text-xs">Trang: <Link href={f.pageUrl} className="text-brand-600">{f.pageUrl}</Link></div>}
+                {f.resolution && <p className="text-xs text-green-800">Xử lý: {f.resolution}{f.handler ? ` — ${f.handler}` : ""}</p>}
+                {fb.canHandle && <FeedbackAction id={f.id} status={f.status as PilotFbStatus} />}
+              </li>
+            ))}</ul>
+          )}
+        </Section>
+      </div>
+    );
+  }
   return (
     <div className="space-y-4">
       <PageHeader title="Go-live cơ sở" desc={`Mỗi cơ sở: Chuẩn bị → Chạy song song (nhập cả hai hệ, cuối ngày quản lý ghi sổ đối chiếu) → Chính thức trên hệ mới (cần ${d.minDays} ngày khớp liên tiếp + đủ danh mục) → Hệ cũ chỉ đọc. Hội sở quyết định chuyển giai đoạn.`} />
+      {nav}
       {d.centers.map((c) => (
         <Section key={c.id} title={`${c.code} — ${c.name}`} actions={<span className={`chip ${STAGE_CLS[c.stage]}`}>{c.stageLabel}</span>}>
           <div className="grid gap-4 p-4 lg:grid-cols-3">
             <div className="space-y-2">
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 <Kpi label="Khớp liên tiếp" value={`${c.streak}/${d.minDays}`} tone={c.streak >= d.minDays ? "good" : "default"} />
                 <Kpi label="Ngày đã ghi" value={c.parallelDays} />
                 <Kpi label="Lệch chưa giải thích" value={c.openIssues} tone={c.openIssues ? "bad" : "good"} />
+                <Kpi label="Sự cố chặn việc" value={c.openHighFeedback} tone={c.openHighFeedback ? "bad" : "good"} />
               </div>
               <div className="text-xs text-ink-600">
                 {c.parallelFrom && <div>Chạy song song từ {dmy(c.parallelFrom)}</div>}

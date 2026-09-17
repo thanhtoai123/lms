@@ -171,6 +171,12 @@ jobs:
             curl -sf -o /dev/null -b "$A" "http://localhost:3000$p" || { echo "FAIL 7 $p"; exit 1; }
           done
           curl -sf -o /dev/null -b "$M" "http://localhost:3000/go-live" || { echo "FAIL go-live(M)"; exit 1; }
+          for p in "/go-live?tab=phan-hoi" /bao-cao/sau-go-live; do
+            curl -sf -o /dev/null -b "$A" "http://localhost:3000$p" || { echo "FAIL 8 $p"; exit 1; }
+          done
+          curl -sfI http://localhost:3000/ph/sw.js | grep -qi "service-worker-allowed"
+          curl -sf http://localhost:3000/ph/manifest.webmanifest | grep -q '"scope"'
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/api/ph/push)" = "401"
           for p in /ph/dang-nhap /tra-cuu-hoa-don "/tra-cuu-hoa-don?ma=KHONGCO123"; do
             curl -sf -o /dev/null "http://localhost:3000$p" || { echo "FAIL public $p"; exit 1; }
           done

@@ -84,3 +84,11 @@ Thứ tự cho mỗi cơ sở:
 - Mẫu ZNS phải được Zalo duyệt trước; nhập template_id và ánh xạ tham số (ví dụ `otp=otp` cho mẫu OTP).
 - Worker gửi hàng đợi mỗi chu kỳ; tin không phải OTP chờ hết giờ yên lặng. Lỗi mạng thử lại 3 lần (5 / 30 / 120 phút); ZNS lỗi (không có Zalo…) chuyển SMS nếu bật dự phòng. Lỗi cấu hình (thiếu mẫu, thiếu biến) không chuyển SMS — sửa cấu hình rồi gửi lại.
 - Cổng SMS dùng hợp đồng HTTP chung: `POST SMS_API_URL` với `Authorization: Bearer SMS_API_KEY`, thân `{to, brandname, text, ref}`, trả `{id}`; nhà cung cấp khác định dạng cần một lớp chuyển đổi nhỏ.
+
+## Thông báo đẩy (cổng phụ huynh) và pilot (Giai đoạn 8)
+
+- Tạo khoá một lần: `node scripts/ops/vapid-keys.mjs` → đặt `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` vào môi trường máy chủ. Không đổi khoá sau khi đã dùng (đổi khoá: mọi phụ huynh phải bật lại).
+- Phụ huynh bật ở /ph/tai-khoan → "Thông báo trên điện thoại". iPhone (iOS 16.4+) cần "Thêm vào Màn hình chính" rồi mở từ biểu tượng mới bật được.
+- Worker đẩy mọi thông báo trong app chưa đọc (≤ 12 giờ) tới thiết bị đã bật, theo giờ yên lặng ở Cấu hình vận hành → Tin Zalo. Đăng ký hết hạn (404/410) hoặc lỗi 5 lần liên tiếp tự gỡ.
+- Trong pilot: nhân viên ghi phản hồi ở /go-live → "Phản hồi pilot". Mức "chặn công việc" báo Quản trị tối cao và phải xử lý trong 4 giờ; còn mục này thì không chuyển được "Chính thức" / "Hệ cũ chỉ đọc".
+- Theo dõi /bao-cao/sau-go-live hằng tuần; chỉ số đỏ là dưới mục tiêu (điểm danh chốt trong ngày ≥ 95%, tự khớp chuyển khoản ≥ 60%, phủ hoá đơn ≥ 98%, phụ huynh dùng cổng ≥ 50%, OTP ≥ 95%, tin gửi thành công ≥ 95%).

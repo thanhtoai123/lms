@@ -1,9 +1,10 @@
 import { z } from "zod";
-import { CUTOVER_STAGES, DELIVERY_EVENTS, DELIVERY_MODES, PARALLEL_METRICS, RECON_METRICS } from "@satarobo/core";
+import { CUTOVER_STAGES, DELIVERY_EVENTS, DELIVERY_MODES, PARALLEL_METRICS, RECON_METRICS, PILOT_FB_CATEGORIES, PILOT_FB_SEVERITIES, PILOT_FB_STATUSES } from "@satarobo/core";
 import { router, protectedProcedure } from "../trpc";
 import * as M from "../services/migration";
 import * as C from "../services/cutover";
 import * as D from "../services/delivery";
+import * as P from "../services/pilot";
 
 const uuid = z.string().uuid();
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -44,4 +45,13 @@ export const deliveryRouter = router({
     }))
     .mutation(({ ctx, input }) => D.saveDeliveryConfig(ctx, input)),
   test: protectedProcedure.input(z.object({ channel: z.enum(["zns", "sms"]), event: z.enum(DELIVERY_EVENTS), phone: z.string().max(20) })).mutation(({ ctx, input }) => D.testDelivery(ctx, input)),
+});
+
+export const pilotRouter = router({
+  feedback: protectedProcedure.input(z.object({ centerId: uuid.nullish(), status: z.enum(PILOT_FB_STATUSES).nullish() }).default({})).query(({ ctx, input }) => P.listFeedback(ctx, input)),
+  createFeedback: protectedProcedure
+    .input(z.object({ centerId: uuid, category: z.enum(PILOT_FB_CATEGORIES), severity: z.enum(PILOT_FB_SEVERITIES), title: z.string().max(200), detail: z.string().max(3000).nullish(), pageUrl: z.string().max(300).nullish() }))
+    .mutation(({ ctx, input }) => P.createFeedback(ctx, input)),
+  updateFeedback: protectedProcedure.input(z.object({ id: uuid, status: z.enum(PILOT_FB_STATUSES), resolution: z.string().max(2000).nullish() })).mutation(({ ctx, input }) => P.updateFeedback(ctx, input)),
+  adoption: protectedProcedure.input(z.object({ weeks: z.number().int().min(1).max(26).optional() }).default({})).query(({ ctx, input }) => P.adoptionReport(ctx, input)),
 });

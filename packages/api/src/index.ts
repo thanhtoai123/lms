@@ -19,7 +19,7 @@ import { contentRouter } from "./routers/content";
 import { siteRouter, marketingRouter, complianceRouter } from "./routers/growth";
 import { recruitRouter, messagingRouter, affiliateRouter } from "./routers/outreach";
 import { invoiceRouter, cardRouter } from "./routers/billing";
-import { migrationRouter, cutoverRouter, deliveryRouter } from "./routers/golive";
+import { migrationRouter, cutoverRouter, deliveryRouter, pilotRouter } from "./routers/golive";
 
 export const appRouter = router({
   auth: authRouter,
@@ -55,6 +55,7 @@ export const appRouter = router({
   migration: migrationRouter,
   cutover: cutoverRouter,
   delivery: deliveryRouter,
+  pilot: pilotRouter,
   card: cardRouter,
 });
 
@@ -83,3 +84,5 @@ export * as ParentPortal from "./services/parentPortal";
 export { parentConversations, parentThread, parentPost, parentStart } from "./services/messaging";
 export { dispatchParentMessages } from "./services/delivery";
 export { parallelReminders } from "./services/cutover";
+export { pushStatus, subscribePush, unsubscribePush, dispatchPush } from "./services/pilot";
+export { generateVapidKeys } from "./webpush";

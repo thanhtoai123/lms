@@ -72,3 +72,45 @@ export function StageButton({ centerId, stage, label, disabled }: { centerId: st
     </form>
   );
 }
+
+export function FeedbackForm({ centers, categories, severities }: { centers: { id: string; code: string }[]; categories: { key: string; label: string }[]; severities: { key: string; label: string }[] }) {
+  const trpc = useTRPC();
+  const router = useRouter();
+  const [v, setV] = useState({ centerId: centers[0]?.id ?? "", category: "bug", severity: "medium", title: "", detail: "", pageUrl: "" });
+  const m = useMutation(trpc.pilot.createFeedback.mutationOptions({ onSuccess: () => { setV({ ...v, title: "", detail: "", pageUrl: "" }); router.refresh(); } }));
+  if (!centers.length) return null;
+  return (
+    <form className="card grid gap-2 p-4 text-sm md:grid-cols-4" onSubmit={(e) => { e.preventDefault(); m.mutate({ centerId: v.centerId, category: v.category as "bug", severity: v.severity as "medium", title: v.title, detail: v.detail || null, pageUrl: v.pageUrl || null }); }}>
+      <div className="font-semibold md:col-span-4">Ghi phản hồi mới</div>
+      <select className="input" value={v.centerId} onChange={(e) => setV({ ...v, centerId: e.target.value })}>{centers.map((c) => <option key={c.id} value={c.id}>{c.code}</option>)}</select>
+      <select className="input" value={v.category} onChange={(e) => setV({ ...v, category: e.target.value })}>{categories.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}</select>
+      <select className="input" value={v.severity} onChange={(e) => setV({ ...v, severity: e.target.value })}>{severities.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}</select>
+      <input className="input" placeholder="Trang gặp lỗi, VD /attendance" value={v.pageUrl} onChange={(e) => setV({ ...v, pageUrl: e.target.value })} />
+      <input className="input md:col-span-4" placeholder="Tiêu đề ngắn" value={v.title} onChange={(e) => setV({ ...v, title: e.target.value })} />
+      <textarea className="input md:col-span-4" placeholder="Mô tả: làm gì, thấy gì, mong đợi gì" value={v.detail} onChange={(e) => setV({ ...v, detail: e.target.value })} />
+      <div className="md:col-span-4"><button className="btn-primary" disabled={v.title.trim().length < 5 || m.isPending}>Gửi phản hồi</button>{m.error && <span className="ml-2 text-red-700">{m.error.message}</span>}</div>
+    </form>
+  );
+}
+
+const NEXT: Record<string, { to: "in_progress" | "resolved" | "wontfix" | "open"; label: string; needs: boolean }[]> = {
+  open: [{ to: "in_progress", label: "Nhận xử lý", needs: false }, { to: "resolved", label: "Đã xử lý", needs: true }, { to: "wontfix", label: "Không xử lý", needs: true }],
+  in_progress: [{ to: "resolved", label: "Đã xử lý", needs: true }, { to: "wontfix", label: "Không xử lý", needs: true }],
+  resolved: [{ to: "open", label: "Mở lại", needs: false }],
+  wontfix: [{ to: "open", label: "Mở lại", needs: false }],
+};
+
+export function FeedbackAction({ id, status }: { id: string; status: string }) {
+  const trpc = useTRPC();
+  const router = useRouter();
+  const [res, setRes] = useState("");
+  const m = useMutation(trpc.pilot.updateFeedback.mutationOptions({ onSuccess: () => { setRes(""); router.refresh(); } }));
+  const opts = NEXT[status] ?? [];
+  return (
+    <div className="flex flex-wrap items-center gap-1">
+      {opts.some((o) => o.needs) && <input className="input min-w-[220px] flex-1 text-xs" placeholder="Cách xử lý / lý do" value={res} onChange={(e) => setRes(e.target.value)} />}
+      {opts.map((o) => <button key={o.to} type="button" className="btn-ghost text-xs" disabled={m.isPending || (o.needs && res.trim().length < 10)} onClick={() => m.mutate({ id, status: o.to, resolution: o.needs ? res : null })}>{o.label}</button>)}
+      {m.error && <span className="w-full text-xs text-red-700">{m.error.message}</span>}
+    </div>
+  );
+}

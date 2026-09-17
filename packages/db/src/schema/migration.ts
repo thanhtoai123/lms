@@ -57,3 +57,21 @@ export const parallelRunDays = pgTable("parallel_run_days", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [uniqueIndex("parallel_run_days_uq").on(t.centerId, t.date)]);
+
+/** Sổ phản hồi / sự cố trong thời gian pilot */
+export const pilotFeedback = pgTable("pilot_feedback", {
+  id: id(),
+  centerId: uuid("center_id").notNull().references(() => centers.id),
+  category: text("category").notNull(),
+  severity: text("severity").notNull(),
+  status: text("status").notNull().default("open"),
+  title: text("title").notNull(),
+  detail: text("detail"),
+  pageUrl: text("page_url"),
+  resolution: text("resolution"),
+  createdBy: uuid("created_by").references(() => users.id),
+  handledBy: uuid("handled_by").references(() => users.id),
+  resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("pilot_feedback_center_idx").on(t.centerId, t.status)]);

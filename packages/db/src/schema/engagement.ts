@@ -51,6 +51,8 @@ export const parentNotifications = pgTable(
     nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }),
     /** tin SMS dự phòng trỏ về tin ZNS gốc */
     fallbackOf: uuid("fallback_of"),
+    /** tin trong app đã đẩy tới thiết bị (Web Push) */
+    pushedAt: timestamp("pushed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("parent_notif_parent_idx").on(t.parentId, t.createdAt), index("parent_notif_status_idx").on(t.status, t.channel)],

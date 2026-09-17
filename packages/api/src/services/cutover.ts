@@ -2,6 +2,7 @@ import { and, eq, desc, sql, inArray, gte } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { centers, cutoverCenters, parallelRunDays, reconSnapshots } from "@satarobo/db";
 import { listBackups } from "./ops";
+import { openHighFeedback } from "./pilot";
 import {
   authorize, authorizeGlobal, centersWith, compareParallelDay, parallelStreak, cutoverBlockers, backupFreshness,
   CUTOVER_CHECKLIST, CUTOVER_STAGES, CUTOVER_STAGE_VI, PARALLEL_METRICS, PARALLEL_MIN_DAYS,
@@ -59,7 +60,8 @@ async function stateOf(db: Db, centerId: string) {
   const streak = parallelStreak(days.map((d) => ({ date: d.date, ok: d.ok || !!d.explanation })));
   const openIssues = days.filter((d) => !d.ok && !d.explanation).length;
   const stage = (row?.stage ?? "preparing") as CutoverStage;
-  return { row, days, checklist, streak, openIssues, stage, parallelDays: days.length };
+  const openHigh = await openHighFeedback(db, centerId);
+  return { row, days, checklist, streak, openIssues, stage, parallelDays: days.length, openHighFeedback: openHigh };
 }
 
 export async function cutoverOverview(ctx: ProtectedContext) {
@@ -70,10 +72,10 @@ export async function cutoverOverview(ctx: ProtectedContext) {
   for (const c of list) {
     const s = await stateOf(ctx.db, c.id);
     out.push({
-      ...c, stage: s.stage, stageLabel: CUTOVER_STAGE_VI[s.stage], streak: s.streak, openIssues: s.openIssues, parallelDays: s.parallelDays,
+      ...c, stage: s.stage, stageLabel: CUTOVER_STAGE_VI[s.stage], streak: s.streak, openIssues: s.openIssues, openHighFeedback: s.openHighFeedback, parallelDays: s.parallelDays,
       parallelFrom: s.row?.parallelFrom ?? null, liveAt: s.row?.liveAt ?? null, readonlyAt: s.row?.readonlyAt ?? null, note: s.row?.note ?? null,
       checklist: CUTOVER_CHECKLIST.map((k) => ({ key: k.key, label: k.label, required: k.required, auto: "auto" in k && k.auto, done: !!s.checklist[k.key] })),
-      next: CUTOVER_STAGES.map((st) => ({ stage: st, label: CUTOVER_STAGE_VI[st], blockers: st === s.stage ? [] : cutoverBlockers({ stage: s.stage, checklist: s.checklist, streak: s.streak, parallelDays: s.parallelDays, openIssues: s.openIssues }, st) })),
+      next: CUTOVER_STAGES.map((st) => ({ stage: st, label: CUTOVER_STAGE_VI[st], blockers: st === s.stage ? [] : cutoverBlockers({ stage: s.stage, checklist: s.checklist, streak: s.streak, parallelDays: s.parallelDays, openIssues: s.openIssues, openHighFeedback: s.openHighFeedback }, st) })),
       canLog: canLog(ctx, c.id),
       days: s.days.slice(0, 20),
     });
@@ -126,7 +128,7 @@ export async function setStage(ctx: ProtectedContext, input: { centerId: string;
   if (!canApprove(ctx)) throw forbid("Chỉ Hội sở chuyển giai đoạn go-live");
   if (input.reason.trim().length < 5) throw bad("Ghi lý do / quyết định (≥ 5 ký tự)");
   const s = await stateOf(ctx.db, input.centerId);
-  const blockers = cutoverBlockers({ stage: s.stage, checklist: s.checklist, streak: s.streak, parallelDays: s.parallelDays, openIssues: s.openIssues }, input.stage);
+  const blockers = cutoverBlockers({ stage: s.stage, checklist: s.checklist, streak: s.streak, parallelDays: s.parallelDays, openIssues: s.openIssues, openHighFeedback: s.openHighFeedback }, input.stage);
   if (blockers.length) throw pre(blockers);
   const now = new Date();
   const patch = {
