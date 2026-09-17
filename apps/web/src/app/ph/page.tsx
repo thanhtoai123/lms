@@ -16,7 +16,7 @@ export default async function ParentHome() {
         {d.debt > 0 && <Link href="/ph/hoc-phi" className="card block border-amber-200 bg-amber-50 p-3 text-sm">Học phí cần đóng: <b>{vndPh(d.debt)}</b> → xem & chuyển khoản</Link>}
         {d.children.map((k) => (
           <section key={k.id} className="card space-y-2 p-4">
-            <div className="flex items-center justify-between"><Link href={`/ph/con/${k.id}`} className="text-lg font-bold">{k.nickname || k.fullName}</Link><Link href={`/ph/con/${k.id}`} className="text-xs text-brand-600">Chi tiết →</Link></div>
+            <div className="flex items-center justify-between"><Link href={`/ph/be/${k.id}`} className="text-lg font-bold">{k.nickname || k.fullName}</Link><Link href={`/ph/be/${k.id}`} className="text-xs text-brand-600">Chi tiết →</Link></div>
             <div className="text-sm">{k.next ? <>Buổi tới: <b>{datePh(k.next.date)} {k.next.start.slice(0, 5)}</b> · {k.next.classCode}{k.next.room ? ` · ${k.next.room}` : ""} · {k.next.center}</> : <span className="text-ink-400">Chưa có buổi học sắp tới</span>}</div>
             <div className="text-xs text-ink-600">Chuyên cần 30 ngày: {k.attendance30.rate === null ? "—" : `${k.attendance30.present}/${k.attendance30.total} buổi (${k.attendance30.rate}%)`}</div>
             {k.homework.length > 0 && (
