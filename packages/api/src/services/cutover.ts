@@ -3,8 +3,9 @@ import { TRPCError } from "@trpc/server";
 import { centers, cutoverCenters, parallelRunDays, reconSnapshots } from "@satarobo/db";
 import { listBackups } from "./ops";
 import { openHighFeedback } from "./pilot";
+import { centerTraining, preflightCounts } from "./readiness";
 import {
-  authorize, authorizeGlobal, centersWith, compareParallelDay, parallelStreak, cutoverBlockers, backupFreshness,
+  authorize, authorizeGlobal, centersWith, preflightSummary, compareParallelDay, parallelStreak, cutoverBlockers, backupFreshness,
   CUTOVER_CHECKLIST, CUTOVER_STAGES, CUTOVER_STAGE_VI, PARALLEL_METRICS, PARALLEL_MIN_DAYS,
   type CutoverStage, type CutoverCheck, type ParallelMetric,
 } from "@satarobo/core";
@@ -47,7 +48,8 @@ async function autoChecks(db: Db, centerId: string) {
   const now = new Date();
   const backupAt = latest?.at ? new Date(latest.at) : (b.files[0]?.at ?? null);
   const restoreOk = !!latest?.restoreTestedAt && now.getTime() - new Date(latest.restoreTestedAt).getTime() <= 7 * 86_400_000;
-  return { recon_ok: !!rec?.ok, backup_tested: restoreOk && backupFreshness(backupAt, now, 7 * 24) === "ok" };
+  const [tr, pf] = await Promise.all([centerTraining(db, centerId), preflightCounts(db, centerId)]);
+  return { recon_ok: !!rec?.ok, backup_tested: restoreOk && backupFreshness(backupAt, now, 7 * 24) === "ok", staff_trained: tr.ok, preflight_ok: preflightSummary(pf).ok };
 }
 
 async function stateOf(db: Db, centerId: string) {
@@ -56,7 +58,7 @@ async function stateOf(db: Db, centerId: string) {
   const days = await db.select().from(parallelRunDays).where(and(eq(parallelRunDays.centerId, centerId), gte(parallelRunDays.date, since))).orderBy(desc(parallelRunDays.date)).limit(60);
   const auto = await autoChecks(db, centerId);
   const manual = (row?.checklist ?? {}) as Partial<Record<CutoverCheck, boolean>>;
-  const checklist: Partial<Record<CutoverCheck, boolean>> = { ...manual, recon_ok: auto.recon_ok, backup_tested: auto.backup_tested };
+  const checklist: Partial<Record<CutoverCheck, boolean>> = { ...manual, ...auto };
   const streak = parallelStreak(days.map((d) => ({ date: d.date, ok: d.ok || !!d.explanation })));
   const openIssues = days.filter((d) => !d.ok && !d.explanation).length;
   const stage = (row?.stage ?? "preparing") as CutoverStage;

@@ -388,7 +388,8 @@ export const CUTOVER_STAGE_VI: Record<CutoverStage, string> = {
 export const CUTOVER_CHECKLIST = [
   { key: "data_imported", label: "Đã nhập học viên, phụ huynh, ghi danh, phiếu thu cũ", required: true },
   { key: "recon_ok", label: "Đối soát tổng khớp (lần gần nhất)", required: true, auto: true },
-  { key: "staff_trained", label: "Quản lý, giáo vụ, tư vấn, kế toán, giáo viên đã được hướng dẫn", required: true },
+  { key: "staff_trained", label: "Nhân sự cơ sở đã học xong bài hướng dẫn theo vai trò", required: true, auto: true },
+  { key: "preflight_ok", label: "Kiểm tra dữ liệu trước pilot không còn mục chặn", required: true, auto: true },
   { key: "accounts_ready", label: "Tài khoản nhân sự + vai trò theo cơ sở đã cấp", required: true },
   { key: "backup_tested", label: "Sao lưu + thử khôi phục thành công trong 7 ngày", required: true, auto: true },
   { key: "parents_notified", label: "Đã báo phụ huynh về cổng / mã kích hoạt mới", required: false },

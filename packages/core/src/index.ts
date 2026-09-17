@@ -38,3 +38,4 @@ export * from "./qr/encode.js";
 export * from "./migration/rules.js";
 export * from "./migration/delivery.js";
 export * from "./migration/pilot.js";
+export * from "./migration/training.js";

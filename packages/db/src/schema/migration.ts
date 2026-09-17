@@ -75,3 +75,12 @@ export const pilotFeedback = pgTable("pilot_feedback", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [index("pilot_feedback_center_idx").on(t.centerId, t.status)]);
+
+/** Nhân sự đã học xong bài hướng dẫn (đạt câu hỏi kiểm tra) */
+export const trainingCompletions = pgTable("training_completions", {
+  id: id(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  moduleKey: text("module_key").notNull(),
+  attempts: integer("attempts").notNull().default(1),
+  completedAt: timestamp("completed_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [uniqueIndex("training_completions_uq").on(t.userId, t.moduleKey)]);

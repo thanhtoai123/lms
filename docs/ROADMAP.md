@@ -36,7 +36,9 @@
 | 8A | **Thông báo đẩy cho cổng phụ huynh** (Web Push chuẩn RFC 8291 / 8292, không dùng dịch vụ trung gian): cổng /ph cài được lên màn hình chính, phụ huynh tự bật / tắt theo thiết bị (tối đa 10), mọi thông báo trong app (tin nhắn trung tâm, nhắc học phí, học bạ…) tự đẩy tới điện thoại trong 12 giờ, theo giờ yên lặng, chỉ gửi tới dịch vụ đẩy chính thức (chống SSRF), đăng ký hết hạn tự gỡ | Xong |
 | 8B | **Sổ phản hồi pilot** (/go-live → Phản hồi pilot): lỗi / sai dữ liệu / chưa biết thao tác / đề xuất, mức chặn công việc báo ngay Hội sở và phải xử lý trong 4 giờ, chặn khoá hệ cũ khi còn sự cố chặn việc | Xong |
 | 8C | **Báo cáo sau go-live** (/bao-cao/sau-go-live): theo tuần và cơ sở — điểm danh chốt trong ngày, tự khớp chuyển khoản, phủ hoá đơn điện tử, phụ huynh dùng cổng 30 ngày, OTP gửi được, tin ZNS / SMS / đẩy thành công, so mục tiêu | Xong |
-| 9 | Pilot thật tại 1 cơ sở (ký HĐĐT, Zalo ZNS, SMS, khoá VAPID), đào tạo, theo dõi báo cáo sau go-live 4 tuần, mở rộng cơ sở tiếp theo | Tiếp theo |
+| 9A | **Hướng dẫn & đào tạo** (/huong-dan): 6 bài theo vai trò (làm quen, giáo viên, giáo vụ, tư vấn / CSKH, kế toán, quản lý go-live), có bước thao tác kèm liên kết và câu hỏi kiểm tra (đúng hết mới hoàn thành); danh mục go-live "nhân sự đã học" tự kiểm tra theo tài khoản có vai trò tại cơ sở | Xong |
+| 9B | **Kiểm tra dữ liệu trước pilot** (trong /go-live): 12 mục — phòng, quản lý, kế toán, học viên chưa có phụ huynh, lớp thiếu giáo viên / thiếu buổi, buổi 7 ngày tới thiếu giáo viên, SĐT phụ huynh sai, ghi danh chưa có đơn, học vượt gói, thiếu QR chuyển khoản, giáo viên chưa có tài khoản; mục chặn làm danh mục go-live chưa đạt | Xong |
+| 10 | Pilot thật tại 1 cơ sở (ký HĐĐT, Zalo ZNS, SMS, khoá VAPID), theo dõi báo cáo sau go-live 4 tuần, mở rộng cơ sở tiếp theo | Chờ quyết định cơ sở + hợp đồng |
 
 ## Việc kỹ thuật còn lại trong Giai đoạn 1 (sau khi CI xanh)
 

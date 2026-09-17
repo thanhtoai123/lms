@@ -5,6 +5,7 @@ import * as M from "../services/migration";
 import * as C from "../services/cutover";
 import * as D from "../services/delivery";
 import * as P from "../services/pilot";
+import * as R from "../services/readiness";
 
 const uuid = z.string().uuid();
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -54,4 +55,10 @@ export const pilotRouter = router({
     .mutation(({ ctx, input }) => P.createFeedback(ctx, input)),
   updateFeedback: protectedProcedure.input(z.object({ id: uuid, status: z.enum(PILOT_FB_STATUSES), resolution: z.string().max(2000).nullish() })).mutation(({ ctx, input }) => P.updateFeedback(ctx, input)),
   adoption: protectedProcedure.input(z.object({ weeks: z.number().int().min(1).max(26).optional() }).default({})).query(({ ctx, input }) => P.adoptionReport(ctx, input)),
+});
+
+export const readinessRouter = router({
+  myTraining: protectedProcedure.query(({ ctx }) => R.myTraining(ctx)),
+  complete: protectedProcedure.input(z.object({ key: z.string().max(40), answers: z.array(z.number().int().min(0).max(10)).max(20) })).mutation(({ ctx, input }) => R.completeModule(ctx, input)),
+  center: protectedProcedure.input(z.object({ centerId: uuid })).query(({ ctx, input }) => R.centerReadiness(ctx, input)),
 });

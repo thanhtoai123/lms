@@ -101,6 +101,7 @@ export default async function GoLivePage({ searchParams }: { searchParams: Promi
               ))}
             </div>
           </div>
+          <Readiness centerId={c.id} />
           {c.days.length > 0 && (
             <div className="overflow-x-auto border-t border-black/5">
               <table className="w-full text-sm">
@@ -125,5 +126,41 @@ export default async function GoLivePage({ searchParams }: { searchParams: Promi
         </Section>
       ))}
     </div>
+  );
+}
+
+async function Readiness({ centerId }: { centerId: string }) {
+  const { caller } = await getServerCaller();
+  const r = await caller.readiness.center({ centerId });
+  const title = new Map(r.modules.map((m) => [m.key, m.title]));
+  return (
+    <details className="border-t border-black/5 px-4 py-3 text-sm" open={!r.preflight.ok}>
+      <summary className="cursor-pointer font-semibold">
+        Kiểm tra trước pilot: {r.preflight.ok ? <span className="text-green-700">không có mục chặn</span> : <span className="text-red-700">{r.preflight.blocks} mục chặn</span>}
+        {r.preflight.warns > 0 && <span className="text-amber-700"> · {r.preflight.warns} cảnh báo</span>}
+        {" · "}Đào tạo {r.training.trained}/{r.training.total} nhân sự
+      </summary>
+      <div className="mt-2 grid gap-4 lg:grid-cols-2">
+        <ul className="space-y-1">
+          {r.preflight.rows.map((x) => (
+            <li key={x.key} className="flex items-center justify-between gap-2">
+              <span className={x.ok ? "text-ink-400" : x.level === "block" ? "text-red-700" : "text-amber-700"}>{x.ok ? "✓" : x.level === "block" ? "✗" : "!"} {x.label}</span>
+              {!x.ok && <Link href={x.href} className="text-xs text-brand-600">{x.key.startsWith("no") ? "" : `${x.count} · `}Xử lý</Link>}
+            </li>
+          ))}
+        </ul>
+        <div>
+          {r.training.rows.length === 0 ? <p className="text-ink-600">Chưa có tài khoản nhân sự gắn với cơ sở.</p> : (
+            <table className="w-full text-xs">
+              <thead><tr className="text-left text-ink-400"><th className="p-1">Nhân sự</th><th className="p-1">Còn thiếu bài</th></tr></thead>
+              <tbody className="divide-y divide-black/5">{r.training.rows.filter((x) => x.required.length).map((x) => (
+                <tr key={x.userId}><td className="p-1">{x.name}</td><td className="p-1">{x.missing.length ? <span className="text-amber-700">{x.missing.map((k) => title.get(k) ?? k).join(", ")}</span> : <span className="text-green-700">Đã xong</span>}</td></tr>
+              ))}</tbody>
+            </table>
+          )}
+          <p className="mt-1 text-[11px] text-ink-400">Nhân sự học tại <Link href="/huong-dan" className="text-brand-600">Hướng dẫn & đào tạo</Link>.</p>
+        </div>
+      </div>
+    </details>
   );
 }

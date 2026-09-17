@@ -41,6 +41,7 @@ export default async function TeacherToday() {
       <section>
         <h1 className="text-lg font-bold">Chào {data.teacher.fullName} 👋</h1>
         <p className="text-sm text-ink-600">{WEEKDAY_VI[weekdayOf(data.today)]}, {fmtDate(data.today)}</p>
+        <Link href="/huong-dan" className="text-xs text-brand-600">Hướng dẫn sử dụng & bài kiểm tra →</Link>
       </section>
 
       {data.overdue.length > 0 && (

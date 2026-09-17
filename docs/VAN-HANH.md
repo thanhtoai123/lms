@@ -92,3 +92,8 @@ Thứ tự cho mỗi cơ sở:
 - Worker đẩy mọi thông báo trong app chưa đọc (≤ 12 giờ) tới thiết bị đã bật, theo giờ yên lặng ở Cấu hình vận hành → Tin Zalo. Đăng ký hết hạn (404/410) hoặc lỗi 5 lần liên tiếp tự gỡ.
 - Trong pilot: nhân viên ghi phản hồi ở /go-live → "Phản hồi pilot". Mức "chặn công việc" báo Quản trị tối cao và phải xử lý trong 4 giờ; còn mục này thì không chuyển được "Chính thức" / "Hệ cũ chỉ đọc".
 - Theo dõi /bao-cao/sau-go-live hằng tuần; chỉ số đỏ là dưới mục tiêu (điểm danh chốt trong ngày ≥ 95%, tự khớp chuyển khoản ≥ 60%, phủ hoá đơn ≥ 98%, phụ huynh dùng cổng ≥ 50%, OTP ≥ 95%, tin gửi thành công ≥ 95%).
+
+## Chuẩn bị pilot (Giai đoạn 9)
+
+- Mỗi nhân sự có vai trò tại cơ sở pilot vào **Hướng dẫn & đào tạo** (/huong-dan), học bài theo vai trò và trả lời đúng câu hỏi kiểm tra. Danh mục go-live "nhân sự đã học" tự đạt khi mọi tài khoản đang hoạt động của cơ sở học xong.
+- /go-live → mỗi cơ sở có mục **Kiểm tra trước pilot**: xử lý hết mục đỏ (chặn), mục vàng nên xử lý trước ngày chạy song song. Mục "Kiểm tra dữ liệu trước pilot không còn mục chặn" tự đạt.

@@ -19,7 +19,7 @@ import { contentRouter } from "./routers/content";
 import { siteRouter, marketingRouter, complianceRouter } from "./routers/growth";
 import { recruitRouter, messagingRouter, affiliateRouter } from "./routers/outreach";
 import { invoiceRouter, cardRouter } from "./routers/billing";
-import { migrationRouter, cutoverRouter, deliveryRouter, pilotRouter } from "./routers/golive";
+import { migrationRouter, cutoverRouter, deliveryRouter, pilotRouter, readinessRouter } from "./routers/golive";
 
 export const appRouter = router({
   auth: authRouter,
@@ -56,6 +56,7 @@ export const appRouter = router({
   cutover: cutoverRouter,
   delivery: deliveryRouter,
   pilot: pilotRouter,
+  readiness: readinessRouter,
   card: cardRouter,
 });
 
