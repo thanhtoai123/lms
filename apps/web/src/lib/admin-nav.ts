@@ -57,7 +57,7 @@ export const ADMIN_NAV: NavGroup[] = [
       { label: "Hoàn thành khoá & chứng chỉ", href: "/hoan-thanh-khoa", perm: "enrollment:read", ready: true },
       { label: "Học bạ", href: "/hoc-ba", perm: "report_card:read", ready: true },
       { label: "Học bạ năng lực", href: "/report-cards", perm: "report_card:read", ready: true },
-      { label: "SataCoin", href: "/satacoin", perm: "student:read", phase: 5, desc: "Sổ cái điểm thưởng bất biến: cộng/trừ có lý do, đổi quà." },
+      { label: "SataCoin", href: "/satacoin", perm: "coin:read", ready: true, desc: "Sổ xu thưởng chỉ thêm: thưởng theo hạn mức, thu hồi có lý do, đổi quà qua duyệt." },
     ],
   },
   {
@@ -121,10 +121,10 @@ export const ADMIN_NAV: NavGroup[] = [
     key: "inventory",
     label: "Sản phẩm & Kho",
     items: [
-      { label: "Học cụ (Kits)", href: "/kits", perm: "inventory:read", phase: 5, desc: "Bộ học cụ theo khoá." },
-      { label: "Sản phẩm bán/thuê", href: "/products", perm: "inventory:read", phase: 5, desc: "Sản phẩm bán / cho thuê." },
-      { label: "Tồn kho", href: "/inventory/dashboard", perm: "inventory:read", phase: 5, desc: "Tồn theo cơ sở, nhập/xuất." },
-      { label: "Kiểm kê kho", href: "/inventory/audit", perm: "inventory:read", phase: 5, desc: "Phiếu kiểm kê, chênh lệch." },
+      { label: "Học cụ (Kits)", href: "/kits", perm: "inventory:read", ready: true, desc: "Bộ học cụ theo khoá, định mức linh kiện, đóng bộ, cấp cho học viên." },
+      { label: "Sản phẩm bán/thuê", href: "/products", perm: "inventory:read", ready: true, desc: "Danh mục hàng, giá bán / thuê / cọc; bán và cho thuê tự lập đơn + xuất kho." },
+      { label: "Tồn kho", href: "/inventory/dashboard", perm: "inventory:read", ready: true, desc: "Tồn theo cơ sở, nhập / cấp phát / chuyển kho, thẻ kho, cho thuê." },
+      { label: "Kiểm kê kho", href: "/inventory/audit", perm: "inventory:read", ready: true, desc: "Phiếu kiểm kê, chênh lệch." },
     ],
   },
   {

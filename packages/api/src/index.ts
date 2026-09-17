@@ -14,6 +14,7 @@ import { financeRouter } from "./routers/finance";
 import { hrRouter } from "./routers/hr";
 import { careRouter } from "./routers/care";
 import { adminRouter } from "./routers/admin";
+import { inventoryRouter, coinRouter } from "./routers/inventory";
 
 export const appRouter = router({
   auth: authRouter,
@@ -36,6 +37,8 @@ export const appRouter = router({
   hr: hrRouter,
   care: careRouter,
   admin: adminRouter,
+  inventory: inventoryRouter,
+  coin: coinRouter,
 });
 
 export type AppRouter = typeof appRouter;

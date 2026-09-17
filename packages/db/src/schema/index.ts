@@ -9,3 +9,4 @@ export * from "./finance";
 export * from "./hr";
 export * from "./care";
 export * from "./system";
+export * from "./inventory";

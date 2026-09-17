@@ -71,7 +71,7 @@ export interface ResourceRef {
 
 const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   SUPER_ADMIN: ["*:*"],
-  HO_ACCOUNTANT: ["finance:*", "student:read", "enrollment:read", "class:read", "report:read", "course:read", "staff:read", "staff:salary", "timesheet:read"],
+  HO_ACCOUNTANT: ["finance:*", "inventory:*", "coin:read", "student:read", "enrollment:read", "class:read", "report:read", "course:read", "staff:read", "staff:salary", "timesheet:read"],
   HO_HR: ["staff:*", "teacher:*", "timesheet:*", "report:read"],
   HO_MARKETING: ["lead:read", "lead:create", "marketing:*", "site:*", "report:read"],
   HO_SALE: ["lead:create", "lead:read_own", "lead:update_own"],
@@ -79,14 +79,14 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   AUDITOR: ["*:read"],
   CENTER_MANAGER: [
     "lead:*", "student:*", "enrollment:*", "class:*", "session:*", "attendance:*", "session_note:*", "media:*",
-    "teacher:read", "staff:read", "timesheet:read", "timesheet:approve", "finance:read", "finance:create", "finance:approve", "report_card:*", "report:read", "makeup:*", "automation:*", "care:*", "inventory:*",
+    "teacher:read", "staff:read", "timesheet:read", "timesheet:approve", "finance:read", "finance:create", "finance:approve", "report_card:*", "report:read", "makeup:*", "automation:*", "care:*", "inventory:*", "coin:*",
     "room:*", "center:read", "parent_account:*", "teacher:evaluate", "holiday:*", "course:read", "curriculum:read",
   ],
-  CENTER_CLASS_MANAGER: ["class:read", "class:create", "class:update", "session:*", "attendance:*", "session_note:*", "media:*", "student:read", "student:update", "enrollment:read", "enrollment:update", "makeup:*", "teacher:read", "room:*", "center:read", "report_card:*", "holiday:read", "course:read", "curriculum:read"],
-  CENTER_SALES_CSM: ["lead:*", "student:read", "student:create", "student:update", "enrollment:create", "enrollment:read", "enrollment:update", "class:read", "session:read", "makeup:*", "care:*", "parent_account:*", "center:read", "course:read", "finance:read", "finance:create"],
-  CENTER_ACCOUNTANT: ["finance:*", "enrollment:read", "student:read", "class:read", "course:read", "center:read", "staff:read", "staff:salary", "timesheet:read", "report:read"],
+  CENTER_CLASS_MANAGER: ["class:read", "class:create", "class:update", "session:*", "attendance:*", "session_note:*", "media:*", "student:read", "student:update", "enrollment:read", "enrollment:update", "makeup:*", "teacher:read", "room:*", "center:read", "report_card:*", "holiday:read", "course:read", "curriculum:read", "inventory:read", "inventory:create", "coin:read", "coin:award", "coin:redeem"],
+  CENTER_SALES_CSM: ["lead:*", "student:read", "student:create", "student:update", "enrollment:create", "enrollment:read", "enrollment:update", "class:read", "session:read", "makeup:*", "care:*", "parent_account:*", "center:read", "course:read", "finance:read", "finance:create", "inventory:read", "inventory:create", "coin:read", "coin:redeem"],
+  CENTER_ACCOUNTANT: ["finance:*", "enrollment:read", "student:read", "class:read", "course:read", "center:read", "staff:read", "staff:salary", "timesheet:read", "report:read", "inventory:read", "coin:read"],
   CENTER_HR: ["staff:*", "teacher:*", "timesheet:*", "center:read"],
-  TEACHER: ["course:read", "curriculum:read", "class:read_own", "session:read_own", "session:update_own", "attendance:write_own", "session_note:write_own", "media:write_own", "report_card:write_own", "report_card:read_own", "student:read_own"],
+  TEACHER: ["course:read", "curriculum:read", "class:read_own", "session:read_own", "session:update_own", "attendance:write_own", "session_note:write_own", "media:write_own", "report_card:write_own", "report_card:read_own", "student:read_own", "coin:award_own", "coin:read_own"],
   ASSISTANT_TEACHER: ["course:read", "curriculum:read", "class:read_own", "session:read_own", "attendance:write_own", "media:write_own", "student:read_own"],
   PARENT: ["student:read_own", "session:read_own", "attendance:read_own", "finance:read_own", "makeup:request_own"],
   STUDENT: ["session:read_own", "assignment:*_own"],

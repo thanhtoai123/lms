@@ -46,3 +46,23 @@ test("hasPermission dùng cho menu: bỏ qua phạm vi và quyền sở hữu", 
   assert.equal(ROLES.every((r) => !!ROLE_LABEL_VI[r]), true);
   assert.equal(STAFF_ROLES.includes("PARENT"), false);
 });
+
+test("kho & SataCoin: phân quyền", () => {
+  const mgr = { userId: "m", assignments: [{ role: "CENTER_MANAGER" as const, centerId: "c1" }] };
+  const gv = { userId: "t", personId: "gv1", assignments: [{ role: "TEACHER" as const, centerId: "c1" }] };
+  const csm = { userId: "s", assignments: [{ role: "CENTER_SALES_CSM" as const, centerId: "c1" }] };
+  const kt = { userId: "k", assignments: [{ role: "CENTER_ACCOUNTANT" as const, centerId: "c1" }] };
+  assert.equal(authorize(mgr, "inventory:approve", { centerId: "c1" }).allowed, true);
+  assert.equal(authorize(mgr, "inventory:update", { centerId: "c2" }).allowed, false);
+  assert.equal(authorize(mgr, "coin:adjust", { centerId: "c1" }).allowed, true);
+  assert.equal(authorize(gv, "coin:award_own", { centerId: "c1", ownerIds: ["gv1"] }).allowed, true);
+  assert.equal(authorize(gv, "coin:award_own", { centerId: "c1", ownerIds: ["gv2"] }).allowed, false);
+  assert.equal(authorize(gv, "coin:award", { centerId: "c1" }).allowed, false);
+  assert.equal(hasPermission(gv, "coin:read"), true);
+  assert.equal(authorize(csm, "coin:redeem", { centerId: "c1" }).allowed, true);
+  assert.equal(authorize(csm, "coin:approve", { centerId: "c1" }).allowed, false);
+  assert.equal(authorize(csm, "inventory:create", { centerId: "c1" }).allowed, true);
+  assert.equal(authorize(csm, "inventory:update", { centerId: "c1" }).allowed, false);
+  assert.equal(authorize(kt, "inventory:read", { centerId: "c1" }).allowed, true);
+  assert.equal(authorize(kt, "inventory:update", { centerId: "c1" }).allowed, false);
+});

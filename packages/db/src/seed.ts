@@ -4,7 +4,7 @@
  * Chạy: pnpm db:seed
  */
 import "dotenv/config";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { createDb } from "./index";
 import {
   centers, regions, rooms, users, userRoles, teachers, parents, students, studentGuardians,
@@ -17,6 +17,7 @@ import {
   staff, staffPrivate, staffPositions, workShifts, shiftAssignments, attendancePunches, staffRequests,
   parentRequests, parentRequestEvents, parentFeedback, surveys, surveyInvites, surveyResponses, parentNotifications, careTasks,
   emailLogs, otpRequests, userGroups, userGroupMembers, webhookEvents, appSettings, revenueTargets,
+  inventoryItems, kitComponents, stockLevels, stockMovements, stockCounters, rentals, rewardItems, coinTransactions, redemptions,
 } from "./schema/index";
 import { generateSessions, buildClassCode, buildStudentCode, toISODate, addDays, orderCode, receiptNumber, packagePrice, buildInstallmentPlan, computeCommission, describeRule, periodOf, fmtMin, hhmm, weekdayOf, leaveDays, requestCode, slaDue, SETTINGS_DEFAULTS } from "@satarobo/core";
 
@@ -489,6 +490,57 @@ async function main() {
     { centerId: cs1!.id, period: pm(-1), amount: 50_000_000, newEnrollments: 6, updatedBy: adminU!.id },
     { centerId: cs2!.id, period: pm(0), amount: 40_000_000, newEnrollments: 5, updatedBy: adminU!.id },
   ]);
+
+  // ---- Kho & học cụ (mẫu): linh kiện, bộ học cụ theo khoá, sản phẩm bán/thuê, tồn đầu kỳ ----
+  const itemRows = await db.insert(inventoryItems).values([
+    { sku: "LK-MOTOR", name: "Động cơ DC mini", type: "component", unit: "cái", reorderLevel: 20 },
+    { sku: "LK-SENSOR", name: "Cảm biến siêu âm", type: "component", unit: "cái", reorderLevel: 10 },
+    { sku: "LK-BOARD", name: "Bo mạch điều khiển", type: "component", unit: "cái", reorderLevel: 5 },
+    { sku: "KIT-SATA4", name: "Bộ học cụ Sata 4", type: "kit", unit: "bộ", courseId: sata4!.id, salePrice: 1_200_000, rentPrice: 150_000, deposit: 500_000, reorderLevel: 3 },
+    { sku: "SP-ROBOT-MINI", name: "Robot mini lắp ráp", type: "product", unit: "hộp", salePrice: 350_000, reorderLevel: 5 },
+    { sku: "SP-BINH-NUOC", name: "Bình nước Sata Robo", type: "product", unit: "cái", salePrice: 90_000, reorderLevel: 10 },
+    { sku: "VT-PIN-AA", name: "Pin AA", type: "material", unit: "viên", reorderLevel: 50 },
+  ]).returning();
+  const it = (sku: string) => itemRows.find((x) => x.sku === sku)!;
+  await db.insert(kitComponents).values([
+    { kitId: it("KIT-SATA4").id, componentId: it("LK-MOTOR").id, qty: 2 },
+    { kitId: it("KIT-SATA4").id, componentId: it("LK-SENSOR").id, qty: 1 },
+    { kitId: it("KIT-SATA4").id, componentId: it("LK-BOARD").id, qty: 1 },
+  ]);
+  const opening: [string, string, number, number][] = [
+    ["LK-MOTOR", cs1!.id, 40, 45_000], ["LK-SENSOR", cs1!.id, 12, 60_000], ["LK-BOARD", cs1!.id, 6, 180_000], ["KIT-SATA4", cs1!.id, 5, 380_000],
+    ["SP-ROBOT-MINI", cs1!.id, 8, 200_000], ["SP-BINH-NUOC", cs1!.id, 4, 40_000], ["VT-PIN-AA", cs1!.id, 120, 3_000],
+    ["LK-MOTOR", cs2!.id, 10, 45_000], ["KIT-SATA4", cs2!.id, 2, 380_000], ["SP-ROBOT-MINI", cs2!.id, 3, 200_000],
+  ];
+  await db.insert(stockLevels).values(opening.map(([sku, c, q, cost]) => ({ itemId: it(sku).id, centerId: c, onHand: q, avgCost: cost })));
+  await db.insert(stockMovements).values(opening.map(([sku, c, q, cost], i) => ({
+    code: `PN-${c === cs1!.id ? "CS1" : "CS2"}-${today.slice(2, 4)}-${String(c === cs1!.id ? 1 : 1).padStart(5, "0")}`, itemId: it(sku).id, centerId: c, type: "receipt" as const,
+    qty: q, balanceAfter: q, unitCost: cost, supplier: "Nhà cung cấp mẫu", note: "Tồn đầu kỳ (mẫu)", createdBy: adminU!.id, createdAt: new Date(Date.now() - (20 - i) * 3600e3),
+  })));
+  await db.insert(stockCounters).values([{ key: `PN-CS1-${today.slice(0, 4)}`, seq: 1 }, { key: `PN-CS2-${today.slice(0, 4)}`, seq: 1 }]);
+  // cấp 1 bộ học cụ cho HV đầu tiên lớp A; 1 phiếu thuê quá hạn
+  await db.update(stockLevels).set({ onHand: 3 }).where(and(eq(stockLevels.itemId, it("KIT-SATA4").id), eq(stockLevels.centerId, cs1!.id)));
+  await db.insert(stockMovements).values([
+    { code: `PX-CS1-${today.slice(2, 4)}-00001`, itemId: it("KIT-SATA4").id, centerId: cs1!.id, type: "issue", qty: -1, balanceAfter: 4, unitCost: 380_000, studentId: enrollA[0]!.studentId, classId: classA!.id, createdBy: mgrU!.id },
+    { code: `TH-CS1-${today.slice(2, 4)}-00001`, itemId: it("KIT-SATA4").id, centerId: cs1!.id, type: "rent_out", qty: -1, balanceAfter: 3, unitCost: 380_000, studentId: enrollA[1]!.studentId, refType: "rental", createdBy: mgrU!.id },
+  ]);
+  await db.insert(stockCounters).values([{ key: `PX-CS1-${today.slice(0, 4)}`, seq: 1 }, { key: `TH-CS1-${today.slice(0, 4)}`, seq: 1 }]);
+  await db.insert(rentals).values({ code: `TH-CS1-${today.slice(2, 4)}-00001`, itemId: it("KIT-SATA4").id, centerId: cs1!.id, studentId: enrollA[1]!.studentId, qty: 1, startDate: addDays(today, -40), dueDate: addDays(today, -10), fee: 300_000, deposit: 500_000, createdBy: mgrU!.id });
+
+  // ---- SataCoin (mẫu): quà, lịch sử xu, 1 yêu cầu đổi quà chờ duyệt ----
+  const rw = await db.insert(rewardItems).values([
+    { name: "Sticker Sata Robo", cost: 20, sortOrder: 1 },
+    { name: "Bình nước Sata Robo", cost: 120, inventoryItemId: it("SP-BINH-NUOC").id, sortOrder: 2 },
+    { name: "Robot mini lắp ráp", cost: 400, inventoryItemId: it("SP-ROBOT-MINI").id, sortOrder: 3 },
+  ]).returning();
+  const coinPlan: [number, number, "attendance" | "homework" | "competition" | "behavior"][] = [[0, 30, "attendance"], [0, 20, "homework"], [0, 100, "competition"], [1, 40, "attendance"], [1, 15, "behavior"], [2, 25, "attendance"], [3, 10, "homework"]];
+  const bal: Record<number, number> = {};
+  await db.insert(coinTransactions).values(coinPlan.map(([i, amt, reason], k) => {
+    bal[i] = (bal[i] ?? 0) + amt;
+    return { studentId: enrollA[i]!.studentId, centerId: cs1!.id, amount: amt, balanceAfter: bal[i]!, reason, note: reason === "competition" ? "Giải nhì Robotacon (mẫu)" : null, classId: classA!.id, createdBy: reason === "competition" ? mgrU!.id : t1U!.id, createdAt: new Date(Date.now() - (10 - k) * 86400e3) };
+  }));
+  await db.insert(redemptions).values({ code: `DQ-CS1-${today.slice(2, 4)}-00001`, studentId: enrollA[0]!.studentId, centerId: cs1!.id, rewardId: rw[1]!.id, cost: 120, requestedBy: sale1U!.id, note: "Con muốn đổi bình nước" });
+  await db.insert(stockCounters).values({ key: `DQ-CS1-${today.slice(0, 4)}`, seq: 1 });
 
   // ---- Lớp Trial mẫu: 1 buổi sắp tới (đã xếp), 1 đã học thử, 1 không đến ----
   const futureA = sessionRows.filter((x) => x.classId === classA!.id && x.date > today).sort((a, b) => a.sequenceNo - b.sequenceNo);

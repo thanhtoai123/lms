@@ -97,3 +97,26 @@ ALTER TABLE survey_responses ADD CONSTRAINT survey_responses_nps_check CHECK (np
 -- 11) Hệ thống
 ALTER TABLE revenue_targets DROP CONSTRAINT IF EXISTS revenue_targets_amount_check;
 ALTER TABLE revenue_targets ADD CONSTRAINT revenue_targets_amount_check CHECK (amount >= 0 AND period ~ '^[0-9]{4}-(0[1-9]|1[0-2])$');
+
+-- 12) Kho & SataCoin: sổ chỉ thêm, tồn không âm
+CREATE OR REPLACE FUNCTION append_only_guard() RETURNS trigger AS $$
+BEGIN
+  RAISE EXCEPTION '% chỉ được thêm: lập phiếu / giao dịch điều chỉnh thay vì sửa, xoá', TG_TABLE_NAME;
+END;
+$$ LANGUAGE plpgsql;
+DROP TRIGGER IF EXISTS stock_movements_no_update ON stock_movements;
+CREATE TRIGGER stock_movements_no_update BEFORE UPDATE OR DELETE ON stock_movements FOR EACH ROW EXECUTE FUNCTION append_only_guard();
+DROP TRIGGER IF EXISTS coin_transactions_no_update ON coin_transactions;
+CREATE TRIGGER coin_transactions_no_update BEFORE UPDATE OR DELETE ON coin_transactions FOR EACH ROW EXECUTE FUNCTION append_only_guard();
+ALTER TABLE stock_levels DROP CONSTRAINT IF EXISTS stock_levels_nonneg_check;
+ALTER TABLE stock_levels ADD CONSTRAINT stock_levels_nonneg_check CHECK (on_hand >= 0 AND avg_cost >= 0);
+ALTER TABLE stock_movements DROP CONSTRAINT IF EXISTS stock_movements_qty_check;
+ALTER TABLE stock_movements ADD CONSTRAINT stock_movements_qty_check CHECK (qty <> 0 AND balance_after >= 0);
+ALTER TABLE kit_components DROP CONSTRAINT IF EXISTS kit_components_check;
+ALTER TABLE kit_components ADD CONSTRAINT kit_components_check CHECK (qty > 0 AND kit_id <> component_id);
+ALTER TABLE coin_transactions DROP CONSTRAINT IF EXISTS coin_tx_check;
+ALTER TABLE coin_transactions ADD CONSTRAINT coin_tx_check CHECK (amount <> 0 AND balance_after >= 0);
+ALTER TABLE reward_items DROP CONSTRAINT IF EXISTS reward_items_cost_check;
+ALTER TABLE reward_items ADD CONSTRAINT reward_items_cost_check CHECK (cost > 0);
+ALTER TABLE rentals DROP CONSTRAINT IF EXISTS rentals_dates_check;
+ALTER TABLE rentals ADD CONSTRAINT rentals_dates_check CHECK (due_date >= start_date AND qty > 0 AND deposit >= 0 AND fee >= 0);

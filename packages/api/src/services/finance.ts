@@ -363,7 +363,8 @@ export async function cancelOrder(ctx: ProtectedContext, input: { id: string; re
     if (o.total > 0) await tx.insert(financeLedger).values({ orderId: o.id, centerId: o.centerId, entryType: "cancel", amount: -o.total, refId: o.id, note: `Huỷ đơn: ${reason}`, actorId: ctx.user.id });
     await writeAudit(tx as unknown as Db, { actorId: ctx.user.id, action: "TRANSITION", module: "finance", entity: "orders", entityId: o.id, before: { status: o.status }, after: { status: "cancelled" }, reason, ip: ctx.ip });
   });
-  return { ok: true };
+  const restocked = o.type === "product" ? await (await import("./inventory")).restockOrder(ctx.db, o.id, ctx.user.id, `Huỷ đơn ${o.code}: ${reason}`) : 0;
+  return { ok: true, restocked };
 }
 
 export async function updateOrderNotes(ctx: ProtectedContext, input: { id: string; internalNote?: string | null; customerNote?: string | null; remindDays?: number }) {

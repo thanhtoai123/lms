@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { hasPermission, type Actor } from "@satarobo/core";
 import { getServerCaller } from "@/lib/trpc/server";
 import { StudentStatusChip, GENDER_VI, RELATION_VI, ParentAccountChip, fmtDate } from "@/components/admin-ui";
 import { ATT_LABEL } from "@/components/ui";
@@ -11,8 +12,12 @@ const EVENT_VI: Record<string, string> = { created: "Ghi danh", activate: "Chuy�
 
 export default async function StudentProfile({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { caller } = await getServerCaller();
+  const { caller, ctx } = await getServerCaller();
   const s = await caller.students.get({ id });
+  const actor = ctx.actor as Actor | null;
+  const coins = actor && hasPermission(actor, "coin:read") ? await caller.coin.student({ id }).catch(() => null) : null;
+  const kitMoves = actor && hasPermission(actor, "inventory:read") ? await caller.inventory.movements({ studentId: id }).catch(() => null) : null;
+  const rents = actor && hasPermission(actor, "inventory:read") ? await caller.inventory.rentals({ studentId: id, status: "out" }).catch(() => []) : [];
   const age = s.dateOfBirth ? Math.floor((Date.now() - new Date(s.dateOfBirth).getTime()) / (365.25 * 86_400_000)) : null;
 
   return (
@@ -81,6 +86,22 @@ export default async function StudentProfile({ params }: { params: Promise<{ id:
             <div><div className="label">Sở thích</div><p>{s.interests || "—"}</p></div>
             <div><div className="label">Ghi chú</div><p className="whitespace-pre-line">{s.notes || "—"}</p></div>
           </section>
+
+          {coins && (
+            <section className="card space-y-1 p-4 text-sm">
+              <div className="flex items-center justify-between"><h2 className="font-bold">SataCoin</h2><Link href={`/satacoin?student=${id}`} className="text-xs text-brand-600">Chi tiết →</Link></div>
+              <p><span className="text-2xl font-bold text-amber-600">{coins.balance}</span> xu · hạng {coins.tier.label}</p>
+              <p className="text-xs text-ink-400">Tích luỹ {coins.earned}{coins.held ? ` · đang giữ ${coins.held} cho đổi quà` : ""}</p>
+            </section>
+          )}
+
+          {kitMoves && (kitMoves.items.length > 0 || rents.length > 0) && (
+            <section className="card space-y-1 p-4 text-sm">
+              <h2 className="font-bold">Học cụ & đồ thuê</h2>
+              {rents.map((r) => <div key={r.id} className={r.overdueDays ? "text-red-700" : ""}>Đang thuê {r.itemName} × {r.qty} — hạn {r.dueDate.split("-").reverse().join("/")}{r.overdueDays ? ` (quá ${r.overdueDays} ngày)` : ""}</div>)}
+              {kitMoves.items.slice(0, 8).map((m) => <div key={m.id} className="flex justify-between gap-2"><span>{m.typeLabel}: {m.itemName}</span><span className={`tabular-nums ${m.qty < 0 ? "text-ink-600" : "text-green-700"}`}>{-m.qty > 0 ? `nhận ${-m.qty}` : `trả ${m.qty}`}</span></div>)}
+            </section>
+          )}
 
           {s.care.length > 0 && (
             <section className="card space-y-2 p-4 text-sm">

@@ -128,6 +128,10 @@ jobs:
             curl -sf -o /dev/null -b "$M" "http://localhost:3000$p" || { echo "FAIL report $p"; exit 1; }
           done
           curl -s -X POST -H 'Content-Type: application/json' -d '{"action":"request","phone":"0901234599","purpose":"phone_verify"}' http://localhost:3000/api/public/otp | grep -q '"ok":true'
+          for p in /kits /products "/products?type=any" /inventory/dashboard "/inventory/dashboard?tab=log" "/inventory/dashboard?tab=rentals&rstatus=overdue" /inventory/audit /satacoin "/satacoin?tab=log" "/satacoin?tab=redeem" "/satacoin?tab=rewards"; do
+            curl -sf -o /dev/null -b "$M" "http://localhost:3000$p" || { echo "FAIL kho/xu $p"; exit 1; }
+          done
+          curl -sf -o /dev/null -b "x-dev-actor=teacher1@satarobo.vn" http://localhost:3000/satacoin || { echo "FAIL satacoin(GV)"; exit 1; }
           curl -sf http://localhost:3000/ks/khong-ton-tai-123 | grep -q "không đúng"   # trang khảo sát công khai
           for SID in $(curl -s -b "$H" "http://localhost:3000/api/trpc/hr.staff" | grep -o '"id":"[0-9a-f-]\{36\}","code":"NV' | cut -d'"' -f4); do
             curl -sf -o /dev/null -b "$H" "http://localhost:3000/nhan-su/$SID" || { echo "FAIL staff $SID"; exit 1; }
