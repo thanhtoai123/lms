@@ -85,7 +85,7 @@ export async function requestFormData(ctx: ProtectedContext) {
   const shifts = await ctx.db.select({ id: workShifts.id, code: workShifts.code, name: workShifts.name, kind: workShifts.kind, units: workShifts.units })
     .from(workShifts).where(and(eq(workShifts.isActive, true), or(isNull(workShifts.centerId), eq(workShifts.centerId, me.centerId))!)).orderBy(asc(workShifts.sortOrder), asc(workShifts.code));
   const myClasses = me.teacherId
-    ? await ctx.db.select({ id: classes.id, code: classes.code, name: classes.name }).from(classes).where(and(eq(classes.teacherId, me.teacherId), inArray(classes.status, ["running", "recruiting"]))).orderBy(asc(classes.code))
+    ? await ctx.db.select({ id: classes.id, code: classes.code, name: classes.name }).from(classes).where(and(or(eq(classes.leadTeacherId, me.teacherId), eq(classes.assistantTeacherId, me.teacherId))!, inArray(classes.status, ["running", "recruiting"]))).orderBy(asc(classes.code))
     : [];
   const colleagues = await ctx.db.select({ id: staff.id, code: staff.code, fullName: staff.fullName, isTeacher: sql<boolean>`${staff.teacherId} is not null` })
     .from(staff).where(and(eq(staff.centerId, me.centerId), ne(staff.id, me.id), ne(staff.status, "resigned"))).orderBy(asc(staff.fullName));
@@ -185,7 +185,7 @@ export async function createRequest(ctx: ProtectedContext, input: CreateRequestI
   if (isClassRequest(input.kind)) {
     const cls = await ctx.db.query.classes.findFirst({ where: eq(classes.id, input.classId!) });
     if (!cls) throw notFound("Không tìm thấy lớp");
-    if (cls.teacherId !== s.teacherId) throw pre("Chỉ làm đơn cho lớp mình phụ trách");
+    if (!s.teacherId || (cls.leadTeacherId !== s.teacherId && cls.assistantTeacherId !== s.teacherId)) throw pre("Chỉ làm đơn cho lớp mình phụ trách");
     const ss = await findSession(ctx.db, input.classId!, input.dateFrom);
     if (!ss) throw pre(`Lớp không có buổi học ngày ${dmy(input.dateFrom)}`);
   }
