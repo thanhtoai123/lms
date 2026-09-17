@@ -192,7 +192,7 @@ export async function coinLedger(ctx: ProtectedContext, input: { centerId?: stri
 /* Thưởng / điều chỉnh / thu hồi                                        */
 /* ------------------------------------------------------------------ */
 
-export async function awardCoins(ctx: ProtectedContext, input: { studentIds: string[]; amount: number; reason: CoinReason; note?: string | null; classId?: string | null; sessionId?: string | null }, opts: { skipOverDailyLimit?: boolean } = {}) {
+export async function awardCoins(ctx: ProtectedContext, input: { studentIds: string[]; amount: number; reason: CoinReason; note?: string | null; classId?: string | null; sessionId?: string | null }, opts: { skipOverDailyLimit?: boolean; attendedSessionId?: string } = {}) {
   const ids = [...new Set(input.studentIds)];
   if (!ids.length || ids.length > 60) throw bad("Chọn 1–60 học viên");
   let cls: { id: string; centerId: string; leadTeacherId: string | null; assistantTeacherId: string | null } | null = null;
@@ -206,7 +206,7 @@ export async function awardCoins(ctx: ProtectedContext, input: { studentIds: str
   }
   const stus = await ctx.db.select({ id: students.id, fullName: students.fullName, homeCenterId: students.homeCenterId, status: students.status }).from(students).where(inArray(students.id, ids));
   if (stus.length !== ids.length) throw bad("Có học viên không tồn tại");
-  if (cls) {
+  if (cls && !opts.attendedSessionId) {
     const inClass = await ctx.db.select({ s: enrollments.studentId }).from(enrollments).where(and(eq(enrollments.classId, cls.id), inArray(enrollments.studentId, ids), inArray(enrollments.status, ["active", "trial", "completed"])));
     if (inClass.length !== ids.length) throw bad("Có học viên không thuộc lớp");
   }
@@ -249,7 +249,7 @@ export async function awardSession(ctx: ProtectedContext, input: { sessionId: st
   const done = await ctx.db.select({ s: coinTransactions.studentId }).from(coinTransactions).where(and(eq(coinTransactions.sessionId, se.id), eq(coinTransactions.reason, "attendance")));
   const ids = [...new Set(present.map((p) => p.s))].filter((id) => !done.some((d) => d.s === id));
   if (!ids.length) throw pre(present.length ? "Học viên có mặt đều đã được thưởng buổi này" : "Buổi chưa có học viên có mặt");
-  return awardCoins(ctx, { studentIds: ids, amount: input.amount, reason: "attendance", classId: se.classId, sessionId: se.id, note: `Chuyên cần buổi ${se.sequenceNo}` }, { skipOverDailyLimit: true });
+  return awardCoins(ctx, { studentIds: ids, amount: input.amount, reason: "attendance", classId: se.classId, sessionId: se.id, note: `Chuyên cần buổi ${se.sequenceNo}` }, { skipOverDailyLimit: true, attendedSessionId: se.id });
 }
 
 export async function adjustCoins(ctx: ProtectedContext, input: { studentId: string; amount: number; note: string }) {
