@@ -561,7 +561,7 @@ export async function chatPilotReport(ctx: ProtectedContext, input: { from?: str
     const ns = notes.filter((n) => uniq.includes(n.parentId));
     const read48 = ns.filter((n) => readWithin(n.createdAt, n.readAt)).length;
     const cids = uniq.flatMap((p) => convOf(p).map((c) => c.id));
-    const pairs = cids.flatMap((cid) => responsePairs(msgs.filter((m) => m.cid === cid).map((m) => ({ direction: m.direction, at: m.createdAt }))));
+    const pairs = cids.flatMap((cid) => responsePairs(msgs.filter((m) => m.cid === cid).map((m) => ({ direction: m.direction, at: m.at }))));
     const rs = responseStats(pairs, now);
     return {
       parents: uniq.length, activated, loggedIn, opened, engaged, notifications: ns.length, read48,
