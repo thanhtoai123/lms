@@ -53,7 +53,7 @@ export function zaloSignatureOk(raw: string, header: string | null, appId: strin
   return safeEq(mac, sha(`${appId}${raw}${timestamp}${secret}`));
 }
 
-interface MessagingSettings { defaultCenterId: string | null; autoReply: string }
+export interface MessagingSettings { defaultCenterId: string | null; autoReply: string }
 const MS_DEFAULTS: MessagingSettings = { defaultCenterId: null, autoReply: "" };
 async function messagingSettings(db: Db): Promise<MessagingSettings> {
   const r = await db.query.appSettings.findFirst({ where: eq(appSettings.key, "messaging") });
@@ -506,7 +506,7 @@ export async function getMessagingSettings(ctx: ProtectedContext) {
 /* Đo pilot chat                                                        */
 /* ------------------------------------------------------------------ */
 
-interface PilotSettings { classIds: string[]; startDate: string | null; note: string }
+export interface PilotSettings { classIds: string[]; startDate: string | null; note: string }
 async function pilotSettings(db: Db): Promise<PilotSettings> {
   const r = await db.query.appSettings.findFirst({ where: eq(appSettings.key, "chat_pilot") });
   return { classIds: [], startDate: null, note: "", ...((r?.value ?? {}) as Partial<PilotSettings>) };
