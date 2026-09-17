@@ -11,6 +11,7 @@ import {
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { writeAudit } from "./audit";
 import { encryptPii, decryptPii } from "./pii";
+import { getOps } from "./opsSettings";
 
 type Db = ProtectedContext["db"];
 const STUDENT_ID = sql.raw('"students"."id"');
@@ -116,6 +117,7 @@ export async function getStudent(ctx: ProtectedContext, id: string) {
   const events = ids.length
     ? await ctx.db.select().from(enrollmentEvents).where(inArray(enrollmentEvents.enrollmentId, ids)).orderBy(desc(enrollmentEvents.createdAt)).limit(50)
     : [];
+  const ops = await getOps(ctx.db, s.homeCenterId);
   const openPause = pauses.find((p) => !p.endedAt) ?? null;
   const lifecycleState = {
     status: s.status,
@@ -146,7 +148,7 @@ export async function getStudent(ctx: ProtectedContext, id: string) {
     events,
     care,
     pauses: pauses.map((p) => ({ ...p, classCodes: (p.enrollmentIds ?? []).map((x) => classOf.get(x) ?? "?") })),
-    lifecycle: { studying: lifecycleState.studying, paused: lifecycleState.paused, openPause, actions: canUpdate ? studentLifecycleActions(lifecycleState) : [] },
+    lifecycle: { studying: lifecycleState.studying, paused: lifecycleState.paused, openPause, actions: canUpdate ? studentLifecycleActions(lifecycleState) : [], maxPauseMonths: ops.maxPauseMonths },
   };
 }
 

@@ -2,9 +2,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { EnrollmentChip } from "@/components/admin-ui";
 import { getServerCaller } from "@/lib/trpc/server";
-import { StatusChip, fmtDate, fmtTime, WEEKDAY_VI } from "@/components/ui";
+import { WEEKDAY_VI } from "@/components/ui";
 import { CLASS_STATUS_VI } from "@satarobo/core";
-import { StatusPanel, InfoPanel, SchedulePanel, CheckPanel, AddSessionPanel, EventTimeline } from "./workspace";
+import { StatusPanel, InfoPanel, SchedulePanel, CheckPanel, AddSessionPanel, EventTimeline, CancelClassPanel } from "./workspace";
+import { SessionList } from "./session-list";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Chi tiết lớp" };
@@ -51,6 +52,7 @@ export default async function ClassDetail({ params }: { params: Promise<{ id: st
           <InfoPanel classId={id} ws={ws} />
           <SchedulePanel classId={id} ws={ws} />
           {check && <CheckPanel classId={id} check={check} canUpdate={ws.canUpdate} />}
+          <CancelClassPanel classId={id} ws={ws} />
         </div>
         <div className="space-y-4">
           <section className="space-y-2">
@@ -82,20 +84,20 @@ export default async function ClassDetail({ params }: { params: Promise<{ id: st
             {c.sessions.length === 0 ? (
               <div className="card p-4 text-sm text-ink-400">{ws.planning ? "Buổi học sẽ được sinh tự động khi lớp được duyệt mở." : "Chưa có buổi học."}</div>
             ) : (
-              <div className="card max-h-[70vh] divide-y divide-black/5 overflow-y-auto">
-                {[...c.sessions].sort((a, b) => `${a.date}${a.startTime}`.localeCompare(`${b.date}${b.startTime}`)).map((s) => (
-                  <Link key={s.id} href={`/teacher/sessions/${s.id}`} className={`flex items-center justify-between gap-3 p-3 hover:bg-brand-50/40 ${s.status === "cancelled" || s.status === "rescheduled" ? "opacity-60" : ""}`}>
-                    <div className="min-w-0">
-                      <div className="truncate text-sm font-medium">
-                        {s.label}{s.topic ? ` · ${s.topic}` : ""}
-                        {s.kind !== "regular" && <span className="chip ml-1 bg-violet-100 text-violet-800">ngoài lộ trình</span>}
-                      </div>
-                      <div className="text-xs text-ink-400">{WEEKDAY_VI[new Date(s.date + "T00:00:00Z").getUTCDay() || 7]} {fmtDate(s.date)} · {fmtTime(s.startTime)}–{fmtTime(s.endTime)}</div>
-                    </div>
-                    <StatusChip status={s.status} />
-                  </Link>
-                ))}
-              </div>
+              <SessionList
+                classId={id}
+                canEdit={ws.canEditSessions}
+                enrolled={active}
+                rooms={ws.roomOptions.map((r) => ({ id: r.id, label: `${r.code} — ${r.name}` }))}
+                teachers={ws.teacherOptions.map((t) => ({ id: t.id, label: t.fullName }))}
+                sessions={[...c.sessions]
+                  .sort((a, b) => `${a.date}${a.startTime}`.localeCompare(`${b.date}${b.startTime}`))
+                  .map((s) => ({
+                    id: s.id, label: s.label, sequenceNo: s.sequenceNo, kind: s.kind, date: s.date, startTime: s.startTime, endTime: s.endTime, status: s.status,
+                    topic: s.topic, roomId: s.roomId, teacherId: s.teacherId, marked: s.marked, remarks: s.remarks, trials: s.trials,
+                    cancelReason: s.cancelReason, rescheduledFromDate: s.rescheduledFromDate,
+                  }))}
+              />
             )}
           </section>
           <EventTimeline ws={ws} />

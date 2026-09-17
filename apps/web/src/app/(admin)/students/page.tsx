@@ -9,13 +9,15 @@ export const metadata = { title: "Học viên" };
 const STATUSES = ["prospect", "trial", "active", "paused", "alumni", "withdrawn"] as const;
 type St = (typeof STATUSES)[number];
 
-export default async function StudentsPage({ searchParams }: { searchParams: Promise<{ q?: string; center?: string; status?: string; page?: string }> }) {
+export default async function StudentsPage({ searchParams }: { searchParams: Promise<{ q?: string; center?: string; status?: string; grade?: string; page?: string }> }) {
   const sp = await searchParams;
   const status = STATUSES.includes(sp.status as St) ? (sp.status as St) : undefined;
+  const g = Number(sp.grade);
+  const grade = Number.isInteger(g) && g >= 1 && g <= 12 ? g : undefined;
   const { caller } = await getServerCaller();
   const [ref, data] = await Promise.all([
     caller.academics.classes.referenceData(),
-    caller.students.list({ q: sp.q || undefined, centerId: sp.center || undefined, status, page: Number(sp.page) || 1 }),
+    caller.students.list({ q: sp.q || undefined, centerId: sp.center || undefined, status, grade, page: Number(sp.page) || 1 }),
   ]);
   return (
     <div className="space-y-4">
@@ -25,7 +27,7 @@ export default async function StudentsPage({ searchParams }: { searchParams: Pro
         actions={<><Link href="/enrollments/new" className="btn-ghost">Ghi danh</Link><Link href="/students/new" className="btn-primary">+ Thêm học viên</Link></>}
       />
       <form className="flex flex-wrap items-center gap-2">
-        <input name="q" defaultValue={sp.q} placeholder="Tên / mã HV / SĐT phụ huynh…" className="input max-w-xs" />
+        <input name="q" defaultValue={sp.q} placeholder="Tên / mã HV / tên hoặc SĐT phụ huynh…" className="input max-w-xs" />
         <select name="center" defaultValue={sp.center ?? ""} className="input max-w-[220px]">
           <option value="">Mọi cơ sở</option>
           {ref.centers.map((c) => <option key={c.id} value={c.id}>{c.code} — {c.name}</option>)}
@@ -33,6 +35,10 @@ export default async function StudentsPage({ searchParams }: { searchParams: Pro
         <select name="status" defaultValue={status ?? ""} className="input max-w-[180px]">
           <option value="">Mọi trạng thái</option>
           {STATUSES.map((s) => <option key={s} value={s}>{STUDENT_STATUS_VI[s]}</option>)}
+        </select>
+        <select name="grade" defaultValue={grade ? String(grade) : ""} className="input max-w-[140px]">
+          <option value="">Mọi khối lớp</option>
+          {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => <option key={n} value={n}>Lớp {n}</option>)}
         </select>
         <button className="btn-ghost">Lọc</button>
       </form>

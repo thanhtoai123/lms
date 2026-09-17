@@ -9,7 +9,7 @@ import {
   generateSessions, expectedEndDate, findConflicts, buildClassCode, nextClassSeq, normalizeClassCode, authorize, addDays, visibleCenterIds,
   classTransition, classEventsFor, classReadiness, canFinishClass, CLASS_APPROVAL_EVENTS, CLASS_REASON_EVENTS, CLASS_EVENT_VI,
   planScheduleChange, checkScheduleDrift, planReanchor, validateWeeklySlots, validatePhases, phasesToRules, nextExtraSequence, sessionLabel, requireReason, formatVnd,
-  type ScheduleRule, type Weekday, type ClassEvent, type WeeklySlot, type ExistingSession, type SessionKind, type ClassStatus, type ScheduleProposalPhase,
+  type ScheduleRule, type Weekday, type ClassEvent, type WeeklySlot, type ExistingSession, type SessionKind, type ClassStatus, type ScheduleProposalPhase, type DriftIssue,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { writeAudit } from "./audit";
@@ -716,8 +716,13 @@ export async function scheduleCheck(ctx: ProtectedContext, classId: string) {
   };
 }
 
+export interface ScheduleDriftItem {
+  classId: string; code: string; name: string; status: ClassStatus; centerCode: string; startDate: string | null; regularCount: number;
+  firstDate: string | null; expectedFirstDate: string | null; mismatched: number; issues: DriftIssue[]; headline: string; canReanchor: boolean;
+}
+
 /** Trang "Kiểm tra lịch buổi học" toàn hệ thống: chỉ liệt kê lớp lệch */
-export async function scheduleDriftAll(ctx: ProtectedContext, input: { centerId?: string | null }) {
+export async function scheduleDriftAll(ctx: ProtectedContext, input: { centerId?: string | null }): Promise<{ checked: number; items: ScheduleDriftItem[] }> {
   requirePermission(ctx, "class:read", { centerId: input.centerId ?? null });
   const visible = visibleCenterIds(ctx.actor);
   const conds: SQL[] = [isNull(classes.deletedAt), inArray(classes.status, ["recruiting", "running"])];
@@ -726,7 +731,7 @@ export async function scheduleDriftAll(ctx: ProtectedContext, input: { centerId?
   const list = await ctx.db.select({ cls: classes, centerCode: centers.code, courseTotal: courses.totalSessions })
     .from(classes).innerJoin(centers, eq(centers.id, classes.centerId)).innerJoin(courses, eq(courses.id, classes.courseId))
     .where(and(...conds)).orderBy(asc(centers.code), asc(classes.code));
-  if (!list.length) return { checked: 0, items: [] as never[] };
+  if (!list.length) return { checked: 0, items: [] };
   const ids = list.map((l) => l.cls.id);
   const [phases, rows, hol] = await Promise.all([
     ctx.db.select().from(classSchedules).where(inArray(classSchedules.classId, ids)),
@@ -736,7 +741,7 @@ export async function scheduleDriftAll(ctx: ProtectedContext, input: { centerId?
     }).from(sessions).where(and(inArray(sessions.classId, ids), eq(sessions.kind, "regular"))),
     ctx.db.select({ date: holidays.date, centerId: holidays.centerId }).from(holidays),
   ]);
-  const items = list.flatMap(({ cls, centerCode, courseTotal }) => {
+  const items = list.flatMap(({ cls, centerCode, courseTotal }): ScheduleDriftItem[] => {
     const rules: ScheduleRule[] = phases.filter((p) => p.classId === cls.id).map((p) => ({
       weekday: p.weekday as Weekday, startTime: p.startTime.slice(0, 5), endTime: p.endTime.slice(0, 5),
       roomId: p.roomId ?? cls.homeRoomId, teacherId: p.teacherId ?? cls.leadTeacherId, effectiveFrom: p.effectiveFrom, effectiveTo: p.effectiveTo,

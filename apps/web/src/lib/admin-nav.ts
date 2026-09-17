@@ -69,6 +69,7 @@ export const ADMIN_NAV: NavGroup[] = [
     items: [
       { label: "Lớp học", href: "/classes", perm: "class:read", ready: true },
       { label: "Buổi học", href: "/sessions", perm: "session:read", ready: true },
+      { label: "Kiểm tra lịch buổi", href: "/classes/kiem-tra-lich", perm: "class:read", ready: true, desc: "Đối chiếu dãy buổi với khai giảng + lịch học; xếp lại cả dãy cho lớp bị neo sai." },
       { label: "Lịch tổng", href: "/lich", perm: "session:read", ready: true },
       { label: "Điểm danh", href: "/attendance", perm: "attendance:read", ready: true },
       { label: "Ảnh lớp học", href: "/media", perm: "media:read", ready: true },
