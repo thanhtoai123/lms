@@ -13,8 +13,8 @@ type Shift = { id: string; code: string; name: string; startTime: string; endTim
 export function RosterEditor({ centerId, weekStart, dates, rows, shifts, canEdit, today }: { centerId: string; weekStart: string; dates: string[]; rows: RRow[]; shifts: Shift[]; canEdit: boolean; today: string }) {
   const trpc = useTRPC();
   const router = useRouter();
-  const initial = useMemo(() => new Map(rows.flatMap((r) => r.days.map((d) => [`${r.id}|${d.date}`, d.shiftId] as const))), [rows]);
-  const [grid, setGrid] = useState(new Map(initial));
+  const initial = useMemo(() => new Map<string, string>(rows.flatMap((r) => r.days.map((d) => [`${r.id}|${d.date}`, d.shiftId] as const))), [rows]);
+  const [grid, setGrid] = useState(() => new Map<string, string>(initial));
   const [fill, setFill] = useState(shifts[0]?.id ?? "");
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [copyTo, setCopyTo] = useState(() => { const d = new Date(`${weekStart}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + 7); return d.toISOString().slice(0, 10); });

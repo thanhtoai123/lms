@@ -27,7 +27,7 @@ export default async function StaffDetailPage({ params, searchParams }: { params
         <StaffForm
           centers={ref.centers.map((c) => ({ id: c.id, code: c.code, name: c.name }))}
           canSalary={s.perms.salary}
-          current={{ account: s.account ? { id: s.account.id, email: s.account.email } : null, teacher: s.teacher }}
+          current={{ account: s.account ? { id: s.account.id, email: s.account.email } : null, teacher: s.teacher ?? null }}
           initial={{
             id: s.id, fullName: s.fullName, email: s.email ?? "", phone: s.phone ?? "", centerId: s.centerId, department: s.department as Department, title: s.title,
             employmentType: s.employmentType, hiredAt: s.hiredAt ?? "", annualLeaveDays: s.annualLeaveDays, notes: s.notes ?? "", userId: s.userId ?? "", teacherId: s.teacherId ?? "", private: null,
