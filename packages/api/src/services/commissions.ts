@@ -85,6 +85,20 @@ export async function adjustCommissionsForRefund(tx: Db, orderId: string, refund
   }
 }
 
+/**
+ * Đơn tụt khỏi "đã thu đủ" (gỡ gắn giao dịch, điều chỉnh khoản thu) → huỷ hoa hồng còn tạm tính.
+ * Hoa hồng đã duyệt / đã chi giữ nguyên: xử lý bằng dòng thu hồi khi có hoàn tiền.
+ */
+export async function cancelAccruedForOrder(tx: Db, orderId: string, actorId: string, reason: string) {
+  const rows = await tx.select().from(commissions).where(and(eq(commissions.orderId, orderId), eq(commissions.status, "accrued")));
+  for (const c of rows) {
+    await tx.update(commissions).set({ status: "cancelled", cancelReason: reason.slice(0, 300) }).where(and(eq(commissions.id, c.id), eq(commissions.status, "accrued")));
+    await writeAudit(tx, { actorId, action: "TRANSITION", module: "finance", entity: "commissions", entityId: c.id, before: { status: "accrued" }, after: { status: "cancelled" }, reason });
+    if (c.beneficiaryUserId) await notify(tx, [c.beneficiaryUserId], "Hoa hồng tạm tính bị huỷ", `${formatVnd(c.amount)} — ${reason}`, "/crm/commission", 2);
+  }
+  return rows.length;
+}
+
 /* ------------------------------------------------------------------ */
 /* Danh sách / duyệt / chi                                             */
 /* ------------------------------------------------------------------ */

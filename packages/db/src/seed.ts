@@ -306,7 +306,7 @@ async function main() {
       customerName: par.fullName, customerPhone: par.phone, subtotal: total, discountAmount: 0, total, paymentMethodId: pmBank!.id, createdBy: sale1U!.id,
       createdAt: new Date(Date.now() - 40 * 86400e3),
     }).returning();
-    await db.insert(orderItems).values({ orderId: o!.id, courseId: sata4!.id, description: `Học phí ${sata4!.code} — gói ${e.packageSessions} buổi`, quantity: 1, unitPrice: total, amount: total, packageSessions: e.packageSessions });
+    await db.insert(orderItems).values({ orderId: o!.id, courseId: sata4!.id, description: `Học phí ${sata4!.code} — gói ${e.packageSessions} buổi`, quantity: 1, unitPrice: total, amount: total, netAmount: total, packageSessions: e.packageSessions, studentId: e.studentId, enrollmentId: e.id });
     await db.insert(orderInstallments).values(buildInstallmentPlan(total, opts.installments ?? 1, opts.firstDue ?? addDays(today, -30)).map((p) => ({ orderId: o!.id, ...p })));
     await db.insert(orderEvents).values({ orderId: o!.id, event: "create", toStatus: "pending_payment", actorId: sale1U!.id });
     await db.insert(financeLedger).values({ orderId: o!.id, centerId: cs1!.id, entryType: "charge", amount: total, refId: o!.id, note: "Tạo đơn", actorId: sale1U!.id });
@@ -1993,7 +1993,7 @@ async function seedDemoVolume(x: DemoCtx): Promise<void> {
       enr: e, pays: [], createdAt: orderAt, cancelledAt: null,
     };
     orderList.push(tmp);
-    itemIns.push({ orderId: oid, courseId: crs.id, description: `Học phí ${crs.code} — gói ${e.pkg} buổi`, quantity: 1, unitPrice: subtotal, amount: subtotal, packageSessions: e.pkg });
+    itemIns.push({ orderId: oid, courseId: crs.id, description: `Học phí ${crs.code} — gói ${e.pkg} buổi`, quantity: 1, unitPrice: subtotal, amount: subtotal, discountAmount, netAmount: total, packageSessions: e.pkg, studentId: e.kid.id, enrollmentId: e.id });
     for (const p of plan) instIns.push({ orderId: oid, seq: p.seq, amount: p.amount, dueDate: p.dueDate });
 
     const endDate = e.endedAt ? vnDate(e.endedAt) : today;

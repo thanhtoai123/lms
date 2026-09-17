@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, uuid, boolean, integer, bigint, date, timestamp, pgEnum, jsonb, index, uniqueIndex, smallint } from "drizzle-orm/pg-core";
+import { pgTable, text, uuid, boolean, integer, bigint, date, timestamp, pgEnum, jsonb, index, uniqueIndex, smallint, numeric, primaryKey } from "drizzle-orm/pg-core";
 import { id, timestamps } from "./_common";
 import { ORDER_TYPES, ORDER_STATUSES, PAYMENT_STATUSES, PAYMENT_METHOD_KINDS, REFUND_STATUSES, LEDGER_TYPES, BANK_TX_STATUSES, BANK_TX_SOURCES, COMMISSION_KINDS, COMMISSION_STATUSES, RATE_TYPES } from "@satarobo/core";
 import { centers } from "./org";
@@ -93,14 +93,41 @@ export const orderItems = pgTable(
     description: text("description").notNull(),
     quantity: integer("quantity").notNull().default(1),
     unitPrice: money("unit_price").notNull(),
+    /** Thành tiền trước giảm (SL × đơn giá) */
     amount: money("amount").notNull(),
     packageSessions: integer("package_sessions"),
     /** Dòng của con nào (khi đơn tạo từ lead); chốt xong gắn học viên + ghi danh */
     leadChildId: uuid("lead_child_id").references(() => leadChildren.id, { onDelete: "set null" }),
     studentId: uuid("student_id").references(() => students.id),
     enrollmentId: uuid("enrollment_id").references(() => enrollments.id),
+    /** group | coach_1_1 | coach_1_2 | coach_1_4 — hệ số đã nằm trong đơn giá */
+    classFormat: text("class_format").notNull().default("group"),
+    formatMultiplier: numeric("format_multiplier", { precision: 3, scale: 2 }).notNull().default("1"),
+    /** Tổng các khoản giảm của dòng (xem order_item_discounts) */
+    discountAmount: money("discount_amount").notNull().default(0),
+    /** amount − discount_amount: phần thực phải thu của dòng (công nợ theo con) */
+    netAmount: money("net_amount").notNull().default(0),
   },
-  (t) => [index("order_items_order_idx").on(t.orderId), index("order_items_lead_child_idx").on(t.leadChildId), index("order_items_enrollment_idx").on(t.enrollmentId)],
+  (t) => [index("order_items_order_idx").on(t.orderId), index("order_items_lead_child_idx").on(t.leadChildId), index("order_items_enrollment_idx").on(t.enrollmentId), index("order_items_student_idx").on(t.studentId)],
+);
+
+/** Khoản giảm của từng dòng đơn — cộng dồn, mỗi khoản bắt buộc có lý do */
+export const orderItemDiscounts = pgTable(
+  "order_item_discounts",
+  {
+    id: id(),
+    orderItemId: uuid("order_item_id").notNull().references(() => orderItems.id, { onDelete: "cascade" }),
+    /** amount | percent */
+    kind: text("kind", { enum: ["amount", "percent"] }).notNull(),
+    /** amount: VND; percent: 1..trần cấu hình */
+    value: integer("value").notNull(),
+    /** Số tiền giảm đã quy ra VND */
+    amount: money("amount").notNull(),
+    reason: text("reason").notNull(),
+    createdBy: uuid("created_by").references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("order_item_discounts_item_idx").on(t.orderItemId)],
 );
 
 export const orderInstallments = pgTable(
@@ -111,8 +138,22 @@ export const orderInstallments = pgTable(
     seq: smallint("seq").notNull(),
     amount: money("amount").notNull(),
     dueDate: date("due_date").notNull(),
+    /** deposit (thu cọc trước, tối đa 1 và đứng đầu) | installment */
+    kind: text("kind", { enum: ["deposit", "installment"] }).notNull().default("installment"),
+    /** Đợt riêng cho một con (đơn nhiều con) */
+    studentId: uuid("student_id").references(() => students.id),
+    orderItemId: uuid("order_item_id").references(() => orderItems.id, { onDelete: "set null" }),
+    /** Huỷ mềm khi sửa kế hoạch — giữ lịch sử, unique chỉ tính đợt còn hiệu lực */
+    cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    cancelReason: text("cancel_reason"),
+    createdBy: uuid("created_by").references(() => users.id),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [uniqueIndex("order_installments_unique").on(t.orderId, t.seq), index("order_installments_due_idx").on(t.dueDate)],
+  (t) => [
+    uniqueIndex("order_installments_unique").on(t.orderId, t.seq).where(sql`cancelled_at is null`),
+    index("order_installments_due_idx").on(t.dueDate),
+    index("order_installments_student_idx").on(t.studentId),
+  ],
 );
 
 /** Lịch sử trạng thái đơn */
@@ -145,11 +186,20 @@ export const payments = pgTable(
     paymentMethodId: uuid("payment_method_id").references(() => paymentMethods.id),
     paidAt: date("paid_at").notNull(),
     status: paymentStatusEnum("status").notNull().default("recorded"),
-    /** manual | sepay | import */
+    /** manual | sepay | statement | backfill | legacy */
     source: text("source").notNull().default("manual"),
     externalRef: text("external_ref"),
     payerName: text("payer_name"),
     note: text("note"),
+    /** Khoản thu của ghi danh / dòng đơn nào (đơn nhiều con) */
+    enrollmentId: uuid("enrollment_id").references(() => enrollments.id),
+    orderItemId: uuid("order_item_id").references(() => orderItems.id, { onDelete: "set null" }),
+    /** Link chứng từ (ảnh uỷ nhiệm chi, biên nhận) */
+    evidenceUrl: text("evidence_url"),
+    /** Chống ghi đè: tăng mỗi lần sửa / điều chỉnh (STALE_WRITE khi lệch) */
+    version: integer("version").notNull().default(1),
+    voidedAt: timestamp("voided_at", { withTimezone: true }),
+    voidReason: text("void_reason"),
     recordedBy: uuid("recorded_by").references(() => users.id),
     recordedAt: timestamp("recorded_at", { withTimezone: true }).notNull().defaultNow(),
     decidedBy: uuid("decided_by").references(() => users.id),
@@ -161,8 +211,25 @@ export const payments = pgTable(
   (t) => [
     index("payments_order_idx").on(t.orderId),
     index("payments_status_idx").on(t.status, t.centerId, t.recordedAt),
+    index("payments_enrollment_idx").on(t.enrollmentId),
+    index("payments_order_item_idx").on(t.orderItemId),
     uniqueIndex("payments_external_ref_unique").on(t.source, t.externalRef),
   ],
+);
+
+/** Lịch sử điều chỉnh khoản thu đã xác nhận (mỗi lần sinh bút toán chênh lệch) */
+export const paymentAdjustments = pgTable(
+  "payment_adjustments",
+  {
+    id: id(),
+    paymentId: uuid("payment_id").notNull().references(() => payments.id, { onDelete: "cascade" }),
+    beforeAmount: money("before_amount").notNull(),
+    afterAmount: money("after_amount").notNull(),
+    reason: text("reason").notNull(),
+    actorId: uuid("actor_id").references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("payment_adjustments_payment_idx").on(t.paymentId, t.createdAt)],
 );
 
 /** Hoàn tiền theo buổi: đề xuất → duyệt → chi */
@@ -179,6 +246,10 @@ export const refunds = pgTable(
     sessionsUsed: integer("sessions_used").notNull().default(0),
     sessionsTotal: integer("sessions_total").notNull().default(0),
     reason: text("reason").notNull(),
+    /** withdraw | transfer | class_cancel | manual — nguồn sinh đề xuất */
+    trigger: text("trigger"),
+    /** Đề xuất do hệ thống tự sinh theo vòng đời học vụ */
+    auto: boolean("auto").notNull().default(false),
     requestedBy: uuid("requested_by").references(() => users.id),
     decidedBy: uuid("decided_by").references(() => users.id),
     decidedAt: timestamp("decided_at", { withTimezone: true }),
@@ -256,7 +327,10 @@ export const bankTransactions = pgTable(
     status: bankTxStatusEnum("status").notNull(),
     matchNote: text("match_note"),
     orderId: uuid("order_id").references(() => orders.id),
+    /** Khoản thu khi rót một-một (giữ để tương thích; rót nhiều con dùng bank_tx_allocations) */
     paymentId: uuid("payment_id").references(() => payments.id),
+    /** Tiền còn dư sau khi rót hết các đợt — không tự hoàn, không tự trừ sang đơn khác */
+    surplusAmount: money("surplus_amount").notNull().default(0),
     handledBy: uuid("handled_by").references(() => users.id),
     handledAt: timestamp("handled_at", { withTimezone: true }),
     importBatchId: uuid("import_batch_id").references(() => importBatches.id),
@@ -267,8 +341,22 @@ export const bankTransactions = pgTable(
     uniqueIndex("bank_tx_external_unique").on(t.source, t.externalId),
     index("bank_tx_status_idx").on(t.status, t.occurredAt),
     index("bank_tx_center_idx").on(t.centerId, t.occurredAt),
-    uniqueIndex("bank_tx_payment_unique").on(t.paymentId),
+    index("bank_tx_surplus_idx").on(t.surplusAmount),
   ],
+);
+
+/** Rót một giao dịch vào nhiều khoản thu (đơn nhiều con) — thay cho quan hệ 1-1 cũ */
+export const bankTxAllocations = pgTable(
+  "bank_tx_allocations",
+  {
+    bankTxId: uuid("bank_tx_id").notNull().references(() => bankTransactions.id, { onDelete: "cascade" }),
+    paymentId: uuid("payment_id").notNull().references(() => payments.id, { onDelete: "cascade" }),
+    orderItemId: uuid("order_item_id").references(() => orderItems.id, { onDelete: "set null" }),
+    amount: money("amount").notNull(),
+    createdBy: uuid("created_by").references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.bankTxId, t.paymentId] }), index("bank_tx_alloc_payment_idx").on(t.paymentId)],
 );
 
 /** Quy tắc hoa hồng */

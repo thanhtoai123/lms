@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ORDER_TYPES, ORDER_STATUSES, PAYMENT_STATUSES, PAYMENT_METHOD_KINDS, REFUND_STATUSES, AGING_BUCKETS, BANK_TX_STATUSES, COMMISSION_KINDS, COMMISSION_STATUSES, RATE_TYPES } from "@satarobo/core";
+import { ORDER_TYPES, ORDER_STATUSES, PAYMENT_STATUSES, PAYMENT_METHOD_KINDS, REFUND_STATUSES, AGING_BUCKETS, BANK_TX_STATUSES, COMMISSION_KINDS, COMMISSION_STATUSES, RATE_TYPES, CLASS_FORMATS, INSTALLMENT_KINDS, DEBT_CHIPS, MAX_INSTALLMENTS } from "@satarobo/core";
 import { router, protectedProcedure } from "../trpc";
 import * as F from "../services/finance";
 import * as B from "../services/bank";
@@ -9,6 +9,16 @@ const uuid = z.string().uuid();
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Ngày không hợp lệ");
 const money = z.number().int("Số tiền phải là số nguyên").min(0).max(10_000_000_000);
 const ntext = (n: number) => z.string().max(n).nullish();
+/** Khoản giảm theo dòng: lý do bắt buộc, trần % kiểm ở core theo cấu hình vận hành */
+const lineDiscount = z.object({ kind: z.enum(["amount", "percent"]), value: z.number().int().min(1).max(10_000_000_000), reason: z.string().trim().min(3, "Khoản giảm cần lý do").max(200) });
+const planEntry = z.object({ amount: money.min(1, "Mỗi đợt phải có số tiền > 0"), dueDate: isoDate, kind: z.enum(INSTALLMENT_KINDS).nullish(), studentId: uuid.nullish(), orderItemIndex: z.number().int().min(0).max(19).nullish() });
+/** Một dòng học phí cũ đã được trình duyệt đọc từ file (CCCD / địa chỉ không rời máy) */
+const legacyRow = z.object({
+  line: z.number().int().min(1).max(100000), sheet: z.string().max(120).nullish(), studentCode: z.string().max(60).nullish(),
+  name: z.string().trim().min(2, "Thiếu họ tên học viên").max(120), phone: z.string().max(20).nullish(),
+  amount: money.min(1, "Học phí phải > 0"), paidAt: isoDate, courseText: z.string().max(120).nullish(),
+  centerCode: z.string().max(30).nullish(), orderCode: z.string().max(30).nullish(), note: z.string().max(300).nullish(),
+});
 
 export const financeRouter = router({
   methods: protectedProcedure
@@ -35,12 +45,16 @@ export const financeRouter = router({
         name: z.string().trim().min(2, "Tên khách tối thiểu 2 ký tự").max(120), phone: z.string().trim().min(9, "Số điện thoại không hợp lệ").max(20),
         email: z.string().trim().email("Email không hợp lệ").max(200).nullish().or(z.literal("")), idNumber: ntext(20), address: ntext(300), province: ntext(80), ward: ntext(80),
       }),
-      items: z.array(z.object({ courseId: uuid.nullish(), description: z.string().trim().min(2, "Mô tả dòng hàng tối thiểu 2 ký tự").max(200), quantity: z.number().int().min(1).max(100), unitPrice: money, packageSessions: z.number().int().min(1).max(200).nullish(), leadChildId: uuid.nullish() })).min(1, "Đơn cần ít nhất một dòng").max(20),
+      items: z.array(z.object({
+        courseId: uuid.nullish(), description: z.string().trim().min(2, "Mô tả dòng hàng tối thiểu 2 ký tự").max(200), quantity: z.number().int().min(1).max(100), unitPrice: money,
+        packageSessions: z.number().int().min(1).max(500).nullish(), leadChildId: uuid.nullish(), studentId: uuid.nullish(), enrollmentId: uuid.nullish(),
+        format: z.enum(CLASS_FORMATS).nullish(), discounts: z.array(lineDiscount).max(5).nullish(),
+      })).min(1, "Đơn cần ít nhất một dòng").max(20),
       discount: z.object({ type: z.enum(["amount", "percent"]), value: z.number().min(0).max(10_000_000_000) }).nullish(),
       paymentMethodId: uuid,
       installments: z.union([
-        z.object({ count: z.number().int().min(1).max(4), firstDueDate: isoDate, intervalDays: z.number().int().min(7).max(180).optional() }),
-        z.object({ plan: z.array(z.object({ amount: money, dueDate: isoDate })).min(1).max(4) }),
+        z.object({ count: z.number().int().min(1).max(MAX_INSTALLMENTS), firstDueDate: isoDate, intervalDays: z.number().int().min(7).max(180).optional(), deposit: money.nullish(), monthly: z.boolean().optional() }),
+        z.object({ plan: z.array(planEntry).min(1).max(MAX_INSTALLMENTS + 1) }),
       ]),
       customerNote: ntext(1000), internalNote: ntext(1000), remindDays: z.number().int().min(0).max(30).optional(),
     }))
@@ -49,23 +63,67 @@ export const financeRouter = router({
   updateOrderNotes: protectedProcedure.input(z.object({ id: uuid, internalNote: ntext(1000), customerNote: ntext(1000), remindDays: z.number().int().min(0).max(30).optional() })).mutation(({ ctx, input }) => F.updateOrderNotes(ctx, input)),
   revealCustomer: protectedProcedure.input(z.object({ id: uuid, reason: z.string().max(300) })).mutation(({ ctx, input }) => F.revealCustomerPrivate(ctx, input)),
 
+  // Kế hoạch thanh toán (Đợt 2 — mục 5)
+  replaceInstallmentPlan: protectedProcedure
+    .input(z.object({
+      orderId: uuid,
+      plan: z.array(planEntry.extend({ seq: z.number().int().min(1).max(99).nullish(), orderItemId: uuid.nullish() })).min(1, "Cần ít nhất một đợt").max(MAX_INSTALLMENTS + 1),
+      reason: z.string().max(300), expectedUpdatedAt: z.string().max(40).nullish(),
+    }))
+    .mutation(({ ctx, input }) => F.replaceInstallmentPlan(ctx, input)),
+  createInstallmentForChild: protectedProcedure
+    .input(z.object({ orderId: uuid, orderItemId: uuid, amount: money.min(1, "Số tiền đợt phải > 0"), dueDate: isoDate.nullish(), note: ntext(200) }))
+    .mutation(({ ctx, input }) => F.createInstallmentForChild(ctx, input)),
+  cancelInstallment: protectedProcedure.input(z.object({ installmentId: uuid, reason: z.string().max(300) })).mutation(({ ctx, input }) => F.cancelInstallment(ctx, input)),
+
   payments: protectedProcedure
     .input(z.object({ status: z.enum(PAYMENT_STATUSES).optional(), centerId: uuid.optional(), from: isoDate.optional(), to: isoDate.optional(), q: z.string().max(100).optional(), page: z.number().int().min(1).optional() }).default({}))
     .query(({ ctx, input }) => F.listPayments(ctx, input)),
   recordPayment: protectedProcedure
-    .input(z.object({ orderId: uuid, amount: money.min(1, "Số tiền phải > 0"), paymentMethodId: uuid, paidAt: isoDate, payerName: ntext(120), note: ntext(500) }))
+    .input(z.object({
+      orderId: uuid, amount: money.min(1, "Số tiền phải > 0"), paymentMethodId: uuid, paidAt: isoDate, payerName: ntext(120), note: ntext(500),
+      enrollmentId: uuid.nullish(), orderItemId: uuid.nullish(), evidenceUrl: ntext(500),
+    }))
     .mutation(({ ctx, input }) => F.recordPayment(ctx, input)),
   decidePayment: protectedProcedure
     .input(z.object({ paymentId: uuid, decision: z.enum(["confirm", "reject", "adjust"]), adjustedAmount: money.nullish(), reason: ntext(300) }))
     .mutation(({ ctx, input }) => F.decidePayment(ctx, input)),
+  // Sửa khoản đang chờ / điều chỉnh khoản đã xác nhận (Đợt 2 — mục 9)
+  updatePendingPayment: protectedProcedure
+    .input(z.object({
+      paymentId: uuid, version: z.number().int().min(1), amount: money.nullish(), paidAt: isoDate.nullish(), paymentMethodId: uuid.nullish(),
+      note: ntext(500), payerName: ntext(120), evidenceUrl: ntext(500), enrollmentId: uuid.nullish(), orderItemId: uuid.nullish(),
+    }))
+    .mutation(({ ctx, input }) => F.updatePendingPayment(ctx, input)),
+  adjustConfirmedPayment: protectedProcedure
+    .input(z.object({ paymentId: uuid, newAmount: money.min(1, "Số tiền mới phải > 0"), reason: z.string().max(300), version: z.number().int().min(1) }))
+    .mutation(({ ctx, input }) => F.adjustConfirmedPayment(ctx, input)),
+  attachPaymentTarget: protectedProcedure
+    .input(z.object({ paymentId: uuid, enrollmentId: uuid.nullish(), orderItemId: uuid.nullish() }))
+    .mutation(({ ctx, input }) => F.attachPaymentTarget(ctx, input)),
+  backfillPreview: protectedProcedure.input(z.object({ batchId: uuid.nullish() }).default({})).query(({ ctx, input }) => F.backfillBatchPreview(ctx, input)),
+  bulkConfirmBackfill: protectedProcedure
+    .input(z.object({ paymentIds: z.array(uuid).max(1000).nullish(), note: z.string().max(300) }))
+    .mutation(({ ctx, input }) => F.bulkConfirmBackfill(ctx, input)),
   receipt: protectedProcedure.input(z.object({ paymentId: uuid })).query(({ ctx, input }) => F.getReceipt(ctx, input.paymentId)),
 
   debts: protectedProcedure.input(z.object({ centerId: uuid.optional(), bucket: z.enum(AGING_BUCKETS).optional(), q: z.string().max(100).optional() }).default({})).query(({ ctx, input }) => F.debts(ctx, input)),
+  // Công nợ theo ghi danh + sửa học phí hợp đồng (Đợt 2 — mục 24)
+  enrollmentDebts: protectedProcedure
+    .input(z.object({ centerId: uuid.optional(), chip: z.enum(DEBT_CHIPS).optional(), q: z.string().max(100).optional() }).default({}))
+    .query(({ ctx, input }) => F.enrollmentDebts(ctx, input)),
+  updateEnrollmentFee: protectedProcedure
+    .input(z.object({ enrollmentId: uuid, newTotal: money, reason: z.string().max(300) }))
+    .mutation(({ ctx, input }) => F.updateEnrollmentFee(ctx, input)),
   missingTuition: protectedProcedure.input(z.object({ centerId: uuid.optional(), kind: z.enum(["no_order", "unpaid"]).optional() }).default({})).query(({ ctx, input }) => F.missingTuition(ctx, input)),
+  backfillTuition: protectedProcedure
+    .input(z.object({ enrollmentId: uuid, total: money.nullish(), discount: money.nullish(), discountReason: ntext(300), paidAmount: money, paidAt: isoDate.nullish(), note: ntext(500) }))
+    .mutation(({ ctx, input }) => F.backfillTuition(ctx, input)),
 
   refunds: protectedProcedure.input(z.object({ status: z.enum(REFUND_STATUSES).optional(), centerId: uuid.optional() }).default({})).query(({ ctx, input }) => F.listRefunds(ctx, input)),
   refundPreview: protectedProcedure.input(z.object({ enrollmentId: uuid })).query(({ ctx, input }) => F.refundPreview(ctx, input.enrollmentId)),
-  requestRefund: protectedProcedure.input(z.object({ enrollmentId: uuid, amount: money.min(1, "Số tiền hoàn phải > 0"), reason: z.string().max(500) })).mutation(({ ctx, input }) => F.requestRefund(ctx, input)),
+  refundGaps: protectedProcedure.input(z.object({ centerId: uuid.optional() }).default({})).query(({ ctx, input }) => F.refundGaps(ctx, input)),
+  requestRefund: protectedProcedure.input(z.object({ enrollmentId: uuid, amount: money.min(1, "Số tiền hoàn phải > 0"), reason: z.string().max(500), trigger: z.enum(["withdraw", "transfer", "class_cancel", "manual"]).nullish() })).mutation(({ ctx, input }) => F.requestRefund(ctx, input)),
   decideRefund: protectedProcedure.input(z.object({ id: uuid, action: z.enum(["approve", "reject"]), note: ntext(300) })).mutation(({ ctx, input }) => F.decideRefund(ctx, input)),
   payRefund: protectedProcedure.input(z.object({ id: uuid, paymentMethodId: uuid, payoutRef: ntext(80) })).mutation(({ ctx, input }) => F.payRefund(ctx, input)),
 
@@ -77,10 +135,27 @@ export const financeRouter = router({
   bankMatch: protectedProcedure.input(z.object({ id: uuid, orderId: uuid, note: ntext(300) })).mutation(({ ctx, input }) => B.matchManually(ctx, input)),
   bankIgnore: protectedProcedure.input(z.object({ id: uuid, reason: z.string().max(300) })).mutation(({ ctx, input }) => B.ignoreBankTx(ctx, input)),
   bankRematch: protectedProcedure.input(z.object({ id: uuid })).mutation(({ ctx, input }) => B.rematchBankTx(ctx, input)),
+  // Rót cho từng con / gỡ gắn / tiền thừa (Đợt 2 — mục 13)
+  bankAllocationPreview: protectedProcedure.input(z.object({ id: uuid, orderId: uuid })).query(({ ctx, input }) => B.allocationPreview(ctx, input)),
+  bankAllocate: protectedProcedure
+    .input(z.object({ id: uuid, orderId: uuid, allocations: z.array(z.object({ orderItemId: uuid, amount: money })).min(1, "Chưa nhập số tiền rót").max(20), note: ntext(300) }))
+    .mutation(({ ctx, input }) => B.allocateBankTx(ctx, input)),
+  bankUnlink: protectedProcedure.input(z.object({ id: uuid, reason: z.string().max(300) })).mutation(({ ctx, input }) => B.unlinkBankTx(ctx, input)),
+  bankSurplus: protectedProcedure.query(({ ctx }) => B.surplusList(ctx)),
   statementPreview: protectedProcedure.input(z.object({ csv: z.string().min(1, "File trống").max(3_000_000), paymentMethodId: uuid })).mutation(({ ctx, input }) => B.previewStatement(ctx, input)),
   statementImport: protectedProcedure.input(z.object({ csv: z.string().min(1).max(3_000_000), paymentMethodId: uuid, fileName: ntext(200), note: z.string().max(300) })).mutation(({ ctx, input }) => B.importStatement(ctx, input)),
 
-  // Nhập giao dịch cũ
+  // Nhập giao dịch cũ (khớp SĐT phụ huynh + họ tên — Đợt 2 mục 23). File đọc ở trình duyệt.
+  legacyResolve: protectedProcedure
+    .input(z.object({ rows: z.array(legacyRow).min(1, "Chưa có dòng nào").max(3000), choices: z.record(z.string(), uuid).optional(), force: z.array(z.number().int()).max(3000).optional() }))
+    .mutation(({ ctx, input }) => B.previewLegacyTuition(ctx, input)),
+  legacyWrite: protectedProcedure
+    .input(z.object({
+      rows: z.array(legacyRow).min(1).max(3000), choices: z.record(z.string(), uuid).optional(), force: z.array(z.number().int()).max(3000).optional(),
+      saleUserId: uuid, note: z.string().max(300), fileName: ntext(200),
+    }))
+    .mutation(({ ctx, input }) => B.importLegacyTuition(ctx, input)),
+  // Nhập theo mã đơn / mã HV + mã lớp (giữ cho file đã chuẩn hoá)
   legacyPreview: protectedProcedure.input(z.object({ csv: z.string().min(1, "File trống").max(3_000_000) })).mutation(({ ctx, input }) => B.previewLegacy(ctx, input)),
   legacyImport: protectedProcedure.input(z.object({ csv: z.string().min(1).max(3_000_000), note: z.string().max(300), fileName: ntext(200) })).mutation(({ ctx, input }) => B.importLegacy(ctx, input)),
   importBatches: protectedProcedure.input(z.object({ kind: z.enum(["legacy_payments", "bank_statement"]).optional() }).default({})).query(({ ctx, input }) => B.listImportBatches(ctx, input)),
