@@ -15,6 +15,7 @@ import { hrRouter } from "./routers/hr";
 import { careRouter } from "./routers/care";
 import { adminRouter } from "./routers/admin";
 import { inventoryRouter, coinRouter } from "./routers/inventory";
+import { contentRouter } from "./routers/content";
 
 export const appRouter = router({
   auth: authRouter,
@@ -39,6 +40,7 @@ export const appRouter = router({
   admin: adminRouter,
   inventory: inventoryRouter,
   coin: coinRouter,
+  content: contentRouter,
 });
 
 export type AppRouter = typeof appRouter;
@@ -48,8 +50,10 @@ export { createLead } from "./services/leads";
 export { processOutbox, scanLeadSla } from "./services/engagement";
 export { leadInput } from "./routers/admissions";
 export { verifyActivationCode } from "./services/parentAccounts";
-export { putObject, getObject, signedMediaUrl, verifyMediaSignature } from "./storage";
+export { putObject, getObject, signedMediaUrl, verifyMediaSignature, signedFileUrl, verifyScormSignature } from "./storage";
 export { registerUploadedMedia } from "./services/media";
 export { ingestBankTx } from "./services/bank";
 export { publicSurvey, submitPublicSurvey, runSurveyTriggers } from "./services/care";
 export { logWebhook, mapPublicLeadBody, requestOtp, verifyOtp, processEmailQueue } from "./services/admin";
+export { addDocumentVersion } from "./services/documents";
+export { publicHomework, submitPublicHomework, staffSubmit, remindDueHomework } from "./services/assignments";

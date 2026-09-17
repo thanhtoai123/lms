@@ -40,6 +40,8 @@ const nextConfig: NextConfig = {
       "font-src 'self' data:",
       `connect-src 'self' ${process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""} ${(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").replace("https://", "wss://")}`,
       "worker-src 'self' blob:",
+      "frame-src 'self' https://www.youtube-nocookie.com https://drive.google.com",
+      "media-src 'self' blob:",
     ].join("; ");
     return [
       {

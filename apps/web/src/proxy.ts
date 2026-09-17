@@ -4,7 +4,7 @@ import { NextResponse, type NextRequest } from "next/server";
  * Chặn sớm: chưa có phiên đăng nhập thì chuyển về /login?next=… trước khi render
  * (không render trang quản trị rồi mới redirect). Kiểm tra quyền thật vẫn ở service/policy.
  */
-const PUBLIC = [/^\/login(\/|$)/, /^\/ks(\/|$)/, /^\/logout(\/|$)/, /^\/dang-ky(\/|$)/, /^\/api\//, /^\/_next\//, /^\/manifest\.webmanifest$/, /^\/favicon/, /\.(?:png|jpg|jpeg|svg|ico|webp|txt|xml)$/];
+const PUBLIC = [/^\/login(\/|$)/, /^\/ks(\/|$)/, /^\/bt(\/|$)/, /^\/logout(\/|$)/, /^\/dang-ky(\/|$)/, /^\/api\//, /^\/_next\//, /^\/manifest\.webmanifest$/, /^\/favicon/, /\.(?:png|jpg|jpeg|svg|ico|webp|txt|xml)$/];
 
 export function proxy(req: NextRequest) {
   const { pathname, search } = req.nextUrl;

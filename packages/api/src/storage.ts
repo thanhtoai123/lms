@@ -47,3 +47,21 @@ export function verifyMediaSignature(key: string, exp: number, sig: string) {
   const b = Buffer.from(sig);
   return a.length === b.length && timingSafeEqual(a, b);
 }
+
+/** URL tải tài liệu (có chữ ký, hết hạn) */
+export function signedFileUrl(key: string, fileName: string, ttlSeconds = 900, inline = false) {
+  const exp = Math.floor(Date.now() / 1000) + ttlSeconds;
+  const name = fileName.replace(/[^A-Za-z0-9._-]/g, "_").slice(0, 100);
+  return `/api/content/file?key=${encodeURIComponent(key)}&exp=${exp}&sig=${sign(key, exp)}&name=${encodeURIComponent(name)}${inline ? "&inline=1" : ""}`;
+}
+
+/** Tiền tố có chữ ký cho cả thư mục SCORM: đường dẫn tương đối trong gói vẫn chạy được */
+export function signedScormBase(documentId: string, version: number, ttlSeconds = 4 * 3600) {
+  const exp = Math.floor(Date.now() / 1000) + ttlSeconds;
+  const prefix = `scorm/${documentId}/v${version}`;
+  return `/api/content/scorm/${exp}/${sign(prefix, exp)}/${documentId}/${version}/`;
+}
+
+export function verifyScormSignature(documentId: string, version: number, exp: number, sig: string) {
+  return verifyMediaSignature(`scorm/${documentId}/v${version}`, exp, sig);
+}

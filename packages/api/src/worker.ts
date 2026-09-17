@@ -7,6 +7,7 @@ import { createDb } from "@satarobo/db";
 import { processOutbox, scanLeadSla } from "./services/engagement";
 import { runSurveyTriggers } from "./services/care";
 import { processEmailQueue } from "./services/admin";
+import { remindDueHomework } from "./services/assignments";
 
 const db = createDb();
 const interval = Number(process.env.WORKER_INTERVAL_MS ?? 10_000);
@@ -22,6 +23,8 @@ async function tick() {
     if (em.sent || em.failed) console.log(new Date().toISOString(), `email sent=${em.sent} failed=${em.failed}`);
     if (Date.now() - lastSurvey > 15 * 60_000) {
       lastSurvey = Date.now();
+      const hw = await remindDueHomework(db);
+      if (hw) console.log(new Date().toISOString(), `homework reminders=${hw}`);
       const n = await runSurveyTriggers(db);
       if (n) console.log(new Date().toISOString(), `survey invites=${n}`);
     }

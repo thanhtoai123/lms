@@ -80,13 +80,13 @@ export const ADMIN_NAV: NavGroup[] = [
     label: "LMS / Học liệu",
     items: [
       { label: "Chương trình học", href: "/curriculums", perm: "curriculum:read", ready: true, desc: "Giáo trình theo khoá: bài học, mục tiêu, học cụ." },
-      { label: "Đề xuất sửa giáo án", href: "/de-xuat-giao-an", perm: "curriculum:read", phase: 5, desc: "GV đề xuất chỉnh bài học; Đào tạo duyệt." },
+      { label: "Đề xuất sửa giáo án", href: "/de-xuat-giao-an", perm: "curriculum:read", ready: true, desc: "GV đề xuất chỉnh bài học; Đào tạo duyệt." },
       { label: "Khoá học", href: "/courses", perm: "course:read", ready: true, desc: "Khoá dạy: mã, độ tuổi, số buổi, học phí niêm yết." },
       { label: "Khoá tiên quyết", href: "/course-prerequisites", perm: "course:read", ready: true, desc: "Khoá phải học trước; chặn ghi danh khi chưa đạt." },
-      { label: "Tài liệu giảng dạy", href: "/documents", perm: "document:read", phase: 5, desc: "Kho tài liệu theo khoá/bài." },
-      { label: "Bài tập về nhà", href: "/assignments", perm: "assignment:read", phase: 5, desc: "Giao bài, nộp bài, chấm; mẫu bài tập." },
-      { label: "Tài liệu lớp tôi", href: "/teaching-materials", perm: "class:read", phase: 5, desc: "Tài liệu của các lớp GV đang dạy." },
-      { label: "SCORM / Bài giảng tương tác", href: "/scorm", perm: "document:read", phase: 5, desc: "Gói SCORM / bài giảng tương tác." },
+      { label: "Tài liệu giảng dạy", href: "/documents", perm: "document:read", ready: true, desc: "Kho tài liệu theo khoá / bài, phiên bản, nhật ký mở / tải." },
+      { label: "Bài tập về nhà", href: "/assignments", perm: "assignment:read", ready: true, desc: "Giao bài, phụ huynh nộp qua link, chấm, trả lại, thưởng xu; mẫu bài tập." },
+      { label: "Tài liệu lớp tôi", href: "/teaching-materials", perm: "class:read", ready: true, desc: "Tài liệu của các lớp GV đang dạy." },
+      { label: "SCORM / Bài giảng tương tác", href: "/scorm", perm: "document:read", ready: true, desc: "Gói SCORM / bài giảng tương tác." },
     ],
   },
   {

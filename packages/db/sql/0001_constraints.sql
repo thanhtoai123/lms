@@ -120,3 +120,22 @@ ALTER TABLE reward_items DROP CONSTRAINT IF EXISTS reward_items_cost_check;
 ALTER TABLE reward_items ADD CONSTRAINT reward_items_cost_check CHECK (cost > 0);
 ALTER TABLE rentals DROP CONSTRAINT IF EXISTS rentals_dates_check;
 ALTER TABLE rentals ADD CONSTRAINT rentals_dates_check CHECK (due_date >= start_date AND qty > 0 AND deposit >= 0 AND fee >= 0);
+
+-- 13) Học liệu & bài tập
+ALTER TABLE document_versions DROP CONSTRAINT IF EXISTS document_versions_check;
+ALTER TABLE document_versions ADD CONSTRAINT document_versions_check CHECK (version >= 1 AND size_bytes > 0);
+ALTER TABLE documents DROP CONSTRAINT IF EXISTS documents_content_check;
+ALTER TABLE documents ADD CONSTRAINT documents_content_check CHECK ((kind = 'link' AND url IS NOT NULL) OR kind <> 'link');
+ALTER TABLE assignments DROP CONSTRAINT IF EXISTS assignments_check;
+ALTER TABLE assignments ADD CONSTRAINT assignments_check CHECK (max_score IN (10, 100) AND coin_reward BETWEEN 0 AND 20);
+ALTER TABLE submissions DROP CONSTRAINT IF EXISTS submissions_score_check;
+ALTER TABLE submissions ADD CONSTRAINT submissions_score_check CHECK (score IS NULL OR score >= 0);
+ALTER TABLE scorm_attempts DROP CONSTRAINT IF EXISTS scorm_attempts_score_check;
+ALTER TABLE scorm_attempts ADD CONSTRAINT scorm_attempts_score_check CHECK (score IS NULL OR (score >= 0 AND score <= 100));
+CREATE OR REPLACE FUNCTION document_versions_immutable() RETURNS trigger AS $$
+BEGIN
+  RAISE EXCEPTION 'document_versions chỉ được thêm: tải phiên bản mới thay vì sửa';
+END;
+$$ LANGUAGE plpgsql;
+DROP TRIGGER IF EXISTS document_versions_no_update ON document_versions;
+CREATE TRIGGER document_versions_no_update BEFORE UPDATE ON document_versions FOR EACH ROW EXECUTE FUNCTION document_versions_immutable();

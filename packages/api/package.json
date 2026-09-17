@@ -10,7 +10,7 @@
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "echo 'api tests run via web e2e'",
+    "test": "node --test --import tsx src/*.test.ts",
     "worker": "tsx src/worker.ts"
   },
   "dependencies": {

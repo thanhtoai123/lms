@@ -53,6 +53,7 @@ export const PERMISSION_RESOURCES: { key: string; label: string; group: string }
   { key: "curriculum", label: "Chương trình học", group: "Học thuật" },
   { key: "course", label: "Khoá học", group: "Học thuật" },
   { key: "document", label: "Tài liệu", group: "Học thuật" },
+  { key: "assignment", label: "Bài tập về nhà", group: "Học thuật" },
   { key: "care", label: "Chăm sóc HV", group: "Chăm sóc" },
   { key: "coin", label: "SataCoin", group: "Chăm sóc" },
   { key: "automation", label: "Tự động hoá", group: "Chăm sóc" },

@@ -66,3 +66,19 @@ test("kho & SataCoin: phân quyền", () => {
   assert.equal(authorize(kt, "inventory:read", { centerId: "c1" }).allowed, true);
   assert.equal(authorize(kt, "inventory:update", { centerId: "c1" }).allowed, false);
 });
+
+test("học liệu & bài tập: phân quyền", () => {
+  const gv = { userId: "t", personId: "gv1", assignments: [{ role: "TEACHER" as const, centerId: "c1" }] };
+  const dt = { userId: "d", assignments: [{ role: "TRAINING" as const, centerId: null }] };
+  const gvu = { userId: "g", assignments: [{ role: "CENTER_CLASS_MANAGER" as const, centerId: "c1" }] };
+  assert.equal(authorize(gv, "assignment:create", { centerId: "c1", ownerIds: ["gv1"] }).allowed, true);
+  assert.equal(authorize(gv, "assignment:create", { centerId: "c1", ownerIds: ["gv2"] }).allowed, false);
+  assert.equal(authorize(gv, "document:read", { ownerIds: ["gv1"] }).allowed, true);
+  assert.equal(authorize(gv, "document:create", {}).allowed, false);
+  assert.equal(authorize(gv, "curriculum:propose", {}).allowed, true);
+  assert.equal(authorize(dt, "document:create", {}).allowed, true);
+  assert.equal(authorize(dt, "curriculum:approve", {}).allowed, true);
+  assert.equal(authorize(dt, "assignment:grade", { centerId: "c1" }).allowed, false);
+  assert.equal(authorize(gvu, "assignment:grade", { centerId: "c1" }).allowed, true);
+  assert.equal(authorize(gvu, "assignment:grade", { centerId: "c2" }).allowed, false);
+});

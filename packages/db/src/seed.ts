@@ -18,6 +18,7 @@ import {
   parentRequests, parentRequestEvents, parentFeedback, surveys, surveyInvites, surveyResponses, parentNotifications, careTasks,
   emailLogs, otpRequests, userGroups, userGroupMembers, webhookEvents, appSettings, revenueTargets,
   inventoryItems, kitComponents, stockLevels, stockMovements, stockCounters, rentals, rewardItems, coinTransactions, redemptions,
+  documents, assignmentTemplates, assignments, submissions, lessonProposals,
 } from "./schema/index";
 import { generateSessions, buildClassCode, buildStudentCode, toISODate, addDays, orderCode, receiptNumber, packagePrice, buildInstallmentPlan, computeCommission, describeRule, periodOf, fmtMin, hhmm, weekdayOf, leaveDays, requestCode, slaDue, SETTINGS_DEFAULTS } from "@satarobo/core";
 
@@ -542,6 +543,35 @@ async function main() {
   await db.insert(redemptions).values({ code: `DQ-CS1-${today.slice(2, 4)}-00001`, studentId: enrollA[0]!.studentId, centerId: cs1!.id, rewardId: rw[1]!.id, cost: 120, requestedBy: sale1U!.id, note: "Con muốn đổi bình nước" });
   await db.insert(stockCounters).values({ key: `DQ-CS1-${today.slice(0, 4)}`, seq: 1 });
 
+  // ---- Học liệu (mẫu): tài khoản Đào tạo, tài liệu liên kết, mẫu bài tập, bài tập lớp A, đề xuất sửa giáo án ----
+  const [dtU] = await db.insert(users).values({ email: "daotao@example.test", fullName: "Đào tạo (mẫu)" }).returning();
+  await db.insert(userRoles).values({ userId: dtU!.id, role: "TRAINING", centerId: null });
+  await db.insert(documents).values([
+    { title: "Video: làm quen robot Sata4", kind: "link", category: "video", audience: "student", status: "published", courseId: sata4!.id, lessonId: lessonRows[0]!.id, url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", tags: ["video", "bài 1"], createdBy: dtU!.id, publishedAt: new Date() },
+    { title: "Hướng dẫn lập trình cảm biến (GV)", kind: "link", category: "guide", audience: "teacher", status: "published", courseId: sata4!.id, lessonId: lessonRows[1]!.id, url: "https://docs.google.com/document/d/mau", tags: ["cảm biến"], createdBy: dtU!.id, publishedAt: new Date() },
+    { title: "Giáo án bài 2 (đang soạn)", kind: "file", category: "lesson_plan", audience: "teacher", status: "draft", courseId: sata4!.id, lessonId: lessonRows[1]!.id, createdBy: dtU!.id },
+  ]);
+  const [tpl1] = await db.insert(assignmentTemplates).values({ courseId: sata4!.id, lessonId: lessonRows[0]!.id, title: "Lắp xe robot cơ bản", instructions: "Con lắp xe theo hình hướng dẫn trang 3 và chụp ảnh xe đã lắp xong gửi thầy cô.", submissionType: "file", maxScore: 10, createdBy: dtU!.id }).returning();
+  const hwActive = enrollA.filter((e, i) => i !== 9);
+  const [hw1] = await db.insert(assignments).values({ classId: classA!.id, templateId: tpl1!.id, title: "Lắp xe robot cơ bản", instructions: "Con lắp xe theo hình hướng dẫn trang 3 và chụp ảnh xe đã lắp xong gửi thầy cô.", submissionType: "file", maxScore: 10, dueAt: new Date(Date.now() + 3 * 86400e3), coinReward: 5, status: "published", publishedAt: new Date(Date.now() - 86400e3), createdBy: t1U!.id }).returning();
+  await db.insert(submissions).values(hwActive.map((e, i) => ({
+    assignmentId: hw1!.id, studentId: e.studentId, token: `seedhw1tok${String(i).padStart(2, "0")}${hw1!.id.slice(0, 8)}`,
+    status: (i === 0 ? "submitted" : i === 1 ? "graded" : "assigned") as "submitted" | "graded" | "assigned",
+    answerText: i < 2 ? "Con đã lắp xong (mẫu)" : null, submittedAt: i < 2 ? new Date(Date.now() - 3600e3) : null, submittedVia: i < 2 ? "parent_link" : null, attempts: i < 2 ? 1 : 0,
+    score: i === 1 ? 9 : null, feedback: i === 1 ? "Lắp chắc chắn, gọn gàng" : null, gradedBy: i === 1 ? t1U!.id : null, gradedAt: i === 1 ? new Date() : null,
+  })));
+  const [hw0] = await db.insert(assignments).values({ classId: classA!.id, title: "Trả lời: robot dùng cảm biến gì?", instructions: "Con kể tên 2 loại cảm biến đã học và công dụng của chúng.", submissionType: "text", maxScore: 10, dueAt: new Date(Date.now() - 5 * 86400e3), status: "closed", publishedAt: new Date(Date.now() - 12 * 86400e3), closedAt: new Date(Date.now() - 4 * 86400e3), createdBy: t1U!.id }).returning();
+  await db.insert(submissions).values(hwActive.slice(0, 3).map((e, i) => ({
+    assignmentId: hw0!.id, studentId: e.studentId, token: `seedhw0tok${String(i).padStart(2, "0")}${hw0!.id.slice(0, 8)}`,
+    status: (i === 2 ? "missing" : "graded") as "missing" | "graded", answerText: i < 2 ? "Cảm biến siêu âm, cảm biến màu" : null, submittedAt: i < 2 ? new Date(Date.now() - 6 * 86400e3) : null,
+    score: i === 0 ? 10 : i === 1 ? 7 : null, gradedBy: i < 2 ? t1U!.id : null, gradedAt: i < 2 ? new Date(Date.now() - 5 * 86400e3) : null,
+  })));
+  await db.insert(lessonProposals).values({
+    code: `DX${String(new Date().getFullYear()).slice(2)}-0001`, lessonId: lessonRows[2]!.id, curriculumId: cur4!.id, type: "objectives", status: "submitted",
+    reason: "Học sinh lớp 3 cần thêm mục tiêu lập trình kéo thả cơ bản ngay từ bài 3.", snapshot: { title: lessonRows[2]!.title, objectives: lessonRows[2]!.objectives, materials: lessonRows[2]!.materials },
+    patch: { objectives: "Lắp mô hình; lập trình kéo thả cho robot tiến / lùi" }, classId: classA!.id, proposedBy: t1U!.id,
+  });
+
   // ---- Lớp Trial mẫu: 1 buổi sắp tới (đã xếp), 1 đã học thử, 1 không đến ----
   const futureA = sessionRows.filter((x) => x.classId === classA!.id && x.date > today).sort((a, b) => a.sequenceNo - b.sequenceNo);
   const futureB = sessionRows.filter((x) => x.classId === classB!.id && x.date > today).sort((a, b) => a.sequenceNo - b.sequenceNo);
@@ -564,7 +594,7 @@ async function main() {
   ]);
 
   console.log(`✔ Seeded: 2 centers, 3 rooms, 7 users, 3 teachers, ${lessonRows.length} lessons, 2 classes, ${sessionRows.length} sessions, 16 students, ${leadRows.length} leads`);
-  console.log("  Dev login (/login → tài khoản mẫu): superadmin@example.test | manager.cs1@example.test | sale1.cs1@example.test | ketoan.cs1@example.test | hr.cs1@example.test | teacher1@satarobo.vn");
+  console.log("  Dev login (/login → tài khoản mẫu): superadmin@example.test | manager.cs1@example.test | sale1.cs1@example.test | ketoan.cs1@example.test | hr.cs1@example.test | daotao@example.test | teacher1@satarobo.vn");
 }
 
 main()

@@ -29,3 +29,4 @@ export * from "./care/rules.js";
 export * from "./system/rules.js";
 export * from "./inventory/rules.js";
 export * from "./rewards/rules.js";
+export * from "./content/rules.js";

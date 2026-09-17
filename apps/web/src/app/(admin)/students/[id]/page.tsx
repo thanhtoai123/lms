@@ -17,6 +17,7 @@ export default async function StudentProfile({ params }: { params: Promise<{ id:
   const actor = ctx.actor as Actor | null;
   const coins = actor && hasPermission(actor, "coin:read") ? await caller.coin.student({ id }).catch(() => null) : null;
   const kitMoves = actor && hasPermission(actor, "inventory:read") ? await caller.inventory.movements({ studentId: id }).catch(() => null) : null;
+  const homework = actor && hasPermission(actor, "assignment:read") ? await caller.content.studentHomework({ studentId: id }).catch(() => null) : null;
   const rents = actor && hasPermission(actor, "inventory:read") ? await caller.inventory.rentals({ studentId: id, status: "out" }).catch(() => []) : [];
   const age = s.dateOfBirth ? Math.floor((Date.now() - new Date(s.dateOfBirth).getTime()) / (365.25 * 86_400_000)) : null;
 
@@ -92,6 +93,14 @@ export default async function StudentProfile({ params }: { params: Promise<{ id:
               <div className="flex items-center justify-between"><h2 className="font-bold">SataCoin</h2><Link href={`/satacoin?student=${id}`} className="text-xs text-brand-600">Chi tiết →</Link></div>
               <p><span className="text-2xl font-bold text-amber-600">{coins.balance}</span> xu · hạng {coins.tier.label}</p>
               <p className="text-xs text-ink-400">Tích luỹ {coins.earned}{coins.held ? ` · đang giữ ${coins.held} cho đổi quà` : ""}</p>
+            </section>
+          )}
+
+          {homework && homework.items.length > 0 && (
+            <section className="card space-y-1 p-4 text-sm">
+              <h2 className="font-bold">Bài tập về nhà</h2>
+              <p className="text-xs text-ink-600">Đã nộp {homework.stats.turnedIn}/{homework.stats.total} ({homework.stats.rate}%){homework.stats.avg !== null ? ` · điểm TB ${homework.stats.avg}/10` : ""}{homework.stats.missing ? ` · ${homework.stats.missing} bài không nộp` : ""}</p>
+              {homework.items.slice(0, 6).map((h) => <div key={h.assignmentId} className="flex justify-between gap-2"><Link href={`/assignments/${h.assignmentId}`} className="truncate hover:underline">{h.title}</Link><span className="shrink-0 text-xs text-ink-600">{h.status === "graded" ? `${h.score}/${h.maxScore}` : h.statusLabel}</span></div>)}
             </section>
           )}
 
