@@ -7,7 +7,7 @@ import "dotenv/config";
 import { eq } from "drizzle-orm";
 import { createDb } from "./index";
 import {
-  centers, rooms, users, userRoles, teachers, parents, students, studentGuardians,
+  centers, regions, rooms, users, userRoles, teachers, parents, students, studentGuardians,
   courses, curricula, lessons, classes, classSchedules, sessions, enrollments, attendance, classEvents,
   enrollmentEvents, competencyCriteria, reportCards, reportCardScores, sessionMedia,
   leads, leadChildren, leadActivities, leadTasks, leadAssignees, admissionsSettings, trialBookings, auditLog,
@@ -16,8 +16,9 @@ import {
   commissionRules, commissions, bankTransactions,
   staff, staffPrivate, staffPositions, workShifts, shiftAssignments, attendancePunches, staffRequests,
   parentRequests, parentRequestEvents, parentFeedback, surveys, surveyInvites, surveyResponses, parentNotifications, careTasks,
+  emailLogs, otpRequests, userGroups, userGroupMembers, webhookEvents, appSettings, revenueTargets,
 } from "./schema/index";
-import { generateSessions, buildClassCode, buildStudentCode, toISODate, addDays, orderCode, receiptNumber, packagePrice, buildInstallmentPlan, computeCommission, describeRule, periodOf, fmtMin, hhmm, weekdayOf, leaveDays, requestCode, slaDue } from "@satarobo/core";
+import { generateSessions, buildClassCode, buildStudentCode, toISODate, addDays, orderCode, receiptNumber, packagePrice, buildInstallmentPlan, computeCommission, describeRule, periodOf, fmtMin, hhmm, weekdayOf, leaveDays, requestCode, slaDue, SETTINGS_DEFAULTS } from "@satarobo/core";
 
 const db = createDb();
 
@@ -462,6 +463,32 @@ async function main() {
   await db.update(students).set({ dateOfBirth: `2016-${mdAfter(0)}` }).where(eq(students.id, enrollA[0]!.studentId));
   await db.update(students).set({ dateOfBirth: `2017-${mdAfter(3)}` }).where(eq(students.id, enrollA[1]!.studentId));
   await db.update(students).set({ dateOfBirth: `2015-${mdAfter(20)}` }).where(eq(students.id, enrollA[4]!.studentId));
+
+  // ---- Hệ thống (mẫu): khu vực, nhóm, nhật ký email/OTP/webhook, cài đặt, mục tiêu doanh thu ----
+  const [rg] = await db.insert(regions).values({ code: "MIEN-TRUNG", name: "Miền Trung", managerUserId: adminU!.id }).returning();
+  await db.update(centers).set({ regionId: rg!.id });
+  const [grp] = await db.insert(userGroups).values({ name: "Ban quản lý cơ sở", description: "Nhận thông báo vận hành chung", createdBy: adminU!.id }).returning();
+  await db.insert(userGroupMembers).values([{ groupId: grp!.id, userId: mgrU!.id, addedBy: adminU!.id }, { groupId: grp!.id, userId: ktU!.id, addedBy: adminU!.id }]);
+  await db.insert(emailLogs).values([
+    { toEmail: "ph.mau1@example.test", eventKey: "RECEIPT_ISSUED", subject: "Sata Robo xác nhận thanh toán PT-CS1-26-000001", body: "(mẫu)", status: "skipped", error: "Chưa cấu hình nhà cung cấp email (RESEND_API_KEY)", attempts: 1, createdAt: new Date(Date.now() - 86400e3) },
+    { toEmail: "sai-dia-chi", eventKey: "TEST", subject: "Email thử", body: "(mẫu)", status: "failed", error: "Địa chỉ email không hợp lệ", attempts: 3 },
+  ]);
+  await db.insert(otpRequests).values([
+    { phone: "0905000001", purpose: "parent_activation", codeHash: "x", channel: "zns", status: "verified", attempts: 1, ip: "113.160.0.1", expiresAt: new Date(Date.now() - 3600e3), verifiedAt: new Date(Date.now() - 3700e3), createdAt: new Date(Date.now() - 3800e3) },
+    { phone: "0905000002", purpose: "password_reset", codeHash: "x", channel: "zns", status: "failed", attempts: 5, ip: "113.160.0.2", expiresAt: new Date(Date.now() - 600e3), createdAt: new Date(Date.now() - 900e3) },
+  ]);
+  await db.insert(webhookEvents).values([
+    { source: "public_lead", status: "failed", httpStatus: 400, payload: { hoTenPh: "Phụ huynh webhook (mẫu)", sdt: "0906111222", lop: 4, consent: true, source: "web-form" }, error: "Lỗi tạm thời khi ghi lead (mẫu)", ip: "1.2.3.4", receivedAt: new Date(Date.now() - 7200e3) },
+    { source: "sepay", externalId: "seed-1", status: "processed", httpStatus: 201, payload: { id: "seed-1", transferAmount: 1500000 }, result: { status: "unmatched" }, receivedAt: new Date(Date.now() - 7200e3) },
+    { source: "sepay", status: "rejected", httpStatus: 401, payload: { note: "sai khoá" }, error: "Sai API key", receivedAt: new Date(Date.now() - 3600e3) },
+  ]);
+  await db.insert(appSettings).values({ key: "general", value: { ...SETTINGS_DEFAULTS, hotline: "0900 000 000", supportEmail: "hotro@example.test" }, updatedBy: adminU!.id });
+  const pm = (k: number) => { const d = new Date(); d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth() + k); return d.toISOString().slice(0, 7); };
+  await db.insert(revenueTargets).values([
+    { centerId: cs1!.id, period: pm(0), amount: 60_000_000, newEnrollments: 8, updatedBy: adminU!.id },
+    { centerId: cs1!.id, period: pm(-1), amount: 50_000_000, newEnrollments: 6, updatedBy: adminU!.id },
+    { centerId: cs2!.id, period: pm(0), amount: 40_000_000, newEnrollments: 5, updatedBy: adminU!.id },
+  ]);
 
   // ---- Lớp Trial mẫu: 1 buổi sắp tới (đã xếp), 1 đã học thử, 1 không đến ----
   const futureA = sessionRows.filter((x) => x.classId === classA!.id && x.date > today).sort((a, b) => a.sequenceNo - b.sequenceNo);

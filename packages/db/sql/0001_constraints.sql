@@ -93,3 +93,7 @@ ALTER TABLE parent_feedback DROP CONSTRAINT IF EXISTS parent_feedback_rating_che
 ALTER TABLE parent_feedback ADD CONSTRAINT parent_feedback_rating_check CHECK (rating BETWEEN 1 AND 5 AND (teacher_rating IS NULL OR teacher_rating BETWEEN 1 AND 5));
 ALTER TABLE survey_responses DROP CONSTRAINT IF EXISTS survey_responses_nps_check;
 ALTER TABLE survey_responses ADD CONSTRAINT survey_responses_nps_check CHECK (nps_score IS NULL OR nps_score BETWEEN 0 AND 10);
+
+-- 11) Hệ thống
+ALTER TABLE revenue_targets DROP CONSTRAINT IF EXISTS revenue_targets_amount_check;
+ALTER TABLE revenue_targets ADD CONSTRAINT revenue_targets_amount_check CHECK (amount >= 0 AND period ~ '^[0-9]{4}-(0[1-9]|1[0-2])$');

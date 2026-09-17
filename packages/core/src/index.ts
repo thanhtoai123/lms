@@ -26,3 +26,4 @@ export * from "./finance/bank.js";
 export * from "./finance/commission.js";
 export * from "./hr/rules.js";
 export * from "./care/rules.js";
+export * from "./system/rules.js";

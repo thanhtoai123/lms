@@ -1,0 +1,130 @@
+import { pgTable, text, uuid, integer, bigint, timestamp, jsonb, index, uniqueIndex, boolean, primaryKey } from "drizzle-orm/pg-core";
+import { id, timestamps } from "./_common";
+import { users } from "./identity";
+import { centers } from "./org";
+
+/** Mẫu email theo sự kiện (không có dòng → dùng mẫu mặc định trong core) */
+export const emailTemplates = pgTable("email_templates", {
+  id: id(),
+  eventKey: text("event_key").notNull().unique(),
+  subject: text("subject").notNull(),
+  body: text("body").notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  updatedBy: uuid("updated_by").references(() => users.id),
+  ...timestamps,
+});
+
+/** Nhật ký / hàng đợi email */
+export const emailLogs = pgTable(
+  "email_logs",
+  {
+    id: id(),
+    toEmail: text("to_email").notNull(),
+    eventKey: text("event_key").notNull(),
+    subject: text("subject").notNull(),
+    body: text("body").notNull(),
+    /** queued | sent | failed | skipped */
+    status: text("status").notNull().default("queued"),
+    provider: text("provider"),
+    providerRef: text("provider_ref"),
+    error: text("error"),
+    attempts: integer("attempts").notNull().default(0),
+    nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }).notNull().defaultNow(),
+    relatedType: text("related_type"),
+    relatedId: text("related_id"),
+    createdBy: uuid("created_by").references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+  },
+  (t) => [index("email_logs_status_idx").on(t.status, t.nextAttemptAt), index("email_logs_created_idx").on(t.createdAt)],
+);
+
+/** OTP: chỉ lưu băm mã */
+export const otpRequests = pgTable(
+  "otp_requests",
+  {
+    id: id(),
+    phone: text("phone").notNull(),
+    purpose: text("purpose").notNull(),
+    codeHash: text("code_hash").notNull(),
+    channel: text("channel").notNull(),
+    /** sent | queued | verified | expired | failed | blocked */
+    status: text("status").notNull(),
+    attempts: integer("attempts").notNull().default(0),
+    ip: text("ip"),
+    userAgent: text("user_agent"),
+    note: text("note"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    verifiedAt: timestamp("verified_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("otp_requests_phone_idx").on(t.phone, t.createdAt), index("otp_requests_ip_idx").on(t.ip, t.createdAt)],
+);
+
+/** Nhóm người dùng (nhận thông báo nội bộ) */
+export const userGroups = pgTable("user_groups", {
+  id: id(),
+  name: text("name").notNull().unique(),
+  description: text("description"),
+  centerId: uuid("center_id").references(() => centers.id, { onDelete: "set null" }),
+  createdBy: uuid("created_by").references(() => users.id),
+  ...timestamps,
+});
+
+export const userGroupMembers = pgTable(
+  "user_group_members",
+  {
+    groupId: uuid("group_id").notNull().references(() => userGroups.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    addedBy: uuid("added_by").references(() => users.id),
+    addedAt: timestamp("added_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.groupId, t.userId] }), index("user_group_members_user_idx").on(t.userId)],
+);
+
+/** Nhật ký webhook nhận vào (để xem / chạy lại) */
+export const webhookEvents = pgTable(
+  "webhook_events",
+  {
+    id: id(),
+    source: text("source").notNull(),
+    externalId: text("external_id"),
+    /** processed | failed | rejected | duplicate */
+    status: text("status").notNull(),
+    httpStatus: integer("http_status"),
+    payload: jsonb("payload"),
+    headers: jsonb("headers").$type<Record<string, string>>(),
+    result: jsonb("result"),
+    error: text("error"),
+    attempts: integer("attempts").notNull().default(1),
+    ip: text("ip"),
+    receivedAt: timestamp("received_at", { withTimezone: true }).notNull().defaultNow(),
+    lastAttemptAt: timestamp("last_attempt_at", { withTimezone: true }).notNull().defaultNow(),
+    replayedBy: uuid("replayed_by").references(() => users.id),
+  },
+  (t) => [index("webhook_events_idx").on(t.source, t.status, t.receivedAt)],
+);
+
+/** Cài đặt chung (key → JSON) */
+export const appSettings = pgTable("app_settings", {
+  key: text("key").primaryKey(),
+  value: jsonb("value").notNull(),
+  updatedBy: uuid("updated_by").references(() => users.id),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Mục tiêu doanh thu theo cơ sở × tháng */
+export const revenueTargets = pgTable(
+  "revenue_targets",
+  {
+    id: id(),
+    centerId: uuid("center_id").notNull().references(() => centers.id, { onDelete: "cascade" }),
+    period: text("period").notNull(),
+    amount: bigint("amount", { mode: "number" }).notNull(),
+    newEnrollments: integer("new_enrollments"),
+    note: text("note"),
+    updatedBy: uuid("updated_by").references(() => users.id),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex("revenue_targets_unique").on(t.centerId, t.period)],
+);

@@ -50,7 +50,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
       </div>
       <article className="card space-y-4 p-8 print:border-0 print:shadow-none">
         <header className="flex justify-between gap-4 text-sm">
-          <div><div className="font-bold">SATA ROBO — {r.centerName}</div><div className="text-ink-600">{r.centerAddress ?? ""}</div>{r.centerPhone && <div className="text-ink-600">ĐT: {r.centerPhone}</div>}</div>
+          <div><div className="font-bold">{(r.org.legalName || r.org.brandName).toUpperCase()} — {r.centerName}</div>{r.org.taxCode && <div className="text-ink-600">MST: {r.org.taxCode}</div>}<div className="text-ink-600">{r.centerAddress ?? ""}</div>{r.centerPhone && <div className="text-ink-600">ĐT: {r.centerPhone}</div>}</div>
           <div className="text-right"><div>Số: <b className="font-mono">{r.p.receiptNo}</b></div><div>Ngày: {fmtD(r.p.paidAt)}</div></div>
         </header>
         <h1 className="text-center text-2xl font-bold tracking-wide">PHIẾU THU</h1>
@@ -68,6 +68,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
           <div><div className="font-semibold">Người lập / thu tiền</div><div className="pt-14">{r.recorderName ?? ""}</div></div>
           <div><div className="font-semibold">Kế toán</div><div className="pt-14">{r.deciderName ?? ""}</div></div>
         </footer>
+        {(r.org.footer || r.org.hotline) && <p className="border-t border-black/10 pt-3 text-center text-xs text-ink-600">{r.org.footer}{r.org.hotline ? ` · Hotline ${r.org.hotline}` : ""}</p>}
       </article>
     </div>
   );

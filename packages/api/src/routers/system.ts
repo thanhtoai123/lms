@@ -46,6 +46,11 @@ export const reportsRouter = router({
   trials: protectedProcedure.input(reportInput).query(({ ctx, input }) => Rep.trialReport(ctx, input)),
   training: protectedProcedure.input(reportInput).query(({ ctx, input }) => Rep.trainingReport(ctx, input)),
   teachers: protectedProcedure.input(reportInput).query(({ ctx, input }) => Rep.teacherReport(ctx, input)),
+  center: protectedProcedure.input(reportInput).query(({ ctx, input }) => Rep.centerReport(ctx, input)),
+  revenue: protectedProcedure.input(z.object({ year: z.number().int().min(2020).max(2100).optional(), centerId: uuid.optional() }).default({})).query(({ ctx, input }) => Rep.revenueVsTarget(ctx, input)),
+  setTarget: protectedProcedure
+    .input(z.object({ centerId: uuid, period: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/), amount: z.number().int().min(0).max(100_000_000_000), newEnrollments: z.number().int().min(0).max(10_000).nullish(), note: z.string().max(300).nullish() }))
+    .mutation(({ ctx, input }) => Rep.setRevenueTarget(ctx, input)),
 });
 
 export const trialsRouter = router({

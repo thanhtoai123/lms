@@ -17,6 +17,7 @@ import { writeAudit } from "./audit";
 import { todayISO } from "./sessions";
 import { consumedSql } from "./students";
 import { accrueCommissions, adjustCommissionsForRefund } from "./commissions";
+import { queueEmail, getSettings } from "./admin";
 
 export type Db = ProtectedContext["db"];
 export const bad = (m: string | string[]) => new TRPCError({ code: "BAD_REQUEST", message: Array.isArray(m) ? m.join("; ") : m });
@@ -454,6 +455,10 @@ export async function decidePayment(ctx: ProtectedContext, input: { paymentId: s
     await writeAudit(tx as unknown as Db, { actorId: ctx.user.id, action: "TRANSITION", module: "finance", entity: "payments", entityId: p.id, before: { status: "recorded", amount: p.amount }, after: { status: "confirmed", amount, receiptNo }, reason: input.reason ?? null, ip: ctx.ip });
     return { status: "confirmed" as PaymentStatus, receiptNo };
   });
+  if (result.status === "confirmed" && o.customerEmail) {
+    const amount = input.decision === "adjust" ? Math.round(input.adjustedAmount!) : p.amount;
+    await queueEmail(ctx.db, { to: o.customerEmail, event: "RECEIPT_ISSUED", vars: { ten_ph: o.customerName, so_phieu: result.receiptNo, so_tien: formatVnd(amount), ma_don: o.code, co_so: center?.code ?? "" }, relatedType: "payment", relatedId: p.id, createdBy: ctx.user.id }).catch((e) => console.error("[receipt email]", e));
+  }
   return result;
 }
 
@@ -528,6 +533,7 @@ export async function getReceipt(ctx: ProtectedContext, paymentId: string) {
     customerPhone: r.customerPhone.replace(/\d(?=\d{3})/g, "•"),
     deciderName: decider?.fullName ?? null,
     recorderName: recorder?.fullName ?? null,
+    org: await getSettings(ctx.db).then((x) => ({ brandName: x.brandName, legalName: x.legalName, taxCode: x.taxCode, hotline: x.hotline, footer: x.receiptFooter })),
   };
 }
 

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@satarobo/db";
-import { createLead, leadInput } from "@satarobo/api";
+import { createLead, mapPublicLeadBody, logWebhook } from "@satarobo/api";
 
 /**
  * POST /api/public/leads — endpoint cho form "Đặt buổi học thử" trên website / landing page / Zalo Mini App.
@@ -42,28 +42,22 @@ export async function POST(req: Request) {
   }
   if (typeof body.website === "string" && body.website.length > 0) return NextResponse.json({ ok: true }, { headers }); // honeypot: bot điền → giả vờ thành công
 
-  const parsed = leadInput.safeParse({
-    parentName: body.hoTenPh ?? body.parentName,
-    phone: body.sdt ?? body.phone,
-    email: body.email || null,
-    childName: body.hoTenCon ?? body.childName ?? null,
-    childGrade: body.lop ? Number(body.lop) : (body.childGrade as number | undefined) ?? null,
-    school: body.truong ?? body.school ?? null,
-    interestedCourseId: body.interestedCourseId ?? null,
-    centerId: body.centerId ?? null,
-    source: (body.source as string | undefined) ?? "web-form",
-    utmSource: body.utm_source ?? body.utmSource ?? null,
-    utmMedium: body.utm_medium ?? body.utmMedium ?? null,
-    utmCampaign: body.utm_campaign ?? body.utmCampaign ?? null,
-    notes: body.ghiChu ?? body.notes ?? null,
-    consent: body.consent === true || body.consent === "on" || body.consent === "1",
-  });
-  if (!parsed.success) return NextResponse.json({ ok: false, error: "Vui lòng kiểm tra họ tên và số điện thoại", issues: parsed.error.flatten().fieldErrors }, { status: 422, headers });
+  const parsed = mapPublicLeadBody(body);
+  if (!parsed.success) {
+    await logWebhook(getDb(), { source: "public_lead", status: "rejected", httpStatus: 422, payload: body, error: "Dữ liệu không hợp lệ", ip });
+    return NextResponse.json({ ok: false, error: "Vui lòng kiểm tra họ tên và số điện thoại", issues: parsed.error.flatten().fieldErrors }, { status: 422, headers });
+  }
 
+  const db = getDb();
+  const hdrs = Object.fromEntries(req.headers.entries());
   try {
-    const r = await createLead(getDb(), parsed.data, null);
+    const r = await createLead(db, parsed.data, null);
+    await logWebhook(db, { source: "public_lead", status: r.duplicated ? "duplicate" : "processed", httpStatus: 200, payload: body, headers: hdrs, result: { leadId: r.lead.id, duplicated: r.duplicated }, ip });
     return NextResponse.json({ ok: true, duplicated: r.duplicated }, { headers });
   } catch (e) {
-    return NextResponse.json({ ok: false, error: (e as Error).message }, { status: 400, headers });
+    const msg = (e as Error).message;
+    const bad = (e as { code?: string }).code === "BAD_REQUEST";
+    await logWebhook(db, { source: "public_lead", status: bad ? "rejected" : "failed", httpStatus: bad ? 400 : 500, payload: body, headers: hdrs, error: msg, ip });
+    return NextResponse.json({ ok: false, error: bad ? msg : "Hệ thống bận, vui lòng thử lại sau" }, { status: bad ? 400 : 500, headers });
   }
 }

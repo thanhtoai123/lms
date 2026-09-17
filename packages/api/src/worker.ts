@@ -6,6 +6,7 @@ import "dotenv/config";
 import { createDb } from "@satarobo/db";
 import { processOutbox, scanLeadSla } from "./services/engagement";
 import { runSurveyTriggers } from "./services/care";
+import { processEmailQueue } from "./services/admin";
 
 const db = createDb();
 const interval = Number(process.env.WORKER_INTERVAL_MS ?? 10_000);
@@ -17,6 +18,8 @@ async function tick() {
   try {
     const sla = await scanLeadSla(db);
     const r = await processOutbox(db, { batch: 200 });
+    const em = await processEmailQueue(db, { limit: 50 });
+    if (em.sent || em.failed) console.log(new Date().toISOString(), `email sent=${em.sent} failed=${em.failed}`);
     if (Date.now() - lastSurvey > 15 * 60_000) {
       lastSurvey = Date.now();
       const n = await runSurveyTriggers(db);

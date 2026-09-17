@@ -1,6 +1,17 @@
 import { pgTable, text, uuid, boolean, integer, index, doublePrecision } from "drizzle-orm/pg-core";
 import { id, timestamps } from "./_common";
 
+/** Khu vực (cây tổ chức: khu vực → cơ sở → bộ phận) */
+export const regions = pgTable("regions", {
+  id: id(),
+  code: text("code").notNull().unique(),
+  name: text("name").notNull(),
+  /** Người phụ trách (users.id) — không khai FK để tránh vòng import với identity */
+  managerUserId: uuid("manager_user_id"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  ...timestamps,
+});
+
 export const centers = pgTable("centers", {
   id: id(),
   code: text("code").notNull().unique(), // CS1, CS2
@@ -12,6 +23,7 @@ export const centers = pgTable("centers", {
   latitude: doublePrecision("latitude"),
   longitude: doublePrecision("longitude"),
   checkinRadiusM: integer("checkin_radius_m").notNull().default(150),
+  regionId: uuid("region_id").references(() => regions.id, { onDelete: "set null" }),
   isActive: boolean("is_active").notNull().default(true),
   ...timestamps,
 });
