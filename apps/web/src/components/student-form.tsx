@@ -175,7 +175,7 @@ export function StudentForm({ centers, initial, studentId, guardiansInitial }: {
       </Section>
 
       <Section title="Phụ huynh" hint={editing ? "Sửa tên / SĐT / quan hệ / CCCD của phụ huynh đã gắn. SĐT trùng phụ huynh khác sẽ bị chặn — dùng “Thêm phụ huynh” ở hồ sơ để gắn." : "SĐT trùng với phụ huynh đã có sẽ được ghép vào hồ sơ cũ (không tạo trùng)."}>
-        <GuardianFields g={g1} index={0} required editing={editing && !!g1.parentId} onChange={(p) => setG1({ ...g1, ...p })} />
+        <GuardianFields g={g1} index={0} required={!editing} editing={editing && !!g1.parentId} onChange={(p) => setG1({ ...g1, ...p })} />
         <details className="rounded-xl border border-black/5 p-3" open={!!g2.parentId || g2Filled}>
           <summary className="cursor-pointer text-sm font-semibold text-brand-600">{g2.parentId ? "Phụ huynh thứ hai" : "Thêm phụ huynh thứ hai"}</summary>
           <div className="mt-3"><GuardianFields g={g2} index={1} required={false} editing={editing && !!g2.parentId} onChange={(p) => setG2({ ...g2, ...p })} /></div>
