@@ -87,6 +87,25 @@ ALTER TABLE staff_requests DROP CONSTRAINT IF EXISTS staff_requests_dates_check;
 ALTER TABLE staff_requests ADD CONSTRAINT staff_requests_dates_check CHECK (date_to >= date_from);
 ALTER TABLE timesheet_overrides DROP CONSTRAINT IF EXISTS timesheet_overrides_units_check;
 ALTER TABLE timesheet_overrides ADD CONSTRAINT timesheet_overrides_units_check CHECK (units >= 0 AND units <= 1.5);
+-- Mã ca: số công 0 / 0,5 / 1 / 1,5; ca nghỉ và nghỉ phép luôn 0 công
+ALTER TABLE work_shifts DROP CONSTRAINT IF EXISTS work_shifts_units_check;
+ALTER TABLE work_shifts ADD CONSTRAINT work_shifts_units_check CHECK (units IN (0, 0.5, 1, 1.5) AND (kind NOT IN ('off', 'leave') OR units = 0));
+ALTER TABLE work_shifts DROP CONSTRAINT IF EXISTS work_shifts_planned_check;
+ALTER TABLE work_shifts ADD CONSTRAINT work_shifts_planned_check CHECK (planned_minutes >= 0 AND planned_minutes <= 960);
+-- Khung ca tuần: 1 = Thứ Hai … 7 = Chủ nhật
+ALTER TABLE shift_templates DROP CONSTRAINT IF EXISTS shift_templates_weekday_check;
+ALTER TABLE shift_templates ADD CONSTRAINT shift_templates_weekday_check CHECK (weekday BETWEEN 1 AND 7);
+-- Điểm chấm công: bán kính hợp lệ, bật kiểm định vị thì phải có toạ độ
+ALTER TABLE checkin_points DROP CONSTRAINT IF EXISTS checkin_points_radius_check;
+ALTER TABLE checkin_points ADD CONSTRAINT checkin_points_radius_check CHECK (radius_m BETWEEN 20 AND 2000);
+ALTER TABLE checkin_points DROP CONSTRAINT IF EXISTS checkin_points_geo_check;
+ALTER TABLE checkin_points ADD CONSTRAINT checkin_points_geo_check CHECK (NOT geofence_enabled OR (lat IS NOT NULL AND lng IS NOT NULL));
+-- Điều động tác nghiệp: khoảng thời gian hợp lệ
+ALTER TABLE staff_deployments DROP CONSTRAINT IF EXISTS staff_deployments_dates_check;
+ALTER TABLE staff_deployments ADD CONSTRAINT staff_deployments_dates_check CHECK (effective_to IS NULL OR effective_to >= effective_from);
+-- Vai trò theo vị trí: hiệu lực hợp lệ (hết hạn là quyền tự tắt)
+ALTER TABLE user_roles DROP CONSTRAINT IF EXISTS user_roles_valid_check;
+ALTER TABLE user_roles ADD CONSTRAINT user_roles_valid_check CHECK (valid_to IS NULL OR valid_from IS NULL OR valid_to >= valid_from);
 
 -- 10) CSKH
 ALTER TABLE parent_feedback DROP CONSTRAINT IF EXISTS parent_feedback_rating_check;

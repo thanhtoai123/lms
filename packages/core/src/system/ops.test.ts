@@ -42,7 +42,11 @@ test("chính sách OTP và chấm công dùng tham số", () => {
   const base = { status: "sent" as const, attempts: 2, expiresAt: new Date(now.getTime() + 60_000), now, matches: false };
   assert.equal(otpVerifyDecision(base).result, "wrong");
   assert.equal(otpVerifyDecision(base, { ...OTP_POLICY, maxAttempts: 3 }).result, "locked");
-  const day = { date: "2026-09-16", today: "2026-09-17", shift: { startTime: "08:00", endTime: "17:00", breakMinutes: 60 }, inMin: 8 * 60 + 8, outMin: 17 * 60, leave: null };
+  const day = {
+    date: "2026-09-16", today: "2026-09-17",
+    shift: { code: "HC", kind: "timed" as const, units: 1, segments: [{ from: "08:00", to: "12:00" }, { from: "13:00", to: "17:00" }], plannedMin: 480, punchRequired: true },
+    inMin: 8 * 60 + 8, outMin: 17 * 60,
+  };
   assert.equal(computeDay(day).lateMin, 8);
   assert.equal(computeDay({ ...day, graceMin: 10 }).lateMin, 0);
 });

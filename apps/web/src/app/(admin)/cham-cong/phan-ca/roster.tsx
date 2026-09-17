@@ -1,149 +1,202 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { useTRPC } from "@/lib/trpc/client";
-import { wdOf } from "@/components/hr-ui";
+import { originLabel, originMark, units, wdOf, dmy } from "@/components/hr-ui";
 import type { RouterOutputs } from "@/lib/trpc/types";
 
-type RRow = { id: string; code: string; fullName: string; title: string; status: string; days: { date: string; shiftId: string; status: string; leave: boolean }[] };
-type Shift = { id: string; code: string; name: string; startTime: string; endTime: string };
+type Roster = RouterOutputs["hr"]["roster"];
 
-export function RosterEditor({ centerId, weekStart, dates, rows, shifts, canEdit, today }: { centerId: string; weekStart: string; dates: string[]; rows: RRow[]; shifts: Shift[]; canEdit: boolean; today: string }) {
+const WD = ["", "T2", "T3", "T4", "T5", "T6", "T7", "CN"];
+
+export function RosterMonth({ centerId, period, data }: { centerId: string; period: string; data: Roster }) {
   const trpc = useTRPC();
   const router = useRouter();
-  const initial = useMemo(() => new Map<string, string>(rows.flatMap((r) => r.days.map((d) => [`${r.id}|${d.date}`, d.shiftId] as const))), [rows]);
-  const [grid, setGrid] = useState(() => new Map<string, string>(initial));
-  const [fill, setFill] = useState(shifts[0]?.id ?? "");
+  const [sel, setSel] = useState<{ staffId: string; date: string } | null>(null);
+  const [tab, setTab] = useState<"grid" | "template" | "import">("grid");
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  const [copyTo, setCopyTo] = useState(() => { const d = new Date(`${weekStart}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + 7); return d.toISOString().slice(0, 10); });
-  const changed = [...grid.entries()].filter(([k, v]) => initial.get(k) !== v);
-  const save = useMutation(trpc.hr.assignShifts.mutationOptions({
-    onSuccess: (r) => { setMsg({ ok: true, text: `Đã lưu: ${r.set} ca, gỡ ${r.cleared}` }); router.refresh(); },
+  const assign = useMutation(trpc.hr.assignShifts.mutationOptions({
+    onSuccess: (r) => { setMsg({ ok: true, text: `Đã xếp ${r.set} ô, xoá ${r.cleared} ô` }); setSel(null); router.refresh(); },
     onError: (e) => setMsg({ ok: false, text: e.message }),
   }));
-  const copy = useMutation(trpc.hr.copyWeek.mutationOptions({
-    onSuccess: (r) => { setMsg({ ok: true, text: `Đã chép ${r.set} ca sang tuần ${copyTo.split("-").reverse().join("/")}${r.skipped ? ` (bỏ qua ${r.skipped} ngày đã có ca)` : ""}` }); },
+  const gen = useMutation(trpc.hr.generateRoster.mutationOptions({
+    onSuccess: (r) => { setMsg({ ok: true, text: `Sinh lưới: ${r.created} ô mới · ${r.updated} ô cập nhật · giữ ${r.kept} ô sửa tay / từ đơn` }); router.refresh(); },
     onError: (e) => setMsg({ ok: false, text: e.message }),
   }));
-  const setCell = (k: string, v: string) => setGrid((g) => new Map(g).set(k, v));
-  const fillRow = (r: RRow) => setGrid((g) => { const n = new Map(g); for (const d of dates) if (wdOf(d) !== "CN") n.set(`${r.id}|${d}`, fill); return n; });
+  const locked = !!data.lockedPeriod;
+  const canEdit = data.canEdit && !locked;
+  const holiday = new Set(data.holidays.map((h) => h.date));
+
   return (
-    <section className="space-y-2">
-      {canEdit && (
-        <div className="card flex flex-wrap items-center gap-2 p-3 text-sm">
-          <span>Điền nhanh:</span>
-          <select className="input w-auto" value={fill} onChange={(e) => setFill(e.target.value)}>{shifts.map((s) => <option key={s.id} value={s.id}>{s.code} · {s.startTime}–{s.endTime}</option>)}</select>
-          <span className="text-xs text-ink-400">rồi bấm "T2–T7" ở từng dòng</span>
-          <span className="flex-1" />
-          <button className="btn-primary" disabled={!changed.length || save.isPending} onClick={() => { setMsg(null); save.mutate({ centerId, entries: changed.map(([k, v]) => { const [staffId, date] = k.split("|") as [string, string]; return { staffId, date, shiftId: v || null }; }) }); }}>Lưu {changed.length ? `(${changed.length})` : ""}</button>
-          <span className="text-xs">Chép tuần này sang tuần</span>
-          <input type="date" className="input w-auto" value={copyTo} onChange={(e) => setCopyTo(e.target.value)} />
-          <button className="btn-ghost" disabled={copy.isPending || changed.length > 0} onClick={() => { setMsg(null); copy.mutate({ centerId, fromWeek: weekStart, toWeek: copyTo, overwrite: false }); }}>Chép</button>
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        <span className="chip bg-black/5">Ô đã xếp: {data.filled}</span>
+        <span className="chip bg-black/5">Sửa tay: {data.manualCells}</span>
+        <span className="chip bg-black/5">Từ đơn đã duyệt: {data.requestCells}</span>
+        {locked && <span className="chip bg-slate-800 text-white">Kỳ {data.lockedPeriod} đã chốt — không sửa được</span>}
+        <div className="ml-auto flex gap-1">
+          {(["grid", "template", "import"] as const).map((t) => (
+            <button key={t} className={`chip ${tab === t ? "bg-brand-100 text-brand-800" : "bg-black/5"}`} onClick={() => setTab(t)}>
+              {t === "grid" ? "Lưới tháng" : t === "template" ? "Khung ca tuần" : "Nhập từ Sheet"}
+            </button>
+          ))}
         </div>
-      )}
+      </div>
       {msg && <div className={`text-sm ${msg.ok ? "text-green-700" : "text-red-700"}`}>{msg.text}</div>}
-      <div className="card overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="text-xs text-ink-400">
-            <tr><th className="p-2 text-left">Nhân sự</th>{dates.map((d) => <th key={d} className={`p-2 ${d === today ? "text-brand-700" : ""}`}>{wdOf(d)} {d.slice(8)}/{d.slice(5, 7)}</th>)}<th className="p-2"></th></tr>
-          </thead>
-          <tbody className="divide-y divide-black/5">
-            {rows.map((r) => (
-              <tr key={r.id}>
-                <td className="p-2"><div className="font-medium">{r.fullName}</div><div className="text-xs text-ink-400">{r.code} · {r.title}</div></td>
-                {r.days.map((d) => {
-                  const k = `${r.id}|${d.date}`;
-                  const v = grid.get(k) ?? "";
-                  return (
-                    <td key={d.date} className="p-1 text-center">
-                      {canEdit ? (
-                        <select className={`input !px-1 !py-1 text-xs ${v !== (initial.get(k) ?? "") ? "ring-2 ring-amber-300" : ""}`} value={v} onChange={(e) => setCell(k, e.target.value)}>
-                          <option value="">—</option>
-                          {shifts.map((s) => <option key={s.id} value={s.id}>{s.code}</option>)}
-                        </select>
-                      ) : <span className="text-xs">{shifts.find((s) => s.id === v)?.code ?? "—"}</span>}
-                      {d.leave && <div className="text-[10px] text-sky-700">nghỉ phép</div>}
+
+      {tab === "grid" && (
+        <>
+          {canEdit && (
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <button className="btn-ghost !py-1 text-xs" disabled={gen.isPending} onClick={() => gen.mutate({ centerId, period })}>Sinh lưới từ khung ca tuần</button>
+              <span className="text-ink-400">Ô sửa tay và ô từ đơn đã duyệt không bị ghi đè.</span>
+            </div>
+          )}
+          <div className="card overflow-x-auto">
+            <table className="text-xs">
+              <thead>
+                <tr className="text-ink-400">
+                  <th className="sticky left-0 z-10 bg-white p-2 text-left">Nhân sự</th>
+                  {data.dates.map((d) => (
+                    <th key={d} className={`px-0.5 py-1 text-center font-normal ${wdOf(d) === "CN" || holiday.has(d) ? "text-red-500" : ""}`}><div>{wdOf(d)}</div><div>{d.slice(8)}</div></th>
+                  ))}
+                  <th className="p-2 text-right">Công</th><th className="p-2 text-right">Nghỉ</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-black/5">
+                {data.rows.map((r) => (
+                  <tr key={r.id}>
+                    <td className="sticky left-0 z-10 whitespace-nowrap bg-white p-2">
+                      <a href={`/nhan-su/${r.id}`} className="font-medium text-brand-700">{r.fullName}</a>
+                      <div className="text-ink-400">{r.code}{r.exempt ? " · miễn công" : ""}</div>
                     </td>
-                  );
-                })}
-                <td className="p-1">{canEdit && <button className="text-xs text-brand-600" onClick={() => fillRow(r)}>T2–T7</button>}</td>
+                    {r.days.map((c) => (
+                      <td key={c.date} className="px-0.5 py-1 text-center">
+                        <button
+                          title={`${c.shift ? `${c.shift.code} · ${c.shift.name} ${c.shift.clock}` : "chưa xếp"} · ${originLabel(c.origin)}`}
+                          onClick={() => canEdit && setSel({ staffId: r.id, date: c.date })}
+                          className={`relative h-7 w-9 rounded text-[10px] ${c.shift ? (c.shift.units === 0 ? "bg-slate-200 text-slate-600" : "bg-brand-50 text-brand-800") : "text-ink-300 hover:bg-black/5"} ${sel?.staffId === r.id && sel.date === c.date ? "ring-2 ring-brand-500" : ""}`}
+                        >
+                          {c.shift?.code ?? "—"}
+                          {c.origin && c.origin !== "template" && <span className="absolute -right-0.5 -top-1 text-[9px] text-amber-700">{originMark(c.origin)}</span>}
+                        </button>
+                      </td>
+                    ))}
+                    <td className="p-2 text-right tabular-nums font-semibold">{units(r.units)}</td>
+                    <td className="p-2 text-right tabular-nums">{r.offDays}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {sel && (
+            <div className="card space-y-2 p-3 text-sm">
+              <div className="flex items-center justify-between">
+                <b>{data.rows.find((r) => r.id === sel.staffId)?.fullName} · {dmy(sel.date)}</b>
+                <button className="text-ink-600" onClick={() => setSel(null)}>Đóng</button>
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {data.shifts.map((s) => (
+                  <button key={s.id} className="chip bg-black/5 hover:bg-brand-100" disabled={assign.isPending}
+                    onClick={() => assign.mutate({ centerId, entries: [{ staffId: sel.staffId, date: sel.date, shiftId: s.id }], origin: "manual" })}>
+                    {s.code} <span className="text-ink-400">{s.units}c</span>
+                  </button>
+                ))}
+                <button className="chip bg-red-50 text-red-700" disabled={assign.isPending}
+                  onClick={() => assign.mutate({ centerId, entries: [{ staffId: sel.staffId, date: sel.date, shiftId: null }], origin: "manual" })}>Xoá ca</button>
+              </div>
+              <p className="text-xs text-ink-400">Ô đặt tay được đánh dấu “T” và không bị sinh lưới / nhập Sheet ghi đè.</p>
+            </div>
+          )}
+        </>
+      )}
+
+      {tab === "template" && <TemplateGrid centerId={centerId} data={data} canEdit={data.canEdit} onMsg={setMsg} />}
+      {tab === "import" && <ImportSheet centerId={centerId} period={period} canEdit={canEdit} onMsg={setMsg} imports={data.imports} />}
+    </div>
+  );
+}
+
+function TemplateGrid({ centerId, data, canEdit, onMsg }: { centerId: string; data: Roster; canEdit: boolean; onMsg: (m: { ok: boolean; text: string }) => void }) {
+  const trpc = useTRPC();
+  const router = useRouter();
+  const [draft, setDraft] = useState<Record<string, string>>(() => Object.fromEntries(data.templates.map((t) => [`${t.staffId}|${t.weekday}`, t.shiftId ?? ""])));
+  const save = useMutation(trpc.hr.saveTemplates.mutationOptions({
+    onSuccess: (r) => { onMsg({ ok: true, text: `Đã lưu khung ca tuần (${r.saved} ô)` }); router.refresh(); },
+    onError: (e) => onMsg({ ok: false, text: e.message }),
+  }));
+  const set = (staffId: string, wd: number, v: string) => setDraft((d) => ({ ...d, [`${staffId}|${wd}`]: v }));
+  return (
+    <div className="space-y-2">
+      <p className="text-xs text-ink-500">Khung ca tuần là mẫu để sinh lưới tháng: mỗi người × thứ = một mã ca. Sinh lưới không đụng vào ô sửa tay và ô từ đơn đã duyệt.</p>
+      <div className="card overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead><tr className="text-ink-400"><th className="p-2 text-left">Nhân sự</th>{[1, 2, 3, 4, 5, 6, 7].map((w) => <th key={w} className="p-2">{WD[w]}</th>)}</tr></thead>
+          <tbody className="divide-y divide-black/5">
+            {data.rows.map((r) => (
+              <tr key={r.id}>
+                <td className="p-2">{r.fullName}<div className="text-ink-400">{r.code}</div></td>
+                {[1, 2, 3, 4, 5, 6, 7].map((w) => (
+                  <td key={w} className="p-1">
+                    <select className="input !py-1 text-xs" disabled={!canEdit} value={draft[`${r.id}|${w}`] ?? ""} onChange={(e) => set(r.id, w, e.target.value)}>
+                      <option value="">—</option>
+                      {data.shifts.map((s) => <option key={s.id} value={s.id}>{s.code}</option>)}
+                    </select>
+                  </td>
+                ))}
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-    </section>
-  );
-}
-
-type ShiftRow = RouterOutputs["hr"]["roster"]["shifts"][number];
-
-export function ShiftTemplates({ centerId, shifts, canConfigure }: { centerId: string; shifts: ShiftRow[]; canConfigure: boolean }) {
-  const trpc = useTRPC();
-  const router = useRouter();
-  const blank = { id: undefined as string | undefined, scope: centerId, code: "", name: "", startTime: "08:00", endTime: "17:00", breakMinutes: 60, isActive: true };
-  const [f, setF] = useState<typeof blank | null>(null);
-  const [err, setErr] = useState<string | null>(null);
-  const save = useMutation(trpc.hr.upsertShift.mutationOptions({ onSuccess: () => { setF(null); setErr(null); router.refresh(); }, onError: (e) => setErr(e.message) }));
-  return (
-    <section className="card space-y-2 p-4">
-      <div className="flex items-center justify-between"><h2 className="font-semibold">Ca làm việc</h2>{canConfigure && !f && <button className="text-sm text-brand-600" onClick={() => setF(blank)}>+ Thêm ca</button>}</div>
-      <table className="w-full text-sm">
-        <tbody className="divide-y divide-black/5">
-          {shifts.map((s) => (
-            <tr key={s.id} className={s.isActive ? "" : "text-ink-400"}>
-              <td className="p-1 font-mono text-xs">{s.code}</td><td className="p-1">{s.name}</td><td className="p-1 tabular-nums">{s.startTime}–{s.endTime}</td><td className="p-1 text-xs">nghỉ {s.breakMinutes}′</td><td className="p-1 text-xs">{s.centerCode ?? "Dùng chung"}{s.isActive ? "" : " · tắt"}</td>
-              <td className="p-1">{s.canEdit && <button className="text-xs text-brand-600" onClick={() => setF({ id: s.id, scope: s.centerId ?? "", code: s.code, name: s.name, startTime: s.startTime, endTime: s.endTime, breakMinutes: s.breakMinutes, isActive: s.isActive })}>Sửa</button>}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {f && (
-        <div className="grid gap-2 border-t border-black/5 pt-2 sm:grid-cols-3">
-          <label className="text-xs text-ink-600">Mã<input className="input mt-1" value={f.code} onChange={(e) => setF({ ...f, code: e.target.value })} /></label>
-          <label className="text-xs text-ink-600">Tên<input className="input mt-1" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></label>
-          <label className="text-xs text-ink-600">Phạm vi<select className="input mt-1" value={f.scope} disabled={!!f.id} onChange={(e) => setF({ ...f, scope: e.target.value })}><option value={centerId}>Cơ sở này</option><option value="">Dùng chung</option></select></label>
-          <label className="text-xs text-ink-600">Bắt đầu<input type="time" className="input mt-1" value={f.startTime} onChange={(e) => setF({ ...f, startTime: e.target.value })} /></label>
-          <label className="text-xs text-ink-600">Kết thúc<input type="time" className="input mt-1" value={f.endTime} onChange={(e) => setF({ ...f, endTime: e.target.value })} /></label>
-          <label className="text-xs text-ink-600">Nghỉ giữa ca (phút)<input type="number" min={0} className="input mt-1" value={f.breakMinutes} onChange={(e) => setF({ ...f, breakMinutes: Number(e.target.value) })} /></label>
-          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={f.isActive} onChange={(e) => setF({ ...f, isActive: e.target.checked })} /> Đang dùng</label>
-          <div className="flex items-center gap-2 sm:col-span-2">
-            <button className="btn-primary" disabled={save.isPending} onClick={() => save.mutate({ id: f.id, centerId: f.scope || null, code: f.code, name: f.name, startTime: f.startTime, endTime: f.endTime, breakMinutes: f.breakMinutes, isActive: f.isActive })}>Lưu</button>
-            <button className="btn-ghost" onClick={() => setF(null)}>Huỷ</button>
-            {err && <span className="text-sm text-red-700">{err}</span>}
-          </div>
-        </div>
+      {canEdit && (
+        <button className="btn-primary" disabled={save.isPending} onClick={() => save.mutate({
+          centerId,
+          entries: Object.entries(draft).map(([k, v]) => { const [staffId, wd] = k.split("|"); return { staffId: staffId!, weekday: Number(wd), shiftId: v || null }; }),
+        })}>Lưu khung ca tuần</button>
       )}
-    </section>
+    </div>
   );
 }
 
-export function GeofenceEditor({ centerId, lat, lng, radius, canConfigure }: { centerId: string; lat: number | null; lng: number | null; radius: number; canConfigure: boolean }) {
+function ImportSheet({ centerId, period, canEdit, onMsg, imports }: { centerId: string; period: string; canEdit: boolean; onMsg: (m: { ok: boolean; text: string }) => void; imports: Roster["imports"] }) {
   const trpc = useTRPC();
   const router = useRouter();
-  const [f, setF] = useState({ lat: lat?.toString() ?? "", lng: lng?.toString() ?? "", radius: String(radius) });
-  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  const save = useMutation(trpc.hr.setGeofence.mutationOptions({ onSuccess: () => { setMsg({ ok: true, text: "Đã lưu" }); router.refresh(); }, onError: (e) => setMsg({ ok: false, text: e.message }) }));
-  const here = () => navigator.geolocation?.getCurrentPosition((p) => setF((x) => ({ ...x, lat: p.coords.latitude.toFixed(6), lng: p.coords.longitude.toFixed(6) })), (e) => setMsg({ ok: false, text: e.message }), { enableHighAccuracy: true, timeout: 15000 });
+  const [content, setContent] = useState("");
+  const [preview, setPreview] = useState<{ created: number; updated: number; keptManual: number; skipped: number; unknownNames: string[]; unknownCodes: string[] } | null>(null);
+  const run = useMutation(trpc.hr.importRoster.mutationOptions({
+    onSuccess: (r) => {
+      setPreview(r);
+      if (r.applied) { onMsg({ ok: true, text: `Đã nhập: ${r.created} ô mới · ${r.updated} cập nhật · giữ ${r.keptManual} ô sửa tay / từ đơn · bỏ ${r.skipped} dòng` }); router.refresh(); }
+    },
+    onError: (e) => onMsg({ ok: false, text: e.message }),
+  }));
   return (
-    <section className="card space-y-2 p-4">
-      <h2 className="font-semibold">Vị trí chấm công của cơ sở</h2>
-      <p className="text-xs text-ink-600">Nhân viên chỉ chấm công được khi ở trong bán kính. Để trống toạ độ = không kiểm tra vị trí (chỉ ghi nhận).</p>
-      <div className="grid gap-2 sm:grid-cols-3">
-        <label className="text-xs text-ink-600">Vĩ độ<input className="input mt-1" disabled={!canConfigure} value={f.lat} onChange={(e) => setF({ ...f, lat: e.target.value })} /></label>
-        <label className="text-xs text-ink-600">Kinh độ<input className="input mt-1" disabled={!canConfigure} value={f.lng} onChange={(e) => setF({ ...f, lng: e.target.value })} /></label>
-        <label className="text-xs text-ink-600">Bán kính (m)<input type="number" className="input mt-1" disabled={!canConfigure} value={f.radius} onChange={(e) => setF({ ...f, radius: e.target.value })} /></label>
+    <div className="space-y-2">
+      <p className="text-xs text-ink-500">
+        Dán trực tiếp từ Google Sheet (chọn vùng → Ctrl+C → dán vào ô dưới) hoặc dán nội dung CSV. Dòng đầu là tiêu đề: cột 1 là Họ tên / Mã NV, các cột sau là ngày 1, 2, 3… của tháng {period}.
+        Ô trống = bỏ qua. Ô sửa tay và ô từ đơn đã duyệt không bị file đè; chạy lại cùng file là an toàn.
+      </p>
+      <textarea className="input h-40 font-mono text-xs" value={content} onChange={(e) => { setContent(e.target.value); setPreview(null); }} placeholder={"Họ tên\t1\t2\t3\nNguyễn Văn A\tHC\tHC\tX"} />
+      <div className="flex flex-wrap gap-2">
+        <button className="btn-ghost" disabled={!content.trim() || run.isPending} onClick={() => run.mutate({ centerId, period, content, dryRun: true })}>Xem trước</button>
+        <button className="btn-primary" disabled={!canEdit || !content.trim() || run.isPending || !preview} onClick={() => run.mutate({ centerId, period, content })}>Nhập lịch</button>
       </div>
-      {canConfigure && (
-        <div className="flex flex-wrap items-center gap-2">
-          <button className="btn-ghost" onClick={here}>Lấy vị trí hiện tại</button>
-          <button className="btn-primary" disabled={save.isPending} onClick={() => save.mutate({ centerId, latitude: f.lat ? Number(f.lat) : null, longitude: f.lng ? Number(f.lng) : null, radiusM: Number(f.radius) })}>Lưu</button>
-          {f.lat && f.lng && <a className="text-xs text-brand-600" target="_blank" rel="noreferrer" href={`https://www.google.com/maps?q=${f.lat},${f.lng}`}>Xem trên bản đồ</a>}
+      {preview && (
+        <div className="card p-3 text-sm">
+          <div>{preview.created} ô mới · {preview.updated} ô cập nhật · giữ {preview.keptManual} ô sửa tay / từ đơn · bỏ {preview.skipped} dòng không khớp tên</div>
+          {preview.unknownNames.length > 0 && <div className="text-amber-700">Không khớp tên: {preview.unknownNames.join(", ")}</div>}
+          {preview.unknownCodes.length > 0 && <div className="text-amber-700">Mã ca chưa khai: {preview.unknownCodes.join(", ")}</div>}
         </div>
       )}
-      {msg && <div className={`text-sm ${msg.ok ? "text-green-700" : "text-red-700"}`}>{msg.text}</div>}
-    </section>
+      {imports.length > 0 && (
+        <div className="text-xs text-ink-500">
+          <div className="font-semibold">Lần nhập gần đây</div>
+          {imports.map((i) => <div key={i.id}>{new Date(i.createdAt).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })} · {i.byName ?? "—"} · kỳ {i.period} · {i.created} mới · {i.updated} cập nhật · giữ {i.keptManual} ô</div>)}
+        </div>
+      )}
+    </div>
   );
 }
