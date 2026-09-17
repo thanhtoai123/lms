@@ -1325,7 +1325,7 @@ async function seedDemoVolume(x: DemoCtx): Promise<void> {
 
   const allSessions = plans.flatMap((p) => p.sessions);
   const planOf = new Map(plans.map((p) => [p.id, p] as const));
-  const sessRows: (typeof sessions.$inferInsert)[] = allSessions.map((s) => {
+  const sessRows: (typeof sessions.$inferInsert)[] = allSessions.map((s): typeof sessions.$inferInsert => {
     const gvu = gvuOf(planOf.get(s.classId)?.centerId ?? cs1.id);
     const base = {
       id: s.id, classId: s.classId, lessonId: s.lessonId, sequenceNo: s.seq, kind: "regular" as const, date: s.date, startTime: s.start, endTime: s.end,
