@@ -30,6 +30,7 @@ const leadInput = z.object({
   notes: z.string().max(2000).nullish(),
   consent: z.boolean().optional(),
   marketingConsent: z.boolean().optional(),
+  referralCode: z.string().max(20).nullish(),
   autoAssign: z.boolean().optional(),
   assignedToId: z.string().uuid().nullish(),
   children: z.array(childInput).max(10).optional(),

@@ -71,22 +71,22 @@ export interface ResourceRef {
 
 const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   SUPER_ADMIN: ["*:*"],
-  HO_ACCOUNTANT: ["finance:*", "inventory:*", "coin:read", "student:read", "enrollment:read", "class:read", "report:read", "course:read", "staff:read", "staff:salary", "timesheet:read"],
-  HO_HR: ["staff:*", "teacher:*", "timesheet:*", "report:read"],
-  HO_MARKETING: ["lead:read", "lead:create", "marketing:*", "site:*", "report:read"],
+  HO_ACCOUNTANT: ["affiliate:read", "affiliate:pay", "finance:*", "inventory:*", "coin:read", "student:read", "enrollment:read", "class:read", "report:read", "course:read", "staff:read", "staff:salary", "timesheet:read"],
+  HO_HR: ["staff:*", "teacher:*", "timesheet:*", "recruit:*", "report:read"],
+  HO_MARKETING: ["lead:read", "lead:create", "marketing:*", "site:*", "report:read", "affiliate:*", "message:read", "message:create"],
   HO_SALE: ["lead:create", "lead:read_own", "lead:update_own"],
   TRAINING: ["curriculum:*", "course:*", "lesson:*", "document:*", "assignment:read", "assignment:configure", "class:read", "session:read", "report_card:*", "report:read", "teacher:read", "teacher:evaluate", "holiday:read"],
   AUDITOR: ["*:read"],
   CENTER_MANAGER: [
     "lead:*", "student:*", "enrollment:*", "class:*", "session:*", "attendance:*", "session_note:*", "media:*",
-    "teacher:read", "staff:read", "timesheet:read", "timesheet:approve", "finance:read", "finance:create", "finance:approve", "report_card:*", "report:read", "makeup:*", "automation:*", "care:*", "inventory:*", "coin:*", "document:read", "assignment:*", "compliance:read", "compliance:create", "marketing:read",
+    "teacher:read", "staff:read", "timesheet:read", "timesheet:approve", "finance:read", "finance:create", "finance:approve", "report_card:*", "report:read", "makeup:*", "automation:*", "care:*", "inventory:*", "coin:*", "document:read", "assignment:*", "compliance:read", "compliance:create", "marketing:read", "message:*", "affiliate:read", "affiliate:create", "affiliate:update", "affiliate:approve", "recruit:read", "recruit:update", "recruit:interview",
     "room:*", "center:read", "parent_account:*", "teacher:evaluate", "holiday:*", "course:read", "curriculum:read",
   ],
-  CENTER_CLASS_MANAGER: ["class:read", "class:create", "class:update", "session:*", "attendance:*", "session_note:*", "media:*", "student:read", "student:update", "enrollment:read", "enrollment:update", "makeup:*", "teacher:read", "room:*", "center:read", "report_card:*", "holiday:read", "course:read", "curriculum:read", "inventory:read", "inventory:create", "coin:read", "coin:award", "coin:redeem", "document:read", "assignment:*"],
-  CENTER_SALES_CSM: ["lead:*", "student:read", "student:create", "student:update", "enrollment:create", "enrollment:read", "enrollment:update", "class:read", "session:read", "makeup:*", "care:*", "parent_account:*", "center:read", "course:read", "finance:read", "finance:create", "inventory:read", "inventory:create", "coin:read", "coin:redeem", "assignment:read", "compliance:read", "compliance:create"],
-  CENTER_ACCOUNTANT: ["finance:*", "enrollment:read", "student:read", "class:read", "course:read", "center:read", "staff:read", "staff:salary", "timesheet:read", "report:read", "inventory:read", "coin:read"],
-  CENTER_HR: ["staff:*", "teacher:*", "timesheet:*", "center:read"],
-  TEACHER: ["course:read", "curriculum:read", "class:read_own", "session:read_own", "session:update_own", "attendance:write_own", "session_note:write_own", "media:write_own", "report_card:write_own", "report_card:read_own", "student:read_own", "coin:award_own", "coin:read_own", "document:read_own", "assignment:read_own", "assignment:create_own", "assignment:update_own", "assignment:grade_own", "curriculum:propose"],
+  CENTER_CLASS_MANAGER: ["class:read", "class:create", "class:update", "session:*", "attendance:*", "session_note:*", "media:*", "student:read", "student:update", "enrollment:read", "enrollment:update", "makeup:*", "teacher:read", "room:*", "center:read", "report_card:*", "holiday:read", "course:read", "curriculum:read", "inventory:read", "inventory:create", "coin:read", "coin:award", "coin:redeem", "document:read", "assignment:*", "message:read", "message:create"],
+  CENTER_SALES_CSM: ["lead:*", "student:read", "student:create", "student:update", "enrollment:create", "enrollment:read", "enrollment:update", "class:read", "session:read", "makeup:*", "care:*", "parent_account:*", "center:read", "course:read", "finance:read", "finance:create", "inventory:read", "inventory:create", "coin:read", "coin:redeem", "assignment:read", "compliance:read", "compliance:create", "message:read", "message:create", "message:update", "affiliate:read", "affiliate:create"],
+  CENTER_ACCOUNTANT: ["affiliate:read", "affiliate:pay", "finance:*", "enrollment:read", "student:read", "class:read", "course:read", "center:read", "staff:read", "staff:salary", "timesheet:read", "report:read", "inventory:read", "coin:read"],
+  CENTER_HR: ["staff:*", "teacher:*", "timesheet:*", "recruit:*", "center:read"],
+  TEACHER: ["course:read", "curriculum:read", "class:read_own", "session:read_own", "session:update_own", "attendance:write_own", "session_note:write_own", "media:write_own", "report_card:write_own", "report_card:read_own", "student:read_own", "coin:award_own", "coin:read_own", "document:read_own", "assignment:read_own", "assignment:create_own", "assignment:update_own", "assignment:grade_own", "curriculum:propose", "message:read_own", "message:create_own", "recruit:interview_own"],
   ASSISTANT_TEACHER: ["course:read", "curriculum:read", "class:read_own", "session:read_own", "attendance:write_own", "media:write_own", "student:read_own", "document:read_own", "assignment:read_own", "assignment:grade_own"],
   PARENT: ["student:read_own", "session:read_own", "attendance:read_own", "finance:read_own", "makeup:request_own"],
   STUDENT: ["session:read_own", "assignment:*_own"],
@@ -135,6 +135,18 @@ export function authorize(actor: Actor, wanted: Permission, resource: ResourceRe
     }
   }
   return { allowed: false, reason: `Không có quyền ${wanted}` };
+}
+
+/** Chỉ tính các vai trò toàn hệ thống (không gắn cơ sở) */
+export function authorizeGlobal(actor: Actor, wanted: Permission): boolean {
+  return actor.assignments.some((a) => a.centerId === null && authorize({ ...actor, assignments: [a] }, wanted, {}).allowed);
+}
+
+/** Các cơ sở mà actor có quyền (không tính _own); null = toàn hệ thống */
+export function centersWith(actor: Actor, wanted: Permission): string[] | null {
+  const ok = actor.assignments.filter((a) => (ROLE_PERMISSIONS[a.role] ?? []).some((p) => matches(p, wanted)));
+  if (ok.some((a) => a.centerId === null)) return null;
+  return [...new Set(ok.map((a) => a.centerId!))];
 }
 
 export function assertAuthorized(actor: Actor, wanted: Permission, resource?: ResourceRef): void {

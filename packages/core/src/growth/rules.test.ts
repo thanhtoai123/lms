@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   slugify, validatePost, postTransition, readingMinutes, renderMarkdown, validateSiteBlock, normUtm, channelOf, validateCampaign, campaignMetrics, buildUtmUrl,
-  validAnonId, cohortRow, churnRate, withdrawReasonGroup, dsrTransition, dsrDue, dsrSlaState, erasureDecision, validateDsr, retentionCutoff, anonymizedPhone, dsrCode,
+  validAnonId, cohortRow, churnRate, withdrawReasonGroup, dsrTransition, dsrDue, dsrSlaState, erasureDecision, validateDsr, retentionCutoff, anonymizedPhone, dsrCode, dsrAckDue, dsrCanExtend, incidentNotifyDue, validateIncident, incidentCloseCheck, incidentCode,
 } from "./rules.js";
 
 test("tin tức: slug, kiểm tra, trạng thái", () => {
@@ -83,11 +83,19 @@ test("tuân thủ dữ liệu", () => {
   assert.throws(() => dsrTransition("received", "complete"));
   assert.throws(() => dsrTransition("completed", "reject"));
   const rec = new Date("2026-09-17T00:00:00Z");
-  assert.equal(dsrDue("delete", rec).toISOString(), "2026-09-20T00:00:00.000Z");
-  assert.equal(dsrSlaState(dsrDue("delete", rec), "received", new Date("2026-09-19T15:00:00Z")), "due_soon");
-  assert.equal(dsrSlaState(dsrDue("delete", rec), "received", new Date("2026-09-21T00:00:00Z")), "overdue");
-  assert.equal(dsrSlaState(dsrDue("delete", rec), "completed", new Date("2026-09-21T00:00:00Z")), "done");
-  assert.equal(dsrSlaState(dsrDue("delete", rec), "in_progress", new Date("2026-09-17T01:00:00Z")), "ok");
+  assert.equal(dsrDue("delete", rec).toISOString(), "2026-10-07T00:00:00.000Z");
+  assert.equal(dsrDue("access", rec).toISOString(), "2026-09-27T00:00:00.000Z");
+  assert.equal(dsrDue("withdraw_consent", rec, true).toISOString(), "2026-10-17T00:00:00.000Z");
+  assert.equal(dsrSlaState(dsrDue("access", rec), "received", new Date("2026-09-26T00:00:00Z")), "due_soon");
+  assert.equal(dsrSlaState(dsrDue("access", rec), "received", new Date("2026-09-28T00:00:00Z")), "overdue");
+  assert.equal(dsrSlaState(dsrDue("access", rec), "completed", new Date("2026-09-28T00:00:00Z")), "done");
+  assert.equal(dsrSlaState(dsrDue("access", rec), "in_progress", new Date("2026-09-18T01:00:00Z")), "ok");
+  // tiếp nhận thứ 6 (giờ VN) → hạn phản hồi thứ 3 tuần sau
+  assert.equal(dsrAckDue(new Date("2026-09-18T03:00:00Z")).toISOString(), "2026-09-22T03:00:00.000Z");
+  assert.equal(dsrAckDue(new Date("2026-09-16T03:00:00Z")).toISOString(), "2026-09-18T03:00:00.000Z");
+  assert.equal(dsrCanExtend({ status: "in_progress", extendedAt: null, reason: "Cần xác minh thêm hồ sơ" }).length, 0);
+  assert.equal(dsrCanExtend({ status: "in_progress", extendedAt: new Date(), reason: "Cần xác minh thêm hồ sơ" }).length, 1);
+  assert.equal(dsrCanExtend({ status: "completed", extendedAt: null, reason: "x" }).length, 2);
   assert.deepEqual(erasureDecision({ subjectType: "lead", hasFinancialRecords: false, hasActiveEnrollment: false, hasOpenDebt: false }), { allowed: true, mode: "anonymize", reasons: [] });
   assert.equal(erasureDecision({ subjectType: "parent", hasFinancialRecords: true, hasActiveEnrollment: false, hasOpenDebt: false }).mode, "partial");
   assert.equal(erasureDecision({ subjectType: "parent", hasFinancialRecords: true, hasActiveEnrollment: true, hasOpenDebt: true }).reasons.length, 2);
@@ -98,4 +106,17 @@ test("tuân thủ dữ liệu", () => {
   assert.throws(() => retentionCutoff("2026-03-31", 1));
   assert.equal(anonymizedPhone("12345678-aaaa"), "0001234567");
   assert.equal(dsrCode(2026, 7), "YC-DL26-0007");
+});
+
+test("sự cố dữ liệu: hạn thông báo 72 giờ, điều kiện đóng", () => {
+  const d = new Date("2026-09-17T02:00:00Z");
+  assert.equal(incidentNotifyDue(d).toISOString(), "2026-09-20T02:00:00.000Z");
+  const now = new Date("2026-09-17T03:00:00Z");
+  assert.equal(validateIncident({ title: "Lộ file", description: "Gửi nhầm danh sách phụ huynh cho nhóm Zalo khác", severity: "medium", detectedAt: d, affectedCount: 30, now }).length, 0);
+  assert.equal(validateIncident({ title: "x", description: "ngắn", severity: "medium", detectedAt: new Date("2026-09-18T00:00:00Z"), affectedCount: -1, now }).length, 4);
+  assert.equal(incidentCloseCheck({ severity: "high", notifiedAuthorityAt: null, containment: "Đã thu hồi tin nhắn", noNotifyReason: null }).length, 1);
+  assert.equal(incidentCloseCheck({ severity: "high", notifiedAuthorityAt: now, containment: "Đã thu hồi tin nhắn", noNotifyReason: null }).length, 0);
+  assert.equal(incidentCloseCheck({ severity: "low", notifiedAuthorityAt: null, containment: "Đã thu hồi tin nhắn", noNotifyReason: null }).length, 1);
+  assert.equal(incidentCloseCheck({ severity: "low", notifiedAuthorityAt: null, containment: "Đã thu hồi tin nhắn", noNotifyReason: "Chỉ lộ nội bộ, đã xoá ngay" }).length, 0);
+  assert.equal(incidentCode(2026, 3), "SC-DL26-003");
 });

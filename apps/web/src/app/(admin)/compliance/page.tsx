@@ -1,10 +1,10 @@
 import Link from "next/link";
-import { authorize, hasPermission, DSR_STATUSES, DSR_STATUS_VI, type Actor, type DsrStatus } from "@satarobo/core";
+import { authorizeGlobal, hasPermission, DSR_STATUSES, DSR_STATUS_VI, DSR_SLA_DAYS, INCIDENT_NOTIFY_HOURS, type Actor, type DsrStatus } from "@satarobo/core";
 import { getServerCaller } from "@/lib/trpc/server";
 import { NoAccess, PageHeader } from "@/components/admin-ui";
 import { Kpi, Section, th } from "@/components/report-ui";
 import { Empty } from "@/components/ui";
-import { CreateRequestForm, LinkSubject, RequestActions, ExportButton, ConsentToggle, EraseForm, RetentionRun } from "./client";
+import { CreateRequestForm, LinkSubject, RequestActions, ExportButton, ConsentToggle, EraseForm, RetentionRun, ExtendForm, ReportIncidentForm, IncidentActions } from "./client";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Tuân thủ dữ liệu cá nhân" };
@@ -23,7 +23,7 @@ const STATUS_CHIP: Record<DsrStatus, string> = {
   received: "bg-blue-100 text-blue-800", verifying: "bg-amber-100 text-amber-800", in_progress: "bg-violet-100 text-violet-800",
   completed: "bg-green-100 text-green-800", rejected: "bg-slate-100 text-ink-600",
 };
-const EVENT_VI: Record<string, string> = { received: "Tiếp nhận", verify: "Xác minh", start: "Bắt đầu xử lý", complete: "Hoàn tất", reject: "Từ chối", link: "Liên kết hồ sơ", export: "Xuất dữ liệu", consent: "Đồng ý", erase: "Ẩn danh hoá" };
+const EVENT_VI: Record<string, string> = { extend: "Gia hạn", received: "Tiếp nhận", verify: "Xác minh", start: "Bắt đầu xử lý", complete: "Hoàn tất", reject: "Từ chối", link: "Liên kết hồ sơ", export: "Xuất dữ liệu", consent: "Đồng ý", erase: "Ẩn danh hoá" };
 
 export default async function CompliancePage({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
@@ -31,19 +31,20 @@ export default async function CompliancePage({ searchParams }: { searchParams: P
   const actor = ctx.actor as Actor | null;
   if (!actor || (!hasPermission(actor, "compliance:read") && !hasPermission(actor, "compliance:create"))) return <NoAccess title="Tuân thủ dữ liệu" perm="compliance:read" />;
   if (sp.id && UUID.test(sp.id)) return <RequestDetail id={sp.id} />;
-  const globalRead = authorize(actor, "compliance:read", {}).allowed || authorize(actor, "compliance:update", {}).allowed;
+  const globalRead = authorizeGlobal(actor, "compliance:read") || authorizeGlobal(actor, "compliance:update");
   const status = DSR_STATUSES.includes(sp.status as DsrStatus) ? (sp.status as DsrStatus) : undefined;
   const list = await caller.compliance.requests({ status, open: sp.all ? false : undefined });
   const ov = globalRead ? await caller.compliance.overview() : null;
+  const inc = await caller.compliance.incidents();
   const c = list.counts;
   const tabs = [{ key: "", label: "Đang mở" }, ...DSR_STATUSES.map((s) => ({ key: s, label: DSR_STATUS_VI[s] }))];
   return (
     <div className="space-y-4">
-      <PageHeader title="Tuân thủ dữ liệu cá nhân" desc="Theo Nghị định 13/2023 & Luật Bảo vệ dữ liệu cá nhân: tiếp nhận và xử lý yêu cầu của phụ huynh (xem, sửa, xoá, rút đồng ý…), lịch sử đồng ý, thời hạn lưu giữ, nhật ký truy cập dữ liệu."
+      <PageHeader title="Tuân thủ dữ liệu cá nhân" desc="Theo Luật Bảo vệ dữ liệu cá nhân 2025 & Nghị định 356/2025: tiếp nhận và xử lý yêu cầu của phụ huynh (xem, sửa, xoá, rút đồng ý…), lịch sử đồng ý, thời hạn lưu giữ, nhật ký truy cập dữ liệu."
         actions={list.canCreate ? <CreateRequestForm centers={list.centers} globalCreate={list.globalCreate} /> : null} />
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Kpi label="Yêu cầu đang mở" value={c?.open ?? 0} tone={c?.open ? "brand" : "default"} />
-        <Kpi label="Quá hạn 72 giờ" value={c?.overdue ?? 0} tone={c?.overdue ? "bad" : "good"} />
+        <Kpi label="Quá hạn xử lý" value={c?.overdue ?? 0} tone={c?.overdue ? "bad" : "good"} hint={`Xem/sửa ${DSR_SLA_DAYS.access} ngày · rút đồng ý ${DSR_SLA_DAYS.withdraw_consent} · xoá ${DSR_SLA_DAYS.delete}`} />
         <Kpi label="Đã hoàn tất" value={c?.completed ?? 0} hint={c?.completed ? `${Math.round(((c.onTime ?? 0) / c.completed) * 100)}% đúng hạn` : undefined} />
         {ov ? <Kpi label="Lead quá hạn lưu giữ" value={ov.retention.due} tone={ov.retention.due ? "warn" : "default"} hint={`> ${ov.retention.months} tháng không tương tác`} /> : <Kpi label="Người xử lý" value="Quản trị hệ thống" />}
       </div>
@@ -60,7 +61,27 @@ export default async function CompliancePage({ searchParams }: { searchParams: P
                   <td className="p-3 text-xs">{r.requesterName}<div className="text-ink-400">{r.requesterPhone}</div></td>
                   <td className="p-3 text-xs">{r.centerCode ?? "—"}</td>
                   <td className="p-3"><span className={`chip ${STATUS_CHIP[r.status as DsrStatus]}`}>{r.statusLabel}</span></td>
-                  <td className="p-3 text-xs"><span className={`chip ${SLA_CHIP[r.sla]!.cls}`}>{SLA_CHIP[r.sla]!.label}</span><div className="text-ink-400">{fmtDT(r.dueAt)}</div></td>
+                  <td className="p-3 text-xs"><span className={`chip ${SLA_CHIP[r.sla]!.cls}`}>{SLA_CHIP[r.sla]!.label}</span>{r.ackOverdue && <span className="chip ml-1 bg-red-100 text-red-700">chưa phản hồi tiếp nhận</span>}<div className="text-ink-400">{fmtDT(r.dueAt)}{r.extendedAt ? " (đã gia hạn)" : ""}</div></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </Section>
+      <Section title="Sổ sự cố dữ liệu cá nhân" desc={`Lộ, mất, gửi nhầm dữ liệu… phải ghi nhận ngay. Sự cố mức trung bình / nghiêm trọng: thông báo cơ quan chuyên trách (Cục A05) trong ${INCIDENT_NOTIFY_HOURS} giờ kể từ khi phát hiện.`}
+        actions={inc.canReport ? <ReportIncidentForm centers={list.centers} globalCreate={list.globalCreate} /> : null}>
+        {inc.items.length === 0 ? <div className="p-4"><Empty>Chưa có sự cố nào được ghi nhận.</Empty></div> : (
+          <table className="w-full text-sm">
+            <thead><tr><th className={th}>Mã</th><th className={th}>Sự cố</th><th className={th}>Mức độ</th><th className={th}>Hạn thông báo</th><th className={th}>Trạng thái</th>{inc.canProcess && <th className={th}></th>}</tr></thead>
+            <tbody className="divide-y divide-black/5">
+              {inc.items.map((i) => (
+                <tr key={i.id} className="align-top">
+                  <td className="p-3 font-mono text-xs font-semibold">{i.code}<div className="font-sans font-normal text-ink-400">{i.centerCode ?? "Toàn hệ thống"}</div></td>
+                  <td className="p-3 text-xs"><div className="font-medium text-ink-900">{i.title}</div><div className="text-ink-600">{i.description}</div><div className="text-ink-400">{i.affectedCount} người · {i.dataTypes ?? "—"} · báo bởi {i.byName ?? "—"}</div>{i.containment && <div className="mt-1 text-green-800">Khắc phục: {i.containment}</div>}</td>
+                  <td className="p-3"><span className={`chip ${i.severity === "high" ? "bg-red-100 text-red-700" : i.severity === "medium" ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-ink-600"}`}>{i.severityLabel}</span></td>
+                  <td className="p-3 text-xs">{fmtDT(i.notifyDueAt)}{i.notifyOverdue && <div className="chip mt-1 bg-red-100 text-red-700">quá hạn thông báo</div>}<div className="text-ink-400">{i.notifiedAuthorityAt ? `Đã báo A05 ${fmtDT(i.notifiedAuthorityAt)}` : "Chưa báo A05"}{i.notifiedSubjectsAt ? ` · đã báo người bị ảnh hưởng` : ""}</div></td>
+                  <td className="p-3 text-xs">{i.statusLabel}</td>
+                  {inc.canProcess && <td className="p-3">{i.status !== "closed" && <IncidentActions id={i.id} severity={i.severity} notifiedAuthority={!!i.notifiedAuthorityAt} notifiedSubjects={!!i.notifiedSubjectsAt} containment={i.containment} />}</td>}
                 </tr>
               ))}
             </tbody>
@@ -110,12 +131,13 @@ async function RequestDetail({ id }: { id: string }) {
           <div className="flex flex-wrap items-center gap-2">
             <span className={`chip ${STATUS_CHIP[d.status as DsrStatus]}`}>{d.statusLabel}</span>
             <span className={`chip ${sla.cls}`}>{sla.label}</span>
-            <span className="text-xs text-ink-400">Nhận {fmtDT(d.receivedAt)} · hạn {fmtDT(d.dueAt)}</span>
+            <span className="text-xs text-ink-400">Nhận {fmtDT(d.receivedAt)} · phản hồi tiếp nhận trước {fmtDT(d.ackDueAt)}{d.acknowledgedAt ? " ✓" : ""} · hạn thực hiện {fmtDT(d.dueAt)} ({d.extendedAt ? `đã gia hạn: ${d.extensionReason}` : `${d.slaDays} ngày`})</span>
           </div>
           <div><span className="text-ink-400">Người yêu cầu:</span> {d.requesterName} · {d.requesterPhone} · kênh {d.channel}</div>
           <p className="whitespace-pre-wrap rounded bg-black/[0.03] p-3">{d.details}</p>
           {d.resolution && <div><span className="text-ink-400">Kết quả:</span> {d.resolution}</div>}
           {d.can.process && <div className="border-t border-black/5 pt-3"><RequestActions id={d.id} status={d.status} /></div>}
+          {d.can.extend && <div className="border-t border-black/5 pt-3"><ExtendForm id={d.id} /></div>}
         </div>
         <div className="card p-4 text-sm">
           <h3 className="mb-2 font-semibold">Diễn tiến</h3>

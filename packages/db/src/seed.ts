@@ -20,6 +20,7 @@ import {
   inventoryItems, kitComponents, stockLevels, stockMovements, stockCounters, rentals, rewardItems, coinTransactions, redemptions,
   documents, assignmentTemplates, assignments, submissions, lessonProposals,
   posts, siteBlocks, campaigns, campaignSpends, trackEvents, consentRecords, dataRequests, dataRequestEvents,
+  jobPostings, candidates, candidateEvents, conversations, messages, affiliates,
 } from "./schema/index";
 import { generateSessions, buildClassCode, buildStudentCode, toISODate, addDays, orderCode, receiptNumber, packagePrice, buildInstallmentPlan, computeCommission, describeRule, periodOf, fmtMin, hhmm, weekdayOf, leaveDays, requestCode, slaDue, SETTINGS_DEFAULTS, CONSENT_TEXT_VERSION, dsrCode, dsrDue } from "@satarobo/core";
 
@@ -635,6 +636,35 @@ async function main() {
     details: "Phụ huynh không muốn nhận tin nhắn quảng cáo nữa (mẫu).", subjectType: "lead", subjectId: leadRows[9]!.id, receivedAt: recv, dueAt: dsrDue("withdraw_consent", recv), createdBy: sale2U!.id,
   }).returning();
   await db.insert(dataRequestEvents).values({ requestId: dr!.id, action: "received", note: "Kênh: phone", userId: sale2U!.id, createdAt: recv });
+
+
+  // ---- Tuyển dụng, hộp thư, nguồn giới thiệu, pilot chat (mẫu) ----
+  const [job1] = await db.insert(jobPostings).values({
+    code: `TD${today.slice(2, 4)}-001`, slug: `giao-vien-robotics-tieu-hoc-td${today.slice(2, 4)}-001`, title: "Giáo viên Robotics tiểu học", centerId: cs1!.id, department: "academic", employmentType: "part_time",
+    openings: 2, salaryText: "180–250k/buổi", description: "Dạy lắp ráp và lập trình robot cho học sinh 6–10 tuổi theo giáo trình Sata Robo.\n\n- 6–10 buổi/tuần\n- Được đào tạo trước khi nhận lớp",
+    requirements: "Sinh viên / tốt nghiệp khối kỹ thuật hoặc sư phạm, yêu trẻ.", benefits: "Thưởng theo đánh giá phụ huynh.", deadline: addDays(today, 30), status: "open", openedAt: h(72), createdBy: hrU!.id,
+  }).returning();
+  const cands = await db.insert(candidates).values([
+    { jobId: job1!.id, fullName: "Ứng viên mẫu A", phone: "0987000001", phoneNormalized: "84987000001", source: "website", stage: "applied", consentAt: h(20) },
+    { jobId: job1!.id, fullName: "Ứng viên mẫu B", phone: "0987000002", phoneNormalized: "84987000002", source: "facebook", stage: "screening", consentAt: h(50), ownerId: hrU!.id },
+  ]).returning();
+  await db.insert(candidateEvents).values(cands.map((c) => ({ candidateId: c.id, action: "applied", toStage: "applied" as const, note: "Nộp qua website" })));
+  await db.insert(affiliates).values({ code: "PHAN01", name: "PH Mẫu giới thiệu", type: "parent", phone: "0911000002", centerId: cs1!.id, parentId: parentRows[1]!.id, rule: { kind: "fixed", value: 300000, cap: null }, payoutInfo: "Trừ vào học phí kỳ sau", createdBy: mgrU!.id });
+  await db.update(leads).set({ referralCode: "PHAN01", source: "referral" }).where(eq(leads.id, leadRows[2]!.id));
+  const [cv1] = await db.insert(conversations).values({
+    channel: "portal", displayName: parentRows[0]!.fullName, centerId: cs1!.id, parentId: parentRows[0]!.id, teacherId: gv1!.id, assignedTo: sale1U!.id, status: "open",
+    subject: "Tình hình học của con", portalTokenHash: "0".repeat(64), lastInboundAt: h(2), lastOutboundAt: h(26), lastMessageAt: h(2), waitingSince: h(2), lastPreview: "Cô ơi tuần sau con xin nghỉ 1 buổi ạ",
+  }).returning();
+  const [cv2] = await db.insert(conversations).values({
+    channel: "messenger", externalId: "seedpsid0001", displayName: "Khách Facebook mẫu", centerId: cs1!.id, status: "open", subject: "Tin nhắn Facebook",
+    lastInboundAt: h(3), lastMessageAt: h(3), waitingSince: h(3), lastPreview: "Trung tâm có lớp cho bé 7 tuổi không ạ?", flags: [],
+  }).returning();
+  await db.insert(messages).values([
+    { conversationId: cv1!.id, direction: "out", body: "Chào chị, tuần này bé học rất tốt, đã lắp xong xe robot.", senderUserId: sale1U!.id, status: "sent", createdAt: h(26) },
+    { conversationId: cv1!.id, direction: "in", body: "Cô ơi tuần sau con xin nghỉ 1 buổi ạ", status: "received", createdAt: h(2) },
+    { conversationId: cv2!.id, direction: "in", body: "Trung tâm có lớp cho bé 7 tuổi không ạ?", externalId: "messenger:seedmid0001", status: "received", createdAt: h(3) },
+  ]);
+  await db.insert(appSettings).values({ key: "chat_pilot", value: { classIds: [classA!.id], startDate: addDays(today, -14), note: "Pilot tin nhắn PH lớp A (mẫu)" }, updatedBy: mgrU!.id });
 
   // ---- Một ca nghỉ học mẫu (cho báo cáo churn / cohort) ----
   const [wd] = await db.insert(enrollments).values({ studentId: studentRows[10]!.id, classId: classA!.id, packageSessions: 24, status: "withdrawn", enrolledAt: d(40), endedAt: d(8), endReason: "Học phí cao so với gia đình (mẫu)", createdBy: mgrU!.id }).returning();

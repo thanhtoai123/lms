@@ -258,7 +258,7 @@ export function withdrawReasonGroup(reason: string | null | undefined): string {
 }
 
 /* ------------------------------------------------------------------ */
-/* Tuân thủ dữ liệu (NĐ13/2023/NĐ-CP)                                   */
+/* Tuân thủ dữ liệu (Luật BVDLCN 2025, NĐ 356/2025/NĐ-CP từ 01/01/2026) */
 /* ------------------------------------------------------------------ */
 
 export const DSR_TYPES = ["access", "rectify", "delete", "withdraw_consent", "restrict", "object"] as const;
@@ -267,8 +267,12 @@ export const DSR_TYPE_VI: Record<DsrType, string> = {
   access: "Xem / nhận bản sao dữ liệu", rectify: "Chỉnh sửa dữ liệu", delete: "Xoá dữ liệu", withdraw_consent: "Rút lại sự đồng ý",
   restrict: "Hạn chế xử lý", object: "Phản đối xử lý (tiếp thị)",
 };
-/** Thời hạn xử lý (giờ) — NĐ13: rút đồng ý / hạn chế / phản đối: 72 giờ; các yêu cầu khác đặt nội bộ 72 giờ */
-export const DSR_SLA_HOURS: Record<DsrType, number> = { access: 72, rectify: 72, delete: 72, withdraw_consent: 72, restrict: 72, object: 72 };
+/**
+ * Thời hạn thực hiện (ngày) theo NĐ 356/2025: xem / cung cấp / chỉnh sửa 10 ngày; rút đồng ý / hạn chế / phản đối 15 ngày;
+ * xoá 20 ngày; được gia hạn 1 lần tối đa bằng thời hạn ban đầu. Phản hồi tiếp nhận trong 2 ngày làm việc.
+ */
+export const DSR_SLA_DAYS: Record<DsrType, number> = { access: 10, rectify: 10, withdraw_consent: 15, restrict: 15, object: 15, delete: 20 };
+export const DSR_ACK_BUSINESS_DAYS = 2;
 export const DSR_STATUSES = ["received", "verifying", "in_progress", "completed", "rejected"] as const;
 export type DsrStatus = (typeof DSR_STATUSES)[number];
 export const DSR_STATUS_VI: Record<DsrStatus, string> = { received: "Mới nhận", verifying: "Xác minh danh tính", in_progress: "Đang xử lý", completed: "Hoàn tất", rejected: "Từ chối" };
@@ -287,15 +291,67 @@ export function dsrTransition(from: DsrStatus, action: DsrAction): DsrStatus {
   return map[from][action] ?? fail(`Yêu cầu "${DSR_STATUS_VI[from]}" không thể ${action}`);
 }
 
-export function dsrDue(type: DsrType, receivedAt: Date): Date {
-  return new Date(receivedAt.getTime() + DSR_SLA_HOURS[type] * 3_600_000);
+const DAY = 86_400_000;
+export function dsrDue(type: DsrType, receivedAt: Date, extended = false): Date {
+  return new Date(receivedAt.getTime() + DSR_SLA_DAYS[type] * (extended ? 2 : 1) * DAY);
+}
+/** Hạn phản hồi tiếp nhận: +2 ngày làm việc (bỏ thứ 7, CN theo giờ Việt Nam) */
+export function dsrAckDue(receivedAt: Date): Date {
+  let t = receivedAt.getTime();
+  let left = DSR_ACK_BUSINESS_DAYS;
+  while (left > 0) {
+    t += DAY;
+    const wd = new Date(t + 7 * 3_600_000).getUTCDay();
+    if (wd !== 0 && wd !== 6) left--;
+  }
+  return new Date(t);
+}
+/** Gia hạn: 1 lần, khi yêu cầu còn mở, có lý do */
+export function dsrCanExtend(x: { status: DsrStatus; extendedAt: Date | null; reason: string }): string[] {
+  const e: string[] = [];
+  if (x.status === "completed" || x.status === "rejected") e.push("Yêu cầu đã đóng");
+  if (x.extendedAt) e.push("Chỉ được gia hạn 1 lần");
+  if (x.reason.trim().length < 10) e.push("Ghi lý do gia hạn (≥ 10 ký tự) — thông báo cho người yêu cầu");
+  return e;
 }
 export function dsrSlaState(due: Date, status: DsrStatus, now: Date): "done" | "overdue" | "due_soon" | "ok" {
   if (status === "completed" || status === "rejected") return "done";
   const left = due.getTime() - now.getTime();
   if (left < 0) return "overdue";
-  if (left < 12 * 3_600_000) return "due_soon";
+  if (left < 2 * DAY) return "due_soon";
   return "ok";
+}
+
+/* Sự cố / vi phạm dữ liệu cá nhân: thông báo cơ quan chuyên trách (A05) trong 72 giờ */
+export const INCIDENT_NOTIFY_HOURS = 72;
+export const INCIDENT_SEVERITIES = ["low", "medium", "high"] as const;
+export type IncidentSeverity = (typeof INCIDENT_SEVERITIES)[number];
+export const INCIDENT_SEVERITY_VI: Record<IncidentSeverity, string> = { low: "Thấp", medium: "Trung bình", high: "Nghiêm trọng" };
+export const INCIDENT_STATUSES = ["open", "contained", "closed"] as const;
+export type IncidentStatus = (typeof INCIDENT_STATUSES)[number];
+export const INCIDENT_STATUS_VI: Record<IncidentStatus, string> = { open: "Đang xử lý", contained: "Đã khoanh vùng", closed: "Đã đóng" };
+export function incidentNotifyDue(detectedAt: Date): Date {
+  return new Date(detectedAt.getTime() + INCIDENT_NOTIFY_HOURS * 3_600_000);
+}
+export function validateIncident(x: { title: string; description: string; severity: IncidentSeverity; detectedAt: Date; affectedCount: number; now: Date }): string[] {
+  const e: string[] = [];
+  if (x.title.trim().length < 5) e.push("Tiêu đề tối thiểu 5 ký tự");
+  if (x.description.trim().length < 20) e.push("Mô tả sự cố tối thiểu 20 ký tự (điều gì xảy ra, dữ liệu nào)");
+  if (!INCIDENT_SEVERITIES.includes(x.severity)) e.push("Mức độ không hợp lệ");
+  if (x.detectedAt.getTime() > x.now.getTime() + 60_000) e.push("Thời điểm phát hiện ở tương lai");
+  if (!Number.isInteger(x.affectedCount) || x.affectedCount < 0) e.push("Số người bị ảnh hưởng là số nguyên ≥ 0");
+  return e;
+}
+/** Đóng sự cố: mức trung bình / nghiêm trọng phải có thời điểm đã thông báo; mức thấp phải ghi lý do không thông báo */
+export function incidentCloseCheck(x: { severity: IncidentSeverity; notifiedAuthorityAt: Date | null; containment: string | null; noNotifyReason: string | null }): string[] {
+  const e: string[] = [];
+  if (!x.containment || x.containment.trim().length < 10) e.push("Ghi biện pháp khắc phục (≥ 10 ký tự)");
+  if (x.severity !== "low" && !x.notifiedAuthorityAt) e.push("Sự cố mức trung bình / nghiêm trọng phải ghi nhận đã thông báo cơ quan chuyên trách");
+  if (x.severity === "low" && !x.notifiedAuthorityAt && (!x.noNotifyReason || x.noNotifyReason.trim().length < 10)) e.push("Ghi lý do không thông báo (≥ 10 ký tự)");
+  return e;
+}
+export function incidentCode(year: number, seq: number): string {
+  return `SC-DL${String(year).slice(-2)}-${String(seq).padStart(3, "0")}`;
 }
 
 /** Có được xoá (ẩn danh hoá) không — nghĩa vụ lưu giữ chứng từ kế toán thắng yêu cầu xoá */

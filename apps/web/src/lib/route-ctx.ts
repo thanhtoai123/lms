@@ -25,5 +25,6 @@ export function rateLimited(key: string, max: number, windowMs: number) {
 
 export function errorStatus(e: unknown) {
   const code = (e as { code?: string }).code;
+  if ((e as Error)?.name === "ForbiddenError") return 403;
   return code === "FORBIDDEN" ? 403 : code === "NOT_FOUND" ? 404 : code === "UNAUTHORIZED" ? 401 : 400;
 }

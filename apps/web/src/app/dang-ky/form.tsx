@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { anonId, track } from "@/components/site-tracker";
 
-export function TrialForm({ utm, thankYou }: { utm: { utm_source: string; utm_medium: string; utm_campaign: string }; thankYou?: string }) {
+export function TrialForm({ utm, thankYou }: { utm: { utm_source: string; utm_medium: string; utm_campaign: string; ref?: string }; thankYou?: string }) {
   const [state, setState] = useState<"idle" | "sending" | "done" | "error">("idle");
   const [msg, setMsg] = useState("");
   const started = useRef(false);

@@ -417,6 +417,7 @@ export function mapPublicLeadBody(body: Record<string, unknown>) {
     utmCampaign: body.utm_campaign ?? body.utmCampaign ?? null,
     notes: body.ghiChu ?? body.notes ?? null,
     consent: body.consent === true || body.consent === "on" || body.consent === "1",
+    referralCode: typeof body.ref === "string" ? body.ref : typeof body.referralCode === "string" ? body.referralCode : null,
     marketingConsent: body.marketingConsent === true || body.marketingConsent === "on" || body.marketingConsent === "1",
   });
 }
@@ -502,6 +503,10 @@ export async function integrations(ctx: ProtectedContext) {
       details: [`Người gửi: ${e.EMAIL_FROM ?? "Sata Robo <no-reply@satarobo.vn>"}`, `7 ngày: ${em?.sent7 ?? 0} đã gửi · chờ ${em?.queued ?? 0} · lỗi ${em?.failed ?? 0}`] },
     { key: "zns", name: "Zalo OA / ZNS", purpose: "Thông báo & OTP qua Zalo", status: e.ZALO_ZNS_TOKEN ? "ok" : "off", env: ["ZALO_ZNS_TOKEN", "ZALO_OA_ID"], href: "/notifications?channel=zns",
       details: [`Thông báo ZNS chờ gửi: ${zn?.queued ?? 0}`, `OTP 24h: ${otp?.n24 ?? 0}`] },
+    { key: "messenger", name: "Facebook Messenger", purpose: "Hộp thư Messenger CRM, tạo lead từ hội thoại", status: e.META_APP_SECRET && e.META_VERIFY_TOKEN ? (e.META_PAGE_TOKEN ? "ok" : "warn") : "off", env: ["META_VERIFY_TOKEN", "META_APP_SECRET", "META_PAGE_TOKEN"], href: "/crm/messenger",
+      details: ["Webhook: /api/webhooks/messenger (kiểm tra X-Hub-Signature-256)", e.META_PAGE_TOKEN ? "Gửi trả lời: bật" : "Chưa có page token — trả lời chỉ lưu nội bộ"] },
+    { key: "zalo_oa", name: "Zalo OA (tin tư vấn)", purpose: "Nhận / trả lời tin nhắn Zalo OA trong 7 ngày", status: e.ZALO_APP_ID && e.ZALO_OA_SECRET ? (e.ZALO_OA_ACCESS_TOKEN ? "ok" : "warn") : "off", env: ["ZALO_APP_ID", "ZALO_OA_SECRET", "ZALO_OA_ACCESS_TOKEN"], href: "/tin-nhan?channel=zalo",
+      details: ["Webhook: /api/webhooks/zalo (kiểm tra X-ZEvent-Signature)", e.ZALO_OA_ACCESS_TOKEN ? "Gửi tin tư vấn: bật" : "Chưa có access token — trả lời chỉ lưu nội bộ"] },
     { key: "auth", name: "Supabase Auth", purpose: "Đăng nhập nhân sự / phụ huynh", status: e.NEXT_PUBLIC_SUPABASE_URL && e.NEXT_PUBLIC_SUPABASE_ANON_KEY ? "ok" : e.ALLOW_DEV_ACTOR === "1" ? "warn" : "off", env: ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY"],
       details: [e.ALLOW_DEV_ACTOR === "1" ? "Đang bật đăng nhập tài khoản mẫu (ALLOW_DEV_ACTOR=1) — TẮT ở production" : "Tài khoản mẫu đã tắt"] },
     { key: "storage", name: "Lưu trữ ảnh", purpose: "Ảnh lớp học (URL ký, hết hạn)", status: e.MEDIA_SIGNING_SECRET ? "ok" : "warn", env: ["STORAGE_DIR", "MEDIA_SIGNING_SECRET"],

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { authorize, visibleCenterIds, hasPermission, ROLE_LABEL_VI, ROLES, STAFF_ROLES, type Actor } from "./policy.js";
+import { authorize, authorizeGlobal, centersWith, visibleCenterIds, hasPermission, ROLE_LABEL_VI, ROLES, STAFF_ROLES, type Actor } from "./policy.js";
 
 const superAdmin: Actor = { userId: "u0", assignments: [{ role: "SUPER_ADMIN", centerId: null }] };
 const cs1Manager: Actor = { userId: "u1", assignments: [{ role: "CENTER_MANAGER", centerId: "cs1" }] };
@@ -98,4 +98,32 @@ test("tuân thủ / marketing: phân quyền", () => {
   assert.equal(authorize(csm, "site:update", {}).allowed, false);
   assert.equal(authorize(au, "compliance:read", {}).allowed, true);
   assert.equal(authorize(au, "compliance:update", {}).allowed, false);
+});
+
+test("5F: tuyển dụng / tin nhắn / giới thiệu + quyền toàn hệ thống", () => {
+  const hr = { userId: "h", assignments: [{ role: "CENTER_HR" as const, centerId: "c1" }] };
+  const qc = { userId: "q", assignments: [{ role: "CENTER_MANAGER" as const, centerId: "c1" }] };
+  const gv = { userId: "t", personId: "gv1", assignments: [{ role: "TEACHER" as const, centerId: "c1" }] };
+  const kt = { userId: "k", assignments: [{ role: "CENTER_ACCOUNTANT" as const, centerId: "c1" }] };
+  const csm = { userId: "s", assignments: [{ role: "CENTER_SALES_CSM" as const, centerId: "c1" }] };
+  const sa = { userId: "a", assignments: [{ role: "SUPER_ADMIN" as const, centerId: null }] };
+  assert.equal(authorize(hr, "recruit:create", { centerId: "c1" }).allowed, true);
+  assert.equal(authorize(hr, "recruit:create", { centerId: "c2" }).allowed, false);
+  assert.equal(authorize(qc, "recruit:create", { centerId: "c1" }).allowed, false);
+  assert.equal(authorize(qc, "recruit:interview", { centerId: "c1" }).allowed, true);
+  assert.equal(authorize(gv, "recruit:interview", { centerId: "c1", ownerIds: ["gv1"] }).allowed, true);
+  assert.equal(authorize(gv, "message:create", { centerId: "c1", ownerIds: ["gv1"] }).allowed, true);
+  assert.equal(authorize(gv, "message:create", { centerId: "c1", ownerIds: ["gv2"] }).allowed, false);
+  assert.equal(authorize(csm, "message:update", { centerId: "c1" }).allowed, true);
+  assert.equal(authorize(csm, "message:audit", { centerId: "c1" }).allowed, false);
+  assert.equal(authorize(qc, "message:audit", { centerId: "c1" }).allowed, true);
+  assert.equal(authorize(kt, "affiliate:pay", { centerId: "c1" }).allowed, true);
+  assert.equal(authorize(kt, "affiliate:approve", { centerId: "c1" }).allowed, false);
+  assert.equal(authorize(csm, "affiliate:approve", { centerId: "c1" }).allowed, false);
+  assert.equal(authorizeGlobal(qc, "compliance:read"), false);
+  assert.equal(authorize(qc, "compliance:read", {}).allowed, true);
+  assert.equal(authorizeGlobal(sa, "compliance:update"), true);
+  assert.deepEqual(centersWith(hr, "recruit:read"), ["c1"]);
+  assert.deepEqual(centersWith(gv, "recruit:interview"), []);
+  assert.equal(centersWith(sa, "recruit:read"), null);
 });

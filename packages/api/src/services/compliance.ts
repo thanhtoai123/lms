@@ -2,10 +2,12 @@ import { and, eq, inArray, sql, desc, asc, or, isNull, lt, type SQL } from "driz
 import { TRPCError } from "@trpc/server";
 import {
   dataRequests, dataRequestEvents, consentRecords, leads, leadChildren, leadActivities, parents, parentPrivate, studentGuardians, students, enrollments, classes,
-  orders, payments, parentNotifications, parentFeedback, parentRequests, auditLog, users, centers, type Database,
+  orders, payments, parentNotifications, parentFeedback, parentRequests, auditLog, users, centers, dataIncidents, type Database,
 } from "@satarobo/db";
 import {
-  authorize, visibleCenterIds, hasRole, normalizeVnPhone, maskPhone,
+  authorize, authorizeGlobal, visibleCenterIds, hasRole, normalizeVnPhone, maskPhone, dsrAckDue, dsrCanExtend,
+  incidentNotifyDue, validateIncident, incidentCloseCheck, incidentCode, INCIDENT_SEVERITY_VI, INCIDENT_STATUS_VI, DSR_SLA_DAYS,
+  type IncidentSeverity, type IncidentStatus,
   dsrTransition, dsrDue, dsrSlaState, erasureDecision, validateDsr, dsrCode, retentionCutoff, anonymizedPhone, ANON_NAME, CONSENT_TEXT_VERSION,
   DSR_TYPE_VI, DSR_STATUS_VI, CONSENT_PURPOSE_VI, CONSENT_PURPOSES,
   type DsrType, type DsrStatus, type DsrAction, type SubjectType, type ConsentPurpose,
@@ -32,9 +34,10 @@ function rule<T>(fn: () => T): T {
   }
 }
 /** Người xử lý yêu cầu dữ liệu: quản trị hệ thống (DPO) */
-const isProcessor = (ctx: ProtectedContext) => authorize(ctx.actor, "compliance:update", {}).allowed;
+const isProcessor = (ctx: ProtectedContext) => authorizeGlobal(ctx.actor, "compliance:update");
+const isGlobalReader = (ctx: ProtectedContext) => isProcessor(ctx) || authorizeGlobal(ctx.actor, "compliance:read");
 function reqScope(ctx: ProtectedContext): SQL {
-  if (ctx.actor.assignments.some((a) => authorize({ userId: ctx.actor.userId, assignments: [a] }, "compliance:read", {}).allowed && a.centerId === null)) return sql`true`;
+  if (isGlobalReader(ctx)) return sql`true`;
   const v = visibleCenterIds(ctx.actor) ?? [];
   return v.length ? or(inArray(dataRequests.centerId, v), eq(dataRequests.createdBy, ctx.user.id))! : eq(dataRequests.createdBy, ctx.user.id);
 }
@@ -68,7 +71,7 @@ export async function findSubjects(ctx: ProtectedContext, input: { phone: string
 /* ------------------------------------------------------------------ */
 
 export async function listRequests(ctx: ProtectedContext, input: { status?: DsrStatus; open?: boolean }) {
-  if (!authorize(ctx.actor, "compliance:read", {}).allowed && !hasPermissionAny(ctx, "compliance:read")) throw forbid("Không có quyền xem yêu cầu dữ liệu");
+  if (!hasPermissionAny(ctx, "compliance:read") && !hasPermissionAny(ctx, "compliance:create")) throw forbid("Không có quyền xem yêu cầu dữ liệu");
   const conds: SQL[] = [reqScope(ctx)];
   if (input.status) conds.push(eq(dataRequests.status, input.status));
   else if (input.open !== false) conds.push(inArray(dataRequests.status, ["received", "verifying", "in_progress"]));
@@ -87,10 +90,11 @@ export async function listRequests(ctx: ProtectedContext, input: { status?: DsrS
     .where(and(eq(centers.isActive, true), vis === null ? sql`true` : vis.length ? inArray(centers.id, vis) : sql`false`)).orderBy(asc(centers.code));
   return {
     counts: c, canProcess: isProcessor(ctx), canCreate: hasPermissionAny(ctx, "compliance:create"), centers: centerList,
-    globalCreate: authorize(ctx.actor, "compliance:create", {}).allowed,
+    globalCreate: authorizeGlobal(ctx.actor, "compliance:create"),
     items: r.map((x) => ({
       ...x.d, requesterPhone: maskPhone(normalizeVnPhone(x.d.requesterPhone) ?? x.d.requesterPhone), typeLabel: DSR_TYPE_VI[x.d.type as DsrType], statusLabel: DSR_STATUS_VI[x.d.status as DsrStatus],
       sla: dsrSlaState(x.d.dueAt, x.d.status as DsrStatus, now), centerCode: x.centerCode, byName: x.byName,
+      ackOverdue: !x.d.acknowledgedAt && !!x.d.ackDueAt && x.d.ackDueAt < now && (x.d.status === "received"),
     })),
   };
 }
@@ -107,20 +111,22 @@ async function nextCode(db: Db) {
 export async function createRequest(ctx: ProtectedContext, input: { type: DsrType; requesterName: string; requesterPhone: string; channel: string; details: string; subjectType?: SubjectType | null; subjectId?: string | null; centerId?: string | null }) {
   const centerId = input.centerId ?? null;
   if (!authorize(ctx.actor, "compliance:create", { centerId }).allowed) throw forbid("Không có quyền ghi nhận yêu cầu dữ liệu");
+  if (!centerId && !authorizeGlobal(ctx.actor, "compliance:create")) throw bad("Chọn cơ sở tiếp nhận yêu cầu");
   const errs = validateDsr(input);
   if (errs.length) throw bad(errs);
   if ((input.subjectType && !input.subjectId) || (!input.subjectType && input.subjectId)) throw bad("Chọn đủ loại và hồ sơ chủ thể");
   if (input.subjectType && input.subjectId) await loadSubject(ctx.db, input.subjectType, input.subjectId);
   const receivedAt = new Date();
   const dueAt = dsrDue(input.type, receivedAt);
+  const ackDueAt = dsrAckDue(receivedAt);
   const code = await nextCode(ctx.db);
   const [r] = await ctx.db.insert(dataRequests).values({
     code, type: input.type, requesterName: input.requesterName.trim(), requesterPhone: input.requesterPhone.replace(/\D/g, ""), channel: input.channel, details: input.details.trim(),
-    subjectType: input.subjectType ?? null, subjectId: input.subjectId ?? null, centerId, receivedAt, dueAt, createdBy: ctx.user.id,
+    subjectType: input.subjectType ?? null, subjectId: input.subjectId ?? null, centerId, receivedAt, dueAt, ackDueAt, createdBy: ctx.user.id,
   }).returning({ id: dataRequests.id });
   await ctx.db.insert(dataRequestEvents).values({ requestId: r!.id, action: "received", note: `Kênh: ${input.channel}`, userId: ctx.user.id });
   await writeAudit(ctx.db, { actorId: ctx.user.id, action: "CREATE", module: "compliance", entity: "data_requests", entityId: r!.id, after: { code, type: input.type, subjectType: input.subjectType ?? null }, ip: ctx.ip });
-  return { id: r!.id, code, dueAt };
+  return { id: r!.id, code, dueAt, ackDueAt };
 }
 
 async function loadSubject(db: Db, type: SubjectType, id: string) {
@@ -148,6 +154,7 @@ async function subjectFacts(db: Db, type: SubjectType, id: string) {
 }
 
 export async function getRequest(ctx: ProtectedContext, id: string) {
+  if (!hasPermissionAny(ctx, "compliance:read") && !hasPermissionAny(ctx, "compliance:create")) throw forbid("Không có quyền xem yêu cầu dữ liệu");
   const d = await ctx.db.query.dataRequests.findFirst({ where: eq(dataRequests.id, id) });
   if (!d) throw notFound("Không tìm thấy yêu cầu");
   const [visible] = await ctx.db.select({ n: sql<number>`count(*)::int` }).from(dataRequests).where(and(eq(dataRequests.id, id), reqScope(ctx)));
@@ -172,7 +179,8 @@ export async function getRequest(ctx: ProtectedContext, id: string) {
     typeLabel: DSR_TYPE_VI[d.type as DsrType], statusLabel: DSR_STATUS_VI[status], sla: dsrSlaState(d.dueAt, status, new Date()),
     events: events.map((x) => ({ ...x.e, byName: x.byName })), subject,
     exportUrl: processor && d.exportKey ? signedFileUrl(d.exportKey, `${d.code}.json`, 900) : null,
-    can: { process: processor && open, link: processor && open && !d.subjectId, export: processor && open && !!d.subjectId, erase: processor && open && d.type === "delete" && !!subject && !subject.anonymized, consent: processor && open && !!subject },
+    slaDays: DSR_SLA_DAYS[d.type as DsrType],
+    can: { extend: processor && open && !d.extendedAt, process: processor && open, link: processor && open && !d.subjectId, export: processor && open && !!d.subjectId, erase: processor && open && d.type === "delete" && !!subject && !subject.anonymized, consent: processor && open && !!subject },
   };
 }
 
@@ -210,7 +218,7 @@ export async function requestAction(ctx: ProtectedContext, input: { id: string; 
   }
   const now = new Date();
   await ctx.db.update(dataRequests).set({
-    status: to, handledBy: ctx.user.id,
+    status: to, handledBy: ctx.user.id, ...(d.acknowledgedAt ? {} : { acknowledgedAt: now }),
     ...(input.action === "verify" || (input.action === "start" && !d.verifiedAt) ? { verifiedAt: now } : {}),
     ...(to === "completed" || to === "rejected" ? { completedAt: now, resolution: note } : {}),
   }).where(eq(dataRequests.id, d.id));
@@ -330,7 +338,7 @@ async function anonymizeLead(db: Db, id: string, now: Date) {
 /* ------------------------------------------------------------------ */
 
 export async function complianceOverview(ctx: ProtectedContext) {
-  if (!isProcessor(ctx) && !authorize(ctx.actor, "compliance:read", {}).allowed) throw forbid("Chỉ quản trị / kiểm soát xem tổng quan tuân thủ");
+  if (!isGlobalReader(ctx)) throw forbid("Chỉ quản trị / kiểm soát xem tổng quan tuân thủ");
   const s = await getMarketingSettings(ctx.db);
   const cutoff = rule(() => retentionCutoff(todayISO(), s.leadRetentionMonths));
   const [ret] = await ctx.db.select({ n: sql<number>`count(*)::int` }).from(leads)
@@ -347,7 +355,7 @@ export async function complianceOverview(ctx: ProtectedContext) {
   return {
     retention: { months: s.leadRetentionMonths, cutoff, due: ret?.n ?? 0 },
     consent: cons ?? { leadsNoConsent: 0, marketingOptOut: 0, mediaConsent: 0, parents: 0 },
-    piiReveals: reveals, recentReveals: recent, canProcess: isProcessor(ctx),
+    piiReveals: reveals, recentReveals: recent, canProcess: isProcessor(ctx), incidents: await incidentSummary(ctx.db),
   };
 }
 
@@ -379,4 +387,99 @@ export async function consentHistory(ctx: ProtectedContext, input: { subjectType
   const r = await ctx.db.select({ c: consentRecords, byName: users.fullName }).from(consentRecords).leftJoin(users, eq(users.id, consentRecords.recordedBy))
     .where(and(eq(consentRecords.subjectType, input.subjectType), eq(consentRecords.subjectId, input.subjectId))).orderBy(desc(consentRecords.createdAt));
   return { current: await consentState(ctx.db, input.subjectType, input.subjectId), history: r.map((x) => ({ ...x.c, purposeLabel: CONSENT_PURPOSE_VI[x.c.purpose as ConsentPurpose], byName: x.byName })) };
+}
+
+/* ------------------------------------------------------------------ */
+/* Gia hạn yêu cầu                                                      */
+/* ------------------------------------------------------------------ */
+
+export async function extendRequest(ctx: ProtectedContext, input: { id: string; reason: string }) {
+  if (!isProcessor(ctx)) throw forbid("Chỉ người phụ trách xử lý");
+  const d = await ctx.db.query.dataRequests.findFirst({ where: eq(dataRequests.id, input.id) });
+  if (!d) throw notFound("Không tìm thấy yêu cầu");
+  const errs = dsrCanExtend({ status: d.status as DsrStatus, extendedAt: d.extendedAt, reason: input.reason });
+  if (errs.length) throw pre(errs);
+  const now = new Date();
+  const dueAt = dsrDue(d.type as DsrType, d.receivedAt, true);
+  await ctx.db.update(dataRequests).set({ dueAt, extendedAt: now, extensionReason: input.reason.trim(), ...(d.acknowledgedAt ? {} : { acknowledgedAt: now }) }).where(eq(dataRequests.id, d.id));
+  await logEvent(ctx.db, d.id, "extend", `Gia hạn đến ${dueAt.toISOString().slice(0, 10)}: ${input.reason.trim()}`, ctx.user.id);
+  await writeAudit(ctx.db, { actorId: ctx.user.id, action: "UPDATE", module: "compliance", entity: "data_requests", entityId: d.id, before: { dueAt: d.dueAt }, after: { dueAt }, reason: input.reason.trim(), ip: ctx.ip });
+  return { dueAt };
+}
+
+/* ------------------------------------------------------------------ */
+/* Sổ sự cố dữ liệu                                                     */
+/* ------------------------------------------------------------------ */
+
+async function incidentSummary(db: Db) {
+  const [r] = await db.select({
+    open: sql<number>`count(*) filter (where ${dataIncidents.status} <> 'closed')::int`,
+    notifyOverdue: sql<number>`count(*) filter (where ${dataIncidents.status} <> 'closed' and ${dataIncidents.notifiedAuthorityAt} is null and ${dataIncidents.severity} <> 'low' and ${dataIncidents.notifyDueAt} < now())::int`,
+    total: sql<number>`count(*)::int`,
+  }).from(dataIncidents);
+  return r ?? { open: 0, notifyOverdue: 0, total: 0 };
+}
+
+export async function listIncidents(ctx: ProtectedContext) {
+  const canSee = isGlobalReader(ctx);
+  const canReport = hasPermissionAny(ctx, "compliance:create");
+  if (!canSee && !canReport) throw forbid("Không có quyền");
+  const r = await ctx.db.select({ i: dataIncidents, centerCode: centers.code, byName: users.fullName }).from(dataIncidents)
+    .leftJoin(centers, eq(centers.id, dataIncidents.centerId)).leftJoin(users, eq(users.id, dataIncidents.reportedBy))
+    .where(canSee ? undefined : eq(dataIncidents.reportedBy, ctx.user.id)).orderBy(desc(dataIncidents.detectedAt)).limit(100);
+  const now = new Date();
+  return {
+    canProcess: isProcessor(ctx), canReport,
+    items: r.map(({ i, centerCode, byName }) => ({
+      ...i, centerCode, byName, severityLabel: INCIDENT_SEVERITY_VI[i.severity as IncidentSeverity], statusLabel: INCIDENT_STATUS_VI[i.status as IncidentStatus],
+      notifyOverdue: i.status !== "closed" && i.severity !== "low" && !i.notifiedAuthorityAt && i.notifyDueAt < now,
+    })),
+  };
+}
+
+export async function reportIncident(ctx: ProtectedContext, input: { title: string; description: string; severity: IncidentSeverity; detectedAt: string; affectedCount: number; dataTypes?: string | null; centerId?: string | null }) {
+  const centerId = input.centerId ?? null;
+  if (!authorize(ctx.actor, "compliance:create", { centerId }).allowed) throw forbid("Không có quyền báo cáo sự cố");
+  if (!centerId && !authorizeGlobal(ctx.actor, "compliance:create")) throw bad("Chọn cơ sở xảy ra sự cố");
+  const detectedAt = new Date(input.detectedAt);
+  if (Number.isNaN(detectedAt.getTime())) throw bad("Thời điểm phát hiện không hợp lệ");
+  const errs = validateIncident({ ...input, detectedAt, now: new Date() });
+  if (errs.length) throw bad(errs);
+  const y = Number(todayISO().slice(0, 4));
+  const [c] = await ctx.db.select({ n: sql<number>`count(*)::int` }).from(dataIncidents).where(sql`${dataIncidents.code} like ${`SC-DL${String(y).slice(-2)}-%`}`);
+  const code = incidentCode(y, (c?.n ?? 0) + 1);
+  const [r] = await ctx.db.insert(dataIncidents).values({
+    code, title: input.title.trim(), description: input.description.trim(), severity: input.severity, centerId, dataTypes: input.dataTypes?.trim() || null,
+    affectedCount: input.affectedCount, detectedAt, notifyDueAt: incidentNotifyDue(detectedAt), reportedBy: ctx.user.id,
+  }).returning({ id: dataIncidents.id });
+  await writeAudit(ctx.db, { actorId: ctx.user.id, action: "CREATE", module: "compliance", entity: "data_incidents", entityId: r!.id, after: { code, severity: input.severity, affectedCount: input.affectedCount }, ip: ctx.ip });
+  return { id: r!.id, code, notifyDueAt: incidentNotifyDue(detectedAt) };
+}
+
+export async function updateIncident(ctx: ProtectedContext, input: { id: string; action: "contain" | "notify_authority" | "notify_subjects" | "close"; containment?: string | null; noNotifyReason?: string | null }) {
+  if (!isProcessor(ctx)) throw forbid("Chỉ người phụ trách bảo vệ dữ liệu xử lý sự cố");
+  const i = await ctx.db.query.dataIncidents.findFirst({ where: eq(dataIncidents.id, input.id) });
+  if (!i) throw notFound("Không tìm thấy sự cố");
+  if (i.status === "closed") throw pre("Sự cố đã đóng");
+  const now = new Date();
+  const containment = input.containment?.trim() || i.containment;
+  const set: Partial<typeof dataIncidents.$inferInsert> = { handledBy: ctx.user.id, containment };
+  if (input.action === "contain") {
+    if (!containment || containment.length < 10) throw bad("Ghi biện pháp khoanh vùng / khắc phục (≥ 10 ký tự)");
+    set.status = "contained";
+  } else if (input.action === "notify_authority") {
+    if (i.notifiedAuthorityAt) throw pre("Đã ghi nhận thông báo cơ quan chuyên trách");
+    set.notifiedAuthorityAt = now;
+  } else if (input.action === "notify_subjects") {
+    if (i.notifiedSubjectsAt) throw pre("Đã ghi nhận thông báo người bị ảnh hưởng");
+    set.notifiedSubjectsAt = now;
+  } else {
+    const noNotifyReason = input.noNotifyReason?.trim() || i.noNotifyReason;
+    const errs = incidentCloseCheck({ severity: i.severity as IncidentSeverity, notifiedAuthorityAt: i.notifiedAuthorityAt, containment, noNotifyReason });
+    if (errs.length) throw pre(errs);
+    Object.assign(set, { status: "closed", closedAt: now, noNotifyReason });
+  }
+  await ctx.db.update(dataIncidents).set(set).where(eq(dataIncidents.id, i.id));
+  await writeAudit(ctx.db, { actorId: ctx.user.id, action: "TRANSITION", module: "compliance", entity: "data_incidents", entityId: i.id, before: { status: i.status }, after: { action: input.action, status: set.status ?? i.status, lateNotify: input.action === "notify_authority" && now > i.notifyDueAt }, ip: ctx.ip });
+  return { status: set.status ?? i.status, late: input.action === "notify_authority" ? now > i.notifyDueAt : null };
 }

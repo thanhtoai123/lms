@@ -150,6 +150,25 @@ jobs:
             curl -sf -o /dev/null "http://localhost:3000$p" || { echo "FAIL public $p"; exit 1; }
           done
           curl -s -X POST -H 'Content-Type: application/json' -d '{"event":"page_view","anonId":"ciAnon0000000001","path":"/tin-tuc"}' http://localhost:3000/api/public/track | grep -q '"ok":true'
+          HR="x-dev-actor=hr.cs1@example.test"
+          for p in /jobs "/jobs?status=open"; do
+            curl -sf -o /dev/null -b "$HR" "http://localhost:3000$p" || { echo "FAIL recruit $p"; exit 1; }
+          done
+          for JID in $(curl -s -b "$HR" "http://localhost:3000/api/trpc/recruit.jobs" | grep -o '"id":"[0-9a-f-]\{36\}","code":"TD' | cut -d'"' -f4); do
+            curl -sf -o /dev/null -b "$HR" "http://localhost:3000/jobs/$JID" || { echo "FAIL job $JID"; exit 1; }
+          done
+          for p in /tin-nhan "/tin-nhan?flagged=1" /hoi-thoai /crm/messenger /affiliates "/affiliates?tab=rewards" /bao-cao/chat-pilot; do
+            curl -sf -o /dev/null -b "$M" "http://localhost:3000$p" || { echo "FAIL 5F(M) $p"; exit 1; }
+          done
+          for p in /van-hanh /tich-hop /compliance; do
+            curl -sf -o /dev/null -b "$A" "http://localhost:3000$p" || { echo "FAIL ops $p"; exit 1; }
+          done
+          curl -sf -o /dev/null -b "x-dev-actor=teacher1@satarobo.vn" http://localhost:3000/tin-nhan || { echo "FAIL tin-nhan(GV)"; exit 1; }
+          for p in /tuyen-dung /api/public/jobs; do
+            curl -sf -o /dev/null "http://localhost:3000$p" || { echo "FAIL public $p"; exit 1; }
+          done
+          curl -s http://localhost:3000/api/health | grep -q '"status"'
+          curl -s -o /dev/null -w "%{http_code}" -X POST -d '{}' http://localhost:3000/api/webhooks/messenger | grep -q "503\|401"
           curl -sf http://localhost:3000/bt/khong-ton-tai-token-123 | grep -q "không đúng"   # trang nộp bài công khai
           curl -sf http://localhost:3000/ks/khong-ton-tai-123 | grep -q "không đúng"   # trang khảo sát công khai
           for SID in $(curl -s -b "$H" "http://localhost:3000/api/trpc/hr.staff" | grep -o '"id":"[0-9a-f-]\{36\}","code":"NV' | cut -d'"' -f4); do

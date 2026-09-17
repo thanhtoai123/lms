@@ -10,6 +10,9 @@ import { processEmailQueue } from "./services/admin";
 import { remindDueHomework } from "./services/assignments";
 import { publishDuePosts } from "./services/growth";
 import { retentionSweep } from "./services/compliance";
+import { candidateRetention } from "./services/recruit";
+import { syncAffiliateRewards } from "./services/affiliates";
+import { recordHeartbeat } from "./services/ops";
 
 const db = createDb();
 const interval = Number(process.env.WORKER_INTERVAL_MS ?? 10_000);
@@ -30,6 +33,8 @@ async function tick() {
       if (pub) console.log(new Date().toISOString(), `posts published=${pub}`);
       const hw = await remindDueHomework(db);
       if (hw) console.log(new Date().toISOString(), `homework reminders=${hw}`);
+      const af = await syncAffiliateRewards(db);
+      if (af.created || af.voided) console.log(new Date().toISOString(), `affiliate rewards created=${af.created} voided=${af.voided}`);
       const n = await runSurveyTriggers(db);
       if (n) console.log(new Date().toISOString(), `survey invites=${n}`);
     }
@@ -37,7 +42,10 @@ async function tick() {
       lastRetention = Date.now();
       const rt = await retentionSweep(db, { dryRun: false, actorId: null });
       if (rt.done) console.log(new Date().toISOString(), `retention anonymized=${rt.done}`);
+      const cr = await candidateRetention(db, { dryRun: false });
+      if (cr.count) console.log(new Date().toISOString(), `candidates anonymized=${cr.count}`);
     }
+    await recordHeartbeat(db, "worker", { processed: r.processed, failed: r.failed, sla });
     if (r.processed || r.failed || sla) console.log(new Date().toISOString(), `outbox processed=${r.processed} failed=${r.failed} actions=${r.actions} sla=${sla}`);
   } catch (e) {
     console.error("worker error", e);

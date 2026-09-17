@@ -33,6 +33,8 @@ export const leads = pgTable(
     utmMedium: text("utm_medium"),
     utmCampaign: text("utm_campaign"),
     referrerParentId: uuid("referrer_parent_id").references(() => parents.id),
+    /** Mã giới thiệu (affiliate) — không FK để tránh vòng import; khớp affiliates.code */
+    referralCode: text("referral_code"),
     assignedToId: uuid("assigned_to_id").references(() => users.id),
     assignedAt: timestamp("assigned_at", { withTimezone: true }),
     /** Mốc tính SLA: lần chạm gần nhất hoặc lần đổi trạng thái gần nhất */

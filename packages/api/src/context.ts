@@ -33,7 +33,9 @@ export async function createContext(opts: { headers: Headers; ip?: string }): Pr
   }
 
   // Dev: chỉ nhận tài khoản mẫu chọn ở trang /login (cookie x-dev-actor) — không tự đăng nhập ngầm
-  if (!email && process.env.ALLOW_DEV_ACTOR === "1") {
+  // Không bao giờ nhận tài khoản mẫu khi chạy production (trừ khi cố ý bật cho môi trường thử nghiệm)
+  const devAllowed = process.env.ALLOW_DEV_ACTOR === "1" && (process.env.NODE_ENV !== "production" || process.env.ALLOW_DEV_ACTOR_IN_PRODUCTION === "1");
+  if (!email && devAllowed) {
     email = opts.headers.get("x-dev-actor");
   }
 
@@ -46,6 +48,7 @@ export async function createContext(opts: { headers: Headers; ip?: string }): Pr
 
   // Liên kết auth_subject lần đầu đăng nhập qua Supabase
   if (authSubject && !u.authSubject) await db.update(users).set({ authSubject, lastLoginAt: new Date() }).where(eq(users.id, u.id));
+  else if (!u.lastLoginAt || Date.now() - u.lastLoginAt.getTime() > 3_600_000) await db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, u.id));
 
   const roles = await db.select({ role: userRoles.role, centerId: userRoles.centerId }).from(userRoles).where(eq(userRoles.userId, u.id));
   const teacher = await db.query.teachers.findFirst({ where: eq(teachers.userId, u.id), columns: { id: true } });

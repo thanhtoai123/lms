@@ -1,5 +1,5 @@
 import { pgTable, text, uuid, integer, bigint, boolean, date, timestamp, pgEnum, jsonb, index, uniqueIndex } from "drizzle-orm/pg-core";
-import { POST_STATUSES, POST_CATEGORIES, TRACK_EVENTS, CHANNELS, DSR_TYPES, DSR_STATUSES, SUBJECT_TYPES, CONSENT_PURPOSES } from "@satarobo/core";
+import { POST_STATUSES, POST_CATEGORIES, TRACK_EVENTS, CHANNELS, DSR_TYPES, DSR_STATUSES, SUBJECT_TYPES, CONSENT_PURPOSES, INCIDENT_SEVERITIES, INCIDENT_STATUSES } from "@satarobo/core";
 import { id, timestamps } from "./_common";
 import { users } from "./identity";
 import { centers } from "./org";
@@ -13,6 +13,8 @@ export const dsrTypeEnum = pgEnum("dsr_type", DSR_TYPES);
 export const dsrStatusEnum = pgEnum("dsr_status", DSR_STATUSES);
 export const subjectTypeEnum = pgEnum("data_subject_type", SUBJECT_TYPES);
 export const consentPurposeEnum = pgEnum("consent_purpose", CONSENT_PURPOSES);
+export const incidentSeverityEnum = pgEnum("incident_severity", INCIDENT_SEVERITIES);
+export const incidentStatusEnum = pgEnum("incident_status", INCIDENT_STATUSES);
 
 /** Bài viết website */
 export const posts = pgTable("posts", {
@@ -137,6 +139,10 @@ export const dataRequests = pgTable("data_requests", {
   receivedAt: timestamp("received_at", { withTimezone: true }).notNull().defaultNow(),
   dueAt: timestamp("due_at", { withTimezone: true }).notNull(),
   verifiedAt: timestamp("verified_at", { withTimezone: true }),
+  ackDueAt: timestamp("ack_due_at", { withTimezone: true }),
+  acknowledgedAt: timestamp("acknowledged_at", { withTimezone: true }),
+  extendedAt: timestamp("extended_at", { withTimezone: true }),
+  extensionReason: text("extension_reason"),
   completedAt: timestamp("completed_at", { withTimezone: true }),
   resolution: text("resolution"),
   exportKey: text("export_key"),
@@ -153,3 +159,26 @@ export const dataRequestEvents = pgTable("data_request_events", {
   userId: uuid("user_id").references(() => users.id),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+/** Sổ sự cố / vi phạm dữ liệu cá nhân */
+export const dataIncidents = pgTable("data_incidents", {
+  id: id(),
+  code: text("code").notNull().unique(),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  severity: incidentSeverityEnum("severity").notNull(),
+  status: incidentStatusEnum("status").notNull().default("open"),
+  centerId: uuid("center_id").references(() => centers.id),
+  dataTypes: text("data_types"),
+  affectedCount: integer("affected_count").notNull().default(0),
+  detectedAt: timestamp("detected_at", { withTimezone: true }).notNull(),
+  notifyDueAt: timestamp("notify_due_at", { withTimezone: true }).notNull(),
+  containment: text("containment"),
+  notifiedAuthorityAt: timestamp("notified_authority_at", { withTimezone: true }),
+  notifiedSubjectsAt: timestamp("notified_subjects_at", { withTimezone: true }),
+  noNotifyReason: text("no_notify_reason"),
+  closedAt: timestamp("closed_at", { withTimezone: true }),
+  reportedBy: uuid("reported_by").references(() => users.id),
+  handledBy: uuid("handled_by").references(() => users.id),
+  ...timestamps,
+}, (t) => [index("data_incidents_status_idx").on(t.status, t.notifyDueAt)]);

@@ -10,6 +10,7 @@ export function PublicShell({ children }: { children: React.ReactNode }) {
           <nav className="flex gap-4 text-sm">
             <Link href="/gioi-thieu" className="hover:text-brand-600">Giới thiệu</Link>
             <Link href="/tin-tuc" className="hover:text-brand-600">Tin tức</Link>
+            <Link href="/tuyen-dung" className="hover:text-brand-600">Tuyển dụng</Link>
             <Link href="/dang-ky" className="btn-primary !py-1.5">Học thử miễn phí</Link>
           </nav>
         </div>

@@ -31,3 +31,5 @@ export * from "./inventory/rules.js";
 export * from "./rewards/rules.js";
 export * from "./content/rules.js";
 export * from "./growth/rules.js";
+export * from "./outreach/rules.js";
+export * from "./ops/rules.js";

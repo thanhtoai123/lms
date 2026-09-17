@@ -156,3 +156,5 @@ ALTER TABLE posts DROP CONSTRAINT IF EXISTS posts_publish_check;
 ALTER TABLE posts ADD CONSTRAINT posts_publish_check CHECK (status <> 'scheduled' OR publish_at IS NOT NULL);
 ALTER TABLE data_requests DROP CONSTRAINT IF EXISTS data_requests_check;
 ALTER TABLE data_requests ADD CONSTRAINT data_requests_check CHECK (due_at >= received_at);
+ALTER TABLE data_incidents DROP CONSTRAINT IF EXISTS data_incidents_check;
+ALTER TABLE data_incidents ADD CONSTRAINT data_incidents_check CHECK (affected_count >= 0 AND notify_due_at >= detected_at AND (status <> 'closed' OR closed_at IS NOT NULL));

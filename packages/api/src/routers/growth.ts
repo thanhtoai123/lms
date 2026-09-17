@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { POST_STATUSES, POST_CATEGORIES, CHANNELS, DSR_TYPES, DSR_STATUSES, SUBJECT_TYPES, CONSENT_PURPOSES, SITE_PAGE_KEYS } from "@satarobo/core";
+import { POST_STATUSES, POST_CATEGORIES, CHANNELS, DSR_TYPES, DSR_STATUSES, SUBJECT_TYPES, CONSENT_PURPOSES, SITE_PAGE_KEYS, INCIDENT_SEVERITIES } from "@satarobo/core";
 import { router, protectedProcedure } from "../trpc";
 import * as G from "../services/growth";
 import * as C from "../services/compliance";
@@ -51,5 +51,13 @@ export const complianceRouter = router({
   setConsent: protectedProcedure.input(z.object({ id: uuid, purpose: z.enum(CONSENT_PURPOSES), granted: z.boolean() })).mutation(({ ctx, input }) => C.setConsent(ctx, input)),
   erase: protectedProcedure.input(z.object({ id: uuid, confirm: s(30) })).mutation(({ ctx, input }) => C.eraseSubject(ctx, input)),
   retention: protectedProcedure.input(z.object({ dryRun: z.boolean() })).mutation(({ ctx, input }) => C.runRetention(ctx, input)),
+  extend: protectedProcedure.input(z.object({ id: uuid, reason: s(500) })).mutation(({ ctx, input }) => C.extendRequest(ctx, input)),
+  incidents: protectedProcedure.query(({ ctx }) => C.listIncidents(ctx)),
+  reportIncident: protectedProcedure
+    .input(z.object({ title: s(150), description: s(3000), severity: z.enum(INCIDENT_SEVERITIES), detectedAt: z.string().datetime({ offset: true }), affectedCount: z.number().int().min(0).max(10_000_000), dataTypes: s(300).nullish(), centerId: uuid.nullish() }))
+    .mutation(({ ctx, input }) => C.reportIncident(ctx, input)),
+  updateIncident: protectedProcedure
+    .input(z.object({ id: uuid, action: z.enum(["contain", "notify_authority", "notify_subjects", "close"]), containment: s(2000).nullish(), noNotifyReason: s(1000).nullish() }))
+    .mutation(({ ctx, input }) => C.updateIncident(ctx, input)),
   consentHistory: protectedProcedure.input(z.object({ subjectType: z.enum(SUBJECT_TYPES), subjectId: uuid })).query(({ ctx, input }) => C.consentHistory(ctx, input)),
 });

@@ -4,12 +4,14 @@ import { router, protectedProcedure } from "../trpc";
 import * as Acc from "../services/accounts";
 import * as Rep from "../services/reports";
 import * as Tr from "../services/trials";
+import * as Ops from "../services/ops";
 
 const uuid = z.string().uuid();
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Ngày không hợp lệ");
 const roleAssign = z.object({ role: z.enum(ROLES), centerId: uuid.nullable() });
 
 export const systemRouter = router({
+  ops: protectedProcedure.query(({ ctx }) => Ops.opsStatus(ctx)),
   users: protectedProcedure
     .input(z.object({ q: z.string().max(100).optional(), role: z.enum(ROLES).optional(), centerId: uuid.optional(), status: z.enum(["active", "locked"]).optional(), page: z.number().int().min(1).optional() }).default({}))
     .query(({ ctx, input }) => Acc.listUsers(ctx, input)),

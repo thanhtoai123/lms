@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { DSR_TYPES, DSR_TYPE_VI, CONSENT_PURPOSE_VI, type DsrType, type SubjectType, type ConsentPurpose } from "@satarobo/core";
+import { DSR_TYPES, DSR_TYPE_VI, DSR_SLA_DAYS, CONSENT_PURPOSE_VI, INCIDENT_SEVERITIES, INCIDENT_SEVERITY_VI, type DsrType, type SubjectType, type ConsentPurpose, type IncidentSeverity } from "@satarobo/core";
 import { useTRPC } from "@/lib/trpc/client";
 
 const CHANNELS: { key: string; label: string }[] = [
@@ -57,7 +57,7 @@ export function CreateRequestForm({ centers, globalCreate }: { centers: { id: st
         m.mutate({ ...v, centerId: v.centerId || null, subjectType: subject?.type ?? null, subjectId: subject?.id ?? null });
       }}>
         <h3 className="col-span-2 font-semibold">Ghi nhận yêu cầu về dữ liệu cá nhân</h3>
-        <p className="col-span-2 text-xs text-ink-600">Hạn phản hồi 72 giờ kể từ khi nhận. Không hứa hẹn kết quả với người yêu cầu trước khi bộ phận bảo vệ dữ liệu xác minh.</p>
+        <p className="col-span-2 text-xs text-ink-600">Phản hồi tiếp nhận trong 2 ngày làm việc; hạn thực hiện loại này: {DSR_SLA_DAYS[v.type]} ngày (gia hạn 1 lần). Không hứa hẹn kết quả với người yêu cầu trước khi bộ phận bảo vệ dữ liệu xác minh.</p>
         <label className="col-span-2">Loại yêu cầu<select className="input mt-1" value={v.type} onChange={(e) => setV({ ...v, type: e.target.value as DsrType })}>{DSR_TYPES.map((t) => <option key={t} value={t}>{DSR_TYPE_VI[t]}</option>)}</select></label>
         <label>Người yêu cầu<input className="input mt-1" value={v.requesterName} onChange={(e) => setV({ ...v, requesterName: e.target.value })} required minLength={2} /></label>
         <label>SĐT người yêu cầu<input className="input mt-1" value={v.requesterPhone} onChange={(e) => setV({ ...v, requesterPhone: e.target.value })} required inputMode="tel" /></label>
@@ -166,6 +166,75 @@ export function RetentionRun({ due }: { due: number }) {
         {due > 0 && <button type="button" className="btn-ghost text-red-700" disabled={m.isPending} onClick={() => { if (window.confirm(`Ẩn danh hoá ${due} lead quá hạn lưu giữ? Không thể hoàn tác.`)) m.mutate({ dryRun: false }); }}>Ẩn danh ngay</button>}
       </div>
       {m.data && <p className="text-xs text-ink-600">Mốc: trước {m.data.cutoff} · {m.data.count} lead đến hạn · đã xử lý {m.data.done}</p>}
+      {m.error && <p className="text-red-700">{m.error.message}</p>}
+    </div>
+  );
+}
+
+export function ExtendForm({ id }: { id: string }) {
+  const trpc = useTRPC();
+  const router = useRouter();
+  const [reason, setReason] = useState("");
+  const m = useMutation(trpc.compliance.extend.mutationOptions({ onSuccess: () => router.refresh() }));
+  return (
+    <form className="flex flex-wrap gap-2 text-sm" onSubmit={(e) => { e.preventDefault(); m.mutate({ id, reason }); }}>
+      <input className="input flex-1" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Lý do gia hạn (1 lần, thông báo cho người yêu cầu)" />
+      <button className="btn-ghost" disabled={m.isPending || reason.trim().length < 10}>Gia hạn</button>
+      {m.error && <p className="w-full text-red-700">{m.error.message}</p>}
+    </form>
+  );
+}
+
+export function ReportIncidentForm({ centers, globalCreate }: { centers: { id: string; code: string; name: string }[]; globalCreate: boolean }) {
+  const trpc = useTRPC();
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const nowLocal = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); };
+  const [v, setV] = useState({ title: "", description: "", severity: "medium" as IncidentSeverity, detectedAt: nowLocal(), affectedCount: 0, dataTypes: "", centerId: globalCreate ? "" : centers[0]?.id ?? "" });
+  const m = useMutation(trpc.compliance.reportIncident.mutationOptions({ onSuccess: () => { setOpen(false); router.refresh(); } }));
+  if (!open) return <button type="button" className="btn-ghost text-red-700" onClick={() => setOpen(true)}>+ Báo sự cố</button>;
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/30 p-4">
+      <form className="card mt-10 grid w-full max-w-xl grid-cols-2 gap-2 p-4 text-sm" onSubmit={(e) => {
+        e.preventDefault();
+        m.mutate({ ...v, detectedAt: new Date(v.detectedAt).toISOString(), centerId: v.centerId || null, dataTypes: v.dataTypes || null });
+      }}>
+        <h3 className="col-span-2 font-semibold">Báo sự cố dữ liệu cá nhân</h3>
+        <p className="col-span-2 text-xs text-ink-600">Báo ngay khi phát hiện (gửi nhầm danh sách, mất máy có dữ liệu, lộ tài khoản…). Không tự xử lý bằng cách xoá dấu vết.</p>
+        <label className="col-span-2">Tiêu đề<input className="input mt-1" value={v.title} onChange={(e) => setV({ ...v, title: e.target.value })} required /></label>
+        <label className="col-span-2">Mô tả<textarea className="input mt-1" rows={3} value={v.description} onChange={(e) => setV({ ...v, description: e.target.value })} required placeholder="Điều gì xảy ra, khi nào, dữ liệu gì, ai nhận được" /></label>
+        <label>Mức độ<select className="input mt-1" value={v.severity} onChange={(e) => setV({ ...v, severity: e.target.value as IncidentSeverity })}>{INCIDENT_SEVERITIES.map((x) => <option key={x} value={x}>{INCIDENT_SEVERITY_VI[x]}</option>)}</select></label>
+        <label>Phát hiện lúc<input type="datetime-local" className="input mt-1" value={v.detectedAt} onChange={(e) => setV({ ...v, detectedAt: e.target.value })} required /></label>
+        <label>Số người ảnh hưởng<input type="number" min={0} className="input mt-1" value={v.affectedCount} onChange={(e) => setV({ ...v, affectedCount: Number(e.target.value) })} /></label>
+        <label>Cơ sở<select className="input mt-1" value={v.centerId} onChange={(e) => setV({ ...v, centerId: e.target.value })}>{globalCreate && <option value="">Toàn hệ thống</option>}{centers.map((c) => <option key={c.id} value={c.id}>{c.code}</option>)}</select></label>
+        <label className="col-span-2">Loại dữ liệu<input className="input mt-1" value={v.dataTypes} onChange={(e) => setV({ ...v, dataTypes: e.target.value })} placeholder="Họ tên, SĐT phụ huynh, ảnh học viên…" /></label>
+        {m.error && <p className="col-span-2 text-red-700">{m.error.message}</p>}
+        <div className="col-span-2 flex justify-end gap-2">
+          <button type="button" className="btn-ghost" onClick={() => setOpen(false)}>Huỷ</button>
+          <button className="btn-primary" disabled={m.isPending}>Ghi nhận</button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+export function IncidentActions({ id, severity, notifiedAuthority, notifiedSubjects, containment }: { id: string; severity: string; notifiedAuthority: boolean; notifiedSubjects: boolean; containment: string | null }) {
+  const trpc = useTRPC();
+  const router = useRouter();
+  const [text, setText] = useState(containment ?? "");
+  const [reason, setReason] = useState("");
+  const m = useMutation(trpc.compliance.updateIncident.mutationOptions({ onSuccess: () => router.refresh() }));
+  const go = (action: "contain" | "notify_authority" | "notify_subjects" | "close") => m.mutate({ id, action, containment: text || null, noNotifyReason: reason || null });
+  return (
+    <div className="w-56 space-y-1 text-xs">
+      <textarea className="input !text-xs" rows={2} value={text} onChange={(e) => setText(e.target.value)} placeholder="Biện pháp khoanh vùng / khắc phục" />
+      <div className="flex flex-wrap gap-1">
+        <button type="button" className="btn-ghost !px-2 !py-1" disabled={m.isPending} onClick={() => go("contain")}>Đã khoanh vùng</button>
+        {!notifiedAuthority && <button type="button" className="btn-ghost !px-2 !py-1" disabled={m.isPending} onClick={() => go("notify_authority")}>Đã báo A05</button>}
+        {!notifiedSubjects && <button type="button" className="btn-ghost !px-2 !py-1" disabled={m.isPending} onClick={() => go("notify_subjects")}>Đã báo người bị ảnh hưởng</button>}
+      </div>
+      {severity === "low" && !notifiedAuthority && <input className="input !text-xs" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Lý do không thông báo (mức thấp)" />}
+      <button type="button" className="btn-primary !px-2 !py-1" disabled={m.isPending} onClick={() => go("close")}>Đóng sự cố</button>
       {m.error && <p className="text-red-700">{m.error.message}</p>}
     </div>
   );

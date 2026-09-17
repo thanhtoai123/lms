@@ -4,6 +4,7 @@ import { leads, leadActivities, leadTasks, leadAssignees, leadChildren, users, c
 import {
   leadTransition, computeSla, normalizeVnPhone, maskPhone, OPEN_LEAD_STATUSES, visibleCenterIds, hasRole, buildStudentCode, CONSENT_TEXT_VERSION,
   type LeadStatus, type LeadEvent,
+  normalizeRefCode,
 } from "@satarobo/core";
 import { resolveAdmissionsPolicy, autoPickAssignee, type Db } from "./admissionsAdmin";
 import { requirePermission, type ProtectedContext } from "../trpc";
@@ -36,6 +37,7 @@ export interface CreateLeadInput {
   consent?: boolean;
   /** Đồng ý nhận thông tin tiếp thị (NĐ13: tách riêng mục đích) */
   marketingConsent?: boolean;
+  referralCode?: string | null;
   autoAssign?: boolean;
   /** Giao tay ngay khi tạo (bỏ qua chế độ chia) */
   assignedToId?: string | null;
@@ -84,6 +86,7 @@ export async function createLead(db: ProtectedContext["db"], input: CreateLeadIn
         interestedCourseId: input.interestedCourseId ?? null, centerId: input.centerId ?? null, source: input.source ?? null,
         utmSource: input.utmSource ?? null, utmMedium: input.utmMedium ?? null, utmCampaign: input.utmCampaign ?? null,
         notes: input.notes ?? null, consentAt: input.consent ? new Date() : null,
+        referralCode: normalizeRefCode(input.referralCode),
         assignedToId, assignedAt: assignedToId ? new Date() : null,
       })
       .returning();

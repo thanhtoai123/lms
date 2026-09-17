@@ -27,5 +27,5 @@ export default async function DangKyPage({ searchParams }: { searchParams: Promi
 
 async function TrialFormWrapper({ searchParams, thankYou }: { searchParams: Promise<Record<string, string>>; thankYou?: string }) {
   const sp = await searchParams;
-  return <TrialForm thankYou={thankYou} utm={{ utm_source: sp.utm_source ?? "", utm_medium: sp.utm_medium ?? "", utm_campaign: sp.utm_campaign ?? "" }} />;
+  return <TrialForm thankYou={thankYou} utm={{ utm_source: sp.utm_source ?? "", utm_medium: sp.utm_medium ?? "", utm_campaign: sp.utm_campaign ?? "", ref: (sp.ref ?? "").slice(0, 20) }} />;
 }

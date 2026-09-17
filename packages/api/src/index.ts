@@ -17,6 +17,7 @@ import { adminRouter } from "./routers/admin";
 import { inventoryRouter, coinRouter } from "./routers/inventory";
 import { contentRouter } from "./routers/content";
 import { siteRouter, marketingRouter, complianceRouter } from "./routers/growth";
+import { recruitRouter, messagingRouter, affiliateRouter } from "./routers/outreach";
 
 export const appRouter = router({
   auth: authRouter,
@@ -45,6 +46,9 @@ export const appRouter = router({
   site: siteRouter,
   marketing: marketingRouter,
   compliance: complianceRouter,
+  recruit: recruitRouter,
+  messaging: messagingRouter,
+  affiliate: affiliateRouter,
 });
 
 export type AppRouter = typeof appRouter;
@@ -63,3 +67,7 @@ export { addDocumentVersion } from "./services/documents";
 export { publicHomework, submitPublicHomework, staffSubmit, remindDueHomework } from "./services/assignments";
 export { publicPosts, publicPost, publicSite, publicTrackingConfig, recordTrack, uploadSiteMedia, publishDuePosts, SITE_MEDIA_MAX } from "./services/growth";
 export { retentionSweep } from "./services/compliance";
+export { publicJobs, publicJob, applyToJob, candidateRetention, CV_MAX_BYTES } from "./services/recruit";
+export { portalThread, portalPost, ingestExternal, parseMessengerPayload, parseZaloPayload, metaSignatureOk, zaloSignatureOk } from "./services/messaging";
+export { syncAffiliateRewards } from "./services/affiliates";
+export { healthCheck, recordHeartbeat } from "./services/ops";

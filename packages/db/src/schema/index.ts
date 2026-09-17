@@ -12,3 +12,4 @@ export * from "./system";
 export * from "./inventory";
 export * from "./content";
 export * from "./growth";
+export * from "./outreach";
