@@ -18,6 +18,7 @@ import { inventoryRouter, coinRouter } from "./routers/inventory";
 import { contentRouter } from "./routers/content";
 import { siteRouter, marketingRouter, complianceRouter } from "./routers/growth";
 import { recruitRouter, messagingRouter, affiliateRouter } from "./routers/outreach";
+import { invoiceRouter, cardRouter } from "./routers/billing";
 
 export const appRouter = router({
   auth: authRouter,
@@ -49,6 +50,8 @@ export const appRouter = router({
   recruit: recruitRouter,
   messaging: messagingRouter,
   affiliate: affiliateRouter,
+  invoice: invoiceRouter,
+  card: cardRouter,
 });
 
 export type AppRouter = typeof appRouter;
@@ -71,3 +74,6 @@ export { publicJobs, publicJob, applyToJob, candidateRetention, CV_MAX_BYTES } f
 export { portalThread, portalPost, ingestExternal, parseMessengerPayload, parseZaloPayload, metaSignatureOk, zaloSignatureOk } from "./services/messaging";
 export { syncAffiliateRewards } from "./services/affiliates";
 export { healthCheck, recordHeartbeat } from "./services/ops";
+export { syncInvoiceDrafts, publicInvoiceLookup } from "./services/einvoice";
+export * as ParentPortal from "./services/parentPortal";
+export { parentConversations, parentThread, parentPost, parentStart } from "./services/messaging";

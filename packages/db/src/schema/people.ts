@@ -52,6 +52,7 @@ export const parents = pgTable("parents", {
   marketingOptOut: boolean("marketing_opt_out").notNull().default(false),
   processingRestricted: boolean("processing_restricted").notNull().default(false),
   anonymizedAt: timestamp("anonymized_at", { withTimezone: true }),
+  lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
   accountStatus: parentAccountStatusEnum("account_status").notNull().default("none"),
   activationRequestedAt: timestamp("activation_requested_at", { withTimezone: true }),
   activatedAt: timestamp("activated_at", { withTimezone: true }),
@@ -88,6 +89,8 @@ export const students = pgTable(
     homeCenterId: uuid("home_center_id").references(() => centers.id),
     status: studentStatusEnum("status").notNull().default("prospect"),
     avatarKey: text("avatar_key"), // object key trong bucket private
+    /** Phiên bản thẻ QR điểm danh — tăng khi cấp lại thẻ (thẻ cũ hết hiệu lực) */
+    cardVersion: integer("card_version").notNull().default(1),
     notes: text("notes"),
     ...timestamps,
     ...softDelete,

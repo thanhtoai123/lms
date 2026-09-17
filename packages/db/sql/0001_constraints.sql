@@ -158,3 +158,29 @@ ALTER TABLE data_requests DROP CONSTRAINT IF EXISTS data_requests_check;
 ALTER TABLE data_requests ADD CONSTRAINT data_requests_check CHECK (due_at >= received_at);
 ALTER TABLE data_incidents DROP CONSTRAINT IF EXISTS data_incidents_check;
 ALTER TABLE data_incidents ADD CONSTRAINT data_incidents_check CHECK (affected_count >= 0 AND notify_due_at >= detected_at AND (status <> 'closed' OR closed_at IS NOT NULL));
+
+-- 15) Hoá đơn điện tử: đã phát hành thì không sửa nội dung / số; chỉ đổi trạng thái sang điều chỉnh / thay thế
+ALTER TABLE einvoices DROP CONSTRAINT IF EXISTS einvoices_amount_check;
+ALTER TABLE einvoices ADD CONSTRAINT einvoices_amount_check CHECK (total = subtotal + vat_amount AND (kind = 'adjustment' OR total >= 0) AND (status NOT IN ('issued','adjusted','replaced') OR (number IS NOT NULL AND issued_at IS NOT NULL)));
+CREATE OR REPLACE FUNCTION einvoices_lock_issued() RETURNS trigger AS $$
+BEGIN
+  IF OLD.status IN ('issued','adjusted','replaced') THEN
+    IF NEW.lines IS DISTINCT FROM OLD.lines OR NEW.total IS DISTINCT FROM OLD.total OR NEW.number IS DISTINCT FROM OLD.number
+       OR NEW.serial IS DISTINCT FROM OLD.serial OR NEW.buyer_name IS DISTINCT FROM OLD.buyer_name OR NEW.buyer_tax_code IS DISTINCT FROM OLD.buyer_tax_code
+       OR NEW.issued_at IS DISTINCT FROM OLD.issued_at THEN
+      RAISE EXCEPTION 'Hoá đơn đã phát hành không được sửa — lập hoá đơn điều chỉnh hoặc thay thế';
+    END IF;
+    IF NEW.status NOT IN ('issued','adjusted','replaced') THEN
+      RAISE EXCEPTION 'Hoá đơn đã phát hành không được huỷ';
+    END IF;
+  END IF;
+  IF TG_OP = 'DELETE' THEN
+    RAISE EXCEPTION 'Không xoá hoá đơn';
+  END IF;
+  RETURN NEW;
+END $$ LANGUAGE plpgsql;
+DROP TRIGGER IF EXISTS einvoices_lock ON einvoices;
+CREATE TRIGGER einvoices_lock BEFORE UPDATE ON einvoices FOR EACH ROW EXECUTE FUNCTION einvoices_lock_issued();
+CREATE OR REPLACE FUNCTION einvoices_no_delete() RETURNS trigger AS $$ BEGIN RAISE EXCEPTION 'Không xoá hoá đơn'; END $$ LANGUAGE plpgsql;
+DROP TRIGGER IF EXISTS einvoices_nodel ON einvoices;
+CREATE TRIGGER einvoices_nodel BEFORE DELETE ON einvoices FOR EACH ROW EXECUTE FUNCTION einvoices_no_delete();

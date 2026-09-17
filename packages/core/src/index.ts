@@ -33,3 +33,5 @@ export * from "./content/rules.js";
 export * from "./growth/rules.js";
 export * from "./outreach/rules.js";
 export * from "./ops/rules.js";
+export * from "./einvoice/rules.js";
+export * from "./qr/encode.js";

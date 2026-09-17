@@ -39,6 +39,12 @@ export const EMAIL_EVENTS = {
     subject: "Sata Robo xác nhận thanh toán {so_phieu}",
     body: "Kính gửi {ten_ph},\n\nSata Robo {co_so} đã nhận {so_tien} cho đơn {ma_don} (phiếu thu {so_phieu}).\nCảm ơn anh/chị đã đồng hành cùng bé!\n\nSata Robo",
   },
+  INVOICE_ISSUED: {
+    label: "Hoá đơn điện tử đã phát hành",
+    vars: ["ten_ph", "so_hd", "ky_hieu", "so_tien", "ma_tra_cuu", "link"],
+    subject: "Sata Robo gửi hoá đơn điện tử số {so_hd}",
+    body: "Kính gửi {ten_ph},\n\nSata Robo gửi anh/chị hoá đơn điện tử ký hiệu {ky_hieu} số {so_hd}, tổng tiền {so_tien}.\nMã tra cứu: {ma_tra_cuu}\nTra cứu tại: {link}\n\nSata Robo",
+  },
   TUITION_REMINDER: {
     label: "Nhắc học phí",
     vars: ["ten_ph", "ten_hv", "so_tien", "han", "ma_don"],
@@ -112,9 +118,9 @@ export function emailRetryDelayMs(attempts: number): number | null {
 /* OTP                                                                 */
 /* ------------------------------------------------------------------ */
 
-export const OTP_PURPOSES = ["parent_activation", "password_reset", "phone_verify"] as const;
+export const OTP_PURPOSES = ["parent_activation", "password_reset", "phone_verify", "parent_login"] as const;
 export type OtpPurpose = (typeof OTP_PURPOSES)[number];
-export const OTP_PURPOSE_VI: Record<OtpPurpose, string> = { parent_activation: "Kích hoạt tài khoản PH", password_reset: "Quên mật khẩu", phone_verify: "Xác minh SĐT" };
+export const OTP_PURPOSE_VI: Record<OtpPurpose, string> = { parent_activation: "Kích hoạt tài khoản PH", password_reset: "Quên mật khẩu", phone_verify: "Xác minh SĐT", parent_login: "Đăng nhập cổng phụ huynh" };
 export const OTP_STATUSES = ["sent", "queued", "verified", "expired", "failed", "blocked"] as const;
 export type OtpStatus = (typeof OTP_STATUSES)[number];
 export const OTP_STATUS_VI: Record<OtpStatus, string> = { sent: "Đã gửi", queued: "Chờ gửi", verified: "Đã xác minh", expired: "Hết hạn", failed: "Nhập sai quá số lần", blocked: "Bị chặn" };

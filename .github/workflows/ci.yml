@@ -163,6 +163,15 @@ jobs:
           for p in /van-hanh /tich-hop /compliance; do
             curl -sf -o /dev/null -b "$A" "http://localhost:3000$p" || { echo "FAIL ops $p"; exit 1; }
           done
+          K="x-dev-actor=ketoan.cs1@example.test"
+          for p in /hoa-don "/hoa-don?tab=report" "/hoa-don?tab=settings" /the-hoc-vien; do
+            curl -sf -o /dev/null -b "$K" "http://localhost:3000$p" || { echo "FAIL 6A/6B $p"; exit 1; }
+          done
+          for p in /ph/dang-nhap /tra-cuu-hoa-don "/tra-cuu-hoa-don?ma=KHONGCO123"; do
+            curl -sf -o /dev/null "http://localhost:3000$p" || { echo "FAIL public $p"; exit 1; }
+          done
+          curl -s -o /dev/null -w '%{url_effective}' -L http://localhost:3000/ph | grep -q "/ph/dang-nhap"
+          curl -s -X POST -H 'Content-Type: application/json' -H 'Origin: http://localhost:3000' -d '{"action":"otp","phone":"0999999999"}' http://localhost:3000/api/ph/login | grep -q '"ok":true'
           curl -sf -o /dev/null -b "x-dev-actor=teacher1@satarobo.vn" http://localhost:3000/tin-nhan || { echo "FAIL tin-nhan(GV)"; exit 1; }
           for p in /tuyen-dung /api/public/jobs; do
             curl -sf -o /dev/null "http://localhost:3000$p" || { echo "FAIL public $p"; exit 1; }

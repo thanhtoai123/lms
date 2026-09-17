@@ -666,6 +666,9 @@ async function main() {
   ]);
   await db.insert(appSettings).values({ key: "chat_pilot", value: { classIds: [classA!.id], startDate: addDays(today, -14), note: "Pilot tin nhắn PH lớp A (mẫu)" }, updatedBy: mgrU!.id });
 
+  // ---- Hoá đơn điện tử: cấu hình mẫu (tắt; bật khi đã ký hợp đồng nhà cung cấp) ----
+  await db.insert(appSettings).values({ key: "einvoice", value: { enabled: false, provider: "sandbox", templateCode: "1", serial: `1C${String(new Date().getFullYear()).slice(-2)}TSR`, sellerName: "Công ty mẫu Sata Robo (dữ liệu mẫu)", sellerTaxCode: "0100000000", sellerAddress: "Địa chỉ mẫu", courseRate: "KCT", goodsRate: "10", autoDraft: true, autoIssue: false, startDate: null, lookupUrl: "/tra-cuu-hoa-don" }, updatedBy: adminU!.id });
+
   // ---- Một ca nghỉ học mẫu (cho báo cáo churn / cohort) ----
   const [wd] = await db.insert(enrollments).values({ studentId: studentRows[10]!.id, classId: classA!.id, packageSessions: 24, status: "withdrawn", enrolledAt: d(40), endedAt: d(8), endReason: "Học phí cao so với gia đình (mẫu)", createdBy: mgrU!.id }).returning();
   await db.insert(enrollmentEvents).values([

@@ -582,3 +582,60 @@ export async function myStudentsForChat(ctx: ProtectedContext) {
     .from(enrollments).innerJoin(classes, eq(classes.id, enrollments.classId)).innerJoin(students, eq(students.id, enrollments.studentId))
     .where(and(eq(classes.leadTeacherId, ctx.actor.personId), inArray(enrollments.status, ["active", "trial", "paused"]))).orderBy(asc(classes.code), asc(students.fullName)).limit(300);
 }
+
+/* ------------------------------------------------------------------ */
+/* Phụ huynh đã đăng nhập (cổng /ph)                                    */
+/* ------------------------------------------------------------------ */
+
+export async function parentConversations(database: Database, parentId: string) {
+  const db = asDb(database);
+  return db.select({ id: conversations.id, subject: conversations.subject, status: conversations.status, lastMessageAt: conversations.lastMessageAt, lastPreview: conversations.lastPreview,
+    unread: sql<boolean>`(${conversations.lastOutboundAt} is not null and (${conversations.portalSeenAt} is null or ${conversations.portalSeenAt} < ${conversations.lastOutboundAt}))`, teacher: teachers.fullName })
+    .from(conversations).leftJoin(teachers, eq(teachers.id, conversations.teacherId))
+    .where(and(eq(conversations.parentId, parentId), eq(conversations.channel, "portal"))).orderBy(desc(conversations.lastMessageAt)).limit(50);
+}
+
+export async function parentThread(database: Database, parentId: string, id: string) {
+  const db = asDb(database);
+  const c = await db.query.conversations.findFirst({ where: and(eq(conversations.id, id), eq(conversations.parentId, parentId), eq(conversations.channel, "portal")) });
+  if (!c) return null;
+  await db.update(conversations).set({ portalSeenAt: new Date() }).where(eq(conversations.id, c.id));
+  await db.update(parentNotifications).set({ readAt: new Date(), status: "read" }).where(and(eq(parentNotifications.parentId, parentId), eq(parentNotifications.template, "MESSAGE_NEW"), isNull(parentNotifications.readAt), gte(parentNotifications.createdAt, c.createdAt)));
+  const msgs = await db.select({ direction: messages.direction, body: messages.body, at: messages.createdAt, by: users.fullName }).from(messages).leftJoin(users, eq(users.id, messages.senderUserId))
+    .where(and(eq(messages.conversationId, c.id), inArray(messages.direction, ["in", "out"]))).orderBy(asc(messages.createdAt)).limit(300);
+  return { id: c.id, subject: c.subject, closed: c.status === "closed", messages: msgs.map((m) => ({ mine: m.direction === "in", body: m.body, at: m.at, by: m.direction === "out" ? (m.by ?? "Sata Robo") : "Tôi" })) };
+}
+
+export async function parentPost(database: Database, parentId: string, id: string, body: string) {
+  const db = asDb(database);
+  const c = await db.query.conversations.findFirst({ where: and(eq(conversations.id, id), eq(conversations.parentId, parentId), eq(conversations.channel, "portal")) });
+  if (!c) return { ok: false as const, error: "Không tìm thấy hội thoại" };
+  const errs = validateMessage(body);
+  if (errs.length) return { ok: false as const, error: errs[0]! };
+  await recordInbound(db, c, body.trim(), null, new Date());
+  return { ok: true as const };
+}
+
+/** Phụ huynh tự mở câu hỏi mới → giao cho cơ sở của con */
+export async function parentStart(database: Database, parentId: string, input: { studentId: string; subject: string; body: string }) {
+  const db = asDb(database);
+  const [g] = await db.select({ centerId: classes.centerId, teacherId: classes.leadTeacherId, name: parents.fullName, home: students.homeCenterId })
+    .from(studentGuardians).innerJoin(parents, eq(parents.id, studentGuardians.parentId)).innerJoin(students, eq(students.id, studentGuardians.studentId))
+    .leftJoin(enrollments, and(eq(enrollments.studentId, students.id), inArray(enrollments.status, ["active", "trial", "paused"])))
+    .leftJoin(classes, eq(classes.id, enrollments.classId))
+    .where(and(eq(studentGuardians.parentId, parentId), eq(studentGuardians.studentId, input.studentId))).limit(1);
+  if (!g) return { ok: false as const, error: "Không tìm thấy học viên" };
+  const errs = [...validateMessage(input.body), ...(input.subject.trim().length < 3 ? ["Chủ đề tối thiểu 3 ký tự"] : [])];
+  if (errs.length) return { ok: false as const, error: errs.join("; ") };
+  const now = new Date();
+  const [c] = await db.insert(conversations).values({
+    channel: "portal", displayName: g.name, centerId: g.centerId ?? g.home, parentId, teacherId: g.teacherId, status: "open", subject: input.subject.trim().slice(0, 150),
+    lastMessageAt: now, lastPreview: preview(input.body), portalSeenAt: now,
+  }).returning();
+  await recordInbound(db, c!, input.body.trim(), null, now);
+  if (c!.centerId) {
+    const staff = await db.select({ u: userRoles.userId }).from(userRoles).where(and(inArray(userRoles.role, ["CENTER_SALES_CSM", "CENTER_MANAGER"]), eq(userRoles.centerId, c!.centerId)));
+    await notify(db, staff.map((s) => s.u), "Phụ huynh gửi câu hỏi mới", `${g.name}: ${preview(input.body)}`, `/tin-nhan?id=${c!.id}`, 2);
+  }
+  return { ok: true as const, id: c!.id };
+}

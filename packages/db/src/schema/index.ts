@@ -13,3 +13,5 @@ export * from "./inventory";
 export * from "./content";
 export * from "./growth";
 export * from "./outreach";
+export * from "./einvoice";
+export * from "./portal";

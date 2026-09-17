@@ -13,6 +13,7 @@ import { retentionSweep } from "./services/compliance";
 import { candidateRetention } from "./services/recruit";
 import { syncAffiliateRewards } from "./services/affiliates";
 import { recordHeartbeat } from "./services/ops";
+import { syncInvoiceDrafts } from "./services/einvoice";
 
 const db = createDb();
 const interval = Number(process.env.WORKER_INTERVAL_MS ?? 10_000);
@@ -25,6 +26,8 @@ async function tick() {
   try {
     const sla = await scanLeadSla(db);
     const r = await processOutbox(db, { batch: 200 });
+    const inv = await syncInvoiceDrafts(db, { limit: 50 });
+    if (inv.drafted || inv.issued || inv.failed) console.log(new Date().toISOString(), `einvoice drafted=${inv.drafted} issued=${inv.issued} failed=${inv.failed}`);
     const em = await processEmailQueue(db, { limit: 50 });
     if (em.sent || em.failed) console.log(new Date().toISOString(), `email sent=${em.sent} failed=${em.failed}`);
     if (Date.now() - lastSurvey > 15 * 60_000) {

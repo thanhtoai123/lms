@@ -25,7 +25,9 @@ const DEFS: { key: string; level: EnvLevel | ((prod: boolean) => EnvLevel); grou
   { key: "ZALO_APP_ID", level: "optional", group: "Zalo OA", note: "Kiểm tra chữ ký webhook" },
   { key: "ZALO_OA_SECRET", level: "optional", group: "Zalo OA", note: "Kiểm tra chữ ký webhook" },
   { key: "ZALO_OA_ACCESS_TOKEN", level: "optional", group: "Zalo OA", note: "Gửi tin tư vấn" },
-  { key: "ZALO_ZNS_TOKEN", level: "optional", group: "Zalo OA", note: "Gửi ZNS theo mẫu" },
+  { key: "ZALO_ZNS_TOKEN", level: "optional", group: "Zalo OA", note: "Gửi ZNS theo mẫu (OTP, thông báo)" },
+  { key: "EINVOICE_API_URL", level: "optional", group: "Hoá đơn điện tử", note: "Cổng kết nối nhà cung cấp hoá đơn điện tử" },
+  { key: "EINVOICE_API_KEY", level: "optional", group: "Hoá đơn điện tử", note: "Khoá kết nối nhà cung cấp" },
 ];
 
 export function envChecks(env: Record<string, string | undefined>, production: boolean): EnvCheck[] {

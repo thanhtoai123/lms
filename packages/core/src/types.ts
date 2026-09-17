@@ -29,6 +29,7 @@ export const ATTENDANCE_STATUSES = [
   "makeup", // học bù (buổi này thay thế buổi đã vắng)
 ] as const;
 export type AttendanceStatus = (typeof ATTENDANCE_STATUSES)[number];
+export const ATTENDANCE_STATUS_VI: Record<AttendanceStatus, string> = { present: "Có mặt", late: "Đi muộn", absent_excused: "Vắng có phép", absent_unexcused: "Vắng không phép", makeup: "Học bù" };
 
 export const ENROLLMENT_STATUSES = [
   "trial",

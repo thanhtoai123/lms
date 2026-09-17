@@ -59,3 +59,9 @@ Xem `.env.example`. Bắt buộc khi chạy thật: `DATABASE_URL`, `NEXT_PUBLIC
 6. Nhập dữ liệu cũ (`scripts/migrate-legacy`) vào môi trường thử, đối soát số học viên / công nợ / số dư xu với admin.satarobo.vn, rồi mới nhập thật.
 7. Chạy song song hệ thống cũ 1–2 tuần cho các cơ sở pilot; chốt ngày dừng nhập liệu trên hệ thống cũ.
 8. Đào tạo theo vai trò (quản lý cơ sở, tư vấn, giáo vụ, giáo viên, kế toán, nhân sự) và phát sổ tay.
+
+## Hoá đơn điện tử, thẻ QR, cổng phụ huynh (Giai đoạn 6)
+
+- **Hoá đơn điện tử**: Cấu hình tại /hoa-don?tab=settings (chỉ Hội sở). Nhà cung cấp `sandbox` chỉ để thử, bị chặn ở production (trừ khi đặt `EINVOICE_ALLOW_SANDBOX=1` cho môi trường staging). Khi đã ký nhà cung cấp thật: đặt `EINVOICE_API_URL`, `EINVOICE_API_KEY`, chọn nhà cung cấp `http`, nhập ký hiệu năm hiện tại (ví dụ `1C26TSR`) và ngày bắt đầu. Đầu năm mới phải đổi ký hiệu. Kế toán xử lý hằng ngày: tab danh sách → "Phát hành lỗi", "Quá hạn lập", "Khoản thu chưa có hoá đơn", "Hoàn tiền cần điều chỉnh".
+- **Thẻ QR**: In theo lớp tại /the-hoc-vien. Thẻ ký bằng `MEDIA_SIGNING_SECRET` — đổi khoá này làm mọi thẻ cũ mất hiệu lực (phải in lại). Mất thẻ → "Cấp lại thẻ" (thẻ cũ hết hiệu lực ngay).
+- **Cổng phụ huynh** (/ph): OTP gửi qua Zalo ZNS (`ZALO_ZNS_TOKEN`); khi chưa có ZNS, phụ huynh dùng mã kích hoạt do trung tâm cấp. Phiên 30 ngày; phụ huynh tự thu hồi thiết bị ở trang Tài khoản. Khoá tài khoản phụ huynh ở trang học viên sẽ chặn đăng nhập ngay.

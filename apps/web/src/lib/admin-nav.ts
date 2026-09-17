@@ -51,6 +51,7 @@ export const ADMIN_NAV: NavGroup[] = [
     items: [
       { label: "Học viên", href: "/students", perm: "student:read", ready: true },
       { label: "Tài khoản phụ huynh", href: "/students/tai-khoan", perm: "parent_account:read", ready: true },
+      { label: "Thẻ học viên (QR)", href: "/the-hoc-vien", perm: "student:read", ready: true, desc: "In thẻ QR để điểm danh bằng cách quét trong app giáo viên; cấp lại thẻ khi mất." },
       { label: "Đăng ký học", href: "/enrollments", perm: "enrollment:read", ready: true },
       { label: "Chuyển lớp / cơ sở", href: "/chuyen-lop", perm: "enrollment:update", ready: true },
       { label: "Sắp hết khoá", href: "/students/sap-het-khoa", perm: "enrollment:read", ready: true },
@@ -138,6 +139,7 @@ export const ADMIN_NAV: NavGroup[] = [
       { label: "Nhập giao dịch cũ", href: "/nhap-giao-dich-cu", perm: "finance:confirm", ready: true, desc: "Import giao dịch từ hệ cũ / sổ sách." },
       { label: "Biến động số dư", href: "/bien-dong-so-du", perm: "finance:approve", ready: true, desc: "Webhook SePay, đối khớp tự động với đơn." },
       { label: "Hoàn tiền", href: "/hoan-tien", perm: "finance:read", ready: true, desc: "Hoàn theo số buổi chưa học, có duyệt." },
+      { label: "Hoá đơn điện tử", href: "/hoa-don", perm: "finance:read", ready: true, desc: "Lập hoá đơn tại thời điểm thu tiền, học phí không chịu thuế (KCT), điều chỉnh / thay thế thay vì huỷ, đối soát thu – xuất hoá đơn." },
       { label: "Phương thức TT", href: "/payment-methods", perm: "finance:read", ready: true, desc: "Tài khoản nhận tiền theo cơ sở." },
       { label: "Hoa hồng", href: "/crm/commission", perm: "finance:read", ready: true, desc: "Hoa hồng sale / người giới thiệu." },
     ],

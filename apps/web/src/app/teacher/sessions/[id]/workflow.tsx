@@ -125,6 +125,7 @@ export function SessionWorkflow({ sessionId }: { sessionId: string }) {
       <section className="card p-4 space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="font-bold">Điểm danh <span className="text-ink-400 font-normal text-sm">({present}/{roster.length} có mặt)</span></h2>
+          {s.date === s.today && <Link href={`/teacher/sessions/${sessionId}/quet`} className="text-xs font-semibold text-brand-600 underline">Quét thẻ QR</Link>}
           <div className="flex gap-1">
             <button className="btn-ghost !px-2 !py-1 text-xs" onClick={() => markAll("present")} disabled={busy || s.status === "completed"}>Tất cả có mặt</button>
           </div>
