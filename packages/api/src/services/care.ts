@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { and, eq, inArray, sql, desc, asc, isNull, or, gte, lte, ilike, ne, type SQL } from "drizzle-orm";
+import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { TRPCError } from "@trpc/server";
 import {
   parentRequests, parentRequestEvents, parentFeedback, surveys, surveyInvites, surveyResponses, notificationBroadcasts, birthdayGreetings,
@@ -38,10 +39,10 @@ const reasonOf = (r: string | null | undefined, min = 5) => {
   if (t.length < min) throw bad(`Cần nhập nội dung (tối thiểu ${min} ký tự)`);
   return t;
 };
-function scopeOn(ctx: ProtectedContext, col: SQL | typeof centers.id): SQL {
+function scopeOn(ctx: ProtectedContext, col: AnyPgColumn): SQL {
   const v = visibleCenterIds(ctx.actor);
   if (v === null) return sql`true`;
-  return v.length ? (inArray(col as typeof centers.id, v) as SQL) : sql`false`;
+  return v.length ? (inArray(col, v) as SQL) : sql`false`;
 }
 const dmy = (d: string) => d.split("-").reverse().join("/");
 
@@ -718,7 +719,7 @@ export async function retryNotification(ctx: ProtectedContext, input: { id: stri
 export async function birthdays(ctx: ProtectedContext, input: { days: number; centerId?: string }) {
   requirePermission(ctx, "care:read", { centerId: input.centerId ?? null });
   const today = todayISO();
-  const conds: SQL[] = [inArray(students.status, ["active", "trial", "paused"]), sql`${students.dateOfBirth} is not null`, scopeOn(ctx, students.homeCenterId as unknown as typeof centers.id), isNull(students.deletedAt)];
+  const conds: SQL[] = [inArray(students.status, ["active", "trial", "paused"]), sql`${students.dateOfBirth} is not null`, scopeOn(ctx, students.homeCenterId), isNull(students.deletedAt)];
   if (input.centerId) conds.push(eq(students.homeCenterId, input.centerId));
   const rows = await ctx.db.select({ id: students.id, fullName: students.fullName, code: students.code, dob: students.dateOfBirth, centerCode: centers.code, centerId: students.homeCenterId,
     classCodes: sql<string | null>`(select string_agg(c.code, ', ') from ${enrollments} e join ${classes} c on c.id = e.class_id where e.student_id = ${students.id} and e.status in ('active','trial','paused'))`,
