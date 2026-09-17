@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getServerCaller } from "@/lib/trpc/server";
-import { LEAD_STATUSES, LEAD_STATUS_VI, OPEN_LEAD_STATUSES, maskPhone, type LeadStatus } from "@satarobo/core";
+import { LEAD_STATUSES, LEAD_STATUS_VI, OPEN_LEAD_STATUSES, type LeadStatus } from "@satarobo/core";
 import { Pager, fmtDate } from "@/components/admin-ui";
 import { CsvButton } from "@/components/csv-button";
 import { LeadChip, SlaChip, fmtDateTime } from "@/components/lead-ui";
@@ -100,8 +100,8 @@ export default async function LeadsInbox({ searchParams }: { searchParams: Promi
               <CsvButton
                 filename={`leads-trang-${page}`}
                 label="Xuất CSV (trang này)"
-                headers={["Ngày nhận", "Phụ huynh", "Con", "Lớp", "SĐT (che)", "Quan tâm", "Cơ sở", "Trạng thái", "Nguồn", "Phụ trách", "Chạm cuối"]}
-                rows={items.map((l) => [fmtDate(l.createdAt), l.parentName, l.childName, l.childGrade, maskPhone(l.phoneNormalized), l.courseCode, l.centerCode, LEAD_STATUS_VI[l.status], l.source, l.assigneeName, fmtDateTime(l.lastTouchAt)])}
+                headers={["Ngày nhận", "Phụ huynh", "Con", "Lớp", "SĐT", "Quan tâm", "Cơ sở", "Trạng thái", "Nguồn", "Phụ trách", "Chạm cuối"]}
+                rows={items.map((l) => [fmtDate(l.createdAt), l.parentName, l.childName, l.childGrade, l.phone, l.courseCode, l.centerCode, LEAD_STATUS_VI[l.status], l.source, l.assigneeName, fmtDateTime(l.lastTouchAt)])}
               />
             </span>
           )}

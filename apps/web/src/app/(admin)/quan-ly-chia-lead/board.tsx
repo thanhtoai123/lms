@@ -79,7 +79,9 @@ export function DistributionBoard({ centerId }: { centerId: string }) {
             <tr><th className="p-3">Sale</th><th className="p-3">Nhận lead</th><th className="p-3">Trọng số</th><th className="p-3">Lượt đã nhận</th><th className="p-3">Đang giữ</th><th className="p-3">Đã chốt / được giao</th><th className="p-3">Lần chia gần nhất</th><th className="p-3">Ghi chú</th><th className="p-3"></th></tr>
           </thead>
           <tbody className="divide-y divide-black/5">
-            {d.board.map((b) => (
+            {d.board.map((b) => {
+              const a = adjust && adjust.userId === b.id && adjust.centerId === b.centerId ? adjust : null;
+              return (
               <tr key={b.rowId} className={b.isAvailable ? "" : "opacity-60"}>
                 <td className="p-3 font-medium">{b.fullName}<div className="text-[11px] font-normal text-ink-400">{b.email}</div>{b.centerId === null && <span className="chip bg-black/5">toàn hệ thống</span>}</td>
                 <td className="p-3">
@@ -97,12 +99,12 @@ export function DistributionBoard({ centerId }: { centerId: string }) {
                 </td>
                 <td className="p-3"><input type="number" min={1} max={10} className="input !w-16 text-xs" defaultValue={b.weight} disabled={lock} onBlur={(e) => Number(e.target.value) !== b.weight && upsert.mutate({ userId: b.id, centerId: b.centerId, weight: Number(e.target.value) })} /></td>
                 <td className="p-3">
-                  {adjust?.userId === b.id && adjust.centerId === b.centerId ? (
-                    <form className="flex flex-col gap-1" onSubmit={(e) => { e.preventDefault(); adj.mutate({ userId: b.id, centerId: b.centerId, rounds: Number(adjust.rounds), reason: adjust.reason }); }}>
-                      <input type="number" min={0} className="input !w-20 text-xs" autoFocus value={adjust.rounds} onChange={(e) => setAdjust({ ...adjust, rounds: e.target.value })} />
-                      <input className="input text-xs" placeholder="Lý do *" maxLength={300} value={adjust.reason} onChange={(e) => setAdjust({ ...adjust, reason: e.target.value })} />
+                  {a ? (
+                    <form className="flex flex-col gap-1" onSubmit={(e) => { e.preventDefault(); adj.mutate({ userId: b.id, centerId: b.centerId, rounds: Number(a.rounds), reason: a.reason }); }}>
+                      <input type="number" min={0} className="input !w-20 text-xs" autoFocus value={a.rounds} onChange={(e) => setAdjust({ ...a, rounds: e.target.value })} />
+                      <input className="input text-xs" placeholder="Lý do *" maxLength={300} value={a.reason} onChange={(e) => setAdjust({ ...a, reason: e.target.value })} />
                       <div className="flex gap-1">
-                        <button className="btn-primary !px-2 !py-1 text-xs" disabled={busy || adjust.reason.trim().length < 3 || adjust.rounds === "" || Number(adjust.rounds) === adjust.current}>Lưu</button>
+                        <button className="btn-primary !px-2 !py-1 text-xs" disabled={busy || a.reason.trim().length < 3 || a.rounds === "" || Number(a.rounds) === a.current}>Lưu</button>
                         <button type="button" className="btn-ghost !px-2 !py-1 text-xs" onClick={() => setAdjust(null)}>Huỷ</button>
                       </div>
                     </form>
@@ -119,7 +121,8 @@ export function DistributionBoard({ centerId }: { centerId: string }) {
                 <td className="p-3"><input className="input text-xs" defaultValue={b.note ?? ""} placeholder="…" disabled={lock} onBlur={(e) => (e.target.value || null) !== b.note && upsert.mutate({ userId: b.id, centerId: b.centerId, note: e.target.value || null })} /></td>
                 <td className="p-3">{d.canManage && <button className="text-xs text-ink-400 hover:text-red-700" disabled={lock} onClick={() => window.confirm(`Gỡ ${b.fullName} khỏi pool chia lead?`) && remove.mutate({ userId: b.id, centerId: b.centerId })}>Gỡ</button>}</td>
               </tr>
-            ))}
+              );
+            })}
             {d.board.length === 0 && <tr><td className="p-4 text-center text-ink-400" colSpan={9}>Chưa có sale trong bảng chia.</td></tr>}
           </tbody>
         </table>
