@@ -13,6 +13,7 @@ import {
   type OrderType, type OrderStatus, type PaymentStatus, type PaymentDecision, type RefundStatus, type PaymentMethodKind, type AgingBucket, type Discount, type Permission,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
+import { getOps } from "./opsSettings";
 import { writeAudit } from "./audit";
 import { todayISO } from "./sessions";
 import { consumedSql } from "./students";
@@ -271,7 +272,7 @@ export async function createOrder(ctx: ProtectedContext, input: CreateOrderInput
       customerName: input.customer.name.trim(), customerPhone: phone, customerEmail: input.customer.email?.trim() || null,
       subtotal: priced.subtotal, discountType: input.discount?.value ? input.discount.type : null, discountValue: input.discount?.value ? Math.round(input.discount.value) : null,
       discountAmount: priced.discountAmount, total: priced.total, paymentMethodId: method.id,
-      customerNote: input.customerNote?.trim() || null, internalNote: input.internalNote?.trim() || null, remindDays: input.remindDays ?? 3, createdBy: ctx.user.id,
+      customerNote: input.customerNote?.trim() || null, internalNote: input.internalNote?.trim() || null, remindDays: input.remindDays ?? (await getOps(ctx.db, input.centerId)).orderRemindDays, createdBy: ctx.user.id,
     }).returning();
     const priv = input.customer;
     if (priv.idNumber || priv.address || priv.province || priv.ward) {

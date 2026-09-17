@@ -12,6 +12,7 @@ import {
   type Permission, type AssignmentStatus, type SubmissionStatus, type SubmissionType, type SubmissionAction,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
+import { getOps } from "./opsSettings";
 import { writeAudit } from "./audit";
 import { putObject, signedFileUrl } from "../storage";
 import { awardCoins } from "./rewards";
@@ -410,13 +411,14 @@ export async function studentHomework(ctx: ProtectedContext, studentId: string) 
   return { stats: st, items: rows.map((r) => ({ ...r, statusLabel: SUBMISSION_STATUS_VI[r.status as SubmissionStatus] })) };
 }
 
-/** Nhắc hạn: bài còn ≤ 24h chưa nộp (worker gọi) — mỗi bài nộp nhắc 1 lần */
+/** Nhắc hạn: bài còn ≤ N giờ (cấu hình) chưa nộp (worker gọi) — mỗi bài nộp nhắc 1 lần */
 export async function remindDueHomework(db: Database) {
   const d = asDb(db);
+  const hours = (await getOps(d)).homeworkReminderHours;
   const rows = await d.execute(sql`
     select s.id, s.student_id, s.token, a.title, a.due_at from submissions s join assignments a on a.id = s.assignment_id
     where a.status = 'published' and s.status in ('assigned','returned') and a.submission_type <> 'offline'
-      and a.due_at between now() and now() + interval '24 hours'
+      and a.due_at between now() and now() + make_interval(hours => ${hours})
       and not exists (select 1 from parent_notifications n where n.template = 'HOMEWORK_DUE' and n.link = '/bt/' || s.token)
     limit 500`) as unknown as { id: string; student_id: string; token: string; title: string; due_at: Date }[];
   let n = 0;

@@ -6,6 +6,7 @@ import { makeupTransition, makeupCandidates, withinMakeupWindow, visibleCenterId
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { writeAudit } from "./audit";
 import { todayISO } from "./sessions";
+import { getOps, opsForCenters } from "./opsSettings";
 
 type Db = ProtectedContext["db"];
 
@@ -22,7 +23,9 @@ const targetClass = alias(classes, "target_class");
 export async function pendingAbsences(ctx: ProtectedContext, input: { centerId?: string }) {
   requirePermission(ctx, "makeup:read", { centerId: input.centerId ?? null });
   const today = todayISO();
-  const from = addDays(today, -DEFAULT_MAKEUP_POLICY.requestWindowDays);
+  const ops = await opsForCenters(ctx.db, (await ctx.db.select({ id: centers.id }).from(centers)).map((c) => c.id));
+  const win = Math.max(...[...ops.values()].map((o) => o.makeupWindowDays), DEFAULT_MAKEUP_POLICY.requestWindowDays);
+  const from = addDays(today, -win);
   const conds = [
     inArray(attendance.status, ["absent_excused", "absent_unexcused"]),
     inArray(enrollments.status, ["active", "trial"]),
@@ -32,10 +35,10 @@ export async function pendingAbsences(ctx: ProtectedContext, input: { centerId?:
     sql`not exists (select 1 from ${attendance} a2 where a2.enrollment_id = ${attendance.enrollmentId} and a2.makeup_for_session_id = ${attendance.sessionId})`,
   ];
   if (input.centerId) conds.push(eq(classes.centerId, input.centerId));
-  return ctx.db
+  const rows = await ctx.db
     .select({
       enrollmentId: enrollments.id, sessionId: sessions.id, date: sessions.date, sequenceNo: sessions.sequenceNo, status: attendance.status,
-      studentId: students.id, studentName: students.fullName, studentCode: students.code, classId: classes.id, classCode: classes.code, centerCode: centers.code,
+      studentId: students.id, studentName: students.fullName, studentCode: students.code, classId: classes.id, classCode: classes.code, centerCode: centers.code, centerId: classes.centerId,
     })
     .from(attendance)
     .innerJoin(enrollments, eq(enrollments.id, attendance.enrollmentId))
@@ -45,6 +48,7 @@ export async function pendingAbsences(ctx: ProtectedContext, input: { centerId?:
     .innerJoin(students, eq(students.id, enrollments.studentId))
     .where(and(...conds))
     .orderBy(desc(sessions.date));
+  return rows.filter((r) => r.date >= addDays(today, -(ops.get(r.centerId)?.makeupWindowDays ?? DEFAULT_MAKEUP_POLICY.requestWindowDays)));
 }
 
 export async function listMakeup(ctx: ProtectedContext, input: { status?: MakeupStatus; centerId?: string }) {
@@ -107,7 +111,8 @@ export async function createMakeupRequest(ctx: ProtectedContext, input: { enroll
   if (!row) throw new TRPCError({ code: "BAD_REQUEST", message: "Buổi vắng không thuộc lớp của học viên" });
   requirePermission(ctx, "makeup:create", { centerId: row.centerId });
   if (row.status !== "absent_excused" && row.status !== "absent_unexcused") throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Học viên không vắng buổi này" });
-  if (!withinMakeupWindow(row.date, todayISO())) throw new TRPCError({ code: "PRECONDITION_FAILED", message: `Đã quá ${DEFAULT_MAKEUP_POLICY.requestWindowDays} ngày kể từ buổi vắng` });
+  const mw = (await getOps(ctx.db, row.centerId)).makeupWindowDays;
+  if (!withinMakeupWindow(row.date, todayISO(), { ...DEFAULT_MAKEUP_POLICY, requestWindowDays: mw })) throw new TRPCError({ code: "PRECONDITION_FAILED", message: `Đã quá ${mw} ngày kể từ buổi vắng` });
   const dup = await ctx.db.query.makeupRequests.findFirst({ where: and(eq(makeupRequests.enrollmentId, input.enrollmentId), eq(makeupRequests.missedSessionId, input.missedSessionId), sql`${makeupRequests.status} <> 'rejected'`) });
   if (dup) throw new TRPCError({ code: "CONFLICT", message: "Buổi vắng này đã có yêu cầu học bù" });
   const [r] = await ctx.db.insert(makeupRequests).values({ enrollmentId: input.enrollmentId, missedSessionId: input.missedSessionId, note: input.note ?? null }).returning();

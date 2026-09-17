@@ -2,10 +2,11 @@ import { and, eq, inArray, sql, asc, isNull, lte } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { sessions, classes, enrollments, attendance, students, careTasks, courses, centers } from "@satarobo/db";
 import {
-  weekStart, weekDays, addDays, isRetroactiveEdit, detectRisks, summarize, visibleCenterIds,
+  weekStart, weekDays, addDays, isRetroactiveEdit, detectRisks, riskFrom, summarize, visibleCenterIds,
   type AttendanceStatus, type AttendanceRecord,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
+import { getOps, opsForCenters } from "./opsSettings";
 import { writeAudit } from "./audit";
 import { emit } from "./outbox";
 import { listSessions, loadSessionForAuth, todayISO } from "./sessions";
@@ -109,7 +110,7 @@ export async function correctAttendance(ctx: ProtectedContext, input: { sessionI
       .select({ status: attendance.status, date: sessions.date, seq: sessions.sequenceNo })
       .from(attendance).innerJoin(sessions, eq(sessions.id, attendance.sessionId))
       .where(and(eq(attendance.enrollmentId, enr.id), eq(sessions.classId, s.session.classId)));
-    for (const risk of detectRisks(hist.map((h) => ({ sessionDate: h.date, sequenceNo: h.seq, status: h.status })))) {
+    for (const risk of detectRisks(hist.map((h) => ({ sessionDate: h.date, sequenceNo: h.seq, status: h.status })), riskFrom(await getOps(ctx.db, s.centerId)))) {
       await emit(tx as unknown as Db, { type: "risk.detected", studentId: enr.studentId, enrollmentId: enr.id, code: risk.code, severity: risk.severity, detail: risk.detail });
     }
   });
@@ -158,22 +159,23 @@ export async function rescanRisks(ctx: ProtectedContext, input: { centerId?: str
   if (input.centerId) conds.push(eq(classes.centerId, input.centerId));
   if (visible !== null) conds.push(visible.length ? inArray(classes.centerId, visible) : sql`false`);
   const hist = await ctx.db
-    .select({ enrollmentId: enrollments.id, studentId: enrollments.studentId, status: attendance.status, date: sessions.date, seq: sessions.sequenceNo })
+    .select({ enrollmentId: enrollments.id, studentId: enrollments.studentId, centerId: classes.centerId, status: attendance.status, date: sessions.date, seq: sessions.sequenceNo })
     .from(enrollments)
     .innerJoin(classes, eq(classes.id, enrollments.classId))
     .innerJoin(attendance, eq(attendance.enrollmentId, enrollments.id))
     .innerJoin(sessions, eq(sessions.id, attendance.sessionId))
     .where(and(...conds));
-  const by = new Map<string, { studentId: string; recs: AttendanceRecord[] }>();
+  const by = new Map<string, { studentId: string; centerId: string; recs: AttendanceRecord[] }>();
+  const opsBy = await opsForCenters(ctx.db, [...new Set(hist.map((h) => h.centerId))]);
   for (const h of hist) {
-    const e = by.get(h.enrollmentId) ?? { studentId: h.studentId, recs: [] };
+    const e = by.get(h.enrollmentId) ?? { studentId: h.studentId, centerId: h.centerId, recs: [] };
     e.recs.push({ sessionDate: h.date, sequenceNo: h.seq, status: h.status });
     by.set(h.enrollmentId, e);
   }
   let signals = 0;
   await ctx.db.transaction(async (tx) => {
     for (const [enrollmentId, e] of by) {
-      for (const risk of detectRisks(e.recs)) {
+      for (const risk of detectRisks(e.recs, riskFrom(opsBy.get(e.centerId)!))) {
         signals++;
         await emit(tx as unknown as Db, { type: "risk.detected", studentId: e.studentId, enrollmentId, code: risk.code, severity: risk.severity, detail: risk.detail });
       }

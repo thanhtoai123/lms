@@ -10,6 +10,7 @@ import { writeAudit } from "./audit";
 import { enforcePrerequisites } from "./catalog";
 import { emit } from "./outbox";
 import { consumedSql, centerScope, canSeeFullPhone } from "./students";
+import { getOps, opsForCenters } from "./opsSettings";
 
 type Db = ProtectedContext["db"];
 
@@ -107,7 +108,8 @@ export async function transitionEnrollment(
   let pausePatch = {};
   if (input.event === "pause") {
     if (!input.pauseFrom || !input.pauseUntil) throw new TRPCError({ code: "BAD_REQUEST", message: "Chọn ngày bắt đầu và ngày học lại" });
-    const err = validatePause(input.pauseFrom, input.pauseUntil, DEFAULT_STUDENT_POLICY);
+    const o = await getOps(ctx.db, e.centerId);
+    const err = validatePause(input.pauseFrom, input.pauseUntil, { ...DEFAULT_STUDENT_POLICY, nearingEndSessions: o.nearingEndSessions, maxPauseMonths: o.maxPauseMonths });
     if (err) throw new TRPCError({ code: "BAD_REQUEST", message: err });
     pausePatch = { pausedAt: input.pauseFrom, pauseUntil: input.pauseUntil };
   }
@@ -138,7 +140,10 @@ export async function changePackage(ctx: ProtectedContext, input: { enrollmentId
 /** "Sắp hết khoá": ghi danh đang học còn ≤ N buổi */
 export async function nearingEnd(ctx: ProtectedContext, input: { threshold?: number; centerId?: string }) {
   requirePermission(ctx, "enrollment:read", { centerId: input.centerId ?? null });
-  const threshold = input.threshold ?? DEFAULT_STUDENT_POLICY.nearingEndSessions;
+  const allCenters = (await ctx.db.select({ id: centers.id }).from(centers)).map((c) => c.id);
+  const ops = await opsForCenters(ctx.db, allCenters);
+  const perCenter = (id: string) => input.threshold ?? ops.get(id)?.nearingEndSessions ?? DEFAULT_STUDENT_POLICY.nearingEndSessions;
+  const threshold = input.centerId ? perCenter(input.centerId) : Math.max(input.threshold ?? 0, ...allCenters.map(perCenter), DEFAULT_STUDENT_POLICY.nearingEndSessions);
   const conds = [eq(enrollments.status, "active"), centerScope(ctx, classes.centerId), sql`${enrollments.packageSessions} - ${consumedSql} <= ${threshold}`];
   if (input.centerId) conds.push(eq(classes.centerId, input.centerId));
   const rows = await ctx.db
@@ -158,7 +163,7 @@ export async function nearingEnd(ctx: ProtectedContext, input: { threshold?: num
     threshold,
     items: rows
       .map((r) => ({ ...r, remaining: remainingSessions(r.packageSessions, r.consumed), parentPhone: r.parentPhone ? (full ? r.parentPhone : maskPhone(r.parentPhone)) : null }))
-      .filter((r) => isNearingEnd(r.remaining, r.status, { ...DEFAULT_STUDENT_POLICY, nearingEndSessions: threshold })),
+      .filter((r) => isNearingEnd(r.remaining, r.status, { ...DEFAULT_STUDENT_POLICY, nearingEndSessions: perCenter(r.centerId) })),
   };
 }
 

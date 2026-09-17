@@ -1,25 +1,33 @@
 import Link from "next/link";
+import type { OpsGroup } from "@satarobo/core";
 import { getServerCaller } from "@/lib/trpc/server";
 import { SettingsForm } from "./form";
 import { DeliverySettingsPanel } from "./delivery";
+import { OpsForm } from "./ops-form";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Cấu hình vận hành" };
 
-/** 11 nhóm tham số như trang Cấu hình vận hành của hệ cũ (ADMIN-SPEC §13.1) */
-const TABS = [
-  { key: "thong-bao", label: "Thông báo đẩy", desc: "Bật/tắt push; 36 loại thông báo nội bộ, mức Khẩn/Thường, người nhận theo vai trò/ngữ cảnh." },
-  { key: "zalo", label: "Tin Zalo (ZNS) / SMS", ready: true },
-  { key: "otp", label: "Đăng nhập/OTP", desc: "Hiệu lực mã, số lần nhập sai, thời gian chờ, trần theo số/máy/ngày." },
-  { key: "hoc-vien", label: "Học viên", desc: "Ngưỡng sắp hết khoá, bảo lưu tối đa, 'hay vắng', sinh nhật, học bù liên cơ sở." },
-  { key: "lop", label: "Lớp & GV", desc: "Sĩ số min/max, quá tải giờ/tuần, hạn link ảnh/video, PH xem điểm bài tập." },
-  { key: "cham-cong", label: "Chấm công", desc: "Dung sai quét, bán kính, ngưỡng đi muộn, trừ nội quy, nhắc ca." },
-  { key: "lead", label: "Khách hàng (lead)", ready: true },
-  { key: "thanh-toan", label: "Thanh toán", desc: "Nhắc đợt 2, lệch tiền tối đa vẫn khớp, hiệu lực QR." },
-  { key: "nhac", label: "Nhắc tự động", desc: "Nhắc tái tục, nhắc buổi học, số dòng mỗi nhóm việc trên dashboard, ngưỡng quá hạn." },
-  { key: "cong-ty", label: "Công ty", desc: "SĐT/email theo cơ sở trên web, giải thưởng, quà tặng, cam kết (có người duyệt)." },
-  { key: "nang-cao", label: "Nâng cao", desc: "Sơ đồ tổ chức mới, timeout upload." },
-] as const;
+type Tab =
+  | { key: string; label: string; kind: "lead" }
+  | { key: string; label: string; kind: "zalo" }
+  | { key: string; label: string; kind: "ops"; group: OpsGroup; desc: string }
+  | { key: string; label: string; kind: "link"; desc: string; links: { href: string; label: string }[] };
+
+/** 11 nhóm như trang Cấu hình vận hành của hệ cũ (ADMIN-SPEC §13.1) */
+const TABS: Tab[] = [
+  { key: "thong-bao", label: "Thông báo đẩy", kind: "link", desc: "Thông báo đẩy tới phụ huynh dùng khoá VAPID và giờ yên lặng chung với tin Zalo. Thông báo nội bộ cho nhân sự hiện ở chuông góc trên, gửi theo vai trò.", links: [{ href: "/cau-hinh-van-hanh?tab=zalo", label: "Giờ yên lặng, trần tin mỗi phụ huynh" }, { href: "/tich-hop", label: "Trạng thái Web Push" }, { href: "/user-groups", label: "Nhóm nhận thông báo nội bộ" }] },
+  { key: "zalo", label: "Tin Zalo (ZNS) / SMS", kind: "zalo" },
+  { key: "otp", label: "Đăng nhập/OTP", kind: "ops", group: "otp", desc: "Áp cho toàn hệ thống: đăng nhập cổng phụ huynh và kích hoạt tài khoản." },
+  { key: "hoc-vien", label: "Học viên", kind: "ops", group: "hoc-vien", desc: "Ngưỡng sắp hết khoá, bảo lưu tối đa, hạn học bù, cảnh báo chuyên cần." },
+  { key: "lop", label: "Lớp & GV", kind: "ops", group: "lop", desc: "Quy tắc điểm danh bằng thẻ QR." },
+  { key: "cham-cong", label: "Chấm công", kind: "ops", group: "cham-cong", desc: "Dung sai tính đi muộn / về sớm. Bán kính chấm công đặt theo từng cơ sở ở trang Cơ sở." },
+  { key: "lead", label: "Khách hàng (lead)", kind: "lead" },
+  { key: "thanh-toan", label: "Thanh toán", kind: "ops", group: "thanh-toan", desc: "Mặc định nhắc đợt thanh toán cho đơn mới (sửa được trên từng đơn)." },
+  { key: "nhac", label: "Nhắc tự động", kind: "ops", group: "nhac", desc: "Nhắc hạn bài tập. Luật chăm sóc tự động (việc cần làm theo sự kiện) ở trang Tự động hoá." },
+  { key: "cong-ty", label: "Công ty", kind: "link", desc: "Thông tin pháp nhân, hotline, email, chân phiếu thu và hoá đơn.", links: [{ href: "/settings", label: "Cài đặt chung" }, { href: "/hoa-don?tab=settings", label: "Thông tin người bán trên hoá đơn điện tử" }, { href: "/centers", label: "SĐT / địa chỉ theo cơ sở" }] },
+  { key: "nang-cao", label: "Nâng cao", kind: "link", desc: "Cây tổ chức, sao lưu, biến môi trường, tích hợp.", links: [{ href: "/to-chuc", label: "Cây tổ chức" }, { href: "/van-hanh", label: "Vận hành & sao lưu" }, { href: "/tich-hop", label: "Tích hợp" }] },
+];
 
 export default async function OperationalSettings({ searchParams }: { searchParams: Promise<{ center?: string; tab?: string }> }) {
   const sp = await searchParams;
@@ -27,6 +35,16 @@ export default async function OperationalSettings({ searchParams }: { searchPara
   const { caller } = await getServerCaller();
   const ref = await caller.academics.classes.referenceData();
   const centerId = sp.center === "global" ? null : (sp.center ?? ref.centers[0]?.id ?? null);
+  const centerPicker = (
+    <form className="flex items-center gap-2">
+      <input type="hidden" name="tab" value={tab.key} />
+      <select name="center" defaultValue={centerId ?? "global"} className="input max-w-xs">
+        <option value="global">Mặc định toàn hệ thống</option>
+        {ref.centers.map((c) => <option key={c.id} value={c.id}>{c.code} — {c.name}</option>)}
+      </select>
+      <button className="btn-ghost">Xem</button>
+    </form>
+  );
 
   return (
     <div className="space-y-4">
@@ -43,29 +61,23 @@ export default async function OperationalSettings({ searchParams }: { searchPara
             className={`whitespace-nowrap border-b-2 px-3 py-2 ${t.key === tab.key ? "border-brand-600 font-semibold text-brand-600" : "border-transparent text-ink-600 hover:text-ink-900"}`}
           >
             {t.label}
-            {!("ready" in t) && <span className="ml-1 text-[10px] text-ink-400">•</span>}
           </Link>
         ))}
       </nav>
 
-      {tab.key === "zalo" ? (
-        <DeliverySettingsPanel />
-      ) : "ready" in tab ? (
+      {tab.kind === "zalo" && <DeliverySettingsPanel />}
+      {tab.kind === "lead" && (<>{centerPicker}<SettingsForm centerId={centerId} /></>)}
+      {tab.kind === "ops" && (
         <>
-          <form className="flex items-center gap-2">
-            <input type="hidden" name="tab" value="lead" />
-            <select name="center" defaultValue={centerId ?? "global"} className="input max-w-xs">
-              <option value="global">Mặc định toàn hệ thống</option>
-              {ref.centers.map((c) => <option key={c.id} value={c.id}>{c.code} — {c.name}</option>)}
-            </select>
-            <button className="btn-ghost">Xem</button>
-          </form>
-          <SettingsForm centerId={centerId} />
-        </>
-      ) : (
-        <div className="card max-w-2xl space-y-2 p-5">
-          <span className="chip bg-amber-100 text-amber-800">Đang xây dựng</span>
           <p className="text-sm text-ink-600">{tab.desc}</p>
+          {tab.group !== "otp" && tab.group !== "nhac" && centerPicker}
+          <OpsForm key={`${tab.group}-${centerId}`} group={tab.group} centerId={tab.group === "otp" || tab.group === "nhac" ? null : centerId} />
+        </>
+      )}
+      {tab.kind === "link" && (
+        <div className="card max-w-2xl space-y-3 p-5 text-sm">
+          <p className="text-ink-600">{tab.desc}</p>
+          <ul className="space-y-1">{tab.links.map((l) => <li key={l.href}><Link href={l.href} className="text-brand-600">{l.label} →</Link></li>)}</ul>
         </div>
       )}
     </div>

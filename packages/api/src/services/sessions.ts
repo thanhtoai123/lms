@@ -2,11 +2,12 @@ import { and, eq, inArray, sql, asc, gte, lte } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { sessions, classes, enrollments, attendance, students, teachers, rooms, centers, lessons, trialBookings, leads } from "@satarobo/db";
 import {
-  transition, nextStep, isOverdue, OPEN_STATUSES, toISODate, visibleCenterIds, detectRisks, missingRequiredChecklist, sessionLabel, SESSION_CHECKLIST,
+  transition, nextStep, isOverdue, OPEN_STATUSES, toISODate, visibleCenterIds, detectRisks, riskFrom, missingRequiredChecklist, sessionLabel, SESSION_CHECKLIST,
   type ChecklistState,
   type SessionEvent, type SessionStatus, type AttendanceStatus, type AttendanceRecord,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
+import { getOps } from "./opsSettings";
 import { writeAudit } from "./audit";
 import { emit } from "./outbox";
 
@@ -146,12 +147,14 @@ export async function recordAttendance(
       e.recs.push({ sessionDate: h.date, sequenceNo: h.seq, status: h.status });
       byEnrollment.set(h.enrollmentId, e);
     }
+    const risk = riskFrom(await getOps(ctx.db, s.centerId));
     for (const r of input.records) {
       const e = byEnrollment.get(r.enrollmentId);
       if (!e) continue;
       await emit(tx as unknown as typeof ctx.db, { type: "attendance.recorded", sessionId: input.sessionId, enrollmentId: r.enrollmentId, studentId: e.studentId, status: r.status, sequenceNo: s.session.sequenceNo });
-      for (const risk of detectRisks(e.recs)) {
-        await emit(tx as unknown as typeof ctx.db, { type: "risk.detected", studentId: e.studentId, enrollmentId: r.enrollmentId, code: risk.code, severity: risk.severity, detail: risk.detail });
+      for (const rk of detectRisks(e.recs, risk)) {
+        const risk2 = rk;
+        await emit(tx as unknown as typeof ctx.db, { type: "risk.detected", studentId: e.studentId, enrollmentId: r.enrollmentId, code: risk2.code, severity: risk2.severity, detail: risk2.detail });
       }
     }
   });

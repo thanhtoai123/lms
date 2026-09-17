@@ -97,3 +97,8 @@ Thứ tự cho mỗi cơ sở:
 
 - Mỗi nhân sự có vai trò tại cơ sở pilot vào **Hướng dẫn & đào tạo** (/huong-dan), học bài theo vai trò và trả lời đúng câu hỏi kiểm tra. Danh mục go-live "nhân sự đã học" tự đạt khi mọi tài khoản đang hoạt động của cơ sở học xong.
 - /go-live → mỗi cơ sở có mục **Kiểm tra trước pilot**: xử lý hết mục đỏ (chặn), mục vàng nên xử lý trước ngày chạy song song. Mục "Kiểm tra dữ liệu trước pilot không còn mục chặn" tự đạt.
+
+## Cấu hình vận hành và điểm danh mất mạng (Giai đoạn 10)
+
+- /cau-hinh-van-hanh: tab OTP và Nhắc tự động chỉ đặt ở mức toàn hệ thống (Quản trị Hội sở). Các tab Học viên, Lớp, Chấm công, Thanh toán: chọn cơ sở, bỏ "Theo mặc định" để đặt riêng; quản lý cơ sở sửa được cơ sở của mình. Mỗi lần lưu ghi vào Audit Log kèm lý do.
+- App giáo viên: nếu mất mạng khi đang ở trang buổi học, vẫn điểm danh và bấm lưu bình thường — dữ liệu lưu trên điện thoại, thanh trên cùng báo "chờ gửi", tự gửi khi có mạng (hoặc bấm "Gửi ngay"). Lưu ý: cần mở trang buổi học khi còn mạng; không đăng xuất / xoá dữ liệu trình duyệt khi còn buổi chờ gửi.

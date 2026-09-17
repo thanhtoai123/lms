@@ -38,7 +38,9 @@
 | 8C | **Báo cáo sau go-live** (/bao-cao/sau-go-live): theo tuần và cơ sở — điểm danh chốt trong ngày, tự khớp chuyển khoản, phủ hoá đơn điện tử, phụ huynh dùng cổng 30 ngày, OTP gửi được, tin ZNS / SMS / đẩy thành công, so mục tiêu | Xong |
 | 9A | **Hướng dẫn & đào tạo** (/huong-dan): 6 bài theo vai trò (làm quen, giáo viên, giáo vụ, tư vấn / CSKH, kế toán, quản lý go-live), có bước thao tác kèm liên kết và câu hỏi kiểm tra (đúng hết mới hoàn thành); danh mục go-live "nhân sự đã học" tự kiểm tra theo tài khoản có vai trò tại cơ sở | Xong |
 | 9B | **Kiểm tra dữ liệu trước pilot** (trong /go-live): 12 mục — phòng, quản lý, kế toán, học viên chưa có phụ huynh, lớp thiếu giáo viên / thiếu buổi, buổi 7 ngày tới thiếu giáo viên, SĐT phụ huynh sai, ghi danh chưa có đơn, học vượt gói, thiếu QR chuyển khoản, giáo viên chưa có tài khoản; mục chặn làm danh mục go-live chưa đạt | Xong |
-| 10 | Pilot thật tại 1 cơ sở (ký HĐĐT, Zalo ZNS, SMS, khoá VAPID), theo dõi báo cáo sau go-live 4 tuần, mở rộng cơ sở tiếp theo | Chờ quyết định cơ sở + hợp đồng |
+| 10A | **Cấu hình vận hành đầy đủ** (/cau-hinh-van-hanh): 11 tab đều dùng được — OTP (hiệu lực, số lần sai, chờ gửi lại, trần theo SĐT / IP), Học viên (sắp hết khoá, bảo lưu tối đa, hạn học bù, ngưỡng cảnh báo chuyên cần), Lớp (quét thẻ tính đi muộn), Chấm công (dung sai muộn / sớm), Thanh toán (nhắc đợt mặc định), Nhắc tự động (nhắc hạn bài tập); cơ sở ghi đè hoặc theo mặc định; mỗi thay đổi ghi nhật ký; tham số dùng thật trong nghiệp vụ | Xong |
+| 10B | **Điểm danh khi mất mạng** (app giáo viên): nháp điểm danh lưu trên máy, trang buổi học xem lại được khi mất kết nối, bấm lưu khi mất mạng thì xếp hàng và tự gửi khi có mạng (hiện số buổi chờ gửi, gửi ngay) | Xong |
+| 11 | Pilot thật tại 1 cơ sở (ký HĐĐT, Zalo ZNS, SMS, khoá VAPID), theo dõi báo cáo sau go-live 4 tuần, mở rộng cơ sở tiếp theo | Chờ quyết định cơ sở + hợp đồng |
 
 ## Việc kỹ thuật còn lại trong Giai đoạn 1 (sau khi CI xanh)
 

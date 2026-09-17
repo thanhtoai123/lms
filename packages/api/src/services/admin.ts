@@ -8,13 +8,14 @@ import {
 } from "@satarobo/db";
 import {
   EMAIL_EVENTS, EMAIL_EVENT_KEYS, fillTemplate, validateEmailTemplate, emailRetryDelayMs, isEmail,
-  OTP_POLICY, otpRequestDecision, otpVerifyDecision, normalizeVnPhone,
+  OTP_POLICY, otpPolicyFrom, otpRequestDecision, otpVerifyDecision, normalizeVnPhone,
   canReplay, safeHeaders, SETTINGS_DEFAULTS, validateSettings, validateCode, validateGroup, parseSepayPayload, hasRole, DEPARTMENT_VI,
   type EmailEvent, type EmailStatus, type OtpPurpose, type OtpStatus, type WebhookSource, type WebhookStatus, type AppSettings, type Department,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { sendOtpMessage, deliverySettings, otpDeliveryReady } from "./delivery";
 import { pushOverview } from "./pilot";
+import { getOps } from "./opsSettings";
 import { writeAudit } from "./audit";
 import { ingestBankTx } from "./bank";
 import { createLead } from "./leads";
@@ -186,10 +187,11 @@ export async function requestOtp(db: Database, input: { phone: string; purpose: 
   const phone = normalizeVnPhone(input.phone);
   if (!phone) return { ok: false as const, error: "Số điện thoại không hợp lệ" };
   const now = new Date();
-  const since = new Date(now.getTime() - OTP_POLICY.perIpWindowMin * 60_000);
+  const P = otpPolicyFrom(await getOps(d));
+  const since = new Date(now.getTime() - Math.max(P.perIpWindowMin, P.perPhoneWindowMin) * 60_000);
   const recentPhone = await d.select({ at: otpRequests.createdAt }).from(otpRequests).where(and(eq(otpRequests.phone, phone), gte(otpRequests.createdAt, since), sql`${otpRequests.status} <> 'blocked'`));
   const recentIp = input.ip ? await d.select({ at: otpRequests.createdAt }).from(otpRequests).where(and(eq(otpRequests.ip, input.ip), gte(otpRequests.createdAt, since), sql`${otpRequests.status} <> 'blocked'`)) : [];
-  const dec = otpRequestDecision({ now, phoneRecent: recentPhone.map((r) => r.at), ipRecent: recentIp.map((r) => r.at) });
+  const dec = otpRequestDecision({ now, phoneRecent: recentPhone.map((r) => r.at), ipRecent: recentIp.map((r) => r.at) }, P);
   if (!dec.ok) {
     await d.insert(otpRequests).values({ phone, purpose: input.purpose, codeHash: "-", channel: "none", status: "blocked", ip: input.ip, userAgent: input.userAgent?.slice(0, 200) ?? null, note: dec.reason, expiresAt: now });
     return { ok: false as const, error: dec.reason, retryAfterSec: dec.retryAfterSec };
@@ -198,9 +200,9 @@ export async function requestOtp(db: Database, input: { phone: string; purpose: 
   await d.update(otpRequests).set({ status: "expired" }).where(and(eq(otpRequests.phone, phone), eq(otpRequests.purpose, input.purpose), inArray(otpRequests.status, ["sent", "queued"])));
   const [row] = await d.insert(otpRequests).values({
     phone, purpose: input.purpose, codeHash: hashOtp(phone, input.purpose, code), channel: "zns", status: "queued",
-    ip: input.ip, userAgent: input.userAgent?.slice(0, 200) ?? null, note: "Đang gửi", expiresAt: new Date(now.getTime() + OTP_POLICY.ttlMinutes * 60_000),
+    ip: input.ip, userAgent: input.userAgent?.slice(0, 200) ?? null, note: "Đang gửi", expiresAt: new Date(now.getTime() + P.ttlMinutes * 60_000),
   }).returning({ id: otpRequests.id, expiresAt: otpRequests.expiresAt });
-  const sent = await sendOtpMessage(db, { phone, code, minutes: OTP_POLICY.ttlMinutes, requestId: row!.id });
+  const sent = await sendOtpMessage(db, { phone, code, minutes: P.ttlMinutes, requestId: row!.id });
   await d.update(otpRequests).set({ channel: sent.channel ?? "none", status: sent.channel ? "sent" : "queued", note: sent.channel ? null : `Chưa gửi được: ${sent.error}`.slice(0, 300) }).where(eq(otpRequests.id, row!.id));
   const dev = process.env.ALLOW_DEV_ACTOR === "1" && process.env.NODE_ENV !== "production";
   return { ok: true as const, requestId: row!.id, expiresAt: row!.expiresAt, delivered: !!sent.channel, channel: sent.channel, ...(dev ? { devCode: code } : {}) };
@@ -212,9 +214,10 @@ export async function verifyOtp(db: Database, input: { phone: string; purpose: O
   if (!phone || !/^\d{6}$/.test(input.code.trim())) return { ok: false as const, error: "Mã không đúng" };
   const r = await d.query.otpRequests.findFirst({ where: and(eq(otpRequests.phone, phone), eq(otpRequests.purpose, input.purpose), sql`${otpRequests.status} <> 'blocked'`), orderBy: desc(otpRequests.createdAt) });
   if (!r) return { ok: false as const, error: "Chưa có yêu cầu mã cho số này" };
-  const dec = otpVerifyDecision({ status: r.status as OtpStatus, attempts: r.attempts, expiresAt: r.expiresAt, now: new Date(), matches: r.codeHash === hashOtp(phone, input.purpose, input.code.trim()) });
+  const P = otpPolicyFrom(await getOps(d));
+  const dec = otpVerifyDecision({ status: r.status as OtpStatus, attempts: r.attempts, expiresAt: r.expiresAt, now: new Date(), matches: r.codeHash === hashOtp(phone, input.purpose, input.code.trim()) }, P);
   await d.update(otpRequests).set({ status: dec.status, attempts: dec.attempts, ...(dec.result === "ok" ? { verifiedAt: new Date() } : {}) }).where(eq(otpRequests.id, r.id));
-  const msg = { ok: "", wrong: `Mã không đúng (còn ${OTP_POLICY.maxAttempts - dec.attempts} lần)`, expired: "Mã đã hết hạn — yêu cầu mã mới", locked: "Nhập sai quá số lần — yêu cầu mã mới", used: "Mã đã được dùng" }[dec.result];
+  const msg = { ok: "", wrong: `Mã không đúng (còn ${P.maxAttempts - dec.attempts} lần)`, expired: "Mã đã hết hạn — yêu cầu mã mới", locked: "Nhập sai quá số lần — yêu cầu mã mới", used: "Mã đã được dùng" }[dec.result];
   return dec.result === "ok" ? { ok: true as const, phone } : { ok: false as const, error: msg };
 }
 
@@ -238,7 +241,7 @@ export async function listOtp(ctx: ProtectedContext, input: { status?: OtpStatus
   }).from(otpRequests).where(where);
   const now = Date.now();
   return {
-    page, pageSize: PAGE, counts: c, policy: OTP_POLICY, znsConfigured: otpDeliveryReady(await deliverySettings(ctx.db)),
+    page, pageSize: PAGE, counts: c, policy: otpPolicyFrom(await getOps(ctx.db)), znsConfigured: otpDeliveryReady(await deliverySettings(ctx.db)),
     items: rows.map((r) => ({ ...r, phone: r.phone.replace(/^(\d{3})\d+(\d{3})$/, "$1••••$2"), status: (r.status === "sent" || r.status === "queued") && r.expiresAt.getTime() < now ? "expired" : r.status })),
   };
 }

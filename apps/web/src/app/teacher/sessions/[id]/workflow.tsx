@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { enqueueAttendance, isNetworkError, saveLocal, loadLocal, dropLocal, queued, QUEUE_EVENT } from "@/lib/offline-queue";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "@/lib/trpc/client";
@@ -19,7 +20,24 @@ export function SessionWorkflow({ sessionId }: { sessionId: string }) {
   const trpc = useTRPC();
   const qc = useQueryClient();
   const q = useQuery(trpc.academics.sessions.get.queryOptions({ id: sessionId }));
-  const [draft, setDraft] = useState<Draft>({});
+  const [draft, setDraftState] = useState<Draft>({});
+  const [offlineSaved, setOfflineSaved] = useState(false);
+  const [cached, setCached] = useState<typeof q.data | null>(null);
+  const setDraft = (u: Draft | ((d: Draft) => Draft)) => setDraftState((d) => {
+    const next = typeof u === "function" ? u(d) : u;
+    saveLocal(`draft:${sessionId}`, next);
+    return next;
+  });
+  useEffect(() => {
+    const d = loadLocal<Draft>(`draft:${sessionId}`);
+    if (d) setDraftState(d);
+    setCached(loadLocal<NonNullable<typeof q.data>>(`session:${sessionId}`));
+    const sync = () => setOfflineSaved(queued().some((x) => x.sessionId === sessionId));
+    sync();
+    window.addEventListener(QUEUE_EVENT, sync);
+    return () => window.removeEventListener(QUEUE_EVENT, sync);
+  }, [sessionId]);
+  useEffect(() => { if (q.data) saveLocal(`session:${sessionId}`, q.data); }, [q.data, sessionId]);
   const [note, setNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,7 +53,8 @@ export function SessionWorkflow({ sessionId }: { sessionId: string }) {
   const saveChecklist = useMutation(trpc.academics.sessions.saveChecklist.mutationOptions({ onSuccess: () => { setError(null); invalidate(); }, onError: onErr }));
   const trialResult = useMutation(trpc.admissions.trials.result.mutationOptions({ onSuccess: () => { setError(null); invalidate(); }, onError: onErr }));
 
-  const s = q.data;
+  const s = q.data ?? (q.isError && cached ? cached : undefined);
+  const offlineView = !q.data && !!s;
   const roster = s?.roster ?? [];
 
   const effective = useMemo(() => {
@@ -46,8 +65,8 @@ export function SessionWorkflow({ sessionId }: { sessionId: string }) {
     return m;
   }, [roster, draft]);
 
-  if (q.isLoading) return <div className="card p-6 text-sm text-ink-400">Đang tải buổi học…</div>;
-  if (q.error || !s) return <div className="card p-6 text-sm text-danger">{q.error?.message ?? "Không tìm thấy buổi học"}</div>;
+  if (q.isLoading && !cached) return <div className="card p-6 text-sm text-ink-400">Đang tải buổi học…</div>;
+  if (!s) return <div className="card p-6 text-sm text-danger">{q.error?.message ?? "Không tìm thấy buổi học"}</div>;
 
   const cycle = (id: string) => {
     const cur = effective[id]!.status;
@@ -66,8 +85,18 @@ export function SessionWorkflow({ sessionId }: { sessionId: string }) {
   const markAll = (status: AttendanceStatus) => setDraft(Object.fromEntries(roster.map((r) => [r.enrollmentId, { ...effective[r.enrollmentId]!, status }])));
 
   const submitAttendance = async () => {
-    await record.mutateAsync({ sessionId, records: roster.map((r) => ({ enrollmentId: r.enrollmentId, status: effective[r.enrollmentId]!.status, studentRemark: effective[r.enrollmentId]!.remark || null, rating: effective[r.enrollmentId]!.rating })) });
-    if (s.status === "scheduled" || s.status === "in_progress") await transition.mutateAsync({ sessionId, event: "submit_attendance" }).catch(onErr);
+    const records = roster.map((r) => ({ enrollmentId: r.enrollmentId, status: effective[r.enrollmentId]!.status, studentRemark: effective[r.enrollmentId]!.remark || null, rating: effective[r.enrollmentId]!.rating }));
+    const submit = s.status === "scheduled" || s.status === "in_progress";
+    const queue = () => { enqueueAttendance({ sessionId, records, submit }); setError(null); setOfflineSaved(true); };
+    if (typeof navigator !== "undefined" && !navigator.onLine) return queue();
+    try {
+      await record.mutateAsync({ sessionId, records });
+    } catch (e) {
+      if (isNetworkError(e)) return queue();
+      return;
+    }
+    dropLocal(`draft:${sessionId}`);
+    if (submit) await transition.mutateAsync({ sessionId, event: "submit_attendance" }).catch(onErr);
   };
   const submitNote = async () => {
     const text = (note ?? s.sessionNote ?? "").trim();
@@ -105,6 +134,8 @@ export function SessionWorkflow({ sessionId }: { sessionId: string }) {
         {isFuture && <p className="mt-2 text-xs text-ink-600">Buổi học chưa diễn ra; điểm danh sẽ mở vào ngày học.</p>}
       </header>
 
+      {offlineView && <div className="rounded-xl border border-slate-300 bg-slate-50 p-3 text-sm">Đang xem dữ liệu đã lưu trên máy (mất kết nối). Điểm danh vẫn ghi được và sẽ tự gửi khi có mạng.</div>}
+      {offlineSaved && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Điểm danh buổi này đã lưu trên máy, chờ gửi lên hệ thống.</div>}
       {error && <div className="rounded-xl bg-red-50 border border-red-200 p-3 text-sm text-red-700">{error}</div>}
 
       {/* Chuẩn bị trước buổi */}

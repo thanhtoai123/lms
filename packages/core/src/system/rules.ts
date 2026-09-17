@@ -125,30 +125,31 @@ export const OTP_STATUSES = ["sent", "queued", "verified", "expired", "failed", 
 export type OtpStatus = (typeof OTP_STATUSES)[number];
 export const OTP_STATUS_VI: Record<OtpStatus, string> = { sent: "Đã gửi", queued: "Chờ gửi", verified: "Đã xác minh", expired: "Hết hạn", failed: "Nhập sai quá số lần", blocked: "Bị chặn" };
 
-export const OTP_POLICY = { ttlMinutes: 5, maxAttempts: 5, perPhoneWindowMin: 15, perPhoneMax: 3, perIpWindowMin: 60, perIpMax: 10, cooldownSec: 60 } as const;
+export const OTP_POLICY = { ttlMinutes: 5, maxAttempts: 5, perPhoneWindowMin: 15, perPhoneMax: 3, perIpWindowMin: 60, perIpMax: 10, cooldownSec: 60 };
+export type OtpPolicy = typeof OTP_POLICY;
 
 /** Có được gửi OTP mới? recent = các lần gửi gần đây (của SĐT / của IP) */
-export function otpRequestDecision(x: { now: Date; phoneRecent: Date[]; ipRecent: Date[] }): { ok: true } | { ok: false; reason: string; retryAfterSec: number } {
+export function otpRequestDecision(x: { now: Date; phoneRecent: Date[]; ipRecent: Date[] }, P: OtpPolicy = OTP_POLICY): { ok: true } | { ok: false; reason: string; retryAfterSec: number } {
   const t = x.now.getTime();
   const inWin = (ds: Date[], min: number) => ds.filter((d) => t - d.getTime() < min * 60_000);
   const last = x.phoneRecent.reduce((m, d) => Math.max(m, d.getTime()), 0);
-  if (last && t - last < OTP_POLICY.cooldownSec * 1000) return { ok: false, reason: "Vui lòng đợi trước khi yêu cầu mã mới", retryAfterSec: Math.ceil((OTP_POLICY.cooldownSec * 1000 - (t - last)) / 1000) };
-  const ph = inWin(x.phoneRecent, OTP_POLICY.perPhoneWindowMin);
-  if (ph.length >= OTP_POLICY.perPhoneMax) {
+  if (last && t - last < P.cooldownSec * 1000) return { ok: false, reason: "Vui lòng đợi trước khi yêu cầu mã mới", retryAfterSec: Math.ceil((P.cooldownSec * 1000 - (t - last)) / 1000) };
+  const ph = inWin(x.phoneRecent, P.perPhoneWindowMin);
+  if (ph.length >= P.perPhoneMax) {
     const oldest = Math.min(...ph.map((d) => d.getTime()));
-    return { ok: false, reason: "Số điện thoại đã yêu cầu quá nhiều lần", retryAfterSec: Math.ceil((oldest + OTP_POLICY.perPhoneWindowMin * 60_000 - t) / 1000) };
+    return { ok: false, reason: "Số điện thoại đã yêu cầu quá nhiều lần", retryAfterSec: Math.ceil((oldest + P.perPhoneWindowMin * 60_000 - t) / 1000) };
   }
-  if (inWin(x.ipRecent, OTP_POLICY.perIpWindowMin).length >= OTP_POLICY.perIpMax) return { ok: false, reason: "Thiết bị đã yêu cầu quá nhiều lần", retryAfterSec: OTP_POLICY.perIpWindowMin * 60 };
+  if (inWin(x.ipRecent, P.perIpWindowMin).length >= P.perIpMax) return { ok: false, reason: "Thiết bị đã yêu cầu quá nhiều lần", retryAfterSec: P.perIpWindowMin * 60 };
   return { ok: true };
 }
 
-export function otpVerifyDecision(x: { status: OtpStatus; attempts: number; expiresAt: Date; now: Date; matches: boolean }): { result: "ok" | "wrong" | "expired" | "locked" | "used"; status: OtpStatus; attempts: number } {
+export function otpVerifyDecision(x: { status: OtpStatus; attempts: number; expiresAt: Date; now: Date; matches: boolean }, P: OtpPolicy = OTP_POLICY): { result: "ok" | "wrong" | "expired" | "locked" | "used"; status: OtpStatus; attempts: number } {
   if (x.status === "verified") return { result: "used", status: x.status, attempts: x.attempts };
   if (x.status === "failed" || x.status === "blocked") return { result: "locked", status: x.status, attempts: x.attempts };
   if (x.status === "expired" || x.expiresAt.getTime() < x.now.getTime()) return { result: "expired", status: "expired", attempts: x.attempts };
   if (x.matches) return { result: "ok", status: "verified", attempts: x.attempts + 1 };
   const attempts = x.attempts + 1;
-  return attempts >= OTP_POLICY.maxAttempts ? { result: "locked", status: "failed", attempts } : { result: "wrong", status: x.status, attempts };
+  return attempts >= P.maxAttempts ? { result: "locked", status: "failed", attempts } : { result: "wrong", status: x.status, attempts };
 }
 
 

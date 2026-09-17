@@ -2,10 +2,11 @@ import { and, eq, inArray, sql, asc, desc, ilike, or } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { classes, classSchedules, sessions, enrollments, courses, centers, rooms, teachers, students, attendance } from "@satarobo/db";
 import {
-  visibleCenterIds, summarize, detectRisks, sessionLabel,
+  visibleCenterIds, summarize, detectRisks, riskFrom, sessionLabel,
   type ClassStatus, type AttendanceRecord,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
+import { getOps } from "./opsSettings";
 import { writeAudit } from "./audit";
 import { enforcePrerequisites } from "./catalog";
 
@@ -69,9 +70,10 @@ export async function getClass(ctx: ProtectedContext, id: string) {
     arr.push({ sessionDate: a.date, sequenceNo: a.seq, status: a.status });
     byEnrollment.set(a.enrollmentId, arr);
   }
+  const riskT = riskFrom(await getOps(ctx.db, c.centerId));
   const rosterWithStats = roster.map((r) => {
     const recs = byEnrollment.get(r.enrollmentId) ?? [];
-    return { ...r, attendance: summarize(recs), risks: detectRisks(recs) };
+    return { ...r, attendance: summarize(recs), risks: detectRisks(recs, riskT) };
   });
 
   return { ...c, sessions: sessionRows.map((x) => ({ ...x, label: sessionLabel(x.sequenceNo, x.kind) })), roster: rosterWithStats };

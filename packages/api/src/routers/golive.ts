@@ -1,11 +1,12 @@
 import { z } from "zod";
-import { CUTOVER_STAGES, DELIVERY_EVENTS, DELIVERY_MODES, PARALLEL_METRICS, RECON_METRICS, PILOT_FB_CATEGORIES, PILOT_FB_SEVERITIES, PILOT_FB_STATUSES } from "@satarobo/core";
+import { OPS_GROUPS, CUTOVER_STAGES, DELIVERY_EVENTS, DELIVERY_MODES, PARALLEL_METRICS, RECON_METRICS, PILOT_FB_CATEGORIES, PILOT_FB_SEVERITIES, PILOT_FB_STATUSES } from "@satarobo/core";
 import { router, protectedProcedure } from "../trpc";
 import * as M from "../services/migration";
 import * as C from "../services/cutover";
 import * as D from "../services/delivery";
 import * as P from "../services/pilot";
 import * as R from "../services/readiness";
+import * as O from "../services/opsSettings";
 
 const uuid = z.string().uuid();
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -61,4 +62,12 @@ export const readinessRouter = router({
   myTraining: protectedProcedure.query(({ ctx }) => R.myTraining(ctx)),
   complete: protectedProcedure.input(z.object({ key: z.string().max(40), answers: z.array(z.number().int().min(0).max(10)).max(20) })).mutation(({ ctx, input }) => R.completeModule(ctx, input)),
   center: protectedProcedure.input(z.object({ centerId: uuid })).query(({ ctx, input }) => R.centerReadiness(ctx, input)),
+});
+
+const opsGroup = z.enum(Object.keys(OPS_GROUPS) as [keyof typeof OPS_GROUPS, ...(keyof typeof OPS_GROUPS)[]]);
+export const opsConfigRouter = router({
+  group: protectedProcedure.input(z.object({ group: opsGroup, centerId: uuid.nullable() })).query(({ ctx, input }) => O.opsGroup(ctx, input)),
+  save: protectedProcedure
+    .input(z.object({ group: opsGroup, centerId: uuid.nullable(), values: z.record(z.string().max(40), z.union([z.number(), z.boolean(), z.null()])), reason: z.string().max(300).nullish() }))
+    .mutation(({ ctx, input }) => O.saveOpsGroup(ctx, input)),
 });

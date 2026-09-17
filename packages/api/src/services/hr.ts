@@ -12,6 +12,7 @@ import {
   type Permission, type StaffStatus, type EmploymentType, type PositionKind, type RequestKind, type RequestStatus, type LeaveType, type DayResult,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
+import { opsForCenters } from "./opsSettings";
 import { writeAudit } from "./audit";
 import { todayISO } from "./sessions";
 
@@ -108,6 +109,7 @@ export async function buildDays(db: Db, people: { id: string; centerId: string }
     db.select().from(timesheetOverrides).where(and(inArray(timesheetOverrides.staffId, ids), gte(timesheetOverrides.date, from), lte(timesheetOverrides.date, to))),
     db.select().from(holidays).where(and(gte(holidays.date, from), lte(holidays.date, to))),
   ]);
+  const opsBy = await opsForCenters(db, [...new Set(people.map((p) => p.centerId))]);
   const byKey = new Map<string, { in: number | null; out: number | null; n: number }>();
   for (const p of punches) {
     const v = vnParts(p.at);
@@ -139,6 +141,7 @@ export async function buildDays(db: Db, people: { id: string; centerId: string }
         excusedLateMin: le.reduce((s, x) => s + (x.lateMin ?? 0), 0), excusedEarlyMin: le.reduce((s, x) => s + (x.earlyMin ?? 0), 0),
         otMin: ot.reduce((s, x) => s + x.minutes, 0), holiday: !!hol && !!sh,
         override: ov ? { units: ov.units, status: ov.label, note: ov.reason } : null,
+        graceMin: opsBy.get(p.centerId)?.timesheetGraceMin,
       });
       return {
         ...r, date, scheduled: !!sh,

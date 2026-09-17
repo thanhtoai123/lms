@@ -164,6 +164,8 @@ export interface DayInput {
   otMin?: number;
   holiday?: boolean;
   override?: { units: number; status: string; note: string } | null;
+  /** phút đi muộn / về sớm bỏ qua (mặc định GRACE_MIN) */
+  graceMin?: number;
 }
 
 export interface DayResult {
@@ -180,6 +182,7 @@ export interface DayResult {
 }
 
 export function computeDay(i: DayInput): DayResult {
+  const grace = i.graceMin ?? GRACE_MIN;
   const base: DayResult = { status: "off", units: 0, paidLeave: 0, unpaidLeave: 0, holidayUnits: 0, lateMin: 0, earlyMin: 0, workedMin: 0, otMin: i.otMin ?? 0, note: null };
   if (i.override) return { ...base, status: "override", units: i.override.units, note: `${i.override.status}: ${i.override.note}` };
   const worked = (from: number, to: number, brk: number) => (i.inMin != null && i.outMin != null ? Math.max(0, Math.min(i.outMin, to) - Math.max(i.inMin, from) - (i.inMin < from + (to - from) / 2 && i.outMin > from + (to - from) / 2 ? brk : 0)) : 0);
@@ -201,14 +204,14 @@ export function computeDay(i: DayInput): DayResult {
     return withLeave({ ...base, status: i.date === i.today ? "upcoming" : "absent" });
   }
   if (i.inMin != null && i.outMin == null) {
-    if (i.date === i.today) return withLeave({ ...base, status: "working", lateMin: Math.max(0, i.inMin - from > GRACE_MIN ? i.inMin - from - (i.excusedLateMin ?? 0) : 0) });
+    if (i.date === i.today) return withLeave({ ...base, status: "working", lateMin: Math.max(0, i.inMin - from > grace ? i.inMin - from - (i.excusedLateMin ?? 0) : 0) });
     return withLeave({ ...base, status: "missing_out" });
   }
   if (i.inMin == null) return withLeave({ ...base, status: "missing_in" });
   const rawLate = i.inMin! - from;
   const rawEarly = to - i.outMin!;
-  const lateMin = rawLate > GRACE_MIN ? Math.max(0, rawLate - (i.excusedLateMin ?? 0)) : 0;
-  const earlyMin = rawEarly > GRACE_MIN ? Math.max(0, rawEarly - (i.excusedEarlyMin ?? 0)) : 0;
+  const lateMin = rawLate > grace ? Math.max(0, rawLate - (i.excusedLateMin ?? 0)) : 0;
+  const earlyMin = rawEarly > grace ? Math.max(0, rawEarly - (i.excusedEarlyMin ?? 0)) : 0;
   const status: DayStatus = i.leave ? "half_leave" : lateMin && earlyMin ? "late_early" : lateMin ? "late" : earlyMin ? "early" : "present";
   const span = to - from;
   const missing = lateMin + earlyMin;

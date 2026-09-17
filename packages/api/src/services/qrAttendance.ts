@@ -6,6 +6,7 @@ import { authorize, cardPayload, parseCardPayload, scanStatus, qrSvg, visibleCen
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { loadSessionForAuth, recordAttendance, todayISO } from "./sessions";
 import { writeAudit } from "./audit";
+import { getOps } from "./opsSettings";
 
 const secret = () => process.env.MEDIA_SIGNING_SECRET ?? "dev-only-media-secret";
 export function cardSig(studentId: string, version: number) {
@@ -35,7 +36,7 @@ export async function scanCard(ctx: ProtectedContext, input: { sessionId: string
   if (enr.startSequenceNo > s.session.sequenceNo) return { ok: false as const, reason: `${st.fullName} bắt đầu học từ buổi ${enr.startSequenceNo}`, student: st.fullName };
   const existing = await ctx.db.query.attendance.findFirst({ where: and(eq(attendance.sessionId, s.session.id), eq(attendance.enrollmentId, enr.id)) });
   if (existing && ["present", "late", "makeup"].includes(existing.status)) return { ok: true as const, duplicate: true, student: st.fullName, status: existing.status };
-  const status = scanStatus(s.session.date, s.session.startTime, new Date());
+  const status = scanStatus(s.session.date, s.session.startTime, new Date(), (await getOps(ctx.db, s.centerId)).scanLateGraceMin);
   await recordAttendance(ctx, { sessionId: s.session.id, records: [{ enrollmentId: enr.id, status, studentRemark: existing?.studentRemark ?? null, rating: existing?.rating ?? null }] });
   return { ok: true as const, duplicate: false, student: st.fullName, status, previous: existing?.status ?? null };
 }
