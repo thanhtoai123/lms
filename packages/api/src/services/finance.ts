@@ -2,13 +2,13 @@ import { and, eq, inArray, sql, asc, desc, isNull, gte, lte, or, ilike, ne, type
 import { TRPCError } from "@trpc/server";
 import {
   paymentMethods, orders, orderPrivate, orderItems, orderInstallments, orderEvents, payments, refunds, financeLedger, bankTransactions, commissions,
-  centers, users, userRoles, userNotifications, enrollments, classes, courses, students, parents, studentGuardians,
+  centers, users, userRoles, userNotifications, enrollments, classes, courses, students, parents, studentGuardians, leads, leadChildren,
 } from "@satarobo/db";
 import {
   authorize, hasRole, visibleCenterIds, addDays,
   priceOrder, packagePrice, buildInstallmentPlan, validateInstallmentPlan, orderBalance, deriveOrderStatus, canCancelOrder,
   allocateInstallments, agingBucket, dueSoon, validatePaymentDecision, receiptNumber, orderCode, transferMemo, maskIdNumber,
-  refundProposal, validateRefundRequest, refundTransition, vietQrImageUrl, requireReason, formatVnd,
+  refundProposal, validateRefundRequest, refundTransition, vietQrImageUrl, requireReason, formatVnd, maskPhone,
   AGING_BUCKETS, FinanceRuleError,
   type OrderType, type OrderStatus, type PaymentStatus, type PaymentDecision, type RefundStatus, type PaymentMethodKind, type AgingBucket, type Discount, type Permission,
 } from "@satarobo/core";
@@ -218,14 +218,97 @@ export async function orderDraftFromEnrollment(ctx: ProtectedContext, enrollment
   };
 }
 
+/** "84905123456" → "0905123456" */
+export const localPhone = (normalized: string) => (normalized.startsWith("84") ? `0${normalized.slice(2)}` : normalized);
+
+/** Gợi ý đơn từ lead: khách theo lead, mỗi con chưa chốt có khoá quan tâm → một dòng giá niêm yết */
+export async function orderDraftFromLead(ctx: ProtectedContext, leadId: string) {
+  const lead = await ctx.db.query.leads.findFirst({ where: and(eq(leads.id, leadId), isNull(leads.deletedAt)) });
+  if (!lead) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy lead" });
+  requirePermission(ctx, "finance:create", { centerId: lead.centerId });
+  const kids = await ctx.db
+    .select({ id: leadChildren.id, fullName: leadChildren.fullName, convertedStudentId: leadChildren.convertedStudentId, courseId: courses.id, courseCode: courses.code, listPrice: courses.listPrice, totalSessions: courses.totalSessions })
+    .from(leadChildren).leftJoin(courses, eq(courses.id, leadChildren.interestedCourseId))
+    .where(eq(leadChildren.leadId, lead.id)).orderBy(asc(leadChildren.createdAt));
+  const items: { courseId: string; description: string; unitPrice: number; packageSessions: number | null; leadChildId: string | null }[] = [];
+  for (const k of kids) {
+    if (k.convertedStudentId || !k.courseId) continue;
+    items.push({ courseId: k.courseId, description: `Học phí ${k.courseCode} — ${k.fullName}`, unitPrice: Number(k.listPrice ?? 0), packageSessions: k.totalSessions, leadChildId: k.id });
+  }
+  if (!items.length && lead.interestedCourseId) {
+    const c = await ctx.db.query.courses.findFirst({ where: eq(courses.id, lead.interestedCourseId) });
+    if (c) items.push({ courseId: c.id, description: `Học phí ${c.code}${lead.childName ? ` — ${lead.childName}` : ""}`, unitPrice: Number(c.listPrice), packageSessions: c.totalSessions, leadChildId: null });
+  }
+  const existingOrders = await ctx.db.select({ id: orders.id, code: orders.code, status: orders.status, total: orders.total }).from(orders).where(eq(orders.leadId, lead.id)).orderBy(desc(orders.createdAt));
+  const full = hasRole(ctx.actor, "SUPER_ADMIN", "CENTER_MANAGER", "CENTER_SALES_CSM", "HO_SALE", "CENTER_ACCOUNTANT", "HO_ACCOUNTANT");
+  return {
+    leadId: lead.id, centerId: lead.centerId, parentName: lead.parentName, email: lead.email,
+    phone: full ? localPhone(lead.phoneNormalized) : maskPhone(lead.phoneNormalized),
+    children: kids.map((k) => ({ id: k.id, fullName: k.fullName, converted: !!k.convertedStudentId, courseId: k.courseId })),
+    items,
+    existingOrders,
+  };
+}
+
+/** Phương thức ghi khoản thu lùi ngày: tiền mặt của cơ sở → tiền mặt dùng chung → phương thức học phí đầu tiên */
+export async function pickBackfillMethod(db: Db, centerId: string): Promise<string | null> {
+  const rows = await db.select({ id: paymentMethods.id, kind: paymentMethods.kind, centerId: paymentMethods.centerId, allowFor: paymentMethods.allowFor })
+    .from(paymentMethods).where(and(eq(paymentMethods.isActive, true), or(isNull(paymentMethods.centerId), eq(paymentMethods.centerId, centerId))!)).orderBy(asc(paymentMethods.sortOrder));
+  const ok = rows.filter((r) => r.allowFor.includes("course"));
+  return (ok.find((r) => r.kind === "cash" && r.centerId === centerId) ?? ok.find((r) => r.kind === "cash") ?? ok[0])?.id ?? null;
+}
+
+/**
+ * Tạo đơn của lead trong transaction đang chạy (chốt lead): đơn 0đ học bổng toàn phần, hoặc đơn giá niêm yết
+ * kèm khoản thu lùi ngày "backfill" ở trạng thái chờ kế toán (không bịa khoản đã xác nhận).
+ */
+export async function insertLeadOrderTx(tx: Db, p: {
+  leadId: string; centerId: string; parentId: string | null; studentId: string | null; enrollmentId: string | null;
+  customer: { name: string; phone: string; email: string | null };
+  items: { courseId: string | null; description: string; unitPrice: number; packageSessions: number | null; leadChildId: string | null; studentId: string | null; enrollmentId: string | null }[];
+  paymentMethodId: string | null; internalNote: string | null; dueDate: string; actorId: string;
+  payment?: { amount: number; paidAt: string; note: string } | null;
+}) {
+  const total = p.items.reduce((s, i) => s + Math.round(i.unitPrice), 0);
+  if (p.payment && p.payment.amount > total) throw pre(`Số đã đóng (${formatVnd(p.payment.amount)}) lớn hơn tổng đơn (${formatVnd(total)})`);
+  const code = await nextOrderCode(tx, Number(todayISO().slice(0, 4)));
+  const status: OrderStatus = total === 0 ? "paid" : "pending_payment";
+  const [o] = await tx.insert(orders).values({
+    code, type: "course", status, centerId: p.centerId, parentId: p.parentId, studentId: p.studentId, enrollmentId: p.enrollmentId, leadId: p.leadId,
+    customerName: p.customer.name, customerPhone: p.customer.phone, customerEmail: p.customer.email,
+    subtotal: total, discountAmount: 0, total, paymentMethodId: p.paymentMethodId, internalNote: p.internalNote, createdBy: p.actorId,
+  }).returning({ id: orders.id });
+  await tx.insert(orderItems).values(p.items.map((i) => ({
+    orderId: o!.id, courseId: i.courseId, description: i.description, quantity: 1, unitPrice: Math.round(i.unitPrice), amount: Math.round(i.unitPrice),
+    packageSessions: i.packageSessions, leadChildId: i.leadChildId, studentId: i.studentId, enrollmentId: i.enrollmentId,
+  })));
+  if (total > 0) await tx.insert(orderInstallments).values({ orderId: o!.id, seq: 1, amount: total, dueDate: p.dueDate });
+  await tx.insert(orderEvents).values({ orderId: o!.id, event: "create", toStatus: status, note: p.internalNote, actorId: p.actorId });
+  await tx.insert(financeLedger).values({ orderId: o!.id, centerId: p.centerId, entryType: "charge", amount: total, refId: o!.id, note: `Tạo đơn ${code}`, actorId: p.actorId });
+  let paymentId: string | null = null;
+  if (p.payment && p.payment.amount > 0) {
+    const [pay] = await tx.insert(payments).values({
+      orderId: o!.id, centerId: p.centerId, recordedAmount: p.payment.amount, amount: p.payment.amount, paymentMethodId: p.paymentMethodId, paidAt: p.payment.paidAt,
+      status: "recorded", source: "backfill", note: p.payment.note, recordedBy: p.actorId,
+    }).returning({ id: payments.id });
+    paymentId = pay!.id;
+    await tx.insert(orderEvents).values({ orderId: o!.id, event: "payment_recorded", note: `${formatVnd(p.payment.amount)} · ghi lùi ngày ${p.payment.paidAt}`, actorId: p.actorId });
+    await notify(tx, await accountantsOf(tx, p.centerId), "Khoản thu chờ xác nhận", `${code} · ${formatVnd(p.payment.amount)} · ${p.customer.name} (nhập liệu ban đầu)`, "/payments?status=recorded");
+  }
+  await writeAudit(tx, { actorId: p.actorId, action: "CREATE", module: "finance", entity: "orders", entityId: o!.id, after: { code, total, leadId: p.leadId, backfill: p.payment ?? null } });
+  return { id: o!.id, code, total, paymentId };
+}
+
 export interface CreateOrderInput {
   type: OrderType;
   centerId: string;
   enrollmentId?: string | null;
   studentId?: string | null;
   parentId?: string | null;
+  /** Đơn cho khách tiềm năng: khoá cơ sở theo lead, SĐT lấy từ lead */
+  leadId?: string | null;
   customer: { name: string; phone: string; email?: string | null; idNumber?: string | null; address?: string | null; province?: string | null; ward?: string | null };
-  items: { courseId?: string | null; description: string; quantity: number; unitPrice: number; packageSessions?: number | null }[];
+  items: { courseId?: string | null; description: string; quantity: number; unitPrice: number; packageSessions?: number | null; leadChildId?: string | null }[];
   discount?: Discount | null;
   paymentMethodId: string;
   installments: { count: number; firstDueDate: string; intervalDays?: number } | { plan: { amount: number; dueDate: string }[] };
@@ -238,7 +321,19 @@ export async function createOrder(ctx: ProtectedContext, input: CreateOrderInput
   requirePermission(ctx, "finance:create", { centerId: input.centerId });
   const center = await ctx.db.query.centers.findFirst({ where: eq(centers.id, input.centerId) });
   if (!center) throw bad("Cơ sở không hợp lệ");
-  const phone = input.customer.phone.replace(/\D/g, "");
+  let lead: typeof leads.$inferSelect | undefined;
+  const childIds = [...new Set(input.items.map((i) => i.leadChildId).filter((x): x is string => !!x))];
+  if (input.leadId) {
+    lead = await ctx.db.query.leads.findFirst({ where: and(eq(leads.id, input.leadId), isNull(leads.deletedAt)) });
+    if (!lead) throw bad("Lead không tồn tại");
+    if (lead.centerId && lead.centerId !== input.centerId) throw bad("Đơn của khách phải thuộc cơ sở của khách (cơ sở trên lead)");
+    if (input.enrollmentId) throw bad("Đơn tạo từ lead không chọn đăng ký học — chốt lead xong hệ thống tự gắn học viên / ghi danh");
+    if (childIds.length) {
+      const kids = await ctx.db.select({ id: leadChildren.id }).from(leadChildren).where(and(eq(leadChildren.leadId, lead.id), inArray(leadChildren.id, childIds)));
+      if (kids.length !== childIds.length) throw bad("Dòng đơn chọn con không thuộc lead này");
+    }
+  } else if (childIds.length) throw bad("Chỉ đơn tạo từ lead mới chọn được con của lead");
+  const phone = lead ? localPhone(lead.phoneNormalized) : input.customer.phone.replace(/\D/g, "");
   if (phone.length < 9 || phone.length > 11) throw bad("Số điện thoại khách hàng không hợp lệ");
   const priced = priceOrder(input.items, input.discount);
   if (priced.errors.length) throw bad(priced.errors);
@@ -268,7 +363,7 @@ export async function createOrder(ctx: ProtectedContext, input: CreateOrderInput
   return ctx.db.transaction(async (tx) => {
     const code = await nextOrderCode(tx as unknown as Db, Number(todayISO().slice(0, 4)));
     const [o] = await tx.insert(orders).values({
-      code, type: input.type, status: priced.total === 0 ? "paid" : "pending_payment", centerId: input.centerId, parentId: input.parentId ?? null, studentId, enrollmentId,
+      code, type: input.type, status: priced.total === 0 ? "paid" : "pending_payment", centerId: input.centerId, parentId: input.parentId ?? lead?.convertedParentId ?? null, studentId, enrollmentId, leadId: lead?.id ?? null,
       customerName: input.customer.name.trim(), customerPhone: phone, customerEmail: input.customer.email?.trim() || null,
       subtotal: priced.subtotal, discountType: input.discount?.value ? input.discount.type : null, discountValue: input.discount?.value ? Math.round(input.discount.value) : null,
       discountAmount: priced.discountAmount, total: priced.total, paymentMethodId: method.id,
@@ -278,12 +373,13 @@ export async function createOrder(ctx: ProtectedContext, input: CreateOrderInput
     if (priv.idNumber || priv.address || priv.province || priv.ward) {
       await tx.insert(orderPrivate).values({ orderId: o!.id, idNumber: priv.idNumber?.replace(/\s/g, "") || null, address: priv.address?.trim() || null, province: priv.province?.trim() || null, ward: priv.ward?.trim() || null });
     }
-    await tx.insert(orderItems).values(input.items.map((i) => ({ orderId: o!.id, courseId: i.courseId ?? null, description: i.description.trim(), quantity: i.quantity, unitPrice: Math.round(i.unitPrice), amount: Math.round(i.quantity * i.unitPrice), packageSessions: i.packageSessions ?? null })));
+    await tx.insert(orderItems).values(input.items.map((i) => ({ orderId: o!.id, courseId: i.courseId ?? null, description: i.description.trim(), quantity: i.quantity, unitPrice: Math.round(i.unitPrice), amount: Math.round(i.quantity * i.unitPrice), packageSessions: i.packageSessions ?? null, leadChildId: i.leadChildId ?? null })));
     if (priced.total > 0) await tx.insert(orderInstallments).values(plan.map((p) => ({ orderId: o!.id, ...p })));
     await tx.insert(orderEvents).values({ orderId: o!.id, event: "create", toStatus: o!.status, note: priced.discountAmount ? `Giảm ${formatVnd(priced.discountAmount)}` : null, actorId: ctx.user.id });
     await tx.insert(financeLedger).values({ orderId: o!.id, centerId: input.centerId, entryType: "charge", amount: priced.total, refId: o!.id, note: `Tạo đơn ${code}`, actorId: ctx.user.id });
-    await writeAudit(tx as unknown as Db, { actorId: ctx.user.id, action: "CREATE", module: "finance", entity: "orders", entityId: o!.id, after: { code, total: priced.total, discount: priced.discountAmount, enrollmentId, installments: plan.length }, ip: ctx.ip });
-    return { id: o!.id, code };
+    await writeAudit(tx as unknown as Db, { actorId: ctx.user.id, action: "CREATE", module: "finance", entity: "orders", entityId: o!.id, after: { code, total: priced.total, discount: priced.discountAmount, enrollmentId, leadId: lead?.id ?? null, installments: plan.length }, ip: ctx.ip });
+    if (lead) await tx.update(leads).set({ lastTouchAt: new Date() }).where(eq(leads.id, lead.id));
+    return { id: o!.id, code, leadId: lead?.id ?? null };
   });
 }
 
@@ -315,6 +411,7 @@ export async function getOrder(ctx: ProtectedContext, id: string) {
           .from(enrollments).innerJoin(classes, eq(classes.id, enrollments.classId)).where(eq(enrollments.id, o.enrollmentId)).then((r) => r[0] ?? null)
       : null,
   ]);
+  const lead = o.leadId ? await ctx.db.query.leads.findFirst({ where: eq(leads.id, o.leadId), columns: { id: true, parentName: true, status: true } }) : null;
   const refundedPaid = refs.filter((r) => r.status === "paid").reduce((s, r) => s + r.amount, 0);
   const bal = orderBalance(o.total, pays.map((p) => ({ amount: p.p.amount, status: p.p.status })), refundedPaid);
   const installments = allocateInstallments(plan.map((p) => ({ seq: p.seq, amount: p.amount, dueDate: p.dueDate })), bal.confirmed, today);
@@ -339,6 +436,7 @@ export async function getOrder(ctx: ProtectedContext, id: string) {
     creatorName: creator?.fullName ?? null,
     student: student ?? null,
     enrollment,
+    lead: lead ?? null,
     cancelBlock: canCancelOrder(o.status, bal.confirmed, bal.pending),
     perms: {
       create: can(ctx, "finance:create", o.centerId),

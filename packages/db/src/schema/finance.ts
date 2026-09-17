@@ -6,6 +6,7 @@ import { centers } from "./org";
 import { users } from "./identity";
 import { parents, students } from "./people";
 import { courses, enrollments } from "./academics";
+import { leads, leadChildren } from "./admissions";
 
 const money = (name: string) => bigint(name, { mode: "number" });
 
@@ -47,6 +48,8 @@ export const orders = pgTable(
     parentId: uuid("parent_id").references(() => parents.id),
     studentId: uuid("student_id").references(() => students.id),
     enrollmentId: uuid("enrollment_id").references(() => enrollments.id),
+    /** Đơn tạo cho khách tiềm năng (lead) — điều kiện chốt: lead phải có đơn đã ghi nhận thu */
+    leadId: uuid("lead_id").references(() => leads.id),
     customerName: text("customer_name").notNull(),
     customerPhone: text("customer_phone").notNull(),
     customerEmail: text("customer_email"),
@@ -68,6 +71,7 @@ export const orders = pgTable(
     index("orders_center_idx").on(t.centerId, t.status, t.createdAt),
     index("orders_enrollment_idx").on(t.enrollmentId),
     index("orders_phone_idx").on(t.customerPhone),
+    index("orders_lead_idx").on(t.leadId),
   ],
 );
 
@@ -91,8 +95,12 @@ export const orderItems = pgTable(
     unitPrice: money("unit_price").notNull(),
     amount: money("amount").notNull(),
     packageSessions: integer("package_sessions"),
+    /** Dòng của con nào (khi đơn tạo từ lead); chốt xong gắn học viên + ghi danh */
+    leadChildId: uuid("lead_child_id").references(() => leadChildren.id, { onDelete: "set null" }),
+    studentId: uuid("student_id").references(() => students.id),
+    enrollmentId: uuid("enrollment_id").references(() => enrollments.id),
   },
-  (t) => [index("order_items_order_idx").on(t.orderId)],
+  (t) => [index("order_items_order_idx").on(t.orderId), index("order_items_lead_child_idx").on(t.leadChildId), index("order_items_enrollment_idx").on(t.enrollmentId)],
 );
 
 export const orderInstallments = pgTable(

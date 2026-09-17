@@ -213,7 +213,7 @@ async function main() {
   await db.insert(enrollmentEvents).values({ enrollmentId: enrollA[9]!.id, type: "pause", fromStatus: "active", toStatus: "paused", reason: "Gia đình đi xa (dữ liệu mẫu)", meta: { pausedAt: pauseFrom, pauseUntil }, actorId: mgrU!.id });
 
   // ---- Tuyển sinh: cấu hình chia lead, bảng sale, lead mẫu (dữ liệu giả) ----
-  await db.insert(admissionsSettings).values({ centerId: cs1!.id, distributionMode: "round_robin", dedupeDays: 30, maxTrialsPerLead: 2, staleAfterDays: 7, updatedBy: adminU!.id });
+  await db.insert(admissionsSettings).values({ centerId: cs1!.id, distributionMode: "round_robin", dedupeDays: 0, maxTrialsPerLead: 2, staleAfterDays: 7, updatedBy: adminU!.id });
   await db.insert(leadAssignees).values([
     { userId: sale1U!.id, centerId: cs1!.id, isAvailable: true, roundsReceived: 3, lastAssignedAt: new Date(Date.now() - 3 * 3600e3) },
     { userId: sale2U!.id, centerId: cs1!.id, isAvailable: true, roundsReceived: 2, lastAssignedAt: new Date(Date.now() - 26 * 3600e3) },

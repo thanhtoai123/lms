@@ -27,14 +27,15 @@ export const financeRouter = router({
     .query(({ ctx, input }) => F.listOrders(ctx, input)),
   order: protectedProcedure.input(z.object({ id: uuid })).query(({ ctx, input }) => F.getOrder(ctx, input.id)),
   orderDraft: protectedProcedure.input(z.object({ enrollmentId: uuid })).query(({ ctx, input }) => F.orderDraftFromEnrollment(ctx, input.enrollmentId)),
+  orderDraftFromLead: protectedProcedure.input(z.object({ leadId: uuid })).query(({ ctx, input }) => F.orderDraftFromLead(ctx, input.leadId)),
   createOrder: protectedProcedure
     .input(z.object({
-      type: z.enum(ORDER_TYPES), centerId: uuid, enrollmentId: uuid.nullish(), studentId: uuid.nullish(), parentId: uuid.nullish(),
+      type: z.enum(ORDER_TYPES), centerId: uuid, enrollmentId: uuid.nullish(), studentId: uuid.nullish(), parentId: uuid.nullish(), leadId: uuid.nullish(),
       customer: z.object({
         name: z.string().trim().min(2, "Tên khách tối thiểu 2 ký tự").max(120), phone: z.string().trim().min(9, "Số điện thoại không hợp lệ").max(20),
         email: z.string().trim().email("Email không hợp lệ").max(200).nullish().or(z.literal("")), idNumber: ntext(20), address: ntext(300), province: ntext(80), ward: ntext(80),
       }),
-      items: z.array(z.object({ courseId: uuid.nullish(), description: z.string().trim().min(2, "Mô tả dòng hàng tối thiểu 2 ký tự").max(200), quantity: z.number().int().min(1).max(100), unitPrice: money, packageSessions: z.number().int().min(1).max(200).nullish() })).min(1, "Đơn cần ít nhất một dòng").max(20),
+      items: z.array(z.object({ courseId: uuid.nullish(), description: z.string().trim().min(2, "Mô tả dòng hàng tối thiểu 2 ký tự").max(200), quantity: z.number().int().min(1).max(100), unitPrice: money, packageSessions: z.number().int().min(1).max(200).nullish(), leadChildId: uuid.nullish() })).min(1, "Đơn cần ít nhất một dòng").max(20),
       discount: z.object({ type: z.enum(["amount", "percent"]), value: z.number().min(0).max(10_000_000_000) }).nullish(),
       paymentMethodId: uuid,
       installments: z.union([
