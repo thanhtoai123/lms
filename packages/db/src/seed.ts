@@ -14,8 +14,9 @@ import {
   holidays, coursePrerequisites, teacherCourses, teacherEvaluations,
   paymentMethods, orders, orderItems, orderInstallments, orderEvents, payments, refunds, financeLedger,
   commissionRules, commissions, bankTransactions,
+  staff, staffPrivate, staffPositions, workShifts, shiftAssignments, attendancePunches, staffRequests,
 } from "./schema/index";
-import { generateSessions, buildClassCode, buildStudentCode, toISODate, addDays, orderCode, receiptNumber, packagePrice, buildInstallmentPlan, computeCommission, describeRule, periodOf } from "@satarobo/core";
+import { generateSessions, buildClassCode, buildStudentCode, toISODate, addDays, orderCode, receiptNumber, packagePrice, buildInstallmentPlan, computeCommission, describeRule, periodOf, fmtMin, hhmm, weekdayOf, leaveDays } from "@satarobo/core";
 
 const db = createDb();
 
@@ -345,6 +346,67 @@ async function main() {
     { source: "sepay", externalId: "seed-3", gateway: "Vietcombank", accountNo: "0000000000", paymentMethodId: pmBank!.id, occurredAt: new Date(now - 1800e3), amount: 22_000, direction: "out", content: "Phi dich vu SMS (mau)", status: "ignored", matchNote: "Tiền ra — không đối khớp" },
   ]);
 
+  // ---- Nhân sự, ca làm, chấm công, đơn từ (mẫu) ----
+  const [hrU] = await db.insert(users).values({ email: "hr.cs1@example.test", fullName: "Nhân sự CS1 (mẫu)" }).returning();
+  await db.insert(userRoles).values({ userId: hrU!.id, role: "CENTER_HR", centerId: cs1!.id });
+  await db.update(centers).set({ latitude: 16.0336, longitude: 108.2212, checkinRadiusM: 150 }).where(eq(centers.id, cs1!.id));
+  const [shHC, , shC] = await db.insert(workShifts).values([
+    { centerId: null, code: "HC", name: "Hành chính", startTime: "08:00", endTime: "17:00", breakMinutes: 60 },
+    { centerId: cs1!.id, code: "SANG", name: "Ca sáng", startTime: "07:30", endTime: "11:30", breakMinutes: 0 },
+    { centerId: cs1!.id, code: "CHIEU", name: "Ca chiều tối", startTime: "13:30", endTime: "21:00", breakMinutes: 30 },
+  ]).returning();
+  const staffDefs = [
+    { u: mgrU!, code: "NV0001", department: "management", title: "Quản lý cơ sở", hiredAt: "2025-03-01", status: "active" as const, shift: shHC! },
+    { u: sale1U!, code: "NV0002", department: "sales", title: "Tư vấn viên", hiredAt: "2026-02-10", status: "active" as const, shift: shHC! },
+    { u: sale2U!, code: "NV0003", department: "sales", title: "Tư vấn viên", hiredAt: "2026-07-01", status: "probation" as const, shift: shHC! },
+    { u: ktU!, code: "NV0004", department: "accounting", title: "Kế toán", hiredAt: "2025-09-15", status: "active" as const, shift: shHC! },
+    { u: hrU!, code: "NV0005", department: "hr", title: "Chuyên viên nhân sự", hiredAt: "2025-01-06", status: "active" as const, shift: shHC! },
+    { u: t1U!, code: "NV0006", department: "academic", title: "Giáo viên chính", hiredAt: "2025-05-20", status: "active" as const, shift: shC!, teacherId: gv1!.id },
+  ];
+  const staffRows = await db.insert(staff).values([
+    ...staffDefs.map((d) => ({ code: d.code, userId: d.u.id, teacherId: d.teacherId ?? null, fullName: d.u.fullName, email: d.u.email, centerId: cs1!.id, department: d.department, title: d.title, employmentType: "full_time" as const, status: d.status, hiredAt: d.hiredAt, createdBy: adminU!.id })),
+    { code: "NV0007", fullName: "Nhân viên cũ (mẫu)", centerId: cs1!.id, department: "operations", title: "Lễ tân", employmentType: "part_time" as const, status: "resigned" as const, hiredAt: "2024-06-01", leftAt: "2026-05-31", statusReason: "Chuyển công tác (mẫu)", createdBy: adminU!.id },
+  ]).returning();
+  const [stMgr, stSale1, stSale2, stKt, stHr, stGv1, stOld] = staffRows;
+  await db.insert(staffPrivate).values([
+    { staffId: stMgr!.id, idNumber: "048090001234", birthDate: "1990-04-12", baseSalary: 15_000_000, allowance: 2_000_000, bankName: "Vietcombank", bankAccount: "0000000001" },
+    { staffId: stSale1!.id, idNumber: "048095004321", baseSalary: 8_000_000, allowance: 500_000 },
+  ]);
+  await db.insert(staffPositions).values([
+    ...staffDefs.map((d, i) => ({ staffId: staffRows[i]!.id, centerId: cs1!.id, title: d.title, department: d.department, kind: "primary" as const, effectiveFrom: d.hiredAt, createdBy: adminU!.id })),
+    { staffId: stMgr!.id, centerId: cs2!.id, title: "Phụ trách CS2", department: "management", kind: "concurrent" as const, effectiveFrom: "2026-06-01", createdBy: adminU!.id },
+    { staffId: stSale1!.id, centerId: cs1!.id, title: "Quyền trưởng nhóm tư vấn", department: "sales", kind: "delegated" as const, effectiveFrom: addDays(today, -10), effectiveTo: addDays(today, 20), createdBy: mgrU!.id },
+    { staffId: stOld!.id, centerId: cs1!.id, title: "Lễ tân", department: "operations", kind: "primary" as const, effectiveFrom: "2024-06-01", effectiveTo: "2026-05-31", endReason: "Nghỉ việc", createdBy: adminU!.id },
+  ]);
+  const at = (d: string, min: number) => new Date(`${d}T${fmtMin(min)}:00+07:00`);
+  const absent = new Map<string, string>([[stKt!.id, addDays(today, -4)], [stHr!.id, addDays(today, -5)]]);
+  const asg: (typeof shiftAssignments.$inferInsert)[] = [];
+  const punches: (typeof attendancePunches.$inferInsert)[] = [];
+  staffDefs.forEach((d, i) => {
+    const st = staffRows[i]!;
+    for (let k = -20; k <= 6; k++) {
+      const day = addDays(today, k);
+      const wd = weekdayOf(day);
+      if (wd === 7 || (d.shift.id === shC!.id && wd === 1)) continue;
+      asg.push({ staffId: st.id, date: day, shiftId: d.shift.id, centerId: cs1!.id, createdBy: hrU!.id });
+      if (k >= 0 || absent.get(st.id) === day) continue;
+      const jitter = (i * 7 + k * 3 + 30) % 9;
+      let inMin = hhmm(d.shift.startTime) - jitter;
+      if (st.id === stSale1!.id && k === -3) inMin = hhmm(d.shift.startTime) + 25;
+      punches.push({ staffId: st.id, centerId: cs1!.id, kind: "in", at: at(day, inMin), source: "gps", lat: 16.0336, lng: 108.2213, accuracyM: 15, distanceM: 11, createdBy: d.u.id });
+      if (st.id === stSale2!.id && k === -2) continue;
+      punches.push({ staffId: st.id, centerId: cs1!.id, kind: "out", at: at(day, hhmm(d.shift.endTime) + ((jitter * 2) % 15)), source: "gps", lat: 16.0337, lng: 108.2212, accuracyM: 20, distanceM: 9, createdBy: d.u.id });
+    }
+  });
+  await db.insert(shiftAssignments).values(asg);
+  await db.insert(attendancePunches).values(punches);
+  await db.insert(staffRequests).values([
+    { staffId: stHr!.id, centerId: cs1!.id, kind: "leave", status: "approved", dateFrom: addDays(today, -5), dateTo: addDays(today, -5), portion: "full", leaveType: "annual", days: 1, reason: "Việc gia đình (mẫu)", decidedBy: mgrU!.id, decidedAt: new Date(), createdBy: hrU!.id },
+    { staffId: stSale1!.id, centerId: cs1!.id, kind: "late_early", status: "pending", dateFrom: addDays(today, -3), dateTo: addDays(today, -3), lateMin: 25, minutes: 25, reason: "Kẹt xe do mưa lớn (mẫu)", createdBy: sale1U!.id },
+    { staffId: stSale2!.id, centerId: cs1!.id, kind: "missing_punch", status: "pending", dateFrom: addDays(today, -2), dateTo: addDays(today, -2), punchOut: "17:10", reason: "Quên chấm ra do điện thoại hết pin (mẫu)", createdBy: sale2U!.id },
+    { staffId: stKt!.id, centerId: cs1!.id, kind: "leave", status: "pending", dateFrom: addDays(today, 3), dateTo: addDays(today, 4), portion: "full", leaveType: "annual", days: leaveDays(addDays(today, 3), addDays(today, 4), "full"), reason: "Về quê (mẫu)", createdBy: ktU!.id },
+  ]);
+
   // ---- Lớp Trial mẫu: 1 buổi sắp tới (đã xếp), 1 đã học thử, 1 không đến ----
   const futureA = sessionRows.filter((x) => x.classId === classA!.id && x.date > today).sort((a, b) => a.sequenceNo - b.sequenceNo);
   const futureB = sessionRows.filter((x) => x.classId === classB!.id && x.date > today).sort((a, b) => a.sequenceNo - b.sequenceNo);
@@ -367,7 +429,7 @@ async function main() {
   ]);
 
   console.log(`✔ Seeded: 2 centers, 3 rooms, 7 users, 3 teachers, ${lessonRows.length} lessons, 2 classes, ${sessionRows.length} sessions, 16 students, ${leadRows.length} leads`);
-  console.log("  Dev login (/login → tài khoản mẫu): superadmin@example.test | manager.cs1@example.test | sale1.cs1@example.test | teacher1@satarobo.vn");
+  console.log("  Dev login (/login → tài khoản mẫu): superadmin@example.test | manager.cs1@example.test | sale1.cs1@example.test | ketoan.cs1@example.test | hr.cs1@example.test | teacher1@satarobo.vn");
 }
 
 main()

@@ -1,4 +1,4 @@
-import { pgTable, text, uuid, boolean, integer, index } from "drizzle-orm/pg-core";
+import { pgTable, text, uuid, boolean, integer, index, doublePrecision } from "drizzle-orm/pg-core";
 import { id, timestamps } from "./_common";
 
 export const centers = pgTable("centers", {
@@ -8,6 +8,10 @@ export const centers = pgTable("centers", {
   address: text("address"),
   phone: text("phone"),
   timezone: text("timezone").notNull().default("Asia/Ho_Chi_Minh"),
+  /** Toạ độ chấm công (null = không kiểm tra bán kính) */
+  latitude: doublePrecision("latitude"),
+  longitude: doublePrecision("longitude"),
+  checkinRadiusM: integer("checkin_radius_m").notNull().default(150),
   isActive: boolean("is_active").notNull().default(true),
   ...timestamps,
 });

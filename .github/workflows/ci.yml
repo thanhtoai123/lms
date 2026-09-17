@@ -104,6 +104,17 @@ jobs:
             curl -sf -o /dev/null -b "$K" "http://localhost:3000$p" || { echo "FAIL 4B $p"; exit 1; }
           done
           curl -sf -o /dev/null -b "$M" http://localhost:3000/crm/commission
+          H="x-dev-actor=hr.cs1@example.test"
+          for p in /nhan-su "/nhan-su?status=resigned" /nhan-su/new /nhan-su/vi-tri /cham-cong /cham-cong/phan-ca /cham-cong/lich-ca /don-tu "/don-tu?status=pending"; do
+            curl -sf -o /dev/null -b "$H" "http://localhost:3000$p" || { echo "FAIL hr $p"; exit 1; }
+          done
+          for p in /nhan-su /cham-cong /don-tu /cham-cong/lich-ca; do
+            curl -sf -o /dev/null -b "$M" "http://localhost:3000$p" || { echo "FAIL hr(M) $p"; exit 1; }
+          done
+          curl -sf -o /dev/null -b "x-dev-actor=sale1.cs1@example.test" http://localhost:3000/cham-cong/lich-ca
+          for SID in $(curl -s -b "$H" "http://localhost:3000/api/trpc/hr.staff" | grep -o '"id":"[0-9a-f-]\{36\}","code":"NV' | cut -d'"' -f4); do
+            curl -sf -o /dev/null -b "$H" "http://localhost:3000/nhan-su/$SID" || { echo "FAIL staff $SID"; exit 1; }
+          done
           # Webhook SePay: sai khoá → 401; đúng khoá → nhận + chống trùng
           test "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Authorization: Apikey sai' -H 'Content-Type: application/json' -d '{}' http://localhost:3000/api/webhooks/sepay)" = "401"
           BODY='{"id":990001,"gateway":"Vietcombank","transactionDate":"2026-01-02 10:00:00","accountNumber":"0000000000","code":null,"content":"chuyen khoan thu","transferType":"in","transferAmount":100000,"accumulated":0,"subAccount":null,"referenceCode":"CI1","description":""}'

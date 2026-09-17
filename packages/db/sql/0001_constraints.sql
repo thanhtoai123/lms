@@ -73,3 +73,17 @@ ALTER TABLE commissions DROP CONSTRAINT IF EXISTS commissions_sign_check;
 ALTER TABLE commissions ADD CONSTRAINT commissions_sign_check CHECK ((parent_id IS NULL AND amount >= 0 AND amount <= original_amount) OR (parent_id IS NOT NULL AND amount <= 0));
 ALTER TABLE commissions DROP CONSTRAINT IF EXISTS commissions_beneficiary_check;
 ALTER TABLE commissions ADD CONSTRAINT commissions_beneficiary_check CHECK (beneficiary_user_id IS NOT NULL OR beneficiary_parent_id IS NOT NULL);
+
+-- 9) Chấm công: lượt chấm thô chỉ thêm
+CREATE OR REPLACE FUNCTION attendance_punches_immutable() RETURNS trigger AS $$
+BEGIN
+  RAISE EXCEPTION 'attendance_punches is append-only: dùng chỉnh công có lý do thay vì sửa/xoá lượt chấm';
+END;
+$$ LANGUAGE plpgsql;
+DROP TRIGGER IF EXISTS attendance_punches_no_update ON attendance_punches;
+CREATE TRIGGER attendance_punches_no_update BEFORE UPDATE OR DELETE ON attendance_punches
+  FOR EACH ROW EXECUTE FUNCTION attendance_punches_immutable();
+ALTER TABLE staff_requests DROP CONSTRAINT IF EXISTS staff_requests_dates_check;
+ALTER TABLE staff_requests ADD CONSTRAINT staff_requests_dates_check CHECK (date_to >= date_from);
+ALTER TABLE timesheet_overrides DROP CONSTRAINT IF EXISTS timesheet_overrides_units_check;
+ALTER TABLE timesheet_overrides ADD CONSTRAINT timesheet_overrides_units_check CHECK (units >= 0 AND units <= 1.5);

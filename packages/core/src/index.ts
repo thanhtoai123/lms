@@ -24,3 +24,4 @@ export * from "./people/teachers.js";
 export * from "./finance/rules.js";
 export * from "./finance/bank.js";
 export * from "./finance/commission.js";
+export * from "./hr/rules.js";
