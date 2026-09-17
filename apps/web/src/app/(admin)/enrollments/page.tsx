@@ -58,7 +58,7 @@ export default async function EnrollmentsPage({ searchParams }: { searchParams: 
                     <div className="mt-1 h-1.5 rounded-full bg-black/5"><div className="h-1.5 rounded-full bg-brand-600" style={{ width: `${Math.min(100, (e.consumed / Math.max(1, e.packageSessions)) * 100)}%` }} /></div>
                   </td>
                   <td className="p-3 text-xs">{fmtDate(e.enrolledAt)}{e.endedAt ? <div className="text-ink-400">kết thúc {fmtDate(e.endedAt)}</div> : null}</td>
-                  <td className="p-3"><EnrollmentChip status={e.status} />{e.status === "paused" && <div className="text-[11px] text-ink-400">đến {fmtDate(e.pauseUntil)}</div>}</td>
+                  <td className="p-3"><EnrollmentChip status={e.status} />{e.status === "paused" && <div className="text-[11px] text-ink-400">{e.pauseUntil ? `đến ${fmtDate(e.pauseUntil)}` : "chưa hẹn ngày trở lại"}</div>}</td>
                 </tr>
               ))}
             </tbody>

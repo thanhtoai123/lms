@@ -17,6 +17,7 @@ import { syncInvoiceDrafts } from "./services/einvoice";
 import { dispatchParentMessages } from "./services/delivery";
 import { dispatchPush } from "./services/pilot";
 import { pruneLoginEvents } from "./services/loginSecurity";
+import { remindPauseEnding } from "./services/studentLifecycle";
 
 const db = createDb();
 const interval = Number(process.env.WORKER_INTERVAL_MS ?? 10_000);
@@ -56,6 +57,8 @@ async function tick() {
       if (rt.done) console.log(new Date().toISOString(), `retention anonymized=${rt.done}`);
       const cr = await candidateRetention(db, { dryRun: false });
       if (cr.count) console.log(new Date().toISOString(), `candidates anonymized=${cr.count}`);
+      const pr = await remindPauseEnding(db);
+      if (pr) console.log(new Date().toISOString(), `pause reminders=${pr}`);
     }
     await recordHeartbeat(db, "worker", { processed: r.processed, failed: r.failed, sla });
     if (r.processed || r.failed || sla) console.log(new Date().toISOString(), `outbox processed=${r.processed} failed=${r.failed} actions=${r.actions} sla=${sla}`);

@@ -1,8 +1,9 @@
 import { and, eq, inArray, sql, asc, gte, lte } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
-import { sessions, classes, enrollments, attendance, students, teachers, rooms, centers, lessons, trialBookings, leads } from "@satarobo/db";
+import { sessions, classes, enrollments, attendance, students, teachers, rooms, centers, lessons, curricula, trialBookings, leads, sessionMedia, assignments, users } from "@satarobo/db";
 import {
   transition, nextStep, isOverdue, OPEN_STATUSES, toISODate, visibleCenterIds, detectRisks, riskFrom, missingRequiredChecklist, sessionLabel, SESSION_CHECKLIST,
+  completionBlockers, completionChecklist,
   type ChecklistState,
   type SessionEvent, type SessionStatus, type AttendanceStatus, type AttendanceRecord,
 } from "@satarobo/core";
@@ -74,6 +75,26 @@ export async function getSessionDetail(ctx: ProtectedContext, sessionId: string)
     .where(and(eq(trialBookings.sessionId, sessionId), inArray(trialBookings.status, ["booked", "attended", "no_show"])))
     .orderBy(asc(trialBookings.createdAt));
 
+  const [[media], [hw], ops, [confirmer]] = await Promise.all([
+    ctx.db.select({ n: sql<number>`count(*)::int` }).from(sessionMedia).where(and(eq(sessionMedia.sessionId, sessionId), sql`${sessionMedia.status} <> 'rejected'`)),
+    ctx.db.select({ n: sql<number>`count(*)::int` }).from(assignments).where(and(eq(assignments.sessionId, sessionId), sql`${assignments.status} <> 'draft'`)),
+    getOps(ctx.db, s.centerId),
+    s.session.lessonConfirmedBy ? ctx.db.select({ name: users.fullName }).from(users).where(eq(users.id, s.session.lessonConfirmedBy)) : Promise.resolve([] as { name: string }[]),
+  ]);
+  const missing = missingRequiredChecklist(s.session.checklist);
+  const completionInput = {
+    enrolledCount: roster.length,
+    attendanceCount: roster.filter((r) => r.attendanceStatus).length,
+    lessonConfirmed: !!s.session.lessonConfirmedAt,
+    hasSessionNote: !!s.session.sessionNote?.trim(),
+    presentWithoutRemark: roster.filter((r) => (r.attendanceStatus === "present" || r.attendanceStatus === "late" || r.attendanceStatus === "makeup") && !r.studentRemark?.trim()).length,
+    requireRemarks: ops.sessionRequireStudentRemarks,
+    mediaCount: media?.n ?? 0,
+    requireMedia: ops.sessionRequireMedia,
+    checklistMissing: missing.map((m) => m.label),
+    assignmentCount: hw?.n ?? 0,
+  };
+
   const today = todayISO();
   return {
     ...s.session,
@@ -86,14 +107,53 @@ export async function getSessionDetail(ctx: ProtectedContext, sessionId: string)
     lesson: lesson ?? null,
     roster,
     enrolledCount: roster.length,
-    attendanceCount: roster.filter((r) => r.attendanceStatus).length,
+    attendanceCount: completionInput.attendanceCount,
     nextStep: nextStep(s.session.status),
     isOverdue: isOverdue(s.session.status, s.session.date, today),
-    label: sessionLabel(s.session.sequenceNo, s.session.kind),
+    label: sessionLabel(s.session.sequenceNo, s.session.kind, s.session.originalSequenceNo),
     checklistTemplate: SESSION_CHECKLIST,
-    checklistMissing: missingRequiredChecklist(s.session.checklist).map((m) => m.key),
+    checklistMissing: missing.map((m) => m.key),
+    completion: completionChecklist(completionInput),
+    completionBlockers: completionBlockers(completionInput),
+    lessonConfirmedByName: confirmer?.name ?? null,
     today,
   };
+}
+
+/** Bài học có thể xác nhận cho buổi: bài của giáo trình lớp (hoặc giáo trình đang dùng của khoá) */
+export async function lessonOptions(ctx: ProtectedContext, sessionId: string) {
+  const s = await loadSessionForAuth(ctx, sessionId);
+  requirePermission(ctx, "session:read", { centerId: s.centerId, ownerIds: s.ownerIds });
+  const cls = await ctx.db.query.classes.findFirst({ where: eq(classes.id, s.session.classId), columns: { curriculumId: true, courseId: true } });
+  const curriculumId = cls?.curriculumId ?? (cls ? (await ctx.db.query.curricula.findFirst({ where: and(eq(curricula.courseId, cls.courseId), eq(curricula.isActive, true)) }))?.id : null) ?? null;
+  if (!curriculumId) return [];
+  return ctx.db.select({ id: lessons.id, sequenceNo: lessons.sequenceNo, title: lessons.title }).from(lessons).where(eq(lessons.curriculumId, curriculumId)).orderBy(asc(lessons.sequenceNo));
+}
+
+/** GV xác nhận bài đã dạy (có thể đổi sang bài khác của giáo trình, hoặc ghi chủ đề khi lớp chưa có giáo trình) */
+export async function confirmLesson(ctx: ProtectedContext, input: { sessionId: string; lessonId?: string | null; topic?: string | null }) {
+  const s = await loadSessionForAuth(ctx, input.sessionId);
+  requirePermission(ctx, "session:update", { centerId: s.centerId, ownerIds: s.ownerIds });
+  if (["cancelled", "rescheduled", "completed"].includes(s.session.status)) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Buổi đã hoàn tất / huỷ — không xác nhận lại bài" });
+  if (s.session.date > todayISO()) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Buổi học chưa diễn ra" });
+  let lessonId = s.session.lessonId;
+  let topic = input.topic?.trim() || s.session.topic;
+  if (input.lessonId && input.lessonId !== s.session.lessonId) {
+    const opts = await lessonOptions(ctx, input.sessionId);
+    const l = opts.find((o) => o.id === input.lessonId);
+    if (!l) throw new TRPCError({ code: "BAD_REQUEST", message: "Bài học không thuộc giáo trình của lớp" });
+    lessonId = l.id;
+    topic = input.topic?.trim() || l.title;
+  }
+  if (!lessonId && !topic) throw new TRPCError({ code: "BAD_REQUEST", message: "Chọn bài học hoặc ghi chủ đề đã dạy" });
+  await ctx.db.transaction(async (tx) => {
+    await tx.update(sessions).set({ lessonId, topic, lessonConfirmedAt: new Date(), lessonConfirmedBy: ctx.user.id }).where(eq(sessions.id, input.sessionId));
+    await writeAudit(tx as unknown as typeof ctx.db, {
+      actorId: ctx.user.id, action: "UPDATE", module: "academics", entity: "sessions", entityId: input.sessionId,
+      before: { lessonId: s.session.lessonId, topic: s.session.topic, lessonConfirmedAt: s.session.lessonConfirmedAt }, after: { lessonId, topic, lessonConfirmed: true }, ip: ctx.ip,
+    });
+  });
+  return getSessionDetail(ctx, input.sessionId);
 }
 
 /**
@@ -180,20 +240,23 @@ export async function saveSessionChecklist(ctx: ProtectedContext, input: { sessi
   return getSessionDetail(ctx, input.sessionId);
 }
 
+/** Sự kiện đổi trạng thái thường; huỷ / điều chỉnh buổi đi qua luồng riêng (lý do, dời bù, thông báo) */
+export type RoutineSessionEvent = Exclude<SessionEvent, "cancel" | "reschedule">;
+
 /** Chuyển trạng thái theo state machine — mọi guard ở @satarobo/core */
-export async function transitionSession(ctx: ProtectedContext, input: { sessionId: string; event: SessionEvent; reason?: string }) {
+export async function transitionSession(ctx: ProtectedContext, input: { sessionId: string; event: RoutineSessionEvent; reason?: string }) {
+  if ((input.event as SessionEvent) === "cancel" || (input.event as SessionEvent) === "reschedule") {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "Dùng chức năng Huỷ buổi / Điều chỉnh buổi" });
+  }
   const s = await loadSessionForAuth(ctx, input.sessionId);
   requirePermission(ctx, "session:update", { centerId: s.centerId, ownerIds: s.ownerIds });
   const detail = await getSessionDetail(ctx, input.sessionId);
 
-  if (input.event === "complete") {
-    const miss = missingRequiredChecklist(detail.checklist);
-    if (miss.length) throw new TRPCError({ code: "PRECONDITION_FAILED", message: `Chưa hoàn thành checklist sau buổi: ${miss.map((m) => m.label).join("; ")}` });
-  }
   const to: SessionStatus = transition(detail.status, input.event, {
     enrolledCount: detail.enrolledCount,
     attendanceCount: detail.attendanceCount,
     hasSessionNote: !!detail.sessionNote?.trim(),
+    completionBlockers: input.event === "complete" ? detail.completionBlockers : undefined,
     today: detail.today,
     sessionDate: detail.date,
   });
@@ -238,6 +301,7 @@ export async function listSessions(
       id: sessions.id, classId: sessions.classId, classCode: classes.code, className: classes.name, centerId: classes.centerId, centerCode: centers.code,
       sequenceNo: sessions.sequenceNo, kind: sessions.kind, date: sessions.date, startTime: sessions.startTime, endTime: sessions.endTime, status: sessions.status, topic: sessions.topic,
       roomId: sessions.roomId, roomCode: rooms.code, teacherId: sessions.teacherId, teacherName: teachers.fullName, courseId: classes.courseId, capacity: classes.capacity,
+      originalSequenceNo: sessions.originalSequenceNo, cancelReason: sessions.cancelReason, rescheduledFromDate: sessions.rescheduledFromDate,
       enrolled: sql<number>`(select count(*)::int from ${enrollments} e where e.class_id = ${sessions.classId} and e.status in ('active','trial') and e.start_sequence_no <= ${sessions.sequenceNo})`,
       attended: sql<number>`(select count(*)::int from ${attendance} a where a.session_id = ${sessions.id})`,
     })
@@ -250,7 +314,7 @@ export async function listSessions(
     .orderBy(asc(sessions.date), asc(sessions.startTime));
 
   const today = todayISO();
-  return rows.map((r) => ({ ...r, label: sessionLabel(r.sequenceNo, r.kind), nextStep: nextStep(r.status), isOverdue: isOverdue(r.status, r.date, today) }));
+  return rows.map((r) => ({ ...r, label: sessionLabel(r.sequenceNo, r.kind, r.originalSequenceNo), nextStep: nextStep(r.status), isOverdue: isOverdue(r.status, r.date, today) }));
 }
 
 /** Hàng đợi "buổi chưa hoàn tất đã qua ngày" theo cơ sở — thay cho card trên dashboard cũ */

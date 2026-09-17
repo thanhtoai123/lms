@@ -1,4 +1,5 @@
-import { pgTable, text, uuid, boolean, date, pgEnum, index, integer, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, uuid, boolean, date, pgEnum, index, integer, timestamp, jsonb } from "drizzle-orm/pg-core";
+import { BLOOD_TYPES } from "@satarobo/core";
 import { id, timestamps, softDelete } from "./_common";
 import { users } from "./identity";
 import { centers } from "./org";
@@ -71,22 +72,32 @@ export const parentPrivate = pgTable("parent_private", {
 });
 
 export const studentStatusEnum = pgEnum("student_status", ["prospect", "trial", "active", "paused", "alumni", "withdrawn"]);
+export const bloodTypeEnum = pgEnum("blood_type", BLOOD_TYPES);
 
 export const students = pgTable(
   "students",
   {
     id: id(),
-    code: text("code").unique(), // CS1-26-000123
+    code: text("code").unique(), // CS1-26-000123 hoặc mã nhập tay
     fullName: text("full_name").notNull(),
     nickname: text("nickname"),
     dateOfBirth: date("date_of_birth"),
-    grade: integer("grade"), // lớp 1..8
+    grade: integer("grade"), // lớp 1..12
     school: text("school"),
     gender: text("gender"), // male | female | other
+    /** SĐT / email của chính học viên (nếu có) */
+    phone: text("phone"),
+    email: text("email"),
     /** Khối sức khoẻ: dị ứng, lưu ý y tế — chỉ nhân sự có quyền student:read thấy */
     healthNotes: text("health_notes"),
+    bloodType: bloodTypeEnum("blood_type"),
+    allergies: jsonb("allergies").$type<string[]>().notNull().default([]),
     interests: text("interests"),
     homeCenterId: uuid("home_center_id").references(() => centers.id),
+    /** Đơn vị (cơ sở) phụ huynh mong muốn học */
+    preferredCenterId: uuid("preferred_center_id").references(() => centers.id),
+    /** Ngày đăng ký lần đầu — tự điền từ ghi danh đầu tiên nếu trống (trigger SQL + service) */
+    firstEnrolledOn: date("first_enrolled_on"),
     status: studentStatusEnum("status").notNull().default("prospect"),
     avatarKey: text("avatar_key"), // object key trong bucket private
     /** Phiên bản thẻ QR điểm danh — tăng khi cấp lại thẻ (thẻ cũ hết hiệu lực) */
@@ -104,8 +115,43 @@ export const studentGuardians = pgTable(
   {
     studentId: uuid("student_id").notNull().references(() => students.id, { onDelete: "cascade" }),
     parentId: uuid("parent_id").notNull().references(() => parents.id, { onDelete: "cascade" }),
-    relation: text("relation").notNull().default("parent"), // mother | father | guardian
+    relation: text("relation").notNull().default("parent"), // GUARDIAN_RELATIONS: mother | father | grandmother | grandfather | guardian | parent
     isPrimary: boolean("is_primary").notNull().default(false),
   },
   (t) => [index("sg_student_idx").on(t.studentId), index("sg_parent_idx").on(t.parentId)],
+);
+
+/** Địa chỉ học viên — tách bảng riêng (PII), chỉ người có quyền sửa hồ sơ mới đọc */
+export const studentPrivate = pgTable("student_private", {
+  studentId: uuid("student_id").primaryKey().references(() => students.id, { onDelete: "cascade" }),
+  address: text("address"),
+  ward: text("ward"),
+  district: text("district"),
+  city: text("city"),
+  updatedBy: uuid("updated_by").references(() => users.id),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+});
+
+/**
+ * Đợt bảo lưu cả hồ sơ học viên (một hoặc nhiều ghi danh). Đang mở khi ended_at null.
+ * expected_return null = chưa hẹn ngày — nhắc khi quá hạn bảo lưu tối đa.
+ */
+export const studentPauses = pgTable(
+  "student_pauses",
+  {
+    id: id(),
+    studentId: uuid("student_id").notNull().references(() => students.id, { onDelete: "cascade" }),
+    enrollmentIds: jsonb("enrollment_ids").$type<string[]>().notNull().default([]),
+    fromDate: date("from_date").notNull(),
+    expectedReturn: date("expected_return"),
+    endedAt: timestamp("ended_at", { withTimezone: true }),
+    /** reserve_end | withdraw — cách đợt kết thúc */
+    endKind: text("end_kind"),
+    reason: text("reason").notNull(),
+    endNote: text("end_note"),
+    createdBy: uuid("created_by").references(() => users.id),
+    endedBy: uuid("ended_by").references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("student_pauses_student_idx").on(t.studentId, t.createdAt), index("student_pauses_open_idx").on(t.endedAt, t.expectedReturn)],
 );

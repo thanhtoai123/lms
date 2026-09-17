@@ -3,7 +3,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { id, timestamps, softDelete } from "./_common";
-import { SESSION_STATUSES, ATTENDANCE_STATUSES, ENROLLMENT_STATUSES, CLASS_STATUSES, SESSION_KINDS, type ChecklistState } from "@satarobo/core";
+import { SESSION_STATUSES, ATTENDANCE_STATUSES, ENROLLMENT_STATUSES, CLASS_STATUSES, SESSION_KINDS, TRANSFER_REQUEST_STATUSES, type ChecklistState } from "@satarobo/core";
 import { centers, rooms } from "./org";
 import { teachers, students, parents } from "./people";
 import { users } from "./identity";
@@ -227,8 +227,19 @@ export const sessions = pgTable(
     createdBy: uuid("created_by").references(() => users.id),
     completedAt: timestamp("completed_at", { withTimezone: true }),
     completedBy: uuid("completed_by").references(() => users.id),
-    /** Nếu là buổi dời từ buổi khác */
+    /** Nếu là buổi dời từ buổi khác (buổi thay thế khi huỷ có dời bù) */
     rescheduledFromId: uuid("rescheduled_from_id"),
+    /** Ngày gốc trước lần điều chỉnh đầu tiên */
+    rescheduledFromDate: date("rescheduled_from_date"),
+    adjustReason: text("adjust_reason"),
+    /** Huỷ buổi: lý do, người huỷ; buổi chính thức có dời bù chuyển sang dải số 5001+ và nhớ số buổi gốc */
+    cancelReason: text("cancel_reason"),
+    cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    cancelledBy: uuid("cancelled_by").references(() => users.id),
+    originalSequenceNo: integer("original_sequence_no"),
+    /** GV xác nhận bài đã dạy (bắt buộc trước khi hoàn tất) */
+    lessonConfirmedAt: timestamp("lesson_confirmed_at", { withTimezone: true }),
+    lessonConfirmedBy: uuid("lesson_confirmed_by").references(() => users.id),
     ...timestamps,
   },
   (t) => [
@@ -268,6 +279,42 @@ export const enrollments = pgTable(
     uniqueIndex("enrollments_active_unique").on(t.studentId, t.classId).where(sql`status in ('trial','active','paused')`),
     index("enrollments_class_idx").on(t.classId, t.status),
     index("enrollments_student_idx").on(t.studentId),
+  ],
+);
+
+export const transferRequestStatusEnum = pgEnum("transfer_request_status", TRANSFER_REQUEST_STATUSES);
+
+/**
+ * Yêu cầu chuyển lớp / cơ sở: tạo → quản lý duyệt (thực hiện chuyển) / từ chối;
+ * lớp đích đầy → danh sách chờ (xếp theo waitlist_rank), báo khi lớp có chỗ.
+ */
+export const classTransferRequests = pgTable(
+  "class_transfer_requests",
+  {
+    id: id(),
+    enrollmentId: uuid("enrollment_id").notNull().references(() => enrollments.id, { onDelete: "cascade" }),
+    studentId: uuid("student_id").notNull().references(() => students.id, { onDelete: "cascade" }),
+    fromClassId: uuid("from_class_id").notNull().references(() => classes.id),
+    toClassId: uuid("to_class_id").references(() => classes.id),
+    toCenterId: uuid("to_center_id").references(() => centers.id),
+    status: transferRequestStatusEnum("status").notNull().default("pending"),
+    reason: text("reason").notNull(),
+    /** Quản lý miễn điều kiện cùng khoá */
+    waiverReason: text("waiver_reason"),
+    startSequenceNo: integer("start_sequence_no"),
+    waitlistRank: integer("waitlist_rank"),
+    /** Ghi danh mới sau khi duyệt */
+    newEnrollmentId: uuid("new_enrollment_id").references(() => enrollments.id),
+    decidedBy: uuid("decided_by").references(() => users.id),
+    decidedAt: timestamp("decided_at", { withTimezone: true }),
+    decisionNote: text("decision_note"),
+    createdBy: uuid("created_by").references(() => users.id),
+    ...timestamps,
+  },
+  (t) => [
+    // một ghi danh chỉ có một yêu cầu đang mở
+    uniqueIndex("transfer_requests_open_unique").on(t.enrollmentId).where(sql`status in ('pending','waitlisted')`),
+    index("transfer_requests_status_idx").on(t.status, t.toClassId),
   ],
 );
 

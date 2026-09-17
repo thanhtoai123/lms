@@ -35,6 +35,8 @@ export const OPS_GROUPS = {
   ],
   lop: [
     { key: "scanLateGraceMin", label: "Quét thẻ sau giờ bắt đầu quá … thì ghi Đi muộn", type: "int", min: 0, max: 60, unit: "phút", def: 15, scope: "center", usedBy: "Điểm danh thẻ QR" },
+    { key: "sessionRequireStudentRemarks", label: "Hoàn tất buổi phải có nhận xét từng học viên có mặt", type: "bool", def: true, scope: "center", usedBy: "Hoàn tất buổi học (app giáo viên)" },
+    { key: "sessionRequireMedia", label: "Hoàn tất buổi phải có ảnh / video trong kho", type: "bool", def: false, scope: "center", usedBy: "Hoàn tất buổi học (app giáo viên)" },
   ],
   "cham-cong": [
     { key: "timesheetGraceMin", label: "Cho phép đến muộn / về sớm không tính", type: "int", min: 0, max: 30, unit: "phút", def: 5, scope: "center", usedBy: "Bảng công" },

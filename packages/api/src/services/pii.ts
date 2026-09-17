@@ -31,3 +31,7 @@ export function openPii(sealed: string | null | undefined): string | null {
     return null;
   }
 }
+
+/** Bí danh tương thích (dùng ở hồ sơ học viên) */
+export const encryptPii = sealPii;
+export const decryptPii = openPii;

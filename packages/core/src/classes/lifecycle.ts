@@ -28,7 +28,8 @@ const T: Record<ClassStatus, Partial<Record<ClassEvent, ClassStatus>>> = {
   draft: { submit: "pending_approval", cancel: "cancelled" },
   pending_approval: { approve: "recruiting", reject: "draft", cancel: "cancelled" },
   recruiting: { start: "running", cancel: "cancelled" },
-  running: { finish: "finished" },
+  // Huỷ lớp đang chạy = huỷ dây chuyền (rút ghi danh, huỷ buổi tương lai, đề xuất hoàn tiền) — cần quyền duyệt
+  running: { finish: "finished", cancel: "cancelled" },
   finished: {},
   cancelled: {},
 };
@@ -100,12 +101,28 @@ export const SESSION_KIND_VI: Record<SessionKind, string> = {
 /** Buổi ngoài lộ trình đánh số từ 1001 để không xô lệch số buổi chính thức (mốc học bạ, gói học) */
 export const EXTRA_SEQUENCE_BASE = 1000;
 
+/**
+ * Buổi chính thức bị huỷ (có dời bù) chuyển sang dải lưu trữ từ 5001 để giữ unique (lớp, số buổi):
+ * số buổi cũ được buổi thay thế dùng lại.
+ */
+export const CANCELLED_SEQUENCE_BASE = 5000;
+
 export function nextExtraSequence(existing: readonly number[]): number {
-  const extras = existing.filter((n) => n > EXTRA_SEQUENCE_BASE);
+  const extras = existing.filter((n) => n > EXTRA_SEQUENCE_BASE && n <= CANCELLED_SEQUENCE_BASE);
   return (extras.length ? Math.max(...extras) : EXTRA_SEQUENCE_BASE) + 1;
 }
 
-export function sessionLabel(seq: number, kind: SessionKind): string {
+export function nextArchiveSequence(existing: readonly number[]): number {
+  const arch = existing.filter((n) => n > CANCELLED_SEQUENCE_BASE);
+  return (arch.length ? Math.max(...arch) : CANCELLED_SEQUENCE_BASE) + 1;
+}
+
+export function isArchivedSequence(seq: number): boolean {
+  return seq > CANCELLED_SEQUENCE_BASE;
+}
+
+export function sessionLabel(seq: number, kind: SessionKind, originalSeq?: number | null): string {
+  if (seq > CANCELLED_SEQUENCE_BASE) return originalSeq ? `Buổi ${originalSeq} (đã huỷ)` : `Buổi đã huỷ #${seq - CANCELLED_SEQUENCE_BASE}`;
   if (kind === "regular" && seq <= EXTRA_SEQUENCE_BASE) return `Buổi ${seq}`;
   return `${SESSION_KIND_VI[kind]} #${seq > EXTRA_SEQUENCE_BASE ? seq - EXTRA_SEQUENCE_BASE : seq}`;
 }

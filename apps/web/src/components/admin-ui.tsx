@@ -39,7 +39,7 @@ export function ParentAccountChip({ status }: { status: string }) {
 }
 
 export const GENDER_VI: Record<string, string> = { male: "Nam", female: "Nữ", other: "Khác" };
-export const RELATION_VI: Record<string, string> = { mother: "Mẹ", father: "Bố", guardian: "Người giám hộ", parent: "Phụ huynh" };
+export const RELATION_VI: Record<string, string> = { mother: "Mẹ", father: "Bố", grandmother: "Bà", grandfather: "Ông", guardian: "Người giám hộ", parent: "Phụ huynh" };
 
 export function fmtDate(d: string | Date | null | undefined) {
   if (!d) return "—";

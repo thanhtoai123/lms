@@ -725,7 +725,7 @@ export async function convertLead(ctx: ProtectedContext, input: ConvertLeadInput
     for (const p of plan) {
       const centerCode = p.cls.center.code.toUpperCase();
       await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${"student-code:" + centerCode}))`);
-      const code = await nextStudentCode(t, p.cls.centerId, centerCode);
+      const code = await nextStudentCode(t as unknown as Db, centerCode);
       const [student] = await tx.insert(students).values({
         code,
         fullName: p.it.studentName?.trim() || p.child?.fullName || lead.childName || `Con của ${parentName}`,

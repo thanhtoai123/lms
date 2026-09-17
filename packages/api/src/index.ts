@@ -90,3 +90,4 @@ export { pushStatus, subscribePush, unsubscribePush, dispatchPush } from "./serv
 export { generateVapidKeys } from "./webpush";
 export { requestPasswordReset, supabaseAdmin, supabaseConfigured } from "./services/staffAuth";
 export { loginPrecheck, recordLogin, staffBlocked, setMfaEnabled, staffIdleMinutes, pruneLoginEvents } from "./services/loginSecurity";
+export { remindPauseEnding } from "./services/studentLifecycle";

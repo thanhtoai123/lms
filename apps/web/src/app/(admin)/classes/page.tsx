@@ -33,6 +33,7 @@ export default async function ClassesPage({ searchParams }: { searchParams: Prom
         <h1 className="text-2xl font-bold">Lớp học</h1>
         <div className="flex gap-2">
           {pending > 0 && <Link href="/classes?status=pending_approval" className="btn-ghost">Chờ duyệt <span className="chip ml-1 bg-amber-100 text-amber-800">{pending}</span></Link>}
+          <Link href="/classes/kiem-tra-lich" className="btn-ghost">Kiểm tra lịch buổi</Link>
           <Link href="/classes/new" className="btn-primary">+ Mở lớp mới</Link>
         </div>
       </div>

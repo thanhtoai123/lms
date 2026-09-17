@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@satarobo/db";
-import { processOutbox, scanLeadSla, runSurveyTriggers, processEmailQueue, remindDueHomework, publishDuePosts, syncAffiliateRewards, recordHeartbeat, syncInvoiceDrafts, dispatchParentMessages, dispatchPush, pruneLoginEvents } from "@satarobo/api";
+import { processOutbox, scanLeadSla, runSurveyTriggers, processEmailQueue, remindDueHomework, publishDuePosts, syncAffiliateRewards, recordHeartbeat, syncInvoiceDrafts, dispatchParentMessages, dispatchPush, pruneLoginEvents, remindPauseEnding } from "@satarobo/api";
 
 /**
  * GET /api/cron/outbox — Vercel Cron (mỗi phút) hoặc gọi tay. Bảo vệ bằng CRON_SECRET.
@@ -24,6 +24,8 @@ export async function GET(req: Request) {
   const affiliates = await syncAffiliateRewards(db);
   // Dọn nhật ký đăng nhập quá 1 năm — mỗi giờ một lần
   const loginEventsPruned = new Date().getUTCMinutes() === 7 ? await pruneLoginEvents(db) : 0;
+  // nhắc hết bảo lưu: chạy mỗi lần gọi nhưng không tạo trùng việc chăm sóc
+  const pauseReminders = await remindPauseEnding(db);
   await recordHeartbeat(db, "cron", { processed: r.processed, failed: r.failed });
-  return NextResponse.json({ ok: true, slaEvents: sla, surveyInvites, email, homeworkReminders, postsPublished, affiliates, invoices, messages, push, loginEventsPruned, ...r });
+  return NextResponse.json({ ok: true, slaEvents: sla, surveyInvites, email, homeworkReminders, postsPublished, affiliates, invoices, messages, push, loginEventsPruned, pauseReminders, ...r });
 }

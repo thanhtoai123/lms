@@ -8,15 +8,18 @@ export const metadata = { title: "Chuyển lớp / cơ sở" };
 export default async function TransferPage({ searchParams }: { searchParams: Promise<{ studentId?: string }> }) {
   const sp = await searchParams;
   const { caller } = await getServerCaller();
-  const [classes, student] = await Promise.all([
-    caller.academics.classes.list({}),
+  const [ref, student] = await Promise.all([
+    caller.academics.classes.referenceData(),
     sp.studentId ? caller.students.get({ id: sp.studentId }).catch(() => null) : Promise.resolve(null),
   ]);
   return (
     <div className="max-w-4xl space-y-4">
-      <PageHeader title="Chuyển lớp / cơ sở" desc="Đóng đăng ký ở lớp hiện tại và mở đăng ký mới ở lớp đích, mang theo số buổi còn lại. Lý do được ghi vào lịch sử và nhật ký." />
+      <PageHeader
+        title="Chuyển lớp / cơ sở"
+        desc="Lớp đích phải cùng khoá và không vượt tiến độ học viên; hết chỗ thì vào danh sách chờ. Yêu cầu được quản lý duyệt, khi duyệt sẽ đóng ghi danh cũ và mở ghi danh mới mang theo số buổi còn lại."
+      />
       <TransferWizard
-        classes={classes.filter((c) => c.status === "recruiting" || c.status === "running").map((c) => ({ id: c.id, code: c.code, name: c.name, centerCode: c.centerCode, courseCode: c.courseCode, enrolled: c.enrolled, capacity: c.capacity, sessionsDone: c.sessionsDone, schedule: c.schedule }))}
+        centers={ref.centers.map((c) => ({ id: c.id, code: c.code, name: c.name }))}
         initialStudent={student ? { id: student.id, fullName: student.fullName, code: student.code, grade: student.grade } : null}
       />
     </div>

@@ -51,6 +51,7 @@ export function SessionWorkflow({ sessionId }: { sessionId: string }) {
   const saveNote = useMutation(trpc.academics.sessions.saveNote.mutationOptions({ onSuccess: () => { setError(null); invalidate(); }, onError: onErr }));
   const transition = useMutation(trpc.academics.sessions.transition.mutationOptions({ onSuccess: () => { setError(null); invalidate(); }, onError: onErr }));
   const saveChecklist = useMutation(trpc.academics.sessions.saveChecklist.mutationOptions({ onSuccess: () => { setError(null); invalidate(); }, onError: onErr }));
+  const confirmLesson = useMutation(trpc.academics.sessions.confirmLesson.mutationOptions({ onSuccess: () => { setError(null); invalidate(); }, onError: onErr }));
   const trialResult = useMutation(trpc.admissions.trials.result.mutationOptions({ onSuccess: () => { setError(null); invalidate(); }, onError: onErr }));
 
   const s = q.data ?? (q.isError && cached ? cached : undefined);
@@ -243,14 +244,37 @@ export function SessionWorkflow({ sessionId }: { sessionId: string }) {
         )}
       </section>
 
+      {/* Xác nhận bài đã dạy */}
+      <ConfirmLesson
+        sessionId={sessionId}
+        confirmed={!!s.lessonConfirmedAt}
+        lessonTitle={s.lesson?.title ?? null}
+        topic={s.topic ?? null}
+        byName={s.lessonConfirmedByName}
+        disabled={busy || s.status === "completed" || s.status === "cancelled" || isFuture}
+        onConfirm={(v) => confirmLesson.mutate({ sessionId, ...v })}
+        pending={confirmLesson.isPending}
+      />
+
       {/* Quy trình sau buổi */}
       <section className="card p-4 space-y-2">
         <h2 className="font-bold">Quy trình sau buổi <span className="text-xs font-normal text-ink-400">(mục * bắt buộc trước khi hoàn tất)</span></h2>
-        <ul className="space-y-1">
-          {s.checklistTemplate.post.map((i) => (
-            <li key={i.key}><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={!!s.checklist?.post?.[i.key]} disabled={busy || s.status === "cancelled"} onChange={() => toggleCheck("post", i.key)} /> {i.label}{i.required && <span className="text-red-600">*</span>}</label></li>
+        <ul className="space-y-1 text-sm">
+          {(s.completion ?? []).map((c) => (
+            <li key={c.key} className={c.done ? "text-green-800" : c.required ? "text-ink-900" : "text-ink-600"}>
+              <span className="mr-1">{c.done ? "✓" : "○"}</span>{c.label}{c.required && !c.done && <span className="text-red-600">*</span>}
+              {c.hint && <span className="text-xs text-ink-400"> — {c.hint}</span>}
+            </li>
           ))}
         </ul>
+        <div className="border-t border-black/5 pt-2">
+          <div className="mb-1 text-xs font-semibold text-ink-600">Tự tick</div>
+          <ul className="space-y-1">
+            {s.checklistTemplate.post.map((i) => (
+              <li key={i.key}><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={!!s.checklist?.post?.[i.key]} disabled={busy || s.status === "cancelled"} onChange={() => toggleCheck("post", i.key)} /> {i.label}{i.required && <span className="text-red-600">*</span>}</label></li>
+            ))}
+          </ul>
+        </div>
         <PrivateNote initial={s.privateNote ?? ""} disabled={busy} onSave={(t) => saveChecklist.mutate({ sessionId, checklist: s.checklist ?? {}, privateNote: t || null })} />
       </section>
 
@@ -258,19 +282,60 @@ export function SessionWorkflow({ sessionId }: { sessionId: string }) {
       <section className={`card p-4 space-y-3 ${step < 3 ? "opacity-60" : ""}`}>
         <h2 className="font-bold">Hoàn tất buổi học</h2>
         <p className="text-sm text-ink-600">Sau khi hoàn tất, phụ huynh nhận thông báo điểm danh + nhận xét; buổi được tính vào gói học.</p>
-        {s.status !== "completed" && s.checklistMissing.length > 0 && <p className="text-xs text-amber-800">Còn {s.checklistMissing.length} mục bắt buộc trong “Quy trình sau buổi”.</p>}
+        {s.status !== "completed" && (s.completionBlockers ?? []).length > 0 && (
+          <ul className="rounded-xl bg-amber-50 p-2 text-xs text-amber-900">
+            {(s.completionBlockers ?? []).map((b) => <li key={b}>• {b}</li>)}
+          </ul>
+        )}
         {s.status === "completed" ? (
           <div className="flex items-center justify-between">
             <span className="chip bg-green-100 text-green-800">Đã hoàn tất</span>
             <button className="btn-ghost text-xs" onClick={reopen} disabled={busy}>Mở lại để sửa</button>
           </div>
         ) : (
-          <button className="btn-primary w-full" onClick={complete} disabled={busy || step < 3 || s.checklistMissing.length > 0}>
+          <button className="btn-primary w-full" onClick={complete} disabled={busy || step < 3 || (s.completionBlockers ?? []).length > 0}>
             {transition.isPending ? "Đang chốt…" : "Hoàn tất buổi học ✓"}
           </button>
         )}
       </section>
     </div>
+  );
+}
+
+/** Xác nhận bài đã dạy (bắt buộc trước khi hoàn tất); đổi sang bài khác của giáo trình nếu lớp học lệch bài */
+function ConfirmLesson({ sessionId, confirmed, lessonTitle, topic, byName, disabled, pending, onConfirm }: {
+  sessionId: string; confirmed: boolean; lessonTitle: string | null; topic: string | null; byName: string | null;
+  disabled: boolean; pending: boolean; onConfirm: (v: { lessonId?: string | null; topic?: string | null }) => void;
+}) {
+  const trpc = useTRPC();
+  const [open, setOpen] = useState(false);
+  const [lessonId, setLessonId] = useState("");
+  const [customTopic, setCustomTopic] = useState("");
+  const options = useQuery({ ...trpc.academics.sessions.lessonOptions.queryOptions({ sessionId }), enabled: open });
+  return (
+    <section className="card space-y-2 p-4">
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="font-bold">Bài đã dạy {confirmed ? <span className="chip ml-1 bg-green-100 text-green-800">Đã xác nhận</span> : <span className="chip ml-1 bg-amber-100 text-amber-800">Chưa xác nhận</span>}</h2>
+        {!disabled && <button className="text-xs font-semibold text-brand-600" onClick={() => setOpen(!open)}>{open ? "Đóng" : "Đổi bài"}</button>}
+      </div>
+      <p className="text-sm text-ink-600">{lessonTitle ?? topic ?? "Chưa gắn bài giảng"}{byName ? ` · xác nhận bởi ${byName}` : ""}</p>
+      {open && (
+        <div className="space-y-2">
+          <select className="input" value={lessonId} onChange={(e) => setLessonId(e.target.value)}>
+            <option value="">— Giữ bài hiện tại —</option>
+            {options.data?.map((l) => <option key={l.id} value={l.id}>Bài {l.sequenceNo}: {l.title}</option>)}
+          </select>
+          {(options.data?.length ?? 0) === 0 && !options.isFetching && (
+            <input className="input" maxLength={200} placeholder="Chủ đề đã dạy (lớp chưa có giáo trình)" value={customTopic} onChange={(e) => setCustomTopic(e.target.value)} />
+          )}
+        </div>
+      )}
+      {!disabled && (
+        <button className="btn-primary w-full" disabled={pending} onClick={() => onConfirm({ lessonId: lessonId || null, topic: customTopic.trim() || null })}>
+          {pending ? "Đang lưu…" : confirmed ? "Xác nhận lại bài đã dạy" : "Xác nhận bài đã dạy"}
+        </button>
+      )}
+    </section>
   );
 }
 
