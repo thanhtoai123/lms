@@ -4,7 +4,8 @@ import { getServerCaller } from "@/lib/trpc/server";
 import { NoAccess, PageHeader, Pager } from "@/components/admin-ui";
 import { Empty } from "@/components/ui";
 import { fmtD } from "@/components/finance-ui";
-import { DocForm, OpenDocButton, DOC_STATUS_CHIP, fmtSize } from "@/components/content-ui";
+import { DocForm, OpenDocButton } from "@/components/content-ui";
+import { DOC_STATUS_CHIP, fmtSize } from "@/components/shared-format";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Tài liệu giảng dạy" };

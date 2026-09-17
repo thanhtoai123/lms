@@ -8,11 +8,6 @@ import { useTRPC } from "@/lib/trpc/client";
 
 export type SurveyDraft = { id?: string; title: string; description: string; centerId: string; trigger: SurveyTrigger; triggerValue: number; questions: SurveyQuestion[] };
 
-export const DEFAULT_QUESTIONS: SurveyQuestion[] = [
-  { id: "nps", type: "nps", label: "Anh/chị sẵn sàng giới thiệu Sata Robo cho bạn bè, người thân ở mức nào?", required: true },
-  { id: "gv", type: "rating", label: "Anh/chị hài lòng với giáo viên của bé ở mức nào?", required: true },
-  { id: "gopy", type: "text", label: "Anh/chị muốn Sata Robo cải thiện điều gì?", required: false },
-];
 
 export function SurveyEditor({ initial, centers, locked }: { initial: SurveyDraft; centers: { id: string; code: string }[]; locked: boolean }) {
   const trpc = useTRPC();

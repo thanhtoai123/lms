@@ -7,7 +7,8 @@ import { Empty } from "@/components/ui";
 import { vnd, fmtD } from "@/components/finance-ui";
 import { dtVN } from "@/components/care-ui";
 import { CsvButton } from "@/components/csv-button";
-import { MovementButton, TransferButton, SellButton, RentButton, CloseRentalButton, TONE_CHIP, TONE_VI } from "@/components/inventory-ui";
+import { MovementButton, TransferButton, SellButton, RentButton, CloseRentalButton } from "@/components/inventory-ui";
+import { TONE_CHIP, TONE_VI } from "@/components/shared-format";
 import { productMethods } from "../loaders";
 
 export const dynamic = "force-dynamic";

@@ -9,8 +9,6 @@ import { StudentPicker, type PickedStudent } from "@/components/student-picker";
 export type Opt = { id: string; label: string };
 export type ItemOpt = { id: string; sku: string; name: string; unit: string; type: string; salePrice?: number | null; rentPrice?: number | null; deposit?: number | null };
 
-export const TONE_CHIP: Record<string, string> = { out: "bg-red-100 text-red-700", low: "bg-amber-100 text-amber-800", ok: "bg-green-100 text-green-800" };
-export const TONE_VI: Record<string, string> = { out: "Hết hàng", low: "Sắp hết", ok: "Đủ" };
 const money = (n: number | null | undefined) => (n == null ? "—" : `${n.toLocaleString("vi-VN")}đ`);
 
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {

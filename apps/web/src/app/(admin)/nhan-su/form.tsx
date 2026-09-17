@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { DEPARTMENTS, DEPARTMENT_VI, EMPLOYMENT_TYPES, EMPLOYMENT_TYPE_VI, type Department, type EmploymentType } from "@satarobo/core";
 import { useTRPC } from "@/lib/trpc/client";
+import { emptyPrivate } from "./defaults";
 
 export type StaffFormValue = {
   id?: string;
@@ -13,7 +14,6 @@ export type StaffFormValue = {
   private: { idNumber: string; birthDate: string; address: string; taxCode: string; insuranceNo: string; bankName: string; bankAccount: string; baseSalary: string; allowance: string } | null;
 };
 
-export const emptyPrivate = { idNumber: "", birthDate: "", address: "", taxCode: "", insuranceNo: "", bankName: "", bankAccount: "", baseSalary: "", allowance: "" };
 
 export function StaffForm({ initial, centers, canSalary, current }: {
   initial: StaffFormValue;

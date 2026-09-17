@@ -4,7 +4,8 @@ import { getServerCaller } from "@/lib/trpc/server";
 import { NoAccess, PageHeader } from "@/components/admin-ui";
 import { Empty } from "@/components/ui";
 import { vnd } from "@/components/finance-ui";
-import { MovementButton, TONE_CHIP } from "@/components/inventory-ui";
+import { MovementButton } from "@/components/inventory-ui";
+import { TONE_CHIP } from "@/components/shared-format";
 import { ItemForm } from "../products/item-form";
 import { BomEditor, AssembleButton } from "./client";
 

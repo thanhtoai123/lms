@@ -331,7 +331,8 @@ export async function myMaterials(ctx: ProtectedContext, input: { classId?: stri
     : sql`(${classes.leadTeacherId} = ${tid} or ${classes.assistantTeacherId} = ${tid})`;
   const cls = await ctx.db.select({ id: classes.id, code: classes.code, name: classes.name, courseId: classes.courseId, curriculumId: classes.curriculumId, courseCode: courses.code, status: classes.status })
     .from(classes).innerJoin(courses, eq(courses.id, classes.courseId))
-    .where(and(classScope, inArray(classes.status, ["running", "recruiting", "pending_approval"]))).orderBy(asc(classes.code));
+    .where(and(classScope, inArray(classes.status, ["running", "recruiting", "pending_approval"])))
+    .orderBy(sql`case ${classes.status} when 'running' then 0 when 'recruiting' then 1 else 2 end`, asc(classes.code));
   const sel = cls.find((c) => c.id === input.classId) ?? cls[0] ?? null;
   if (!sel) return { classes: cls, selected: null, lessons: [], general: [], upcoming: [] };
   const docs = await ctx.db.select({ d: documents, fileName: documentVersions.fileName, sizeBytes: documentVersions.sizeBytes })

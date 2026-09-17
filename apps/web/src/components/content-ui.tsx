@@ -6,8 +6,6 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { DOC_KINDS, DOC_KIND_VI, DOC_CATEGORIES, DOC_CATEGORY_VI, DOC_AUDIENCES, DOC_AUDIENCE_VI, type DocKind, type DocCategory, type DocAudience } from "@satarobo/core";
 import { useTRPC } from "@/lib/trpc/client";
 
-export const fmtSize = (n: number | null | undefined) => (n == null ? "" : n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
-export const DOC_STATUS_CHIP: Record<string, string> = { draft: "bg-slate-100 text-slate-600", published: "bg-green-100 text-green-800", archived: "bg-amber-100 text-amber-800" };
 
 /** Mở / tải tài liệu (ghi nhật ký, lấy URL có chữ ký) */
 export function OpenDocButton({ id, kind, label, version, className }: { id: string; kind: DocKind; label?: string; version?: number; className?: string }) {

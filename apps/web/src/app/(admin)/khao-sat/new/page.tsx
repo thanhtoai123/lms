@@ -2,7 +2,8 @@ import Link from "next/link";
 import { hasPermission, type Actor } from "@satarobo/core";
 import { getServerCaller } from "@/lib/trpc/server";
 import { NoAccess, PageHeader } from "@/components/admin-ui";
-import { SurveyEditor, DEFAULT_QUESTIONS } from "../editor";
+import { SurveyEditor } from "../editor";
+import { DEFAULT_QUESTIONS } from "../defaults";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Tạo khảo sát" };

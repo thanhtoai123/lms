@@ -2,7 +2,8 @@ import Link from "next/link";
 import { hasPermission, type Actor } from "@satarobo/core";
 import { getServerCaller } from "@/lib/trpc/server";
 import { NoAccess, PageHeader } from "@/components/admin-ui";
-import { StaffForm, emptyPrivate } from "../form";
+import { StaffForm } from "../form";
+import { emptyPrivate } from "../defaults";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Thêm nhân sự" };

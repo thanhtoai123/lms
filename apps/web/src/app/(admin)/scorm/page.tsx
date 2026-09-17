@@ -3,7 +3,8 @@ import { hasPermission, type Actor } from "@satarobo/core";
 import { getServerCaller } from "@/lib/trpc/server";
 import { NoAccess, PageHeader } from "@/components/admin-ui";
 import { Empty } from "@/components/ui";
-import { DocForm, DOC_STATUS_CHIP } from "@/components/content-ui";
+import { DocForm } from "@/components/content-ui";
+import { DOC_STATUS_CHIP } from "@/components/shared-format";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "SCORM / Bài giảng tương tác" };

@@ -2,7 +2,8 @@ import Link from "next/link";
 import { getServerCaller } from "@/lib/trpc/server";
 import { PageHeader } from "@/components/admin-ui";
 import { dtVN } from "@/components/care-ui";
-import { DocForm, OpenDocButton, UploadVersion, DocStatusButtons, DOC_STATUS_CHIP, fmtSize } from "@/components/content-ui";
+import { DocForm, OpenDocButton, UploadVersion, DocStatusButtons } from "@/components/content-ui";
+import { DOC_STATUS_CHIP, fmtSize } from "@/components/shared-format";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Tài liệu" };
