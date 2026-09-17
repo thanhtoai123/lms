@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { STAFF_STATUS_VI, POSITION_KINDS, POSITION_KIND_VI, DEPARTMENTS, DEPARTMENT_VI, type StaffStatus, type PositionKind, type Department } from "@satarobo/core";
 import { useTRPC } from "@/lib/trpc/client";
 
@@ -61,9 +61,10 @@ export function PositionActions(props: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [f, setF] = useState({ centerId: props.mode === "add" ? props.centerId : "", title: "", kind: "concurrent" as PositionKind, department: (props.mode === "add" ? props.department : "sales") as Department, from: today(), to: "", note: "", reason: "" });
+  const [f, setF] = useState({ centerId: props.mode === "add" ? props.centerId : "", positionId: "", title: "", kind: "concurrent" as PositionKind, department: (props.mode === "add" ? props.department : "sales") as Department, from: today(), to: "", note: "", reason: "" });
+  const defs = useQuery({ ...trpc.hr.positionDefs.queryOptions({}), enabled: props.mode === "add" && open });
   const done = { onSuccess: () => { setOpen(false); setErr(null); router.refresh(); }, onError: (e: { message: string }) => setErr(e.message) };
-  const add = useMutation(trpc.hr.addPosition.mutationOptions(done));
+  const add = useMutation(trpc.hr.assignPosition.mutationOptions(done));
   const end = useMutation(trpc.hr.endPosition.mutationOptions(done));
   if (!open) return <button className={props.mode === "add" ? "btn-ghost" : "text-xs text-brand-600"} onClick={() => setOpen(true)}>{props.mode === "add" ? "+ Thêm vị trí (kiêm nhiệm / uỷ quyền / chuyển vị trí chính)" : "Kết thúc"}</button>;
   if (props.mode === "end") {
@@ -78,7 +79,13 @@ export function PositionActions(props: Props) {
   }
   return (
     <div className="grid gap-2 rounded-xl border border-black/10 p-3 sm:grid-cols-3">
-      <label className="text-xs text-ink-600">Chức danh<input className="input mt-1" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} /></label>
+      <label className="text-xs text-ink-600">Vị trí (bộ vai trò)
+        <select className="input mt-1" value={f.positionId} onChange={(e) => { const d = (defs.data?.items ?? []).find((x) => x.id === e.target.value); setF({ ...f, positionId: e.target.value, title: d?.name ?? f.title, centerId: d?.centerId ?? f.centerId }); }}>
+          <option value="">— Không gắn vị trí (chỉ chức danh) —</option>
+          {(defs.data?.items ?? []).map((d) => <option key={d.id} value={d.id}>{d.centerCode} · {d.name} ({d.roleLabels.join(", ")})</option>)}
+        </select>
+      </label>
+      <label className="text-xs text-ink-600">Chức danh<input className="input mt-1" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} placeholder="Lấy theo tên vị trí nếu để trống" /></label>
       <label className="text-xs text-ink-600">Cơ sở<select className="input mt-1" value={f.centerId} onChange={(e) => setF({ ...f, centerId: e.target.value })}>{props.centers.map((c) => <option key={c.id} value={c.id}>{c.code}</option>)}</select></label>
       <label className="text-xs text-ink-600">Loại<select className="input mt-1" value={f.kind} onChange={(e) => setF({ ...f, kind: e.target.value as PositionKind })}>{POSITION_KINDS.map((k) => <option key={k} value={k}>{POSITION_KIND_VI[k]}</option>)}</select></label>
       <label className="text-xs text-ink-600">Bộ phận<select className="input mt-1" value={f.department} onChange={(e) => setF({ ...f, department: e.target.value as Department })}>{DEPARTMENTS.map((k) => <option key={k} value={k}>{DEPARTMENT_VI[k]}</option>)}</select></label>
@@ -87,7 +94,7 @@ export function PositionActions(props: Props) {
       <label className="text-xs text-ink-600">Ghi chú<input className="input mt-1" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></label>
       {f.kind === "primary" && <p className="text-xs text-amber-700 sm:col-span-3">Vị trí chính mới không được trùng thời gian với vị trí chính cũ — kết thúc vị trí cũ trước (ngày trước ngày bắt đầu mới).</p>}
       <div className="flex items-center gap-2 sm:col-span-3">
-        <button className="btn-primary" disabled={add.isPending || f.title.trim().length < 2} onClick={() => add.mutate({ staffId: props.staffId, centerId: f.centerId, title: f.title.trim(), department: f.department, kind: f.kind, effectiveFrom: f.from, effectiveTo: f.to || null, note: f.note || null })}>Thêm</button>
+        <button className="btn-primary" disabled={add.isPending || (!f.positionId && f.title.trim().length < 2)} onClick={() => add.mutate({ staffId: props.staffId, positionId: f.positionId || null, centerId: f.centerId, title: f.title.trim() || null, department: f.department, kind: f.kind, effectiveFrom: f.from, effectiveTo: f.to || null, note: f.note || null })}>Thêm</button>
         <button className="btn-ghost" onClick={() => setOpen(false)}>Huỷ</button>
         {err && <span className="text-sm text-red-700">{err}</span>}
       </div>

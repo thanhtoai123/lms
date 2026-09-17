@@ -1,7 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
-import { eq } from "drizzle-orm";
-import { getDb, users, userRoles, teachers, parents, type Database } from "@satarobo/db";
-import { decodeJwtPayload, mfaRequiredRoles, mfaState, type Actor } from "@satarobo/core";
+import { and, eq, gte, isNull, lte, or } from "drizzle-orm";
+import { getDb, users, userRoles, teachers, parents, staff, staffDeployments, type Database } from "@satarobo/db";
+import { decodeJwtPayload, mfaRequiredRoles, mfaState, activeRoleAssignments, widenByDeployments, type Actor } from "@satarobo/core";
 
 export interface Context {
   db: Database;
@@ -54,14 +54,27 @@ export async function createContext(opts: { headers: Headers; ip?: string }): Pr
   if (authSubject && !u.authSubject) await db.update(users).set({ authSubject, lastLoginAt: new Date() }).where(eq(users.id, u.id));
   else if (!u.lastLoginAt || Date.now() - u.lastLoginAt.getTime() > 3_600_000) await db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, u.id));
 
-  const roles = await db.select({ role: userRoles.role, centerId: userRoles.centerId }).from(userRoles).where(eq(userRoles.userId, u.id));
+  // Ngày hiện tại theo giờ Việt Nam: vai trò hết hiệu lực là quyền tự tắt ngay lần truy cập này
+  const today = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10);
+  const roles = await db.select({ role: userRoles.role, centerId: userRoles.centerId, validFrom: userRoles.validFrom, validTo: userRoles.validTo })
+    .from(userRoles).where(eq(userRoles.userId, u.id));
   const teacher = await db.query.teachers.findFirst({ where: eq(teachers.userId, u.id), columns: { id: true } });
   const parent = teacher ? null : await db.query.parents.findFirst({ where: eq(parents.userId, u.id), columns: { id: true } });
+
+  let assignments = activeRoleAssignments(roles, today);
+  // Điều động tác nghiệp: mở phạm vi dữ liệu của cơ sở được điều động trong đúng khoảng thời gian
+  const st = await db.query.staff.findFirst({ where: eq(staff.userId, u.id), columns: { id: true } });
+  if (st) {
+    const deps = await db.select({ centerId: staffDeployments.centerId, effectiveFrom: staffDeployments.effectiveFrom, effectiveTo: staffDeployments.effectiveTo })
+      .from(staffDeployments)
+      .where(and(eq(staffDeployments.staffId, st.id), lte(staffDeployments.effectiveFrom, today), or(isNull(staffDeployments.effectiveTo), gte(staffDeployments.effectiveTo, today))));
+    if (deps.length) assignments = widenByDeployments(assignments, deps, today);
+  }
 
   const actor: Actor = {
     userId: u.id,
     personId: teacher?.id ?? parent?.id ?? null,
-    assignments: roles.map((r) => ({ role: r.role, centerId: r.centerId })),
+    assignments,
   };
   const via = authSubject ? "supabase" as const : "dev" as const;
   const mfa = mfaState({ roles: actor.assignments.map((a) => a.role), required: mfaRequiredRoles(process.env.REQUIRE_MFA_ROLES), viaSupabase: via === "supabase", aal });

@@ -14,7 +14,7 @@ import {
   holidays, coursePrerequisites, teacherCourses, teacherEvaluations,
   paymentMethods, orders, orderItems, orderInstallments, orderEvents, payments, refunds, financeLedger,
   commissionRules, commissions, bankTransactions,
-  staff, staffPrivate, staffPositions, workShifts, shiftAssignments, attendancePunches, staffRequests,
+  staff, staffPrivate, staffPositions, positions, staffDeployments, workShifts, shiftTemplates, shiftAssignments, attendancePunches, staffRequests, checkinPoints,
   parentRequests, parentRequestEvents, parentFeedback, surveys, surveyInvites, surveyResponses, parentNotifications, careTasks,
   emailLogs, otpRequests, userGroups, userGroupMembers, webhookEvents, appSettings, revenueTargets,
   inventoryItems, kitComponents, stockLevels, stockMovements, stockCounters, rentals, rewardItems, coinTransactions, redemptions,
@@ -22,6 +22,7 @@ import {
   posts, siteBlocks, campaigns, campaignSpends, trackEvents, consentRecords, dataRequests, dataRequestEvents,
   jobPostings, candidates, candidateEvents, conversations, messages, affiliates,
 } from "./schema/index";
+import { SHIFT_CATALOGUE, plannedMinutesOf, workSegments } from "@satarobo/core";
 import { generateSessions, buildClassCode, buildStudentCode, toISODate, addDays, orderCode, receiptNumber, packagePrice, buildInstallmentPlan, computeCommission, describeRule, periodOf, fmtMin, hhmm, weekdayOf, leaveDays, requestCode, slaDue, SETTINGS_DEFAULTS, CONSENT_TEXT_VERSION, dsrCode, dsrDue } from "@satarobo/core";
 import { courseCompletions } from "./schema/index";
 import {
@@ -361,10 +362,25 @@ async function main() {
   const [hrU] = await db.insert(users).values({ email: "hr.cs1@example.test", fullName: "Nhân sự CS1 (mẫu)" }).returning();
   await db.insert(userRoles).values({ userId: hrU!.id, role: "CENTER_HR", centerId: cs1!.id });
   await db.update(centers).set({ latitude: 16.0336, longitude: 108.2212, checkinRadiusM: 150 }).where(eq(centers.id, cs1!.id));
-  const [shHC, , shC] = await db.insert(workShifts).values([
-    { centerId: null, code: "HC", name: "Hành chính", startTime: "08:00", endTime: "17:00", breakMinutes: 60 },
-    { centerId: cs1!.id, code: "SANG", name: "Ca sáng", startTime: "07:30", endTime: "11:30", breakMinutes: 0 },
-    { centerId: cs1!.id, code: "CHIEU", name: "Ca chiều tối", startTime: "13:30", endTime: "21:00", breakMinutes: 30 },
+  // Danh mục mã ca gốc (dùng chung — Hội sở giữ)
+  const shiftRows = await db.insert(workShifts).values(
+    SHIFT_CATALOGUE.map((sh, i) => ({
+      centerId: null, code: sh.code, name: sh.name, kind: sh.kind, units: sh.units, segments: sh.segments,
+      plannedMinutes: plannedMinutesOf(sh.segments), workplace: sh.workplace,
+      workplaceCenterId: sh.fixedCenterCode === "CS1" ? cs1!.id : sh.fixedCenterCode === "CS2" ? cs2!.id : null,
+      punchRequired: sh.punchRequired, sortOrder: i, isActive: true,
+    })),
+  ).returning();
+  const shiftByCode = new Map(shiftRows.map((r) => [r.code, r]));
+  const shHC = shiftByCode.get("HC")!;
+  const shC = shiftByCode.get("CS")!;
+  await db.insert(checkinPoints).values([
+    { centerId: cs1!.id, name: "Quầy lễ tân CS1", lat: 16.0336, lng: 108.2212, radiusM: 100, geofenceEnabled: true, keyVersion: 1, createdBy: adminU!.id },
+    { centerId: cs2!.id, name: "Quầy lễ tân CS2", lat: 16.0678, lng: 108.2208, radiusM: 100, geofenceEnabled: true, keyVersion: 1, createdBy: adminU!.id },
+  ]);
+  const [posMgr] = await db.insert(positions).values([
+    { centerId: cs1!.id, name: "Quản lý cơ sở 1", department: "management", roles: ["CENTER_MANAGER"] as Role[], isManager: true, createdBy: adminU!.id },
+    { centerId: cs1!.id, name: "Nhân sự cơ sở 1", department: "hr", roles: ["CENTER_HR"] as Role[], isManager: false, createdBy: adminU!.id },
   ]).returning();
   const staffDefs = [
     { u: mgrU!, code: "NV0001", department: "management", title: "Quản lý cơ sở", hiredAt: "2025-03-01", status: "active" as const, shift: shHC! },
@@ -384,7 +400,7 @@ async function main() {
     { staffId: stSale1!.id, idNumber: "048095004321", baseSalary: 8_000_000, allowance: 500_000 },
   ]);
   await db.insert(staffPositions).values([
-    ...staffDefs.map((d, i) => ({ staffId: staffRows[i]!.id, centerId: cs1!.id, title: d.title, department: d.department, kind: "primary" as const, effectiveFrom: d.hiredAt, createdBy: adminU!.id })),
+    ...staffDefs.map((d, i) => ({ staffId: staffRows[i]!.id, centerId: cs1!.id, positionId: i === 0 ? posMgr!.id : null, title: d.title, department: d.department, kind: "primary" as const, effectiveFrom: d.hiredAt, createdBy: adminU!.id })),
     { staffId: stMgr!.id, centerId: cs2!.id, title: "Phụ trách CS2", department: "management", kind: "concurrent" as const, effectiveFrom: "2026-06-01", createdBy: adminU!.id },
     { staffId: stSale1!.id, centerId: cs1!.id, title: "Quyền trưởng nhóm tư vấn", department: "sales", kind: "delegated" as const, effectiveFrom: addDays(today, -10), effectiveTo: addDays(today, 20), createdBy: mgrU!.id },
     { staffId: stOld!.id, centerId: cs1!.id, title: "Lễ tân", department: "operations", kind: "primary" as const, effectiveFrom: "2024-06-01", effectiveTo: "2026-05-31", endReason: "Nghỉ việc", createdBy: adminU!.id },
@@ -398,25 +414,31 @@ async function main() {
     for (let k = -20; k <= 6; k++) {
       const day = addDays(today, k);
       const wd = weekdayOf(day);
-      if (wd === 7 || (d.shift.id === shC!.id && wd === 1)) continue;
-      asg.push({ staffId: st.id, date: day, shiftId: d.shift.id, centerId: cs1!.id, createdBy: hrU!.id });
+      if (wd === 7 || (d.shift.id === shC.id && wd === 1)) continue;
+      const segs = workSegments(d.shift.segments ?? []);
+      const segStart = segs[0]?.from ?? 480;
+      const segEnd = segs[segs.length - 1]?.to ?? 1020;
+      asg.push({ staffId: st.id, date: day, shiftId: d.shift.id, centerId: cs1!.id, origin: "template" as const, createdBy: hrU!.id });
       if (k >= 0 || absent.get(st.id) === day) continue;
       const jitter = (i * 7 + k * 3 + 30) % 9;
-      let inMin = hhmm(d.shift.startTime) - jitter;
-      if (st.id === stSale1!.id && k === -3) inMin = hhmm(d.shift.startTime) + 25;
-      punches.push({ staffId: st.id, centerId: cs1!.id, kind: "in", at: at(day, inMin), source: "gps", lat: 16.0336, lng: 108.2213, accuracyM: 15, distanceM: 11, createdBy: d.u.id });
+      let inMin = segStart - jitter;
+      if (st.id === stSale1!.id && k === -3) inMin = segStart + 25;
+      punches.push({ staffId: st.id, centerId: cs1!.id, kind: "in", at: at(day, inMin), source: "qr", lat: 16.0336, lng: 108.2213, accuracyM: 15, distanceM: 11, flags: [], createdBy: d.u.id });
       if (st.id === stSale2!.id && k === -2) continue;
-      punches.push({ staffId: st.id, centerId: cs1!.id, kind: "out", at: at(day, hhmm(d.shift.endTime) + ((jitter * 2) % 15)), source: "gps", lat: 16.0337, lng: 108.2212, accuracyM: 20, distanceM: 9, createdBy: d.u.id });
+      punches.push({ staffId: st.id, centerId: cs1!.id, kind: "out", at: at(day, segEnd + ((jitter * 2) % 15)), source: "qr", lat: 16.0337, lng: 108.2212, accuracyM: 20, distanceM: 9, flags: [], createdBy: d.u.id });
     }
   });
   await db.insert(shiftAssignments).values(asg);
   await db.insert(attendancePunches).values(punches);
   await db.insert(staffRequests).values([
-    { staffId: stHr!.id, centerId: cs1!.id, kind: "leave", status: "approved", dateFrom: addDays(today, -5), dateTo: addDays(today, -5), portion: "full", leaveType: "annual", days: 1, reason: "Việc gia đình (mẫu)", decidedBy: mgrU!.id, decidedAt: new Date(), createdBy: hrU!.id },
-    { staffId: stSale1!.id, centerId: cs1!.id, kind: "late_early", status: "pending", dateFrom: addDays(today, -3), dateTo: addDays(today, -3), lateMin: 25, minutes: 25, reason: "Kẹt xe do mưa lớn (mẫu)", createdBy: sale1U!.id },
-    { staffId: stSale2!.id, centerId: cs1!.id, kind: "missing_punch", status: "pending", dateFrom: addDays(today, -2), dateTo: addDays(today, -2), punchOut: "17:10", reason: "Quên chấm ra do điện thoại hết pin (mẫu)", createdBy: sale2U!.id },
-    { staffId: stKt!.id, centerId: cs1!.id, kind: "leave", status: "pending", dateFrom: addDays(today, 3), dateTo: addDays(today, 4), portion: "full", leaveType: "annual", days: leaveDays(addDays(today, 3), addDays(today, 4), "full"), reason: "Về quê (mẫu)", createdBy: ktU!.id },
+    { staffId: stHr!.id, centerId: cs1!.id, kind: "leave", status: "approved", dateFrom: addDays(today, -5), dateTo: addDays(today, -5), portion: "full", leaveType: "annual", leavePaid: true, days: 1, reason: "Việc gia đình (mẫu)", effectPreview: "HC → P", appliedAt: new Date(), decidedBy: mgrU!.id, decidedAt: new Date(), createdBy: hrU!.id },
+    { staffId: stSale1!.id, centerId: cs1!.id, kind: "late_early", status: "pending", dateFrom: addDays(today, -3), dateTo: addDays(today, -3), lateEarlyKind: "late", atTime: "08:25", lateSubmission: true, effectPreview: "Đi muộn 08:25 — bỏ qua cờ", reason: "Kẹt xe do mưa lớn (mẫu)", createdBy: sale1U!.id },
+    { staffId: stSale2!.id, centerId: cs1!.id, kind: "timesheet_fix", status: "pending", dateFrom: addDays(today, -2), dateTo: addDays(today, -2), punchOut: "17:10", lateSubmission: true, effectPreview: "Thêm mốc ra 17:10", reason: "Quên chấm ra do điện thoại hết pin (mẫu)", createdBy: sale2U!.id },
+    { staffId: stKt!.id, centerId: cs1!.id, kind: "leave", status: "pending", dateFrom: addDays(today, 3), dateTo: addDays(today, 4), portion: "full", leaveType: "annual", leavePaid: true, days: leaveDays(addDays(today, 3), addDays(today, 4), "full"), effectPreview: "HC → P", reason: "Về quê (mẫu)", createdBy: ktU!.id },
+    { staffId: stGv1!.id, centerId: cs1!.id, kind: "sub_teach", status: "pending", dateFrom: addDays(today, 2), dateTo: addDays(today, 2), effectPreview: "chờ chỉ định người dạy thay", reason: "Bận việc gia đình, nhờ dạy thay (mẫu)", createdBy: t1U!.id },
   ]);
+  await db.insert(shiftTemplates).values(staffDefs.flatMap((d, i) => [1, 2, 3, 4, 5, 6].map((wd) => ({ centerId: cs1!.id, staffId: staffRows[i]!.id, weekday: wd, shiftId: d.shift.id, createdBy: hrU!.id }))));
+  await db.insert(staffDeployments).values({ staffId: stGv1!.id, centerId: cs2!.id, effectiveFrom: addDays(today, -3), effectiveTo: addDays(today, 27), reason: "Điều động hỗ trợ dạy tại CS2 (mẫu)", createdBy: adminU!.id });
 
   // ---- CSKH phụ huynh (mẫu): yêu cầu, đánh giá, khảo sát, thông báo, sinh nhật ----
   const futA = sessionRows.filter((x) => x.classId === classA!.id && x.date > today).sort((a, b) => a.sequenceNo - b.sequenceNo);
@@ -2367,11 +2389,17 @@ async function seedDemoVolume(x: DemoCtx): Promise<void> {
   const shS2Id = uid();
   const shC2Id = uid();
   await db.insert(workShifts).values([
-    { id: shS2Id, centerId: cs2.id, code: "SANG", name: "Ca sáng", startTime: "07:30", endTime: "11:30", breakMinutes: 0 },
-    { id: shC2Id, centerId: cs2.id, code: "CHIEU", name: "Ca chiều tối", startTime: "13:30", endTime: "21:00", breakMinutes: 30 },
+    { id: shS2Id, centerId: cs2.id, code: "S2", name: "Ca sáng CS2", kind: "timed" as const, units: 0.5, segments: [{ from: "07:30", to: "11:30" }], plannedMinutes: 240, workplace: "own_center" as const, punchRequired: true },
+    { id: shC2Id, centerId: cs2.id, code: "C2", name: "Ca chiều tối CS2", kind: "timed" as const, units: 1, segments: [{ from: "13:30", to: "21:00" }], plannedMinutes: 450, workplace: "own_center" as const, punchRequired: true },
   ]);
+  const clockOf = (sh: { segments: { from: string; to: string; paid?: boolean }[] }) => {
+    const segs = workSegments(sh.segments ?? []);
+    return { start: segs[0]?.from ?? 480, end: segs[segs.length - 1]?.to ?? 1020 };
+  };
+  const hcClock = clockOf(x.shHC);
+  const c1Clock = clockOf(x.shC1);
   const shiftFor = (p: { centerId: string; kind: HrKind }) =>
-    p.kind === "office" ? { id: x.shHC.id, startTime: x.shHC.startTime, endTime: x.shHC.endTime } : p.centerId === cs1.id ? { id: x.shC1.id, startTime: x.shC1.startTime, endTime: x.shC1.endTime } : { id: shC2Id, startTime: "13:30", endTime: "21:00" };
+    p.kind === "office" ? { id: x.shHC.id, ...hcClock } : p.centerId === cs1.id ? { id: x.shC1.id, ...c1Clock } : { id: shC2Id, start: 810, end: 1260 };
   const workDays = (kind: HrKind) => (kind === "office" ? [1, 2, 3, 4, 5, 6] : kind === "teacher" ? [2, 3, 4, 5, 6, 7] : [2, 4, 6]);
   const coords = (centerId: string) => (centerId === cs1.id ? { lat: 16.0336, lng: 108.2212 } : { lat: 16.0678, lng: 108.2208 });
   const asgIns: (typeof shiftAssignments.$inferInsert)[] = [];
@@ -2395,7 +2423,7 @@ async function seedDemoVolume(x: DemoCtx): Promise<void> {
     const d = pick(workingDates(p, -25, -3));
     leaveSet.add(`${p.staffId}|${d}`);
     const created = vnAt(addDays(d, -int(2, 6)), "09:00");
-    hrRequest(p, { kind: "leave", status: "approved", dateFrom: d, dateTo: d, portion: "full", leaveType: i === 2 ? "unpaid" : "annual", days: 1, reason: pick(["Việc gia đình (mẫu)", "Đưa con đi khám (mẫu)", "Về quê dự đám cưới (mẫu)"]), decidedBy: mgrOf(p.centerId), decidedAt: later(created, 60, 20 * 60), createdAt: created });
+    hrRequest(p, { kind: "leave", status: "approved", dateFrom: d, dateTo: d, portion: "full", leaveType: i === 2 ? "unpaid" : "annual", leavePaid: i !== 2, days: 1, effectPreview: "→ P", appliedAt: vnAt(d, "09:00"), reason: pick(["Việc gia đình (mẫu)", "Đưa con đi khám (mẫu)", "Về quê dự đám cưới (mẫu)"]), decidedBy: mgrOf(p.centerId), decidedAt: later(created, 60, 20 * 60), createdAt: created });
   });
   {
     const p = hrShuffled[3];
@@ -2406,7 +2434,7 @@ async function seedDemoVolume(x: DemoCtx): Promise<void> {
       if (from && to) {
         for (const d of ds) leaveSet.add(`${p.staffId}|${d}`);
         const created = vnAt(from, "07:15");
-        hrRequest(p, { kind: "leave", status: "approved", dateFrom: from, dateTo: to, portion: "full", leaveType: "sick", days: leaveDays(from, to, "full"), reason: "Sốt xuất huyết, có giấy bác sĩ (mẫu)", decidedBy: mgrOf(p.centerId), decidedAt: later(created, 30, 6 * 60), createdAt: created });
+        hrRequest(p, { kind: "leave", status: "approved", dateFrom: from, dateTo: to, portion: "full", leaveType: "sick_insurance", leavePaid: false, days: leaveDays(from, to, "full"), effectPreview: "→ P", reason: "Sốt xuất huyết, có giấy bác sĩ (mẫu)", decidedBy: mgrOf(p.centerId), decidedAt: later(created, 30, 6 * 60), createdAt: created });
       }
     }
   }
@@ -2414,19 +2442,19 @@ async function seedDemoVolume(x: DemoCtx): Promise<void> {
     const ds = workingDates(p, 4, 25);
     const from = pick(ds);
     const to = ds.find((d) => d > from && chance(0.5)) ?? from;
-    hrRequest(p, { kind: "leave", status: "pending", dateFrom: from, dateTo: to, portion: "full", leaveType: "annual", days: leaveDays(from, to, "full"), reason: "Nghỉ phép năm (mẫu)", createdAt: ago(int(2, 60)) });
+    hrRequest(p, { kind: "leave", status: "pending", dateFrom: from, dateTo: to, portion: "full", leaveType: "annual", leavePaid: true, days: leaveDays(from, to, "full"), effectPreview: "→ P", reason: "Nghỉ phép năm (mẫu)", createdAt: ago(int(2, 60)) });
   });
   {
     const p = hrShuffled[6];
     if (p) {
       const d = pick(workingDates(p, 3, 14));
-      hrRequest(p, { kind: "leave", status: "pending", dateFrom: d, dateTo: d, portion: "pm", leaveType: "other_paid", days: 0.5, reason: "Họp phụ huynh ở trường của con (mẫu)", createdAt: ago(int(1, 30)) });
+      hrRequest(p, { kind: "leave", status: "pending", dateFrom: d, dateTo: d, portion: "pm", leaveType: "compensatory", leavePaid: true, days: 0.5, effectPreview: "Nghỉ nửa ngày — giữ ca, trừ 0,5 ngày phép", reason: "Họp phụ huynh ở trường của con (mẫu)", createdAt: ago(int(1, 30)) });
     }
     const q = hrShuffled[7];
     if (q) {
       const d = pick(workingDates(q, -20, -8));
       const created = vnAt(addDays(d, -3), "10:00");
-      hrRequest(q, { kind: "leave", status: "rejected", dateFrom: d, dateTo: d, portion: "full", leaveType: "annual", days: 1, reason: "Việc cá nhân (mẫu)", decidedBy: mgrOf(q.centerId), decidedAt: later(created, 60, 12 * 60), decisionNote: "Ngày này thiếu người trực, đề nghị chọn ngày khác", createdAt: created });
+      hrRequest(q, { kind: "leave", status: "rejected", dateFrom: d, dateTo: d, portion: "full", leaveType: "annual", leavePaid: true, days: 1, effectPreview: "→ P", reason: "Việc cá nhân (mẫu)", decidedBy: mgrOf(q.centerId), decidedAt: later(created, 60, 12 * 60), decisionNote: "Ngày này thiếu người trực, đề nghị chọn ngày khác", createdAt: created });
     }
   }
   const lateDays: { p: (typeof hrPeople)[number]; d: string; min: number }[] = [];
@@ -2434,14 +2462,14 @@ async function seedDemoVolume(x: DemoCtx): Promise<void> {
   const otDays: { p: (typeof hrPeople)[number]; d: string; from: number; to: number }[] = [];
   for (const p of hrPeople) {
     const sh = shiftFor(p);
-    const s0 = hhmm(sh.startTime);
-    const e0 = hhmm(sh.endTime);
+    const s0 = sh.start;
+    const e0 = sh.end;
     const { lat, lng } = coords(p.centerId);
     const hrAdmin = p.centerId === cs1.id ? x.hrU.id : uidOf("mgr2");
     for (let k = -30; k <= 7; k++) {
       const day = addDays(today, k);
       if (!workDays(p.kind).includes(weekdayOf(day))) continue;
-      asgIns.push({ staffId: p.staffId, date: day, shiftId: sh.id, centerId: p.centerId, createdBy: hrAdmin, createdAt: notFuture(vnAt(addDays(day, -7), "16:00")) });
+      asgIns.push({ staffId: p.staffId, date: day, shiftId: sh.id, centerId: p.centerId, origin: "template" as const, createdBy: hrAdmin, createdAt: notFuture(vnAt(addDays(day, -7), "16:00")) });
       if (k > 0 || leaveSet.has(`${p.staffId}|${day}`)) continue;
       let inMin: number | null = s0 - int(1, 12);
       let outMin: number | null = e0 + int(0, 12);
@@ -2468,23 +2496,23 @@ async function seedDemoVolume(x: DemoCtx): Promise<void> {
         if (vnAt(day, fmtMin(outMin)).getTime() > now) outMin = null;
       }
       const jitter = () => (rng() - 0.5) * 0.0004;
-      if (inMin !== null) punchIns.push({ staffId: p.staffId, centerId: p.centerId, kind: "in", at: vnAt(day, fmtMin(inMin)), source: "gps", lat: lat + jitter(), lng: lng + jitter(), accuracyM: int(8, 35), distanceM: int(3, 60), createdBy: p.userId, createdAt: vnAt(day, fmtMin(inMin)) });
-      if (outMin !== null) punchIns.push({ staffId: p.staffId, centerId: p.centerId, kind: "out", at: vnAt(day, fmtMin(outMin)), source: "gps", lat: lat + jitter(), lng: lng + jitter(), accuracyM: int(8, 35), distanceM: int(3, 60), createdBy: p.userId, createdAt: vnAt(day, fmtMin(outMin)) });
+      if (inMin !== null) punchIns.push({ staffId: p.staffId, centerId: p.centerId, kind: "in", at: vnAt(day, fmtMin(inMin)), source: "qr", flags: [], lat: lat + jitter(), lng: lng + jitter(), accuracyM: int(8, 35), distanceM: int(3, 60), createdBy: p.userId, createdAt: vnAt(day, fmtMin(inMin)) });
+      if (outMin !== null) punchIns.push({ staffId: p.staffId, centerId: p.centerId, kind: "out", at: vnAt(day, fmtMin(outMin)), source: "qr", flags: [], lat: lat + jitter(), lng: lng + jitter(), accuracyM: int(8, 35), distanceM: int(3, 60), createdBy: p.userId, createdAt: vnAt(day, fmtMin(outMin)) });
     }
   }
   const recent = (d: string) => d >= addDays(today, -7);
   lateDays.filter((z) => recent(z.d)).slice(0, 4).forEach((z, i) => {
     const created = later(vnAt(z.d, "12:00"), 0, 8 * 60);
     const approved = i === 0;
-    hrRequest(z.p, { kind: "late_early", status: approved ? "approved" : "pending", dateFrom: z.d, dateTo: z.d, lateMin: z.min, minutes: z.min, reason: pick(["Kẹt xe do mưa lớn (mẫu)", "Xe hỏng dọc đường (mẫu)", "Đưa con đi học muộn (mẫu)"]), decidedBy: approved ? mgrOf(z.p.centerId) : null, decidedAt: approved ? later(created, 30, 6 * 60) : null, createdAt: created });
+    hrRequest(z.p, { kind: "late_early", status: approved ? "approved" : "pending", dateFrom: z.d, dateTo: z.d, lateEarlyKind: "late" as const, atTime: fmtMin(z.min + 8 * 60), lateSubmission: true, effectPreview: "Đi muộn — bỏ qua cờ", reason: pick(["Kẹt xe do mưa lớn (mẫu)", "Xe hỏng dọc đường (mẫu)", "Đưa con đi học muộn (mẫu)"]), decidedBy: approved ? mgrOf(z.p.centerId) : null, decidedAt: approved ? later(created, 30, 6 * 60) : null, createdAt: created });
   });
   missOut.filter((z) => recent(z.d)).slice(0, 3).forEach((z) => {
-    hrRequest(z.p, { kind: "missing_punch", status: "pending", dateFrom: z.d, dateTo: z.d, punchOut: fmtMin(z.out), reason: "Quên chấm ra do điện thoại hết pin (mẫu)", createdAt: later(vnAt(z.d, "21:30"), 0, 12 * 60) });
+    hrRequest(z.p, { kind: "timesheet_fix", status: "pending", dateFrom: z.d, dateTo: z.d, punchOut: fmtMin(z.out), lateSubmission: true, effectPreview: `Thêm mốc ra ${fmtMin(z.out)}`, reason: "Quên chấm ra do điện thoại hết pin (mẫu)", createdAt: later(vnAt(z.d, "21:30"), 0, 12 * 60) });
   });
   otDays.slice(0, 3).forEach((z, i) => {
     const created = vnAt(z.d, fmtMin(Math.min(z.to, 23 * 60)));
     const approved = i !== 2;
-    hrRequest(z.p, { kind: "overtime", status: approved ? "approved" : "pending", dateFrom: z.d, dateTo: z.d, otStart: fmtMin(z.from), otEnd: fmtMin(z.to), minutes: z.to - z.from, reason: "Hỗ trợ chốt học phí cuối tháng (mẫu)", decidedBy: approved ? mgrOf(z.p.centerId) : null, decidedAt: approved ? later(created, 60, 24 * 60) : null, createdAt: created });
+    hrRequest(z.p, { kind: "overtime", status: approved ? "approved" : "pending", dateFrom: z.d, dateTo: z.d, startTime: fmtMin(z.from), endTime: fmtMin(z.to), minutes: z.to - z.from, effectPreview: `Thêm giờ ${fmtMin(z.from)}–${fmtMin(z.to)}`, reason: "Hỗ trợ chốt học phí cuối tháng (mẫu)", decidedBy: approved ? mgrOf(z.p.centerId) : null, decidedAt: approved ? later(created, 60, 24 * 60) : null, createdAt: created });
   });
   await inChunks(asgIns, (p) => db.insert(shiftAssignments).values(p), 500);
   await inChunks(punchIns, (p) => db.insert(attendancePunches).values(p), 500);
