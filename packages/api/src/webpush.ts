@@ -79,7 +79,7 @@ export async function sendWebPush(sub: PushSubscriptionKeys, payload: object, k:
     const r = await fetch(sub.endpoint, {
       method: "POST",
       headers: { Authorization: vapidAuthorization(sub.endpoint, k), "Content-Encoding": "aes128gcm", "Content-Type": "application/octet-stream", TTL: String(opts.ttl ?? 86_400), Urgency: opts.urgency ?? "normal" },
-      body,
+      body: new Uint8Array(body),
       signal: AbortSignal.timeout(15_000),
       redirect: "error",
     });
