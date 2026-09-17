@@ -336,6 +336,8 @@ export async function applyRequest(tx: Db, ctx: ProtectedContext, r: RequestRow,
     }
     case "overtime":
       return { label: `Ghi nhận ${r.minutes} phút tăng ca ngày ${dmy(r.dateFrom)}` };
+    default:
+      throw pre(`Chưa hỗ trợ áp đơn loại "${r.kind}"`);
   }
 }
 
@@ -380,7 +382,7 @@ export async function decideRequest(ctx: ProtectedContext, input: { id: string; 
           if (!up.length) throw new TRPCError({ code: "CONFLICT", message: "Đơn vừa được xử lý" });
         });
       } catch (e) {
-        out.applyError = e instanceof TRPCError ? e.message : (e as Error)?.message ?? "Không áp được đơn";
+        out.applyError = e instanceof Error && e.message ? e.message : "Không áp được đơn";
       }
       const err = out.applyError;
       if (err) {
