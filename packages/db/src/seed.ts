@@ -15,8 +15,9 @@ import {
   paymentMethods, orders, orderItems, orderInstallments, orderEvents, payments, refunds, financeLedger,
   commissionRules, commissions, bankTransactions,
   staff, staffPrivate, staffPositions, workShifts, shiftAssignments, attendancePunches, staffRequests,
+  parentRequests, parentRequestEvents, parentFeedback, surveys, surveyInvites, surveyResponses, parentNotifications, careTasks,
 } from "./schema/index";
-import { generateSessions, buildClassCode, buildStudentCode, toISODate, addDays, orderCode, receiptNumber, packagePrice, buildInstallmentPlan, computeCommission, describeRule, periodOf, fmtMin, hhmm, weekdayOf, leaveDays } from "@satarobo/core";
+import { generateSessions, buildClassCode, buildStudentCode, toISODate, addDays, orderCode, receiptNumber, packagePrice, buildInstallmentPlan, computeCommission, describeRule, periodOf, fmtMin, hhmm, weekdayOf, leaveDays, requestCode, slaDue } from "@satarobo/core";
 
 const db = createDb();
 
@@ -406,6 +407,61 @@ async function main() {
     { staffId: stSale2!.id, centerId: cs1!.id, kind: "missing_punch", status: "pending", dateFrom: addDays(today, -2), dateTo: addDays(today, -2), punchOut: "17:10", reason: "Quên chấm ra do điện thoại hết pin (mẫu)", createdBy: sale2U!.id },
     { staffId: stKt!.id, centerId: cs1!.id, kind: "leave", status: "pending", dateFrom: addDays(today, 3), dateTo: addDays(today, 4), portion: "full", leaveType: "annual", days: leaveDays(addDays(today, 3), addDays(today, 4), "full"), reason: "Về quê (mẫu)", createdBy: ktU!.id },
   ]);
+
+  // ---- CSKH phụ huynh (mẫu): yêu cầu, đánh giá, khảo sát, thông báo, sinh nhật ----
+  const futA = sessionRows.filter((x) => x.classId === classA!.id && x.date > today).sort((a, b) => a.sequenceNo - b.sequenceNo);
+  const yr2 = new Date().getFullYear();
+  const reqDefs = [
+    { type: "absence" as const, status: "new" as const, channel: "zalo" as const, i: 0, sessionId: futA[0]?.id ?? null, content: "Con bị sốt, xin nghỉ buổi tới (mẫu)", hoursAgo: 1 },
+    { type: "pause" as const, status: "in_progress" as const, channel: "phone" as const, i: 1, content: "Gia đình về quê 1 tháng, xin bảo lưu (mẫu)", hoursAgo: 30, dateFrom: addDays(today, 7), dateTo: addDays(today, 37) },
+    { type: "complaint" as const, status: "new" as const, channel: "walk_in" as const, i: 2, content: "Phòng học hơi nóng buổi chiều (mẫu)", hoursAgo: 40 },
+    { type: "other" as const, status: "done" as const, channel: "app" as const, i: 3, content: "Hỏi lịch nghỉ lễ (mẫu)", hoursAgo: 72 },
+  ];
+  let reqSeq = 0;
+  for (const d of reqDefs) {
+    const created = new Date(Date.now() - d.hoursAgo * 3600e3);
+    const e = enrollA[d.i]!;
+    const [r] = await db.insert(parentRequests).values({
+      code: requestCode(yr2, ++reqSeq), type: d.type, status: d.status, channel: d.channel, centerId: cs1!.id, studentId: e.studentId, parentId: parentRows[d.i]!.id,
+      enrollmentId: d.type === "complaint" || d.type === "other" ? null : e.id, sessionId: d.sessionId ?? null, dateFrom: d.dateFrom ?? null, dateTo: d.dateTo ?? null,
+      content: d.content, dueAt: slaDue(created, d.type), assigneeId: d.status === "in_progress" ? sale1U!.id : null, createdBy: sale1U!.id, createdAt: created,
+      ...(d.status === "done" ? { resolution: "Đã gửi lịch nghỉ lễ qua Zalo", completedAt: new Date(created.getTime() + 2 * 3600e3) } : {}),
+    }).returning();
+    await db.insert(parentRequestEvents).values({ requestId: r!.id, action: "create", toStatus: "new", note: d.content, actorId: sale1U!.id, createdAt: created });
+  }
+  const pastSess = sessionRows.filter((x) => x.classId === classA!.id && x.date < today).sort((a, b) => b.sequenceNo - a.sequenceNo);
+  const [ct] = await db.insert(careTasks).values({ studentId: enrollA[2]!.studentId, enrollmentId: enrollA[2]!.id, centerId: cs1!.id, code: "LOW_FEEDBACK", title: "PH đánh giá thấp buổi học — gọi lại trong 24h", severity: 2, dueAt: new Date(Date.now() + 20 * 3600e3), assigneeId: sale1U!.id }).returning();
+  await db.insert(parentFeedback).values([
+    { centerId: cs1!.id, studentId: enrollA[0]!.studentId, parentId: parentRows[0]!.id, classId: classA!.id, sessionId: pastSess[1]?.id ?? null, teacherId: gv1!.id, rating: 5, teacherRating: 5, tags: ["teacher", "result"], comment: "Con rất thích thầy (mẫu)", channel: "zalo", status: "resolved", response: "Cảm ơn chị!", respondedBy: sale1U!.id, respondedAt: new Date(), createdBy: sale1U!.id },
+    { centerId: cs1!.id, studentId: enrollA[1]!.studentId, parentId: parentRows[1]!.id, classId: classA!.id, sessionId: pastSess[1]?.id ?? null, teacherId: gv1!.id, rating: 4, teacherRating: 4, tags: ["content"], channel: "app", createdBy: sale1U!.id },
+    { centerId: cs1!.id, studentId: enrollA[2]!.studentId, parentId: parentRows[2]!.id, classId: classA!.id, sessionId: pastSess[2]?.id ?? null, teacherId: gv1!.id, rating: 2, teacherRating: 3, tags: ["facility", "schedule"], comment: "Lớp tan muộn 15 phút, phòng nóng (mẫu)", channel: "phone", careTaskId: ct!.id, createdBy: sale1U!.id },
+  ]);
+  const qs = [
+    { id: "nps", type: "nps" as const, label: "Anh/chị sẵn sàng giới thiệu Sata Robo cho bạn bè ở mức nào?", required: true },
+    { id: "gv", type: "rating" as const, label: "Mức hài lòng về giáo viên", required: true },
+    { id: "kenh", type: "choice" as const, label: "Anh/chị muốn nhận thông tin qua kênh nào?", required: false, options: ["Zalo", "App", "Email"] },
+    { id: "gopy", type: "text" as const, label: "Góp ý thêm", required: false },
+  ];
+  const [sv] = await db.insert(surveys).values({ title: "Khảo sát sau buổi 4 (mẫu)", description: "Giúp Sata Robo phục vụ con tốt hơn", trigger: "session_n", triggerValue: 4, questions: qs, status: "active", createdBy: mgrU!.id }).returning();
+  await db.insert(surveys).values({ title: "Khảo sát cuối khoá (nháp)", trigger: "course_end", questions: qs.slice(0, 2), status: "draft", createdBy: mgrU!.id });
+  const invRows = await db.insert(surveyInvites).values([0, 1, 2].map((i) => ({
+    surveyId: sv!.id, parentId: parentRows[i]!.id, studentId: enrollA[i]!.studentId, enrollmentId: enrollA[i]!.id, centerId: cs1!.id,
+    token: `demo-ks-${i + 1}-${sv!.id.slice(0, 8)}`, status: i < 2 ? "answered" : "sent", source: "session_n",
+    sentAt: new Date(Date.now() - 5 * 86400e3), expiresAt: new Date(Date.now() + 9 * 86400e3), answeredAt: i < 2 ? new Date(Date.now() - 4 * 86400e3) : null,
+  }))).returning();
+  const [ct2] = await db.insert(careTasks).values({ studentId: enrollA[1]!.studentId, enrollmentId: enrollA[1]!.id, centerId: cs1!.id, code: "LOW_NPS", title: "NPS thấp (5/10) — gọi hỏi thăm", severity: 2, dueAt: new Date(Date.now() + 86400e3) }).returning();
+  await db.insert(surveyResponses).values([
+    { inviteId: invRows[0]!.id, surveyId: sv!.id, answers: { nps: 10, gv: 5, kenh: "Zalo", gopy: "Rất hài lòng" }, npsScore: 10 },
+    { inviteId: invRows[1]!.id, surveyId: sv!.id, answers: { nps: 5, gv: 3, kenh: "App", gopy: "Muốn có thêm bài tập về nhà" }, npsScore: 5, careTaskId: ct2!.id },
+  ]);
+  await db.insert(parentNotifications).values([
+    { parentId: parentRows[2]!.id, studentId: enrollA[2]!.studentId, channel: "in_app", template: "SURVEY_INVITE", title: "Mời anh/chị góp ý", body: "Khảo sát sau buổi 4", link: `/ks/${invRows[2]!.token}`, status: "sent", sentAt: new Date() },
+    { parentId: parentRows[0]!.id, studentId: enrollA[0]!.studentId, channel: "zns", template: "TUITION_DUE", title: "Nhắc học phí", body: "Kỳ học phí sắp đến hạn", status: "failed", error: "Chưa cấu hình Zalo ZNS" },
+  ]);
+  const mdAfter = (n: number) => addDays(today, n).slice(5);
+  await db.update(students).set({ dateOfBirth: `2016-${mdAfter(0)}` }).where(eq(students.id, enrollA[0]!.studentId));
+  await db.update(students).set({ dateOfBirth: `2017-${mdAfter(3)}` }).where(eq(students.id, enrollA[1]!.studentId));
+  await db.update(students).set({ dateOfBirth: `2015-${mdAfter(20)}` }).where(eq(students.id, enrollA[4]!.studentId));
 
   // ---- Lớp Trial mẫu: 1 buổi sắp tới (đã xếp), 1 đã học thử, 1 không đến ----
   const futureA = sessionRows.filter((x) => x.classId === classA!.id && x.date > today).sort((a, b) => a.sequenceNo - b.sequenceNo);

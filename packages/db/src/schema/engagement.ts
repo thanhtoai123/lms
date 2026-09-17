@@ -44,6 +44,8 @@ export const parentNotifications = pgTable(
     sentAt: timestamp("sent_at", { withTimezone: true }),
     readAt: timestamp("read_at", { withTimezone: true }),
     providerRef: text("provider_ref"),
+    broadcastId: uuid("broadcast_id"),
+    createdBy: uuid("created_by").references(() => users.id),
     error: text("error"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },

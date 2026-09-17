@@ -8,6 +8,7 @@ import { dueReportCards } from "./reportCards";
 import { pendingApprovals } from "./classOps";
 import { financeQueues } from "./finance";
 import { hrQueues } from "./hr";
+import { careQueues } from "./care";
 
 const TZ = "Asia/Ho_Chi_Minh";
 
@@ -60,6 +61,7 @@ export async function adminOverview(ctx: ProtectedContext) {
   // 0c) Tài chính: khoản thu chờ xác nhận, hoàn tiền chờ duyệt / chờ chi
   for (const f of await financeQueues(ctx)) queues.push({ ...f, preview: [] });
   for (const f of await hrQueues(ctx)) queues.push({ ...f, preview: [] });
+  for (const f of await careQueues(ctx)) queues.push({ ...f, preview: [] });
 
   // 1) Buổi học chưa hoàn tất (đã qua ngày)
   if (canClass) {

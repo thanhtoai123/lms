@@ -7,3 +7,4 @@ export * from "./admissions";
 export * from "./engagement";
 export * from "./finance";
 export * from "./hr";
+export * from "./care";

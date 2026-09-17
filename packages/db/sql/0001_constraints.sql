@@ -87,3 +87,9 @@ ALTER TABLE staff_requests DROP CONSTRAINT IF EXISTS staff_requests_dates_check;
 ALTER TABLE staff_requests ADD CONSTRAINT staff_requests_dates_check CHECK (date_to >= date_from);
 ALTER TABLE timesheet_overrides DROP CONSTRAINT IF EXISTS timesheet_overrides_units_check;
 ALTER TABLE timesheet_overrides ADD CONSTRAINT timesheet_overrides_units_check CHECK (units >= 0 AND units <= 1.5);
+
+-- 10) CSKH
+ALTER TABLE parent_feedback DROP CONSTRAINT IF EXISTS parent_feedback_rating_check;
+ALTER TABLE parent_feedback ADD CONSTRAINT parent_feedback_rating_check CHECK (rating BETWEEN 1 AND 5 AND (teacher_rating IS NULL OR teacher_rating BETWEEN 1 AND 5));
+ALTER TABLE survey_responses DROP CONSTRAINT IF EXISTS survey_responses_nps_check;
+ALTER TABLE survey_responses ADD CONSTRAINT survey_responses_nps_check CHECK (nps_score IS NULL OR nps_score BETWEEN 0 AND 10);

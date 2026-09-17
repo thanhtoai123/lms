@@ -112,6 +112,16 @@ jobs:
             curl -sf -o /dev/null -b "$M" "http://localhost:3000$p" || { echo "FAIL hr(M) $p"; exit 1; }
           done
           curl -sf -o /dev/null -b "x-dev-actor=sale1.cs1@example.test" http://localhost:3000/cham-cong/lich-ca
+          for p in /parent-requests "/parent-requests?status=all" /parent-feedback "/parent-feedback?low=1" /khao-sat /khao-sat/new /notifications "/notifications?status=failed" "/sinh-nhat?days=30"; do
+            curl -sf -o /dev/null -b "$M" "http://localhost:3000$p" || { echo "FAIL care $p"; exit 1; }
+          done
+          for RID in $(curl -s -b "$M" "http://localhost:3000/api/trpc/care.requests" | grep -o '"id":"[0-9a-f-]\{36\}","code":"YC' | cut -d'"' -f4); do
+            curl -sf -o /dev/null -b "$M" "http://localhost:3000/parent-requests/$RID" || { echo "FAIL preq $RID"; exit 1; }
+          done
+          for SVID in $(curl -s -b "$M" "http://localhost:3000/api/trpc/care.surveys" | grep -o '"id":"[0-9a-f-]\{36\}","title"' | cut -d'"' -f4); do
+            curl -sf -o /dev/null -b "$M" "http://localhost:3000/khao-sat/$SVID" || { echo "FAIL survey $SVID"; exit 1; }
+          done
+          curl -sf http://localhost:3000/ks/khong-ton-tai-123 | grep -q "không đúng"   # trang khảo sát công khai
           for SID in $(curl -s -b "$H" "http://localhost:3000/api/trpc/hr.staff" | grep -o '"id":"[0-9a-f-]\{36\}","code":"NV' | cut -d'"' -f4); do
             curl -sf -o /dev/null -b "$H" "http://localhost:3000/nhan-su/$SID" || { echo "FAIL staff $SID"; exit 1; }
           done

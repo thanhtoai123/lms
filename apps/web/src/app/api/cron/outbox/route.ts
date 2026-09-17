@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@satarobo/db";
-import { processOutbox, scanLeadSla } from "@satarobo/api";
+import { processOutbox, scanLeadSla, runSurveyTriggers } from "@satarobo/api";
 
 /**
  * GET /api/cron/outbox — Vercel Cron (mỗi phút) hoặc gọi tay. Bảo vệ bằng CRON_SECRET.
@@ -13,5 +13,6 @@ export async function GET(req: Request) {
   const db = getDb();
   const sla = await scanLeadSla(db);
   const r = await processOutbox(db, { batch: 200 });
-  return NextResponse.json({ ok: true, slaEvents: sla, ...r });
+  const surveyInvites = await runSurveyTriggers(db);
+  return NextResponse.json({ ok: true, slaEvents: sla, surveyInvites, ...r });
 }

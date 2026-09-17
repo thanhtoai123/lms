@@ -12,6 +12,7 @@ import { systemRouter, reportsRouter, trialsRouter } from "./routers/system";
 import { catalogRouter } from "./routers/catalog";
 import { financeRouter } from "./routers/finance";
 import { hrRouter } from "./routers/hr";
+import { careRouter } from "./routers/care";
 
 export const appRouter = router({
   auth: authRouter,
@@ -32,6 +33,7 @@ export const appRouter = router({
   catalog: catalogRouter,
   finance: financeRouter,
   hr: hrRouter,
+  care: careRouter,
 });
 
 export type AppRouter = typeof appRouter;
@@ -44,3 +46,4 @@ export { verifyActivationCode } from "./services/parentAccounts";
 export { putObject, getObject, signedMediaUrl, verifyMediaSignature } from "./storage";
 export { registerUploadedMedia } from "./services/media";
 export { ingestBankTx } from "./services/bank";
+export { publicSurvey, submitPublicSurvey, runSurveyTriggers } from "./services/care";

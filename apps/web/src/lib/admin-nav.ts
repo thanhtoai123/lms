@@ -95,13 +95,13 @@ export const ADMIN_NAV: NavGroup[] = [
     items: [
       { label: "Tin nhắn", href: "/tin-nhan", perm: "care:read", phase: 5, desc: "Tin nhắn PH ↔ trung tâm/GV." },
       { label: "Quản trị hội thoại", href: "/hoi-thoai", perm: "care:read", phase: 5, desc: "Giám sát hội thoại, đối soát." },
-      { label: "Yêu cầu phụ huynh", href: "/parent-requests", perm: "care:read", phase: 4, desc: "7 loại yêu cầu (nghỉ, bảo lưu, đổi lịch…) có duyệt." },
-      { label: "Đánh giá PH", href: "/parent-feedback", perm: "care:read", phase: 4, desc: "Đánh giá buổi học/GV từ PH." },
-      { label: "Khảo sát / NPS", href: "/khao-sat", perm: "care:read", phase: 4, desc: "Khảo sát theo mốc, điểm NPS." },
-      { label: "Thông báo PH", href: "/notifications", perm: "care:read", phase: 4, desc: "Thông báo gửi PH (in-app / ZNS / email) và trạng thái gửi." },
+      { label: "Yêu cầu phụ huynh", href: "/parent-requests", perm: "care:read", ready: true, desc: "7 loại yêu cầu (nghỉ, bảo lưu, đổi lịch…) có duyệt." },
+      { label: "Đánh giá PH", href: "/parent-feedback", perm: "care:read", ready: true, desc: "Đánh giá buổi học/GV từ PH." },
+      { label: "Khảo sát / NPS", href: "/khao-sat", perm: "care:read", ready: true, desc: "Khảo sát theo mốc, điểm NPS." },
+      { label: "Thông báo PH", href: "/notifications", perm: "care:read", ready: true, desc: "Thông báo gửi PH (in-app / ZNS / email) và trạng thái gửi." },
       { label: "Cảnh báo rủi ro", href: "/canh-bao-rui-ro", perm: "care:read", ready: true },
       { label: "Chăm sóc HV", href: "/cham-soc-hv", perm: "care:read", ready: true },
-      { label: "Sinh nhật HV", href: "/sinh-nhat", perm: "care:read", phase: 4, desc: "Học viên sinh nhật trong tuần/tháng, gửi lời chúc." },
+      { label: "Sinh nhật HV", href: "/sinh-nhat", perm: "care:read", ready: true, desc: "Học viên sinh nhật trong tuần/tháng, gửi lời chúc." },
     ],
   },
   {
