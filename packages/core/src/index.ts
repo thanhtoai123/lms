@@ -21,6 +21,7 @@ export * from "./classes/lifecycle.js";
 export * from "./scheduling/replan.js";
 export * from "./academics/catalog.js";
 export * from "./people/teachers.js";
+export * from "./people/students.js";
 export * from "./finance/rules.js";
 export * from "./finance/bank.js";
 export * from "./finance/commission.js";

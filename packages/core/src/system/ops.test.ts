@@ -24,6 +24,16 @@ test("cấu hình vận hành: mặc định, kế thừa, kiểm tra", () => {
   assert.equal(riskFrom({ ...OPS_DEFAULTS, riskMinRatePct: 70 }).minRate, 0.7);
 });
 
+test("cấu hình hoàn tất buổi: nhận xét từng HV (mặc định bật), ảnh (mặc định tắt, bật theo cơ sở)", () => {
+  assert.equal(OPS_DEFAULTS.sessionRequireStudentRemarks, true);
+  assert.equal(OPS_DEFAULTS.sessionRequireMedia, false);
+  const r = resolveOps({ sessionRequireStudentRemarks: false }, { sessionRequireMedia: true, sessionRequireStudentRemarks: "x" });
+  assert.equal(r.sessionRequireStudentRemarks, false);
+  assert.equal(r.sessionRequireMedia, true);
+  assert.deepEqual(validateOps("lop", { sessionRequireMedia: true }, "center"), []);
+  assert.ok(validateOps("lop", { sessionRequireMedia: 1 }, "center")[0]!.includes("bật / tắt"));
+});
+
 test("chính sách OTP và chấm công dùng tham số", () => {
   const now = new Date("2026-09-17T10:00:00Z");
   const p = { ...OTP_POLICY, cooldownSec: 300 };

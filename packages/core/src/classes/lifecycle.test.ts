@@ -14,7 +14,8 @@ test("vòng đời lớp: nháp → chờ duyệt → tuyển sinh → chạy �
   s = classTransition(s, "approve");
   s = classTransition(s, "start");
   assert.equal(classTransition(s, "finish"), "finished");
-  assert.throws(() => classTransition("running", "cancel"), ClassTransitionError);
+  assert.equal(classTransition("running", "cancel"), "cancelled"); // huỷ dây chuyền
+  assert.throws(() => classTransition("finished", "cancel"), ClassTransitionError);
   assert.throws(() => classTransition("draft", "approve"), /Duyệt mở lớp/);
   assert.deepEqual(classEventsFor("pending_approval").sort(), ["approve", "cancel", "reject"]);
   assert.equal(canFinishClass(2), "Còn 2 buổi chưa hoàn tất/huỷ");
