@@ -664,7 +664,7 @@ export async function importLegacy(ctx: ProtectedContext, input: { csv: string; 
             customerName: no.customerName, customerPhone: no.customerPhone.replace(/\D/g, ""), subtotal: no.total, discountAmount: 0, total: no.total,
             paymentMethodId: x.methodId, internalNote: `Nhập từ hệ cũ — ${note}`, createdBy: ctx.user.id,
           }).returning({ id: orders.id });
-          await tx.insert(orderItems).values({ orderId: o!.id, courseId: no.courseId, description: `Học phí ${no.courseCode} — gói ${no.packageSessions} buổi (hệ cũ)`, quantity: 1, unitPrice: no.total, amount: no.total, packageSessions: no.packageSessions });
+          await tx.insert(orderItems).values({ orderId: o!.id, courseId: no.courseId, description: `Học phí ${no.courseCode} — gói ${no.packageSessions} buổi (hệ cũ)`, quantity: 1, unitPrice: no.total, amount: no.total, netAmount: no.total, packageSessions: no.packageSessions, studentId: no.studentId, enrollmentId: no.enrollmentId });
           await tx.insert(orderInstallments).values({ orderId: o!.id, seq: 1, amount: no.total, dueDate: row.paidAt });
           await tx.insert(orderEvents).values({ orderId: o!.id, event: "create", toStatus: "pending_payment", note: "Nhập từ hệ cũ", actorId: ctx.user.id });
           await tx.insert(financeLedger).values({ orderId: o!.id, centerId: x.centerId!, entryType: "charge", amount: no.total, refId: o!.id, note: `Tạo đơn ${code} (hệ cũ)`, actorId: ctx.user.id });
