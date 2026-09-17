@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@satarobo/db";
-import { processOutbox, scanLeadSla, runSurveyTriggers, processEmailQueue, remindDueHomework } from "@satarobo/api";
+import { processOutbox, scanLeadSla, runSurveyTriggers, processEmailQueue, remindDueHomework, publishDuePosts } from "@satarobo/api";
 
 /**
  * GET /api/cron/outbox — Vercel Cron (mỗi phút) hoặc gọi tay. Bảo vệ bằng CRON_SECRET.
@@ -16,5 +16,6 @@ export async function GET(req: Request) {
   const surveyInvites = await runSurveyTriggers(db);
   const email = await processEmailQueue(db, { limit: 100 });
   const homeworkReminders = await remindDueHomework(db);
-  return NextResponse.json({ ok: true, slaEvents: sla, surveyInvites, email, homeworkReminders, ...r });
+  const postsPublished = await publishDuePosts(db);
+  return NextResponse.json({ ok: true, slaEvents: sla, surveyInvites, email, homeworkReminders, postsPublished, ...r });
 }

@@ -45,6 +45,10 @@ export const leads = pgTable(
     convertedAt: timestamp("converted_at", { withTimezone: true }),
     /** Đồng ý xử lý dữ liệu (NĐ13) ghi nhận từ form */
     consentAt: timestamp("consent_at", { withTimezone: true }),
+    /** NĐ13: hạn chế xử lý / không nhận tiếp thị / đã ẩn danh */
+    processingRestricted: boolean("processing_restricted").notNull().default(false),
+    marketingOptOut: boolean("marketing_opt_out").notNull().default(false),
+    anonymizedAt: timestamp("anonymized_at", { withTimezone: true }),
     notes: text("notes"),
     ...timestamps,
     ...softDelete,

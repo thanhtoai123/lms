@@ -16,6 +16,7 @@ import { careRouter } from "./routers/care";
 import { adminRouter } from "./routers/admin";
 import { inventoryRouter, coinRouter } from "./routers/inventory";
 import { contentRouter } from "./routers/content";
+import { siteRouter, marketingRouter, complianceRouter } from "./routers/growth";
 
 export const appRouter = router({
   auth: authRouter,
@@ -41,6 +42,9 @@ export const appRouter = router({
   inventory: inventoryRouter,
   coin: coinRouter,
   content: contentRouter,
+  site: siteRouter,
+  marketing: marketingRouter,
+  compliance: complianceRouter,
 });
 
 export type AppRouter = typeof appRouter;
@@ -57,3 +61,5 @@ export { publicSurvey, submitPublicSurvey, runSurveyTriggers } from "./services/
 export { logWebhook, mapPublicLeadBody, requestOtp, verifyOtp, processEmailQueue } from "./services/admin";
 export { addDocumentVersion } from "./services/documents";
 export { publicHomework, submitPublicHomework, staffSubmit, remindDueHomework } from "./services/assignments";
+export { publicPosts, publicPost, publicSite, publicTrackingConfig, recordTrack, uploadSiteMedia, publishDuePosts, SITE_MEDIA_MAX } from "./services/growth";
+export { retentionSweep } from "./services/compliance";

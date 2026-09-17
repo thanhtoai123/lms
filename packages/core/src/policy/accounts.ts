@@ -67,6 +67,7 @@ export const PERMISSION_RESOURCES: { key: string; label: string; group: string }
   { key: "marketing", label: "Marketing", group: "Marketing" },
   { key: "site", label: "Website", group: "Marketing" },
   { key: "report", label: "Báo cáo", group: "Báo cáo" },
+  { key: "compliance", label: "Tuân thủ dữ liệu (NĐ13)", group: "Hệ thống" },
   { key: "system", label: "Hệ thống / tài khoản", group: "Hệ thống" },
   { key: "audit", label: "Audit Log", group: "Hệ thống" },
 ];

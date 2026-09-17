@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@satarobo/db";
-import { createLead, mapPublicLeadBody, logWebhook } from "@satarobo/api";
+import { createLead, mapPublicLeadBody, logWebhook, recordTrack } from "@satarobo/api";
 
 /**
  * POST /api/public/leads — endpoint cho form "Đặt buổi học thử" trên website / landing page / Zalo Mini App.
@@ -52,6 +52,9 @@ export async function POST(req: Request) {
   const hdrs = Object.fromEntries(req.headers.entries());
   try {
     const r = await createLead(db, parsed.data, null);
+    if (typeof body.anonId === "string") {
+      await recordTrack(db, { event: "form_submit", anonId: body.anonId, path: "/dang-ky", utmSource: parsed.data.utmSource, utmMedium: parsed.data.utmMedium, utmCampaign: parsed.data.utmCampaign, leadId: r.lead.id }).catch(() => null);
+    }
     await logWebhook(db, { source: "public_lead", status: r.duplicated ? "duplicate" : "processed", httpStatus: 200, payload: body, headers: hdrs, result: { leadId: r.lead.id, duplicated: r.duplicated }, ip });
     return NextResponse.json({ ok: true, duplicated: r.duplicated }, { headers });
   } catch (e) {

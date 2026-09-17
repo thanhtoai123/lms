@@ -19,8 +19,9 @@ import {
   emailLogs, otpRequests, userGroups, userGroupMembers, webhookEvents, appSettings, revenueTargets,
   inventoryItems, kitComponents, stockLevels, stockMovements, stockCounters, rentals, rewardItems, coinTransactions, redemptions,
   documents, assignmentTemplates, assignments, submissions, lessonProposals,
+  posts, siteBlocks, campaigns, campaignSpends, trackEvents, consentRecords, dataRequests, dataRequestEvents,
 } from "./schema/index";
-import { generateSessions, buildClassCode, buildStudentCode, toISODate, addDays, orderCode, receiptNumber, packagePrice, buildInstallmentPlan, computeCommission, describeRule, periodOf, fmtMin, hhmm, weekdayOf, leaveDays, requestCode, slaDue, SETTINGS_DEFAULTS } from "@satarobo/core";
+import { generateSessions, buildClassCode, buildStudentCode, toISODate, addDays, orderCode, receiptNumber, packagePrice, buildInstallmentPlan, computeCommission, describeRule, periodOf, fmtMin, hhmm, weekdayOf, leaveDays, requestCode, slaDue, SETTINGS_DEFAULTS, CONSENT_TEXT_VERSION, dsrCode, dsrDue } from "@satarobo/core";
 
 const db = createDb();
 
@@ -588,13 +589,67 @@ async function main() {
     { leadId: leadRows[9]!.id, type: "status_change" as const, content: "Mất lead", meta: { from: "consulting", to: "lost", event: "lose" }, createdAt: h(650) },
     { leadId: leadRows[8]!.id, type: "status_change" as const, content: "Đăng ký", meta: { from: "trial_done", to: "enrolled", event: "enroll" }, createdAt: h(500) },
   ]);
+
+  // ---- Website, marketing, tuân thủ (mẫu) ----
+  const [mkU] = await db.insert(users).values({ email: "marketing@example.test", fullName: "Marketing HO (mẫu)" }).returning();
+  await db.insert(userRoles).values({ userId: mkU!.id, role: "HO_MARKETING", centerId: null });
+  const d = (n: number) => new Date(Date.now() - n * 86400e3);
+  await db.insert(posts).values([
+    { slug: "khai-giang-he-2026", title: "Khai giảng khoá hè 2026", excerpt: "Lịch khai giảng các lớp robot mùa hè tại hai cơ sở.", body: "## Lịch khai giảng\n\nCác lớp **Sata4** và **Sata6** khai giảng từ tháng 6.\n\n- Học thử miễn phí 1 buổi\n- Sĩ số tối đa 12\n\n[Đăng ký học thử](/dang-ky)", category: "news", status: "published", publishedAt: d(5), createdBy: mkU!.id, views: 42 },
+    { slug: "5-meo-giup-con-yeu-lap-trinh", title: "5 mẹo giúp con yêu lập trình", excerpt: "Gợi ý cho phụ huynh đồng hành cùng con tại nhà.", body: "1. Cho con tự lắp trước\n2. Hỏi con \"vì sao\"\n3. Khen quá trình, không chỉ kết quả", category: "tips", status: "published", publishedAt: d(12), createdBy: mkU!.id, views: 17 },
+    { slug: "robotacon-2026", title: "Học viên đạt giải Robotacon 2026", body: "Bài viết đang soạn (mẫu).", category: "story", status: "draft", createdBy: mkU!.id },
+    { slug: "uu-dai-thang-9", title: "Ưu đãi tháng 9", body: "Giảm học phí khi đăng ký trước ngày khai giảng (mẫu).", category: "promotion", status: "scheduled", publishAt: new Date(Date.now() + 3 * 86400e3), createdBy: mkU!.id },
+  ]);
+  await db.insert(siteBlocks).values([
+    { page: "home", data: { heroTitle: "Sata Robo — Học robot, yêu khoa học", heroSubtitle: "Lập trình & robotics cho trẻ 6–15 tuổi.", heroImage: "", ctaLabel: "Đăng ký học thử", ctaUrl: "/dang-ky" }, updatedBy: mkU!.id },
+    { page: "about", data: { title: "Về Sata Robo", body: "Sata Robo là hệ thống trung tâm STEM (nội dung mẫu).\n\n## Sứ mệnh\n\nGiúp trẻ tự tin sáng tạo với công nghệ.", image: "" }, updatedBy: mkU!.id },
+    { page: "register", data: { title: "Đăng ký học thử miễn phí", subtitle: "Để lại thông tin, tư vấn viên gọi lại trong 24 giờ.", thankYou: "Cảm ơn anh/chị! Sata Robo sẽ liên hệ sớm." }, updatedBy: mkU!.id },
+  ]);
+  const monthStartISO = `${today.slice(0, 8)}01`;
+  const [campHe, campGg] = await db.insert(campaigns).values([
+    { name: "Hè 2026 — Facebook", utmCampaign: "he-2026", channel: "facebook", centerId: cs1!.id, budget: 5_000_000, startDate: addDays(today, -40), endDate: addDays(today, 20), landingUrl: "https://satarobo.vn/dang-ky", createdBy: mkU!.id },
+    { name: "Google tìm kiếm", utmCampaign: "gg-search", channel: "google", centerId: null, budget: 2_000_000, startDate: monthStartISO, createdBy: mkU!.id },
+  ]).returning();
+  await db.insert(campaignSpends).values([
+    { campaignId: campHe!.id, date: addDays(today, -3), amount: 400_000, impressions: 12000, clicks: 180, createdBy: mkU!.id },
+    { campaignId: campHe!.id, date: addDays(today, -2), amount: 350_000, impressions: 10500, clicks: 150, createdBy: mkU!.id },
+    { campaignId: campHe!.id, date: addDays(today, -1), amount: 380_000, impressions: 11000, clicks: 170, createdBy: mkU!.id },
+    { campaignId: campGg!.id, date: today, amount: 120_000, impressions: 900, clicks: 40, createdBy: mkU!.id },
+  ]);
+  const anon = (i: number) => `seedanon${String(i).padStart(4, "0")}abcdef`;
+  await db.insert(trackEvents).values([
+    ...Array.from({ length: 12 }, (_, i) => ({ event: "page_view" as const, anonId: anon(i), path: i % 3 ? "/dang-ky" : "/tin-tuc", utmSource: i < 8 ? "facebook" : null, utmMedium: i < 8 ? "cpc" : null, utmCampaign: i < 8 ? "he-2026" : null, referrerHost: i >= 8 ? "google.com" : null, createdAt: h(i + 2) })),
+    ...Array.from({ length: 6 }, (_, i) => ({ event: "form_view" as const, anonId: anon(i), path: "/dang-ky", utmSource: "facebook", utmMedium: "cpc", utmCampaign: "he-2026", createdAt: h(i + 2) })),
+    ...Array.from({ length: 3 }, (_, i) => ({ event: "form_start" as const, anonId: anon(i), path: "/dang-ky", utmSource: "facebook", utmMedium: "cpc", utmCampaign: "he-2026", createdAt: h(i + 1.5) })),
+    { event: "form_submit" as const, anonId: anon(0), path: "/dang-ky", utmSource: "facebook", utmMedium: "cpc", utmCampaign: "he-2026", leadId: leadRows[0]!.id, createdAt: h(1) },
+  ]);
+  await db.insert(consentRecords).values([
+    { subjectType: "lead" as const, subjectId: leadRows[0]!.id, purpose: "service" as const, granted: true, source: "web_form", textVersion: CONSENT_TEXT_VERSION, createdAt: h(1) },
+    { subjectType: "lead" as const, subjectId: leadRows[0]!.id, purpose: "marketing" as const, granted: true, source: "web_form", textVersion: CONSENT_TEXT_VERSION, createdAt: h(1) },
+    ...parentRows.slice(0, 4).map((p) => ({ subjectType: "parent" as const, subjectId: p.id, purpose: "service" as const, granted: true, source: "counter", textVersion: CONSENT_TEXT_VERSION, recordedBy: mgrU!.id })),
+  ]);
+  await db.update(leads).set({ marketingOptOut: true }).where(eq(leads.id, leadRows[9]!.id));
+  const recv = h(20);
+  const [dr] = await db.insert(dataRequests).values({
+    code: dsrCode(Number(today.slice(0, 4)), 1), type: "withdraw_consent", status: "received", centerId: cs1!.id, requesterName: "PH Mẫu 10", requesterPhone: "0900000010", channel: "phone",
+    details: "Phụ huynh không muốn nhận tin nhắn quảng cáo nữa (mẫu).", subjectType: "lead", subjectId: leadRows[9]!.id, receivedAt: recv, dueAt: dsrDue("withdraw_consent", recv), createdBy: sale2U!.id,
+  }).returning();
+  await db.insert(dataRequestEvents).values({ requestId: dr!.id, action: "received", note: "Kênh: phone", userId: sale2U!.id, createdAt: recv });
+
+  // ---- Một ca nghỉ học mẫu (cho báo cáo churn / cohort) ----
+  const [wd] = await db.insert(enrollments).values({ studentId: studentRows[10]!.id, classId: classA!.id, packageSessions: 24, status: "withdrawn", enrolledAt: d(40), endedAt: d(8), endReason: "Học phí cao so với gia đình (mẫu)", createdBy: mgrU!.id }).returning();
+  await db.insert(enrollmentEvents).values([
+    { enrollmentId: wd!.id, type: "created", toStatus: "active", actorId: mgrU!.id, createdAt: d(40) },
+    { enrollmentId: wd!.id, type: "withdraw", fromStatus: "active", toStatus: "withdrawn", reason: "Học phí cao so với gia đình (mẫu)", actorId: mgrU!.id, createdAt: d(8) },
+  ]);
+
   await db.insert(auditLog).values([
     { actorId: adminU!.id, action: "UPDATE", module: "system", entity: "admissions_settings", entityId: null, before: { maxTrialsPerLead: 1 }, after: { maxTrialsPerLead: 2 }, reason: "Cho phép học thử 2 buổi (mẫu)", createdAt: h(72) },
     { actorId: mgrU!.id, action: "TRANSITION", module: "academics", entity: "enrollments", entityId: enrollA[9]!.id, before: { status: "active" }, after: { status: "paused" }, reason: "Gia đình đi xa (dữ liệu mẫu)", createdAt: h(2) },
   ]);
 
   console.log(`✔ Seeded: 2 centers, 3 rooms, 7 users, 3 teachers, ${lessonRows.length} lessons, 2 classes, ${sessionRows.length} sessions, 16 students, ${leadRows.length} leads`);
-  console.log("  Dev login (/login → tài khoản mẫu): superadmin@example.test | manager.cs1@example.test | sale1.cs1@example.test | ketoan.cs1@example.test | hr.cs1@example.test | daotao@example.test | teacher1@satarobo.vn");
+  console.log("  Dev login (/login → tài khoản mẫu): superadmin@example.test | manager.cs1@example.test | sale1.cs1@example.test | ketoan.cs1@example.test | hr.cs1@example.test | daotao@example.test | marketing@example.test | teacher1@satarobo.vn");
 }
 
 main()

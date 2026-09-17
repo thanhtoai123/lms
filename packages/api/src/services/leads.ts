@@ -1,8 +1,8 @@
 import { and, eq, inArray, sql, asc, desc, ilike, or, isNull, lte, gte } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
-import { leads, leadActivities, leadTasks, leadAssignees, leadChildren, users, centers, courses, parents, students, studentGuardians, enrollments, classes } from "@satarobo/db";
+import { leads, leadActivities, leadTasks, leadAssignees, leadChildren, users, centers, courses, parents, students, studentGuardians, enrollments, classes, consentRecords } from "@satarobo/db";
 import {
-  leadTransition, computeSla, normalizeVnPhone, maskPhone, OPEN_LEAD_STATUSES, visibleCenterIds, hasRole, buildStudentCode,
+  leadTransition, computeSla, normalizeVnPhone, maskPhone, OPEN_LEAD_STATUSES, visibleCenterIds, hasRole, buildStudentCode, CONSENT_TEXT_VERSION,
   type LeadStatus, type LeadEvent,
 } from "@satarobo/core";
 import { resolveAdmissionsPolicy, autoPickAssignee, type Db } from "./admissionsAdmin";
@@ -34,6 +34,8 @@ export interface CreateLeadInput {
   utmCampaign?: string | null;
   notes?: string | null;
   consent?: boolean;
+  /** Đồng ý nhận thông tin tiếp thị (NĐ13: tách riêng mục đích) */
+  marketingConsent?: boolean;
   autoAssign?: boolean;
   /** Giao tay ngay khi tạo (bỏ qua chế độ chia) */
   assignedToId?: string | null;
@@ -94,6 +96,14 @@ export async function createLead(db: ProtectedContext["db"], input: CreateLeadIn
     }
 
     await tx.insert(leadActivities).values({ leadId: lead!.id, type: "system", actorId, content: `Tạo lead từ ${input.source ?? "Ops"}` });
+    if (input.consent) {
+      const src = input.source === "web-form" ? "web_form" : "counter";
+      await tx.insert(consentRecords).values([
+        { subjectType: "lead" as const, subjectId: lead!.id, purpose: "service" as const, granted: true, source: src, textVersion: CONSENT_TEXT_VERSION, recordedBy: actorId },
+        ...(input.marketingConsent !== undefined ? [{ subjectType: "lead" as const, subjectId: lead!.id, purpose: "marketing" as const, granted: input.marketingConsent, source: src, textVersion: CONSENT_TEXT_VERSION, recordedBy: actorId }] : []),
+      ]);
+      if (input.marketingConsent === false) await tx.update(leads).set({ marketingOptOut: true }).where(eq(leads.id, lead!.id));
+    }
     if (assignedToId) {
       await tx.insert(leadActivities).values({ leadId: lead!.id, type: "assignment", actorId, content: assignMode === "manual" ? "Giao tay" : `Chia tự động (${assignMode})`, meta: { assignedToId, mode: assignMode } });
       await tx.update(leadAssignees).set({ roundsReceived: sql`${leadAssignees.roundsReceived} + 1`, lastAssignedAt: new Date() })

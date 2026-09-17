@@ -44,6 +44,8 @@ const DEV_ACCOUNTS = [
   { email: "sale1.cs1@example.test", label: "Tư vấn / CSKH CS1" },
   { email: "ketoan.cs1@example.test", label: "Kế toán cơ sở CS1" },
   { email: "hr.cs1@example.test", label: "Nhân sự cơ sở CS1" },
+  { email: "daotao@example.test", label: "Đào tạo (hội sở)" },
+  { email: "marketing@example.test", label: "Marketing (hội sở)" },
   { email: "teacher1@satarobo.vn", label: "Giáo viên CS1" },
 ];
 

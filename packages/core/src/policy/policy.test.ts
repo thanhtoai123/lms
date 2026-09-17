@@ -82,3 +82,20 @@ test("học liệu & bài tập: phân quyền", () => {
   assert.equal(authorize(gvu, "assignment:grade", { centerId: "c1" }).allowed, true);
   assert.equal(authorize(gvu, "assignment:grade", { centerId: "c2" }).allowed, false);
 });
+
+test("tuân thủ / marketing: phân quyền", () => {
+  const mk = { userId: "m", assignments: [{ role: "HO_MARKETING" as const, centerId: null }] };
+  const qc = { userId: "q", assignments: [{ role: "CENTER_MANAGER" as const, centerId: "c1" }] };
+  const csm = { userId: "s", assignments: [{ role: "CENTER_SALES_CSM" as const, centerId: "c1" }] };
+  const au = { userId: "a", assignments: [{ role: "AUDITOR" as const, centerId: null }] };
+  assert.equal(authorize(mk, "site:update", {}).allowed, true);
+  assert.equal(authorize(mk, "marketing:configure", {}).allowed, true);
+  assert.equal(authorize(mk, "compliance:read", {}).allowed, false);
+  assert.equal(authorize(qc, "compliance:create", { centerId: "c1" }).allowed, true);
+  assert.equal(authorize(qc, "compliance:update", { centerId: "c1" }).allowed, false);
+  assert.equal(authorize(qc, "marketing:read", { centerId: "c1" }).allowed, true);
+  assert.equal(authorize(csm, "compliance:create", { centerId: "c1" }).allowed, true);
+  assert.equal(authorize(csm, "site:update", {}).allowed, false);
+  assert.equal(authorize(au, "compliance:read", {}).allowed, true);
+  assert.equal(authorize(au, "compliance:update", {}).allowed, false);
+});

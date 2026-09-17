@@ -139,3 +139,20 @@ END;
 $$ LANGUAGE plpgsql;
 DROP TRIGGER IF EXISTS document_versions_no_update ON document_versions;
 CREATE TRIGGER document_versions_no_update BEFORE UPDATE ON document_versions FOR EACH ROW EXECUTE FUNCTION document_versions_immutable();
+
+-- 14) Website, marketing, tuân thủ dữ liệu
+CREATE OR REPLACE FUNCTION consent_records_immutable() RETURNS trigger AS $$
+BEGIN
+  RAISE EXCEPTION 'consent_records chỉ được thêm: ghi bản ghi mới khi đồng ý / rút đồng ý';
+END;
+$$ LANGUAGE plpgsql;
+DROP TRIGGER IF EXISTS consent_records_no_update ON consent_records;
+CREATE TRIGGER consent_records_no_update BEFORE UPDATE OR DELETE ON consent_records FOR EACH ROW EXECUTE FUNCTION consent_records_immutable();
+ALTER TABLE campaigns DROP CONSTRAINT IF EXISTS campaigns_check;
+ALTER TABLE campaigns ADD CONSTRAINT campaigns_check CHECK (budget >= 0 AND (end_date IS NULL OR end_date >= start_date));
+ALTER TABLE campaign_spends DROP CONSTRAINT IF EXISTS campaign_spends_check;
+ALTER TABLE campaign_spends ADD CONSTRAINT campaign_spends_check CHECK (amount >= 0 AND (clicks IS NULL OR clicks >= 0) AND (impressions IS NULL OR impressions >= 0));
+ALTER TABLE posts DROP CONSTRAINT IF EXISTS posts_publish_check;
+ALTER TABLE posts ADD CONSTRAINT posts_publish_check CHECK (status <> 'scheduled' OR publish_at IS NOT NULL);
+ALTER TABLE data_requests DROP CONSTRAINT IF EXISTS data_requests_check;
+ALTER TABLE data_requests ADD CONSTRAINT data_requests_check CHECK (due_at >= received_at);

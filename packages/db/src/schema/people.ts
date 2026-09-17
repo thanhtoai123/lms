@@ -48,6 +48,10 @@ export const parents = pgTable("parents", {
   /** Đồng ý cho đăng ảnh con (NĐ13) — enforce ở service khi publish media */
   mediaConsent: boolean("media_consent").notNull().default(false),
   mediaConsentAt: timestamp("media_consent_at", { withTimezone: true }),
+  /** NĐ13: không nhận tiếp thị / hạn chế xử lý / đã ẩn danh */
+  marketingOptOut: boolean("marketing_opt_out").notNull().default(false),
+  processingRestricted: boolean("processing_restricted").notNull().default(false),
+  anonymizedAt: timestamp("anonymized_at", { withTimezone: true }),
   accountStatus: parentAccountStatusEnum("account_status").notNull().default("none"),
   activationRequestedAt: timestamp("activation_requested_at", { withTimezone: true }),
   activatedAt: timestamp("activated_at", { withTimezone: true }),

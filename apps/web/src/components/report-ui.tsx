@@ -11,10 +11,11 @@ function monthStart(iso: string) {
 }
 
 /** Bộ lọc khoảng ngày + cơ sở dùng chung cho các trang báo cáo (GET form) */
-export function ReportFilter({ basePath, from, to, centerId, centers, today }: { basePath: string; from: string; to: string; centerId: string | null; centers: { id: string; code: string; name: string }[]; today: string }) {
+export function ReportFilter({ basePath, from, to, centerId, centers, today, extra, extraParams }: { basePath: string; from: string; to: string; centerId: string | null; centers: { id: string; code: string; name: string }[]; today: string; extra?: React.ReactNode; extraParams?: Record<string, string | null | undefined> }) {
   const q = (f: string, t: string) => {
     const u = new URLSearchParams({ from: f, to: t });
     if (centerId) u.set("center", centerId);
+    for (const [k, v] of Object.entries(extraParams ?? {})) if (v) u.set(k, v);
     return `${basePath}?${u.toString()}`;
   };
   const prevMonthEnd = addDaysISO(monthStart(today), -1);
@@ -38,6 +39,7 @@ export function ReportFilter({ basePath, from, to, centerId, centers, today }: {
             </select>
           </label>
         ) : null}
+        {extra}
         <button className="btn-primary !py-1.5">Xem</button>
       </form>
       <div className="flex flex-wrap gap-1 text-xs">

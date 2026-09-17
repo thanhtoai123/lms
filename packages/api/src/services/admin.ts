@@ -417,6 +417,7 @@ export function mapPublicLeadBody(body: Record<string, unknown>) {
     utmCampaign: body.utm_campaign ?? body.utmCampaign ?? null,
     notes: body.ghiChu ?? body.notes ?? null,
     consent: body.consent === true || body.consent === "on" || body.consent === "1",
+    marketingConsent: body.marketingConsent === true || body.marketingConsent === "on" || body.marketingConsent === "1",
   });
 }
 

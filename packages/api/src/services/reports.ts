@@ -2,7 +2,7 @@ import { sql, type SQL } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import {
   authorize, normalizeRange, furthestStage, buildFunnel, dropoffByStage, pct, monthsBetween, attendanceRate, monthKey, monthsOf, attainment, monthProgress,
-  LEAD_STATUS_VI, type LeadStatus,
+  LEAD_STATUS_VI, type LeadStatus, cohortRow, churnRate, withdrawReasonGroup, WITHDRAW_REASON_GROUPS, type EnrollmentOutcome,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { todayISO } from "./sessions";
@@ -524,4 +524,100 @@ export async function setRevenueTarget(ctx: ProtectedContext, input: { centerId:
     .onConflictDoUpdate({ target: [revenueTargets.centerId, revenueTargets.period], set: { amount: input.amount, newEnrollments: input.newEnrollments ?? null, note: input.note?.trim() || null, updatedBy: ctx.user.id, updatedAt: new Date() } });
   await writeAudit(ctx.db, { actorId: ctx.user.id, action: before.length ? "UPDATE" : "CREATE", module: "reports", entity: "revenue_targets", entityId: input.centerId, before: before[0] ?? null, after: { period: input.period, amount: input.amount, newEnrollments: input.newEnrollments ?? null }, ip: ctx.ip });
   return { ok: true };
+}
+
+/* ------------------------------------------------------------------ */
+/* Cohort tiến độ                                                       */
+/* ------------------------------------------------------------------ */
+
+export async function cohortReport(ctx: ProtectedContext, input: ReportInput & { courseId?: string }) {
+  const allowed = reportCenters(ctx, input.centerId);
+  const r = rangeOf(input);
+  const base = await rows<{ id: string; month: string; course: string; course_id: string; center_id: string; status: string; transferred: boolean; ended_month: string | null; created_at: string; ended_at: string | null }>(ctx, sql`
+    select e.id, to_char(e.enrolled_at at time zone 'Asia/Ho_Chi_Minh', 'YYYY-MM') as month, co.code as course, co.id as course_id, c.center_id, e.status,
+      exists (select 1 from enrollment_events ev where ev.enrollment_id = e.id and ev.type = 'transfer_out') as transferred,
+      to_char(e.ended_at at time zone 'Asia/Ho_Chi_Minh', 'YYYY-MM') as ended_month, e.enrolled_at::text as created_at, e.ended_at::text as ended_at
+    from enrollments e join classes c on c.id = e.class_id join courses co on co.id = c.course_id
+    where e.transferred_from_id is null and e.enrolled_at between ${r.fromTs}::timestamptz and ${r.toTs}::timestamptz
+      and ${inCenters(sql`c.center_id`, allowed)} ${input.courseId ? sql`and co.id = ${input.courseId}` : sql``}`);
+  const outcome = (x: (typeof base)[number]): EnrollmentOutcome => (x.transferred ? "transferred" : (x.status as EnrollmentOutcome));
+  const months = monthsOf(r.from, r.to);
+  const today = todayISO().slice(0, 7);
+  const monthIndex = (m: string) => { const [y, mm] = m.split("-").map(Number) as [number, number]; return y * 12 + mm; };
+  const curve = (list: typeof base, start: string) => {
+    const span = Math.min(6, monthIndex(today) - monthIndex(start));
+    return Array.from({ length: span + 1 }, (_, k) => {
+      const cutoff = monthIndex(start) + k;
+      const gone = list.filter((x) => x.status === "withdrawn" && !x.transferred && x.ended_month && monthIndex(x.ended_month) <= cutoff).length;
+      return list.length ? Math.round(((list.length - gone) / list.length) * 100) : 0;
+    });
+  };
+  const byMonth = months.map((m) => {
+    const list = base.filter((x) => x.month === m);
+    return { month: m, ...cohortRow(list.map((x) => ({ status: outcome(x) }))), curve: curve(list, m) };
+  }).filter((x) => x.size > 0);
+  const courses = [...new Set(base.map((x) => x.course))].sort();
+  const byCourse = courses.map((c) => {
+    const list = base.filter((x) => x.course === c);
+    return { course: c, ...cohortRow(list.map((x) => ({ status: outcome(x) }))) };
+  });
+  const courseOpts = await rows<{ id: string; code: string }>(ctx, sql`select id, code from courses where is_active order by code`);
+  return {
+    range: { from: r.from, to: r.to }, centerId: input.centerId ?? null, courseId: input.courseId ?? null, centers: await centerOptions(ctx, reportCenters(ctx)), courses: courseOpts,
+    totals: cohortRow(base.map((x) => ({ status: outcome(x) }))),
+    byMonth, byCourse, maxCurve: Math.max(0, ...byMonth.map((x) => x.curve.length)),
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/* Churn / rời bỏ                                                       */
+/* ------------------------------------------------------------------ */
+
+export async function churnReport(ctx: ProtectedContext, input: ReportInput) {
+  const allowed = reportCenters(ctx, input.centerId);
+  const r = rangeOf(input);
+  const months = monthsOf(r.from, r.to);
+  const centerSql = inCenters(sql`c.center_id`, allowed);
+  const monthly = await rows<{ month: string; active_start: number; withdrawn: number; completed: number; paused: number; transferred: number; new_enroll: number }>(ctx, sql`
+    with m as (select to_char(d, 'YYYY-MM') as month, (d::date at time zone 'Asia/Ho_Chi_Minh') as ms, ((d + interval '1 month')::date at time zone 'Asia/Ho_Chi_Minh') as me
+               from generate_series(${`${months[0]}-01`}::date, ${`${months[months.length - 1]}-01`}::date, interval '1 month') d)
+    select m.month,
+      (select count(*)::int from enrollments e join classes c on c.id = e.class_id
+        where ${centerSql} and e.status <> 'trial' and e.enrolled_at < m.ms and (e.ended_at is null or e.ended_at >= m.ms)) as active_start,
+      (select count(*)::int from enrollments e join classes c on c.id = e.class_id
+        where ${centerSql} and e.status = 'withdrawn' and e.ended_at >= m.ms and e.ended_at < m.me
+          and not exists (select 1 from enrollment_events ev where ev.enrollment_id = e.id and ev.type = 'transfer_out')) as withdrawn,
+      (select count(*)::int from enrollments e join classes c on c.id = e.class_id
+        where ${centerSql} and e.status = 'completed' and e.ended_at >= m.ms and e.ended_at < m.me) as completed,
+      (select count(*)::int from enrollment_events ev join enrollments e on e.id = ev.enrollment_id join classes c on c.id = e.class_id
+        where ${centerSql} and ev.type = 'pause' and ev.created_at >= m.ms and ev.created_at < m.me) as paused,
+      (select count(*)::int from enrollment_events ev join enrollments e on e.id = ev.enrollment_id join classes c on c.id = e.class_id
+        where ${centerSql} and ev.type = 'transfer_out' and ev.created_at >= m.ms and ev.created_at < m.me) as transferred,
+      (select count(*)::int from enrollments e join classes c on c.id = e.class_id
+        where ${centerSql} and e.transferred_from_id is null and e.enrolled_at >= m.ms and e.enrolled_at < m.me) as new_enroll
+    from m order by m.month`);
+  const leavers = await rows<{ id: string; student: string; student_id: string; class_code: string; center_code: string; center_id: string; course: string; ended_at: string; reason: string | null; sessions_attended: number; package_sessions: number }>(ctx, sql`
+    select e.id, s.full_name as student, s.id as student_id, c.code as class_code, ce.code as center_code, c.center_id, co.code as course, e.ended_at::text as ended_at,
+      coalesce(e.end_reason, (select ev.reason from enrollment_events ev where ev.enrollment_id = e.id and ev.type = 'withdraw' order by ev.created_at desc limit 1)) as reason,
+      (select count(*)::int from attendance a where a.enrollment_id = e.id and a.status in ('present','late','makeup')) as sessions_attended, e.package_sessions
+    from enrollments e join students s on s.id = e.student_id join classes c on c.id = e.class_id join centers ce on ce.id = c.center_id join courses co on co.id = c.course_id
+    where ${centerSql} and e.status = 'withdrawn' and e.ended_at between ${r.fromTs}::timestamptz and ${r.toTs}::timestamptz
+      and not exists (select 1 from enrollment_events ev where ev.enrollment_id = e.id and ev.type = 'transfer_out')
+    order by e.ended_at desc`);
+  const byReason = [...WITHDRAW_REASON_GROUPS.map((g) => ({ key: g.key, label: g.label })), { key: "other", label: "Khác / không ghi" }]
+    .map((g) => ({ ...g, n: leavers.filter((l) => withdrawReasonGroup(l.reason) === g.key).length })).filter((g) => g.n > 0).sort((a, b) => b.n - a.n);
+  const centersList = await centerOptions(ctx, allowed);
+  const byCenter = centersList.map((c) => ({ id: c.id, code: c.code, name: c.name, withdrawn: leavers.filter((l) => l.center_id === c.id).length })).sort((a, b) => b.withdrawn - a.withdrawn);
+  const courseNames = [...new Set(leavers.map((l) => l.course))];
+  const byCourse = courseNames.map((c) => ({ course: c, withdrawn: leavers.filter((l) => l.course === c).length })).sort((a, b) => b.withdrawn - a.withdrawn);
+  const early = leavers.filter((l) => l.sessions_attended <= 4).length;
+  const rowsOut = monthly.map((m) => ({ ...m, churn: churnRate(m.active_start, m.withdrawn), net: m.new_enroll - m.withdrawn - m.completed }));
+  const totalWithdrawn = rowsOut.reduce((a, x) => a + x.withdrawn, 0);
+  const avgChurn = rowsOut.length ? Math.round((rowsOut.reduce((a, x) => a + x.churn, 0) / rowsOut.length) * 10) / 10 : 0;
+  return {
+    range: { from: r.from, to: r.to }, centerId: input.centerId ?? null, centers: await centerOptions(ctx, reportCenters(ctx)),
+    totals: { withdrawn: totalWithdrawn, avgChurn, early, earlyShare: leavers.length ? Math.round((early / leavers.length) * 100) : 0, paused: rowsOut.reduce((a, x) => a + x.paused, 0), transferred: rowsOut.reduce((a, x) => a + x.transferred, 0), newEnroll: rowsOut.reduce((a, x) => a + x.new_enroll, 0) },
+    byMonth: rowsOut, byReason, byCenter, byCourse,
+    leavers: leavers.slice(0, 50).map((l) => ({ ...l, reasonGroup: withdrawReasonGroup(l.reason) })),
+  };
 }
