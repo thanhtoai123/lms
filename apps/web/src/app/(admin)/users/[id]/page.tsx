@@ -5,6 +5,7 @@ import { getServerCaller } from "@/lib/trpc/server";
 import { NoAccess, PageHeader, fmtDate } from "@/components/admin-ui";
 import { fmtDateTime } from "@/components/lead-ui";
 import { UserActions } from "./actions";
+import { LoginHistory } from "@/components/login-history";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Chi tiết tài khoản" };
@@ -15,6 +16,8 @@ function describe(h: { action: string; entity: string; before: unknown; after: u
   const a = (h.after ?? {}) as Record<string, unknown>;
   const b = (h.before ?? {}) as Record<string, unknown>;
   if (h.entity === "user_roles") return `${h.action === "DELETE" ? "Gỡ" : "Cấp"} vai trò ${String((h.action === "DELETE" ? b.role : a.role) ?? "")}`;
+  if ("loginLockCleared" in a) return "Mở khoá đăng nhập tạm (sai mật khẩu)";
+  if ("loginLink" in a) return a.loginLink === "invite" ? "Gửi lời mời đặt mật khẩu" : "Gửi liên kết đặt lại mật khẩu";
   if ("isActive" in a) return a.isActive ? "Mở khoá tài khoản" : "Khoá tài khoản";
   if (h.action === "CREATE") return "Tạo tài khoản";
   return "Cập nhật thông tin";
@@ -25,7 +28,7 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
   const { caller, ctx } = await getServerCaller();
   if (!ctx.actor || !hasPermission(ctx.actor as Actor, "system:read")) return <NoAccess title="Tài khoản" perm="system:read" />;
   const canEdit = hasPermission(ctx.actor as Actor, "system:update");
-  const [u, opts] = await Promise.all([caller.system.user({ id }).catch(() => null), caller.system.roleOptions()]);
+  const [u, opts, logins] = await Promise.all([caller.system.user({ id }).catch(() => null), caller.system.roleOptions(), caller.system.loginHistory({ userId: id }).catch(() => [])]);
   if (!u) notFound();
   return (
     <div className="space-y-4">
@@ -37,7 +40,7 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
       />
       <div className="grid gap-3 md:grid-cols-4">
         <div className="card p-4"><div className="text-xs text-ink-400">Trạng thái</div><div className="mt-1">{u.isActive ? <span className="chip bg-green-100 text-green-800">Hoạt động</span> : <span className="chip bg-red-100 text-red-700">Đã khoá</span>}</div>{!u.isActive && u.lockedReason && <div className="mt-1 text-xs text-ink-600">Lý do: {u.lockedReason}{u.lockedAt ? ` (${fmtDate(u.lockedAt)})` : ""}</div>}</div>
-        <div className="card p-4"><div className="text-xs text-ink-400">Đăng nhập gần nhất</div><div className="mt-1 text-sm">{u.lastLoginAt ? fmtDateTime(u.lastLoginAt) : "Chưa đăng nhập"}</div><div className="text-xs text-ink-400">{u.hasAuth ? "Đã liên kết tài khoản đăng nhập" : "Chưa liên kết"}</div></div>
+        <div className="card p-4"><div className="text-xs text-ink-400">Đăng nhập gần nhất</div><div className="mt-1 text-sm">{u.lastLoginAt ? fmtDateTime(u.lastLoginAt) : "Chưa đăng nhập"}</div><div className="text-xs text-ink-400">{u.hasAuth ? "Đã liên kết tài khoản đăng nhập" : "Chưa liên kết"}{u.mfaEnabled ? " · Đã bật 2 lớp" : ""}</div></div>
         <div className="card p-4"><div className="text-xs text-ink-400">Thao tác đã ghi nhật ký</div><div className="mt-1 text-2xl font-bold">{u.activity.actions}</div><div className="text-xs text-ink-400">{u.activity.lastActionAt ? `gần nhất ${fmtDateTime(u.activity.lastActionAt)}` : ""}</div></div>
         <div className="card p-4"><div className="text-xs text-ink-400">Hồ sơ giáo viên</div><div className="mt-1 text-sm">{u.teacher ? `${u.teacher.fullName}${u.teacher.code ? ` (${u.teacher.code})` : ""}` : "—"}</div><div className="text-xs text-ink-400">Tạo lúc {fmtDate(u.createdAt)}</div></div>
       </div>
@@ -48,6 +51,10 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
         centers={opts.centers}
         canEdit={canEdit}
       />
+      <section className="card overflow-hidden">
+        <h2 className="border-b border-black/5 px-4 py-3 font-semibold">Đăng nhập gần đây</h2>
+        <LoginHistory rows={logins} />
+      </section>
       <section className="card overflow-hidden">
         <h2 className="border-b border-black/5 px-4 py-3 font-semibold">Lịch sử thay đổi tài khoản</h2>
         {u.history.length === 0 ? <div className="p-4 text-sm text-ink-400">Chưa có thay đổi nào được ghi.</div> : (

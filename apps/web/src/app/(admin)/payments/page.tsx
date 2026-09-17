@@ -23,7 +23,9 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
   ]);
   return (
     <div className="space-y-4">
-      <PageHeader title="Thanh toán" desc="Luồng hai vai: tư vấn / lễ tân ghi nhận khoản thu → kế toán xác nhận, từ chối hoặc điều chỉnh (người ghi nhận không tự xác nhận). Chỉ khoản đã xác nhận mới có phiếu thu và được trừ công nợ." />
+      <PageHeader title="Thanh toán" desc="Luồng hai vai: tư vấn / lễ tân ghi nhận khoản thu → kế toán xác nhận, từ chối hoặc điều chỉnh (người ghi nhận không tự xác nhận). Chỉ khoản đã xác nhận mới có phiếu thu và được trừ công nợ."
+        actions={hasPermission(ctx.actor as Actor, "finance:create") ? <><Link href="/cong-no" className="btn-ghost">Công nợ</Link><Link href="/orders?status=pending_payment" className="btn-primary" title="Chọn đơn cần thu rồi bấm Ghi nhận khoản">+ Ghi nhận khoản</Link></> : undefined}
+      />
       <form className="flex flex-wrap items-end gap-2">
         <input name="q" defaultValue={sp.q} placeholder="Mã đơn / phiếu thu / tên…" className="input max-w-xs" />
         <select name="center" defaultValue={sp.center ?? ""} className="input max-w-[160px]">

@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { ACCESS_COOKIE, REFRESH_COOKIE, cookieOptions, needsRefresh, refreshSession, supabaseOn } from "@/lib/auth-session";
+import { idleExpired } from "@satarobo/core";
+import { ACCESS_COOKIE, IDLE_COOKIE, REFRESH_COOKIE, SEEN_COOKIE, cookieOptions, needsRefresh, refreshSession, seenCookieOptions, supabaseOn } from "@/lib/auth-session";
 
 /**
  * Chặn sớm: chưa có phiên đăng nhập thì chuyển về /login?next=… trước khi render
@@ -23,6 +24,22 @@ export async function proxy(req: NextRequest) {
   const refresh = req.cookies.get(REFRESH_COOKIE)?.value;
   const dev = process.env.ALLOW_DEV_ACTOR === "1" && req.cookies.has("x-dev-actor");
 
+  // Tự đăng xuất khi không thao tác (chỉ phiên nhân sự thật). /logout ghi nhật ký và thu hồi phiên.
+  const now = Date.now();
+  const seen = Number(req.cookies.get(SEEN_COOKIE)?.value) || null;
+  const idleMin = Number(req.cookies.get(IDLE_COOKIE)?.value) || 60;
+  if ((access || refresh) && idleExpired(seen, now, idleMin)) {
+    const url = req.nextUrl.clone();
+    url.pathname = "/logout";
+    url.search = "?reason=idle";
+    return NextResponse.redirect(url);
+  }
+  const touch = (res: NextResponse) => {
+    // Mỗi lần mở trang = một lần thao tác; ghi tối đa mỗi 30 giây
+    if ((access || refresh) && (!seen || now - seen > 30_000)) res.cookies.set(SEEN_COOKIE, String(now), seenCookieOptions());
+    return res;
+  };
+
   if (supabaseOn() && needsRefresh(access, refresh)) {
     const s = await refreshSession(refresh!);
     if (s && s !== "network") {
@@ -31,7 +48,7 @@ export async function proxy(req: NextRequest) {
       const res = NextResponse.next({ request: { headers: req.headers } });
       res.cookies.set(ACCESS_COOKIE, s.access_token, cookieOptions("access", s.expires_in));
       res.cookies.set(REFRESH_COOKIE, s.refresh_token, cookieOptions("refresh"));
-      return res;
+      return touch(res);
     }
     if (s === null && !dev) {
       const res = toLogin(req);
@@ -40,7 +57,7 @@ export async function proxy(req: NextRequest) {
       return res;
     }
   }
-  if (access || refresh || dev) return NextResponse.next();
+  if (access || refresh || dev) return touch(NextResponse.next());
   return toLogin(req);
 }
 

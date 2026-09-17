@@ -26,7 +26,8 @@ export function UserActions({ user, roles, roleOptions, centers, canEdit }: { us
   const lock = useMutation(trpc.system.setLock.mutationOptions({ onSuccess: () => { setLockReason(""); ok(user.isActive ? "Đã khoá tài khoản — người dùng bị đăng xuất ở lần gọi kế tiếp." : "Đã mở khoá tài khoản."); }, onError }));
   const update = useMutation(trpc.system.updateUser.mutationOptions({ onSuccess: () => { setEdit(false); ok("Đã lưu thông tin."); }, onError }));
   const link = useMutation(trpc.system.sendLoginLink.mutationOptions({ onSuccess: (r) => setMsg({ ok: true, text: r.type === "invite" ? `Đã gửi lời mời đặt mật khẩu tới ${r.to}.` : `Đã gửi liên kết đặt lại mật khẩu tới ${r.to}.` }), onError }));
-  const busy = link.isPending || grant.isPending || revoke.isPending || lock.isPending || update.isPending;
+  const unlock = useMutation(trpc.system.clearLoginLock.mutationOptions({ onSuccess: () => ok("Đã mở khoá đăng nhập tạm — người dùng đăng nhập lại được ngay."), onError }));
+  const busy = unlock.isPending || link.isPending || grant.isPending || revoke.isPending || lock.isPending || update.isPending;
   const isGlobal = roleOptions.find((r) => r.role === newRole.role)?.global ?? false;
 
   return (
@@ -80,7 +81,10 @@ export function UserActions({ user, roles, roleOptions, centers, canEdit }: { us
           <section className="card space-y-2 p-4">
             <h2 className="font-semibold">Đăng nhập</h2>
             <p className="text-xs text-ink-600">{user.hasAuth ? "Gửi email đặt lại mật khẩu cho người dùng." : "Tài khoản chưa có mật khẩu — gửi email mời đặt mật khẩu."} Liên kết dùng một lần, hết hạn sau 1 giờ.</p>
-            <button className="btn-ghost" disabled={busy} onClick={() => link.mutate({ userId: user.id })}>{user.hasAuth ? "Gửi đặt lại mật khẩu" : "Gửi lời mời"}</button>
+            <div className="flex flex-wrap gap-2">
+              <button className="btn-ghost" disabled={busy} onClick={() => link.mutate({ userId: user.id })}>{user.hasAuth ? "Gửi đặt lại mật khẩu" : "Gửi lời mời"}</button>
+              <button className="btn-ghost" disabled={busy} title="Dùng khi người dùng bị tạm khoá do nhập sai mật khẩu nhiều lần" onClick={() => unlock.mutate({ userId: user.id })}>Mở khoá đăng nhập tạm</button>
+            </div>
           </section>
         )}
         {canEdit && (

@@ -3,6 +3,9 @@ import { cookies } from "next/headers";
 import { decodeJwtPayload } from "@satarobo/core";
 import { ACCESS_COOKIE, REFRESH_COOKIE, cookieOptions, enrollTotp, listFactors, supabaseOn, unenrollFactor, verifyTotp } from "@/lib/auth-session";
 import { rateLimited } from "@/lib/route-ctx";
+import { getDb } from "@satarobo/db";
+import { recordLogin, setMfaEnabled } from "@satarobo/api";
+import { clientMeta } from "@/lib/auth-session";
 
 /** POST { action: "status" | "enroll" | "verify" | "unenroll", factorId?, code? } — xác thực 2 lớp cho nhân sự đăng nhập Supabase */
 export async function POST(req: Request) {
@@ -32,6 +35,11 @@ export async function POST(req: Request) {
     if (rateLimited(`mfa-verify|${sub}`, 10, 15 * 60_000)) return NextResponse.json({ ok: false, error: "Nhập sai quá nhiều — thử lại sau 15 phút" }, { status: 429 });
     const r = await verifyTotp(access, b.factorId, b.code!);
     if ("error" in r) return NextResponse.json({ ok: false, error: r.error }, { status: 400 });
+    const email = decodeJwtPayload(r.access_token)?.email ?? decodeJwtPayload(access)?.email;
+    if (email) {
+      await setMfaEnabled(getDb(), email, true);
+      await recordLogin(getDb(), { email, result: "mfa_verified", ...clientMeta(req.headers) });
+    }
     c.set(ACCESS_COOKIE, r.access_token, cookieOptions("access", r.expires_in));
     c.set(REFRESH_COOKIE, r.refresh_token, cookieOptions("refresh"));
     return NextResponse.json({ ok: true });
@@ -39,6 +47,11 @@ export async function POST(req: Request) {
   if (b.action === "unenroll" && typeof b.factorId === "string") {
     if (aal !== "aal2") return NextResponse.json({ ok: false, error: "Xác thực 2 lớp trước khi gỡ thiết bị" }, { status: 403 });
     const e = await unenrollFactor(access, b.factorId);
+    const email = decodeJwtPayload(access)?.email;
+    if (!e && email) {
+      const left = (await listFactors(access))?.filter((x) => x.status === "verified" && x.id !== b.factorId) ?? [];
+      if (!left.length) await setMfaEnabled(getDb(), email, false);
+    }
     return e ? NextResponse.json({ ok: false, error: e }, { status: 400 }) : NextResponse.json({ ok: true });
   }
   return NextResponse.json({ ok: false, error: "Yêu cầu không hợp lệ" }, { status: 400 });

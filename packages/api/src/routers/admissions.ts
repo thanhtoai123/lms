@@ -48,7 +48,13 @@ export { leadInput };
 
 export const leadsRouter = router({
   inbox: protectedProcedure
-    .input(z.object({ scope: z.enum(["mine", "center", "all"]).default("all"), status: z.enum(LEAD_STATUSES).optional(), centerId: z.string().uuid().optional(), q: z.string().max(100).optional(), limit: z.number().int().min(1).max(500).optional() }).default({ scope: "all" }))
+    .input(z.object({
+      scope: z.enum(["mine", "center", "all"]).default("all"), status: z.enum(LEAD_STATUSES).optional(), allStatuses: z.boolean().optional(),
+      centerId: z.string().uuid().optional(), q: z.string().max(100).optional(),
+      assignedToId: z.union([z.string().uuid(), z.literal("none")]).optional(), source: z.string().max(100).optional(),
+      from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(), to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+      limit: z.number().int().min(1).max(500).optional(), page: z.number().int().min(1).max(10_000).optional(), pageSize: z.number().int().min(10).max(200).optional(),
+    }).default({ scope: "all" }))
     .query(({ ctx, input }) => L.leadInbox(ctx, input)),
   get: protectedProcedure.input(z.object({ id: z.string().uuid() })).query(({ ctx, input }) => L.getLead(ctx, input.id)),
   create: protectedProcedure.input(leadInput).mutation(({ ctx, input }) => L.createLead(ctx.db, input, ctx.user.id)),

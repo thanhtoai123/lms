@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getServerCaller } from "@/lib/trpc/server";
 import { supabaseOn } from "@/lib/auth-session";
 import { MfaPanel } from "./panel";
+import { LoginHistory } from "@/components/login-history";
 
 export const metadata = { title: "Bảo mật tài khoản", robots: { index: false } };
 export const dynamic = "force-dynamic";
@@ -13,8 +14,9 @@ export default async function SecurityPage() {
   if (!me) redirect("/login?next=/bao-mat");
   const auth = me.auth;
   const pending = !!auth?.mfa.required && !auth.mfa.satisfied;
+  const logins = await caller.auth.myLogins().catch(() => ({ items: [], lockedNow: false }));
   return (
-    <main className="mx-auto max-w-lg space-y-4 p-6">
+    <main className="mx-auto max-w-2xl space-y-4 p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold">Bảo mật tài khoản</h1>
         {!pending && <Link href="/dashboard" className="text-sm text-brand-600">← Quản trị</Link>}
@@ -31,6 +33,14 @@ export default async function SecurityPage() {
         <p className="text-ink-600">Đổi mật khẩu: <Link href="/quen-mat-khau" className="text-brand-600">gửi liên kết đặt lại</Link> tới email của bạn.</p>
         <p><Link href="/logout" className="text-red-700 underline">Đăng xuất</Link></p>
       </div>
+      <section className="card overflow-hidden">
+        <div className="border-b border-black/5 px-4 py-3">
+          <h2 className="font-semibold">Hoạt động đăng nhập gần đây</h2>
+          <p className="text-xs text-ink-600">Thấy lần đăng nhập lạ? Đổi mật khẩu ngay và báo quản trị.</p>
+        </div>
+        {logins.lockedNow && <div className="m-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">Tài khoản đang tạm khoá đăng nhập do nhập sai mật khẩu nhiều lần.</div>}
+        <LoginHistory rows={logins.items} />
+      </section>
     </main>
   );
 }

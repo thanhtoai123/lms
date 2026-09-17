@@ -44,7 +44,12 @@
 | 11B | **Mời nhân sự / đặt lại mật khẩu**: quản trị gửi email mời đặt mật khẩu từ trang người dùng, nhân sự tự "Quên mật khẩu" (không tiết lộ email có tồn tại, giới hạn số lần), trang đặt mật khẩu dùng liên kết một lần với chính sách mật khẩu (≥10 ký tự, có chữ và số) | Xong |
 | 11C | **Xác thực 2 lớp (TOTP)** (/bao-mat): mọi nhân sự tự bật bằng ứng dụng OTP; vai trò trong `REQUIRE_MFA_ROLES` (mặc định Quản trị hệ thống) bắt buộc — chưa xác thực thì mọi thao tác bị chặn ở máy chủ và bị chuyển tới /bao-mat | Xong |
 | 11D | **Khoá tài khoản đồng bộ đăng nhập**: khoá trong hệ thống đồng thời cấm tài khoản Supabase (không đăng nhập / làm mới phiên được) | Xong |
-| 12 | Pilot thật tại 1 cơ sở (ký HĐĐT, Zalo ZNS, SMS, khoá VAPID), theo dõi báo cáo sau go-live 4 tuần, mở rộng cơ sở tiếp theo | Chờ quyết định cơ sở + hợp đồng |
+| 12A | **Chống dò mật khẩu & nhật ký đăng nhập**: tạm khoá đăng nhập theo tài khoản (mặc định sai 5 lần → 15 phút) và theo IP, không gọi Supabase cho tài khoản đã khoá; nhật ký đăng nhập (đăng nhập, sai mật khẩu, bị chặn, 2 lớp, đặt mật khẩu, đăng xuất, tự đăng xuất) lưu 1 năm, email chỉ lưu dạng băm + che; xem ở /bao-mat, trang người dùng; quản trị mở khoá tạm | Xong |
+| 12B | **Tự đăng xuất khi không thao tác** (mặc định 60 phút, cấu hình được): cảnh báo trước 2 phút, đồng bộ giữa các tab, máy chủ kiểm tra độc lập (trang + API); giáo viên đang mất mạng không bị đẩy ra, hàng đợi điểm danh được giữ | Xong |
+| 12C | **Bảo mật hệ thống** (/bao-mat-he-thong): khuyến nghị theo mức (tài khoản mẫu bật trên production, quản trị chưa bật 2 lớp, quá nhiều quản trị, tài khoản ngủ > 90 ngày, IP sai nhiều), chính sách đang áp dụng, nhật ký đăng nhập toàn hệ thống. Chặn gọi API từ trang khác (CSRF), bổ sung header bảo mật; sửa lỗi chính sách trình duyệt chặn GPS làm hỏng chấm công | Xong |
+| 12D | **Tìm nhanh Ctrl+K**: mở trang (gõ không dấu), tìm học viên / lead / lớp / mã đơn / SĐT theo quyền và cơ sở (SĐT luôn che), trang mở gần đây, điều khiển bằng bàn phím; liên kết "Bỏ qua menu" cho bàn phím | Xong |
+| 12E | **Bù khoảng trống so với bản gốc**: Leads lọc theo cơ sở / người phụ trách / nguồn / ngày nhận, xem mọi trạng thái, phân trang + số dòng, cột ngày nhận, xuất CSV; Buổi học lọc theo cơ sở / lớp / giáo viên; Lớp học lọc theo khoá / giáo viên; Đăng ký học lọc theo lớp; Thanh toán có nút Ghi nhận khoản | Xong |
+| 13 | Pilot thật tại 1 cơ sở (ký HĐĐT, Zalo ZNS, SMS, khoá VAPID), theo dõi báo cáo sau go-live 4 tuần, mở rộng cơ sở tiếp theo | Chờ quyết định cơ sở + hợp đồng |
 
 ## Việc kỹ thuật còn lại trong Giai đoạn 1 (sau khi CI xanh)
 

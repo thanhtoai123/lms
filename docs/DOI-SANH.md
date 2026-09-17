@@ -6,6 +6,43 @@ Cập nhật: 09/2026. So sánh với (1) hệ thống cũ admin.satarobo.vn (th
 
 Toàn bộ mục menu của admin.satarobo.vn đã có trang tương ứng, cùng đường dẫn (xem `apps/web/src/lib/admin-nav.ts`, không còn mục "đang phát triển").
 
+### 1.1 Đối sánh từng trang (cột, bộ lọc, nút, thẻ số liệu)
+
+Rà 122 đường dẫn đã khảo sát (`docs/admin-survey.raw.json`) với mã nguồn trang mới (09/2026).
+
+Đã bù trong Giai đoạn 12: Leads (lọc cơ sở / người phụ trách / nguồn / ngày nhận, mọi trạng thái, phân trang, cột ngày nhận, xuất CSV), Buổi học (lọc cơ sở / lớp / giáo viên), Lớp học (lọc khoá / giáo viên), Đăng ký học (lọc lớp), Thanh toán (nút Ghi nhận khoản).
+
+Còn thiếu so với bản gốc (xếp theo ảnh hưởng vận hành hằng ngày):
+
+| # | Trang | Thiếu | Cỡ |
+|---|---|---|---|
+| 1 | /leads/import | Nhập lead từ Excel có file mẫu | Lớn |
+| 2 | /students (form) | Địa chỉ, SĐT / email học viên, phụ huynh thứ hai, CCCD phụ huynh, ngày đăng ký đầu, cơ sở mong muốn, mã HV nhập tay | Vừa |
+| 3 | /attendance | Tổng quan theo lớp: sĩ số, buổi đã dạy, số buổi chưa chốt | Vừa |
+| 4 | /orders/:id | Sửa kế hoạch thanh toán / nhắc công nợ sau khi tạo; gửi email đơn | Vừa |
+| 5 | /enrollments/:id | Trang chi tiết ghi danh (dòng thời gian, đổi trạng thái, chuyển lớp) — hiện ở hồ sơ học viên | Vừa |
+| 6 | /classes/kiem-tra-lich | Kiểm tra lịch toàn bộ lớp (hiện kiểm tra từng lớp) | Vừa |
+| 7 | /students/tai-khoan | Gửi ZNS hàng loạt, xuất CSV | Vừa |
+| 8 | /lop-trial | Lớp trải nghiệm riêng (bản mới đặt học thử vào buổi của lớp thường) — cần xác nhận có giữ cách mới | Cần quyết định |
+| 9 | /payments | Cột nguồn HV, sale, địa chỉ | Vừa |
+| 10 | /classes/:id | Tab chương trình, ảnh lớp, học bù, SCORM, đánh giá theo lớp | Vừa |
+| 11 | /course-packages | Gói khoá học bán cho khách (cấp độ, số buổi, giá, nổi bật) | Lớn |
+| 12 | /audit-log | Xuất CSV (không xoá nhật ký > 365 ngày: nhật ký bất biến là chủ ý) | Nhỏ |
+| 13 | /roles | Tạo vai trò tuỳ chỉnh (bản mới dùng vai trò cố định trong policy engine — chủ ý, giảm rủi ro cấp quyền sai) | Cần quyết định |
+| 14 | /email-templates, /notifications | Thêm mẫu mới; ẩn / xoá thông báo đã đăng | Vừa |
+| 15 | /satacoin | Cấu hình luật thưởng | Vừa |
+
+### 1.2 Vượt bản gốc (bảo mật & trải nghiệm)
+
+| Chủ đề | Bản gốc | Bản mới |
+|---|---|---|
+| Đăng nhập | Mật khẩu | Mật khẩu + xác thực 2 lớp (bắt buộc theo vai trò), phiên tự làm mới, tự đăng xuất khi không thao tác, tạm khoá khi sai nhiều lần, nhật ký đăng nhập |
+| Rà soát tài khoản | Không có | Trang Bảo mật hệ thống: khuyến nghị, tài khoản ngủ, IP đáng ngờ |
+| Dữ liệu cá nhân | Hiện đầy đủ | Che SĐT theo vai trò, xem đầy đủ phải ghi lý do + nhật ký, CSV xuất SĐT đã che |
+| Chống tấn công web | — | CSP, chặn nhúng khung, chặn gọi API từ trang khác, giới hạn tần suất OTP / đăng nhập / quên mật khẩu |
+| Tìm kiếm | Ô tìm kiếm chuyển tới Leads | Ctrl+K: trang (không dấu), học viên, lead, lớp, mã đơn, SĐT — theo quyền |
+| Làm việc khi mất mạng | Không | Giáo viên điểm danh offline, tự gửi khi có mạng |
+
 ## 2. So với phần mềm quản lý trung tâm phổ biến
 
 Các nhóm tính năng thường được giới thiệu (CloudEMS, Getfly Education, MISA EMIS, Easy Edu, Edusoft, EduCRM, Mona eLMS, Halozend…):

@@ -128,3 +128,25 @@ export const revenueTargets = pgTable(
   },
   (t) => [uniqueIndex("revenue_targets_unique").on(t.centerId, t.period)],
 );
+
+/** Nhật ký đăng nhập nhân sự (không lưu email gốc khi không khớp tài khoản — chỉ mã băm + dạng che) */
+export const loginEvents = pgTable(
+  "login_events",
+  {
+    id: id(),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    emailHash: text("email_hash").notNull(),
+    emailMasked: text("email_masked").notNull(),
+    /** success | bad_password | locked_out | mfa_verified | logout | idle_logout | password_set */
+    result: text("result").notNull(),
+    ip: text("ip"),
+    userAgent: text("user_agent"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("login_events_email_idx").on(t.emailHash, t.createdAt),
+    index("login_events_ip_idx").on(t.ip, t.createdAt),
+    index("login_events_user_idx").on(t.userId, t.createdAt),
+    index("login_events_created_idx").on(t.createdAt),
+  ],
+);

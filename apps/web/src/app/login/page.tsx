@@ -1,8 +1,10 @@
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
+import { getDb } from "@satarobo/db";
+import { loginPrecheck, recordLogin, staffBlocked, staffIdleMinutes } from "@satarobo/api";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createServerClient } from "@supabase/ssr";
-import { ACCESS_COOKIE, REFRESH_COOKIE, cookieOptions } from "@/lib/auth-session";
+import { ACCESS_COOKIE, REFRESH_COOKIE, IDLE_COOKIE, SEEN_COOKIE, clientMeta, cookieOptions, seenCookieOptions } from "@/lib/auth-session";
 
 export const metadata = { title: "Đăng nhập quản trị" };
 
@@ -22,6 +24,7 @@ async function devLogin(formData: FormData) {
   if (!email) return;
   const c = await cookies();
   c.set("x-dev-actor", email, { httpOnly: false, sameSite: "lax", path: "/" });
+  await recordLogin(getDb(), { email, result: "success", ...clientMeta(await headers()) });
   redirect(safeNext(formData.get("next")));
 }
 
@@ -31,13 +34,32 @@ async function supabaseLogin(formData: FormData) {
   const password = String(formData.get("password") ?? "");
   const next = safeNext(formData.get("next"));
   const c = await cookies();
+  const meta = clientMeta(await headers());
+  const db = getDb();
+  const back = `&next=${encodeURIComponent(next)}`;
+  if (!email || email.length > 200 || !password || password.length > 200) redirect(`/login?error=1${back}`);
+  const pre = await loginPrecheck(db, { email, ip: meta.ip });
+  if (!pre.allowed) {
+    await recordLogin(db, { email, result: "locked_out", ...meta });
+    redirect(`/login?error=locked&wait=${pre.retryAfterMin}${back}`);
+  }
+  if (await staffBlocked(db, email)) {
+    await recordLogin(db, { email, result: "bad_password", ...meta });
+    redirect(`/login?error=1${back}`);
+  }
   const supabase = createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
     cookies: { getAll: () => c.getAll(), setAll: (all) => all.forEach(({ name, value, options }) => c.set(name, value, options)) },
   });
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error || !data.session) redirect(`/login?error=1&next=${encodeURIComponent(next)}`);
+  if (error || !data.session) {
+    await recordLogin(db, { email, result: "bad_password", ...meta });
+    redirect(`/login?error=1${back}`);
+  }
+  await recordLogin(db, { email, result: "success", ...meta });
   c.set(ACCESS_COOKIE, data.session.access_token, cookieOptions("access", data.session.expires_in));
   c.set(REFRESH_COOKIE, data.session.refresh_token, cookieOptions("refresh"));
+  c.set(SEEN_COOKIE, String(Date.now()), seenCookieOptions());
+  c.set(IDLE_COOKIE, String(await staffIdleMinutes(db)), seenCookieOptions());
   redirect(next);
 }
 
@@ -52,7 +74,7 @@ const DEV_ACCOUNTS = [
   { email: "teacher1@satarobo.vn", label: "Giáo viên CS1" },
 ];
 
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string; next?: string }> }) {
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string; next?: string; wait?: string }> }) {
   const sp = await searchParams;
   const next = safeNext(sp.next);
   return (
@@ -63,7 +85,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           <h2 className="text-3xl font-bold leading-tight">Hệ thống quản trị trung tâm Sata Robo</h2>
           <p className="text-white/80">Tuyển sinh, lớp học, học viên, tài chính và nhân sự trong một nơi — dữ liệu giới hạn theo cơ sở và vai trò của bạn.</p>
         </div>
-        <div className="text-xs text-white/60">© 2026 Sata Robo · Dữ liệu cá nhân được bảo vệ theo NĐ 13/2023</div>
+        <div className="text-xs text-white/60">© 2026 Sata Robo · Dữ liệu cá nhân được bảo vệ theo Luật Bảo vệ dữ liệu cá nhân 2025</div>
         <div className="pointer-events-none absolute -right-24 -top-24 h-96 w-96 rounded-full bg-white/10" aria-hidden />
         <div className="pointer-events-none absolute -bottom-32 right-24 h-72 w-72 rounded-full bg-white/5" aria-hidden />
       </section>
@@ -75,6 +97,8 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           <p className="mb-6 mt-1 text-sm text-ink-600">Dùng tài khoản nhân sự được cấp để vào khu quản trị.</p>
 
           {sp.error === "session" && <p className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">Phiên đăng nhập đã hết — vui lòng đăng nhập lại.</p>}
+          {sp.error === "idle" && <p className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">Bạn đã được đăng xuất do không thao tác trong thời gian dài — vui lòng đăng nhập lại.</p>}
+          {sp.error === "locked" && <p className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700" role="alert">Đăng nhập tạm khoá do nhập sai nhiều lần. Thử lại sau khoảng {Math.max(1, Number(sp.wait) || 15)} phút hoặc dùng “Quên mật khẩu?”.</p>}
           {sp.error === "forbidden" && <p className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">Tài khoản này không có quyền vào khu quản trị.</p>}
 
           {hasSupabase ? (
@@ -88,7 +112,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
                 <label className="label" htmlFor="password">Mật khẩu</label>
                 <input id="password" name="password" type="password" required className="input" autoComplete="current-password" />
               </div>
-              {sp.error === "1" && <p className="text-sm text-danger">Email hoặc mật khẩu không đúng.</p>}
+              {sp.error === "1" && <p className="text-sm text-danger" role="alert">Email hoặc mật khẩu không đúng.</p>}
               <button className="btn-primary w-full" type="submit">Đăng nhập</button>
               <p className="text-center text-xs text-ink-400"><Link href="/quen-mat-khau" className="text-brand-600">Quên mật khẩu?</Link></p>
             </form>

@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import type { NavGroup } from "@/lib/admin-nav";
 import { NotificationBell } from "@/components/notification-bell";
+import { IdleGuard } from "@/components/idle-guard";
+import { CommandPalette, rememberPage } from "@/components/command-palette";
 
 type Me = { fullName: string; email: string; roleLabel: string; initials: string };
 
@@ -15,9 +17,9 @@ function isActive(pathname: string, href: string, all: string[]) {
   return !all.some((h) => h !== href && h.startsWith(href + "/") && (pathname === h || pathname.startsWith(h + "/")));
 }
 
-export function AdminShell({ nav, me, canRunWorker, children }: { nav: NavGroup[]; me: Me; canRunWorker: boolean; children: React.ReactNode }) {
+export function AdminShell({ nav, me, canRunWorker, idleMinutes = null, children }: { nav: NavGroup[]; me: Me; canRunWorker: boolean; idleMinutes?: number | null; children: React.ReactNode }) {
   const pathname = usePathname();
-  const router = useRouter();
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const allHrefs = nav.flatMap((g) => g.items.map((i) => i.href));
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
@@ -30,7 +32,13 @@ export function AdminShell({ nav, me, canRunWorker, children }: { nav: NavGroup[
     } catch {}
   }, []);
   useEffect(() => {
+    const hit = nav.flatMap((g) => g.items).filter((i) => isActive(pathname, i.href, allHrefs))[0];
+    if (hit) rememberPage(pathname, pathname === hit.href ? hit.label : `${hit.label} · chi tiết`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
+  useEffect(() => {
     setMobileOpen(false);
+    setUserOpen(false);
     // đưa mục đang mở vào tầm nhìn của sidebar (menu dài 93 mục)
     document.querySelector('aside a[aria-current="page"]')?.scrollIntoView({ block: "nearest" });
   }, [pathname]);
@@ -91,6 +99,9 @@ export function AdminShell({ nav, me, canRunWorker, children }: { nav: NavGroup[
 
   return (
     <div className="min-h-dvh bg-surface lg:grid lg:grid-cols-[256px_1fr] print:block">
+      <IdleGuard minutes={idleMinutes} />
+      <CommandPalette nav={nav} open={paletteOpen} onOpenChange={setPaletteOpen} />
+      <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-white focus:px-3 focus:py-2 focus:shadow">Bỏ qua menu</a>
       <aside className="hidden lg:block sticky top-0 h-dvh border-r border-black/5 bg-white print:!hidden">{sidebar}</aside>
 
       {mobileOpen && (
@@ -103,16 +114,16 @@ export function AdminShell({ nav, me, canRunWorker, children }: { nav: NavGroup[
       <div className="min-w-0">
         <header className="print:hidden sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-black/5 bg-white/95 px-4 backdrop-blur md:px-6">
           <button className="rounded-lg p-2 hover:bg-black/5 lg:hidden" onClick={() => setMobileOpen(true)} aria-label="Mở menu">☰</button>
-          <form
-            className="hidden flex-1 md:block max-w-md"
-            onSubmit={(e) => {
-              e.preventDefault();
-              const q = String(new FormData(e.currentTarget).get("q") ?? "").trim();
-              if (q) router.push(`/leads?q=${encodeURIComponent(q)}`);
-            }}
+          <button
+            type="button"
+            onClick={() => setPaletteOpen(true)}
+            className="flex min-w-0 flex-1 items-center gap-2 rounded-full bg-black/[0.03] px-4 py-2 text-left text-sm text-ink-400 hover:bg-black/[0.06] md:max-w-md"
+            aria-label="Tìm nhanh (Ctrl + K)"
           >
-            <input name="q" className="input !rounded-full !bg-black/[0.03]" placeholder="Tìm leads, học viên, blog…" aria-label="Tìm kiếm" />
-          </form>
+            <span aria-hidden>⌕</span>
+            <span className="truncate">Tìm trang, học viên, lead, lớp…</span>
+            <kbd className="ml-auto hidden rounded border border-black/10 bg-white px-1.5 text-[11px] sm:inline">Ctrl K</kbd>
+          </button>
           <div className="ml-auto flex items-center gap-2">
             <NotificationBell canRunWorker={canRunWorker} />
             <div className="relative">
@@ -127,6 +138,7 @@ export function AdminShell({ nav, me, canRunWorker, children }: { nav: NavGroup[
               {userOpen && (
                 <div className="absolute right-0 mt-2 w-60 rounded-xl border border-black/5 bg-white p-2 shadow-lg text-sm">
                   <div className="px-2 py-1.5 text-xs text-ink-400 truncate">{me.email}</div>
+                  <Link href="/bao-mat" className="block rounded-lg px-2 py-1.5 hover:bg-black/5">Bảo mật tài khoản</Link>
                   <Link href="/teacher" className="block rounded-lg px-2 py-1.5 hover:bg-black/5">Ứng dụng giáo viên</Link>
                   <Link href="/logout" prefetch={false} className="block rounded-lg px-2 py-1.5 text-red-700 hover:bg-red-50">Đăng xuất</Link>
                 </div>
@@ -134,7 +146,7 @@ export function AdminShell({ nav, me, canRunWorker, children }: { nav: NavGroup[
             </div>
           </div>
         </header>
-        <main className="mx-auto max-w-[1400px] p-4 md:p-6">{children}</main>
+        <main id="main" tabIndex={-1} className="mx-auto max-w-[1400px] p-4 outline-none md:p-6">{children}</main>
       </div>
     </div>
   );

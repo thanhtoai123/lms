@@ -1,4 +1,7 @@
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
+import { normalizeIdle } from "@satarobo/core";
+import { IDLE_COOKIE } from "@/lib/auth-session";
 import { hasPermission, hasRole, ROLE_LABEL_VI, STAFF_ROLES, type Actor } from "@satarobo/core";
 import { getServerCaller } from "@/lib/trpc/server";
 import { ADMIN_NAV } from "@/lib/admin-nav";
@@ -18,6 +21,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (!roles.some((r) => STAFF_ROLES.includes(r))) redirect("/login?error=forbidden");
   if (me.auth?.mfa.required && !me.auth.mfa.satisfied) redirect("/bao-mat");
 
+  const idle = me.auth?.via === "supabase" ? normalizeIdle((await cookies()).get(IDLE_COOKIE)?.value ?? 60) : null;
   const nav = ADMIN_NAV.map((g) => ({ ...g, items: g.items.filter((i) => !i.perm || hasPermission(actor, i.perm)) })).filter((g) => g.items.length > 0);
   const main = PRIORITY.find((r) => roles.includes(r)) ?? roles[0]!;
   const initials = me.user.fullName.split(/\s+/).filter(Boolean).slice(-2).map((w) => w[0]!.toUpperCase()).join("") || "U";
@@ -27,6 +31,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       nav={nav}
       me={{ fullName: me.user.fullName, email: me.user.email, roleLabel: ROLE_LABEL_VI[main], initials }}
       canRunWorker={hasRole(actor, "SUPER_ADMIN", "CENTER_MANAGER")}
+      idleMinutes={idle}
     >
       {children}
     </AdminShell>

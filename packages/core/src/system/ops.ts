@@ -22,6 +22,9 @@ export const OPS_GROUPS = {
     { key: "otpPerPhoneMax", label: "Số mã tối đa mỗi SĐT", type: "int", min: 1, max: 10, unit: "mã", def: 3, scope: "global", usedBy: "Chống spam theo SĐT" },
     { key: "otpPerPhoneWindowMin", label: "…trong khoảng", type: "int", min: 5, max: 1440, unit: "phút", def: 15, scope: "global", usedBy: "Chống spam theo SĐT" },
     { key: "otpPerIpMax", label: "Số mã tối đa mỗi thiết bị / IP mỗi giờ", type: "int", min: 3, max: 100, unit: "mã", def: 10, scope: "global", usedBy: "Chống spam theo IP" },
+    { key: "staffIdleMinutes", label: "Nhân sự tự đăng xuất khi không thao tác", type: "int", min: 5, max: 480, unit: "phút", def: 60, scope: "global", usedBy: "Đăng nhập nhân sự (áp dụng từ lần đăng nhập kế tiếp)" },
+    { key: "staffLoginMaxFails", label: "Tạm khoá đăng nhập nhân sự sau số lần sai mật khẩu", type: "int", min: 3, max: 20, unit: "lần", def: 5, scope: "global", usedBy: "Chống dò mật khẩu" },
+    { key: "staffLoginLockMinutes", label: "Thời gian tạm khoá đăng nhập", type: "int", min: 5, max: 120, unit: "phút", def: 15, scope: "global", usedBy: "Chống dò mật khẩu" },
   ],
   "hoc-vien": [
     { key: "nearingEndSessions", label: "Báo \"sắp hết khoá\" khi còn", type: "int", min: 1, max: 12, unit: "buổi", def: 4, scope: "center", usedBy: "Học viên → Sắp hết khoá, thông báo tái tục" },

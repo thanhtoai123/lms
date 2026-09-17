@@ -7,6 +7,19 @@ import { tokenNeedsRefresh } from "@satarobo/core";
 export const ACCESS_COOKIE = "sb-access-token";
 export const REFRESH_COOKIE = "sb-refresh-token";
 export const REFRESH_DAYS = 30;
+/** Mốc thao tác gần nhất (ms) và giới hạn không thao tác (phút) — tự đăng xuất */
+export const SEEN_COOKIE = "sr-seen";
+export const IDLE_COOKIE = "sr-idle";
+
+export function seenCookieOptions() {
+  return { httpOnly: true, sameSite: "lax" as const, path: "/", secure: secure(), maxAge: REFRESH_DAYS * 86_400 };
+}
+/** Có phiên Supabase (cookie) — phiên tài khoản mẫu khi phát triển không áp tự đăng xuất */
+export const hasStaffSession = (get: (n: string) => string | undefined) => !!(get(ACCESS_COOKIE) || get(REFRESH_COOKIE));
+
+export function clientMeta(h: Headers) {
+  return { ip: h.get("x-forwarded-for")?.split(",")[0]?.trim() ?? h.get("x-real-ip") ?? null, userAgent: h.get("user-agent") };
+}
 
 export interface SupaSession { access_token: string; refresh_token: string; expires_in: number }
 

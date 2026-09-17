@@ -89,3 +89,4 @@ export { parallelReminders } from "./services/cutover";
 export { pushStatus, subscribePush, unsubscribePush, dispatchPush } from "./services/pilot";
 export { generateVapidKeys } from "./webpush";
 export { requestPasswordReset, supabaseAdmin, supabaseConfigured } from "./services/staffAuth";
+export { loginPrecheck, recordLogin, staffBlocked, setMfaEnabled, staffIdleMinutes, pruneLoginEvents } from "./services/loginSecurity";

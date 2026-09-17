@@ -15,12 +15,13 @@ const STATUS_CHIP: Record<ClassStatus, string> = {
   cancelled: "bg-red-100 text-red-700",
 };
 
-export default async function ClassesPage({ searchParams }: { searchParams: Promise<{ q?: string; status?: string; center?: string }> }) {
+export default async function ClassesPage({ searchParams }: { searchParams: Promise<{ q?: string; status?: string; center?: string; course?: string; teacher?: string }> }) {
   const sp = await searchParams;
+  const uuidOr = (v?: string) => (v && /^[0-9a-f-]{36}$/i.test(v) ? v : undefined);
   const status = CLASS_STATUSES.includes(sp.status as ClassStatus) ? (sp.status as ClassStatus) : undefined;
   const { caller } = await getServerCaller();
   const [rows, ref, approvals] = await Promise.all([
-    caller.academics.classes.list({ q: sp.q || undefined, status, centerId: sp.center || undefined }),
+    caller.academics.classes.list({ q: sp.q || undefined, status, centerId: uuidOr(sp.center), courseId: uuidOr(sp.course), teacherId: uuidOr(sp.teacher) }),
     caller.academics.classes.referenceData(),
     caller.academics.classes.pendingApprovals(),
   ]);
@@ -36,17 +37,27 @@ export default async function ClassesPage({ searchParams }: { searchParams: Prom
         </div>
       </div>
       <form className="flex flex-wrap gap-2">
-        <input name="q" defaultValue={sp.q} placeholder="Tìm mã / tên lớp…" className="input max-w-xs" />
-        <select name="status" defaultValue={sp.status ?? ""} className="input max-w-[180px]">
+        <input name="q" defaultValue={sp.q} placeholder="Tìm mã / tên lớp…" className="input max-w-xs" aria-label="Tìm lớp" />
+        <select name="status" defaultValue={sp.status ?? ""} className="input max-w-[180px]" aria-label="Trạng thái">
           <option value="">Mọi trạng thái</option>
           {CLASS_STATUSES.map((s) => <option key={s} value={s}>{STATUS_VI[s]}</option>)}
         </select>
-        <select name="center" defaultValue={sp.center ?? ""} className="input max-w-[220px]">
+        <select name="center" defaultValue={sp.center ?? ""} className="input max-w-[220px]" aria-label="Cơ sở">
           <option value="">Mọi cơ sở</option>
           {ref.centers.map((c) => <option key={c.id} value={c.id}>{c.code} — {c.name}</option>)}
         </select>
+        <select name="course" defaultValue={sp.course ?? ""} className="input max-w-[200px]" aria-label="Khoá học">
+          <option value="">Mọi khoá học</option>
+          {ref.courses.map((c) => <option key={c.id} value={c.id}>{c.code} — {c.name}</option>)}
+        </select>
+        <select name="teacher" defaultValue={sp.teacher ?? ""} className="input max-w-[200px]" aria-label="Giáo viên">
+          <option value="">Mọi giáo viên</option>
+          {ref.teachers.map((t) => <option key={t.id} value={t.id}>{t.fullName}</option>)}
+        </select>
         <button className="btn-ghost" type="submit">Lọc</button>
+        {(sp.q || sp.status || sp.center || sp.course || sp.teacher) && <Link href="/classes" className="btn-ghost">Xoá lọc</Link>}
       </form>
+      <p className="text-xs text-ink-400">{rows.length} lớp</p>
 
       {rows.length === 0 ? (
         <Empty>Chưa có lớp nào.</Empty>

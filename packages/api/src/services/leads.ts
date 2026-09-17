@@ -2,7 +2,7 @@ import { and, eq, inArray, sql, asc, desc, ilike, or, isNull, lte, gte } from "d
 import { TRPCError } from "@trpc/server";
 import { leads, leadActivities, leadTasks, leadAssignees, leadChildren, users, centers, courses, parents, students, studentGuardians, enrollments, classes, consentRecords } from "@satarobo/db";
 import {
-  leadTransition, computeSla, normalizeVnPhone, maskPhone, OPEN_LEAD_STATUSES, visibleCenterIds, hasRole, buildStudentCode, CONSENT_TEXT_VERSION,
+  leadTransition, computeSla, normalizeVnPhone, maskPhone, OPEN_LEAD_STATUSES, LEAD_STATUSES, visibleCenterIds, hasRole, buildStudentCode, CONSENT_TEXT_VERSION,
   type LeadStatus, type LeadEvent,
   normalizeRefCode,
 } from "@satarobo/core";
@@ -119,49 +119,94 @@ export async function createLead(db: ProtectedContext["db"], input: CreateLeadIn
   });
 }
 
-/** Inbox: lead mở của tôi / của cơ sở, kèm SLA, sắp xếp quá hạn trước */
-export async function leadInbox(ctx: ProtectedContext, input: { scope: "mine" | "center" | "all"; status?: LeadStatus; centerId?: string; q?: string; limit?: number }) {
-  requirePermission(ctx, "lead:read", { centerId: input.centerId ?? null });
-  const conds = [isNull(leads.deletedAt)];
-  if (input.status) conds.push(eq(leads.status, input.status));
-  else conds.push(inArray(leads.status, [...OPEN_LEAD_STATUSES]));
-  if (input.scope === "mine") conds.push(eq(leads.assignedToId, ctx.user.id));
-  if (input.centerId) conds.push(eq(leads.centerId, input.centerId));
-  if (input.q) {
-    const pn = normalizeVnPhone(input.q);
-    conds.push(or(ilike(leads.parentName, `%${input.q}%`), ilike(leads.childName, `%${input.q}%`), pn ? eq(leads.phoneNormalized, pn) : sql`false`)!);
-  }
-  const visible = visibleCenterIds(ctx.actor);
-  if (visible !== null) conds.push(visible.length ? or(inArray(leads.centerId, visible), isNull(leads.centerId))! : sql`false`);
+export interface LeadInboxInput {
+  scope: "mine" | "center" | "all";
+  status?: LeadStatus;
+  /** true = mọi trạng thái (kể cả đã đăng ký / mất) */
+  allStatuses?: boolean;
+  centerId?: string;
+  q?: string;
+  /** "none" = chưa phân */
+  assignedToId?: string;
+  source?: string;
+  /** ngày nhận lead (YYYY-MM-DD, giờ VN) */
+  from?: string;
+  to?: string;
+  limit?: number;
+  page?: number;
+  pageSize?: number;
+}
 
-  const rows = await ctx.db
-    .select({
-      id: leads.id, status: leads.status, parentName: leads.parentName, phoneNormalized: leads.phoneNormalized, childName: leads.childName, childGrade: leads.childGrade,
-      source: leads.source, centerCode: centers.code, courseCode: courses.code, assignedToId: leads.assignedToId, assigneeName: users.fullName,
-      lastTouchAt: leads.lastTouchAt, nextActionAt: leads.nextActionAt, createdAt: leads.createdAt,
-      openTasks: sql<number>`(select count(*)::int from ${leadTasks} t where t.lead_id = ${leads.id} and t.done_at is null)`,
-    })
-    .from(leads)
-    .leftJoin(centers, eq(centers.id, leads.centerId))
-    .leftJoin(courses, eq(courses.id, leads.interestedCourseId))
-    .leftJoin(users, eq(users.id, leads.assignedToId))
-    .where(and(...conds))
-    .orderBy(asc(leads.lastTouchAt))
-    .limit(input.limit ?? 200);
+/** Inbox: lead của tôi / của cơ sở, kèm SLA. Trạng thái mở: quá hạn trước; mọi trạng thái / đã đóng: mới nhận trước. Có phân trang. */
+export async function leadInbox(ctx: ProtectedContext, input: LeadInboxInput) {
+  requirePermission(ctx, "lead:read", { centerId: input.centerId ?? null });
+  const scopeConds = [isNull(leads.deletedAt)];
+  const visible = visibleCenterIds(ctx.actor);
+  if (visible !== null) scopeConds.push(visible.length ? or(inArray(leads.centerId, visible), isNull(leads.centerId))! : sql`false`);
+  if (input.centerId) scopeConds.push(eq(leads.centerId, input.centerId));
+  const conds = [...scopeConds];
+  const openView = !input.allStatuses && (!input.status || (OPEN_LEAD_STATUSES as readonly string[]).includes(input.status));
+  if (input.status) conds.push(eq(leads.status, input.status));
+  else if (!input.allStatuses) conds.push(inArray(leads.status, [...OPEN_LEAD_STATUSES]));
+  if (input.scope === "mine") conds.push(eq(leads.assignedToId, ctx.user.id));
+  if (input.assignedToId === "none") conds.push(isNull(leads.assignedToId));
+  else if (input.assignedToId) conds.push(eq(leads.assignedToId, input.assignedToId));
+  if (input.source) conds.push(eq(leads.source, input.source));
+  if (input.from) conds.push(sql`${leads.createdAt} >= (${input.from}::date)::timestamp at time zone 'Asia/Ho_Chi_Minh'`);
+  if (input.to) conds.push(sql`${leads.createdAt} < ((${input.to}::date + 1)::timestamp at time zone 'Asia/Ho_Chi_Minh')`);
+  if (input.q) {
+    const q = input.q.trim();
+    const like = `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+    const pn = normalizeVnPhone(q);
+    conds.push(or(ilike(leads.parentName, like), ilike(leads.childName, like), pn ? eq(leads.phoneNormalized, pn) : sql`false`)!);
+  }
+
+  const paged = input.page !== undefined;
+  const pageSize = Math.min(200, input.pageSize ?? 50);
+  const page = Math.max(1, input.page ?? 1);
+  const [rows, light, facets] = await Promise.all([
+    ctx.db
+      .select({
+        id: leads.id, status: leads.status, parentName: leads.parentName, phoneNormalized: leads.phoneNormalized, childName: leads.childName, childGrade: leads.childGrade,
+        source: leads.source, centerCode: centers.code, courseCode: courses.code, assignedToId: leads.assignedToId, assigneeName: users.fullName,
+        lastTouchAt: leads.lastTouchAt, nextActionAt: leads.nextActionAt, createdAt: leads.createdAt,
+        openTasks: sql<number>`(select count(*)::int from ${leadTasks} t where t.lead_id = ${leads.id} and t.done_at is null)`,
+      })
+      .from(leads)
+      .leftJoin(centers, eq(centers.id, leads.centerId))
+      .leftJoin(courses, eq(courses.id, leads.interestedCourseId))
+      .leftJoin(users, eq(users.id, leads.assignedToId))
+      .where(and(...conds))
+      .orderBy(openView ? asc(leads.lastTouchAt) : desc(leads.createdAt))
+      .limit(paged ? pageSize : (input.limit ?? 200))
+      .offset(paged ? (page - 1) * pageSize : 0),
+    // Cột nhẹ để đếm tổng + SLA trên toàn bộ kết quả lọc (không chỉ trang hiện tại)
+    ctx.db.select({ status: leads.status, lastTouchAt: leads.lastTouchAt }).from(leads).where(and(...conds)).limit(20_000),
+    Promise.all([
+      ctx.db.selectDistinct({ id: users.id, name: users.fullName }).from(leads).innerJoin(users, eq(users.id, leads.assignedToId)).where(and(...scopeConds)).orderBy(asc(users.fullName)).limit(100),
+      ctx.db.select({ source: leads.source, n: sql<number>`count(*)::int` }).from(leads).where(and(...scopeConds, sql`${leads.source} is not null`)).groupBy(leads.source).orderBy(desc(sql`count(*)`)).limit(30),
+    ]),
+  ]);
 
   const now = nowIso();
   const full = canSeeFullPhone(ctx);
   const policy = await resolveAdmissionsPolicy(ctx.db, input.centerId ?? null);
+  const slaOf = (st: LeadStatus, t: Date) => computeSla(st, t.toISOString(), now, policy.sla);
   const items = rows
-    .map((r) => ({ ...r, phone: full ? r.phoneNormalized : maskPhone(r.phoneNormalized), sla: computeSla(r.status, r.lastTouchAt.toISOString(), now, policy.sla) }))
-    .sort((a, b) => b.sla.overdueMinutes - a.sla.overdueMinutes || a.lastTouchAt.getTime() - b.lastTouchAt.getTime());
+    .map((r) => ({ ...r, phone: full ? r.phoneNormalized : maskPhone(r.phoneNormalized), sla: slaOf(r.status, r.lastTouchAt) }))
+    .sort((a, b) => (openView ? b.sla.overdueMinutes - a.sla.overdueMinutes || a.lastTouchAt.getTime() - b.lastTouchAt.getTime() : 0));
+  const levels = light.map((l) => slaOf(l.status, l.lastTouchAt).level);
   return {
     items,
+    total: light.length,
+    page,
+    pageSize: paged ? pageSize : items.length,
+    facets: { assignees: facets[0], sources: facets[1].map((x) => ({ source: x.source!, n: x.n })) },
     summary: {
-      total: items.length,
-      overdue: items.filter((i) => i.sla.level === "overdue").length,
-      warning: items.filter((i) => i.sla.level === "warning").length,
-      byStatus: Object.fromEntries(OPEN_LEAD_STATUSES.map((s) => [s, items.filter((i) => i.status === s).length])),
+      total: light.length,
+      overdue: levels.filter((l) => l === "overdue").length,
+      warning: levels.filter((l) => l === "warning").length,
+      byStatus: Object.fromEntries(LEAD_STATUSES.map((st) => [st, light.filter((i) => i.status === st).length])) as Record<LeadStatus, number>,
     },
   };
 }

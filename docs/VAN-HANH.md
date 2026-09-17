@@ -110,3 +110,12 @@ Thứ tự cho mỗi cơ sở:
 - Xác thực 2 lớp: menu Tổng quan → **Bảo mật tài khoản**, quét mã QR bằng Google Authenticator / Microsoft Authenticator, nhập mã 6 số. Tài khoản bắt buộc 2 lớp sẽ được đưa tới trang này sau khi đăng nhập cho đến khi xác thực. Mất điện thoại: quản trị gỡ thiết bị trong Supabase (Authentication → Users → MFA) rồi nhân sự đăng ký lại.
 - Khoá tài khoản (Người dùng → Khoá) đồng thời cấm đăng nhập Supabase; mở khoá gỡ lệnh cấm. Nếu trang báo "chưa đồng bộ đăng nhập", kiểm tra `SUPABASE_SERVICE_ROLE_KEY`.
 - Phiên đăng nhập tự làm mới khi còn dưới 5 phút; đăng xuất thu hồi phiên trên Supabase.
+
+## An ninh đăng nhập (Giai đoạn 12)
+
+- Cấu hình vận hành → Đăng nhập/OTP: "Nhân sự tự đăng xuất khi không thao tác" (mặc định 60 phút, áp dụng từ lần đăng nhập kế tiếp), "Tạm khoá đăng nhập sau số lần sai" (mặc định 5) và "Thời gian tạm khoá" (mặc định 15 phút). Ngoài ra một IP sai quá 30 lần / 15 phút bị chặn tạm.
+- Nhân sự báo không đăng nhập được do "tạm khoá": chờ hết thời gian, dùng "Quên mật khẩu?", hoặc quản trị Hội sở vào Tài khoản → người dùng → **Mở khoá đăng nhập tạm**. Mọi lần mở khoá ghi Audit Log.
+- Hệ thống & Cấu hình → **Bảo mật hệ thống**: xem hằng tuần. Xử lý mục đỏ ngay; tài khoản "không đăng nhập > 90 ngày" thì khoá nếu người đó đã nghỉ.
+- Mỗi nhân sự xem lịch sử đăng nhập của mình ở **Bảo mật tài khoản**; thấy lần đăng nhập lạ thì đổi mật khẩu và báo quản trị.
+- Nhật ký đăng nhập giữ 1 năm, tự dọn. IP hiển thị đã che khối cuối.
+- Tìm nhanh: bấm ô tìm kiếm trên cùng hoặc **Ctrl + K** (máy Mac: ⌘ + K), gõ tên trang không dấu ("hoc bu"), tên / mã học viên, tên phụ huynh, SĐT, mã lớp, mã đơn.

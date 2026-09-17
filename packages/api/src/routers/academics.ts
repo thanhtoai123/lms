@@ -47,7 +47,7 @@ export const sessionsRouter = router({
 
 export const classesRouter = router({
   list: protectedProcedure
-    .input(z.object({ centerId: z.string().uuid().optional(), status: z.enum(CLASS_STATUSES).optional(), q: z.string().max(100).optional(), teacherId: z.string().uuid().optional() }).default({}))
+    .input(z.object({ centerId: z.string().uuid().optional(), status: z.enum(CLASS_STATUSES).optional(), q: z.string().max(100).optional(), teacherId: z.string().uuid().optional(), courseId: z.string().uuid().optional() }).default({}))
     .query(({ ctx, input }) => C.listClasses(ctx, input)),
 
   get: protectedProcedure.input(z.object({ id: z.string().uuid() })).query(({ ctx, input }) => C.getClass(ctx, input.id)),

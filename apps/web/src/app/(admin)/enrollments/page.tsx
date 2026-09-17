@@ -9,14 +9,17 @@ export const metadata = { title: "Đăng ký học" };
 const ST = ["trial", "active", "paused", "completed", "withdrawn"] as const;
 type St = (typeof ST)[number];
 
-export default async function EnrollmentsPage({ searchParams }: { searchParams: Promise<{ q?: string; center?: string; status?: string; page?: string }> }) {
+export default async function EnrollmentsPage({ searchParams }: { searchParams: Promise<{ q?: string; center?: string; class?: string; status?: string; page?: string }> }) {
   const sp = await searchParams;
   const status = ST.includes(sp.status as St) ? (sp.status as St) : undefined;
   const { caller } = await getServerCaller();
-  const [ref, d] = await Promise.all([
+  const uuidOr = (v?: string) => (v && /^[0-9a-f-]{36}$/i.test(v) ? v : undefined);
+  const [ref, d, classList] = await Promise.all([
     caller.academics.classes.referenceData(),
-    caller.students.enrollments({ q: sp.q || undefined, centerId: sp.center || undefined, status, page: Number(sp.page) || 1 }),
+    caller.students.enrollments({ q: sp.q || undefined, centerId: uuidOr(sp.center), classId: uuidOr(sp.class), status, page: Number(sp.page) || 1 }),
+    caller.academics.classes.list({ centerId: uuidOr(sp.center) }),
   ]);
+  const classOpts = classList.filter((x) => x.status === "running" || x.status === "recruiting" || x.id === sp.class);
   const c = d.counts;
   return (
     <div className="space-y-4">
@@ -36,8 +39,9 @@ export default async function EnrollmentsPage({ searchParams }: { searchParams: 
       />
       <form className="flex flex-wrap gap-2">
         {status && <input type="hidden" name="status" value={status} />}
-        <input name="q" defaultValue={sp.q} placeholder="Tên / mã HV / mã lớp…" className="input max-w-xs" />
-        <select name="center" defaultValue={sp.center ?? ""} className="input max-w-[220px]"><option value="">Mọi cơ sở</option>{ref.centers.map((x) => <option key={x.id} value={x.id}>{x.code} — {x.name}</option>)}</select>
+        <input name="q" defaultValue={sp.q} placeholder="Tên / mã HV / mã lớp…" className="input max-w-xs" aria-label="Tìm" />
+        <select name="class" defaultValue={sp.class ?? ""} className="input max-w-[240px]" aria-label="Lớp"><option value="">Mọi lớp đang chạy</option>{classOpts.map((x) => <option key={x.id} value={x.id}>{x.code} — {x.name}</option>)}</select>
+        <select name="center" defaultValue={sp.center ?? ""} className="input max-w-[220px]" aria-label="Cơ sở"><option value="">Mọi cơ sở</option>{ref.centers.map((x) => <option key={x.id} value={x.id}>{x.code} — {x.name}</option>)}</select>
         <button className="btn-ghost">Lọc</button>
       </form>
       {d.items.length === 0 ? <Empty>Không có đăng ký phù hợp.</Empty> : (

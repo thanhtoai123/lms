@@ -173,6 +173,7 @@ export const ADMIN_NAV: NavGroup[] = [
       { label: "Nhóm người dùng", href: "/user-groups", perm: "system:read", ready: true, desc: "Nhóm nhận thông báo nội bộ." },
       { label: "Vai trò & quyền", href: "/roles", perm: "system:read", ready: true, desc: "Ma trận vai trò × quyền (đọc từ policy engine)." },
       { label: "Cây tổ chức", href: "/to-chuc", perm: "system:read", ready: true, desc: "Khu vực → cơ sở → phòng ban." },
+      { label: "Bảo mật hệ thống", href: "/bao-mat-he-thong", perm: "system:read", ready: true, desc: "Khuyến nghị bảo mật, tài khoản cần rà soát, đăng nhập sai, nhật ký đăng nhập." },
       { label: "Audit Log", href: "/audit-log", perm: "audit:read", ready: true, desc: "Nhật ký thao tác bất biến, lọc theo cơ sở/module/người." },
       { label: "Tuân thủ dữ liệu", href: "/compliance", perm: "compliance:read", ready: true, desc: "Luật BVDLCN 2025 / NĐ 356: đồng ý, yêu cầu của chủ thể dữ liệu, sổ sự cố, lưu giữ." },
       { label: "Chạy lại webhook", href: "/crm/webhook-replay", perm: "system:read", ready: true, desc: "Xem và chạy lại webhook lỗi." },

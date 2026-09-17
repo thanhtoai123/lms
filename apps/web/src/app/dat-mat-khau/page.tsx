@@ -1,8 +1,11 @@
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
+import { getDb } from "@satarobo/db";
+import { recordLogin } from "@satarobo/api";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { passwordProblems, validTokenHash } from "@satarobo/core";
-import { ACCESS_COOKIE, REFRESH_COOKIE, cookieOptions, setPassword, supabaseOn, verifyTokenHash } from "@/lib/auth-session";
+import { ACCESS_COOKIE, IDLE_COOKIE, REFRESH_COOKIE, SEEN_COOKIE, clientMeta, cookieOptions, seenCookieOptions, setPassword, supabaseOn, verifyTokenHash } from "@/lib/auth-session";
+import { staffIdleMinutes } from "@satarobo/api";
 
 export const metadata = { title: "Đặt mật khẩu", robots: { index: false } };
 export const dynamic = "force-dynamic";
@@ -29,8 +32,11 @@ async function save(formData: FormData) {
   const err = await setPassword(s.access_token, pw);
   if (err) redirect(`/dat-mat-khau?e=${encodeURIComponent(err)}&expired=1`);
   const c = await cookies();
+  if (s.user?.email) await recordLogin(getDb(), { email: s.user.email, result: "password_set", ...clientMeta(await headers()) });
   c.set(ACCESS_COOKIE, s.access_token, cookieOptions("access", s.expires_in));
   c.set(REFRESH_COOKIE, s.refresh_token, cookieOptions("refresh"));
+  c.set(SEEN_COOKIE, String(Date.now()), seenCookieOptions());
+  c.set(IDLE_COOKIE, String(await staffIdleMinutes(getDb())), seenCookieOptions());
   redirect("/dashboard");
 }
 

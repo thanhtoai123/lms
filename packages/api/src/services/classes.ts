@@ -10,8 +10,9 @@ import { getOps } from "./opsSettings";
 import { writeAudit } from "./audit";
 import { enforcePrerequisites } from "./catalog";
 
-export async function listClasses(ctx: ProtectedContext, input: { centerId?: string; status?: ClassStatus; q?: string; teacherId?: string }) {
+export async function listClasses(ctx: ProtectedContext, input: { centerId?: string; status?: ClassStatus; q?: string; teacherId?: string; courseId?: string }) {
   const conds = [sql`${classes.deletedAt} is null`];
+  if (input.courseId) conds.push(eq(classes.courseId, input.courseId));
   if (input.centerId) conds.push(eq(classes.centerId, input.centerId));
   if (input.status) conds.push(eq(classes.status, input.status));
   if (input.teacherId) conds.push(or(eq(classes.leadTeacherId, input.teacherId), eq(classes.assistantTeacherId, input.teacherId))!);

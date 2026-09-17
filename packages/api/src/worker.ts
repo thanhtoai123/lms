@@ -16,6 +16,7 @@ import { recordHeartbeat } from "./services/ops";
 import { syncInvoiceDrafts } from "./services/einvoice";
 import { dispatchParentMessages } from "./services/delivery";
 import { dispatchPush } from "./services/pilot";
+import { pruneLoginEvents } from "./services/loginSecurity";
 
 const db = createDb();
 const interval = Number(process.env.WORKER_INTERVAL_MS ?? 10_000);
@@ -48,6 +49,8 @@ async function tick() {
       if (n) console.log(new Date().toISOString(), `survey invites=${n}`);
     }
     if (Date.now() - lastRetention > 24 * 3600_000) {
+      const le = await pruneLoginEvents(db);
+      if (le) console.log(new Date().toISOString(), `login events pruned=${le}`);
       lastRetention = Date.now();
       const rt = await retentionSweep(db, { dryRun: false, actorId: null });
       if (rt.done) console.log(new Date().toISOString(), `retention anonymized=${rt.done}`);

@@ -36,6 +36,11 @@ export function OfflineSync() {
         void qc.invalidateQueries({ queryKey: trpc.academics.sessions.get.queryKey({ id: it.sessionId }) });
       } catch (e) {
         if (isNetworkError(e)) break;
+        if ((e as { data?: { code?: string } }).data?.code === "UNAUTHORIZED") {
+          // Hết phiên (không thao tác lâu): giữ nguyên hàng đợi, gửi lại sau khi đăng nhập
+          markFailed(it.id, "Phiên đăng nhập đã hết — đăng nhập lại, dữ liệu điểm danh vẫn được giữ và tự gửi");
+          break;
+        }
         markFailed(it.id, (e as Error).message);
       }
     }

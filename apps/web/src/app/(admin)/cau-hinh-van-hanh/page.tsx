@@ -18,7 +18,7 @@ type Tab =
 const TABS: Tab[] = [
   { key: "thong-bao", label: "Thông báo đẩy", kind: "link", desc: "Thông báo đẩy tới phụ huynh dùng khoá VAPID và giờ yên lặng chung với tin Zalo. Thông báo nội bộ cho nhân sự hiện ở chuông góc trên, gửi theo vai trò.", links: [{ href: "/cau-hinh-van-hanh?tab=zalo", label: "Giờ yên lặng, trần tin mỗi phụ huynh" }, { href: "/tich-hop", label: "Trạng thái Web Push" }, { href: "/user-groups", label: "Nhóm nhận thông báo nội bộ" }] },
   { key: "zalo", label: "Tin Zalo (ZNS) / SMS", kind: "zalo" },
-  { key: "otp", label: "Đăng nhập/OTP", kind: "ops", group: "otp", desc: "Áp cho toàn hệ thống: đăng nhập cổng phụ huynh và kích hoạt tài khoản." },
+  { key: "otp", label: "Đăng nhập/OTP", kind: "ops", group: "otp", desc: "Áp cho toàn hệ thống: đăng nhập nhân sự (tự đăng xuất, khoá tạm khi sai mật khẩu), đăng nhập cổng phụ huynh và kích hoạt tài khoản." },
   { key: "hoc-vien", label: "Học viên", kind: "ops", group: "hoc-vien", desc: "Ngưỡng sắp hết khoá, bảo lưu tối đa, hạn học bù, cảnh báo chuyên cần." },
   { key: "lop", label: "Lớp & GV", kind: "ops", group: "lop", desc: "Quy tắc điểm danh bằng thẻ QR." },
   { key: "cham-cong", label: "Chấm công", kind: "ops", group: "cham-cong", desc: "Dung sai tính đi muộn / về sớm. Bán kính chấm công đặt theo từng cơ sở ở trang Cơ sở." },
