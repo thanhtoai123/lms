@@ -215,21 +215,22 @@ export async function matchCandidates(ctx: ProtectedContext, input: { id: string
   }
   const rows = await ctx.db.select({
     id: orders.id, code: orders.code, total: orders.total, status: orders.status, customerName: orders.customerName, centerId: orders.centerId, centerCode: centers.code, studentName: students.fullName,
-    confirmed: sql<number>`coalesce((select sum(p.amount) from ${payments} p where p.order_id = ${orders.id} and p.status = 'confirmed'), 0)::bigint`,
-    pending: sql<number>`coalesce((select sum(p.amount) from ${payments} p where p.order_id = ${orders.id} and p.status = 'recorded'), 0)::bigint`,
   }).from(orders).innerJoin(centers, eq(centers.id, orders.centerId)).leftJoin(students, eq(students.id, orders.studentId))
     .where(and(...conds)).orderBy(desc(orders.createdAt)).limit(200);
   const ids = rows.map((r) => r.id);
+  // Cộng tiền ở JS: truy vấn con tương quan trong drizzle không phải lúc nào cũng khớp bảng ngoài
+  const payRows = ids.length ? await ctx.db.select({ orderId: payments.orderId, status: payments.status, amount: payments.amount }).from(payments).where(inArray(payments.orderId, ids)) : [];
+  const sumPay = (orderId: string, status: "confirmed" | "recorded") => payRows.filter((x) => x.orderId === orderId && x.status === status).reduce((n, x) => n + Number(x.amount), 0);
   const plans = ids.length ? await ctx.db.select().from(orderInstallments).where(inArray(orderInstallments.orderId, ids)) : [];
   const today = todayISO();
   const methods = await bankMethodsFor(ctx.db, bt.accountNo);
   const items = rows.map((r) => {
-    const confirmed = Number(r.confirmed);
+    const confirmed = sumPay(r.id, "confirmed");
     const outstanding = Math.max(0, r.total - confirmed);
     const alloc = allocateInstallments(plans.filter((p) => p.orderId === r.id).map((p) => ({ seq: p.seq, amount: p.amount, dueDate: p.dueDate })), confirmed, today);
     const next = alloc.find((a) => a.remaining > 0);
-    const score = (next?.remaining === bt.amount ? 3 : 0) + (outstanding === bt.amount ? 2 : 0) + (Number(r.pending) === bt.amount ? 2 : 0);
-    return { ...r, confirmed, pending: Number(r.pending), outstanding, nextDue: next ?? null, score, accountOk: methods.some((m) => m.centerId === null || m.centerId === r.centerId) };
+    const score = (next?.remaining === bt.amount ? 3 : 0) + (outstanding === bt.amount ? 2 : 0) + (sumPay(r.id, "recorded") === bt.amount ? 2 : 0);
+    return { ...r, confirmed, pending: sumPay(r.id, "recorded"), outstanding, nextDue: next ?? null, score, accountOk: methods.some((m) => m.centerId === null || m.centerId === r.centerId) };
   }).filter((r) => r.outstanding >= bt.amount).sort((a, b) => b.score - a.score).slice(0, 20);
   return { tx: { ...bt, raw: undefined }, items };
 }

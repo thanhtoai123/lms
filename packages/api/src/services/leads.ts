@@ -290,15 +290,17 @@ export async function leadInbox(ctx: ProtectedContext, input: LeadInboxInput) {
 /** Khối "Thanh toán" của lead: đơn (trừ huỷ / đã hoàn), đã nộp / tổng / còn thiếu, điều kiện chốt */
 export async function leadPaymentSummary(db: Db, leadId: string) {
   const rows = await db
-    .select({
-      id: orders.id, code: orders.code, status: orders.status, total: orders.total, createdAt: orders.createdAt,
-      confirmed: sql<number>`coalesce((select sum(p.amount) from ${payments} p where p.order_id = ${orders.id} and p.status = 'confirmed'), 0)::bigint`,
-      recorded: sql<number>`coalesce((select sum(p.amount) from ${payments} p where p.order_id = ${orders.id} and p.status = 'recorded'), 0)::bigint`,
-    })
+    .select({ id: orders.id, code: orders.code, status: orders.status, total: orders.total, createdAt: orders.createdAt })
     .from(orders)
     .where(eq(orders.leadId, leadId))
     .orderBy(desc(orders.createdAt));
-  const list = rows.map((r) => ({ ...r, confirmed: Number(r.confirmed), recorded: Number(r.recorded) }));
+  const ids = rows.map((r) => r.id);
+  const pays = ids.length
+    ? await db.select({ orderId: payments.orderId, status: payments.status, amount: payments.amount }).from(payments).where(inArray(payments.orderId, ids))
+    : [];
+  const sumOf = (orderId: string, status: "confirmed" | "recorded") =>
+    pays.filter((x) => x.orderId === orderId && x.status === status).reduce((n, x) => n + Number(x.amount), 0);
+  const list = rows.map((r) => ({ ...r, total: Number(r.total), confirmed: sumOf(r.id, "confirmed"), recorded: sumOf(r.id, "recorded") }));
   const sum = summarizeLeadOrders(list);
   return { orders: list, ...sum, gate: conversionGate({ orders: sum.count, total: sum.total, recorded: sum.recorded, confirmed: sum.confirmed }) };
 }
