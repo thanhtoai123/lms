@@ -8,23 +8,36 @@ import { priceOrder, buildInstallmentPlan, validateInstallmentPlan, ORDER_TYPES,
 import { vnd } from "@/components/finance-ui";
 
 type Draft = { enrollmentId: string; centerId: string; studentId: string; studentName: string; classCode: string; courseId: string; courseCode: string; packageSessions: number; unitPrice: number; parent: { id: string; fullName: string; phone: string; email: string | null } | null };
-type Item = { courseId: string; description: string; quantity: number; unitPrice: number; packageSessions: number | "" };
+type LeadDraft = {
+  leadId: string; centerId: string | null; parentName: string; phone: string; email: string | null;
+  children: { id: string; fullName: string; converted: boolean; courseId: string | null }[];
+  items: { courseId: string; description: string; unitPrice: number; packageSessions: number | null; leadChildId: string | null }[];
+};
+type Item = { courseId: string; description: string; quantity: number; unitPrice: number; packageSessions: number | ""; leadChildId: string };
 
-export function OrderForm({ centers, methods, courses, today, draft }: {
+export function OrderForm({ centers, methods, courses, today, draft, leadDraft }: {
   centers: { id: string; code: string; name: string }[];
   methods: { id: string; name: string; centerId: string | null; allowFor: string[]; kind: string }[];
   courses: { id: string; code: string; name: string; totalSessions: number; listPrice: number }[];
   today: string;
   draft: Draft | null;
+  leadDraft?: LeadDraft | null;
 }) {
   const trpc = useTRPC();
   const router = useRouter();
   const [type, setType] = useState<OrderType>("course");
-  const [centerId, setCenterId] = useState(draft?.centerId ?? centers[0]?.id ?? "");
-  const [cust, setCust] = useState({ name: draft?.parent?.fullName ?? "", phone: draft?.parent?.phone ?? "", email: draft?.parent?.email ?? "", idNumber: "", address: "", province: "", ward: "" });
+  const lockedCenter = draft?.centerId ?? leadDraft?.centerId ?? null;
+  const [centerId, setCenterId] = useState(lockedCenter ?? centers[0]?.id ?? "");
+  const [cust, setCust] = useState(leadDraft
+    ? { name: leadDraft.parentName, phone: leadDraft.phone, email: leadDraft.email ?? "", idNumber: "", address: "", province: "", ward: "" }
+    : { name: draft?.parent?.fullName ?? "", phone: draft?.parent?.phone ?? "", email: draft?.parent?.email ?? "", idNumber: "", address: "", province: "", ward: "" });
+  const emptyItem: Item = { courseId: "", description: "", quantity: 1, unitPrice: 0, packageSessions: "", leadChildId: "" };
   const [items, setItems] = useState<Item[]>(draft
-    ? [{ courseId: draft.courseId, description: `Học phí ${draft.courseCode} — gói ${draft.packageSessions} buổi (${draft.studentName}, lớp ${draft.classCode})`, quantity: 1, unitPrice: draft.unitPrice, packageSessions: draft.packageSessions }]
-    : [{ courseId: "", description: "", quantity: 1, unitPrice: 0, packageSessions: "" }]);
+    ? [{ courseId: draft.courseId, description: `Học phí ${draft.courseCode} — gói ${draft.packageSessions} buổi (${draft.studentName}, lớp ${draft.classCode})`, quantity: 1, unitPrice: draft.unitPrice, packageSessions: draft.packageSessions, leadChildId: "" }]
+    : leadDraft?.items.length
+      ? leadDraft.items.map((i) => ({ courseId: i.courseId, description: i.description, quantity: 1, unitPrice: i.unitPrice, packageSessions: i.packageSessions ?? "", leadChildId: i.leadChildId ?? "" }))
+      : [emptyItem]);
+  const leadKids = (leadDraft?.children ?? []).filter((c) => !c.converted);
   const [discount, setDiscount] = useState<{ type: "amount" | "percent"; value: number }>({ type: "percent", value: 0 });
   const [methodId, setMethodId] = useState("");
   const [inst, setInst] = useState({ count: 1, firstDueDate: today, intervalDays: 30 });
@@ -48,9 +61,9 @@ export function OrderForm({ centers, methods, courses, today, draft }: {
   const submit = () => {
     setErr(null);
     create.mutate({
-      type, centerId, enrollmentId: draft?.enrollmentId ?? null, studentId: draft?.studentId ?? null, parentId: draft?.parent?.id ?? null,
+      type, centerId, enrollmentId: draft?.enrollmentId ?? null, studentId: draft?.studentId ?? null, parentId: draft?.parent?.id ?? null, leadId: leadDraft?.leadId ?? null,
       customer: { name: cust.name, phone: cust.phone, email: cust.email || null, idNumber: cust.idNumber || null, address: cust.address || null, province: cust.province || null, ward: cust.ward || null },
-      items: items.map((i) => ({ courseId: i.courseId || null, description: i.description, quantity: i.quantity, unitPrice: i.unitPrice, packageSessions: i.packageSessions === "" ? null : i.packageSessions })),
+      items: items.map((i) => ({ courseId: i.courseId || null, description: i.description, quantity: i.quantity, unitPrice: i.unitPrice, packageSessions: i.packageSessions === "" ? null : i.packageSessions, leadChildId: i.leadChildId || null })),
       discount: discount.value ? discount : null,
       paymentMethodId: methodId,
       installments: custom ? { plan: custom } : inst,
@@ -61,12 +74,13 @@ export function OrderForm({ centers, methods, courses, today, draft }: {
   return (
     <div className="space-y-4">
       {draft && <div className="rounded-xl bg-brand-50 p-3 text-sm">Tạo đơn cho đăng ký: <b>{draft.studentName}</b> · lớp {draft.classCode} · gói {draft.packageSessions} buổi</div>}
+      {leadDraft && <div className="rounded-xl bg-brand-50 p-3 text-sm">Tạo đơn cho khách tiềm năng <b>{leadDraft.parentName}</b> — đơn gắn với lead; ghi nhận thu xong mới chốt được. Một đơn nhận nhiều dòng (mỗi con một dòng).</div>}
       <section className="card grid gap-2 p-4 sm:grid-cols-3">
         <label className="text-xs text-ink-600">Loại đơn *
           <select className="input mt-1" value={type} disabled={!!draft} onChange={(e) => setType(e.target.value as OrderType)}>{ORDER_TYPES.map((t) => <option key={t} value={t}>{ORDER_TYPE_VI[t]}</option>)}</select>
         </label>
         <label className="text-xs text-ink-600">Cơ sở *
-          <select className="input mt-1" value={centerId} disabled={!!draft} onChange={(e) => { setCenterId(e.target.value); setMethodId(""); }}>{centers.map((c) => <option key={c.id} value={c.id}>{c.code} — {c.name}</option>)}</select>
+          <select className="input mt-1" value={centerId} disabled={!!lockedCenter} title={leadDraft?.centerId ? "Khoá theo cơ sở của khách" : undefined} onChange={(e) => { setCenterId(e.target.value); setMethodId(""); }}>{centers.map((c) => <option key={c.id} value={c.id}>{c.code} — {c.name}</option>)}</select>
         </label>
         <label className="text-xs text-ink-600">Phương thức thanh toán *
           <select className="input mt-1" value={methodId} onChange={(e) => setMethodId(e.target.value)}>
@@ -80,7 +94,7 @@ export function OrderForm({ centers, methods, courses, today, draft }: {
         <h2 className="font-semibold">Khách hàng</h2>
         <div className="grid gap-2 sm:grid-cols-3">
           <label className="text-xs text-ink-600">Tên phụ huynh *<input className="input mt-1" value={cust.name} onChange={(e) => setCust({ ...cust, name: e.target.value })} /></label>
-          <label className="text-xs text-ink-600">Số điện thoại *<input className="input mt-1" value={cust.phone} onChange={(e) => setCust({ ...cust, phone: e.target.value })} /></label>
+          <label className="text-xs text-ink-600">Số điện thoại *<input className="input mt-1" value={cust.phone} disabled={!!leadDraft} title={leadDraft ? "Lấy theo SĐT của lead" : undefined} onChange={(e) => setCust({ ...cust, phone: e.target.value })} /></label>
           <label className="text-xs text-ink-600">Email<input className="input mt-1" type="email" value={cust.email} onChange={(e) => setCust({ ...cust, email: e.target.value })} /></label>
           <label className="text-xs text-ink-600">CCCD (được che, chỉ kế toán xem)<input className="input mt-1" autoComplete="off" value={cust.idNumber} onChange={(e) => setCust({ ...cust, idNumber: e.target.value })} /></label>
           <label className="text-xs text-ink-600">Tỉnh / thành<input className="input mt-1" value={cust.province} onChange={(e) => setCust({ ...cust, province: e.target.value })} /></label>
@@ -101,6 +115,14 @@ export function OrderForm({ centers, methods, courses, today, draft }: {
                 </select>
               </label>
             )}
+            {leadDraft && (
+              <label className="text-xs text-ink-600 sm:col-span-12">Học viên (con của lead)
+                <select className="input mt-1" value={it.leadChildId} onChange={(e) => setItem(i, { leadChildId: e.target.value })}>
+                  <option value="">— Không gắn con —</option>
+                  {leadKids.map((c) => <option key={c.id} value={c.id}>{c.fullName} · chưa có hồ sơ học viên</option>)}
+                </select>
+              </label>
+            )}
             <label className={`text-xs text-ink-600 ${type === "course" ? "sm:col-span-4" : "sm:col-span-6"}`}>Mô tả *<input className="input mt-1" value={it.description} onChange={(e) => setItem(i, { description: e.target.value })} /></label>
             {type === "course" && <label className="text-xs text-ink-600 sm:col-span-1">Buổi<input type="number" min={1} className="input mt-1" value={it.packageSessions} onChange={(e) => setItem(i, { packageSessions: e.target.value === "" ? "" : Number(e.target.value) })} /></label>}
             <label className="text-xs text-ink-600 sm:col-span-1">SL<input type="number" min={1} className="input mt-1" value={it.quantity} onChange={(e) => setItem(i, { quantity: Number(e.target.value) })} /></label>
@@ -108,7 +130,7 @@ export function OrderForm({ centers, methods, courses, today, draft }: {
             <div className="flex items-center justify-between gap-2 pb-2 text-sm tabular-nums sm:col-span-2"><b>{vnd(it.quantity * it.unitPrice)}</b>{items.length > 1 && <button className="text-xs text-red-700" onClick={() => setItems(items.filter((_, j) => j !== i))}>Bỏ</button>}</div>
           </div>
         ))}
-        {!draft && <button className="text-xs font-semibold text-brand-600" onClick={() => setItems([...items, { courseId: "", description: "", quantity: 1, unitPrice: 0, packageSessions: "" }])}>+ Thêm dòng</button>}
+        {!draft && <button className="text-xs font-semibold text-brand-600" onClick={() => setItems([...items, emptyItem])}>+ Thêm dòng</button>}
         <div className="flex flex-wrap items-end justify-end gap-3 border-t border-black/5 pt-3 text-sm">
           <label className="text-xs text-ink-600">Giảm giá
             <div className="mt-1 flex gap-1">

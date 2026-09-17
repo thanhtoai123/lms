@@ -37,8 +37,11 @@ export const ADMIN_NAV: NavGroup[] = [
     items: [
       { label: "Leads", href: "/leads", perm: "lead:read", ready: true },
       { label: "Nhập khách hàng", href: "/nhap-khach-hang", perm: "lead:create", ready: true },
+      { label: "Nhập lead từ file", href: "/leads/import", perm: "lead:create", ready: true, desc: "Đọc CSV / dán từ Excel ngay trên máy: 3 nhóm Mới / Trùng / Lỗi, gộp theo SĐT, cột Đè." },
+      { label: "Nhập khách đã đăng ký", href: "/leads/import/registered", perm: "lead:create", ready: true, desc: "Mỗi dòng một học viên đã đăng ký; token ĐãĐóng= / HạnĐợt2= vào ghi chú của bé." },
       { label: "Chốt hàng loạt", href: "/leads/bulk-convert", perm: "enrollment:create", ready: true },
       { label: "Quản lý chia lead", href: "/quan-ly-chia-lead", perm: "lead:update", ready: true },
+      { label: "Lịch sử thay đổi pool", href: "/quan-ly-chia-lead/lich-su", perm: "lead:read", ready: true, desc: "Ai bật/tắt ai, chỉnh lượt bao nhiêu, vì sao." },
       { label: "Bàn giao lead", href: "/ban-giao-lead", perm: "lead:update", ready: true },
       { label: "Lead lâu ngày chưa chăm", href: "/lead-nguoi", perm: "lead:read", ready: true },
       { label: "Chuyển lead liên CS", href: "/leads/bao-cao-chuyen", perm: "lead:read", ready: true },

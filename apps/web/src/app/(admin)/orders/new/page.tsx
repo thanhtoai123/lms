@@ -7,7 +7,7 @@ import { OrderForm } from "./form";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Tạo đơn hàng" };
 
-export default async function NewOrderPage({ searchParams }: { searchParams: Promise<{ enrollmentId?: string }> }) {
+export default async function NewOrderPage({ searchParams }: { searchParams: Promise<{ enrollmentId?: string; leadId?: string }> }) {
   const sp = await searchParams;
   const { caller, ctx } = await getServerCaller();
   if (!ctx.actor || !hasPermission(ctx.actor as Actor, "finance:create")) return <NoAccess title="Tạo đơn hàng" perm="finance:create" />;
@@ -17,6 +17,7 @@ export default async function NewOrderPage({ searchParams }: { searchParams: Pro
     caller.catalog.courseOptions(),
     sp.enrollmentId ? caller.finance.orderDraft({ enrollmentId: sp.enrollmentId }).catch(() => null) : Promise.resolve(null),
   ]);
+  const leadDraft = !sp.enrollmentId && sp.leadId ? await caller.finance.orderDraftFromLead({ leadId: sp.leadId }).catch(() => null) : null;
   const today = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10);
   const listPrices = await caller.catalog.courses({ active: true });
   return (
@@ -28,6 +29,12 @@ export default async function NewOrderPage({ searchParams }: { searchParams: Pro
           Đăng ký này đã có đơn: {draft.existingOrders.map((o) => <Link key={o.id} href={`/orders/${o.id}`} className="ml-1 font-mono font-semibold underline">{o.code}</Link>)}
         </div>
       ) : null}
+      {sp.leadId && !leadDraft && <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">Không mở được lead để tạo đơn (không tồn tại hoặc không có quyền).</div>}
+      {leadDraft?.existingOrders.length ? (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          Lead này đã có đơn: {leadDraft.existingOrders.map((o) => <Link key={o.id} href={`/orders/${o.id}`} className="ml-1 font-mono font-semibold underline">{o.code}</Link>)}
+        </div>
+      ) : null}
       <OrderForm
         centers={ref.centers}
         methods={methods.map((m) => ({ id: m.id, name: m.name, centerId: m.centerId, allowFor: m.allowFor, kind: m.kind }))}
@@ -37,6 +44,10 @@ export default async function NewOrderPage({ searchParams }: { searchParams: Pro
           enrollmentId: draft.enrollmentId, centerId: draft.centerId, studentId: draft.studentId, studentName: draft.studentName, classCode: draft.classCode,
           courseId: draft.courseId, courseCode: draft.courseCode, packageSessions: draft.packageSessions, unitPrice: draft.unitPrice,
           parent: draft.parent,
+        } : null}
+        leadDraft={leadDraft ? {
+          leadId: leadDraft.leadId, centerId: leadDraft.centerId, parentName: leadDraft.parentName, phone: leadDraft.phone, email: leadDraft.email,
+          children: leadDraft.children, items: leadDraft.items,
         } : null}
       />
     </div>
