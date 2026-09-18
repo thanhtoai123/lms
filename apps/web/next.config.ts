@@ -49,9 +49,12 @@ const nextConfig: NextConfig = {
     const base = securityHeaders(securityHeaderOptions(process.env))
       .filter(([k]) => !k.startsWith("Content-Security-Policy") && k !== "Cross-Origin-Resource-Policy")
       .map(([key, value]) => ({ key, value }));
+    // Route SCORM tự đặt `X-Content-Type-Options` và `X-Frame-Options`; gửi thêm bản thứ hai
+    // có thể khiến trình duyệt coi `X-Frame-Options` là xung đột và CHẶN iframe bài giảng.
+    const ownHeaders = new Set(["X-Content-Type-Options", "X-Frame-Options"]);
     return [
       { source: "/api/:path((?!content/scorm/).*)", headers: [...base, { key: "Content-Security-Policy", value: API_CSP }] },
-      { source: "/api/content/scorm/:path*", headers: base },
+      { source: "/api/content/scorm/:path*", headers: base.filter((h) => !ownHeaders.has(h.key)) },
     ];
   },
 };
