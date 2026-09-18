@@ -7,6 +7,7 @@ import {
   type TeacherGrade, type TeacherStatus, type ContractType,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
+import { tenantCond } from "./tenantScope";
 import { writeAudit } from "./audit";
 import { todayISO } from "./sessions";
 
@@ -44,7 +45,7 @@ export async function assertTeacherQualified(db: Db, teacherId: string | null | 
 
 export async function listTeachers(ctx: ProtectedContext, input: { q?: string; centerId?: string; grade?: TeacherGrade; status?: TeacherStatus; courseId?: string }) {
   requirePermission(ctx, "teacher:read", { centerId: input.centerId ?? null });
-  const conds = [isNull(teachers.deletedAt)];
+  const conds = [isNull(teachers.deletedAt), tenantCond(ctx, teachers)];
   const sc = scopeCond(ctx);
   if (sc) conds.push(sc);
   if (input.centerId) conds.push(eq(teachers.centerId, input.centerId));

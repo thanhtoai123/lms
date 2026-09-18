@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { classGroups, classes, centers } from "@satarobo/db";
 import { visibleCenterIds } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
+import { tenantCond } from "./tenantScope";
 import { writeAudit } from "./audit";
 
 type Db = ProtectedContext["db"];
@@ -16,7 +17,7 @@ function scope(ctx: ProtectedContext) {
 
 export async function listClassGroups(ctx: ProtectedContext, input: { centerId?: string; includeInactive?: boolean } = {}) {
   requirePermission(ctx, "class:read", { centerId: input.centerId ?? null });
-  const conds = [isNull(classGroups.deletedAt), scope(ctx)];
+  const conds = [isNull(classGroups.deletedAt), scope(ctx), tenantCond(ctx, classGroups)];
   if (input.centerId) conds.push(eq(classGroups.centerId, input.centerId));
   if (!input.includeInactive) conds.push(eq(classGroups.isActive, true));
   return ctx.db

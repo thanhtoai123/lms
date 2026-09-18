@@ -2,6 +2,7 @@ import { and, eq, inArray, isNull, or, sql, desc, gte, type SQL } from "drizzle-
 import { leads, students, sessions, classes, careTasks, sessionMedia } from "@satarobo/db";
 import { addDays as addDaysISO, OPEN_LEAD_STATUSES, computeSla, authorize, maskPhone, hasRole, visibleCenterIds, type LeadStatus, type Permission } from "@satarobo/core";
 import type { ProtectedContext } from "../trpc";
+import { tenantCondViaCenter } from "./tenantScope";
 import { todayISO, overdueQueue } from "./sessions";
 import { resolveAdmissionsPolicy } from "./admissionsAdmin";
 import { dueReportCards } from "./reportCards";
@@ -29,8 +30,11 @@ export interface QueueItem {
 export async function adminOverview(ctx: ProtectedContext) {
   const { db, actor } = ctx;
   const visible = visibleCenterIds(actor);
-  const scope = (col: typeof leads.centerId | typeof classes.centerId | typeof careTasks.centerId | typeof students.homeCenterId): SQL =>
-    visible === null ? sql`true` : visible.length ? (or(inArray(col, visible), isNull(col)) as SQL) : sql`false`;
+  // Phạm vi cơ sở VÀ phạm vi trung tâm (tenant): số của trung tâm khác không lọt vào dashboard
+  const scope = (col: typeof leads.centerId | typeof classes.centerId | typeof careTasks.centerId | typeof students.homeCenterId): SQL => {
+    const byCenter = visible === null ? sql`true` : visible.length ? (or(inArray(col, visible), isNull(col)) as SQL) : sql`false`;
+    return and(byCenter, tenantCondViaCenter(ctx, col))!;
+  };
 
   // Kiểm tra chặt (không tính quyền *_own): dashboard tổng hợp dữ liệu cả cơ sở
   const can = (p: Permission) => authorize(actor, p, {}).allowed;

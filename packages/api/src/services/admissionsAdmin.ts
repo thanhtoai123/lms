@@ -11,6 +11,7 @@ import {
   type AdmissionsPolicy, type DistributionMode, type LeadStatus, type SlaPolicy, type AssignmentSource, type PoolAction,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
+import { tenantCond } from "./tenantScope";
 import { tenantCond, assertTenant, assertCenterTransferAllowed } from "./tenantScope";
 import { writeAudit } from "./audit";
 import { emit } from "./outbox";
@@ -175,7 +176,7 @@ export async function distributionBoard(ctx: ProtectedContext, centerId: string 
     candidateStats(ctx.db, centerId),
     ctx.db.select({ roundsResetAt: admissionsSettings.roundsResetAt }).from(admissionsSettings).where(centerId ? eq(admissionsSettings.centerId, centerId) : isNull(admissionsSettings.centerId)).limit(1),
   ]);
-  const [pool] = await ctx.db.select({ n: sql<number>`count(*)::int` }).from(leads).where(and(isNull(leads.assignedToId), inArray(leads.status, OPEN), isNull(leads.deletedAt), centerId ? eq(leads.centerId, centerId) : sql`true`));
+  const [pool] = await ctx.db.select({ n: sql<number>`count(*)::int` }).from(leads).where(and(isNull(leads.assignedToId), inArray(leads.status, OPEN), isNull(leads.deletedAt), tenantCond(ctx, leads), centerId ? eq(leads.centerId, centerId) : sql`true`));
   // Ứng viên có thể thêm: user có vai trò sale/CSKH ở cơ sở nhưng chưa trong bảng chia
   const candidates = await ctx.db
     .select({ id: users.id, fullName: users.fullName, role: userRoles.role })
@@ -289,7 +290,7 @@ export async function distributePool(ctx: ProtectedContext, centerId: string | n
   const policy = await resolveAdmissionsPolicy(ctx.db, centerId);
   if (policy.distributionMode === "manual") throw pre("Đang ở chế độ giao tay — hãy gán từng lead");
   const pool = await ctx.db.select({ id: leads.id, centerId: leads.centerId }).from(leads)
-    .where(and(isNull(leads.assignedToId), inArray(leads.status, OPEN), isNull(leads.deletedAt), centerId ? eq(leads.centerId, centerId) : sql`true`)).orderBy(asc(leads.createdAt)).limit(limit);
+    .where(and(isNull(leads.assignedToId), inArray(leads.status, OPEN), isNull(leads.deletedAt), tenantCond(ctx, leads), centerId ? eq(leads.centerId, centerId) : sql`true`)).orderBy(asc(leads.createdAt)).limit(limit);
   let assigned = 0;
   for (const l of pool) {
     await ctx.db.transaction(async (tx) => {
@@ -404,7 +405,7 @@ export interface HandoverInput { fromUserId: string; toUserId: string; statuses?
 export async function handoverLeads(ctx: ProtectedContext, input: HandoverInput) {
   requirePermission(ctx, "lead:update", { centerId: input.centerId ?? null });
   if (input.fromUserId === input.toUserId) throw bad("Sale nguồn và đích trùng nhau");
-  const conds = [eq(leads.assignedToId, input.fromUserId), isNull(leads.deletedAt), inArray(leads.status, input.statuses?.length ? input.statuses : OPEN)];
+  const conds = [eq(leads.assignedToId, input.fromUserId), isNull(leads.deletedAt), tenantCond(ctx, leads), inArray(leads.status, input.statuses?.length ? input.statuses : OPEN)];
   if (input.utmCampaign) conds.push(eq(leads.utmCampaign, input.utmCampaign));
   if (input.centerId) conds.push(eq(leads.centerId, input.centerId));
   const visible = visibleCenterIds(ctx.actor);
@@ -517,7 +518,7 @@ export async function reassignLeads(ctx: ProtectedContext, input: { leadIds: str
   const ids = [...new Set(input.leadIds)];
   if (!ids.length) throw bad("Chưa chọn lead");
   const rows = await ctx.db.select({ id: leads.id, status: leads.status, centerId: leads.centerId, assignedToId: leads.assignedToId, convertedAt: leads.convertedAt })
-    .from(leads).where(and(inArray(leads.id, ids), isNull(leads.deletedAt)));
+    .from(leads).where(and(inArray(leads.id, ids), isNull(leads.deletedAt), tenantCond(ctx, leads)));
   const skipped: { leadId: string; reason: string }[] = ids.filter((id) => !rows.some((r) => r.id === id)).map((leadId) => ({ leadId, reason: "Không tìm thấy" }));
   const eligible: typeof rows = [];
   for (const r of rows) {
@@ -574,7 +575,7 @@ export async function staleLeads(ctx: ProtectedContext, input: { sinceDays?: num
   const policy = await resolveAdmissionsPolicy(ctx.db, input.centerId ?? null);
   const days = input.sinceDays ?? policy.staleAfterDays;
   const cutoff = new Date(Date.now() - days * 86_400_000);
-  const conds = [isNull(leads.deletedAt), inArray(leads.status, OPEN), lte(leads.lastTouchAt, cutoff)];
+  const conds = [isNull(leads.deletedAt), tenantCond(ctx, leads), inArray(leads.status, OPEN), lte(leads.lastTouchAt, cutoff)];
   if (input.centerId) conds.push(eq(leads.centerId, input.centerId));
   const visible = visibleCenterIds(ctx.actor);
   if (visible !== null) conds.push(visible.length ? or(inArray(leads.centerId, visible), isNull(leads.centerId))! : sql`false`);
@@ -606,7 +607,7 @@ export async function staleLeads(ctx: ProtectedContext, input: { sinceDays?: num
 export async function bulkConvertCandidates(ctx: ProtectedContext, input: { centerId?: string | null; q?: string; statuses?: LeadStatus[] }) {
   requirePermission(ctx, "enrollment:create", { centerId: input.centerId ?? null });
   const statuses = input.statuses?.length ? input.statuses : (["trial_done", "deciding", "consulting", "trial_in_progress", "enrolled"] as LeadStatus[]);
-  const conds = [isNull(leads.deletedAt), inArray(leads.status, statuses)];
+  const conds = [isNull(leads.deletedAt), tenantCond(ctx, leads), inArray(leads.status, statuses)];
   if (input.centerId) conds.push(eq(leads.centerId, input.centerId));
   if (input.q) {
     const digits = input.q.replace(/\D/g, "").replace(/^0/, "");
@@ -625,7 +626,7 @@ export async function bulkConvertCandidates(ctx: ProtectedContext, input: { cent
   const classOptions = await ctx.db
     .select({ id: classes.id, code: classes.code, name: classes.name, centerId: classes.centerId, centerCode: centers.code, courseId: classes.courseId, courseCode: courses.code, listPrice: courses.listPrice, totalSessions: courses.totalSessions, capacity: classes.capacity, status: classes.status })
     .from(classes).innerJoin(centers, eq(centers.id, classes.centerId)).leftJoin(courses, eq(courses.id, classes.courseId))
-    .where(and(inArray(classes.status, ["recruiting", "running", "draft"]), isNull(classes.deletedAt), visible === null ? sql`true` : visible.length ? inArray(classes.centerId, visible) : sql`false`))
+    .where(and(inArray(classes.status, ["recruiting", "running", "draft"]), isNull(classes.deletedAt), tenantCond(ctx, classes), visible === null ? sql`true` : visible.length ? inArray(classes.centerId, visible) : sql`false`))
     .orderBy(asc(centers.code), asc(classes.code));
   const full = canSeeLeadPhone(ctx);
   return {
@@ -673,7 +674,7 @@ export async function bulkConvert(ctx: ProtectedContext, input: { items: BulkCon
 export async function crmSummary(ctx: ProtectedContext, input: { centerId?: string | null; days?: number }) {
   requirePermission(ctx, "lead:read", { centerId: input.centerId ?? null });
   const since = new Date(Date.now() - (input.days ?? 30) * 86_400_000);
-  const conds = [isNull(leads.deletedAt), gte(leads.createdAt, since)];
+  const conds = [isNull(leads.deletedAt), tenantCond(ctx, leads), gte(leads.createdAt, since)];
   if (input.centerId) conds.push(eq(leads.centerId, input.centerId));
   const visible = visibleCenterIds(ctx.actor);
   if (visible !== null) conds.push(visible.length ? or(inArray(leads.centerId, visible), isNull(leads.centerId))! : sql`false`);
@@ -682,7 +683,7 @@ export async function crmSummary(ctx: ProtectedContext, input: { centerId?: stri
     ctx.db.select({ source: leads.source, n: sql<number>`count(*)::int`, enrolled: sql<number>`count(*) filter (where ${leads.status} = 'enrolled')::int` }).from(leads).where(and(...conds)).groupBy(leads.source).orderBy(desc(sql`count(*)`)).limit(10),
     ctx.db.select({ userId: leads.assignedToId, name: users.fullName, n: sql<number>`count(*)::int`, enrolled: sql<number>`count(*) filter (where ${leads.status} = 'enrolled')::int`, open: sql<number>`count(*) filter (where ${leads.status} in (${OPEN_IN}))::int` })
       .from(leads).leftJoin(users, eq(users.id, leads.assignedToId)).where(and(...conds)).groupBy(leads.assignedToId, users.fullName).orderBy(desc(sql`count(*)`)),
-    ctx.db.select({ status: leads.status, lastTouchAt: leads.lastTouchAt, centerId: leads.centerId }).from(leads).where(and(isNull(leads.deletedAt), inArray(leads.status, OPEN), input.centerId ? eq(leads.centerId, input.centerId) : sql`true`)),
+    ctx.db.select({ status: leads.status, lastTouchAt: leads.lastTouchAt, centerId: leads.centerId }).from(leads).where(and(isNull(leads.deletedAt), tenantCond(ctx, leads), inArray(leads.status, OPEN), input.centerId ? eq(leads.centerId, input.centerId) : sql`true`)),
   ]);
   const policy = await resolveAdmissionsPolicy(ctx.db, input.centerId ?? null);
   const now = new Date().toISOString();
