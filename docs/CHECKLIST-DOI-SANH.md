@@ -7,12 +7,12 @@ _Bản gốc = admin.satarobo.vn (khảo sát ở chế độ chỉ đọc, 122 
 
 | Chỉ số | Số lượng |
 | --- | --- |
-| Hạng mục đối chiếu | 49 |
-| Ngang bản gốc | 21 |
+| Hạng mục đối chiếu | 65 |
+| Ngang bản gốc | 38 |
 | Bản mới làm hơn | 24 |
-| Còn thiếu | 2 |
+| Còn thiếu | 1 |
 | Chờ hợp đồng bên ngoài | 2 |
-| Đạt hoặc vượt bản gốc | 92% |
+| Đạt hoặc vượt bản gốc | 95% |
 
 ## Giao diện & trải nghiệm
 
@@ -22,10 +22,13 @@ _Người dùng hằng ngày: tư vấn, giáo vụ, kế toán, giáo viên._
 | --- | --- | --- | --- |
 | **Menu và đường dẫn** | 122 màn hình, menu theo nhóm nghiệp vụ. | 147 trang quản trị, giữ nguyên đường dẫn cũ nên nhân sự không phải học lại. | Ngang bản gốc |
 | **Tìm kiếm** | Ô tìm ở thanh trên, bấm là sang danh sách Lead. | Ctrl + K: gõ không dấu ra trang, tìm học viên, lead, lớp, mã đơn, số điện thoại — chỉ trong phạm vi quyền, số luôn che. | Bản mới làm hơn |
-| **Bộ lọc danh sách** | Leads lọc theo sale, nguồn, khoảng ngày; chọn cột hiển thị. | Đủ các bộ lọc đó, thêm phân trang và chọn số dòng; buổi học, lớp, ghi danh cũng lọc được.<br>_Lưu ý: Bản mới chưa có 'chọn cột hiển thị' như bản gốc._ | Ngang bản gốc |
+| **Bộ lọc danh sách** | Leads lọc theo sale, nguồn, khoảng ngày; chọn cột hiển thị. | Đủ các bộ lọc đó, thêm phân trang và chọn số dòng; đã có 'Cột hiển thị' ở Lead, Học viên, Thanh toán, Ghi danh — nhớ lựa chọn theo máy. | Ngang bản gốc |
 | **Nhập khách hàng nhanh** | Phiếu nhập ở lại trang, có nút lưu và nhập tiếp. | Giống vậy, thêm bảng “đã nhập trong phiên” và cảnh báo trùng số điện thoại ngay khi nhập. | Ngang bản gốc |
-| **Nhập danh sách từ Excel** | Đọc trực tiếp file .xlsx, cột cố định, có file mẫu. | Đọc CSV hoặc dán thẳng từ Excel; luồng xem trước, sửa tại chỗ, cột “đè” thì giống.<br>_Lưu ý: Thiếu thư viện đọc .xlsx — cần bổ sung phụ thuộc rồi bật lại._ | Còn thiếu |
-| **Xuất dữ liệu** | Xuất lead và hoa hồng từ máy chủ. | Xuất CSV cho lead, nhật ký thao tác, tài khoản phụ huynh — số điện thoại đã che.<br>_Lưu ý: Bản mới xuất trang đang xem, chưa xuất toàn bộ kết quả lọc._ | Ngang bản gốc |
+| **Nhập danh sách từ Excel** | Đọc trực tiếp file .xlsx, cột cố định, có file mẫu. | Đã đọc .xlsx trực tiếp (chọn sheet khi file nhiều sheet, có nút tải file mẫu .xlsx), giữ thêm đường CSV và dán từ Excel. | Ngang bản gốc |
+| **Xuất dữ liệu** | Xuất lead và hoa hồng từ máy chủ. | Xuất CSV toàn bộ kết quả lọc (tối đa 10.000 dòng) cho Lead và Học viên, cộng nhật ký thao tác, tài khoản phụ huynh — số điện thoại che theo quyền. | Ngang bản gốc |
+| **Nhóm lớp (lớp cố định)** | Có, ẩn sau cờ tính năng. | Trang Nhóm lớp đầy đủ: mã, tên, cơ sở, số lớp, bật/tắt; lớp gắn nhóm và lọc theo nhóm. | Ngang bản gốc |
+| **Trung tâm thông báo** | Trang /thong-bao gom mọi thông báo, có loại “Cần thực hiện”. | Trang tương đương, thêm cảnh báo tự sinh: tiền về chưa khớp đơn, thiếu báo cáo marketing quá ngày 05. | Ngang bản gốc |
+| **Trang kết quả tìm kiếm** | Có trang /search. | Có trang /search phân nhóm theo loại, Ctrl + K có mục “Xem tất cả kết quả”. | Ngang bản gốc |
 | **Ứng dụng giáo viên** | Trang web thường, cần mạng. | Cài được lên màn hình chính; điểm danh khi mất mạng, tự gửi khi có mạng; quét thẻ QR bằng camera. | Bản mới làm hơn |
 | **Cổng phụ huynh** | Nằm ngoài khu quản trị (đường dẫn chuyển sang nơi khác). | Trong cùng hệ thống: lịch học, chuyên cần, bài tập, học bạ, học phí kèm QR, tin nhắn, thông báo đẩy.<br>_Lưu ý: Chưa xem được cổng phụ huynh của bản gốc để so từng màn._ | Bản mới làm hơn |
 | **Dùng bằng bàn phím, hỗ trợ tiếp cận** | Không rõ. | Liên kết bỏ qua menu, nhãn cho ô lọc, điều khiển bảng lệnh bằng phím. | Bản mới làm hơn |
@@ -52,6 +55,17 @@ _Quy tắc chạy phía sau: tiền, lớp, buổi, công._
 | **Chấm công** | Công theo ca đã xếp; quét thẻ chỉ sinh cờ để quản lý rà; khoá kỳ. | Giống (đã viết lại đúng nguyên tắc này); thêm kết luận cho từng cờ và cảnh báo khi khoá kỳ còn cờ chưa rà. | Ngang bản gốc |
 | **Đơn từ** | 10 loại, duyệt là áp ngay vào lịch và công. | Đủ 10 loại; áp trong giao dịch con, áp lỗi thì đơn quay lại chờ duyệt kèm lý do. | Ngang bản gốc |
 | **Phân quyền theo vị trí** | Vị trí gắn bộ vai trò, có hạn hiệu lực, điều động tác nghiệp. | Giống; hết hạn là mất quyền ở lần truy cập kế tiếp. | Ngang bản gốc |
+| **Lớp trải nghiệm nhiều buổi** | Tạo lớp → thêm buổi → xếp học viên → điểm danh; đổi lịch/huỷ buổi phải ghi lý do, báo GV. | Làm đúng vậy: mã và tên lớp tự đặt, mỗi buổi khác ngày/giờ/phòng/GV, thêm một em là học toàn bộ buổi kể cả buổi tạo sau, khoá chống tranh chỗ cuối, vượt sĩ số phải có quyền riêng. | Ngang bản gốc |
+| **Ảnh lớp hai tầng** | GV tải vào kho của lớp → chọn ảnh, gắn thẻ học viên → gửi duyệt; ảnh loại còn khôi phục 7 ngày. | Làm đúng vậy, thêm ngày chụp, ảnh chung cả lớp, 40 ảnh mỗi lô, nút “buổi này không có ảnh” để tắt cảnh báo quá hạn. | Ngang bản gốc |
+| **Hoàn thành khoá theo đề xuất** | GV đề xuất → quản lý duyệt / từ chối kèm lý do, chứng chỉ sinh khi được duyệt. | Làm đúng vậy; vẫn giữ hoàn thành nhiều học viên một lần cho người có quyền duyệt. | Ngang bản gốc |
+| **Máy chính sách hoa hồng** | Khai theo 4 trục: chi khi nào · loại đơn · cách tính · ai nhận bao nhiêu; trần tổng 9%; ghi nguồn công văn. | Làm đúng 4 trục, có thưởng theo bậc doanh thu, trần tổng cấu hình được, sửa bắt buộc ghi lý do, dòng hoa hồng đã sinh không đổi. | Ngang bản gốc |
+| **QR chuyển khoản có hạn** | Xuất QR theo số phải đóng, hết hạn thì xuất lại, còn hiệu lực thì dùng lại. | Làm đúng vậy, hạn dùng cấu hình được (mặc định 24 giờ), QR gắn với đơn và bị đánh dấu đã dùng khi tiền về khớp. | Ngang bản gốc |
+| **Kỳ công & chốt** | 5 trạng thái, chốt là khoá mọi màn, mở lại phải ghi lý do, xuất bản tạm. | Đủ 5 trạng thái, thêm số ngày có cờ / chưa tính được, nút tính lại, ghi chú công chuẩn, mở lại vào nhật ký kiểm toán. | Ngang bản gốc |
+| **Lưới phân ca chạy thử** | Sinh lưới từ khung ca tuần, chạy thử rồi ghi thật, 8 nhóm kết quả. | Làm đúng 8 nhóm (mới · đổi mã · giữ nguyên · bị xoá · được bảo vệ · chừa lại từ ngày mai · ngoài quyền · mã lạ). | Ngang bản gốc |
+| **Mã ca giữ giờ đã xếp** | “Đổi giờ/số công chỉ áp cho ô xếp SAU khi lưu — lịch đã xếp giữ nguyên.” | Ô phân ca chụp ảnh giờ và số công lúc xếp, tính công đọc từ ảnh chụp nên lịch cũ không đổi theo. | Ngang bản gốc |
+| **Đánh giá & khảo sát** | Trình dựng phiếu 5 loại câu hỏi, 3 loại phiếu, nhóm tiêu chí, đợt mở–đóng–lưu trữ. | Làm đúng vậy, giữ NPS cũ song song như bản gốc. | Ngang bản gốc |
+| **Cây tổ chức** | Hội sở → khối vùng → cơ sở → điểm dạy / đối tác; quan hệ sở hữu / nhượng quyền / liên kết; pháp nhân; đổi cha tính lại đường dẫn cả nhánh. | Làm đúng vậy; mã và loại không đổi sau khi tạo, còn đơn vị con hoạt động thì không xoá, đơn vị loại cơ sở đồng bộ với bảng cơ sở cũ nên phân quyền không đổi. | Ngang bản gốc |
+| **Lead dùng chung** | Bật/tắt chia sẻ lead cho CSKH cùng cơ sở. | Làm đúng vậy: người chỉ có quyền “lead của mình” thấy thêm lead được bật dùng chung trong cơ sở. | Ngang bản gốc |
 | **Hoá đơn điện tử** | Đang phát hành với nhà cung cấp thật. | Đủ luồng nháp → phát hành → điều chỉnh / thay thế, đang chạy bộ chuyển thử nghiệm.<br>_Lưu ý: Chờ hợp đồng nhà cung cấp hoá đơn._ | Chờ bên ngoài |
 | **Zalo ZNS / SMS** | Đang gửi thật. | Đủ khai báo mẫu, giờ yên lặng, trần tin, thử lại và chuyển kênh — chạy ở chế độ giả lập.<br>_Lưu ý: Chờ hợp đồng ZNS và SMS brandname._ | Chờ bên ngoài |
 | **Nhập dữ liệu hệ cũ, chạy song song** | Không có (là hệ đang chạy). | Bộ nhập học viên / ghi danh, đối soát tổng và từng em, sổ chạy song song 5 ngày, danh mục go-live. | Bản mới làm hơn |
@@ -70,6 +84,8 @@ _Đo bằng chính phản hồi của hai hệ thống và mã nguồn bản m�
 | **Tự đăng xuất khi rời máy** | Chưa xác nhận. | Mặc định 60 phút, cảnh báo trước 2 phút, đồng bộ giữa các tab, máy chủ kiểm tra độc lập. | Bản mới làm hơn |
 | **Dữ liệu cá nhân** | Hiển thị đầy đủ số điện thoại trong danh sách. | Che theo vai trò; xem đầy đủ phải ghi lý do và vào nhật ký; CCCD và địa chỉ mã hoá AES-256-GCM. | Bản mới làm hơn |
 | **Nhật ký thao tác** | Có trang nhật ký. | Ghi trong cùng giao dịch với nghiệp vụ nên không mất; có nhật ký riêng cho việc xem dữ liệu nhạy cảm. | Bản mới làm hơn |
+| **Quyền theo nhóm người dùng** | Cấp quyền cho một nhóm người mà không sửa vai trò. | Làm đúng vậy: quyền nhóm cộng thêm vào quyền vai trò, gắn được theo cơ sở, không cấp được quyền hệ thống / nhật ký. | Ngang bản gốc |
+| **Nhật ký thao tác che sẵn** | SĐT / email che mặc định, “Xem đầy đủ” là break-glass có ghi log. | Làm đúng vậy ở lớp đọc, mở đầy đủ phải ghi lý do và sinh bản ghi PII_REVEAL. | Ngang bản gốc |
 | **Kiểm soát quyền ở máy chủ** | Có phân quyền theo vai trò và vị trí. | Một bộ luật quyền duy nhất, mọi thủ tục API đều đi qua; phạm vi dữ liệu theo cơ sở; có kiểm thử cho ma trận quyền. | Bản mới làm hơn |
 | **Giới hạn tần suất** | Chưa xác nhận. | OTP, quên mật khẩu, xác thực 2 lớp đều có trần theo tài khoản và IP. | Bản mới làm hơn |
 | **Trang rà bảo mật** | Không thấy. | Bảo mật hệ thống: khuyến nghị theo mức, tài khoản ngủ trên 90 ngày, IP sai nhiều, chính sách đang áp dụng. | Bản mới làm hơn |
