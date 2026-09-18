@@ -68,6 +68,6 @@ const opsGroup = z.enum(Object.keys(OPS_GROUPS) as [keyof typeof OPS_GROUPS, ...
 export const opsConfigRouter = router({
   group: protectedProcedure.input(z.object({ group: opsGroup, centerId: uuid.nullable() })).query(({ ctx, input }) => O.opsGroup(ctx, input)),
   save: protectedProcedure
-    .input(z.object({ group: opsGroup, centerId: uuid.nullable(), values: z.record(z.string().max(40), z.union([z.number(), z.boolean(), z.null()])), reason: z.string().max(300).nullish() }))
+    .input(z.object({ group: opsGroup, centerId: uuid.nullable(), values: z.record(z.string().max(40), z.union([z.number(), z.boolean(), z.string().max(60), z.null()])), reason: z.string().max(300).nullish() }))
     .mutation(({ ctx, input }) => O.saveOpsGroup(ctx, input)),
 });

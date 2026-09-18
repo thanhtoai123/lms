@@ -1,5 +1,8 @@
 import { z } from "zod";
-import { ORDER_TYPES, ORDER_STATUSES, PAYMENT_STATUSES, PAYMENT_METHOD_KINDS, REFUND_STATUSES, AGING_BUCKETS, BANK_TX_STATUSES, COMMISSION_KINDS, COMMISSION_STATUSES, RATE_TYPES, CLASS_FORMATS, INSTALLMENT_KINDS, DEBT_CHIPS, MAX_INSTALLMENTS } from "@satarobo/core";
+import {
+  ORDER_TYPES, ORDER_STATUSES, PAYMENT_STATUSES, PAYMENT_METHOD_KINDS, REFUND_STATUSES, AGING_BUCKETS, BANK_TX_STATUSES, COMMISSION_KINDS, COMMISSION_STATUSES, RATE_TYPES,
+  CLASS_FORMATS, INSTALLMENT_KINDS, DEBT_CHIPS, MAX_INSTALLMENTS, DISCOUNT_POLICIES, COMMISSION_EVENTS, COMMISSION_SCOPES, COMMISSION_CALC_METHODS,
+} from "@satarobo/core";
 import { router, protectedProcedure } from "../trpc";
 import * as F from "../services/finance";
 import * as B from "../services/bank";
@@ -10,7 +13,13 @@ const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Ngày không hợp lệ
 const money = z.number().int("Số tiền phải là số nguyên").min(0).max(10_000_000_000);
 const ntext = (n: number) => z.string().max(n).nullish();
 /** Khoản giảm theo dòng: lý do bắt buộc, trần % kiểm ở core theo cấu hình vận hành */
-const lineDiscount = z.object({ kind: z.enum(["amount", "percent"]), value: z.number().int().min(1).max(10_000_000_000), reason: z.string().trim().min(3, "Khoản giảm cần lý do").max(200) });
+const lineDiscount = z.object({
+  kind: z.enum(["amount", "percent"]),
+  /** none | percent | amount | program (ưu đãi chương trình) | scholarship (học bổng) */
+  policy: z.enum(DISCOUNT_POLICIES).nullish(),
+  value: z.number().int().min(1).max(10_000_000_000),
+  reason: z.string().trim().min(3, "Khoản giảm cần lý do").max(200),
+});
 const planEntry = z.object({ amount: money.min(1, "Mỗi đợt phải có số tiền > 0"), dueDate: isoDate, kind: z.enum(INSTALLMENT_KINDS).nullish(), studentId: uuid.nullish(), orderItemIndex: z.number().int().min(0).max(19).nullish() });
 /** Một dòng học phí cũ đã được trình duyệt đọc từ file (CCCD / địa chỉ không rời máy) */
 const legacyRow = z.object({
@@ -27,8 +36,14 @@ export const financeRouter = router({
   upsertMethod: protectedProcedure
     .input(z.object({
       id: uuid.optional(), code: z.string().trim().min(2).max(20), name: z.string().trim().min(3, "Tên tối thiểu 3 ký tự").max(120), kind: z.enum(PAYMENT_METHOD_KINDS),
-      centerId: uuid.nullable(), bankBin: ntext(10), bankName: ntext(80), accountNo: ntext(30), accountName: ntext(120), description: ntext(500),
-      allowFor: z.array(z.enum(["course", "product", "exam", "other"])).max(4), sortOrder: z.number().int().min(0).max(999), isActive: z.boolean(),
+      centerId: uuid.nullable(), bankBin: ntext(10), bankName: ntext(80), bankBranch: ntext(120), accountNo: ntext(30), accountName: ntext(120),
+      description: ntext(500), image: ntext(500),
+      allowFor: z.array(z.enum(["course", "product", "exam", "other"])).max(4).optional(),
+      /** 5 cờ phạm vi như bản gốc — khai cờ thì allowFor tự suy ra */
+      scope: z.object({
+        canBuyCourse: z.boolean(), canBuyPackage: z.boolean(), canBuyExam: z.boolean(), canBuyProduct: z.boolean(), canDeposit: z.boolean(),
+      }).partial().optional(),
+      sortOrder: z.number().int().min(0).max(999), isActive: z.boolean(),
     }))
     .mutation(({ ctx, input }) => F.upsertPaymentMethod(ctx, input)),
 
@@ -60,6 +75,13 @@ export const financeRouter = router({
     }))
     .mutation(({ ctx, input }) => F.createOrder(ctx, { ...input, customer: { ...input.customer, email: input.customer.email || null } })),
   cancelOrder: protectedProcedure.input(z.object({ id: uuid, reason: z.string().max(300) })).mutation(({ ctx, input }) => F.cancelOrder(ctx, input)),
+
+  // Mã QR chuyển khoản có hạn dùng
+  orderQr: protectedProcedure.input(z.object({ orderId: uuid, installmentId: uuid.nullish() })).query(({ ctx, input }) => F.orderQrState(ctx, input)),
+  issueOrderQr: protectedProcedure
+    .input(z.object({ orderId: uuid, installmentId: uuid.nullish(), force: z.boolean().optional() }))
+    .mutation(({ ctx, input }) => F.issueOrderQr(ctx, input)),
+  revokeOrderQr: protectedProcedure.input(z.object({ qrId: uuid, reason: ntext(200) })).mutation(({ ctx, input }) => F.revokeOrderQr(ctx, input)),
   /** Gửi email đơn hàng cho khách (mẫu ORDER_CREATED) */
   sendOrderEmail: protectedProcedure
     .input(z.object({ orderId: uuid, to: z.string().trim().email("Email không hợp lệ").max(200).nullish().or(z.literal("")) }))
@@ -121,7 +143,12 @@ export const financeRouter = router({
     .mutation(({ ctx, input }) => F.updateEnrollmentFee(ctx, input)),
   missingTuition: protectedProcedure.input(z.object({ centerId: uuid.optional(), kind: z.enum(["no_order", "unpaid"]).optional() }).default({})).query(({ ctx, input }) => F.missingTuition(ctx, input)),
   backfillTuition: protectedProcedure
-    .input(z.object({ enrollmentId: uuid, total: money.nullish(), discount: money.nullish(), discountReason: ntext(300), paidAmount: money, paidAt: isoDate.nullish(), note: ntext(500) }))
+    .input(z.object({
+      enrollmentId: uuid, total: money.nullish(),
+      /** `discount` là số % (percent / scholarship) hoặc số tiền (amount / program) tuỳ chính sách */
+      discount: money.nullish(), discountPolicy: z.enum(DISCOUNT_POLICIES).nullish(), discountReason: ntext(300),
+      paidAmount: money, paidAt: isoDate.nullish(), note: ntext(500),
+    }))
     .mutation(({ ctx, input }) => F.backfillTuition(ctx, input)),
 
   refunds: protectedProcedure.input(z.object({ status: z.enum(REFUND_STATUSES).optional(), centerId: uuid.optional() }).default({})).query(({ ctx, input }) => F.listRefunds(ctx, input)),
@@ -146,6 +173,11 @@ export const financeRouter = router({
     .mutation(({ ctx, input }) => B.allocateBankTx(ctx, input)),
   bankUnlink: protectedProcedure.input(z.object({ id: uuid, reason: z.string().max(300) })).mutation(({ ctx, input }) => B.unlinkBankTx(ctx, input)),
   bankSurplus: protectedProcedure.query(({ ctx }) => B.surplusList(ctx)),
+  // Phần dư → tạo một đợt mới trên chính đơn đó rồi rót vào (không tự hoàn, không trừ sang đơn khác)
+  bankSurplusTargets: protectedProcedure.input(z.object({ id: uuid })).query(({ ctx, input }) => B.surplusTargets(ctx, input)),
+  bankSurplusInstallment: protectedProcedure
+    .input(z.object({ id: uuid, dueDate: isoDate.nullish(), orderItemId: uuid.nullish(), note: ntext(300) }))
+    .mutation(({ ctx, input }) => B.createInstallmentForSurplus(ctx, input)),
   statementPreview: protectedProcedure.input(z.object({ csv: z.string().min(1, "File trống").max(3_000_000), paymentMethodId: uuid })).mutation(({ ctx, input }) => B.previewStatement(ctx, input)),
   statementImport: protectedProcedure.input(z.object({ csv: z.string().min(1).max(3_000_000), paymentMethodId: uuid, fileName: ntext(200), note: z.string().max(300) })).mutation(({ ctx, input }) => B.importStatement(ctx, input)),
 
@@ -181,4 +213,33 @@ export const financeRouter = router({
       rateType: z.enum(RATE_TYPES), value: z.number().int().min(1).max(100_000_000), maxAmount: money.nullable(), minOrderTotal: money, effectiveFrom: isoDate, effectiveTo: isoDate.nullable(), isActive: z.boolean(),
     }))
     .mutation(({ ctx, input }) => C.upsertRule(ctx, input)),
+
+  // Chính sách hoa hồng 4 trục (sự kiện · loại đơn · cách tính · các vai nhận)
+  commissionPolicies: protectedProcedure.query(({ ctx }) => C.listPolicies(ctx)),
+  upsertCommissionPolicy: protectedProcedure
+    .input(z.object({
+      id: uuid.optional(),
+      name: z.string().trim().min(3, "Tên tối thiểu 3 ký tự").max(120),
+      event: z.enum(COMMISSION_EVENTS),
+      orderScope: z.enum(COMMISSION_SCOPES),
+      centerId: uuid.nullable(),
+      calcMethod: z.enum(COMMISSION_CALC_METHODS),
+      shares: z.array(z.object({
+        role: z.string().trim().min(1, "Chọn vai nhận").max(60),
+        /** percent: điểm cơ bản (500 = 5%); fixed: VND mỗi đơn vị; tier: đọc bảng bậc */
+        value: z.number().int().min(0).max(100_000_000),
+        maxAmount: money.nullable(),
+        tiers: z.array(z.object({
+          from: money, to: money.nullable(), amount: money.nullable(), percent: z.number().int().min(0).max(10_000).nullable(),
+        })).max(20).nullish(),
+      })).min(1, "Chính sách cần ít nhất một vai nhận").max(10),
+      sourceRef: ntext(200), note: ntext(500),
+      effectiveFrom: isoDate, effectiveTo: isoDate.nullable(), isActive: z.boolean(),
+      /** Sửa chính sách bắt buộc ghi lý do */
+      reason: ntext(300),
+    }))
+    .mutation(({ ctx, input }) => C.upsertPolicy(ctx, input)),
+  toggleCommissionPolicy: protectedProcedure
+    .input(z.object({ id: uuid, isActive: z.boolean(), reason: z.string().max(300) }))
+    .mutation(({ ctx, input }) => C.togglePolicy(ctx, input)),
 });

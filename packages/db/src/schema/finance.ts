@@ -1,7 +1,10 @@
 import { sql } from "drizzle-orm";
 import { pgTable, text, uuid, boolean, integer, bigint, date, timestamp, pgEnum, jsonb, index, uniqueIndex, smallint, numeric, primaryKey } from "drizzle-orm/pg-core";
 import { id, timestamps } from "./_common";
-import { ORDER_TYPES, ORDER_STATUSES, PAYMENT_STATUSES, PAYMENT_METHOD_KINDS, REFUND_STATUSES, LEDGER_TYPES, BANK_TX_STATUSES, BANK_TX_SOURCES, COMMISSION_KINDS, COMMISSION_STATUSES, RATE_TYPES } from "@satarobo/core";
+import {
+  ORDER_TYPES, ORDER_STATUSES, PAYMENT_STATUSES, PAYMENT_METHOD_KINDS, REFUND_STATUSES, LEDGER_TYPES, BANK_TX_STATUSES, BANK_TX_SOURCES,
+  COMMISSION_KINDS, COMMISSION_STATUSES, RATE_TYPES, PAYMENT_QR_STATUSES, DISCOUNT_POLICIES, COMMISSION_EVENTS, COMMISSION_SCOPES, COMMISSION_CALC_METHODS,
+} from "@satarobo/core";
 import { centers } from "./org";
 import { users } from "./identity";
 import { parents, students } from "./people";
@@ -26,11 +29,22 @@ export const paymentMethods = pgTable("payment_methods", {
   centerId: uuid("center_id").references(() => centers.id, { onDelete: "cascade" }),
   bankBin: text("bank_bin"),
   bankName: text("bank_name"),
+  bankBranch: text("bank_branch"),
   accountNo: text("account_no"),
   accountName: text("account_name"),
   description: text("description"),
+  image: text("image"),
   /** course | package | exam | product */
   allowFor: jsonb("allow_for").$type<string[]>().notNull().default(["course"]),
+  /** Phạm vi dùng như bản gốc — 5 cờ; `allow_for` vẫn được giữ đồng bộ để không phá dữ liệu cũ */
+  canBuyCourse: boolean("can_buy_course").notNull().default(true),
+  canBuyPackage: boolean("can_buy_package").notNull().default(false),
+  canBuyExam: boolean("can_buy_exam").notNull().default(false),
+  canBuyProduct: boolean("can_buy_product").notNull().default(false),
+  /** Nạp ví (reserved — bản gốc đã khai sẵn cờ này) */
+  canDeposit: boolean("can_deposit").notNull().default(false),
+  /** Cấu hình cổng (VNPAY / TINGEE) */
+  gatewayConfig: jsonb("gateway_config").$type<Record<string, unknown>>(),
   sortOrder: integer("sort_order").notNull().default(0),
   isActive: boolean("is_active").notNull().default(true),
   ...timestamps,
@@ -117,8 +131,10 @@ export const orderItemDiscounts = pgTable(
   {
     id: id(),
     orderItemId: uuid("order_item_id").notNull().references(() => orderItems.id, { onDelete: "cascade" }),
-    /** amount | percent */
+    /** amount | percent — hình chiếu cách tính của `policy`, giữ cho dữ liệu cũ */
     kind: text("kind", { enum: ["amount", "percent"] }).notNull(),
+    /** none | percent | amount | program (ưu đãi chương trình) | scholarship (học bổng) */
+    policy: text("policy", { enum: DISCOUNT_POLICIES }).notNull().default("amount"),
     /** amount: VND; percent: 1..trần cấu hình */
     value: integer("value").notNull(),
     /** Số tiền giảm đã quy ra VND */
@@ -198,6 +214,8 @@ export const payments = pgTable(
     evidenceUrl: text("evidence_url"),
     /** Chống ghi đè: tăng mỗi lần sửa / điều chỉnh (STALE_WRITE khi lệch) */
     version: integer("version").notNull().default(1),
+    /** Số lần kế toán điều chỉnh khoản đã xác nhận (bản gốc: cột "soLanDieuChinh") */
+    adjustCount: integer("adjust_count").notNull().default(0),
     voidedAt: timestamp("voided_at", { withTimezone: true }),
     voidReason: text("void_reason"),
     recordedBy: uuid("recorded_by").references(() => users.id),
@@ -214,6 +232,44 @@ export const payments = pgTable(
     index("payments_enrollment_idx").on(t.enrollmentId),
     index("payments_order_item_idx").on(t.orderItemId),
     uniqueIndex("payments_external_ref_unique").on(t.source, t.externalRef),
+  ],
+);
+
+export const paymentQrStatusEnum = pgEnum("payment_qr_status", PAYMENT_QR_STATUSES);
+
+/**
+ * Mã QR chuyển khoản có hạn dùng. Xuất theo đơn (hoặc theo đợt), còn hiệu lực + đúng số tiền
+ * thì dùng lại; hết hạn thì phải xuất mã mới. Hạn dùng lấy từ cấu hình vận hành (mặc định 24 giờ).
+ */
+export const paymentQrCodes = pgTable(
+  "payment_qr_codes",
+  {
+    id: id(),
+    orderId: uuid("order_id").notNull().references(() => orders.id, { onDelete: "cascade" }),
+    /** Đợt được xuất mã (bỏ trống = thu toàn bộ phần còn thiếu của đơn) */
+    installmentId: uuid("installment_id").references(() => orderInstallments.id, { onDelete: "set null" }),
+    paymentMethodId: uuid("payment_method_id").references(() => paymentMethods.id),
+    amount: money("amount").notNull(),
+    /** Nội dung chuyển khoản in kèm mã — phụ huynh phải giữ nguyên để hệ thống tự đối khớp */
+    content: text("content").notNull(),
+    imageUrl: text("image_url").notNull(),
+    /** Tham số sinh ảnh, để dựng lại mã khi đổi nhà cung cấp ảnh QR */
+    bankBin: text("bank_bin"),
+    accountNo: text("account_no"),
+    accountName: text("account_name"),
+    bankName: text("bank_name"),
+    status: paymentQrStatusEnum("status").notNull().default("active"),
+    issuedBy: uuid("issued_by").references(() => users.id),
+    issuedAt: timestamp("issued_at", { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    /** Khoản thu đã khớp vào mã này */
+    usedPaymentId: uuid("used_payment_id"),
+    revokedReason: text("revoked_reason"),
+  },
+  (t) => [
+    index("payment_qr_order_idx").on(t.orderId, t.status),
+    index("payment_qr_expires_idx").on(t.status, t.expiresAt),
   ],
 );
 
@@ -374,9 +430,79 @@ export const commissionRules = pgTable("commission_rules", {
   effectiveFrom: date("effective_from").notNull(),
   effectiveTo: date("effective_to"),
   isActive: boolean("is_active").notNull().default(true),
+  /** Nguồn văn bản, vd "SR.QD.208 · PL04 Điều 1" */
+  sourceRef: text("source_ref"),
+  note: text("note"),
   createdBy: uuid("created_by").references(() => users.id),
   ...timestamps,
 });
+
+export const commissionEventEnum = pgEnum("commission_event", COMMISSION_EVENTS);
+export const commissionScopeEnum = pgEnum("commission_scope", COMMISSION_SCOPES);
+export const commissionCalcEnum = pgEnum("commission_calc", COMMISSION_CALC_METHODS);
+
+/**
+ * Chính sách hoa hồng 4 trục (SR.QD.208 · PL04):
+ * trục 1 sự kiện · trục 2 loại đơn · trục 3 cách tính · trục 4 các vai nhận (bảng con).
+ * Sửa chính sách bắt buộc ghi lý do (ghi vào audit); dòng hoa hồng đã sinh trước đó không đổi.
+ */
+export const commissionPolicies = pgTable(
+  "commission_policies",
+  {
+    id: id(),
+    name: text("name").notNull(),
+    /** Trục 1 — chi khi nào */
+    event: commissionEventEnum("event").notNull(),
+    /** Trục 2 — loại đơn: all | course | product */
+    orderScope: commissionScopeEnum("order_scope").notNull().default("all"),
+    centerId: uuid("center_id").references(() => centers.id, { onDelete: "cascade" }),
+    /** Trục 3 — cách tính: percent | fixed | tier */
+    calcMethod: commissionCalcEnum("calc_method").notNull(),
+    /** Nguồn văn bản, vd "SR.QD.208 · PL04 Điều 1" */
+    sourceRef: text("source_ref"),
+    note: text("note"),
+    effectiveFrom: date("effective_from").notNull(),
+    effectiveTo: date("effective_to"),
+    isActive: boolean("is_active").notNull().default(true),
+    createdBy: uuid("created_by").references(() => users.id),
+    ...timestamps,
+  },
+  (t) => [index("commission_policies_lookup_idx").on(t.event, t.orderScope, t.centerId, t.isActive)],
+);
+
+/** Trục 4 — ai nhận bao nhiêu: nhiều vai cho một chính sách, mỗi vai một mức */
+export const commissionPolicyShares = pgTable(
+  "commission_policy_shares",
+  {
+    id: id(),
+    policyId: uuid("policy_id").notNull().references(() => commissionPolicies.id, { onDelete: "cascade" }),
+    /** Mã vai nhận (vai trò / vị trí công việc) */
+    role: text("role").notNull(),
+    /** percent: điểm cơ bản (500 = 5%); fixed: VND mỗi đơn vị; tier: đọc bảng bậc */
+    value: money("value").notNull().default(0),
+    maxAmount: money("max_amount"),
+    sortOrder: integer("sort_order").notNull().default(0),
+  },
+  (t) => [uniqueIndex("commission_policy_share_unique").on(t.policyId, t.role)],
+);
+
+/** Bảng bậc doanh thu của một vai (chỉ dùng khi cách tính = tier) — các bậc không được chồng lấn */
+export const commissionPolicyTiers = pgTable(
+  "commission_policy_tiers",
+  {
+    id: id(),
+    shareId: uuid("share_id").notNull().references(() => commissionPolicyShares.id, { onDelete: "cascade" }),
+    fromAmount: money("from_amount").notNull(),
+    /** Bỏ trống = bậc cuối, không giới hạn trên */
+    toAmount: money("to_amount"),
+    /** Thưởng số tiền cố định của bậc (VND) — dùng một trong hai */
+    amount: money("amount"),
+    /** Thưởng theo % doanh thu, điểm cơ bản (500 = 5%) — dùng một trong hai */
+    percent: integer("percent"),
+    sortOrder: integer("sort_order").notNull().default(0),
+  },
+  (t) => [index("commission_policy_tiers_share_idx").on(t.shareId, t.fromAmount)],
+);
 
 /** Hoa hồng phát sinh theo đơn (dòng âm = thu hồi khi hoàn tiền sau khi đã chi) */
 export const commissions = pgTable(
@@ -387,6 +513,11 @@ export const commissions = pgTable(
     centerId: uuid("center_id").notNull().references(() => centers.id),
     kind: commissionKindEnum("kind").notNull(),
     ruleId: uuid("rule_id").references(() => commissionRules.id),
+    /** Chính sách 4 trục đã sinh dòng này (dòng cũ theo quy tắc `rule_id` giữ nguyên) */
+    policyId: uuid("policy_id").references(() => commissionPolicies.id),
+    event: commissionEventEnum("event"),
+    /** Vai nhận theo trục 4 */
+    role: text("role"),
     parentId: uuid("parent_id"),
     beneficiaryUserId: uuid("beneficiary_user_id").references(() => users.id),
     beneficiaryParentId: uuid("beneficiary_parent_id").references(() => parents.id),
@@ -408,7 +539,10 @@ export const commissions = pgTable(
     ...timestamps,
   },
   (t) => [
-    uniqueIndex("commissions_order_kind_unique").on(t.orderId, t.kind).where(sql`parent_id is null`),
+    // Dòng theo quy tắc cũ: mỗi đơn một dòng cho mỗi loại người hưởng
+    uniqueIndex("commissions_order_kind_unique").on(t.orderId, t.kind).where(sql`parent_id is null and policy_id is null`),
+    // Dòng theo chính sách 4 trục: một đơn có nhiều vai nhận, mỗi vai một dòng
+    uniqueIndex("commissions_order_policy_role_unique").on(t.orderId, t.policyId, t.role).where(sql`parent_id is null and policy_id is not null`),
     index("commissions_period_idx").on(t.period, t.status),
     index("commissions_beneficiary_idx").on(t.beneficiaryUserId, t.period),
   ],

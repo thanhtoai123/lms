@@ -36,7 +36,7 @@ export async function opsGroup(ctx: ProtectedContext, input: { group: OpsGroup; 
   return { fields, canEdit };
 }
 
-export async function saveOpsGroup(ctx: ProtectedContext, input: { group: OpsGroup; centerId: string | null; values: Record<string, number | boolean | null>; reason?: string | null }) {
+export async function saveOpsGroup(ctx: ProtectedContext, input: { group: OpsGroup; centerId: string | null; values: Record<string, number | boolean | string | null>; reason?: string | null }) {
   const level = input.centerId ? "center" : "global";
   const ok = input.centerId ? authorize(ctx.actor, "automation:update", { centerId: input.centerId }).allowed : authorizeGlobal(ctx.actor, "system:configure");
   if (!ok) throw new TRPCError({ code: "FORBIDDEN", message: input.centerId ? "Không có quyền cấu hình cơ sở này" : "Chỉ quản trị Hội sở đặt mặc định toàn hệ thống" });

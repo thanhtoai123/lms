@@ -1,18 +1,23 @@
 import { and, eq, inArray, sql, asc, desc, isNull, gte, lte, or, ilike, ne, type SQL } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import {
-  paymentMethods, orders, orderPrivate, orderItems, orderItemDiscounts, orderInstallments, orderEvents, payments, paymentAdjustments, refunds, financeLedger, bankTransactions, commissions,
+  paymentMethods, orders, orderPrivate, orderItems, orderItemDiscounts, orderInstallments, orderEvents, payments, paymentAdjustments, paymentQrCodes, refunds, financeLedger, bankTransactions, commissions,
   centers, users, userRoles, userNotifications, enrollments, classes, courses, students, parents, studentGuardians, leads, leadChildren,
 } from "@satarobo/db";
 import {
   authorize, hasRole, visibleCenterIds, addDays,
   priceLines, packagePrice, buildPlan, validateInstallmentPlan, replanInstallments, orderBalance, deriveOrderStatus, canCancelOrder,
-  allocateInstallments, agingBucket, agingBucketBy, agingBucketLabels, dueSoon, validatePaymentDecision, receiptNumber, orderCode, transferMemo, maskIdNumber,
+  allocateInstallments, agingBucket, agingBucketBy, agingBucketLabels, dueSoon, validatePaymentDecision, receiptNumber, transferMemo, maskIdNumber,
   refundProposal, validateRefundRequest, refundTransition, vietQrImageUrl, requireReason, formatVnd, maskPhone, remainingSessions, isEmail,
   orderDisplayState, enrollmentDebtChip, COACH_MULTIPLIER, MAX_INSTALLMENTS, DEBT_CHIPS,
   AGING_BUCKETS, FinanceRuleError,
+  buildOrderCode, orderCodePrefix, DEFAULT_ORDER_CODE_FORMAT,
+  qrExpiresAt, qrExpired, qrState, DEFAULT_QR_TTL_HOURS, QR_REUSE_LABEL,
+  applyDiscountPolicy, discountPolicyOf, DISCOUNT_POLICY_KIND, DISCOUNT_POLICY_VI, DEFAULT_MAX_LINE_DISCOUNT_PCT,
+  scopeFlagsToAllowFor, allowForToScopeFlags,
   type OrderType, type OrderStatus, type PaymentStatus, type PaymentDecision, type RefundStatus, type PaymentMethodKind, type AgingBucket, type Discount, type Permission,
   type ClassFormat, type InstallmentKind, type LineDiscount, type DebtChip, type DebtAgeBucket,
+  type OrderCodeFormat, type DiscountPolicy, type PaymentScopeFlag,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { getOps, opsForCenters } from "./opsSettings";
@@ -89,12 +94,21 @@ const confirmedSql = sql<number>`coalesce((select sum(p.amount) from ${payments}
 const pendingSql = sql<number>`coalesce((select sum(p.amount) from ${payments} p where p.order_id = ${sql.raw('"orders"."id"')} and p.status = 'recorded'), 0)::bigint`;
 const refundedSql = sql<number>`coalesce((select sum(r.amount) from ${refunds} r where r.order_id = ${sql.raw('"orders"."id"')} and r.status = 'paid'), 0)::bigint`;
 
-/** Số thứ tự đơn kế tiếp trong năm (gọi trong transaction) */
-export async function nextOrderCode(tx: Db, yr: number) {
-  await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${"order-code:" + yr}))`);
-  const prefix = orderCode(yr, 0).slice(0, 5);
-  const [m] = await tx.select({ n: sql<number>`coalesce(max(substring(${orders.code} from 6)::int), 0)::int` }).from(orders).where(ilike(orders.code, `${prefix}%`));
-  return orderCode(yr, (m?.n ?? 0) + 1);
+/**
+ * Số thứ tự đơn kế tiếp trong phạm vi tiền tố (năm với DHyy-, ngày với ORD-YYMMDD-).
+ * Gọi trong transaction. Dạng mã lấy từ cấu hình vận hành `orderCodeFormat`.
+ */
+export async function nextOrderCode(tx: Db, dateISO: string, format: OrderCodeFormat = DEFAULT_ORDER_CODE_FORMAT) {
+  const prefix = orderCodePrefix(format, dateISO);
+  await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${"order-code:" + prefix}))`);
+  const [m] = await tx.select({ n: sql<number>`coalesce(max(right(${orders.code}, 6)::int), 0)::int` }).from(orders).where(ilike(orders.code, `${prefix}%`));
+  return buildOrderCode(format, dateISO, (m?.n ?? 0) + 1);
+}
+
+/** Dạng mã đơn đang cấu hình (mặc định giữ kiểu hiện tại để không phá dữ liệu cũ) */
+export async function orderCodeFormatOf(db: Db, centerId: string | null = null): Promise<OrderCodeFormat> {
+  const ops = await getOps(db, centerId);
+  return (ops.orderCodeFormat as OrderCodeFormat) ?? DEFAULT_ORDER_CODE_FORMAT;
 }
 
 /** Số phiếu thu kế tiếp theo cơ sở + năm (gọi trong transaction) */
@@ -134,12 +148,25 @@ export async function listPaymentMethods(ctx: ProtectedContext, input: { centerI
     .where(conds.length ? and(...conds) : undefined).orderBy(asc(paymentMethods.sortOrder), asc(paymentMethods.code));
   return rows
     .filter((r) => !input.forType || r.m.allowFor.includes(input.forType === "course" ? "course" : input.forType))
-    .map((r) => ({ ...r.m, centerCode: r.centerCode, canEdit: can(ctx, "finance:configure", r.m.centerId) }));
+    .map((r) => ({
+      ...r.m,
+      centerCode: r.centerCode,
+      // Dữ liệu cũ chưa khai cờ thì suy từ allowFor để form luôn hiện đúng
+      scope: r.m.canBuyCourse || r.m.canBuyPackage || r.m.canBuyExam || r.m.canBuyProduct || r.m.canDeposit
+        ? { canBuyCourse: r.m.canBuyCourse, canBuyPackage: r.m.canBuyPackage, canBuyExam: r.m.canBuyExam, canBuyProduct: r.m.canBuyProduct, canDeposit: r.m.canDeposit }
+        : allowForToScopeFlags(r.m.allowFor),
+      canEdit: can(ctx, "finance:configure", r.m.centerId),
+    }));
 }
 
 export interface PaymentMethodInput {
   id?: string; code: string; name: string; kind: PaymentMethodKind; centerId: string | null; bankBin?: string | null; bankName?: string | null;
-  accountNo?: string | null; accountName?: string | null; description?: string | null; allowFor: string[]; sortOrder: number; isActive: boolean;
+  bankBranch?: string | null; accountNo?: string | null; accountName?: string | null; description?: string | null; image?: string | null;
+  /** Cách khai cũ — vẫn nhận để không phá form / API đang dùng */
+  allowFor?: string[];
+  /** 5 cờ phạm vi như bản gốc; khai cờ thì `allowFor` được suy ra theo */
+  scope?: Partial<Record<PaymentScopeFlag, boolean>>;
+  sortOrder: number; isActive: boolean;
 }
 
 export async function upsertPaymentMethod(ctx: ProtectedContext, input: PaymentMethodInput) {
@@ -151,25 +178,36 @@ export async function upsertPaymentMethod(ctx: ProtectedContext, input: PaymentM
   if (!/^[A-Z0-9_-]{2,20}$/.test(code)) throw bad("Mã phương thức chỉ gồm chữ in hoa, số, - _ (2–20 ký tự)");
   if (input.kind === "bank_transfer" && (!input.bankBin?.trim() || !input.accountNo?.trim() || !input.accountName?.trim())) throw bad("Chuyển khoản cần mã ngân hàng (BIN), số tài khoản và tên chủ tài khoản");
   if (input.bankBin && !/^\d{6}$/.test(input.bankBin.trim())) throw bad("Mã BIN ngân hàng gồm 6 chữ số (VD Vietcombank 970436)");
-  if (!input.allowFor.length) throw bad("Chọn ít nhất một loại đơn được dùng");
+  // Phạm vi dùng: nhận 5 cờ (bản gốc) hoặc `allowFor` cũ; hai chiều luôn được giữ đồng bộ
+  const scopeFlags = input.scope ?? allowForToScopeFlags(input.allowFor ?? []);
+  const allowFor = input.scope ? scopeFlagsToAllowFor(input.scope) : [...new Set(input.allowFor ?? [])];
+  if (!allowFor.length && !scopeFlags.canDeposit) throw bad("Chọn ít nhất một phạm vi được dùng (khoá học, gói, kỳ thi, sản phẩm hoặc nạp ví)");
   const dup = (await ctx.db.select({ id: paymentMethods.id }).from(paymentMethods).where(and(eq(paymentMethods.code, code), input.id ? ne(paymentMethods.id, input.id) : undefined)).limit(1))[0];
   if (dup) throw new TRPCError({ code: "CONFLICT", message: `Mã ${code} đã tồn tại` });
   const values = {
     code, name: input.name.trim(), kind: input.kind, centerId: input.centerId, bankBin: input.bankBin?.trim() || null, bankName: input.bankName?.trim() || null,
+    bankBranch: input.bankBranch?.trim() || null,
     accountNo: input.accountNo?.trim() || null, accountName: input.accountName?.trim().toUpperCase() || null, description: input.description?.trim() || null,
-    allowFor: [...new Set(input.allowFor)], sortOrder: input.sortOrder, isActive: input.isActive,
+    image: input.image?.trim() || null,
+    allowFor,
+    canBuyCourse: !!scopeFlags.canBuyCourse, canBuyPackage: !!scopeFlags.canBuyPackage, canBuyExam: !!scopeFlags.canBuyExam,
+    canBuyProduct: !!scopeFlags.canBuyProduct, canDeposit: !!scopeFlags.canDeposit,
+    sortOrder: input.sortOrder, isActive: input.isActive,
   };
-  if (input.id) {
-    const before = await ctx.db.query.paymentMethods.findFirst({ where: eq(paymentMethods.id, input.id) });
-    if (!before) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy phương thức" });
-    if (before.centerId !== input.centerId && !can(ctx, "finance:configure", before.centerId)) throw new TRPCError({ code: "FORBIDDEN", message: "Không có quyền sửa phương thức này" });
-    await ctx.db.update(paymentMethods).set(values).where(eq(paymentMethods.id, input.id));
-    await writeAudit(ctx.db, { actorId: ctx.user.id, action: "UPDATE", module: "finance", entity: "payment_methods", entityId: input.id, before: { ...before, createdAt: undefined, updatedAt: undefined }, after: values, ip: ctx.ip });
-    return { id: input.id };
-  }
-  const [row] = await ctx.db.insert(paymentMethods).values(values).returning({ id: paymentMethods.id });
-  await writeAudit(ctx.db, { actorId: ctx.user.id, action: "CREATE", module: "finance", entity: "payment_methods", entityId: row!.id, after: values, ip: ctx.ip });
-  return { id: row!.id };
+  return ctx.db.transaction(async (txx) => {
+    const tx = txx as unknown as Db;
+    if (input.id) {
+      const before = await tx.query.paymentMethods.findFirst({ where: eq(paymentMethods.id, input.id) });
+      if (!before) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy phương thức" });
+      if (before.centerId !== input.centerId && !can(ctx, "finance:configure", before.centerId)) throw new TRPCError({ code: "FORBIDDEN", message: "Không có quyền sửa phương thức này" });
+      await tx.update(paymentMethods).set(values).where(eq(paymentMethods.id, input.id));
+      await writeAudit(tx, { actorId: ctx.user.id, action: "UPDATE", module: "finance", entity: "payment_methods", entityId: input.id, before: { ...before, createdAt: undefined, updatedAt: undefined }, after: values, ip: ctx.ip });
+      return { id: input.id };
+    }
+    const [row] = await tx.insert(paymentMethods).values(values).returning({ id: paymentMethods.id });
+    await writeAudit(tx, { actorId: ctx.user.id, action: "CREATE", module: "finance", entity: "payment_methods", entityId: row!.id, after: values, ip: ctx.ip });
+    return { id: row!.id };
+  });
 }
 
 /* ------------------------------------------------------------------ */
@@ -308,7 +346,7 @@ export async function insertLeadOrderTx(tx: Db, p: {
 }) {
   const total = p.items.reduce((s, i) => s + Math.round(i.unitPrice), 0);
   if (p.payment && p.payment.amount > total) throw pre(`Số đã đóng (${formatVnd(p.payment.amount)}) lớn hơn tổng đơn (${formatVnd(total)})`);
-  const code = await nextOrderCode(tx, Number(todayISO().slice(0, 4)));
+  const code = await nextOrderCode(tx, todayISO(), await orderCodeFormatOf(tx, p.centerId));
   const status: OrderStatus = total === 0 ? "paid" : "pending_payment";
   const [o] = await tx.insert(orders).values({
     code, type: "course", status, centerId: p.centerId, parentId: p.parentId, studentId: p.studentId, enrollmentId: p.enrollmentId, leadId: p.leadId,
@@ -450,7 +488,7 @@ export async function createOrder(ctx: ProtectedContext, input: CreateOrderInput
 
   return ctx.db.transaction(async (txx) => {
     const tx = txx as unknown as Db;
-    const code = await nextOrderCode(tx, Number(todayISO().slice(0, 4)));
+    const code = await nextOrderCode(tx, todayISO(), (ops.orderCodeFormat as OrderCodeFormat) ?? DEFAULT_ORDER_CODE_FORMAT);
     const [o] = await tx.insert(orders).values({
       code, type: input.type, status: total === 0 ? "paid" : "pending_payment", centerId: input.centerId, parentId: input.parentId ?? lead?.convertedParentId ?? null, studentId, enrollmentId: legacyEnrollmentId, leadId: lead?.id ?? null,
       customerName: input.customer.name.trim(), customerPhone: phone, customerEmail: input.customer.email?.trim() || null,
@@ -472,11 +510,15 @@ export async function createOrder(ctx: ProtectedContext, input: CreateOrderInput
         classFormat: fmt, formatMultiplier: String(COACH_MULTIPLIER[fmt] ?? 1),
       };
     })).returning({ id: orderItems.id });
-    const discRows = input.items.flatMap((i, idx) => (i.discounts ?? []).map((d) => ({
-      orderItemId: itemRows[idx]!.id, kind: d.kind, value: Math.round(d.value),
-      amount: d.kind === "percent" ? Math.round((priced.lines[idx]!.gross * d.value) / 100) : Math.round(d.value),
-      reason: (d.reason ?? "").trim(), createdBy: ctx.user.id,
-    })));
+    // Chính sách giảm quyết định cách tính; `kind` giữ lại làm hình chiếu cho dữ liệu cũ
+    const discRows = input.items.flatMap((i, idx) => (i.discounts ?? []).map((d) => {
+      const policy = discountPolicyOf(d);
+      const r = applyDiscountPolicy({ listPrice: priced.lines[idx]!.gross, policy, value: d.value, maxPercent: ops.maxLineDiscountPercent, reason: d.reason });
+      return {
+        orderItemId: itemRows[idx]!.id, kind: DISCOUNT_POLICY_KIND[policy] === "percent" ? ("percent" as const) : ("amount" as const), policy,
+        value: Math.round(d.value), amount: r.amount, reason: (d.reason ?? "").trim(), createdBy: ctx.user.id,
+      };
+    }));
     if (discRows.length) await tx.insert(orderItemDiscounts).values(discRows);
     if (total > 0 && !planErrs.length) {
       await tx.insert(orderInstallments).values(plan.map((p, i) => ({
@@ -700,6 +742,8 @@ export async function getOrder(ctx: ProtectedContext, id: string) {
     installments: plan.filter((p) => p.kind !== "deposit").length, paidInstallments: installments.filter((i) => i.state === "paid").length,
   });
   const memo = transferMemo(o.code);
+  // Ảnh QR động (không hạn dùng) — giữ cho cổng phụ huynh và dữ liệu cũ.
+  // Trang đơn của nhân sự dùng mã có hạn ở `orderQrState` / `issueOrderQr`.
   const qr = method?.kind === "bank_transfer" && method.bankBin && method.accountNo && bal.outstanding > 0 && o.status !== "cancelled"
     ? { url: vietQrImageUrl({ bankBin: method.bankBin, accountNo: method.accountNo, accountName: method.accountName, amount: installments.find((i) => i.remaining > 0)?.remaining ?? bal.outstanding, memo }), bankName: method.bankName, accountNo: method.accountNo, accountName: method.accountName, memo }
     : null;
@@ -732,6 +776,155 @@ export async function getOrder(ctx: ProtectedContext, id: string) {
     },
     today,
   };
+}
+
+/* ------------------------------------------------------------------ */
+/* Mã QR chuyển khoản có hạn dùng                                      */
+/* ------------------------------------------------------------------ */
+
+/** Tài khoản nhận tiền của đơn (phương thức chuyển khoản của đơn, hoặc phương thức chuyển khoản của cơ sở) */
+async function qrAccountFor(db: Db, o: { paymentMethodId: string | null; centerId: string }) {
+  const own = o.paymentMethodId ? await db.query.paymentMethods.findFirst({ where: eq(paymentMethods.id, o.paymentMethodId) }) : null;
+  if (own?.kind === "bank_transfer" && own.bankBin && own.accountNo) return own;
+  const rows = await db.select().from(paymentMethods)
+    .where(and(eq(paymentMethods.isActive, true), eq(paymentMethods.kind, "bank_transfer"), or(isNull(paymentMethods.centerId), eq(paymentMethods.centerId, o.centerId))!))
+    .orderBy(asc(paymentMethods.sortOrder));
+  return rows.find((m) => m.bankBin && m.accountNo && m.centerId === o.centerId) ?? rows.find((m) => m.bankBin && m.accountNo) ?? null;
+}
+
+/** Số tiền của mã QR: đợt còn nợ gần nhất (hoặc đợt được chỉ định), không có kế hoạch thì lấy phần còn thiếu của đơn */
+async function qrAmountFor(db: Db, orderId: string, installmentId: string | null, today: string) {
+  const o = await db.query.orders.findFirst({ where: eq(orders.id, orderId) });
+  if (!o) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy đơn" });
+  const pays = await db.select({ amount: payments.amount, status: payments.status }).from(payments).where(eq(payments.orderId, orderId));
+  const bal = orderBalance(o.total, pays);
+  const plan = await installmentState(db, orderId, bal.confirmed, today);
+  if (installmentId) {
+    const row = plan.find((p) => p.id === installmentId);
+    if (!row) throw bad("Đợt không thuộc đơn này hoặc đã huỷ");
+    if (row.remaining <= 0) throw pre("Đợt này đã thu đủ — không cần xuất QR");
+    return { order: o, amount: row.remaining, installmentId, label: row.kind === "deposit" ? "Cọc" : `Đợt ${row.seq}` };
+  }
+  const due = plan.find((p) => p.remaining > 0);
+  return { order: o, amount: due?.remaining ?? bal.outstanding, installmentId: due?.id ?? null, label: due ? (due.kind === "deposit" ? "Cọc" : `Đợt ${due.seq}`) : "Thu toàn bộ đơn" };
+}
+
+/**
+ * Trạng thái QR của đơn: mã còn hiệu lực đúng số tiền thì dùng lại, hết hạn thì phải xuất mã mới.
+ * Hạn dùng lấy từ cấu hình vận hành `qrTtlHours` (mặc định 24 giờ).
+ */
+export async function orderQrState(ctx: ProtectedContext, input: { orderId: string; installmentId?: string | null }) {
+  const o = await loadOrder(ctx, input.orderId);
+  const today = todayISO();
+  const now = new Date();
+  const ops = await getOps(ctx.db, o.centerId);
+  const ttlHours = ops.qrTtlHours ?? DEFAULT_QR_TTL_HOURS;
+  const { amount, installmentId, label } = await qrAmountFor(ctx.db, o.id, input.installmentId ?? null, today);
+  const rows = await ctx.db.select().from(paymentQrCodes).where(eq(paymentQrCodes.orderId, o.id)).orderBy(desc(paymentQrCodes.issuedAt));
+  const st = qrState(rows, amount, now);
+  const r = st.reuse;
+  const closed = o.status === "cancelled" || o.status === "refunded";
+  return {
+    orderId: o.id,
+    amount,
+    installmentId,
+    installmentLabel: label,
+    ttlHours,
+    label: st.label,
+    hasExpired: st.hasExpired,
+    canIssue: st.canIssue && !closed && can(ctx, "finance:create", o.centerId),
+    reusing: !!r,
+    current: r
+      ? {
+          id: r.id, amount: r.amount, content: r.content, imageUrl: r.imageUrl,
+          bankName: r.bankName, accountNo: r.accountNo, accountName: r.accountName,
+          issuedAt: r.issuedAt.toISOString(), expiresAt: r.expiresAt.toISOString(),
+        }
+      : null,
+    history: rows.map((h) => ({
+      id: h.id, amount: h.amount, content: h.content, status: h.status,
+      issuedAt: h.issuedAt.toISOString(), expiresAt: h.expiresAt.toISOString(), usedAt: h.usedAt?.toISOString() ?? null,
+      expired: qrExpired(now, h.expiresAt),
+    })),
+    now: now.toISOString(),
+  };
+}
+
+/**
+ * Xuất mã QR cho đơn / đợt. Dùng lại mã còn hiệu lực đúng số tiền (bản gốc: "Đang dùng lại mã QR
+ * còn hiệu lực"); `force` = xuất mã mới và thu hồi mã cũ cùng số tiền.
+ */
+export async function issueOrderQr(ctx: ProtectedContext, input: { orderId: string; installmentId?: string | null; force?: boolean }) {
+  const o = await loadOrder(ctx, input.orderId, "finance:create");
+  requirePermission(ctx, "finance:create", { centerId: o.centerId });
+  if (o.status === "cancelled" || o.status === "refunded") throw pre("Đơn đã đóng — không xuất mã QR");
+  const today = todayISO();
+  const now = new Date();
+  const ops = await getOps(ctx.db, o.centerId);
+  const ttlHours = ops.qrTtlHours ?? DEFAULT_QR_TTL_HOURS;
+  const { amount, installmentId, label } = await qrAmountFor(ctx.db, o.id, input.installmentId ?? null, today);
+  if (amount <= 0) throw pre("Đơn đã thu đủ — không cần mã QR");
+  const method = await qrAccountFor(ctx.db, o);
+  if (!method?.bankBin || !method.accountNo) throw pre("Chưa khai tài khoản nhận tiền cho cơ sở — vào Cấu hình vận hành › Phương thức thanh toán");
+
+  return ctx.db.transaction(async (txx) => {
+    const tx = txx as unknown as Db;
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${"order-qr:" + o.id}))`);
+    // Đánh dấu hết hạn cho mã đã quá hạn trước khi xét dùng lại
+    await tx.update(paymentQrCodes).set({ status: "expired" })
+      .where(and(eq(paymentQrCodes.orderId, o.id), eq(paymentQrCodes.status, "active"), lte(paymentQrCodes.expiresAt, now)));
+    const rows = await tx.select().from(paymentQrCodes).where(eq(paymentQrCodes.orderId, o.id)).orderBy(desc(paymentQrCodes.issuedAt));
+    const st = qrState(rows, amount, now);
+    if (st.reuse && !input.force) {
+      const r = st.reuse;
+      return { id: r.id, amount: r.amount, content: r.content, imageUrl: r.imageUrl, expiresAt: r.expiresAt.toISOString(), reused: true, label: QR_REUSE_LABEL };
+    }
+    if (input.force) {
+      await tx.update(paymentQrCodes).set({ status: "revoked", revokedReason: "Xuất lại mã mới" })
+        .where(and(eq(paymentQrCodes.orderId, o.id), eq(paymentQrCodes.status, "active")));
+    }
+    const content = transferMemo(o.code);
+    const imageUrl = vietQrImageUrl({ bankBin: method.bankBin!, accountNo: method.accountNo!, accountName: method.accountName, amount, memo: content });
+    const expiresAt = qrExpiresAt(now, ttlHours);
+    const [q] = await tx.insert(paymentQrCodes).values({
+      orderId: o.id, installmentId, paymentMethodId: method.id, amount, content, imageUrl,
+      bankBin: method.bankBin, accountNo: method.accountNo, accountName: method.accountName, bankName: method.bankName,
+      status: "active", issuedBy: ctx.user.id, issuedAt: now, expiresAt,
+    }).returning({ id: paymentQrCodes.id });
+    await tx.insert(orderEvents).values({ orderId: o.id, event: "qr_issued", note: `${label} · ${formatVnd(amount)} · hạn ${ttlHours} giờ`, actorId: ctx.user.id });
+    await writeAudit(tx, {
+      actorId: ctx.user.id, action: "CREATE", module: "finance", entity: "payment_qr_codes", entityId: q!.id,
+      after: { orderId: o.id, orderCode: o.code, amount, content, expiresAt: expiresAt.toISOString(), installmentId }, ip: ctx.ip,
+    });
+    return { id: q!.id, amount, content, imageUrl, expiresAt: expiresAt.toISOString(), reused: false, label: null };
+  });
+}
+
+/** Thu hồi mã QR (ẩn mã đang hiện) */
+export async function revokeOrderQr(ctx: ProtectedContext, input: { qrId: string; reason?: string | null }) {
+  const q = await ctx.db.query.paymentQrCodes.findFirst({ where: eq(paymentQrCodes.id, input.qrId) });
+  if (!q) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy mã QR" });
+  const o = await loadOrder(ctx, q.orderId, "finance:create");
+  requirePermission(ctx, "finance:create", { centerId: o.centerId });
+  if (q.status !== "active") throw pre(`Mã QR đang "${q.status}" — không thu hồi được`);
+  await ctx.db.transaction(async (txx) => {
+    const tx = txx as unknown as Db;
+    await tx.update(paymentQrCodes).set({ status: "revoked", revokedReason: input.reason?.trim() || "Ẩn mã QR" }).where(and(eq(paymentQrCodes.id, q.id), eq(paymentQrCodes.status, "active")));
+    await writeAudit(tx, { actorId: ctx.user.id, action: "UPDATE", module: "finance", entity: "payment_qr_codes", entityId: q.id, before: { status: q.status }, after: { status: "revoked" }, reason: input.reason ?? null, ip: ctx.ip });
+  });
+  return { ok: true };
+}
+
+/** Đánh dấu mã QR đã dùng khi tiền về khớp đúng số tiền của mã (gọi trong transaction đối soát) */
+export async function markQrUsed(tx: Db, orderId: string, amount: number, paymentId: string) {
+  const now = new Date();
+  const rows = await tx.select().from(paymentQrCodes)
+    .where(and(eq(paymentQrCodes.orderId, orderId), eq(paymentQrCodes.status, "active"), eq(paymentQrCodes.amount, amount)))
+    .orderBy(asc(paymentQrCodes.expiresAt));
+  const hit = rows.find((r) => !qrExpired(now, r.expiresAt));
+  if (!hit) return 0;
+  await tx.update(paymentQrCodes).set({ status: "used", usedAt: now, usedPaymentId: paymentId }).where(and(eq(paymentQrCodes.id, hit.id), eq(paymentQrCodes.status, "active")));
+  return 1;
 }
 
 export async function cancelOrder(ctx: ProtectedContext, input: { id: string; reason: string }) {
@@ -894,8 +1087,10 @@ export async function adjustConfirmedPayment(ctx: ProtectedContext, input: { pay
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${"order:" + o.id}))`);
     const [c] = await tx.select({ n: sql<number>`coalesce(sum(${payments.amount}), 0)::bigint` }).from(payments).where(and(eq(payments.orderId, o.id), eq(payments.status, "confirmed"), ne(payments.id, p.id)));
     if (Number(c?.n ?? 0) + newAmount > o.total) throw pre(`Điều chỉnh lên ${formatVnd(newAmount)} sẽ vượt tổng đơn (${formatVnd(o.total)})`);
-    const up = await tx.update(payments).set({ amount: newAmount, version: p.version + 1, decisionReason: reason, decidedBy: ctx.user.id, decidedAt: new Date() })
-      .where(and(eq(payments.id, p.id), eq(payments.status, "confirmed"), eq(payments.version, input.version))).returning({ id: payments.id });
+    const up = await tx.update(payments).set({
+      amount: newAmount, version: p.version + 1, adjustCount: p.adjustCount + 1,
+      decisionReason: reason, decidedBy: ctx.user.id, decidedAt: new Date(),
+    }).where(and(eq(payments.id, p.id), eq(payments.status, "confirmed"), eq(payments.version, input.version))).returning({ id: payments.id });
     if (!up.length) throw new TRPCError({ code: "CONFLICT", message: "STALE_WRITE — khoản thu vừa được sửa, tải lại rồi thao tác tiếp" });
     await tx.insert(paymentAdjustments).values({ paymentId: p.id, beforeAmount: p.amount, afterAmount: newAmount, reason, actorId: ctx.user.id });
     // Bút toán chênh lệch: thu thêm là âm (tiền vào), giảm thu là dương
@@ -903,8 +1098,8 @@ export async function adjustConfirmedPayment(ctx: ProtectedContext, input: { pay
     await tx.insert(orderEvents).values({ orderId: o.id, event: "payment_adjusted", note: `${formatVnd(p.amount)} → ${formatVnd(newAmount)} (${delta > 0 ? "+" : ""}${formatVnd(delta)}): ${reason}`, actorId: ctx.user.id });
     await recomputeOrderStatus(tx, o.id, ctx.user.id, `Điều chỉnh khoản thu ${p.receiptNo ?? ""}`.trim());
     await notify(tx, [p.recordedBy], "Khoản thu được điều chỉnh", `${o.code}: ${formatVnd(p.amount)} → ${formatVnd(newAmount)}`, `/orders/${o.id}`);
-    await writeAudit(tx, { actorId: ctx.user.id, action: "UPDATE", module: "finance", entity: "payments", entityId: p.id, before: { amount: p.amount }, after: { amount: newAmount, delta }, reason, ip: ctx.ip });
-    return { ok: true, delta, version: p.version + 1 };
+    await writeAudit(tx, { actorId: ctx.user.id, action: "UPDATE", module: "finance", entity: "payments", entityId: p.id, before: { amount: p.amount, adjustCount: p.adjustCount }, after: { amount: newAmount, delta, adjustCount: p.adjustCount + 1 }, reason, ip: ctx.ip });
+    return { ok: true, delta, version: p.version + 1, adjustCount: p.adjustCount + 1 };
   });
 }
 
@@ -981,7 +1176,7 @@ export async function listPayments(ctx: ProtectedContext, input: { status?: Paym
   const base = ctx.db.select({
     id: payments.id, amount: payments.amount, recordedAmount: payments.recordedAmount, status: payments.status, paidAt: payments.paidAt, receiptNo: payments.receiptNo,
     source: payments.source, note: payments.note, decisionReason: payments.decisionReason, recordedAt: payments.recordedAt, decidedAt: payments.decidedAt, recordedBy: payments.recordedBy,
-    version: payments.version, evidenceUrl: payments.evidenceUrl, enrollmentId: payments.enrollmentId, orderItemId: payments.orderItemId, paymentMethodId: payments.paymentMethodId,
+    version: payments.version, adjustCount: payments.adjustCount, evidenceUrl: payments.evidenceUrl, enrollmentId: payments.enrollmentId, orderItemId: payments.orderItemId, paymentMethodId: payments.paymentMethodId,
     orderId: orders.id, orderCode: orders.code, customerName: orders.customerName, orderTotal: orders.total, centerId: payments.centerId, centerCode: centers.code,
     studentName: students.fullName, classCode: classes.code, methodName: paymentMethods.name,
     recorderName: sql<string | null>`(select full_name from ${users} u where u.id = ${payments.recordedBy})`,
@@ -1202,9 +1397,11 @@ export async function missingTuition(ctx: ProtectedContext, input: { centerId?: 
     };
   }).filter((r) => !r.order || r.outstanding > 0);
   const filtered = input.kind ? items.filter((i) => i.kind === input.kind) : items;
+  // Trần % giảm để form "Ghi học phí" hiện đúng giới hạn (máy chủ vẫn là nơi quyết định cuối)
+  const ops = await opsForCenters(ctx.db, [...new Set(rows.map((r) => r.centerId))]);
   return {
     totals: { noOrder: items.filter((i) => i.kind === "no_order").length, unpaid: items.filter((i) => i.kind === "unpaid").length, amount: items.reduce((s, i) => s + i.outstanding, 0) },
-    items: filtered,
+    items: filtered.map((i) => ({ ...i, maxDiscountPercent: ops.get(i.centerId)?.maxLineDiscountPercent ?? DEFAULT_MAX_LINE_DISCOUNT_PCT })),
   };
 }
 
@@ -1214,6 +1411,8 @@ export async function missingTuition(ctx: ProtectedContext, input: { centerId?: 
  */
 export async function backfillTuition(ctx: ProtectedContext, input: {
   enrollmentId: string; total?: number | null; discount?: number | null; discountReason?: string | null; paidAmount: number; paidAt?: string | null; note?: string | null;
+  /** Chính sách giảm: none | percent | amount | program | scholarship. `discount` là số % hoặc số tiền tuỳ chính sách. */
+  discountPolicy?: DiscountPolicy | null;
 }) {
   const [e] = await ctx.db.select({
     id: enrollments.id, packageSessions: enrollments.packageSessions, studentId: students.id, studentName: students.fullName,
@@ -1227,8 +1426,8 @@ export async function backfillTuition(ctx: ProtectedContext, input: {
   if (paidAt > today) throw bad("Ngày thu không được ở tương lai");
   const paid = Math.round(input.paidAmount);
   if (!Number.isInteger(paid) || paid < 0) throw bad("Tiền đã thu phải là số nguyên ≥ 0");
-  const discount = Math.max(0, Math.round(input.discount ?? 0));
-  if (discount > 0 && (input.discountReason ?? "").trim().length < 3) throw bad("Có giảm giá thì phải ghi lý do giảm (VD Giới thiệu · ưu đãi hè · học bổng)");
+  const policy: DiscountPolicy = input.discountPolicy ?? ((input.discount ?? 0) > 0 ? "amount" : "none");
+  const discountValue = Math.max(0, Math.round(input.discount ?? 0));
   const [existing] = await ctx.db.select({ order: orders, itemId: orderItems.id, net: orderItems.netAmount })
     .from(orderItems).innerJoin(orders, eq(orders.id, orderItems.orderId))
     .where(and(eq(orderItems.enrollmentId, e.id), inArray(orders.status, [...OPEN_ORDER_STATUSES]))).orderBy(desc(orders.createdAt)).limit(1);
@@ -1253,18 +1452,22 @@ export async function backfillTuition(ctx: ProtectedContext, input: {
       if (!g?.phone) throw pre("Học viên chưa có phụ huynh / SĐT để lập đơn");
       const gross = Math.round(input.total ?? packagePrice(Number(e.listPrice), e.courseSessions, e.packageSessions));
       if (gross <= 0) throw bad("Tổng học phí phải > 0");
-      if (discount > gross) throw bad("Số tiền giảm lớn hơn tổng học phí");
+      // Giảm giá theo chính sách (lý do vẫn bắt buộc, trần % theo cấu hình vận hành)
+      const ops = await getOps(ctx.db, e.centerId);
+      const dis = applyDiscountPolicy({ listPrice: gross, policy, value: discountValue, maxPercent: ops.maxLineDiscountPercent, reason: input.discountReason });
+      if (dis.errors.length) throw bad(dis.errors);
+      const discount = dis.amount;
       total = gross - discount;
       if (paid > total) throw pre(`Đã thu (${formatVnd(paid)}) lớn hơn tổng phải đóng (${formatVnd(total)})`);
       await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${"enroll-order:" + e.id}))`);
       const again = await openOrderLineFor(tx, [e.id]);
       if (again[0]) throw new TRPCError({ code: "CONFLICT", message: `Ghi danh vừa có đơn ${again[0].orderCode} — tải lại trang` });
-      orderCodeStr = await nextOrderCode(tx, Number(today.slice(0, 4)));
+      orderCodeStr = await nextOrderCode(tx, today, (ops.orderCodeFormat as OrderCodeFormat) ?? DEFAULT_ORDER_CODE_FORMAT);
       const [o] = await tx.insert(orders).values({
         code: orderCodeStr, type: "course", status: "pending_payment", centerId: e.centerId, parentId: g.id, studentId: e.studentId, enrollmentId: e.id,
         customerName: g.fullName, customerPhone: g.phone.replace(/\D/g, ""), customerEmail: g.email,
         subtotal: gross, discountAmount: discount, total, paymentMethodId: methodId,
-        internalNote: `Ghi học phí cũ${input.note ? ` — ${input.note}` : ""}${discount ? ` · giảm ${formatVnd(discount)}: ${(input.discountReason ?? "").trim()}` : ""}`.slice(0, 1000),
+        internalNote: `Ghi học phí cũ${input.note ? ` — ${input.note}` : ""}${discount ? ` · ${DISCOUNT_POLICY_VI[policy]} ${formatVnd(discount)}: ${(input.discountReason ?? "").trim()}` : ""}`.slice(0, 1000),
         createdBy: ctx.user.id,
       }).returning({ id: orders.id });
       orderId = o!.id;
@@ -1275,7 +1478,10 @@ export async function backfillTuition(ctx: ProtectedContext, input: {
       }).returning({ id: orderItems.id });
       itemId = it!.id;
       if (discount > 0) {
-        await tx.insert(orderItemDiscounts).values({ orderItemId: itemId, kind: "amount", value: discount, amount: discount, reason: (input.discountReason ?? "").trim(), createdBy: ctx.user.id });
+        await tx.insert(orderItemDiscounts).values({
+          orderItemId: itemId, kind: dis.kind, policy, value: discountValue, amount: discount,
+          reason: (input.discountReason ?? "").trim(), createdBy: ctx.user.id,
+        });
       }
       await tx.insert(orderInstallments).values({ orderId, seq: 1, amount: total, dueDate: paidAt, kind: "installment", studentId: e.studentId, orderItemId: itemId, createdBy: ctx.user.id });
       await tx.insert(orderEvents).values({ orderId, event: "create", toStatus: "pending_payment", note: "Ghi học phí cũ", actorId: ctx.user.id });

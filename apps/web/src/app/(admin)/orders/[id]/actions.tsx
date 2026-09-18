@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useTRPC } from "@/lib/trpc/client";
 import { vnd } from "@/components/finance-ui";
 import { buildPlan, replanInstallments, MAX_INSTALLMENTS, INSTALLMENT_KIND_VI, type InstallmentKind } from "@satarobo/core";
@@ -320,6 +320,82 @@ export function AdjustConfirmedPayment({ paymentId, amount, version }: { payment
         <button className="btn-ghost !px-2 !py-1 text-xs" onClick={() => setOpen(false)}>Thôi</button>
       </div>
     </div>
+  );
+}
+
+/**
+ * Mã QR chuyển khoản có hạn dùng: còn hiệu lực và đúng số tiền thì dùng lại,
+ * hết hạn thì phải xuất mã mới. Hạn dùng lấy từ cấu hình vận hành (mặc định 24 giờ).
+ */
+export function OrderQr({ orderId, canIssue }: { orderId: string; canIssue: boolean }) {
+  const trpc = useTRPC();
+  const [shown, setShown] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const q = useQuery({ ...trpc.finance.orderQr.queryOptions({ orderId }), enabled: shown, retry: false });
+  const issue = useMutation(trpc.finance.issueOrderQr.mutationOptions({ onSuccess: () => { setErr(null); q.refetch(); }, onError: (e) => setErr(e.message) }));
+  const revoke = useMutation(trpc.finance.revokeOrderQr.mutationOptions({ onSuccess: () => { setErr(null); q.refetch(); }, onError: (e) => setErr(e.message) }));
+  const d = q.data;
+  const cur = d?.current ?? null;
+
+  if (!shown) {
+    return (
+      <section className="card space-y-2 p-4">
+        <h2 className="font-semibold">Chuyển khoản / QR</h2>
+        <p className="text-xs text-ink-600">Mã QR có hạn dùng. Mã còn hiệu lực đúng số tiền sẽ được dùng lại; hết hạn thì phải xuất mã mới.</p>
+        <button className="btn-primary w-full" onClick={() => setShown(true)}>Xuất QR</button>
+      </section>
+    );
+  }
+  return (
+    <section className="card space-y-2 p-4 text-center">
+      <div className="flex items-center justify-between">
+        <h2 className="font-semibold">Chuyển khoản / QR</h2>
+        <button className="text-xs text-ink-600" onClick={() => setShown(false)}>Ẩn QR</button>
+      </div>
+      {q.isLoading && <div className="text-sm text-ink-400">Đang tải…</div>}
+      {q.error && <div className="text-sm text-red-700">{q.error.message}</div>}
+      <Err text={err} />
+      {d && (
+        <>
+          <div className="text-sm">Số tiền: <b className="tabular-nums">{vnd(d.amount)}</b> · {d.installmentLabel}</div>
+          {d.label === "Đang dùng lại mã QR còn hiệu lực" && <div className="chip bg-green-100 text-green-800">{d.label}</div>}
+          {d.label === "QR đã hết hạn" && <div className="chip bg-amber-100 text-amber-800">{d.label}</div>}
+          {cur ? (
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={cur.imageUrl} alt="Mã QR chuyển khoản" className="mx-auto w-56 rounded-xl border border-black/10" />
+              <div className="text-sm">{cur.bankName} · <span className="font-mono">{cur.accountNo}</span></div>
+              <div className="text-xs text-ink-600">{cur.accountName}</div>
+              <div className="rounded-lg bg-brand-50 p-2 font-mono text-sm font-semibold">{cur.content}</div>
+              <p className="text-[11px] text-ink-400">
+                Phụ huynh quét bằng app ngân hàng. Giữ nguyên nội dung chuyển khoản để hệ thống tự đối khớp đúng đợt.
+                Hạn dùng đến {new Date(cur.expiresAt).toLocaleString("vi-VN")} ({d.ttlHours} giờ).
+              </p>
+            </>
+          ) : (
+            <p className="text-sm text-ink-600">{d.hasExpired ? "Mã cũ đã hết hạn — xuất mã mới để gửi phụ huynh." : "Chưa có mã QR cho số tiền này."}</p>
+          )}
+          {canIssue && d.canIssue && (
+            <div className="flex flex-wrap justify-center gap-2">
+              <button className="btn-primary !py-1 text-xs" disabled={issue.isPending} onClick={() => { setErr(null); issue.mutate({ orderId }); }}>
+                {cur ? "Dùng lại / làm mới" : "Xuất QR"}
+              </button>
+              {cur && <button className="btn-ghost !py-1 text-xs" disabled={issue.isPending} onClick={() => { setErr(null); issue.mutate({ orderId, force: true }); }}>Xuất mã mới (thu hồi mã cũ)</button>}
+              {cur && <button className="btn-ghost !py-1 text-xs text-red-700" disabled={revoke.isPending} onClick={() => { setErr(null); revoke.mutate({ qrId: cur.id, reason: "Ẩn mã QR" }); }}>Thu hồi</button>}
+            </div>
+          )}
+          {d.history.length > 0 && (
+            <ul className="space-y-0.5 text-left text-[11px] text-ink-400">
+              {d.history.slice(0, 5).map((h) => (
+                <li key={h.id}>
+                  {vnd(h.amount)} · xuất {new Date(h.issuedAt).toLocaleString("vi-VN")} · {h.status === "used" ? "đã dùng" : h.status === "revoked" ? "đã thu hồi" : h.expired ? "đã hết hạn" : "còn hiệu lực"}
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+    </section>
   );
 }
 

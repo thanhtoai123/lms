@@ -1,13 +1,17 @@
 import { and, eq, inArray, sql, desc, asc, isNull, isNotNull, or, type SQL } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
-import { commissionRules, commissions, orders, leads, parents, users, centers, students } from "@satarobo/db";
+import { commissionRules, commissionPolicies, commissionPolicyShares, commissionPolicyTiers, commissions, orders, leads, parents, users, centers, students } from "@satarobo/db";
 import {
   hasRole, pickRule, computeCommission, describeRule, commissionTransition, refundAdjustment, validateRule, periodOf, formatVnd,
+  validateCommissionPolicy, policyPercentBps, describeShare, DEFAULT_COMMISSION_TOTAL_CAP_PCT,
+  COMMISSION_EVENT_VI, COMMISSION_EVENT_HINT, COMMISSION_SCOPE_VI, COMMISSION_CALC_METHOD_VI,
   type CommissionKind, type CommissionStatus, type RateType, type OrderType,
+  type CommissionEvent, type CommissionScope, type CommissionCalcMethod, type CommissionPolicy, type CommissionTier,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { writeAudit } from "./audit";
 import { todayISO } from "./sessions";
+import { getOps } from "./opsSettings";
 import { bad, pre, wrapRule, reasonOrThrow, scope, can, notify, type Db } from "./finance";
 
 type RuleRow = typeof commissionRules.$inferSelect;
@@ -267,5 +271,190 @@ export async function upsertRule(ctx: ProtectedContext, input: RuleInput) {
     await writeAudit(tx as unknown as Db, { actorId: ctx.user.id, action: "CREATE", module: "finance", entity: "commission_rules", entityId: r!.id, after: values, ip: ctx.ip });
     return { id: r!.id };
   });
+}
+
+/* ================================================================== */
+/* Chính sách hoa hồng 4 trục (/cau-hinh-van-hanh?tab=hoa-hong)        */
+/* ================================================================== */
+
+/** Trần tổng % theo cấu hình vận hành (mặc định 9%) */
+async function capPercentOf(db: Db) {
+  const ops = await getOps(db);
+  return (ops.commissionTotalCapPercent as number) ?? DEFAULT_COMMISSION_TOTAL_CAP_PCT;
+}
+
+/** Nạp đủ chính sách + các vai + bảng bậc để đưa vào máy quy tắc thuần của core */
+async function loadPolicies(db: Db, ids?: string[]): Promise<(CommissionPolicy & { id: string })[]> {
+  const rows = ids?.length
+    ? await db.select().from(commissionPolicies).where(inArray(commissionPolicies.id, ids))
+    : await db.select().from(commissionPolicies);
+  if (!rows.length) return [];
+  const shares = await db.select().from(commissionPolicyShares).where(inArray(commissionPolicyShares.policyId, rows.map((r) => r.id))).orderBy(asc(commissionPolicyShares.sortOrder));
+  const tiers = shares.length
+    ? await db.select().from(commissionPolicyTiers).where(inArray(commissionPolicyTiers.shareId, shares.map((s) => s.id))).orderBy(asc(commissionPolicyTiers.fromAmount))
+    : [];
+  return rows.map((p) => ({
+    id: p.id, name: p.name, event: p.event, orderScope: p.orderScope, centerId: p.centerId, calcMethod: p.calcMethod,
+    sourceRef: p.sourceRef, note: p.note, effectiveFrom: p.effectiveFrom, effectiveTo: p.effectiveTo, isActive: p.isActive,
+    shares: shares.filter((s) => s.policyId === p.id).map((s) => ({
+      role: s.role, value: s.value, maxAmount: s.maxAmount,
+      tiers: tiers.filter((t) => t.shareId === s.id).map((t) => ({ from: t.fromAmount, to: t.toAmount, amount: t.amount, percent: t.percent })),
+    })),
+  }));
+}
+
+export async function listPolicies(ctx: ProtectedContext) {
+  requirePermission(ctx, "finance:read", { centerId: null });
+  const cap = await capPercentOf(ctx.db);
+  const policies = await loadPolicies(ctx.db);
+  const centerCodes = new Map((await ctx.db.select({ id: centers.id, code: centers.code }).from(centers)).map((c) => [c.id, c.code]));
+  const used = policies.length
+    ? await ctx.db.select({ policyId: commissions.policyId, n: sql<number>`count(*)::int` }).from(commissions).where(inArray(commissions.policyId, policies.map((p) => p.id))).groupBy(commissions.policyId)
+    : [];
+  const canConfigure = ctx.actor.assignments.some((a) => can(ctx, "finance:configure", a.centerId));
+  // Tổng % đang chiếm của từng (sự kiện + loại đơn + cơ sở) — để trang cấu hình hiện mức còn lại dưới trần
+  const buckets = new Map<string, number>();
+  for (const p of policies.filter((x) => x.isActive)) {
+    const k = `${p.event}|${p.orderScope}|${p.centerId ?? ""}`;
+    buckets.set(k, (buckets.get(k) ?? 0) + policyPercentBps(p));
+  }
+  return {
+    capPercent: cap,
+    events: Object.entries(COMMISSION_EVENT_VI).map(([value, label]) => ({ value, label, hint: COMMISSION_EVENT_HINT[value as CommissionEvent] })),
+    scopes: Object.entries(COMMISSION_SCOPE_VI).map(([value, label]) => ({ value, label })),
+    calcMethods: Object.entries(COMMISSION_CALC_METHOD_VI).map(([value, label]) => ({ value, label })),
+    buckets: [...buckets.entries()].map(([k, bps]) => {
+      const [event, orderScope, centerId] = k.split("|") as [CommissionEvent, CommissionScope, string];
+      return { event, orderScope, centerId: centerId || null, percent: bps / 100, remaining: cap - bps / 100 };
+    }),
+    items: policies
+      .sort((a, b) => a.event.localeCompare(b.event) || Number(b.isActive) - Number(a.isActive) || b.effectiveFrom.localeCompare(a.effectiveFrom))
+      .map((p) => ({
+        ...p,
+        centerCode: p.centerId ? centerCodes.get(p.centerId) ?? null : null,
+        eventLabel: COMMISSION_EVENT_VI[p.event],
+        scopeLabel: COMMISSION_SCOPE_VI[p.orderScope],
+        calcLabel: COMMISSION_CALC_METHOD_VI[p.calcMethod],
+        totalPercent: policyPercentBps(p) / 100,
+        shares: p.shares.map((s) => ({ ...s, label: describeShare(p.calcMethod, s) })),
+        used: used.find((u) => u.policyId === p.id)?.n ?? 0,
+        canEdit: canConfigure && (p.centerId ? can(ctx, "finance:configure", p.centerId) : ctx.actor.assignments.some((a) => a.centerId === null && can(ctx, "finance:configure", null))),
+      })),
+    perms: { configure: canConfigure },
+  };
+}
+
+export interface PolicyInput {
+  id?: string;
+  name: string;
+  event: CommissionEvent;
+  orderScope: CommissionScope;
+  centerId: string | null;
+  calcMethod: CommissionCalcMethod;
+  shares: { role: string; value: number; maxAmount: number | null; tiers?: CommissionTier[] | null }[];
+  sourceRef: string | null;
+  note: string | null;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+  isActive: boolean;
+  /** Sửa chính sách bắt buộc ghi lý do (ghi vào nhật ký kiểm toán) */
+  reason?: string | null;
+}
+
+/**
+ * Tạo / sửa chính sách hoa hồng. Sửa BẮT BUỘC ghi lý do; dòng hoa hồng đã sinh trước đó
+ * không đổi (chính sách chỉ áp cho lần tính sau).
+ */
+export async function upsertPolicy(ctx: ProtectedContext, input: PolicyInput) {
+  if (input.centerId) requirePermission(ctx, "finance:configure", { centerId: input.centerId });
+  else if (!ctx.actor.assignments.some((a) => a.centerId === null && can(ctx, "finance:configure", null))) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "Chỉ kế toán Hội sở đặt chính sách dùng chung — hãy chọn cơ sở" });
+  }
+  const cap = await capPercentOf(ctx.db);
+  const others = await loadPolicies(ctx.db);
+  const draft: CommissionPolicy = {
+    id: input.id,
+    name: input.name.trim(),
+    event: input.event,
+    orderScope: input.orderScope,
+    centerId: input.centerId,
+    calcMethod: input.calcMethod,
+    sourceRef: input.sourceRef?.trim() || null,
+    note: input.note?.trim() || null,
+    effectiveFrom: input.effectiveFrom,
+    effectiveTo: input.effectiveTo,
+    isActive: input.isActive,
+    shares: input.shares.map((s) => ({ role: s.role.trim(), value: Math.round(s.value), maxAmount: s.maxAmount, tiers: s.tiers ?? [] })),
+  };
+  const errs = validateCommissionPolicy(draft, { capPercent: cap, others });
+  if (errs.length) throw bad(errs);
+
+  const head = {
+    name: draft.name, event: draft.event, orderScope: draft.orderScope, centerId: draft.centerId, calcMethod: draft.calcMethod,
+    sourceRef: draft.sourceRef, note: draft.note, effectiveFrom: draft.effectiveFrom, effectiveTo: draft.effectiveTo, isActive: draft.isActive,
+  };
+  return ctx.db.transaction(async (txx) => {
+    const tx = txx as unknown as Db;
+    let policyId: string;
+    let before: CommissionPolicy | null = null;
+    if (input.id) {
+      const cur = await tx.query.commissionPolicies.findFirst({ where: eq(commissionPolicies.id, input.id) });
+      if (!cur) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy chính sách" });
+      if (cur.centerId !== input.centerId) throw bad("Không đổi phạm vi cơ sở của chính sách — tạo chính sách mới");
+      // Sửa chính sách bắt buộc ghi lý do
+      const reason = reasonOrThrow(input.reason);
+      before = others.find((p) => p.id === input.id) ?? null;
+      await tx.update(commissionPolicies).set(head).where(eq(commissionPolicies.id, cur.id));
+      // Thay trọn bộ vai + bậc; dòng hoa hồng đã sinh giữ nguyên số tiền đã tính
+      await tx.delete(commissionPolicyShares).where(eq(commissionPolicyShares.policyId, cur.id));
+      policyId = cur.id;
+      await insertShares(tx, policyId, draft, input);
+      await writeAudit(tx, { actorId: ctx.user.id, action: "UPDATE", module: "finance", entity: "commission_policies", entityId: policyId, before, after: { ...head, shares: draft.shares }, reason, ip: ctx.ip });
+      return { id: policyId };
+    }
+    const [p] = await tx.insert(commissionPolicies).values({ ...head, createdBy: ctx.user.id }).returning({ id: commissionPolicies.id });
+    policyId = p!.id;
+    await insertShares(tx, policyId, draft, input);
+    await writeAudit(tx, { actorId: ctx.user.id, action: "CREATE", module: "finance", entity: "commission_policies", entityId: policyId, after: { ...head, shares: draft.shares }, reason: input.reason?.trim() || null, ip: ctx.ip });
+    return { id: policyId };
+  });
+}
+
+async function insertShares(tx: Db, policyId: string, draft: CommissionPolicy, input: PolicyInput) {
+  const rows = await tx.insert(commissionPolicyShares).values(draft.shares.map((s, i) => ({
+    policyId, role: s.role, value: s.value, maxAmount: s.maxAmount ?? null, sortOrder: i,
+  }))).returning({ id: commissionPolicyShares.id, role: commissionPolicyShares.role });
+  if (draft.calcMethod !== "tier") return;
+  const tierRows = input.shares.flatMap((s) => {
+    const shareId = rows.find((r) => r.role === s.role.trim())!.id;
+    return (s.tiers ?? []).map((t, i) => ({
+      shareId, fromAmount: t.from, toAmount: t.to ?? null, amount: t.amount ?? null, percent: t.percent ?? null, sortOrder: i,
+    }));
+  });
+  if (tierRows.length) await tx.insert(commissionPolicyTiers).values(tierRows);
+}
+
+/** Bật / tắt chính sách — cũng bắt buộc ghi lý do */
+export async function togglePolicy(ctx: ProtectedContext, input: { id: string; isActive: boolean; reason: string }) {
+  const p = await ctx.db.query.commissionPolicies.findFirst({ where: eq(commissionPolicies.id, input.id) });
+  if (!p) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy chính sách" });
+  if (p.centerId) requirePermission(ctx, "finance:configure", { centerId: p.centerId });
+  else if (!ctx.actor.assignments.some((a) => a.centerId === null && can(ctx, "finance:configure", null))) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "Chỉ kế toán Hội sở đổi chính sách dùng chung" });
+  }
+  const reason = reasonOrThrow(input.reason);
+  if (input.isActive) {
+    // Bật lại phải kiểm trần tổng với các chính sách đang chạy
+    const all = await loadPolicies(ctx.db);
+    const me = all.find((x) => x.id === p.id)!;
+    const errs = validateCommissionPolicy({ ...me, isActive: true }, { capPercent: await capPercentOf(ctx.db), others: all });
+    if (errs.length) throw bad(errs);
+  }
+  await ctx.db.transaction(async (txx) => {
+    const tx = txx as unknown as Db;
+    await tx.update(commissionPolicies).set({ isActive: input.isActive }).where(eq(commissionPolicies.id, p.id));
+    await writeAudit(tx, { actorId: ctx.user.id, action: "UPDATE", module: "finance", entity: "commission_policies", entityId: p.id, before: { isActive: p.isActive }, after: { isActive: input.isActive }, reason, ip: ctx.ip });
+  });
+  return { ok: true };
 }
 

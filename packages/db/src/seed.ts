@@ -13,7 +13,7 @@ import {
   leads, leadChildren, leadActivities, leadTasks, leadAssignees, admissionsSettings, trialBookings, auditLog,
   holidays, coursePrerequisites, teacherCourses, teacherEvaluations,
   paymentMethods, orders, orderItems, orderInstallments, orderEvents, payments, refunds, financeLedger,
-  commissionRules, commissions, bankTransactions,
+  commissionRules, commissions, commissionPolicies, commissionPolicyShares, commissionPolicyTiers, paymentQrCodes, bankTransactions,
   staff, staffPrivate, staffPositions, positions, staffDeployments, workShifts, shiftTemplates, shiftAssignments, attendancePunches, staffRequests, checkinPoints,
   parentRequests, parentRequestEvents, parentFeedback, surveys, surveyInvites, surveyResponses, parentNotifications, careTasks,
   emailLogs, otpRequests, userGroups, userGroupMembers, webhookEvents, appSettings, revenueTargets,
@@ -23,7 +23,7 @@ import {
   jobPostings, candidates, candidateEvents, conversations, messages, affiliates,
 } from "./schema/index";
 import { SHIFT_CATALOGUE, plannedMinutesOf, workSegments, COIN_RULE_DEFS } from "@satarobo/core";
-import { generateSessions, buildClassCode, buildStudentCode, toISODate, addDays, orderCode, receiptNumber, packagePrice, buildInstallmentPlan, computeCommission, describeRule, periodOf, fmtMin, hhmm, weekdayOf, leaveDays, requestCode, slaDue, SETTINGS_DEFAULTS, CONSENT_TEXT_VERSION, dsrCode, dsrDue } from "@satarobo/core";
+import { generateSessions, buildClassCode, buildStudentCode, toISODate, addDays, orderCode, receiptNumber, packagePrice, buildInstallmentPlan, computeCommission, describeRule, periodOf, transferMemo, vietQrImageUrl, fmtMin, hhmm, weekdayOf, leaveDays, requestCode, slaDue, SETTINGS_DEFAULTS, CONSENT_TEXT_VERSION, dsrCode, dsrDue } from "@satarobo/core";
 import { courseCompletions } from "./schema/index";
 import {
   expectedEndDate as sessionsEndDate, detectRisks, staffCode, refundProposal, reportCardMilestones, averageScore, gradeFromAverage, certificateNumber,
@@ -300,8 +300,11 @@ async function main() {
   const [ktU] = await db.insert(users).values({ email: "ketoan.cs1@example.test", fullName: "Kế toán CS1 (mẫu)" }).returning();
   await db.insert(userRoles).values({ userId: ktU!.id, role: "CENTER_ACCOUNTANT", centerId: cs1!.id });
   const [pmCash, pmBank] = await db.insert(paymentMethods).values([
-    { code: "TM-CS1", name: "Tiền mặt tại CS1", kind: "cash", centerId: cs1!.id, allowFor: ["course", "product"], sortOrder: 1 },
-    { code: "CK-VCB", name: "Chuyển khoản Vietcombank", kind: "bank_transfer", centerId: null, bankBin: "970436", bankName: "Vietcombank", accountNo: "0000000000", accountName: "CONG TY SATA ROBO (MAU)", allowFor: ["course", "product", "exam"], sortOrder: 2, description: "Tài khoản mẫu — thay bằng tài khoản thật" },
+    { code: "TM-CS1", name: "Tiền mặt tại CS1", kind: "cash", centerId: cs1!.id, allowFor: ["course", "product"], canBuyCourse: true, canBuyPackage: true, canBuyProduct: true, sortOrder: 1 },
+    { code: "CK-VCB", name: "Chuyển khoản Vietcombank", kind: "bank_transfer", centerId: null, bankBin: "970436", bankName: "Vietcombank", bankBranch: "CN Đà Nẵng", accountNo: "0000000000", accountName: "CONG TY SATA ROBO (MAU)", allowFor: ["course", "product", "exam"], canBuyCourse: true, canBuyPackage: true, canBuyExam: true, canBuyProduct: true, sortOrder: 2, description: "Tài khoản mẫu — thay bằng tài khoản thật" },
+    // Đủ loại như bản gốc: ví điện tử và thu hộ khi giao
+    { code: "VI-MOMO", name: "Ví điện tử MoMo", kind: "wallet", centerId: null, allowFor: ["course", "product"], canBuyCourse: true, canBuyPackage: true, canBuyProduct: true, canDeposit: true, sortOrder: 3, description: "Ví điện tử — mẫu, chưa nối cổng thật" },
+    { code: "COD", name: "Thu hộ khi giao (COD)", kind: "cod", centerId: null, allowFor: ["product"], canBuyProduct: true, sortOrder: 4, description: "Chỉ dùng cho đơn sản phẩm giao tận nơi" },
   ]).returning();
   const sata4Price = Number(sata4!.listPrice);
   let orderSeq = 0;
@@ -360,6 +363,67 @@ async function main() {
       ...(st === "approved" ? { approvedBy: mgrU!.id, approvedAt: new Date() } : {}),
     });
   }
+  // ---- Chính sách hoa hồng 4 trục (mẫu theo SR.QD.208 · PL04): tổng % mỗi sự kiện ≤ 9% ----
+  const [polNew, polRenew, polTransfer, polDevice, polTitle] = await db.insert(commissionPolicies).values([
+    {
+      name: "Học viên mới — khoá học", event: "hoc_vien_moi", orderScope: "course", centerId: null, calcMethod: "percent",
+      sourceRef: "SR.QD.208 · PL04 Điều 1", note: "Tổng 9%: TVV 5% + quản lý trung tâm 3% + quản lý vùng 1%",
+      effectiveFrom: "2026-01-01", isActive: true, createdBy: adminU!.id,
+    },
+    {
+      name: "Tái tục — khoá học", event: "tai_tuc", orderScope: "course", centerId: null, calcMethod: "percent",
+      sourceRef: "SR.QD.208 · PL04 Điều 2", note: "Mức tái tục thấp hơn học viên mới",
+      effectiveFrom: "2026-01-01", isActive: true, createdBy: adminU!.id,
+    },
+    {
+      name: "Chuyển trung tâm — chi một lần cho nhân sự trung tâm cũ", event: "chuyen_trung_tam", orderScope: "all", centerId: null, calcMethod: "fixed",
+      sourceRef: "SR.QD.208 · PL04 Điều 3", note: "Chi MỘT LẦN cho nhân sự trung tâm cũ, không chi lại ở kỳ sau",
+      effectiveFrom: "2026-01-01", isActive: true, createdBy: adminU!.id,
+    },
+    {
+      name: "Bán thiết bị — sản phẩm", event: "ban_thiet_bi", orderScope: "product", centerId: null, calcMethod: "fixed",
+      sourceRef: "SR.QD.208 · PL04 Điều 4", effectiveFrom: "2026-01-01", isActive: true, createdBy: adminU!.id,
+    },
+    {
+      name: "Thưởng danh hiệu TVV theo bậc doanh thu quý", event: "thuong_danh_hieu_tvv", orderScope: "all", centerId: null, calcMethod: "tier",
+      sourceRef: "SR.QD.208 · PL04 Điều 5", note: "Bậc doanh thu không chồng lấn",
+      effectiveFrom: "2026-01-01", isActive: true, createdBy: adminU!.id,
+    },
+  ]).returning();
+  const policyShares = await db.insert(commissionPolicyShares).values([
+    { policyId: polNew!.id, role: "CENTER_SALES_CSM", value: 500, sortOrder: 0 },
+    { policyId: polNew!.id, role: "CENTER_MANAGER", value: 300, sortOrder: 1 },
+    { policyId: polNew!.id, role: "REGION_MANAGER", value: 100, sortOrder: 2 },
+    { policyId: polRenew!.id, role: "CENTER_SALES_CSM", value: 300, sortOrder: 0 },
+    { policyId: polTransfer!.id, role: "CENTER_SALES_CSM", value: 500_000, sortOrder: 0 },
+    { policyId: polDevice!.id, role: "CENTER_SALES_CSM", value: 100_000, maxAmount: 2_000_000, sortOrder: 0 },
+    { policyId: polTitle!.id, role: "CENTER_SALES_CSM", value: 0, sortOrder: 0 },
+  ]).returning();
+  // Bậc doanh thu của vai TVV trong chính sách thưởng danh hiệu — các bậc không chồng lấn
+  const shTitleTvv = policyShares.find((s) => s.policyId === polTitle!.id)!;
+  await db.insert(commissionPolicyTiers).values([
+    { shareId: shTitleTvv.id, fromAmount: 50_000_000, toAmount: 99_999_999, amount: 2_000_000, sortOrder: 0 },
+    { shareId: shTitleTvv.id, fromAmount: 100_000_000, toAmount: 299_999_999, amount: 5_000_000, sortOrder: 1 },
+    { shareId: shTitleTvv.id, fromAmount: 300_000_000, toAmount: null, percent: 200, sortOrder: 2 },
+  ]);
+
+  // ---- Mã QR chuyển khoản mẫu: một mã còn hiệu lực, một mã đã hết hạn ----
+  const qrNow = Date.now();
+  await db.insert(paymentQrCodes).values([
+    {
+      orderId: inst.order.id, paymentMethodId: pmBank!.id, amount: 3_200_000, content: transferMemo(inst.order.code),
+      imageUrl: vietQrImageUrl({ bankBin: "970436", accountNo: "0000000000", accountName: "CONG TY SATA ROBO (MAU)", amount: 3_200_000, memo: transferMemo(inst.order.code) }),
+      bankBin: "970436", accountNo: "0000000000", accountName: "CONG TY SATA ROBO (MAU)", bankName: "Vietcombank",
+      status: "active", issuedBy: sale1U!.id, issuedAt: new Date(qrNow - 2 * 3600e3), expiresAt: new Date(qrNow + 22 * 3600e3),
+    },
+    {
+      orderId: inst.order.id, paymentMethodId: pmBank!.id, amount: 3_200_000, content: transferMemo(inst.order.code),
+      imageUrl: vietQrImageUrl({ bankBin: "970436", accountNo: "0000000000", accountName: "CONG TY SATA ROBO (MAU)", amount: 3_200_000, memo: transferMemo(inst.order.code) }),
+      bankBin: "970436", accountNo: "0000000000", accountName: "CONG TY SATA ROBO (MAU)", bankName: "Vietcombank",
+      status: "expired", issuedBy: sale1U!.id, issuedAt: new Date(qrNow - 3 * 86400e3), expiresAt: new Date(qrNow - 2 * 86400e3),
+    },
+  ]);
+
   const now = Date.now();
   await db.insert(bankTransactions).values([
     { source: "sepay", externalId: "seed-1", gateway: "Vietcombank", accountNo: "0000000000", paymentMethodId: pmBank!.id, occurredAt: new Date(now - 2 * 3600e3), amount: 1_500_000, direction: "in", content: "PH chuyen tien hoc cho be (mau)", status: "unmatched", matchNote: "Nội dung không có mã đơn" },

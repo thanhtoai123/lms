@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  parseSepayPayload, parseSepayDate, checkApiKey, decideBankMatch, parseCsv, parseVnAmount, parseVnDate, parseLegacyCsv, parseStatementCsv,
+  parseSepayPayload, parseSepayDate, checkApiKey, decideBankMatch, parseCsv, parseVnAmount, parseVnDate, parseLegacyCsv, parseStatementCsv, allocationFitLabel,
 } from "./bank.js";
 import { pickRule, computeCommission, commissionTransition, refundAdjustment, validateRule, describeRule, type CommissionRule } from "./commission.js";
 
@@ -125,6 +125,15 @@ test("hoa hồng: chọn quy tắc, tính tiền, trạng thái", () => {
   assert.throws(() => commissionTransition("paid", "cancel"));
   assert.ok(validateRule({ ...rule({ value: 6000 }) }).length > 0);
   assert.ok(validateRule({ ...rule({ effectiveTo: "2025-01-01" }) }).length > 0);
+});
+
+test("đối soát: nhãn Khớp đủ / Đang thừa / lệch số tiền", () => {
+  assert.equal(allocationFitLabel(5_000_000, 5_000_000).label, "Khớp đủ");
+  assert.equal(allocationFitLabel(5_000_000, 5_000_000).fit, "exact");
+  assert.equal(allocationFitLabel(5_000_000, 3_000_000).label, "Đang thừa 2.000.000đ");
+  assert.equal(allocationFitLabel(5_000_000, 3_000_000).diff, 2_000_000);
+  assert.match(allocationFitLabel(5_000_000, 6_000_000).label, /lệch số tiền — kiểm lại/);
+  assert.equal(allocationFitLabel(5_000_000, 6_000_000).fit, "short");
 });
 
 test("hoa hồng: điều chỉnh khi hoàn tiền", () => {

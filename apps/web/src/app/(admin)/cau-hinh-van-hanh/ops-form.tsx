@@ -26,7 +26,7 @@ export function OpsForm({ group, centerId }: { group: OpsGroup; centerId: string
     for (const f of d.fields) {
       if (!f.editable) continue;
       if (centerId && inherit[f.key]) { if (f.overridden) values[f.key] = null; continue; }
-      values[f.key] = f.type === "bool" ? vals[f.key] === "true" : Number(vals[f.key]);
+      values[f.key] = f.type === "bool" ? vals[f.key] === "true" : f.type === "enum" ? (vals[f.key] ?? "") : Number(vals[f.key]);
     }
     save.mutate({ group, centerId, values, reason: reason || null });
   };
@@ -47,6 +47,10 @@ export function OpsForm({ group, centerId }: { group: OpsGroup; centerId: string
                 {centerId && f.editable && <label className="flex items-center gap-1 text-xs"><input type="checkbox" checked={inh} disabled={!d.canEdit} onChange={(e) => setInherit({ ...inherit, [f.key]: e.target.checked })} /> Theo mặc định</label>}
                 {f.type === "bool" ? (
                   <select className="input !w-28" disabled={!d.canEdit || !f.editable || inh} value={vals[f.key] ?? ""} onChange={(e) => setVals({ ...vals, [f.key]: e.target.value })}><option value="true">Bật</option><option value="false">Tắt</option></select>
+                ) : f.type === "enum" ? (
+                  <select className="input !w-80" disabled={!d.canEdit || !f.editable || inh} value={inh ? String(f.globalValue) : (vals[f.key] ?? "")} onChange={(e) => setVals({ ...vals, [f.key]: e.target.value })}>
+                    {(f.choices ?? []).map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+                  </select>
                 ) : (
                   <input type="number" className="input !w-28 text-right" min={f.min} max={f.max} disabled={!d.canEdit || !f.editable || inh} value={inh ? String(f.globalValue) : (vals[f.key] ?? "")} onChange={(e) => setVals({ ...vals, [f.key]: e.target.value })} />
                 )}

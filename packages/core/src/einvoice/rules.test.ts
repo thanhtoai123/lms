@@ -33,6 +33,13 @@ test("hoá đơn: người mua, MST, ký hiệu", () => {
   assert.equal(validateBuyer({ name: "PH A", company: null, taxCode: null, address: null, email: null, phone: null, noInvoiceRequested: false }).length, 0);
   assert.equal(validateBuyer({ name: null, company: null, taxCode: null, address: null, email: null, phone: null, noInvoiceRequested: true }).length, 0);
   assert.equal(validateBuyer({ name: null, company: null, taxCode: "123", address: null, email: "x@", phone: null, noInvoiceRequested: false }).length, 4);
+  // Hai chiều của quy tắc gốc: có MST thì phải có tên đơn vị, và ghi tên đơn vị thì phải có MST
+  assert.match(validateBuyer({ name: "PH A", company: null, taxCode: "0101234567", address: "1 Nguyễn Hữu Thọ", email: null, phone: null, noInvoiceRequested: false }).join(), /cần tên đơn vị/);
+  assert.match(validateBuyer({ name: "PH A", company: "Công ty TNHH ABC", taxCode: null, address: "1 Nguyễn Hữu Thọ", email: null, phone: null, noInvoiceRequested: false }).join(), /tên đơn vị thì bắt buộc có mã số thuế/);
+  // Khai đủ đơn vị + MST + địa chỉ thì hợp lệ
+  assert.deepEqual(validateBuyer({ name: "PH A", company: "Công ty TNHH ABC", taxCode: "0101234567", address: "1 Nguyễn Hữu Thọ", email: "ke-toan@abc.vn", phone: null, noInvoiceRequested: false }), []);
+  // Chỉ ghi tên đơn vị, thiếu cả MST lẫn địa chỉ → báo MST (địa chỉ chỉ kiểm khi đã có MST)
+  assert.equal(validateBuyer({ name: null, company: "Công ty TNHH ABC", taxCode: null, address: null, email: null, phone: null, noInvoiceRequested: false }).length, 1);
   assert.deepEqual(validateSerial("1C26TSR", 2026), []);
   assert.equal(validateSerial("1C25TSR", 2026).length, 1);
   assert.equal(validateSerial("C26", 2026).length, 1);

@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { hasPermission, ORDER_TYPE_VI, type Actor } from "@satarobo/core";
+import { hasPermission, ORDER_TYPE_VI, DISCOUNT_POLICY_VI, type Actor, type DiscountPolicy } from "@satarobo/core";
 import { getServerCaller } from "@/lib/trpc/server";
 import { NoAccess, PageHeader } from "@/components/admin-ui";
 import { OrderChip, OrderDisplayChip, PaymentChip, RefundChip, FormatChip, vnd, fmtD } from "@/components/finance-ui";
-import { RecordPayment, DecidePayment, CancelOrder, NotesEditor, RevealCustomer, PlanEditor, ChildInstallment, CancelInstallment, EditPendingPayment, AdjustConfirmedPayment, SendOrderEmail } from "./actions";
+import { RecordPayment, DecidePayment, CancelOrder, NotesEditor, RevealCustomer, PlanEditor, ChildInstallment, CancelInstallment, EditPendingPayment, AdjustConfirmedPayment, SendOrderEmail, OrderQr } from "./actions";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Chi tiết đơn" };
@@ -12,7 +12,7 @@ export const metadata = { title: "Chi tiết đơn" };
 const EVENT_VI: Record<string, string> = {
   create: "Tạo đơn", status: "Đổi trạng thái", cancel: "Huỷ đơn", payment_recorded: "Ghi nhận thu", payment_confirmed: "Kế toán xác nhận", payment_adjusted: "Kế toán điều chỉnh",
   payment_rejected: "Kế toán từ chối", payment_updated: "Sửa khoản đang chờ", payment_unlinked: "Gỡ gắn giao dịch",
-  plan_changed: "Sửa kế hoạch thanh toán", installment_added: "Thêm đợt cho con", installment_cancelled: "Huỷ đợt", fee_changed: "Sửa học phí hợp đồng",
+  plan_changed: "Sửa kế hoạch thanh toán", installment_added: "Thêm đợt cho con", installment_cancelled: "Huỷ đợt", fee_changed: "Sửa học phí hợp đồng", qr_issued: "Xuất mã QR",
   refund_requested: "Đề xuất hoàn", refund_approved: "Duyệt hoàn", refund_rejected: "Từ chối hoàn", refund_paid: "Đã chi hoàn",
 };
 const LEDGER_VI: Record<string, string> = { charge: "Ghi nợ", payment: "Thu tiền", refund: "Chi hoàn", cancel: "Huỷ nợ", adjustment: "Điều chỉnh" };
@@ -62,7 +62,7 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
                       {i.courseCode && <span className="chip ml-1 bg-black/5">{i.courseCode}{i.packageSessions ? ` · ${i.packageSessions} buổi` : ""}</span>}
                       <FormatChip format={i.classFormat} />
                       {i.studentName && <div className="text-xs text-ink-600">Học viên: {i.studentName}</div>}
-                      {i.discounts.map((d) => <div key={d.id} className="text-xs text-amber-800">−{vnd(d.amount)}{d.kind === "percent" ? ` (${d.value}%)` : ""} · {d.reason}</div>)}
+                      {i.discounts.map((d) => <div key={d.id} className="text-xs text-amber-800">−{vnd(d.amount)}{d.kind === "percent" ? ` (${d.value}%)` : ""} · {DISCOUNT_POLICY_VI[d.policy as DiscountPolicy] ?? ""} · {d.reason}</div>)}
                     </td>
                     <td className="p-2">{i.quantity}</td>
                     <td className="p-2 text-right tabular-nums">{vnd(i.unitPrice)}</td>
@@ -129,7 +129,7 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
                   <li key={p.id} className="flex flex-wrap items-start justify-between gap-2 py-2">
                     <div>
                       <div><b className="tabular-nums">{vnd(p.amount)}</b>{p.amount !== p.recordedAmount && <span className="text-xs text-ink-400"> (ghi nhận {vnd(p.recordedAmount)})</span>} · {p.methodName ?? "—"} · ngày {fmtD(p.paidAt)} <PaymentChip status={p.status} />{p.source !== "manual" && <span className="chip ml-1 bg-black/5">{p.source}</span>}</div>
-                      <div className="text-xs text-ink-400">Ghi nhận: {p.recorderName ?? "?"}{p.deciderName ? ` · Kế toán: ${p.deciderName}` : ""}{p.payerName ? ` · Người nộp: ${p.payerName}` : ""}{p.note ? ` · ${p.note}` : ""}</div>
+                      <div className="text-xs text-ink-400">Ghi nhận: {p.recorderName ?? "?"}{p.deciderName ? ` · Kế toán: ${p.deciderName}` : ""}{p.payerName ? ` · Người nộp: ${p.payerName}` : ""}{p.adjustCount > 0 ? ` · đã điều chỉnh ${p.adjustCount} lần` : ""}{p.note ? ` · ${p.note}` : ""}</div>
                       {p.decisionReason && <div className="text-xs text-amber-800">{p.decisionReason}</div>}
                     </div>
                     <div className="flex items-center gap-2">
@@ -167,17 +167,7 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
         </div>
 
         <div className="space-y-4">
-          {o.qr && (
-            <section className="card space-y-2 p-4 text-center">
-              <h2 className="font-semibold">Chuyển khoản / QR</h2>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={o.qr.url} alt="Mã QR chuyển khoản" className="mx-auto w-56 rounded-xl border border-black/10" />
-              <div className="text-sm">{o.qr.bankName} · <span className="font-mono">{o.qr.accountNo}</span></div>
-              <div className="text-xs text-ink-600">{o.qr.accountName}</div>
-              <div className="rounded-lg bg-brand-50 p-2 font-mono text-sm font-semibold">{o.qr.memo}</div>
-              <p className="text-[11px] text-ink-400">Nội dung chuyển khoản phải giữ nguyên mã đơn để đối khớp tự động.</p>
-            </section>
-          )}
+          {open && b.outstanding > 0 && <OrderQr orderId={o.id} canIssue={o.perms.create} />}
           <section className="card space-y-1 p-4 text-sm">
             <h2 className="mb-1 font-semibold">Khách hàng</h2>
             <div><b>{o.customerName}</b></div>

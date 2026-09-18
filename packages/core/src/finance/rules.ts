@@ -22,9 +22,60 @@ export const PAYMENT_STATUSES = ["recorded", "confirmed", "rejected", "voided"] 
 export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
 export const PAYMENT_STATUS_VI: Record<PaymentStatus, string> = { recorded: "Chờ kế toán xác nhận", confirmed: "Đã xác nhận", rejected: "Bị từ chối", voided: "Đã huỷ (gỡ gắn)" };
 
-export const PAYMENT_METHOD_KINDS = ["cash", "bank_transfer", "gateway"] as const;
+/** Bản gốc: CASH · BANK_TRANSFER · VNPAY / TINGEE (gateway) · WALLET (ví điện tử) · COD (thu hộ khi giao) */
+export const PAYMENT_METHOD_KINDS = ["cash", "bank_transfer", "gateway", "wallet", "cod"] as const;
 export type PaymentMethodKind = (typeof PAYMENT_METHOD_KINDS)[number];
-export const PAYMENT_METHOD_KIND_VI: Record<PaymentMethodKind, string> = { cash: "Tiền mặt", bank_transfer: "Chuyển khoản", gateway: "Cổng thanh toán" };
+export const PAYMENT_METHOD_KIND_VI: Record<PaymentMethodKind, string> = {
+  cash: "Tiền mặt",
+  bank_transfer: "Chuyển khoản",
+  gateway: "Cổng thanh toán",
+  wallet: "Ví điện tử",
+  cod: "Thu hộ khi giao (COD)",
+};
+
+/**
+ * Phạm vi dùng của phương thức thanh toán (bản gốc: 5 cờ).
+ * `allowFor` cũ vẫn là nguồn dữ liệu chính; 5 cờ là cách khai mới, hai chiều quy đổi được.
+ */
+export const PAYMENT_SCOPE_FLAGS = ["canBuyCourse", "canBuyPackage", "canBuyExam", "canBuyProduct", "canDeposit"] as const;
+export type PaymentScopeFlag = (typeof PAYMENT_SCOPE_FLAGS)[number];
+export const PAYMENT_SCOPE_FLAG_VI: Record<PaymentScopeFlag, string> = {
+  canBuyCourse: "Khoá học offline",
+  canBuyPackage: "Gói khoá học",
+  canBuyExam: "Kỳ thi",
+  canBuyProduct: "Sản phẩm",
+  canDeposit: "Nạp ví",
+};
+/** Cờ ⇄ loại đơn: gói combo đi cùng khoá học, nạp ví chưa gắn loại đơn nào */
+export const PAYMENT_SCOPE_ORDER_TYPE: Record<PaymentScopeFlag, OrderType | null> = {
+  canBuyCourse: "course",
+  canBuyPackage: "course",
+  canBuyExam: "exam",
+  canBuyProduct: "product",
+  canDeposit: null,
+};
+
+/** 5 cờ → allowFor (giữ tương thích với cột jsonb đang dùng) */
+export function scopeFlagsToAllowFor(f: Partial<Record<PaymentScopeFlag, boolean>>): OrderType[] {
+  const out = new Set<OrderType>();
+  for (const k of PAYMENT_SCOPE_FLAGS) {
+    const t = PAYMENT_SCOPE_ORDER_TYPE[k];
+    if (f[k] && t) out.add(t);
+  }
+  return [...out];
+}
+
+/** allowFor → 5 cờ (dữ liệu cũ chưa khai cờ thì suy ra từ loại đơn) */
+export function allowForToScopeFlags(allowFor: readonly string[]): Record<PaymentScopeFlag, boolean> {
+  const has = (t: string) => allowFor.includes(t);
+  return {
+    canBuyCourse: has("course"),
+    canBuyPackage: has("course"),
+    canBuyExam: has("exam"),
+    canBuyProduct: has("product"),
+    canDeposit: false,
+  };
+}
 
 export const REFUND_STATUSES = ["pending", "approved", "rejected", "paid"] as const;
 export type RefundStatus = (typeof REFUND_STATUSES)[number];
@@ -101,11 +152,108 @@ export function formatUnitPrice(basePrice: number, format: ClassFormat): number 
 
 export const DEFAULT_MAX_LINE_DISCOUNT_PCT = 50;
 
+/* ------------------------------------------------------------------ */
+/* Chính sách giảm giá (bản gốc: 5 loại)                                */
+/* ------------------------------------------------------------------ */
+
+export const DISCOUNT_POLICIES = ["none", "percent", "amount", "program", "scholarship"] as const;
+export type DiscountPolicy = (typeof DISCOUNT_POLICIES)[number];
+export const DISCOUNT_POLICY_VI: Record<DiscountPolicy, string> = {
+  none: "Không giảm",
+  percent: "Giảm theo %",
+  amount: "Giảm số tiền",
+  program: "Ưu đãi chương trình",
+  scholarship: "Học bổng",
+};
+/** Cách tính tiền của từng chính sách: ưu đãi chương trình là số tiền, học bổng là % */
+export const DISCOUNT_POLICY_KIND: Record<DiscountPolicy, "none" | "amount" | "percent"> = {
+  none: "none",
+  percent: "percent",
+  amount: "amount",
+  program: "amount",
+  scholarship: "percent",
+};
+export const DISCOUNT_POLICY_HINT: Record<DiscountPolicy, string> = {
+  none: "Bán đúng giá niêm yết",
+  percent: "Nhập số phần trăm giảm",
+  amount: "Nhập số tiền giảm (đồng)",
+  program: "Số tiền ưu đãi theo chương trình đang chạy",
+  scholarship: "Phần trăm học bổng được duyệt",
+};
+
+export interface DiscountPolicyInput {
+  /** Giá niêm yết / thành tiền trước giảm của dòng */
+  listPrice: number;
+  policy: DiscountPolicy;
+  /** percent & scholarship: số phần trăm; amount & program: số tiền VND; none: bỏ qua */
+  value: number;
+  /** Trần % giảm theo cấu hình vận hành (mặc định 50) */
+  maxPercent?: number;
+  reason?: string | null;
+}
+
+export interface DiscountPolicyResult {
+  policy: DiscountPolicy;
+  /** amount | percent — để ghi vào cột `kind` cũ của order_item_discounts */
+  kind: "amount" | "percent";
+  /** Số tiền giảm đã quy ra VND (không vượt giá niêm yết) */
+  amount: number;
+  net: number;
+  errors: string[];
+}
+
+/**
+ * Kiểm tra một khoản giảm theo chính sách và quy ra số tiền CHƯA kẹp theo giá niêm yết.
+ * Dùng chung cho `applyDiscountPolicy` (một khoản) và `priceLine` (nhiều khoản cộng dồn).
+ */
+export function rawDiscountAmount(i: DiscountPolicyInput): { kind: "amount" | "percent"; amount: number; errors: string[] } {
+  const errors: string[] = [];
+  const maxPercent = i.maxPercent ?? DEFAULT_MAX_LINE_DISCOUNT_PCT;
+  const listPrice = Math.max(0, Math.round(Number.isFinite(i.listPrice) ? i.listPrice : 0));
+  const mode = DISCOUNT_POLICY_KIND[i.policy];
+  if (!DISCOUNT_POLICIES.includes(i.policy)) errors.push("Chính sách giảm giá không hợp lệ");
+  if (mode === "none") return { kind: "amount", amount: 0, errors };
+  if ((i.reason ?? "").trim().length < 3) errors.push(`${DISCOUNT_POLICY_VI[i.policy]} — cần ghi lý do giảm (tối thiểu 3 ký tự)`);
+  let amount = 0;
+  if (mode === "percent") {
+    if (!Number.isFinite(i.value) || i.value < 1 || i.value > maxPercent) errors.push(`${DISCOUNT_POLICY_VI[i.policy]} phải trong khoảng 1–${maxPercent}%`);
+    else amount = Math.round((listPrice * i.value) / 100);
+  } else {
+    if (!Number.isInteger(i.value) || i.value <= 0) errors.push(`${DISCOUNT_POLICY_VI[i.policy]} phải là số tiền nguyên > 0`);
+    else amount = i.value;
+  }
+  return { kind: mode, amount, errors };
+}
+
+/**
+ * Tính tiền giảm theo chính sách cho MỘT khoản. Lý do giảm luôn bắt buộc (trừ "không giảm"),
+ * trần % lấy từ cấu hình vận hành, số tiền giảm không vượt giá niêm yết.
+ */
+export function applyDiscountPolicy(i: DiscountPolicyInput): DiscountPolicyResult {
+  const listPrice = Math.max(0, Math.round(Number.isFinite(i.listPrice) ? i.listPrice : 0));
+  const r = rawDiscountAmount(i);
+  const errors = [...r.errors];
+  let amount = r.amount;
+  if (amount > listPrice) {
+    errors.push(`Số tiền giảm (${formatVnd(amount)}) lớn hơn giá niêm yết (${formatVnd(listPrice)})`);
+    amount = listPrice;
+  }
+  return { policy: i.policy, kind: r.kind, amount, net: listPrice - amount, errors: [...new Set(errors)] };
+}
+
 export interface LineDiscount {
   kind: "amount" | "percent";
   /** amount: VND; percent: 1..maxPercent */
   value: number;
   reason?: string | null;
+  /** Chính sách giảm (mặc định suy từ kind cho dữ liệu cũ) */
+  policy?: DiscountPolicy | null;
+}
+
+/** Chính sách của một khoản giảm cũ (chưa khai policy) suy từ kind */
+export function discountPolicyOf(d: Pick<LineDiscount, "kind" | "policy">): DiscountPolicy {
+  if (d.policy && DISCOUNT_POLICIES.includes(d.policy) && d.policy !== "none") return d.policy;
+  return d.kind === "percent" ? "percent" : "amount";
 }
 
 export interface PriceLineInput {
@@ -146,14 +294,13 @@ export function priceLine(i: PriceLineInput): PricedLine {
   }
   let discount = 0;
   for (const d of i.discounts ?? []) {
-    if (!(d.reason ?? "").trim() || (d.reason ?? "").trim().length < 3) errors.push("Khoản giảm cần lý do (tối thiểu 3 ký tự)");
-    if (d.kind === "percent") {
-      if (!Number.isFinite(d.value) || d.value < 1 || d.value > maxPercent) errors.push(`Giảm theo % phải trong khoảng 1–${maxPercent}%`);
-      else discount += Math.round((gross * d.value) / 100);
-    } else {
-      if (!Number.isInteger(d.value) || d.value <= 0) errors.push("Số tiền giảm phải là số nguyên > 0");
-      else discount += d.value;
-    }
+    const policy = discountPolicyOf(d);
+    // Chính sách quyết định cách tính; `kind` cũ chỉ còn là hình chiếu của chính sách.
+    // Cộng dồn số CHƯA kẹp để giữ nguyên quy tắc "nhiều khoản giảm không vượt thành tiền của dòng".
+    const r = rawDiscountAmount({ listPrice: gross, policy, value: d.value, maxPercent, reason: d.reason });
+    if (DISCOUNT_POLICY_KIND[policy] !== d.kind) errors.push(`Khoản giảm "${DISCOUNT_POLICY_VI[policy]}" phải ghi theo ${DISCOUNT_POLICY_KIND[policy] === "percent" ? "phần trăm" : "số tiền"}`);
+    for (const e of r.errors) errors.push(e);
+    discount += r.amount;
   }
   if (discount > gross) {
     errors.push(`Tổng giảm (${formatVnd(discount)}) vượt thành tiền của dòng (${formatVnd(gross)})`);
@@ -509,15 +656,123 @@ export function orderCode(year: number, seq: number): string {
   return `DH${String(year % 100).padStart(2, "0")}-${String(seq).padStart(6, "0")}`;
 }
 
+/* ------------------------------------------------------------------ */
+/* Dạng mã đơn (cấu hình vận hành)                                     */
+/* ------------------------------------------------------------------ */
+
+export const ORDER_CODE_FORMATS = ["dh_year", "ord_date"] as const;
+export type OrderCodeFormat = (typeof ORDER_CODE_FORMATS)[number];
+export const ORDER_CODE_FORMAT_VI: Record<OrderCodeFormat, string> = {
+  dh_year: "DHyy-NNNNNN — đánh số theo năm (đang dùng)",
+  ord_date: "ORD-YYMMDD-NNNNNN — đánh số theo ngày (kiểu bản gốc)",
+};
+export const DEFAULT_ORDER_CODE_FORMAT: OrderCodeFormat = "dh_year";
+
+/** Mã đơn kiểu bản gốc: ORD-260917-000002 (đánh số trong ngày) */
+export function orderCodeByDate(dateISO: string, seq: number): string {
+  const [y, m, d] = dateISO.slice(0, 10).split("-") as [string, string, string];
+  return `ORD-${y.slice(-2)}${m}${d}-${String(seq).padStart(6, "0")}`;
+}
+
+/** Mã đơn theo dạng đang cấu hình. `seq` đếm trong phạm vi của tiền tố (năm hoặc ngày). */
+export function buildOrderCode(format: OrderCodeFormat, dateISO: string, seq: number): string {
+  return format === "ord_date" ? orderCodeByDate(dateISO, seq) : orderCode(Number(dateISO.slice(0, 4)), seq);
+}
+
+/** Tiền tố (kèm dấu nối) để đếm số thứ tự kế tiếp: "DH26-" hoặc "ORD-260917-" */
+export function orderCodePrefix(format: OrderCodeFormat, dateISO: string): string {
+  const full = buildOrderCode(format, dateISO, 0);
+  return full.slice(0, full.length - 6);
+}
+
 /** Nội dung chuyển khoản: bỏ ký tự đặc biệt để ngân hàng không cắt (SATA DH26000012) */
 export function transferMemo(code: string): string {
   return `SATA ${code.replace(/[^A-Za-z0-9]/g, "").toUpperCase()}`;
 }
 
-/** Tìm mã đơn trong nội dung chuyển khoản (đối khớp biến động số dư) */
+/**
+ * Tìm mã đơn trong nội dung chuyển khoản (đối khớp biến động số dư).
+ * Nhận cả hai dạng mã: ORD-YYMMDD-NNNNNN (bản gốc) và DHyy-NNNNNN.
+ */
 export function extractOrderRef(content: string): string | null {
-  const m = /DH(\d{2})(\d{6})(?!\d)/.exec(content.replace(/[^A-Za-z0-9]/g, "").toUpperCase());
-  return m ? `DH${m[1]}-${m[2]}` : null;
+  const flat = content.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+  const ord = /ORD(\d{6})(\d{6})(?!\d)/.exec(flat);
+  if (ord) return `ORD-${ord[1]}-${ord[2]}`;
+  const dh = /DH(\d{2})(\d{6})(?!\d)/.exec(flat);
+  return dh ? `DH${dh[1]}-${dh[2]}` : null;
+}
+
+/* ------------------------------------------------------------------ */
+/* Mã QR chuyển khoản có hạn dùng                                      */
+/* ------------------------------------------------------------------ */
+
+export const PAYMENT_QR_STATUSES = ["active", "used", "expired", "revoked"] as const;
+export type PaymentQrStatus = (typeof PAYMENT_QR_STATUSES)[number];
+export const PAYMENT_QR_STATUS_VI: Record<PaymentQrStatus, string> = {
+  active: "Còn hiệu lực",
+  used: "Đã dùng",
+  expired: "Đã hết hạn",
+  revoked: "Đã thu hồi",
+};
+
+/** Hạn dùng mặc định của mã QR (cấu hình vận hành ghi đè được) */
+export const DEFAULT_QR_TTL_HOURS = 24;
+export const QR_REUSE_LABEL = "Đang dùng lại mã QR còn hiệu lực";
+export const QR_EXPIRED_LABEL = "QR đã hết hạn";
+
+const ms = (t: string | Date) => (t instanceof Date ? t.getTime() : new Date(t).getTime());
+
+/** Thời điểm hết hạn của mã xuất lúc `issuedAt` với hạn dùng `ttlHours` */
+export function qrExpiresAt(issuedAt: string | Date, ttlHours: number = DEFAULT_QR_TTL_HOURS): Date {
+  return new Date(ms(issuedAt) + Math.max(1, ttlHours) * 3_600_000);
+}
+
+/** Hết hạn khi đã tới hoặc qua mốc `expiresAt` (mốc trùng khít = hết hạn) */
+export function qrExpired(now: string | Date, expiresAt: string | Date): boolean {
+  const a = ms(now);
+  const b = ms(expiresAt);
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return true;
+  return a >= b;
+}
+
+export interface PaymentQrLite {
+  amount: number;
+  status: PaymentQrStatus;
+  expiresAt: string | Date;
+  usedAt?: string | Date | null;
+}
+
+/**
+ * Mã QR dùng lại được: còn hiệu lực, chưa dùng và **đúng số tiền đang phải thu**.
+ * Số tiền đổi hoặc mã hết hạn thì phải xuất mã mới (bản gốc: "Đang dùng lại mã QR còn hiệu lực").
+ * Trả mã còn hạn lâu nhất để phụ huynh có nhiều thời gian nhất.
+ */
+export function reusableQr<T extends PaymentQrLite>(list: readonly T[], amountDue: number, now: string | Date): T | null {
+  const ok = list.filter((q) => q.status === "active" && !q.usedAt && q.amount === amountDue && !qrExpired(now, q.expiresAt));
+  if (!ok.length) return null;
+  return [...ok].sort((a, b) => ms(b.expiresAt) - ms(a.expiresAt))[0]!;
+}
+
+export interface QrState<T extends PaymentQrLite = PaymentQrLite> {
+  /** Mã dùng lại được (null = phải xuất mã mới) */
+  reuse: T | null;
+  /** Có mã đã hết hạn / đã thu hồi cho số tiền này */
+  hasExpired: boolean;
+  /** Nhãn hiển thị trên trang đơn */
+  label: string | null;
+  canIssue: boolean;
+}
+
+/** Trạng thái QR của một đơn: dùng lại mã còn hiệu lực hay phải xuất mã mới */
+export function qrState<T extends PaymentQrLite>(list: readonly T[], amountDue: number, now: string | Date): QrState<T> {
+  const reuse = reusableQr(list, amountDue, now);
+  const hasExpired = list.some((q) => q.status !== "used" && (q.status === "expired" || q.status === "revoked" || qrExpired(now, q.expiresAt)));
+  return {
+    reuse,
+    hasExpired: !reuse && hasExpired,
+    label: reuse ? QR_REUSE_LABEL : hasExpired ? QR_EXPIRED_LABEL : null,
+    canIssue: amountDue > 0,
+  };
 }
 
 /** Che CCCD / số giấy tờ: chỉ giữ 3 số đầu, 2 số cuối */
