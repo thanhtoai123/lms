@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ROLES, TRIAL_STATUSES } from "@satarobo/core";
+import { ROLES, TRIAL_STATUSES, TRIAL_ATTENDANCE_STATUSES } from "@satarobo/core";
 import { router, protectedProcedure, requirePermission } from "../trpc";
 import * as Acc from "../services/accounts";
 import * as StaffAuth from "../services/staffAuth";
@@ -11,6 +11,7 @@ import * as Ops from "../services/ops";
 
 const uuid = z.string().uuid();
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Ngày không hợp lệ");
+const hhmm = z.string().regex(/^\d{2}:\d{2}$/, "Giờ dạng HH:mm");
 const roleAssign = z.object({ role: z.enum(ROLES), centerId: uuid.nullable() });
 
 export const systemRouter = router({
@@ -85,4 +86,45 @@ export const trialsRouter = router({
     .input(z.object({ bookingId: uuid, result: z.enum(["attend", "no_show"]), note: z.string().max(500).nullish() }))
     .mutation(({ ctx, input }) => Tr.recordTrialResult(ctx, input)),
   undo: protectedProcedure.input(z.object({ bookingId: uuid, reason: z.string().max(300) })).mutation(({ ctx, input }) => Tr.undoTrialResult(ctx, input)),
+
+  /* ---- Lớp trải nghiệm nhiều buổi: tạo lớp → thêm buổi → xếp học viên → điểm danh ---- */
+  classes: protectedProcedure
+    .input(z.object({ scope: z.enum(["open", "all"]).optional(), centerId: uuid.optional(), q: z.string().max(100).optional() }).default({}))
+    .query(({ ctx, input }) => Tr.listTrialClasses(ctx, input)),
+  classDetail: protectedProcedure.input(z.object({ id: uuid })).query(({ ctx, input }) => Tr.trialClassDetail(ctx, input)),
+  classOptionsForLead: protectedProcedure.input(z.object({ leadId: uuid })).query(({ ctx, input }) => Tr.trialClassOptionsForLead(ctx, input)),
+  classCandidates: protectedProcedure
+    .input(z.object({ trialClassId: uuid, q: z.string().max(100).optional() }))
+    .query(({ ctx, input }) => Tr.trialClassCandidates(ctx, input)),
+  createClass: protectedProcedure
+    .input(z.object({ centerId: uuid, courseId: uuid.nullish(), capacity: z.number().int().min(1).max(60).nullish(), note: z.string().max(500).nullish() }))
+    .mutation(({ ctx, input }) => Tr.createTrialClass(ctx, input)),
+  cancelClass: protectedProcedure
+    .input(z.object({ id: uuid, reason: z.string().trim().min(5, "Lý do huỷ lớp tối thiểu 5 ký tự").max(300) }))
+    .mutation(({ ctx, input }) => Tr.cancelTrialClass(ctx, input)),
+  addSession: protectedProcedure
+    .input(z.object({ trialClassId: uuid, date: isoDate, startTime: hhmm, endTime: hhmm, roomId: uuid.nullish(), teacherId: uuid.nullish(), topic: z.string().max(200).nullish() }))
+    .mutation(({ ctx, input }) => Tr.addTrialSession(ctx, input)),
+  rescheduleSession: protectedProcedure
+    .input(z.object({
+      sessionId: uuid, date: isoDate, startTime: hhmm, endTime: hhmm, roomId: uuid.nullish(), teacherId: uuid.nullish(), topic: z.string().max(200).nullish(),
+      reason: z.string().trim().min(5, "Lý do dời buổi tối thiểu 5 ký tự (gửi thẳng cho giáo viên)").max(300),
+    }))
+    .mutation(({ ctx, input }) => Tr.rescheduleTrialSession(ctx, input)),
+  cancelSession: protectedProcedure
+    .input(z.object({ sessionId: uuid, reason: z.string().trim().min(5, "Lý do huỷ buổi tối thiểu 5 ký tự (gửi thẳng cho giáo viên)").max(300) }))
+    .mutation(({ ctx, input }) => Tr.cancelTrialSession(ctx, input)),
+  completeSession: protectedProcedure.input(z.object({ sessionId: uuid })).mutation(({ ctx, input }) => Tr.completeTrialSession(ctx, input)),
+  enrollToClass: protectedProcedure
+    .input(z.object({ trialClassId: uuid, leadId: uuid, childId: uuid.nullish(), override: z.boolean().optional() }))
+    .mutation(({ ctx, input }) => Tr.enrollToTrialClass(ctx, input)),
+  withdrawFromClass: protectedProcedure
+    .input(z.object({ enrollmentId: uuid, reason: z.string().max(300).nullish() }))
+    .mutation(({ ctx, input }) => Tr.withdrawFromTrialClass(ctx, input)),
+  markClassAttendance: protectedProcedure
+    .input(z.object({
+      sessionId: uuid,
+      records: z.array(z.object({ enrollmentId: uuid, status: z.enum(TRIAL_ATTENDANCE_STATUSES), note: z.string().max(300).nullish() })).min(1).max(100),
+    }))
+    .mutation(({ ctx, input }) => Tr.markTrialAttendance(ctx, input)),
 });

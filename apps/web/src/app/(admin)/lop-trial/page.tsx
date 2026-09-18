@@ -1,60 +1,68 @@
+import Link from "next/link";
 import { hasPermission, type Actor } from "@satarobo/core";
 import { getServerCaller } from "@/lib/trpc/server";
-import { NoAccess, PageHeader, StatTabs } from "@/components/admin-ui";
-import { TRIAL_STATUSES, TRIAL_STATUS_VI, type TrialStatus } from "@satarobo/core";
-import { TrialBoard } from "./board";
-import { BookTrial } from "./book";
+import { NoAccess, PageHeader } from "@/components/admin-ui";
+import { TrialClassList } from "./classes";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Lớp Trial" };
 
-type SP = { from?: string; to?: string; center?: string; status?: string; q?: string; mine?: string; lead?: string };
+type SP = { scope?: string; center?: string; q?: string };
 
-export default async function TrialPage({ searchParams }: { searchParams: Promise<SP> }) {
+export default async function TrialClassesPage({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
-  const status = TRIAL_STATUSES.includes(sp.status as TrialStatus) ? (sp.status as TrialStatus) : undefined;
+  const scope = sp.scope === "all" ? "all" : "open";
   const { caller, ctx } = await getServerCaller();
-  if (!ctx.actor || !hasPermission(ctx.actor as Actor, "lead:read")) return <NoAccess title="Lớp Trial" perm="lead:read" />;
+  if (!ctx.actor || !hasPermission(ctx.actor as Actor, "trials:view")) return <NoAccess title="Lớp Trial" perm="trials:view" />;
   const [ref, data] = await Promise.all([
     caller.academics.classes.referenceData(),
-    caller.admissions.trials.list({ from: sp.from || undefined, to: sp.to || undefined, centerId: sp.center || undefined, status, q: sp.q || undefined, mine: sp.mine === "1" || undefined }),
+    caller.admissions.trials.classes({ scope, centerId: sp.center || undefined, q: sp.q || undefined }),
   ]);
-  const s = data.stats;
   return (
     <div className="space-y-4">
       <PageHeader
         title="Lớp Trial"
-        desc="Xếp khách vào buổi học có sẵn để học thử. Đổi lịch / huỷ phải ghi lý do và giáo viên được báo; kết quả buổi thử tự cập nhật trạng thái lead và tạo việc gọi chốt."
+        desc="Lớp trải nghiệm nhiều buổi: tạo lớp → thêm buổi → xếp học viên → điểm danh. Tên lớp hệ thống tự đặt; ngày / giờ / phòng / giáo viên chọn theo từng buổi. Thêm học viên vào lớp là em đó học toàn bộ buổi của lớp, kể cả buổi tạo sau."
+        actions={<Link href="/lop-trial/buoi-le" className="btn-ghost">Học thử buổi lẻ →</Link>}
       />
-      <BookTrial centers={ref.centers} courses={ref.courses} initialLeadId={sp.lead} />
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-        <div className="card p-4"><div className="text-xs text-ink-400">Sắp diễn ra</div><div className="text-2xl font-bold text-brand-600">{s.upcoming}</div></div>
-        <div className="card p-4"><div className="text-xs text-ink-400">Chưa ghi kết quả</div><div className={`text-2xl font-bold ${s.needsResult ? "text-red-700" : ""}`}>{s.needsResult}</div></div>
-        <div className="card p-4"><div className="text-xs text-ink-400">Đã học thử</div><div className="text-2xl font-bold text-green-700">{s.attended}</div></div>
-        <div className="card p-4"><div className="text-xs text-ink-400">Không đến</div><div className="text-2xl font-bold text-red-700">{s.noShow}</div></div>
-        <div className="card p-4"><div className="text-xs text-ink-400">Huỷ / đổi lịch</div><div className="text-2xl font-bold">{s.cancelled} / {s.rescheduled}</div></div>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="card p-4"><div className="text-xs text-ink-400">Lớp đang mở</div><div className="text-2xl font-bold text-brand-600">{data.stats.open}</div></div>
+        <div className="card p-4"><div className="text-xs text-ink-400">Lớp hiển thị</div><div className="text-2xl font-bold">{data.stats.total}</div></div>
+        <div className="card p-4"><div className="text-xs text-ink-400">Học viên đang học thử</div><div className="text-2xl font-bold text-green-700">{data.stats.students}</div></div>
+        <div className="card p-4"><div className="text-xs text-ink-400">Lớp chưa xếp buổi</div><div className={`text-2xl font-bold ${data.stats.noSession ? "text-amber-700" : ""}`}>{data.stats.noSession}</div></div>
       </div>
       <form className="flex flex-wrap items-end gap-2">
-        <label className="text-xs text-ink-600">Từ ngày<input type="date" name="from" defaultValue={data.from} className="input mt-1 !py-1.5" /></label>
-        <label className="text-xs text-ink-600">Đến ngày<input type="date" name="to" defaultValue={data.to} className="input mt-1 !py-1.5" /></label>
         <label className="text-xs text-ink-600">Cơ sở
           <select name="center" defaultValue={sp.center ?? ""} className="input mt-1 !py-1.5">
             <option value="">Mọi cơ sở</option>
-            {ref.centers.map((c) => <option key={c.id} value={c.id}>{c.code}</option>)}
+            {ref.centers.map((c) => <option key={c.id} value={c.id}>{c.code} — {c.name}</option>)}
           </select>
         </label>
-        <label className="text-xs text-ink-600">Tìm<input name="q" defaultValue={sp.q} placeholder="PH / bé / SĐT / mã lớp" className="input mt-1 !py-1.5" /></label>
-        {status && <input type="hidden" name="status" value={status} />}
-        <label className="flex items-center gap-1 pb-2 text-xs text-ink-600"><input type="checkbox" name="mine" value="1" defaultChecked={sp.mine === "1"} /> Lead của tôi</label>
+        <label className="text-xs text-ink-600">Tìm<input name="q" defaultValue={sp.q} placeholder="Tên lớp hoặc mã lớp" className="input mt-1 !py-1.5" /></label>
+        {scope === "all" && <input type="hidden" name="scope" value="all" />}
         <button className="btn-ghost !py-1.5">Lọc</button>
       </form>
-      <StatTabs
-        basePath="/lop-trial"
-        params={sp}
-        active={status ?? ""}
-        tabs={[{ key: "", label: "Tất cả" }, ...TRIAL_STATUSES.map((k) => ({ key: k, label: TRIAL_STATUS_VI[k] }))]}
+      <nav className="flex gap-1 overflow-x-auto border-b border-black/5 text-sm">
+        {([{ key: "", label: "Đang mở" }, { key: "all", label: "Tất cả" }] as const).map((t) => {
+          const u = new URLSearchParams();
+          if (sp.center) u.set("center", sp.center);
+          if (sp.q) u.set("q", sp.q);
+          if (t.key) u.set("scope", t.key);
+          const qs = u.toString();
+          const active = (scope === "all" ? "all" : "") === t.key;
+          return (
+            <Link key={t.key || "open"} href={qs ? `/lop-trial?${qs}` : "/lop-trial"} className={`whitespace-nowrap border-b-2 px-3 py-2 ${active ? "border-brand-600 font-semibold text-brand-600" : "border-transparent text-ink-600 hover:text-ink-900"}`}>
+              {t.label}
+            </Link>
+          );
+        })}
+      </nav>
+      <TrialClassList
+        items={data.items}
+        canManage={data.perms.manage}
+        centers={ref.centers.map((c) => ({ id: c.id, code: c.code, name: c.name }))}
+        courses={ref.courses.map((c) => ({ id: c.id, code: c.code, name: c.name }))}
       />
-      <TrialBoard items={data.items} today={data.today} centers={ref.centers} />
     </div>
   );
 }

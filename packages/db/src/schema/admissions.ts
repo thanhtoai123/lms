@@ -1,10 +1,14 @@
-import { pgTable, text, uuid, boolean, integer, timestamp, pgEnum, jsonb, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, uuid, boolean, integer, date, time, timestamp, pgEnum, jsonb, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { id, timestamps, softDelete } from "./_common";
-import { LEAD_STATUSES, DISTRIBUTION_MODES, TRIAL_STATUSES, ASSIGNMENT_SOURCES, POOL_ACTIONS } from "@satarobo/core";
-import { centers } from "./org";
+import {
+  LEAD_STATUSES, DISTRIBUTION_MODES, TRIAL_STATUSES, ASSIGNMENT_SOURCES, POOL_ACTIONS,
+  TRIAL_CLASS_STATUSES, TRIAL_SESSION_STATUSES, TRIAL_ENROLLMENT_STATUSES, TRIAL_ATTENDANCE_STATUSES,
+} from "@satarobo/core";
+import { centers, rooms } from "./org";
 import { users } from "./identity";
 import { courses, sessions } from "./academics";
-import { parents, students } from "./people";
+import { parents, students, teachers } from "./people";
 
 export const leadStatusEnum = pgEnum("lead_status", LEAD_STATUSES);
 
@@ -268,5 +272,110 @@ export const trialBookings = pgTable(
     index("trial_bookings_session_idx").on(t.sessionId, t.status),
     index("trial_bookings_lead_idx").on(t.leadId),
     index("trial_bookings_center_idx").on(t.centerId, t.createdAt),
+  ],
+);
+
+export const trialClassStatusEnum = pgEnum("trial_class_status", TRIAL_CLASS_STATUSES);
+export const trialSessionStatusEnum = pgEnum("trial_session_status", TRIAL_SESSION_STATUSES);
+export const trialEnrollmentStatusEnum = pgEnum("trial_enrollment_status", TRIAL_ENROLLMENT_STATUSES);
+export const trialAttendanceStatusEnum = pgEnum("trial_attendance_status", TRIAL_ATTENDANCE_STATUSES);
+
+/**
+ * LỚP TRẢI NGHIỆM (bản gốc "Lớp Trial") — lớp học thử nhiều buổi, tách hẳn với `trial_bookings`
+ * (xếp lead vào một buổi của lớp chính quy). Tạo lớp chỉ cần cơ sở + khoá trải nghiệm;
+ * tên lớp và mã lớp (`TRIAL-CS2-26-008`) do hệ thống tự đặt.
+ */
+export const trialClasses = pgTable(
+  "trial_classes",
+  {
+    id: id(),
+    code: text("code").notNull().unique(),
+    name: text("name").notNull(),
+    centerId: uuid("center_id").notNull().references(() => centers.id),
+    /** Khoá trải nghiệm = "khoá quan tâm" của khách; để trống khi chưa rõ */
+    courseId: uuid("course_id").references(() => courses.id),
+    status: trialClassStatusEnum("status").notNull().default("open"),
+    capacity: integer("capacity").notNull().default(12),
+    note: text("note"),
+    createdBy: uuid("created_by").references(() => users.id),
+    cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    cancelReason: text("cancel_reason"),
+    ...timestamps,
+    ...softDelete,
+  },
+  (t) => [
+    index("trial_classes_center_idx").on(t.centerId, t.status),
+    index("trial_classes_created_idx").on(t.createdAt),
+  ],
+);
+
+/** Buổi của lớp trải nghiệm — ngày/giờ/phòng/GV chọn theo TỪNG BUỔI (mỗi buổi có thể khác nhau) */
+export const trialClassSessions = pgTable(
+  "trial_class_sessions",
+  {
+    id: id(),
+    trialClassId: uuid("trial_class_id").notNull().references(() => trialClasses.id, { onDelete: "cascade" }),
+    seq: integer("seq").notNull(),
+    date: date("date").notNull(),
+    startTime: time("start_time").notNull(),
+    endTime: time("end_time").notNull(),
+    roomId: uuid("room_id").references(() => rooms.id),
+    teacherId: uuid("teacher_id").references(() => teachers.id),
+    status: trialSessionStatusEnum("status").notNull().default("scheduled"),
+    topic: text("topic"),
+    /** Bắt buộc khi đổi lịch — nội dung gửi thẳng cho giáo viên phụ trách buổi */
+    rescheduleReason: text("reschedule_reason"),
+    /** Bắt buộc khi huỷ buổi — nội dung gửi thẳng cho giáo viên phụ trách buổi */
+    cancelReason: text("cancel_reason"),
+    createdBy: uuid("created_by").references(() => users.id),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("trial_class_sessions_seq_unique").on(t.trialClassId, t.seq),
+    index("trial_class_sessions_date_idx").on(t.date, t.status),
+    index("trial_class_sessions_teacher_idx").on(t.teacherId, t.date),
+  ],
+);
+
+/** Học viên (lead / con trong lead) học trải nghiệm — xếp vào lớp là học TOÀN BỘ buổi, kể cả buổi tạo sau */
+export const trialClassEnrollments = pgTable(
+  "trial_class_enrollments",
+  {
+    id: id(),
+    trialClassId: uuid("trial_class_id").notNull().references(() => trialClasses.id, { onDelete: "cascade" }),
+    leadId: uuid("lead_id").notNull().references(() => leads.id, { onDelete: "cascade" }),
+    childId: uuid("child_id").references(() => leadChildren.id, { onDelete: "set null" }),
+    studentName: text("student_name").notNull(),
+    status: trialEnrollmentStatusEnum("status").notNull().default("enrolled"),
+    joinedAt: timestamp("joined_at", { withTimezone: true }).notNull().defaultNow(),
+    withdrawReason: text("withdraw_reason"),
+    /** Xếp vượt sĩ số (cần quyền trials:override-capacity) */
+    overCapacity: boolean("over_capacity").notNull().default(false),
+    createdBy: uuid("created_by").references(() => users.id),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("trial_class_enrollments_active_unique").on(t.trialClassId, t.leadId, t.childId).where(sql`status = 'enrolled'`),
+    index("trial_class_enrollments_lead_idx").on(t.leadId),
+    index("trial_class_enrollments_class_idx").on(t.trialClassId, t.status),
+  ],
+);
+
+/** Điểm danh buổi trải nghiệm (bảng `attendance` gắn với ghi danh thật nên không dùng lại được) */
+export const trialAttendance = pgTable(
+  "trial_attendance",
+  {
+    id: id(),
+    trialSessionId: uuid("trial_session_id").notNull().references(() => trialClassSessions.id, { onDelete: "cascade" }),
+    enrollmentId: uuid("enrollment_id").notNull().references(() => trialClassEnrollments.id, { onDelete: "cascade" }),
+    status: trialAttendanceStatusEnum("status").notNull(),
+    note: text("note"),
+    markedBy: uuid("marked_by").references(() => users.id),
+    markedAt: timestamp("marked_at", { withTimezone: true }).notNull().defaultNow(),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("trial_attendance_unique").on(t.trialSessionId, t.enrollmentId),
+    index("trial_attendance_enrollment_idx").on(t.enrollmentId),
   ],
 );

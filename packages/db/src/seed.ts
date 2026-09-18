@@ -11,6 +11,7 @@ import {
   courses, coursePackages, curricula, lessons, classes, classSchedules, sessions, enrollments, attendance, classEvents,
   enrollmentEvents, competencyCriteria, reportCards, reportCardScores, sessionMedia,
   leads, leadChildren, leadActivities, leadTasks, leadAssignees, admissionsSettings, trialBookings, auditLog,
+  trialClasses, trialClassSessions, trialClassEnrollments, trialAttendance,
   holidays, coursePrerequisites, teacherCourses, teacherEvaluations,
   paymentMethods, orders, orderItems, orderInstallments, orderEvents, payments, refunds, financeLedger,
   commissionRules, commissions, bankTransactions,
@@ -22,7 +23,7 @@ import {
   posts, siteBlocks, campaigns, campaignSpends, trackEvents, consentRecords, dataRequests, dataRequestEvents,
   jobPostings, candidates, candidateEvents, conversations, messages, affiliates,
 } from "./schema/index";
-import { SHIFT_CATALOGUE, plannedMinutesOf, workSegments, COIN_RULE_DEFS } from "@satarobo/core";
+import { SHIFT_CATALOGUE, plannedMinutesOf, workSegments, COIN_RULE_DEFS, trialClassCode, trialClassName } from "@satarobo/core";
 import { generateSessions, buildClassCode, buildStudentCode, toISODate, addDays, orderCode, receiptNumber, packagePrice, buildInstallmentPlan, computeCommission, describeRule, periodOf, fmtMin, hhmm, weekdayOf, leaveDays, requestCode, slaDue, SETTINGS_DEFAULTS, CONSENT_TEXT_VERSION, dsrCode, dsrDue } from "@satarobo/core";
 import { courseCompletions } from "./schema/index";
 import {
@@ -1975,6 +1976,74 @@ async function seedDemoVolume(x: DemoCtx): Promise<void> {
     const s = statOf(u);
     if (s) await db.update(leadAssignees).set({ roundsReceived: s.n, lastAssignedAt: s.last }).where(and(eq(leadAssignees.userId, u), eq(leadAssignees.centerId, cs1.id)));
   }
+
+  /* ---------------- Lớp trải nghiệm nhiều buổi (mỗi cơ sở một lớp mẫu) ---------------- */
+  const trialClassIns: (typeof trialClasses.$inferInsert)[] = [];
+  const trialClassSessionIns: (typeof trialClassSessions.$inferInsert)[] = [];
+  const trialClassEnrollIns: (typeof trialClassEnrollments.$inferInsert)[] = [];
+  const trialClassAttIns: (typeof trialAttendance.$inferInsert)[] = [];
+  const OPEN_FOR_TRIAL: LeadStatus[] = ["contacted", "consulting", "trial_scheduled", "trial_in_progress", "trial_done"];
+  interface TrialClassSeed { center: CenterRow; courseCode: string; teacherKey: string; roomCode: string; capacity: number; offsets: number[]; students: number }
+  const trialClassSeeds: TrialClassSeed[] = [
+    // CS1: lớp đã học 1 buổi (có điểm danh) + 2 buổi tới
+    { center: cs1, courseCode: "SATA4", teacherKey: "gv1", roomCode: "102", capacity: 10, offsets: [-7, 0, 7], students: 4 },
+    // CS2: lớp vừa mở, 2 buổi sắp tới
+    { center: cs2, courseCode: "SATA6", teacherKey: "gv2", roomCode: "P301", capacity: 12, offsets: [3, 10], students: 3 },
+  ];
+  const usedTrialLeadIds = new Set<string>();
+  for (const p of trialClassSeeds) {
+    const classId = uid();
+    const cc = ccOf(p.center.id);
+    const firstOffset = p.offsets[0] ?? 0;
+    trialClassIns.push({
+      id: classId,
+      code: trialClassCode(cc, yr, 1),
+      name: trialClassName({ centerCode: cc, courseCode: p.courseCode, seq: 1 }),
+      centerId: p.center.id, courseId: course(p.courseCode).id, status: "open", capacity: p.capacity,
+      note: "Lớp trải nghiệm mẫu (dữ liệu demo)", createdBy: mgrOf(p.center.id),
+      createdAt: vnAt(addDays(today, firstOffset - 5), "09:00"),
+    });
+    const tch = teacherByKey(p.teacherKey);
+    const room = roomByCode(p.center.id, p.roomCode);
+    const sessPlans: { id: string; date: string; past: boolean }[] = [];
+    p.offsets.forEach((off, i) => {
+      const sid = uid();
+      const date = addDays(today, off);
+      const past = off < 0;
+      sessPlans.push({ id: sid, date, past });
+      trialClassSessionIns.push({
+        id: sid, trialClassId: classId, seq: i + 1, date, startTime: "18:00", endTime: "19:30",
+        roomId: room.id, teacherId: tch.id, status: past ? "done" : "scheduled",
+        topic: `Buổi trải nghiệm ${i + 1}`, createdBy: mgrOf(p.center.id),
+      });
+    });
+    const picks = leadIns
+      .filter((l) => l.centerId === p.center.id && !!l.id && !usedTrialLeadIds.has(l.id) && !!l.status && OPEN_FOR_TRIAL.includes(l.status))
+      .slice(0, p.students);
+    for (const l of picks) {
+      usedTrialLeadIds.add(l.id!);
+      const kid = childIns.find((k) => k.leadId === l.id);
+      const enrollmentId = uid();
+      trialClassEnrollIns.push({
+        id: enrollmentId, trialClassId: classId, leadId: l.id!, childId: kid?.id ?? null,
+        studentName: kid?.fullName ?? l.childName ?? l.parentName, status: "enrolled",
+        joinedAt: vnAt(addDays(today, firstOffset - 3), "10:00"), createdBy: mgrOf(p.center.id),
+      });
+      for (const s of sessPlans.filter((z) => z.past)) {
+        trialClassAttIns.push({
+          trialSessionId: s.id, enrollmentId, status: chance(0.75) ? "present" : chance(0.5) ? "late" : "absent",
+          note: null, markedBy: tch.userId, markedAt: vnAt(s.date, "19:35"),
+        });
+      }
+    }
+  }
+  if (trialClassIns.length) await db.insert(trialClasses).values(trialClassIns);
+  if (trialClassSessionIns.length) await db.insert(trialClassSessions).values(trialClassSessionIns);
+  if (trialClassEnrollIns.length) await db.insert(trialClassEnrollments).values(trialClassEnrollIns);
+  if (trialClassAttIns.length) await db.insert(trialAttendance).values(trialClassAttIns);
+  bump("trial_classes", trialClassIns.length);
+  bump("trial_class_sessions", trialClassSessionIns.length);
+  bump("trial_class_enrollments", trialClassEnrollIns.length);
 
   /* ---------------- Tài chính: đơn học phí, kế hoạch trả góp, khoản thu, hoàn tiền, hoa hồng ---------------- */
   const pmCash2Id = uid();
