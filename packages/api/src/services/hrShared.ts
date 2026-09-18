@@ -12,7 +12,8 @@ import {
 } from "@satarobo/db";
 import {
   authorize, hasRole, computeDay, summarizeDays, vnParts, plannedMinutesOf, leaveIsPaid, isReviewableFlag, datesBetween, proratedLeave,
-  type Permission, type DayResult, type DayShift, type TimesheetFlag, type CellOrigin, type RequestKind, type RequestStatus,
+  normalizePeriodStatus, periodFrozen, weekdayOf, PERIOD_STATUS_VI,
+  type Permission, type DayResult, type DayShift, type TimesheetFlag, type CellOrigin, type RequestKind, type RequestStatus, type ShiftSegment,
 } from "@satarobo/core";
 import type { ProtectedContext } from "../trpc";
 import { opsForCenters } from "./opsSettings";
@@ -75,17 +76,23 @@ export async function myStaff(ctx: ProtectedContext) {
   return ctx.db.query.staff.findFirst({ where: eq(staff.userId, ctx.user.id) });
 }
 
+/** Kỳ công đang đóng băng công (Đang chốt / Đã chốt, gồm cả giá trị cũ `locked`) */
 export async function periodLocked(db: Db, centerId: string, dates: string[]) {
   const ps = [...new Set(dates.map((d) => d.slice(0, 7)))];
   if (!ps.length) return null;
-  const [p] = await db.select({ period: timesheetPeriods.period }).from(timesheetPeriods)
-    .where(and(eq(timesheetPeriods.centerId, centerId), inArray(timesheetPeriods.period, ps), eq(timesheetPeriods.status, "locked"))).limit(1);
-  return p?.period ?? null;
+  const rows = await db.select({ period: timesheetPeriods.period, status: timesheetPeriods.status }).from(timesheetPeriods)
+    .where(and(eq(timesheetPeriods.centerId, centerId), inArray(timesheetPeriods.period, ps)));
+  const hit = rows.find((r) => periodFrozen(normalizePeriodStatus(r.status)));
+  return hit?.period ?? null;
 }
 
 export async function assertOpen(db: Db, centerId: string, dates: string[]) {
-  const p = await periodLocked(db, centerId, dates);
-  if (p) throw pre(`Kỳ công ${dmy(`${p}-01`).slice(3)} đã khoá — nhờ nhân sự Hội sở mở lại`);
+  const ps = [...new Set(dates.map((d) => d.slice(0, 7)))];
+  if (!ps.length) return;
+  const rows = await db.select({ period: timesheetPeriods.period, status: timesheetPeriods.status }).from(timesheetPeriods)
+    .where(and(eq(timesheetPeriods.centerId, centerId), inArray(timesheetPeriods.period, ps)));
+  const hit = rows.map((r) => ({ period: r.period, st: normalizePeriodStatus(r.status) })).find((r) => periodFrozen(r.st));
+  if (hit) throw pre(`Kỳ công ${dmy(`${hit.period}-01`).slice(3)} — ${PERIOD_STATUS_VI[hit.st]}; số công không đổi được từ màn nào nữa. Nhờ nhân sự Hội sở mở lại kỳ.`);
 }
 
 /* ------------------------------------------------------------------ */
@@ -93,13 +100,34 @@ export async function assertOpen(db: Db, centerId: string, dates: string[]) {
 /* ------------------------------------------------------------------ */
 
 export type ShiftRow = typeof workShifts.$inferSelect;
+/** Ảnh chụp giờ / số công lưu trên ô phân ca lúc xếp */
+export interface CellSnapshot {
+  unitsSnapshot: number | null;
+  minutesSnapshot: number | null;
+  segmentsSnapshot: ShiftSegment[] | null;
+}
 
-/** Mã ca → dữ liệu tính công (giờ kế hoạch lấy theo khai báo, thiếu thì tính từ đoạn giờ) */
-export function shiftLite(s: ShiftRow): DayShift {
+/**
+ * Mã ca → dữ liệu tính công.
+ *
+ * Bản gốc: "Đổi giờ/số công chỉ áp cho ô xếp SAU khi lưu — lịch đã xếp giữ nguyên."
+ * Nên khi ô phân ca có **ảnh chụp** thì đọc theo ảnh chụp; ảnh chụp rỗng mới quay
+ * về danh mục mã ca (ô cũ có trước khi bật chụp ảnh).
+ */
+export function shiftLite(s: ShiftRow, snap?: CellSnapshot | null): DayShift {
+  const segments = snap?.segmentsSnapshot?.length ? snap.segmentsSnapshot : s.segments ?? [];
+  const units = snap?.unitsSnapshot ?? s.units;
+  const plannedMin = snap?.minutesSnapshot ?? (s.nominalMinutes || s.plannedMinutes || plannedMinutesOf(segments));
+  return { code: s.code, kind: s.kind, units, segments, plannedMin, punchRequired: s.punchRequired };
+}
+
+/** Ảnh chụp để ghi vào ô phân ca khi xếp ca */
+export function snapshotOf(s: ShiftRow): CellSnapshot {
+  const segments = s.segments ?? [];
   return {
-    code: s.code, kind: s.kind, units: s.units, segments: s.segments ?? [],
-    plannedMin: s.plannedMinutes || plannedMinutesOf(s.segments ?? []),
-    punchRequired: s.punchRequired,
+    unitsSnapshot: s.units,
+    minutesSnapshot: s.nominalMinutes || s.plannedMinutes || plannedMinutesOf(segments),
+    segmentsSnapshot: segments,
   };
 }
 
@@ -119,7 +147,7 @@ export interface DayCell extends DayResult {
   scheduled: boolean;
 }
 
-const clockOf = (s: ShiftRow) => (s.segments ?? []).map((x) => `${x.from}–${x.to}`).join(", ");
+const clockOf = (segs: readonly ShiftSegment[]) => segs.map((x) => `${x.from}–${x.to}`).join(", ");
 
 export async function buildDays(db: Db, people: { id: string; centerId: string }[], from: string, to: string): Promise<Map<string, DayCell[]>> {
   const out = new Map<string, DayCell[]>();
@@ -149,8 +177,13 @@ export async function buildDays(db: Db, people: { id: string; centerId: string }
     else cur.out = cur.out == null ? v.min : Math.max(cur.out, v.min);
     byKey.set(k, cur);
   }
-  const cellOf = new Map<string, { s: ShiftRow; origin: CellOrigin }>();
-  for (const x of asg) cellOf.set(`${x.a.staffId}|${x.a.date}`, { s: x.s, origin: x.a.origin });
+  const cellOf = new Map<string, { s: ShiftRow; origin: CellOrigin; snap: CellSnapshot }>();
+  for (const x of asg) {
+    cellOf.set(`${x.a.staffId}|${x.a.date}`, {
+      s: x.s, origin: x.a.origin,
+      snap: { unitsSnapshot: x.a.unitsSnapshot, minutesSnapshot: x.a.minutesSnapshot, segmentsSnapshot: x.a.segmentsSnapshot },
+    });
+  }
   const dates = datesBetween(from, to);
   for (const p of people) {
     const myReqs = reqs.filter((r) => r.staffId === p.id);
@@ -168,11 +201,13 @@ export async function buildDays(db: Db, people: { id: string; centerId: string }
       const dayReviews = myReviews.filter((r) => r.date === date);
       const excused = dayReviews.some((r) => r.action === "excused");
       const r = computeDay({
-        date, today, shift: sh ? shiftLite(sh) : null,
+        date, today, shift: sh ? shiftLite(sh, cell?.snap) : null,
         inMin: pu?.in ?? null, outMin: pu?.out ?? null, punchCount: pu?.n ?? 0, manualPunch: pu?.manual ?? false,
         leavePaid: leaveReq?.leaveType ? leaveIsPaid(leaveReq.leaveType) : leaveReq?.leavePaid ?? true,
         otMin: ot.reduce((s, x) => s + x.minutes, 0),
         holiday: !!hol && !!sh, excused,
+        // Chủ nhật mà không có ca = nghỉ tuần (cờ ghi nhận, không cần rà)
+        weeklyOff: !sh && weekdayOf(date) === 7,
         override: ov ? { units: ov.units, label: ov.label, note: ov.reason } : null,
         graceMin: opsBy.get(p.centerId)?.timesheetGraceMin,
         punchFlags: [...(pu?.flags ?? [])],
@@ -180,7 +215,8 @@ export async function buildDays(db: Db, people: { id: string; centerId: string }
       const reviewed = new Set(dayReviews.filter((x) => x.action !== "dismiss").map((x) => x.flag));
       return {
         ...r, date, scheduled: !!sh,
-        shift: sh ? { id: sh.id, code: sh.code, name: sh.name, kind: sh.kind, units: sh.units, clock: clockOf(sh) } : null,
+        // giờ + số công hiển thị theo ảnh chụp lúc xếp ô (nếu có)
+        shift: sh ? { id: sh.id, code: sh.code, name: sh.name, kind: sh.kind, units: cell?.snap.unitsSnapshot ?? sh.units, clock: clockOf(cell?.snap.segmentsSnapshot?.length ? cell.snap.segmentsSnapshot : sh.segments ?? []) } : null,
         origin: cell?.origin ?? null,
         inMin: pu?.in ?? null, outMin: pu?.out ?? null, punches: pu?.n ?? 0,
         requests: onDay.map((x) => ({ id: x.id, kind: x.kind, status: x.status })),

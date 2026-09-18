@@ -87,7 +87,7 @@ function DayPanel({ staffId, date, canUpdate, onClose }: { staffId: string; date
             {d.cell.earlyMin > 0 && <span className="text-amber-700">Sớm {d.cell.earlyMin}′</span>}
             {d.cell.otMin > 0 && <span>OT {d.cell.otMin}′</span>}
             {d.cell.holidayName && <span className="text-violet-700">{d.cell.holidayName}</span>}
-            {d.locked && <span className="chip bg-slate-800 text-white">Kỳ {d.locked} đã khoá</span>}
+            {d.locked && <span className="chip bg-slate-800 text-white">Kỳ {d.locked} đã chốt — số công không đổi được</span>}
           </div>
           <p className="text-xs text-ink-400">Công đếm theo ca đã xếp; lượt quét chỉ sinh cờ để rà — muốn đổi số công thì ghi đè có lý do.</p>
           {d.cell.flags.length > 0 && (
@@ -133,7 +133,10 @@ function DayPanel({ staffId, date, canUpdate, onClose }: { staffId: string; date
               )}
               <div className="flex flex-wrap items-center gap-1 text-xs">
                 {(d.cell.status === "absent" || d.cell.flags.includes("no_punch")) && (
-                  <button className="btn-ghost !px-2 !py-1 text-xs" disabled={note.trim().length < 5 || rv.isPending} onClick={() => review("no_punch", "excused")}>Vắng có lý do</button>
+                  <>
+                    <button className="btn-ghost !px-2 !py-1 text-xs" disabled={note.trim().length < 5 || rv.isPending} onClick={() => review("no_punch", "excused")}>Vắng có lý do</button>
+                    <button className="btn-ghost !px-2 !py-1 text-xs" disabled={note.trim().length < 5 || rv.isPending} onClick={() => review("no_punch", "unexcused")}>Đã ghi nhận nghỉ không phép</button>
+                  </>
                 )}
                 {d.reviews.map((r) => (
                   <button key={`d${r.id}`} className="btn-ghost !px-2 !py-1 text-xs text-red-700" disabled={rv.isPending} onClick={() => rv.mutate({ staffId, date, flag: r.flag, action: "dismiss", note: null })}>Gỡ kết luận {r.flag === "*" ? "cả ngày" : flagLabel(r.flag)}</button>
@@ -163,24 +166,25 @@ export function PeriodActions({ centerId, period, status, blockers, warnings, ca
   const [reason, setReason] = useState("");
   const [std, setStd] = useState(String(standardUnits));
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  const lock = useMutation(trpc.hr.lockPeriod.mutationOptions({ onSuccess: (r) => { setMsg({ ok: true, text: ["Đã khoá kỳ", ...r.warnings].join(" · ") }); router.refresh(); }, onError: (e) => setMsg({ ok: false, text: e.message }) }));
-  const unlock = useMutation(trpc.hr.unlockPeriod.mutationOptions({ onSuccess: () => { setMsg({ ok: true, text: "Đã mở lại kỳ" }); setReason(""); router.refresh(); }, onError: (e) => setMsg({ ok: false, text: e.message }) }));
+  const lock = useMutation(trpc.hr.lockPeriod.mutationOptions({ onSuccess: (r) => { setMsg({ ok: true, text: [`Đã chốt kỳ (bản chốt lần ${r.closeCount}) — ${r.note}`, ...r.warnings].join(" · ") }); router.refresh(); }, onError: (e) => setMsg({ ok: false, text: e.message }) }));
+  const unlock = useMutation(trpc.hr.unlockPeriod.mutationOptions({ onSuccess: (r) => { setMsg({ ok: true, text: `Đã mở lại kỳ — ${r.note}` }); setReason(""); router.refresh(); }, onError: (e) => setMsg({ ok: false, text: e.message }) }));
   const setStdM = useMutation(trpc.hr.setPeriodStandard.mutationOptions({ onSuccess: () => { setMsg({ ok: true, text: "Đã lưu công chuẩn" }); router.refresh(); }, onError: (e) => setMsg({ ok: false, text: e.message }) }));
   return (
     <div className="flex flex-wrap items-center gap-2 text-xs">
-      {status === "open" && canLock && (
+      {(status === "open" || status === "reopened" || status === "closing") && canLock && (
         <>
           <label className="flex items-center gap-1">Công chuẩn<input className="input !w-16 !py-1 text-xs" value={std} onChange={(e) => setStd(e.target.value)} /></label>
           <button className="btn-ghost !py-1 text-xs" disabled={setStdM.isPending} onClick={() => setStdM.mutate({ centerId, period, standardUnits: std.trim() === "" ? null : Number(std.replace(",", ".")), note: null })}>Lưu</button>
-          <button className="btn-primary !py-1 text-xs" disabled={blockers.length > 0 || lock.isPending} onClick={() => lock.mutate({ centerId, period })}>Chốt kỳ công</button>
+          <button className="btn-primary !py-1 text-xs" disabled={blockers.length > 0 || lock.isPending} onClick={() => lock.mutate({ centerId, period })} title="Chốt xong, số công của kỳ này không đổi được từ màn nào nữa">Chốt kỳ công</button>
           {blockers.length > 0 && <span className="text-amber-700">{blockers.join(" · ")}</span>}
           {blockers.length === 0 && warnings.length > 0 && <span className="text-amber-700">Cảnh báo: {warnings.join(" · ")}</span>}
         </>
       )}
-      {status === "locked" && canUnlock && (
+      {status === "closed" && canUnlock && (
         <>
           <input className="input !w-56 !py-1 text-xs" placeholder="Lý do mở lại" value={reason} onChange={(e) => setReason(e.target.value)} />
           <button className="btn-ghost !py-1 text-xs" disabled={reason.trim().length < 5 || unlock.isPending} onClick={() => unlock.mutate({ centerId, period, reason: reason.trim() })}>Mở lại kỳ</button>
+          <span className="text-ink-500">Số đã chốt vẫn nằm trong nhật ký; chốt lại sau đó sẽ ghi một bản mới.</span>
         </>
       )}
       {msg && <span className={msg.ok ? "text-green-700" : "text-red-700"}>{msg.text}</span>}

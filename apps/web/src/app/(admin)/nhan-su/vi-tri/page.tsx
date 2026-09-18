@@ -29,7 +29,7 @@ export default async function PositionsPage({ searchParams }: { searchParams: Pr
       <PageHeader
         title="Vị trí công việc"
         desc="Quyền gắn vào vị trí, không gắn vào người. Người nghỉ thì gỡ phân công — vị trí giữ nguyên bộ quyền cho người kế nhiệm. Cây “báo cáo cho” dùng cho luồng duyệt, không dùng để tính phạm vi dữ liệu. Hết hạn phân công là quyền tự tắt ở lần truy cập kế tiếp."
-        actions={<div className="flex gap-2"><Link href="/nhan-su" className="btn-ghost">← Nhân sự</Link><CsvButton filename="vi-tri-cong-viec" headers={["Mã NV", "Họ tên", "Chức danh", "Loại", "Bộ phận", "Cơ sở", "Từ", "Đến"]} rows={d.items.map((p) => [p.staffCode, p.staffName, p.title, POSITION_KIND_VI[p.kind], DEPARTMENT_VI[p.department as Department] ?? p.department, p.centerCode, p.effectiveFrom, p.effectiveTo])} /></div>}
+        actions={<div className="flex gap-2"><Link href="/nhan-su" className="btn-ghost">← Nhân sự</Link><CsvButton filename="vi-tri-cong-viec" headers={["Mã NV", "Họ tên", "Chức danh", "Loại", "Bộ phận", "Cơ sở", "Số quyết định", "Từ", "Đến"]} rows={d.items.map((p) => [p.staffCode, p.staffName, p.title, POSITION_KIND_VI[p.kind], DEPARTMENT_VI[p.department as Department] ?? p.department, p.centerCode, p.decisionNo, p.effectiveFrom, p.effectiveTo])} /></div>}
       />
       <nav className="flex flex-wrap gap-1 text-xs">
         {[{ k: "phan-cong", l: "Phân công người vào vị trí" }, { k: "dinh-nghia", l: "Danh mục vị trí & bộ vai trò" }, { k: "dieu-dong", l: "Điều động tác nghiệp" }].map((t) => (
@@ -54,7 +54,7 @@ export default async function PositionsPage({ searchParams }: { searchParams: Pr
           {d.items.length === 0 ? <Empty>Không có vị trí.</Empty> : (
             <div className="card overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="text-left text-xs uppercase text-ink-400"><tr><th className="p-3">Cơ sở</th><th className="p-3">Vị trí / chức danh</th><th className="p-3">Nhân sự</th><th className="p-3">Loại</th><th className="p-3">Hiệu lực</th></tr></thead>
+                <thead className="text-left text-xs uppercase text-ink-400"><tr><th className="p-3">Cơ sở</th><th className="p-3">Vị trí / chức danh</th><th className="p-3">Nhân sự</th><th className="p-3">Loại</th><th className="p-3">Số quyết định</th><th className="p-3">Hiệu lực</th></tr></thead>
                 <tbody className="divide-y divide-black/5">
                   {d.items.map((p) => (
                     <tr key={p.id}>
@@ -62,6 +62,7 @@ export default async function PositionsPage({ searchParams }: { searchParams: Pr
                       <td className="p-3">{p.title}<div className="text-xs text-ink-400">{DEPARTMENT_VI[p.department as Department] ?? p.department}{p.positionId ? " · có bộ vai trò" : ""}</div></td>
                       <td className="p-3"><Link href={`/nhan-su/${p.staffId}`} className="text-brand-700">{p.staffName}</Link><div className="text-xs text-ink-400">{p.staffCode}{p.staffStatus === "resigned" ? ` · ${STAFF_STATUS_VI.resigned}` : ""}</div></td>
                       <td className="p-3 text-xs"><span className={`chip ${p.kind === "primary" ? "bg-green-100 text-green-800" : p.kind === "delegated" ? "bg-violet-100 text-violet-800" : "bg-sky-100 text-sky-800"}`}>{POSITION_KIND_VI[p.kind]}</span></td>
+                      <td className="p-3 text-xs font-mono">{p.decisionNo ?? "—"}{p.note && <div className="font-sans text-ink-400">{p.note}</div>}</td>
                       <td className="p-3 text-xs">{dmy(p.effectiveFrom)} → {p.effectiveTo ? dmy(p.effectiveTo) : "nay"}{p.endingSoon && <div className="text-amber-700">Sắp hết hiệu lực</div>}{p.endReason && <div className="text-ink-400">{p.endReason}</div>}</td>
                     </tr>
                   ))}

@@ -11,7 +11,12 @@ export type StaffFormValue = {
   id?: string;
   fullName: string; email: string; phone: string; centerId: string; department: Department; title: string;
   employmentType: EmploymentType; hiredAt: string; annualLeaveDays: number; notes: string; userId: string; teacherId: string;
-  private: { idNumber: string; birthDate: string; address: string; taxCode: string; insuranceNo: string; bankName: string; bankAccount: string; baseSalary: string; allowance: string } | null;
+  /** Hồ sơ công khai như bản gốc */
+  avatarUrl: string; bio: string; isPublic: boolean; displayOrder: string;
+  private: {
+    idNumber: string; birthDate: string; address: string; taxCode: string; insuranceNo: string; bankName: string; bankAccount: string;
+    baseSalary: string; allowance: string; salaryRank: string; salaryLevel: string; bhxhBase: string; emergencyContact: string;
+  } | null;
 };
 
 
@@ -42,9 +47,12 @@ export function StaffForm({ initial, centers, canSalary, current }: {
       id: f.id, fullName: f.fullName, email: f.email, phone: f.phone || null, centerId: f.centerId, department: f.department, title: f.title,
       employmentType: f.employmentType, hiredAt: f.hiredAt, annualLeaveDays: Number(f.annualLeaveDays), notes: f.notes || null,
       userId: f.userId || null, teacherId: f.teacherId || null,
+      avatarUrl: f.avatarUrl || null, bio: f.bio || null, isPublic: f.isPublic, displayOrder: f.displayOrder.trim() === "" ? 0 : Number(f.displayOrder),
       private: canSalary && p && (editPriv || !f.id) ? {
         idNumber: p.idNumber.replace(/\s/g, "") || null, birthDate: p.birthDate, address: p.address || null, taxCode: p.taxCode || null, insuranceNo: p.insuranceNo || null,
         bankName: p.bankName || null, bankAccount: p.bankAccount || null, baseSalary: p.baseSalary ? Number(p.baseSalary) : null, allowance: p.allowance ? Number(p.allowance) : null,
+        salaryRank: p.salaryRank ? Number(p.salaryRank) : null, salaryLevel: p.salaryLevel ? Number(p.salaryLevel) : null,
+        bhxhBase: p.bhxhBase ? Number(p.bhxhBase) : null, emergencyContact: p.emergencyContact || null,
       } : null,
     });
   };
@@ -77,6 +85,14 @@ export function StaffForm({ initial, centers, canSalary, current }: {
         <label className={`${L} sm:col-span-2 lg:col-span-3`}>Ghi chú<textarea className="input mt-1 h-16" value={f.notes} onChange={(e) => set("notes", e.target.value)} /></label>
       </section>
 
+      <section className="card grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3">
+        <h2 className="font-semibold sm:col-span-2 lg:col-span-3">Hồ sơ công khai <span className="text-xs font-normal text-ink-400">(hiện trên website khi bật “Hiển thị public”)</span></h2>
+        <label className={L}>Ảnh đại diện (đường dẫn)<input className="input mt-1" value={f.avatarUrl} onChange={(e) => set("avatarUrl", e.target.value)} placeholder="https://…" /></label>
+        <label className={L}>Thứ tự hiển thị<input className="input mt-1" type="number" min={0} max={9999} value={f.displayOrder} onChange={(e) => set("displayOrder", e.target.value)} /></label>
+        <label className="flex items-center gap-2 text-xs text-ink-600"><input type="checkbox" checked={f.isPublic} onChange={(e) => set("isPublic", e.target.checked)} /> Hiển thị public</label>
+        <label className={`${L} sm:col-span-2 lg:col-span-3`}>Giới thiệu (Markdown)<textarea className="input mt-1 h-24" value={f.bio} onChange={(e) => set("bio", e.target.value)} maxLength={4000} /></label>
+      </section>
+
       {canSalary && (
         <section className="card space-y-3 p-4">
           <div className="flex items-center justify-between">
@@ -94,6 +110,10 @@ export function StaffForm({ initial, centers, canSalary, current }: {
               <label className={L}>Số tài khoản<input className="input mt-1" value={f.private?.bankAccount ?? ""} onChange={(e) => setP("bankAccount", e.target.value)} /></label>
               <label className={L}>Lương cơ bản (đ)<input className="input mt-1" type="number" min={0} step={100000} value={f.private?.baseSalary ?? ""} onChange={(e) => setP("baseSalary", e.target.value)} /></label>
               <label className={L}>Phụ cấp (đ)<input className="input mt-1" type="number" min={0} step={100000} value={f.private?.allowance ?? ""} onChange={(e) => setP("allowance", e.target.value)} /></label>
+              <label className={L}>Ngạch (SR.QD.200, 1–9)<input className="input mt-1" type="number" min={1} max={9} value={f.private?.salaryRank ?? ""} onChange={(e) => setP("salaryRank", e.target.value)} /></label>
+              <label className={L}>Bậc (1–5)<input className="input mt-1" type="number" min={1} max={5} value={f.private?.salaryLevel ?? ""} onChange={(e) => setP("salaryLevel", e.target.value)} /></label>
+              <label className={L}>Lương đóng BHXH (đ)<input className="input mt-1" type="number" min={0} step={100000} value={f.private?.bhxhBase ?? ""} onChange={(e) => setP("bhxhBase", e.target.value)} /></label>
+              <label className={L}>Liên hệ khẩn cấp<input className="input mt-1" value={f.private?.emergencyContact ?? ""} onChange={(e) => setP("emergencyContact", e.target.value)} placeholder="Tên - Quan hệ - SĐT" /></label>
               <label className={`${L} sm:col-span-2 lg:col-span-1`}>Địa chỉ<input className="input mt-1" value={f.private?.address ?? ""} onChange={(e) => setP("address", e.target.value)} /></label>
             </div>
           ) : <p className="text-sm text-ink-600">Thông tin hiện tại hiển thị ở trang hồ sơ (CCCD được che).</p>}

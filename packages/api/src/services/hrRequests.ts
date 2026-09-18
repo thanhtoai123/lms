@@ -21,7 +21,7 @@ import { writeAudit } from "./audit";
 import { todayISO } from "./sessions";
 import {
   bad, pre, notFound, forbidden, rule, can, isSA, centersWith, scopeSql, reasonOf, dmy, notify, myStaff,
-  approversOf, assertOpen, periodLocked, buildDays, leaveBalance, type Db,
+  approversOf, assertOpen, periodLocked, buildDays, leaveBalance, snapshotOf, type Db,
 } from "./hrShared";
 import { cancelSessionForRequest, setSessionTeacherForRequest, findSession } from "./hrSessionEffects";
 
@@ -250,12 +250,15 @@ async function shiftByCode(tx: Db, centerId: string, code: string) {
 }
 
 async function setCell(tx: Db, ctx: ProtectedContext, p: { staffId: string; centerId: string; date: string; shiftId: string; requestId: string; note: string }) {
+  // chụp ảnh giờ + số công của mã ca vào ô (sửa mã ca sau này không đổi ô đã xếp)
+  const [sh] = await tx.select().from(workShifts).where(eq(workShifts.id, p.shiftId)).limit(1);
+  const snap = sh ? snapshotOf(sh) : { unitsSnapshot: null, minutesSnapshot: null, segmentsSnapshot: null };
   await tx.insert(shiftAssignments).values({
     staffId: p.staffId, date: p.date, shiftId: p.shiftId, centerId: p.centerId,
-    origin: "request", sourceRequestId: p.requestId, note: p.note, createdBy: ctx.user.id,
+    origin: "request", sourceRequestId: p.requestId, note: p.note, createdBy: ctx.user.id, ...snap,
   }).onConflictDoUpdate({
     target: [shiftAssignments.staffId, shiftAssignments.date],
-    set: { shiftId: p.shiftId, origin: "request", sourceRequestId: p.requestId, note: p.note, createdBy: ctx.user.id },
+    set: { shiftId: p.shiftId, origin: "request", sourceRequestId: p.requestId, note: p.note, createdBy: ctx.user.id, ...snap },
   });
 }
 
@@ -264,7 +267,7 @@ export async function applyRequest(tx: Db, ctx: ProtectedContext, r: RequestRow,
   const dates = datesBetween(r.dateFrom, r.dateTo);
   const note = `Đơn ${REQUEST_KIND_VI[r.kind].toLowerCase()} — duyệt bởi ${ctx.user.fullName}`;
   const locked = await periodLocked(tx, r.centerId, dates);
-  if (locked) throw pre(`Kỳ công ${locked} đã khoá — mở lại kỳ rồi duyệt`);
+  if (locked) throw pre(`Kỳ công ${locked} đã chốt — mở lại kỳ rồi duyệt`);
   switch (r.kind) {
     case "class_off": {
       const res = await cancelSessionForRequest(tx, ctx, { classId: r.classId!, date: r.dateFrom, reason: r.reason });

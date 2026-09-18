@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { hasPermission, type Actor } from "@satarobo/core";
+import { hasPermission, PERIOD_STATUS_CHIP, type Actor } from "@satarobo/core";
 import { getServerCaller } from "@/lib/trpc/server";
 import { NoAccess, PageHeader } from "@/components/admin-ui";
 import { Empty } from "@/components/ui";
@@ -81,12 +81,13 @@ export default async function TimesheetPage({ searchParams }: { searchParams: Pr
         ))}
       </div>
       <div className="flex flex-wrap items-center gap-3">
-        <span className={`chip ${t.status === "locked" ? "bg-slate-800 text-white" : "bg-green-100 text-green-800"}`}>{t.status === "locked" ? "Đã chốt kỳ" : "Kỳ đang mở"}</span>
+        <span className={`chip ${PERIOD_STATUS_CHIP[t.status]}`}>{t.statusLabel}</span>
         <span className="text-sm">Công chuẩn: <b>{units(t.standardUnits)}</b> · {t.rows.length} nhân sự</span>
-        {t.unlockReason && t.status === "open" && <span className="text-xs text-ink-600">Đã mở lại: {t.unlockReason}</span>}
+        {t.unlockReason && t.status === "reopened" && <span className="text-xs text-ink-600">Đã mở lại: {t.unlockReason}</span>}
+        <Link href={`/cham-cong/ky-cong?center=${centerId}&period=${period}`} className="text-xs text-brand-700">Kỳ công &amp; chốt →</Link>
         <PeriodActions centerId={centerId} period={period} status={t.status} blockers={t.lockCheck.blockers} warnings={t.lockCheck.warnings} canLock={t.perms.lock} canUnlock={t.perms.unlock} standardUnits={t.standardUnits} />
       </div>
-      {t.rows.length === 0 ? <Empty>Không có nhân sự khớp bộ lọc.</Empty> : <TimesheetGrid dates={t.dates} rows={t.rows} canUpdate={t.perms.update && t.status === "open"} />}
+      {t.rows.length === 0 ? <Empty>Không có nhân sự khớp bộ lọc.</Empty> : <TimesheetGrid dates={t.dates} rows={t.rows} canUpdate={t.perms.update && t.editable} />}
       <p className="text-xs text-ink-400">Ký hiệu: ✓ đủ công · M muộn · S về sớm · V vắng · Vl vắng có lý do · P nghỉ phép · ? thiếu lượt vào/ra · L ngày lễ · ✎ đã ghi đè · chấm đỏ = cờ chưa rà · chấm vàng = có đơn chờ duyệt.</p>
     </div>
   );

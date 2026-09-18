@@ -1,7 +1,7 @@
 import { z } from "zod";
 import {
   STAFF_STATUSES, EMPLOYMENT_TYPES, DEPARTMENTS, POSITION_KINDS, REQUEST_KINDS, REQUEST_STATUSES, LEAVE_TYPES,
-  SHIFT_KINDS, WORKPLACES, CELL_ORIGINS, LATE_EARLY_KINDS, FLAG_REVIEW_ACTIONS, ROLES,
+  SHIFT_KINDS, WORKPLACES, CELL_ORIGINS, LATE_EARLY_KINDS, FLAG_REVIEW_ACTIONS, ROLES, PAY_MODES, PERIOD_STATUSES,
 } from "@satarobo/core";
 import { router, protectedProcedure } from "../trpc";
 import * as H from "../services/hr";
@@ -30,14 +30,18 @@ export const hrRouter = router({
       phone: ntext(20), centerId: uuid, department: z.enum(DEPARTMENTS), title: z.string().trim().min(2, "Chức danh tối thiểu 2 ký tự").max(80),
       employmentType: z.enum(EMPLOYMENT_TYPES), hiredAt: isoDate.nullish().or(z.literal("")), annualLeaveDays: z.number().min(0).max(30), notes: ntext(1000),
       timesheetExempt: z.boolean().optional(), userId: uuid.nullish(), teacherId: uuid.nullish(),
+      avatarUrl: ntext(500), bio: ntext(4000), isPublic: z.boolean().optional(), displayOrder: z.number().int().min(0).max(9999).optional(),
       private: z.object({
         idNumber: z.string().regex(/^\d{9}$|^\d{12}$|^$/, "CCCD 12 số (hoặc CMND 9 số)").nullish(), birthDate: isoDate.nullish().or(z.literal("")), address: ntext(300),
         taxCode: ntext(20), insuranceNo: ntext(20), bankName: ntext(80), bankAccount: ntext(30),
         baseSalary: z.number().int().min(0).max(1_000_000_000).nullish(), allowance: z.number().int().min(0).max(1_000_000_000).nullish(),
+        salaryRank: z.number().int().min(1).max(9).nullish(), salaryLevel: z.number().int().min(1).max(5).nullish(),
+        bhxhBase: z.number().int().min(0).max(1_000_000_000).nullish(), emergencyContact: ntext(200),
       }).nullish(),
     }))
     .mutation(({ ctx, input }) => H.upsertStaff(ctx, { ...input, email: input.email || null, hiredAt: input.hiredAt || null, private: input.private ? { ...input.private, birthDate: input.private.birthDate || null } : null })),
   setStaffStatus: protectedProcedure.input(z.object({ id: uuid, status: z.enum(STAFF_STATUSES), reason: ntext(300), effectiveDate: isoDate.nullish() })).mutation(({ ctx, input }) => H.setStaffStatus(ctx, input)),
+  setStaffPublic: protectedProcedure.input(z.object({ id: uuid, isPublic: z.boolean() })).mutation(({ ctx, input }) => H.setStaffPublic(ctx, input)),
   revealStaff: protectedProcedure.input(z.object({ id: uuid, reason: z.string().max(300) })).mutation(({ ctx, input }) => H.revealStaffPrivate(ctx, input)),
 
   /* ---- Vị trí công việc: danh mục (bộ vai trò) + phân công + điều động ---- */
@@ -55,7 +59,7 @@ export const hrRouter = router({
   assignPosition: protectedProcedure
     .input(z.object({
       staffId: uuid, positionId: uuid.nullish(), centerId: uuid, title: z.string().trim().max(80).nullish(), department: z.enum(DEPARTMENTS),
-      kind: z.enum(POSITION_KINDS), effectiveFrom: isoDate, effectiveTo: isoDate.nullish(), note: ntext(300),
+      kind: z.enum(POSITION_KINDS), effectiveFrom: isoDate, effectiveTo: isoDate.nullish(), decisionNo: ntext(60), note: ntext(300),
     }))
     .mutation(({ ctx, input }) => P.assignPosition(ctx, input)),
   endPosition: protectedProcedure.input(z.object({ id: uuid, effectiveTo: isoDate, reason: z.string().max(300) })).mutation(({ ctx, input }) => H.endPosition(ctx, input)),
@@ -63,7 +67,7 @@ export const hrRouter = router({
   assignableStaff: protectedProcedure.input(z.object({ centerId: uuid.optional() }).default({})).query(({ ctx, input }) => P.assignableStaff(ctx, input)),
   deployments: protectedProcedure.input(z.object({ centerId: uuid.optional(), includeEnded: z.boolean().optional() }).default({})).query(({ ctx, input }) => P.listDeployments(ctx, input)),
   addDeployment: protectedProcedure
-    .input(z.object({ staffId: uuid, centerId: uuid, effectiveFrom: isoDate, effectiveTo: isoDate.nullish(), reason: z.string().max(300), note: ntext(300) }))
+    .input(z.object({ staffId: uuid, centerId: uuid, effectiveFrom: isoDate, effectiveTo: isoDate.nullish(), reason: z.string().max(300), decisionNo: ntext(60), note: ntext(300) }))
     .mutation(({ ctx, input }) => P.addDeployment(ctx, input)),
   endDeployment: protectedProcedure.input(z.object({ id: uuid, effectiveTo: isoDate, reason: z.string().max(300) })).mutation(({ ctx, input }) => P.endDeployment(ctx, input)),
 
@@ -74,6 +78,7 @@ export const hrRouter = router({
       id: uuid.optional(), centerId: uuid.nullable(), code: z.string().trim().min(1).max(12), name: z.string().trim().min(2).max(60),
       kind: z.enum(SHIFT_KINDS), units: z.number().min(0).max(1.5), segments: z.array(segment).max(4),
       workplace: z.enum(WORKPLACES), workplaceCenterId: uuid.nullish(), punchRequired: z.boolean(), isActive: z.boolean(), sortOrder: z.number().int().min(0).max(999).optional(),
+      payMode: z.enum(PAY_MODES).optional(), nominalMinutes: z.number().int().min(0).max(16 * 60).nullish(), note: ntext(300),
     }))
     .mutation(({ ctx, input }) => H.upsertShift(ctx, input)),
   seedShiftCatalogue: protectedProcedure.mutation(({ ctx }) => H.seedShiftCatalogue(ctx)),
@@ -86,7 +91,7 @@ export const hrRouter = router({
   saveTemplates: protectedProcedure
     .input(z.object({ centerId: uuid, entries: z.array(z.object({ staffId: uuid, weekday: z.number().int().min(1).max(7), shiftId: uuid.nullable() })).max(500) }))
     .mutation(({ ctx, input }) => H.saveTemplates(ctx, input)),
-  generateRoster: protectedProcedure.input(z.object({ centerId: uuid, period, overwriteTemplate: z.boolean().optional() })).mutation(({ ctx, input }) => H.generateRoster(ctx, input)),
+  generateRoster: protectedProcedure.input(z.object({ centerId: uuid, period, dryRun: z.boolean().optional() })).mutation(({ ctx, input }) => H.generateRoster(ctx, input)),
   importRoster: protectedProcedure
     .input(z.object({ centerId: uuid, period, content: z.string().min(5).max(500_000), dryRun: z.boolean().optional() }))
     .mutation(({ ctx, input }) => H.importRoster(ctx, input)),
@@ -107,6 +112,9 @@ export const hrRouter = router({
     .mutation(({ ctx, input }) => H.setPeriodStandard(ctx, input)),
   lockPeriod: protectedProcedure.input(z.object({ centerId: uuid, period })).mutation(({ ctx, input }) => H.lockPeriod(ctx, input)),
   unlockPeriod: protectedProcedure.input(z.object({ centerId: uuid, period, reason: z.string().max(300) })).mutation(({ ctx, input }) => H.unlockPeriod(ctx, input)),
+  setPeriodStatus: protectedProcedure.input(z.object({ centerId: uuid, period, status: z.enum(PERIOD_STATUSES), reason: ntext(300) })).mutation(({ ctx, input }) => H.setPeriodStatus(ctx, input)),
+  periodBoard: protectedProcedure.input(z.object({ centerId: uuid, period })).query(({ ctx, input }) => H.periodBoard(ctx, input)),
+  recalcPeriod: protectedProcedure.input(z.object({ centerId: uuid, period })).mutation(({ ctx, input }) => H.recalcPeriod(ctx, input)),
 
   /* ---- Của tôi ---- */
   me: protectedProcedure.input(z.object({ period: period.optional() }).default({})).query(({ ctx, input }) => H.myAttendance(ctx, input)),

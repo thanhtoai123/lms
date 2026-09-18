@@ -99,7 +99,7 @@ export function PositionDefs({ data, centers }: { data: Defs; centers: Center[] 
 export function DeploymentAdmin({ data, centers, people }: { data: Deps; centers: Center[]; people: RouterOutputs["hr"]["assignableStaff"] }) {
   const trpc = useTRPC();
   const router = useRouter();
-  const [f, setF] = useState({ staffId: "", centerId: "", from: today(), to: "", reason: "", note: "" });
+  const [f, setF] = useState({ staffId: "", centerId: "", from: today(), to: "", reason: "", decisionNo: "", note: "" });
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [endId, setEndId] = useState<string | null>(null);
   const [endReason, setEndReason] = useState("");
@@ -131,21 +131,23 @@ export function DeploymentAdmin({ data, centers, people }: { data: Deps; centers
           </label>
           <label className="text-xs text-ink-600">Hiệu lực từ *<input type="date" className="input mt-1" value={f.from} onChange={(e) => setF({ ...f, from: e.target.value })} /></label>
           <label className="text-xs text-ink-600">Đến ngày<input type="date" className="input mt-1" value={f.to} onChange={(e) => setF({ ...f, to: e.target.value })} /></label>
-          <label className="text-xs text-ink-600 md:col-span-2">Lý do *<input className="input mt-1" value={f.reason} onChange={(e) => setF({ ...f, reason: e.target.value })} placeholder="Số quyết định, lý do điều động…" /></label>
+          <label className="text-xs text-ink-600">Số quyết định<input className="input mt-1" value={f.decisionNo} onChange={(e) => setF({ ...f, decisionNo: e.target.value })} placeholder="VD: 12/2026/QĐ-SR" maxLength={60} /></label>
+          <label className="text-xs text-ink-600 md:col-span-2">Lý do *<input className="input mt-1" value={f.reason} onChange={(e) => setF({ ...f, reason: e.target.value })} placeholder="Lý do điều động…" /></label>
           <div className="md:col-span-3">
             <button className="btn-primary" disabled={add.isPending || !f.staffId || !f.centerId || f.reason.trim().length < 5}
-              onClick={() => add.mutate({ staffId: f.staffId, centerId: f.centerId, effectiveFrom: f.from, effectiveTo: f.to || null, reason: f.reason.trim(), note: f.note || null })}>Điều động</button>
+              onClick={() => add.mutate({ staffId: f.staffId, centerId: f.centerId, effectiveFrom: f.from, effectiveTo: f.to || null, reason: f.reason.trim(), decisionNo: f.decisionNo.trim() || null, note: f.note || null })}>Điều động</button>
           </div>
         </div>
       )}
       <div className="card overflow-x-auto">
         <table className="w-full text-sm">
-          <thead className="text-left text-xs uppercase text-ink-400"><tr><th className="p-3">Người — vị trí</th><th className="p-3">Nơi tác nghiệp</th><th className="p-3">Lý do</th><th className="p-3">Hiệu lực</th><th className="p-3"></th></tr></thead>
+          <thead className="text-left text-xs uppercase text-ink-400"><tr><th className="p-3">Người — vị trí</th><th className="p-3">Nơi tác nghiệp</th><th className="p-3">Số quyết định</th><th className="p-3">Lý do</th><th className="p-3">Hiệu lực</th><th className="p-3"></th></tr></thead>
           <tbody className="divide-y divide-black/5">
             {data.items.map((x) => (
               <tr key={x.id}>
                 <td className="p-3">{x.staffName}<div className="text-xs text-ink-400">{x.staffCode} · {x.staffTitle} · biên chế {x.homeCenter}</div></td>
                 <td className="p-3 text-xs">{x.centerCode}</td>
+                <td className="p-3 text-xs font-mono">{x.decisionNo ?? "—"}</td>
                 <td className="p-3 text-xs">{x.reason}{x.note && <div className="text-ink-400">{x.note}</div>}</td>
                 <td className="p-3 text-xs">{dmy(x.effectiveFrom)} → {x.effectiveTo ? dmy(x.effectiveTo) : "vô thời hạn"}{x.active && <span className="ml-1 chip bg-green-100 text-green-800">Đang hiệu lực</span>}</td>
                 <td className="p-3 text-right text-xs">
@@ -158,7 +160,7 @@ export function DeploymentAdmin({ data, centers, people }: { data: Deps; centers
                 </td>
               </tr>
             ))}
-            {data.items.length === 0 && <tr><td className="p-3 text-sm text-ink-400" colSpan={5}>Chưa có điều động nào.</td></tr>}
+            {data.items.length === 0 && <tr><td className="p-3 text-sm text-ink-400" colSpan={6}>Chưa có điều động nào.</td></tr>}
           </tbody>
         </table>
       </div>

@@ -1,7 +1,7 @@
 import { pgTable, text, uuid, integer, bigint, date, timestamp, pgEnum, jsonb, index, uniqueIndex, doublePrecision, boolean } from "drizzle-orm/pg-core";
 import {
-  STAFF_STATUSES, EMPLOYMENT_TYPES, POSITION_KINDS, REQUEST_KINDS, REQUEST_STATUSES, LEAVE_TYPES, PERIOD_STATUSES,
-  SHIFT_KINDS, WORKPLACES, CELL_ORIGINS, LATE_EARLY_KINDS, FLAG_REVIEW_ACTIONS,
+  STAFF_STATUSES, EMPLOYMENT_TYPES, POSITION_KINDS, REQUEST_KINDS, REQUEST_STATUSES, LEAVE_TYPES, PERIOD_STATUS_DB,
+  SHIFT_KINDS, WORKPLACES, CELL_ORIGINS, LATE_EARLY_KINDS, FLAG_REVIEW_ACTIONS, ATTENDANCE_MODES, PAY_MODES,
   type ShiftSegment, type Role,
 } from "@satarobo/core";
 import { id, timestamps } from "./_common";
@@ -18,9 +18,12 @@ export const positionKindEnum = pgEnum("position_kind", POSITION_KINDS);
 export const staffRequestKindEnum = pgEnum("staff_request_kind", REQUEST_KINDS);
 export const staffRequestStatusEnum = pgEnum("staff_request_status", REQUEST_STATUSES);
 export const leaveTypeEnum = pgEnum("leave_type", LEAVE_TYPES);
-export const periodStatusEnum = pgEnum("timesheet_period_status", PERIOD_STATUSES);
+/** Gồm cả giá trị cũ `locked` để dữ liệu đã có vẫn đọc được (đọc lên map thành `closed`) */
+export const periodStatusEnum = pgEnum("timesheet_period_status", PERIOD_STATUS_DB);
 export const shiftKindEnum = pgEnum("work_shift_kind", SHIFT_KINDS);
 export const workplaceEnum = pgEnum("work_shift_workplace", WORKPLACES);
+export const attendanceModeEnum = pgEnum("work_shift_attendance_mode", ATTENDANCE_MODES);
+export const payModeEnum = pgEnum("work_shift_pay_mode", PAY_MODES);
 export const cellOriginEnum = pgEnum("shift_cell_origin", CELL_ORIGINS);
 export const lateEarlyKindEnum = pgEnum("late_early_kind", LATE_EARLY_KINDS);
 export const flagReviewActionEnum = pgEnum("timesheet_flag_action", FLAG_REVIEW_ACTIONS);
@@ -71,6 +74,14 @@ export const staff = pgTable(
     annualLeaveDays: doublePrecision("annual_leave_days").notNull().default(12),
     /** Miễn tính công (không lên lưới phân ca, không cần quét) */
     timesheetExempt: boolean("timesheet_exempt").notNull().default(false),
+    /** Ảnh đại diện (đường dẫn) */
+    avatarUrl: text("avatar_url"),
+    /** Giới thiệu (Markdown) — hiển thị ở trang công khai khi bật `isPublic` */
+    bio: text("bio"),
+    /** Hiển thị public trên website */
+    isPublic: boolean("is_public").notNull().default(false),
+    /** Thứ tự hiển thị trong danh sách công khai */
+    displayOrder: integer("display_order").notNull().default(0),
     notes: text("notes"),
     createdBy: uuid("created_by").references(() => users.id),
     ...timestamps,
@@ -94,6 +105,14 @@ export const staffPrivate = pgTable("staff_private", {
   bankAccount: text("bank_account"),
   baseSalary: money("base_salary"),
   allowance: money("allowance"),
+  /** Ngạch lương (SR.QD.200, 1–9) */
+  salaryRank: integer("salary_rank"),
+  /** Bậc lương (1–5) */
+  salaryLevel: integer("salary_level"),
+  /** Mức lương đóng BHXH (VNĐ) */
+  bhxhBase: money("bhxh_base"),
+  /** Liên hệ khẩn cấp: "Tên - Quan hệ - SĐT" */
+  emergencyContact: text("emergency_contact"),
   updatedBy: uuid("updated_by").references(() => users.id),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -112,6 +131,8 @@ export const staffPositions = pgTable(
     kind: positionKindEnum("kind").notNull(),
     effectiveFrom: date("effective_from").notNull(),
     effectiveTo: date("effective_to"),
+    /** Số quyết định phân công (bản gốc để chung ô ghi chú — tách riêng cho dễ tra) */
+    decisionNo: text("decision_no"),
     note: text("note"),
     endReason: text("end_reason"),
     createdBy: uuid("created_by").references(() => users.id),
@@ -133,6 +154,8 @@ export const staffDeployments = pgTable(
     effectiveFrom: date("effective_from").notNull(),
     effectiveTo: date("effective_to"),
     reason: text("reason").notNull(),
+    /** Số quyết định điều động */
+    decisionNo: text("decision_no"),
     note: text("note"),
     createdBy: uuid("created_by").references(() => users.id),
     ...timestamps,
@@ -159,6 +182,17 @@ export const workShifts = pgTable(
     /** Cơ sở cố định khi workplace = fixed_center */
     workplaceCenterId: uuid("workplace_center_id").references(() => centers.id, { onDelete: "set null" }),
     punchRequired: boolean("punch_required").notNull().default(true),
+    /** Số công theo tên của bản gốc (giữ đồng bộ với `units`) */
+    dayCredit: doublePrecision("day_credit").notNull().default(1),
+    /** Mã nghỉ phép (P) — 0 công nhưng vào cột ngày nghỉ */
+    isLeave: boolean("is_leave").notNull().default(false),
+    /** Phút định mức (Giờ KH của bản gốc) — 0 = lấy theo các đoạn giờ */
+    nominalMinutes: integer("nominal_minutes").notNull().default(0),
+    /** `paid_break` = nghỉ giữa giờ vẫn tính công (CS, CT của bản gốc) */
+    payMode: payModeEnum("pay_mode").notNull().default("normal"),
+    /** Cột gộp hiển thị một dòng như bản gốc — suy ra từ kind + workplace */
+    attendanceMode: attendanceModeEnum("attendance_mode").notNull().default("timed"),
+    note: text("note"),
     sortOrder: integer("sort_order").notNull().default(0),
     isActive: boolean("is_active").notNull().default(true),
     ...timestamps,
@@ -192,6 +226,14 @@ export const shiftAssignments = pgTable(
     shiftId: uuid("shift_id").notNull().references(() => workShifts.id),
     centerId: uuid("center_id").notNull().references(() => centers.id),
     origin: cellOriginEnum("origin").notNull().default("manual"),
+    /**
+     * Ảnh chụp giờ + số công của mã ca **lúc xếp ô này**.
+     * Bản gốc: "Đổi giờ/số công chỉ áp cho ô xếp SAU khi lưu — lịch đã xếp giữ nguyên."
+     * Tính công đọc từ đây, chỉ khi rỗng mới quay về danh mục mã ca.
+     */
+    unitsSnapshot: doublePrecision("units_snapshot"),
+    minutesSnapshot: integer("minutes_snapshot"),
+    segmentsSnapshot: jsonb("segments_snapshot").$type<ShiftSegment[]>(),
     /** Đơn đã duyệt sinh ra ô này */
     sourceRequestId: uuid("source_request_id"),
     note: text("note"),
@@ -372,7 +414,12 @@ export const timesheetPeriods = pgTable(
     lockedBy: uuid("locked_by").references(() => users.id),
     lockedAt: timestamp("locked_at", { withTimezone: true }),
     unlockReason: text("unlock_reason"),
+    /** Bản chốt gần nhất; các bản trước vẫn nằm trong nhật ký thao tác */
     snapshot: jsonb("snapshot"),
+    /** Số lần đã chốt — chốt lại sau khi mở lại sẽ ghi một bản mới */
+    closeCount: integer("close_count").notNull().default(0),
+    reopenedBy: uuid("reopened_by").references(() => users.id),
+    reopenedAt: timestamp("reopened_at", { withTimezone: true }),
     ...timestamps,
   },
   (t) => [uniqueIndex("timesheet_periods_unique").on(t.centerId, t.period)],

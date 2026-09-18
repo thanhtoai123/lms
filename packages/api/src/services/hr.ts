@@ -7,16 +7,19 @@ import {
 import {
   addDays, weekdayOf, activeOn, staffTransition, staffCode, validateShiftDef, plannedMinutesOf,
   summarizeDays, periodRange, datesBetween, lockCheck, standardUnits, maskIdNumber, isReviewableFlag,
-  SHIFT_CATALOGUE, TIMESHEET_FLAGS, SHIFT_KIND_VI,
+  attendanceModeOf, isLeaveShift, nominalMinutesOf, classifyRosterCell, emptyRosterTally, normalizePeriodStatus,
+  periodTransition, periodEditable,
+  SHIFT_CATALOGUE, TIMESHEET_FLAGS, SHIFT_KIND_VI, ATTENDANCE_MODE_VI, PAY_MODE_VI, SHIFT_EDIT_WARNING,
+  ROSTER_CELL_RESULTS, ROSTER_CELL_RESULT_VI, ROSTER_CELL_RESULT_NOTE, DEFAULT_STANDARD_UNITS, PERIOD_STATUS_VI,
   type StaffStatus, type EmploymentType, type PositionKind, type ShiftKind, type Workplace, type ShiftSegment,
-  type TimesheetFlag, type FlagReviewAction, type CellOrigin,
+  type TimesheetFlag, type FlagReviewAction, type CellOrigin, type PayMode, type RosterCellResult, type PeriodStatus,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { writeAudit } from "./audit";
 import { todayISO } from "./sessions";
 import {
   bad, pre, notFound, forbidden, rule, can, isSA, centersWith, scopeSql, reasonOf, dmy, notify, myStaff,
-  periodLocked, assertOpen, buildDays, leaveBalance, vnStart, vnEnd,
+  periodLocked, assertOpen, buildDays, leaveBalance, vnStart, vnEnd, snapshotOf,
   type Db,
 } from "./hrShared";
 
@@ -56,6 +59,7 @@ export async function listStaff(ctx: ProtectedContext, input: { q?: string; cent
     canCreate: centersWith(ctx, "staff:create").length > 0,
     items: rows.map((r) => ({
       ...r.s, centerCode: r.centerCode, accountEmail: r.accountEmail, teacherCode: r.teacherCode,
+      canUpdate: can(ctx, "staff:update", r.s.centerId),
       positions: activeOn(pos.filter((p) => p.p.staffId === r.s.id).map((p) => ({ ...p.p, centerCode: p.centerCode })), today),
     })),
   };
@@ -86,6 +90,8 @@ export async function getStaff(ctx: ProtectedContext, id: string) {
       taxCode: salary ? priv.taxCode : null, insuranceNo: salary ? priv.insuranceNo : null, bankName: salary ? priv.bankName : null,
       bankAccount: priv.bankAccount ? (salary ? priv.bankAccount : `•••${priv.bankAccount.slice(-3)}`) : null,
       baseSalary: salary ? priv.baseSalary : null, allowance: salary ? priv.allowance : null, address: salary ? priv.address : null,
+      salaryRank: salary ? priv.salaryRank : null, salaryLevel: salary ? priv.salaryLevel : null, bhxhBase: salary ? priv.bhxhBase : null,
+      emergencyContact: salary ? priv.emergencyContact : null,
     } : null,
     positions: pos.map((p) => ({ ...p.p, centerCode: p.centerCode, active: p.p.effectiveFrom <= today && (!p.p.effectiveTo || p.p.effectiveTo >= today) })),
     leave: await leaveBalance(ctx.db, s, Number(today.slice(0, 4))),
@@ -99,7 +105,14 @@ export interface StaffInput {
   id?: string; fullName: string; email?: string | null; phone?: string | null; centerId: string; department: string; title: string;
   employmentType: EmploymentType; hiredAt?: string | null; annualLeaveDays: number; notes?: string | null; timesheetExempt?: boolean;
   userId?: string | null; teacherId?: string | null;
-  private?: { idNumber?: string | null; birthDate?: string | null; address?: string | null; taxCode?: string | null; insuranceNo?: string | null; bankName?: string | null; bankAccount?: string | null; baseSalary?: number | null; allowance?: number | null } | null;
+  /** Hồ sơ công khai (giống bản gốc): ảnh, giới thiệu, bật/tắt hiển thị, thứ tự */
+  avatarUrl?: string | null; bio?: string | null; isPublic?: boolean; displayOrder?: number;
+  private?: {
+    idNumber?: string | null; birthDate?: string | null; address?: string | null; taxCode?: string | null; insuranceNo?: string | null;
+    bankName?: string | null; bankAccount?: string | null; baseSalary?: number | null; allowance?: number | null;
+    /** Ngạch · Bậc · Mức đóng BHXH — chỉ người có quyền staff:salary */
+    salaryRank?: number | null; salaryLevel?: number | null; bhxhBase?: number | null; emergencyContact?: string | null;
+  } | null;
 }
 
 export async function upsertStaff(ctx: ProtectedContext, input: StaffInput) {
@@ -126,6 +139,10 @@ export async function upsertStaff(ctx: ProtectedContext, input: StaffInput) {
     fullName: input.fullName.trim(), email, phone: input.phone?.replace(/[^\d+]/g, "") || null, centerId: input.centerId, department: input.department, title: input.title.trim(),
     employmentType: input.employmentType, hiredAt: input.hiredAt || null, annualLeaveDays: input.annualLeaveDays, notes: input.notes?.trim() || null,
     timesheetExempt: input.timesheetExempt ?? before?.timesheetExempt ?? false,
+    avatarUrl: input.avatarUrl?.trim() || before?.avatarUrl || null,
+    bio: input.bio?.trim() ?? before?.bio ?? null,
+    isPublic: input.isPublic ?? before?.isPublic ?? false,
+    displayOrder: input.displayOrder ?? before?.displayOrder ?? 0,
     userId: input.userId ?? null, teacherId: input.teacherId ?? null,
   };
   return ctx.db.transaction(async (txx) => {
@@ -151,7 +168,10 @@ export async function upsertStaff(ctx: ProtectedContext, input: StaffInput) {
       const pv = {
         idNumber: p.idNumber?.replace(/\s/g, "") || null, birthDate: p.birthDate || null, address: p.address?.trim() || null, taxCode: p.taxCode?.trim() || null,
         insuranceNo: p.insuranceNo?.trim() || null, bankName: p.bankName?.trim() || null, bankAccount: p.bankAccount?.replace(/\s/g, "") || null,
-        baseSalary: p.baseSalary ?? null, allowance: p.allowance ?? null, updatedBy: ctx.user.id, updatedAt: new Date(),
+        baseSalary: p.baseSalary ?? null, allowance: p.allowance ?? null,
+        salaryRank: p.salaryRank ?? null, salaryLevel: p.salaryLevel ?? null, bhxhBase: p.bhxhBase ?? null,
+        emergencyContact: p.emergencyContact?.trim() || null,
+        updatedBy: ctx.user.id, updatedAt: new Date(),
       };
       const old = await tx.query.staffPrivate.findFirst({ where: eq(staffPrivate.staffId, id) });
       await tx.insert(staffPrivate).values({ staffId: id, ...pv }).onConflictDoUpdate({ target: staffPrivate.staffId, set: pv });
@@ -201,6 +221,20 @@ export async function setStaffStatus(ctx: ProtectedContext, input: { id: string;
     await writeAudit(tx, { actorId: ctx.user.id, action: "TRANSITION", module: "hr", entity: "staff", entityId: s.id, before: { status: s.status }, after: { status: input.status, effectiveDate: eff }, reason, ip: ctx.ip });
   });
   return { ok: true, warnings };
+}
+
+/** Bật / tắt "Hiển thị public" ngay trên danh sách nhân sự (như bản gốc) */
+export async function setStaffPublic(ctx: ProtectedContext, input: { id: string; isPublic: boolean }) {
+  const s = await ctx.db.query.staff.findFirst({ where: eq(staff.id, input.id) });
+  if (!s) throw notFound("Không tìm thấy nhân sự");
+  requirePermission(ctx, "staff:update", { centerId: s.centerId });
+  if (s.status === "resigned" && input.isPublic) throw pre("Hồ sơ đã nghỉ việc — không bật hiển thị public");
+  await ctx.db.transaction(async (txx) => {
+    const tx = txx as unknown as Db;
+    await tx.update(staff).set({ isPublic: input.isPublic }).where(eq(staff.id, s.id));
+    await writeAudit(tx, { actorId: ctx.user.id, action: "UPDATE", module: "hr", entity: "staff", entityId: s.id, before: { isPublic: s.isPublic }, after: { isPublic: input.isPublic }, ip: ctx.ip });
+  });
+  return { ok: true, isPublic: input.isPublic };
 }
 
 export async function revealStaffPrivate(ctx: ProtectedContext, input: { id: string; reason: string }) {
@@ -274,29 +308,48 @@ export async function listShifts(ctx: ProtectedContext, input: { centerId?: stri
   const rows = await ctx.db.select({ s: workShifts, centerCode: centers.code }).from(workShifts).leftJoin(centers, eq(centers.id, workShifts.centerId))
     .where(conds.length ? and(...conds) : sql`true`).orderBy(asc(workShifts.sortOrder), asc(workShifts.code));
   const usage = await ctx.db.select({ shiftId: shiftAssignments.shiftId, n: sql<number>`count(*)::int` }).from(shiftAssignments).groupBy(shiftAssignments.shiftId);
+  const canShared = centersWith(ctx, "timesheet:configure").includes(null) || isSA(ctx);
   return rows.map((r) => ({
     ...r.s, centerCode: r.centerCode, kindLabel: SHIFT_KIND_VI[r.s.kind],
+    /** Mã dùng chung (Hội sở) — cơ sở chỉ xem */
+    isShared: !r.s.centerId,
+    attendanceLabel: ATTENDANCE_MODE_VI[r.s.attendanceMode],
+    payModeLabel: PAY_MODE_VI[r.s.payMode],
+    nominalMin: r.s.nominalMinutes || r.s.plannedMinutes,
     clock: (r.s.segments ?? []).map((x) => `${x.from}–${x.to}`).join(", "),
     usedCells: usage.find((u) => u.shiftId === r.s.id)?.n ?? 0,
-    canEdit: r.s.centerId ? can(ctx, "timesheet:configure", r.s.centerId) : centersWith(ctx, "timesheet:configure").includes(null),
+    canEdit: r.s.centerId ? can(ctx, "timesheet:configure", r.s.centerId) : canShared,
   }));
 }
 
 export interface ShiftInput {
   id?: string; centerId: string | null; code: string; name: string; kind: ShiftKind; units: number;
   segments: ShiftSegment[]; workplace: Workplace; workplaceCenterId?: string | null; punchRequired: boolean; isActive: boolean; sortOrder?: number;
+  /** Nghỉ giữa giờ vẫn tính công */
+  payMode?: PayMode;
+  /** Phút định mức (Giờ KH) — để trống thì tính từ các đoạn giờ */
+  nominalMinutes?: number | null;
+  note?: string | null;
 }
 
 export async function upsertShift(ctx: ProtectedContext, input: ShiftInput) {
   if (input.centerId) requirePermission(ctx, "timesheet:configure", { centerId: input.centerId });
-  else if (!centersWith(ctx, "timesheet:configure").includes(null)) throw forbidden("Mã ca dùng chung chỉ Hội sở sửa — hãy chọn cơ sở");
+  else if (!centersWith(ctx, "timesheet:configure").includes(null) && !isSA(ctx)) throw forbidden("Mã ca dùng chung (Hội sở) chỉ nhân sự Hội sở tạo / sửa — cơ sở chỉ xem. Hãy chọn phạm vi riêng cơ sở.");
   const errs = validateShiftDef(input);
   if (errs.length) throw bad(errs);
+  const payMode: PayMode = input.payMode ?? "normal";
   const v = {
     centerId: input.centerId, code: input.code.trim().toUpperCase(), name: input.name.trim(), kind: input.kind, units: input.units,
     segments: input.segments, plannedMinutes: plannedMinutesOf(input.segments), workplace: input.workplace,
     workplaceCenterId: input.workplace === "fixed_center" ? input.workplaceCenterId ?? null : null,
     punchRequired: input.punchRequired, isActive: input.isActive, sortOrder: input.sortOrder ?? 0,
+    // các cột theo đúng model gốc
+    dayCredit: input.units,
+    isLeave: isLeaveShift(input.kind),
+    nominalMinutes: input.nominalMinutes ?? nominalMinutesOf(input.segments, payMode),
+    payMode,
+    attendanceMode: attendanceModeOf(input.kind, input.workplace),
+    note: input.note?.trim() || null,
   };
   const dup = await ctx.db.query.workShifts.findFirst({ where: and(eq(workShifts.code, v.code), input.centerId ? eq(workShifts.centerId, input.centerId) : isNull(workShifts.centerId), input.id ? ne(workShifts.id, input.id) : sql`true`) });
   if (dup) throw pre(`Mã ca ${v.code} đã có`);
@@ -304,18 +357,23 @@ export async function upsertShift(ctx: ProtectedContext, input: ShiftInput) {
     const before = await ctx.db.query.workShifts.findFirst({ where: eq(workShifts.id, input.id) });
     if (!before) throw notFound("Không tìm thấy mã ca");
     if (before.centerId !== input.centerId) throw bad("Không đổi phạm vi của mã ca");
-    const timeChanged = JSON.stringify(before.segments) !== JSON.stringify(v.segments) || before.units !== v.units || before.kind !== v.kind;
-    if (timeChanged) {
-      const [u] = await ctx.db.select({ n: sql<number>`count(*)::int` }).from(shiftAssignments).where(and(eq(shiftAssignments.shiftId, before.id), lte(shiftAssignments.date, todayISO())));
-      if ((u?.n ?? 0) > 0) throw pre("Mã ca đã dùng cho ngày đã qua — sửa một mã không đổi lịch đã xếp; hãy tạo mã mới rồi xếp lại");
-    }
-    await ctx.db.update(workShifts).set(v).where(eq(workShifts.id, before.id));
-    await writeAudit(ctx.db, { actorId: ctx.user.id, action: "UPDATE", module: "hr", entity: "work_shifts", entityId: before.id, before, after: v, ip: ctx.ip });
-    return { id: before.id };
+    const timeChanged = JSON.stringify(before.segments) !== JSON.stringify(v.segments) || before.units !== v.units || before.kind !== v.kind || before.nominalMinutes !== v.nominalMinutes;
+    // Không chặn nữa: giờ + số công đã được chụp ảnh vào ô phân ca lúc xếp
+    const [u] = await ctx.db.select({ n: sql<number>`count(*)::int` }).from(shiftAssignments).where(eq(shiftAssignments.shiftId, before.id));
+    await ctx.db.transaction(async (txx) => {
+      const tx = txx as unknown as Db;
+      await tx.update(workShifts).set(v).where(eq(workShifts.id, before.id));
+      await writeAudit(tx, { actorId: ctx.user.id, action: "UPDATE", module: "hr", entity: "work_shifts", entityId: before.id, before, after: v, ip: ctx.ip });
+    });
+    return { id: before.id, warning: timeChanged && (u?.n ?? 0) > 0 ? SHIFT_EDIT_WARNING : null, usedCells: u?.n ?? 0 };
   }
-  const [row] = await ctx.db.insert(workShifts).values(v).returning({ id: workShifts.id });
-  await writeAudit(ctx.db, { actorId: ctx.user.id, action: "CREATE", module: "hr", entity: "work_shifts", entityId: row!.id, after: v, ip: ctx.ip });
-  return { id: row!.id };
+  const [row] = await ctx.db.transaction(async (txx) => {
+    const tx = txx as unknown as Db;
+    const r = await tx.insert(workShifts).values(v).returning({ id: workShifts.id });
+    await writeAudit(tx, { actorId: ctx.user.id, action: "CREATE", module: "hr", entity: "work_shifts", entityId: r[0]!.id, after: v, ip: ctx.ip });
+    return r;
+  });
+  return { id: row!.id, warning: null, usedCells: 0 };
 }
 
 /** Nạp danh mục mã ca gốc (dùng chung) — mã đã có thì giữ nguyên */
@@ -324,14 +382,22 @@ export async function seedShiftCatalogue(ctx: ProtectedContext) {
   const existing = await ctx.db.select({ code: workShifts.code }).from(workShifts).where(isNull(workShifts.centerId));
   const have = new Set(existing.map((x) => x.code));
   const cs = await ctx.db.select({ id: centers.id, code: centers.code }).from(centers);
-  const rows = SHIFT_CATALOGUE.filter((s) => !have.has(s.code)).map((s, i) => ({
-    centerId: null, code: s.code, name: s.name, kind: s.kind, units: s.units, segments: s.segments,
-    plannedMinutes: plannedMinutesOf(s.segments), workplace: s.workplace,
-    workplaceCenterId: s.fixedCenterCode ? cs.find((c) => c.code === s.fixedCenterCode)?.id ?? null : null,
-    punchRequired: s.punchRequired, sortOrder: i, isActive: true,
-  }));
-  if (rows.length) await ctx.db.insert(workShifts).values(rows);
-  await writeAudit(ctx.db, { actorId: ctx.user.id, action: "CREATE", module: "hr", entity: "work_shifts", entityId: null, after: { seeded: rows.map((r) => r.code) }, ip: ctx.ip });
+  const rows = SHIFT_CATALOGUE.filter((s) => !have.has(s.code)).map((s, i) => {
+    const payMode: PayMode = s.code === "CS" || s.code === "CT" ? "paid_break" : "normal";
+    return {
+      centerId: null, code: s.code, name: s.name, kind: s.kind, units: s.units, segments: s.segments,
+      plannedMinutes: plannedMinutesOf(s.segments), workplace: s.workplace,
+      workplaceCenterId: s.fixedCenterCode ? cs.find((c) => c.code === s.fixedCenterCode)?.id ?? null : null,
+      punchRequired: s.punchRequired, sortOrder: i, isActive: true,
+      dayCredit: s.units, isLeave: isLeaveShift(s.kind), nominalMinutes: nominalMinutesOf(s.segments, payMode),
+      payMode, attendanceMode: attendanceModeOf(s.kind, s.workplace), note: null,
+    };
+  });
+  await ctx.db.transaction(async (txx) => {
+    const tx = txx as unknown as Db;
+    if (rows.length) await tx.insert(workShifts).values(rows);
+    await writeAudit(tx, { actorId: ctx.user.id, action: "CREATE", module: "hr", entity: "work_shifts", entityId: null, after: { seeded: rows.map((r) => r.code) }, ip: ctx.ip });
+  });
   return { created: rows.length, skipped: SHIFT_CATALOGUE.length - rows.length };
 }
 
@@ -417,8 +483,10 @@ export async function assignShifts(ctx: ProtectedContext, input: { centerId: str
     const tx = txx as unknown as Db;
     for (const e of input.entries) {
       if (e.shiftId) {
-        await tx.insert(shiftAssignments).values({ staffId: e.staffId, date: e.date, shiftId: e.shiftId, centerId: input.centerId, origin, note: input.note?.trim() || null, createdBy: ctx.user.id })
-          .onConflictDoUpdate({ target: [shiftAssignments.staffId, shiftAssignments.date], set: { shiftId: e.shiftId, origin, note: input.note?.trim() || null, createdBy: ctx.user.id } });
+        // chụp ảnh giờ + số công của mã ca vào ô: sửa mã ca sau này không đổi ô đã xếp
+        const snap = snapshotOf(shs.find((x) => x.id === e.shiftId)!);
+        await tx.insert(shiftAssignments).values({ staffId: e.staffId, date: e.date, shiftId: e.shiftId, centerId: input.centerId, origin, note: input.note?.trim() || null, createdBy: ctx.user.id, ...snap })
+          .onConflictDoUpdate({ target: [shiftAssignments.staffId, shiftAssignments.date], set: { shiftId: e.shiftId, origin, note: input.note?.trim() || null, createdBy: ctx.user.id, ...snap } });
         set++;
       } else {
         const d = await tx.delete(shiftAssignments).where(and(eq(shiftAssignments.staffId, e.staffId), eq(shiftAssignments.date, e.date))).returning({ id: shiftAssignments.id });
@@ -457,44 +525,87 @@ export async function saveTemplates(ctx: ProtectedContext, input: { centerId: st
   return { saved: input.entries.length };
 }
 
-/** Sinh lưới tháng từ khung ca tuần — ô sửa tay và ô từ đơn đã duyệt được giữ nguyên */
-export async function generateRoster(ctx: ProtectedContext, input: { centerId: string; period: string; overwriteTemplate?: boolean }) {
+/** Một dòng ví dụ của nhóm kết quả (để bảng tổng hợp chỉ ra được ô nào) */
+export interface RosterSample { staffName: string; date: string; from: string | null; to: string | null }
+
+/**
+ * Sinh lưới tháng từ khung ca tuần.
+ *
+ * - `dryRun` = **Chạy thử**: chỉ phân loại, không ghi gì.
+ * - Kết quả chia đúng **8 nhóm của bản gốc** (xem `ROSTER_CELL_RESULT_VI`).
+ * - Lưới **chỉ áp từ NGÀY MAI**: ngày đã qua và hôm nay luôn được chừa lại.
+ * - Ô sửa tay / đơn đã duyệt / file import được bảo vệ, lưới không đụng vào.
+ */
+export async function generateRoster(ctx: ProtectedContext, input: { centerId: string; period: string; dryRun?: boolean }) {
   requirePermission(ctx, "timesheet:update", { centerId: input.centerId });
   const { from, to } = rule(() => periodRange(input.period));
-  await assertOpen(ctx.db, input.centerId, [from]);
   const today = todayISO();
-  const start = from < addDays(today, -BACKDATE_ROSTER) ? addDays(today, -BACKDATE_ROSTER) : from;
+  if (!input.dryRun) await assertOpen(ctx.db, input.centerId, [from]);
   const tpl = await ctx.db.select().from(shiftTemplates).where(eq(shiftTemplates.centerId, input.centerId));
   if (!tpl.length) throw pre("Chưa khai khung ca tuần cho cơ sở này");
-  const people = await ctx.db.select({ id: staff.id, status: staff.status, leftAt: staff.leftAt, exempt: staff.timesheetExempt }).from(staff).where(eq(staff.centerId, input.centerId));
-  const existing = await ctx.db.select().from(shiftAssignments).where(and(eq(shiftAssignments.centerId, input.centerId), gte(shiftAssignments.date, start), lte(shiftAssignments.date, to)));
-  let created = 0;
-  let updated = 0;
-  let kept = 0;
+  const people = await ctx.db.select({ id: staff.id, fullName: staff.fullName, status: staff.status, centerId: staff.centerId, leftAt: staff.leftAt, exempt: staff.timesheetExempt })
+    .from(staff).where(inArray(staff.id, [...new Set(tpl.map((t) => t.staffId))]));
+  const existing = await ctx.db.select().from(shiftAssignments).where(and(eq(shiftAssignments.centerId, input.centerId), gte(shiftAssignments.date, from), lte(shiftAssignments.date, to)));
+  const shiftIds = [...new Set([...tpl.map((t) => t.shiftId), ...existing.map((e) => e.shiftId)].filter((x): x is string => !!x))];
+  const shs = shiftIds.length ? await ctx.db.select().from(workShifts).where(inArray(workShifts.id, shiftIds)) : [];
+  const codeOf = (id: string | null | undefined) => (id ? shs.find((x) => x.id === id)?.code ?? null : null);
+  const scope = new Set(centersWith(ctx, "timesheet:update").filter((x): x is string => !!x));
+  const allScope = centersWith(ctx, "timesheet:update").includes(null) || isSA(ctx);
+  const tally = emptyRosterTally();
+  const samples: Record<RosterCellResult, RosterSample[]> = Object.fromEntries(ROSTER_CELL_RESULTS.map((k) => [k, [] as RosterSample[]])) as Record<RosterCellResult, RosterSample[]>;
+  const unknownCodes = new Set<string>();
+  const writes: { staffId: string; date: string; shiftId: string }[] = [];
+  const deletes: { staffId: string; date: string }[] = [];
+
+  const dates = datesBetween(from, to);
+  for (const p of people) {
+    if (p.exempt) continue;
+    for (const d of dates) {
+      if (p.status === "resigned" && (!p.leftAt || d > p.leftAt)) continue;
+      // khung ca tuần của người này cho thứ tương ứng (không có = khung không xếp ngày đó)
+      const t = tpl.find((x) => x.staffId === p.id && x.weekday === weekdayOf(d));
+      const cur = existing.find((x) => x.staffId === p.id && x.date === d);
+      if (!t?.shiftId && !cur) continue; // ô trống, khung cũng trống → không có gì để nói
+      const sh = t?.shiftId ? shs.find((x) => x.id === t.shiftId) : null;
+      // mã lạ = mã trong khung ca không có (hoặc đã ngưng) trong danh mục đang dùng của cơ sở
+      const knownCode = !t?.shiftId || !!(sh && sh.isActive && (!sh.centerId || sh.centerId === input.centerId));
+      const res = classifyRosterCell({
+        date: d, today,
+        templateCode: t?.shiftId ?? null,
+        currentCode: cur?.shiftId ?? null,
+        currentOrigin: cur?.origin ?? null,
+        inScope: allScope || scope.has(p.centerId),
+        knownCode,
+      });
+      tally[res]++;
+      if (samples[res].length < 20) samples[res].push({ staffName: p.fullName, date: d, from: codeOf(cur?.shiftId), to: codeOf(t?.shiftId) });
+      if (res === "unknown_code") unknownCodes.add(sh?.code ?? t?.shiftId ?? "?");
+      if (res === "created" || res === "recoded") writes.push({ staffId: p.id, date: d, shiftId: t!.shiftId! });
+      if (res === "removed") deletes.push({ staffId: p.id, date: d });
+    }
+  }
+  const summary = {
+    period: input.period, from, to, appliedFrom: addDays(today, 1),
+    tally, unknownCodes: [...unknownCodes].slice(0, 20),
+    groups: ROSTER_CELL_RESULTS.map((k) => ({ key: k, label: ROSTER_CELL_RESULT_VI[k], note: ROSTER_CELL_RESULT_NOTE[k], count: tally[k], samples: samples[k] })),
+  };
+  if (input.dryRun) return { ...summary, applied: false };
   await ctx.db.transaction(async (txx) => {
     const tx = txx as unknown as Db;
-    for (const d of datesBetween(start, to)) {
-      const wd = weekdayOf(d);
-      for (const t of tpl) {
-        if (t.weekday !== wd || !t.shiftId) continue;
-        const p = people.find((x) => x.id === t.staffId);
-        if (!p || p.exempt) continue;
-        if (p.status === "resigned" && (!p.leftAt || d > p.leftAt)) continue;
-        const cur = existing.find((x) => x.staffId === t.staffId && x.date === d);
-        if (cur && (cur.origin === "manual" || cur.origin === "request") && !input.overwriteTemplate) {
-          kept++;
-          continue;
-        }
-        if (cur && cur.shiftId === t.shiftId && cur.origin === "template") continue;
-        await tx.insert(shiftAssignments).values({ staffId: t.staffId, date: d, shiftId: t.shiftId, centerId: input.centerId, origin: "template", createdBy: ctx.user.id })
-          .onConflictDoUpdate({ target: [shiftAssignments.staffId, shiftAssignments.date], set: { shiftId: t.shiftId, origin: "template", createdBy: ctx.user.id } });
-        if (cur) updated++;
-        else created++;
-      }
+    for (const w of writes) {
+      const snap = snapshotOf(shs.find((x) => x.id === w.shiftId)!);
+      await tx.insert(shiftAssignments).values({ staffId: w.staffId, date: w.date, shiftId: w.shiftId, centerId: input.centerId, origin: "template", createdBy: ctx.user.id, ...snap })
+        .onConflictDoUpdate({ target: [shiftAssignments.staffId, shiftAssignments.date], set: { shiftId: w.shiftId, origin: "template", createdBy: ctx.user.id, ...snap } });
     }
-    await writeAudit(tx, { actorId: ctx.user.id, action: "CREATE", module: "hr", entity: "shift_assignments", entityId: null, after: { centerId: input.centerId, period: input.period, created, updated, kept, source: "template" }, ip: ctx.ip });
+    for (const x of deletes) await tx.delete(shiftAssignments).where(and(eq(shiftAssignments.staffId, x.staffId), eq(shiftAssignments.date, x.date)));
+    await writeAudit(tx, { actorId: ctx.user.id, action: "CREATE", module: "hr", entity: "shift_assignments", entityId: null, after: { centerId: input.centerId, period: input.period, source: "template", ...tally }, ip: ctx.ip });
   });
-  return { created, updated, kept };
+  const users_ = people.filter((p) => writes.some((w) => w.staffId === p.id) || deletes.some((w) => w.staffId === p.id)).map((p) => p.id);
+  if (users_.length) {
+    const withUser = await ctx.db.select({ userId: staff.userId }).from(staff).where(inArray(staff.id, users_));
+    await notify(ctx.db, withUser.map((u) => u.userId), "Lịch ca thay đổi", `Sinh lưới kỳ ${input.period} từ khung ca tuần`, "/cham-cong/lich-ca", 3);
+  }
+  return { ...summary, applied: true };
 }
 
 /* ---- Nhập lịch phân ca từ CSV / dán từ Sheet (TSV) ---------------- */
@@ -575,8 +686,9 @@ export async function importRoster(ctx: ProtectedContext, input: { centerId: str
   await ctx.db.transaction(async (txx) => {
     const tx = txx as unknown as Db;
     for (const x of plan) {
-      await tx.insert(shiftAssignments).values({ staffId: x.staffId, date: x.date, shiftId: x.shiftId, centerId: input.centerId, origin: "import", createdBy: ctx.user.id })
-        .onConflictDoUpdate({ target: [shiftAssignments.staffId, shiftAssignments.date], set: { shiftId: x.shiftId, origin: "import", createdBy: ctx.user.id } });
+      const snap = snapshotOf(shifts.find((s) => s.id === x.shiftId)!);
+      await tx.insert(shiftAssignments).values({ staffId: x.staffId, date: x.date, shiftId: x.shiftId, centerId: input.centerId, origin: "import", createdBy: ctx.user.id, ...snap })
+        .onConflictDoUpdate({ target: [shiftAssignments.staffId, shiftAssignments.date], set: { shiftId: x.shiftId, origin: "import", createdBy: ctx.user.id, ...snap } });
     }
     await tx.insert(rosterImports).values({
       centerId: input.centerId, period: input.period, created: summary.created, updated: summary.updated,
@@ -627,9 +739,11 @@ export async function timesheet(ctx: ProtectedContext, input: { centerId: string
   const unlockAllowed = centersWith(ctx, "timesheet:lock").includes(null) || isSA(ctx);
   const hols = await ctx.db.select().from(holidays).where(and(gte(holidays.date, from), lte(holidays.date, to)));
   const std = p?.standardUnits ?? standardUnits(input.period, [7], hols.filter((h) => h.centerId === null || h.centerId === input.centerId).map((h) => h.date));
+  const status = normalizePeriodStatus(p?.status);
   return {
     period: input.period, from, to, dates: datesBetween(from, to),
-    status: p?.status ?? "open", lockedAt: p?.lockedAt ?? null, unlockReason: p?.unlockReason ?? null,
+    status, statusLabel: PERIOD_STATUS_VI[status], editable: periodEditable(status),
+    lockedAt: p?.lockedAt ?? null, unlockReason: p?.unlockReason ?? null, closeCount: p?.closeCount ?? 0,
     standardUnits: std, standardNote: p?.standardNote ?? null,
     pendingRequests: pend?.n ?? 0, lockCheck: check,
     kpi: {
@@ -722,35 +836,134 @@ export async function setPeriodStandard(ctx: ProtectedContext, input: { centerId
   requirePermission(ctx, "timesheet:lock", { centerId: input.centerId });
   if (input.standardUnits != null && (input.standardUnits < 0 || input.standardUnits > 31 || (input.standardUnits * 2) % 1 !== 0)) throw bad("Số công chuẩn 0–31, bước 0,5");
   const v = { standardUnits: input.standardUnits, standardNote: input.note?.trim().slice(0, 200) || null };
-  await ctx.db.insert(timesheetPeriods).values({ centerId: input.centerId, period: input.period, ...v })
-    .onConflictDoUpdate({ target: [timesheetPeriods.centerId, timesheetPeriods.period], set: v });
-  await writeAudit(ctx.db, { actorId: ctx.user.id, action: "UPDATE", module: "hr", entity: "timesheet_periods", entityId: input.centerId, after: { period: input.period, ...v }, ip: ctx.ip });
+  await ctx.db.transaction(async (txx) => {
+    const tx = txx as unknown as Db;
+    await tx.insert(timesheetPeriods).values({ centerId: input.centerId, period: input.period, ...v })
+      .onConflictDoUpdate({ target: [timesheetPeriods.centerId, timesheetPeriods.period], set: v });
+    await writeAudit(tx, { actorId: ctx.user.id, action: "UPDATE", module: "hr", entity: "timesheet_periods", entityId: input.centerId, after: { period: input.period, ...v }, ip: ctx.ip });
+  });
   return { ok: true };
 }
 
+/**
+ * Chốt kỳ công. Chốt xong, số công của kỳ này không đổi được từ màn nào nữa.
+ * Bản chốt được ghi vào nhật ký thao tác — chốt lại sau khi mở lại sẽ ghi một bản mới.
+ */
 export async function lockPeriod(ctx: ProtectedContext, input: { centerId: string; period: string }) {
   requirePermission(ctx, "timesheet:lock", { centerId: input.centerId });
   const t = await timesheet(ctx, { centerId: input.centerId, period: input.period });
-  if (t.status === "locked") throw pre("Kỳ công đã khoá");
+  const err = periodTransition(t.status, "closed");
+  if (err) throw pre(err);
   if (t.lockCheck.blockers.length) throw pre(t.lockCheck.blockers);
-  const snapshot = { rows: t.rows.map((r) => ({ staffId: r.id, code: r.code, fullName: r.fullName, openFlags: r.openFlagCount, ...r.summary })), warnings: t.lockCheck.warnings, standardUnits: t.standardUnits, lockedBy: ctx.user.fullName };
+  const now = new Date();
+  const p = await ctx.db.query.timesheetPeriods.findFirst({ where: and(eq(timesheetPeriods.centerId, input.centerId), eq(timesheetPeriods.period, input.period)) });
+  const closeCount = (p?.closeCount ?? 0) + 1;
+  const snapshot = {
+    closeNo: closeCount, closedAt: now.toISOString(), lockedBy: ctx.user.fullName,
+    rows: t.rows.map((r) => ({ staffId: r.id, code: r.code, fullName: r.fullName, openFlags: r.openFlagCount, ...r.summary })),
+    warnings: t.lockCheck.warnings, standardUnits: t.standardUnits, totalUnits: t.kpi.payableUnits,
+  };
   await ctx.db.transaction(async (txx) => {
     const tx = txx as unknown as Db;
-    await tx.insert(timesheetPeriods).values({ centerId: input.centerId, period: input.period, status: "locked", lockedBy: ctx.user.id, lockedAt: new Date(), snapshot })
-      .onConflictDoUpdate({ target: [timesheetPeriods.centerId, timesheetPeriods.period], set: { status: "locked", lockedBy: ctx.user.id, lockedAt: new Date(), snapshot } });
-    await writeAudit(tx, { actorId: ctx.user.id, action: "TRANSITION", module: "hr", entity: "timesheet_periods", entityId: input.centerId, after: { period: input.period, status: "locked", staff: snapshot.rows.length }, ip: ctx.ip });
+    await tx.insert(timesheetPeriods).values({ centerId: input.centerId, period: input.period, status: "closed", lockedBy: ctx.user.id, lockedAt: now, snapshot, closeCount })
+      .onConflictDoUpdate({ target: [timesheetPeriods.centerId, timesheetPeriods.period], set: { status: "closed", lockedBy: ctx.user.id, lockedAt: now, snapshot, closeCount } });
+    await writeAudit(tx, { actorId: ctx.user.id, action: "TRANSITION", module: "hr", entity: "timesheet_periods", entityId: input.centerId, before: { status: t.status }, after: { period: input.period, status: "closed", closeNo: closeCount, staff: snapshot.rows.length, totalUnits: snapshot.totalUnits, snapshot }, ip: ctx.ip });
   });
-  return { ok: true, warnings: t.lockCheck.warnings };
+  return { ok: true, closeCount, warnings: t.lockCheck.warnings, note: "Chốt xong, số công của kỳ này không đổi được từ màn nào nữa" };
 }
 
+/**
+ * Mở lại kỳ đã chốt (chỉ Hội sở, bắt buộc lý do).
+ * Số đã chốt vẫn nằm trong nhật ký; chốt lại sau đó sẽ ghi một bản mới.
+ */
 export async function unlockPeriod(ctx: ProtectedContext, input: { centerId: string; period: string; reason: string }) {
-  if (!centersWith(ctx, "timesheet:lock").includes(null) && !isSA(ctx)) throw forbidden("Chỉ nhân sự Hội sở mở lại kỳ công đã khoá");
+  if (!centersWith(ctx, "timesheet:lock").includes(null) && !isSA(ctx)) throw forbidden("Chỉ nhân sự Hội sở mở lại kỳ công đã chốt");
   const reason = reasonOf(input.reason);
   const p = await ctx.db.query.timesheetPeriods.findFirst({ where: and(eq(timesheetPeriods.centerId, input.centerId), eq(timesheetPeriods.period, input.period)) });
-  if (!p || p.status !== "locked") throw pre("Kỳ công chưa khoá");
-  await ctx.db.update(timesheetPeriods).set({ status: "open", unlockReason: reason }).where(eq(timesheetPeriods.id, p.id));
-  await writeAudit(ctx.db, { actorId: ctx.user.id, action: "TRANSITION", module: "hr", entity: "timesheet_periods", entityId: input.centerId, before: { status: "locked" }, after: { period: input.period, status: "open" }, reason, ip: ctx.ip });
-  return { ok: true };
+  const from = normalizePeriodStatus(p?.status);
+  const err = periodTransition(from, "reopened");
+  if (!p || err) throw pre(err ?? "Kỳ công chưa chốt");
+  await ctx.db.transaction(async (txx) => {
+    const tx = txx as unknown as Db;
+    await tx.update(timesheetPeriods).set({ status: "reopened", unlockReason: reason, reopenedBy: ctx.user.id, reopenedAt: new Date() }).where(eq(timesheetPeriods.id, p.id));
+    await writeAudit(tx, { actorId: ctx.user.id, action: "TRANSITION", module: "hr", entity: "timesheet_periods", entityId: input.centerId, before: { status: from, snapshot: p.snapshot }, after: { period: input.period, status: "reopened" }, reason, ip: ctx.ip });
+  });
+  return { ok: true, note: "Số đã chốt vẫn nằm trong nhật ký; chốt lại sau đó sẽ ghi một bản mới" };
+}
+
+/** Đổi trạng thái kỳ công (mở kỳ / đang chốt / quay về đang mở) */
+export async function setPeriodStatus(ctx: ProtectedContext, input: { centerId: string; period: string; status: PeriodStatus; reason?: string | null }) {
+  requirePermission(ctx, "timesheet:lock", { centerId: input.centerId });
+  if (input.status === "closed") return lockPeriod(ctx, { centerId: input.centerId, period: input.period });
+  if (input.status === "reopened") return unlockPeriod(ctx, { centerId: input.centerId, period: input.period, reason: input.reason ?? "" });
+  const p = await ctx.db.query.timesheetPeriods.findFirst({ where: and(eq(timesheetPeriods.centerId, input.centerId), eq(timesheetPeriods.period, input.period)) });
+  const from = normalizePeriodStatus(p?.status);
+  const err = periodTransition(from, input.status);
+  if (err) throw pre(err);
+  await ctx.db.transaction(async (txx) => {
+    const tx = txx as unknown as Db;
+    await tx.insert(timesheetPeriods).values({ centerId: input.centerId, period: input.period, status: input.status })
+      .onConflictDoUpdate({ target: [timesheetPeriods.centerId, timesheetPeriods.period], set: { status: input.status } });
+    await writeAudit(tx, { actorId: ctx.user.id, action: "TRANSITION", module: "hr", entity: "timesheet_periods", entityId: input.centerId, before: { status: from }, after: { period: input.period, status: input.status }, reason: input.reason?.trim() || null, ip: ctx.ip });
+  });
+  return { ok: true, warnings: [] as string[], note: `Kỳ công chuyển sang “${PERIOD_STATUS_VI[input.status]}”` };
+}
+
+/* ------------------------------------------------------------------ */
+/* Kỳ công & chốt (trang /cham-cong/ky-cong)                           */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Bảng kỳ công: thẻ chỉ số của cả kỳ + từng người, kèm ngày có cờ / ngày bị ghi đè
+ * để bấm xem thẳng, và lý do "vì sao chưa chốt được".
+ */
+export async function periodBoard(ctx: ProtectedContext, input: { centerId: string; period: string }) {
+  const t = await timesheet(ctx, { centerId: input.centerId, period: input.period });
+  const p = await ctx.db.query.timesheetPeriods.findFirst({ where: and(eq(timesheetPeriods.centerId, input.centerId), eq(timesheetPeriods.period, input.period)) });
+  const center = await ctx.db.query.centers.findFirst({ where: eq(centers.id, input.centerId), columns: { id: true, code: true, name: true } });
+  const rows = t.rows.map((r) => {
+    const flagDays = r.days.filter((d) => d.openFlags.length > 0).map((d) => d.date);
+    const overrideDays = r.days.filter((d) => d.override).map((d) => d.date);
+    // "chưa tính được" = ngày có ca nhưng chưa kết luận được công (đang làm / chưa tới)
+    const pendingDays = r.days.filter((d) => d.shiftCode && (d.status === "upcoming" || d.status === "working")).map((d) => d.date);
+    return {
+      id: r.id, code: r.code, fullName: r.fullName, title: r.title, exempt: r.exempt,
+      units: r.summary.payableUnits, workUnits: r.summary.workUnits, paidLeave: r.summary.paidLeave, unpaidLeave: r.summary.unpaidLeave,
+      holiday: r.summary.holiday, scheduled: r.summary.scheduled, plannedMin: r.summary.plannedMin, workedMin: r.summary.workedMin,
+      lateCount: r.summary.lateCount, lateMin: r.summary.lateMin, earlyCount: r.summary.earlyCount, noPunch: r.summary.noPunchCount,
+      openFlags: r.openFlagCount, flagDays, overrideDays, pendingDays,
+    };
+  });
+  const std = p?.standardUnits ?? DEFAULT_STANDARD_UNITS;
+  return {
+    period: input.period, from: t.from, to: t.to, center,
+    status: t.status, statusLabel: PERIOD_STATUS_VI[t.status], editable: t.editable,
+    lockedAt: t.lockedAt, unlockReason: t.unlockReason, closeCount: p?.closeCount ?? 0,
+    standardUnits: std, standardDefault: DEFAULT_STANDARD_UNITS, standardNote: p?.standardNote ?? null,
+    standardSuggested: t.standardUnits,
+    kpi: {
+      totalUnits: rows.reduce((n, r) => n + r.units, 0),
+      people: rows.length,
+      flagDays: rows.reduce((n, r) => n + r.flagDays.length, 0),
+      pendingDays: rows.reduce((n, r) => n + r.pendingDays.length, 0),
+      standardUnits: std,
+      overrideDays: rows.reduce((n, r) => n + r.overrideDays.length, 0),
+    },
+    lockCheck: t.lockCheck, pendingRequests: t.pendingRequests,
+    /** Vì sao chưa chốt được — trống là chốt được */
+    whyNotClosable: t.lockCheck.blockers,
+    periodEnded: t.to < todayISO(),
+    perms: t.perms,
+    rows,
+  };
+}
+
+/** Tính lại kỳ công: đọc lại toàn bộ ngày công của kỳ và ghi nhật ký lần tính */
+export async function recalcPeriod(ctx: ProtectedContext, input: { centerId: string; period: string }) {
+  requirePermission(ctx, "timesheet:read", { centerId: input.centerId });
+  const t = await timesheet(ctx, { centerId: input.centerId, period: input.period });
+  await writeAudit(ctx.db, { actorId: ctx.user.id, action: "UPDATE", module: "hr", entity: "timesheet_periods", entityId: input.centerId, after: { period: input.period, action: "recalc", people: t.rows.length, totalUnits: t.kpi.payableUnits, openFlags: t.kpi.openFlags }, ip: ctx.ip });
+  return { ok: true, people: t.rows.length, totalUnits: t.kpi.payableUnits, openFlags: t.kpi.openFlags, at: new Date().toISOString() };
 }
 
 /* ------------------------------------------------------------------ */

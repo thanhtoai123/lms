@@ -5,6 +5,7 @@ import { NoAccess, PageHeader, StatTabs } from "@/components/admin-ui";
 import { Empty } from "@/components/ui";
 import { StaffChip, dmy } from "@/components/hr-ui";
 import { CsvButton } from "@/components/csv-button";
+import { PublicToggle } from "./public-toggle";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Nhân sự" };
@@ -24,7 +25,7 @@ export default async function StaffPage({ searchParams }: { searchParams: Promis
         actions={
           <div className="flex flex-wrap gap-2">
             <Link href="/nhan-su/vi-tri" className="btn-ghost">Vị trí công việc</Link>
-            <CsvButton filename="nhan-su" headers={["Mã", "Họ tên", "Cơ sở", "Bộ phận", "Chức danh", "Loại HĐ", "Trạng thái", "Ngày vào", "Email", "SĐT"]} rows={d.items.map((s) => [s.code, s.fullName, s.centerCode, DEPARTMENT_VI[s.department as Department] ?? s.department, s.title, EMPLOYMENT_TYPE_VI[s.employmentType], STAFF_STATUS_VI[s.status], s.hiredAt, s.email, s.phone])} />
+            <CsvButton filename="nhan-su" headers={["Mã", "Họ tên", "Cơ sở", "Bộ phận", "Chức danh", "Loại HĐ", "Trạng thái", "Ngày vào", "Email", "SĐT", "Hiển thị public"]} rows={d.items.map((s) => [s.code, s.fullName, s.centerCode, DEPARTMENT_VI[s.department as Department] ?? s.department, s.title, EMPLOYMENT_TYPE_VI[s.employmentType], STAFF_STATUS_VI[s.status], s.hiredAt, s.email, s.phone, s.isPublic ? "Có" : "Không"])} />
             {d.canCreate && <Link href="/nhan-su/new" className="btn-primary">+ Thêm nhân sự</Link>}
           </div>
         }
@@ -40,7 +41,7 @@ export default async function StaffPage({ searchParams }: { searchParams: Promis
       {d.items.length === 0 ? <Empty>Không có nhân sự.</Empty> : (
         <div className="card overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="text-left text-xs uppercase text-ink-400"><tr><th className="p-3">Nhân sự</th><th className="p-3">Bộ phận / chức danh</th><th className="p-3">Vị trí hiện tại</th><th className="p-3">Tài khoản</th><th className="p-3">Ngày vào</th><th className="p-3">Trạng thái</th></tr></thead>
+            <thead className="text-left text-xs uppercase text-ink-400"><tr><th className="p-3">Nhân sự</th><th className="p-3">Bộ phận / chức danh</th><th className="p-3">Vị trí hiện tại</th><th className="p-3">Tài khoản</th><th className="p-3">Ngày vào</th><th className="p-3">Hiển thị public</th><th className="p-3">Trạng thái</th></tr></thead>
             <tbody className="divide-y divide-black/5 align-top">
               {d.items.map((s) => (
                 <tr key={s.id}>
@@ -49,6 +50,7 @@ export default async function StaffPage({ searchParams }: { searchParams: Promis
                   <td className="p-3 text-xs">{s.positions.length === 0 ? <span className="text-amber-700">Chưa có vị trí</span> : s.positions.map((p) => <div key={p.id}>{p.title} <span className="text-ink-400">({POSITION_KIND_VI[p.kind]} · {p.centerCode}{p.effectiveTo ? ` đến ${dmy(p.effectiveTo)}` : ""})</span></div>)}</td>
                   <td className="p-3 text-xs">{s.accountEmail ?? <span className="text-ink-400">Chưa gắn</span>}{s.teacherCode && <div>GV {s.teacherCode}</div>}</td>
                   <td className="p-3 text-xs">{dmy(s.hiredAt)}{s.leftAt && <div>Nghỉ {dmy(s.leftAt)}</div>}</td>
+                  <td className="p-3"><PublicToggle id={s.id} isPublic={s.isPublic} canUpdate={s.canUpdate && s.status !== "resigned"} /></td>
                   <td className="p-3"><StaffChip status={s.status} /></td>
                 </tr>
               ))}
