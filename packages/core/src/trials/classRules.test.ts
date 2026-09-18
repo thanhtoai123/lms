@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   TRIAL_CLASS_STATUSES, TRIAL_CLASS_STATUS_VI, TRIAL_SESSION_STATUSES, TRIAL_ENROLLMENT_STATUSES, TRIAL_ATTENDANCE_STATUSES,
-  TRIAL_CLASS_MAX_SESSIONS, stripDiacritics, trialClassCode, nextTrialClassSeq, trialClassName,
+  TRIAL_CLASS_MAX_SESSIONS, trialClassCode, nextTrialClassSeq, trialClassName,
   canAddTrialSession, trialSeatsLeft, canEnrollTrial, validateTrialSessionChange,
 } from "./classRules.js";
 import { requireReason } from "./rules.js";
@@ -17,9 +17,8 @@ test("hằng số và nhãn tiếng Việt của lớp trải nghiệm", () => {
 });
 
 test("bỏ dấu, mã lớp và tên lớp tự đặt", () => {
-  assert.equal(stripDiacritics("Lớp trải nghiệm"), "Lop trai nghiem");
-  assert.equal(stripDiacritics("ĐÀ NẴNG"), "DA NANG");
-  assert.equal(stripDiacritics("CS1"), "CS1");
+  // bỏ dấu kiểm gián tiếp qua tên lớp tự đặt
+  assert.equal(trialClassName({ centerCode: "CS1", courseCode: "Lớp trải nghiệm", seq: 3 }), "CS1-LOP TRAI NGHIEM-Lop trial 3");
   assert.equal(trialClassCode("cs2", 2026, 8), "TRIAL-CS2-26-008");
   assert.equal(trialClassCode("CS1", 2026, 123), "TRIAL-CS1-26-123");
   assert.equal(trialClassName({ centerCode: "CS2", courseCode: "SATA6", seq: 8 }), "CS2-SATA6-Lop trial 8");

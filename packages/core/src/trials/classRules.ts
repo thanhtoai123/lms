@@ -49,7 +49,7 @@ const DAU = "àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềế
 const KHONG_DAU = "aaaaaaaaaaaaaaaaaeeeeeeeeeeeiiiiiooooooooooooooooouuuuuuuuuuuyyyyyd";
 
 /** Bỏ dấu tiếng Việt (tên lớp trải nghiệm trong bản gốc không dấu) */
-export function stripDiacritics(s: string): string {
+function stripDiacritics(s: string): string {
   let out = "";
   for (const ch of s) {
     const i = DAU.indexOf(ch.toLowerCase());

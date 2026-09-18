@@ -352,8 +352,8 @@ export interface PolicyInput {
   centerId: string | null;
   calcMethod: CommissionCalcMethod;
   shares: { role: string; value: number; maxAmount: number | null; tiers?: CommissionTier[] | null }[];
-  sourceRef: string | null;
-  note: string | null;
+  sourceRef?: string | null;
+  note?: string | null;
   effectiveFrom: string;
   effectiveTo: string | null;
   isActive: boolean;
