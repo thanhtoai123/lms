@@ -2,30 +2,37 @@
 
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
+import { CHILD_GENDERS, CHILD_GENDER_VI, type ChildGender } from "@satarobo/core";
 import { useTRPC } from "@/lib/trpc/client";
 
 export type LeadChildRow = {
   id: string;
   fullName: string;
   birthYear: number | null;
+  dateOfBirth: string | null;
+  gender: string | null;
   grade: number | null;
   school: string | null;
   interestedCourseId: string | null;
   courseCode: string | null;
+  interestedCenterId: string | null;
+  interestedCenterCode: string | null;
   notes: string | null;
   convertedStudentId: string | null;
 };
 type Course = { id: string; code: string; name: string };
-type Draft = { fullName: string; birthYear: string; grade: string; school: string; courseId: string; notes: string };
-const EMPTY: Draft = { fullName: "", birthYear: "", grade: "", school: "", courseId: "", notes: "" };
+type Center = { id: string; code: string; name: string };
+type Draft = { fullName: string; birthYear: string; dateOfBirth: string; gender: string; grade: string; school: string; courseId: string; centerId: string; notes: string };
+const EMPTY: Draft = { fullName: "", birthYear: "", dateOfBirth: "", gender: "", grade: "", school: "", courseId: "", centerId: "", notes: "" };
 
 /** Khối "Con của phụ huynh": thêm / sửa / xoá con, đưa tên con (cũ) trên lead vào danh sách */
-export function LeadChildrenBlock({ leadId, legacyChildName, legacyGrade, items, courses, canEdit, onChanged }: {
+export function LeadChildrenBlock({ leadId, legacyChildName, legacyGrade, items, courses, centers, canEdit, onChanged }: {
   leadId: string;
   legacyChildName: string | null;
   legacyGrade: number | null;
   items: LeadChildRow[];
   courses: Course[];
+  centers: Center[];
   canEdit: boolean;
   onChanged: () => void;
 }) {
@@ -44,16 +51,23 @@ export function LeadChildrenBlock({ leadId, legacyChildName, legacyGrade, items,
   const set = (k: keyof Draft) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setDraft({ ...draft, [k]: e.target.value });
   const payload = () => ({
     fullName: draft.fullName.trim(),
-    birthYear: draft.birthYear ? Number(draft.birthYear) : null,
+    // Có ngày sinh đầy đủ thì năm sinh lấy theo ngày sinh cho khỏi lệch
+    birthYear: draft.dateOfBirth ? Number(draft.dateOfBirth.slice(0, 4)) : draft.birthYear ? Number(draft.birthYear) : null,
+    dateOfBirth: draft.dateOfBirth || null,
+    gender: (draft.gender || null) as ChildGender | null,
     grade: draft.grade ? Number(draft.grade) : null,
     school: draft.school.trim() || null,
     interestedCourseId: draft.courseId || null,
+    interestedCenterId: draft.centerId || null,
     notes: draft.notes.trim() || null,
   });
   const startEdit = (c: LeadChildRow) => {
     setError(null);
     setEditing(c.id);
-    setDraft({ fullName: c.fullName, birthYear: c.birthYear ? String(c.birthYear) : "", grade: c.grade ? String(c.grade) : "", school: c.school ?? "", courseId: c.interestedCourseId ?? "", notes: c.notes ?? "" });
+    setDraft({
+      fullName: c.fullName, birthYear: c.birthYear ? String(c.birthYear) : "", dateOfBirth: c.dateOfBirth ?? "", gender: c.gender ?? "",
+      grade: c.grade ? String(c.grade) : "", school: c.school ?? "", courseId: c.interestedCourseId ?? "", centerId: c.interestedCenterId ?? "", notes: c.notes ?? "",
+    });
   };
   const year = new Date().getFullYear();
 
@@ -68,7 +82,14 @@ export function LeadChildrenBlock({ leadId, legacyChildName, legacyGrade, items,
       }}
     >
       <label className="text-xs text-ink-600 sm:col-span-2">Họ tên con *<input className="input mt-1" autoFocus value={draft.fullName} onChange={set("fullName")} maxLength={120} /></label>
-      <label className="text-xs text-ink-600">Năm sinh<input className="input mt-1" type="number" min={year - 18} max={year - 3} value={draft.birthYear} onChange={set("birthYear")} placeholder={`${year - 8}`} /></label>
+      <label className="text-xs text-ink-600">Ngày sinh<input className="input mt-1" type="date" min={`${year - 18}-01-01`} max={`${year - 2}-12-31`} value={draft.dateOfBirth} onChange={set("dateOfBirth")} /></label>
+      <label className="text-xs text-ink-600">Giới tính
+        <select className="input mt-1" value={draft.gender} onChange={set("gender")}>
+          <option value="">— Chưa rõ —</option>
+          {CHILD_GENDERS.map((g) => <option key={g} value={g}>{CHILD_GENDER_VI[g]}</option>)}
+        </select>
+      </label>
+      {!draft.dateOfBirth && <label className="text-xs text-ink-600">Năm sinh<input className="input mt-1" type="number" min={year - 18} max={year - 3} value={draft.birthYear} onChange={set("birthYear")} placeholder={`${year - 8}`} /></label>}
       <label className="text-xs text-ink-600">Lớp / khối<input className="input mt-1" type="number" min={1} max={12} value={draft.grade} onChange={set("grade")} /></label>
       <label className="text-xs text-ink-600 sm:col-span-2">Trường<input className="input mt-1" value={draft.school} onChange={set("school")} maxLength={200} /></label>
       <label className="text-xs text-ink-600 sm:col-span-2">Khoá quan tâm
@@ -77,7 +98,13 @@ export function LeadChildrenBlock({ leadId, legacyChildName, legacyGrade, items,
           {courses.map((c) => <option key={c.id} value={c.id}>{c.code} — {c.name}</option>)}
         </select>
       </label>
-      <label className="text-xs text-ink-600 sm:col-span-3">Ghi chú<input className="input mt-1" value={draft.notes} onChange={set("notes")} maxLength={500} /></label>
+      <label className="text-xs text-ink-600 sm:col-span-2">Cơ sở bé muốn học
+        <select className="input mt-1" value={draft.centerId} onChange={set("centerId")}>
+          <option value="">— Theo cơ sở của lead —</option>
+          {centers.map((c) => <option key={c.id} value={c.id}>{c.code} — {c.name}</option>)}
+        </select>
+      </label>
+      <label className="text-xs text-ink-600 sm:col-span-4">Ghi chú<input className="input mt-1" value={draft.notes} onChange={set("notes")} maxLength={500} /></label>
       <div className="flex items-end justify-end gap-2">
         <button type="button" className="btn-ghost" onClick={() => { setEditing(null); setError(null); }}>Huỷ</button>
         <button className="btn-primary" disabled={busy}>{editing === "new" ? "Thêm con" : "Lưu"}</button>
@@ -106,7 +133,10 @@ export function LeadChildrenBlock({ leadId, legacyChildName, legacyGrade, items,
                 <div>
                   <span className="font-medium">{c.fullName}</span>
                   <span className="text-xs text-ink-400">
-                    {c.birthYear ? ` · ${year - c.birthYear} tuổi` : ""}{c.grade ? ` · lớp ${c.grade}` : ""}{c.school ? ` · ${c.school}` : ""}{c.courseCode ? ` · ${c.courseCode}` : " · chưa rõ khoá"}
+                    {c.gender ? ` · ${CHILD_GENDER_VI[c.gender as ChildGender] ?? c.gender}` : ""}
+                    {c.dateOfBirth ? ` · sinh ${c.dateOfBirth.split("-").reverse().join("/")}` : c.birthYear ? ` · ${year - c.birthYear} tuổi` : ""}
+                    {c.grade ? ` · lớp ${c.grade}` : ""}{c.school ? ` · ${c.school}` : ""}{c.courseCode ? ` · ${c.courseCode}` : " · chưa rõ khoá"}
+                    {c.interestedCenterCode ? ` · muốn học ${c.interestedCenterCode}` : ""}
                   </span>
                   {c.notes && <div className="text-[11px] text-ink-400">{c.notes}</div>}
                 </div>

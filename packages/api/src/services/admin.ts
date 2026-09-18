@@ -489,6 +489,10 @@ export function mapPublicLeadBody(body: Record<string, unknown>) {
     consent: body.consent === true || body.consent === "on" || body.consent === "1",
     referralCode: typeof body.ref === "string" ? body.ref : typeof body.referralCode === "string" ? body.referralCode : null,
     marketingConsent: body.marketingConsent === true || body.marketingConsent === "on" || body.marketingConsent === "1",
+    // Nguồn & theo dõi — chỉ có ở form công khai
+    landingPage: body.landingPage ?? body.landing_page ?? body.page ?? null,
+    referrer: body.referrer ?? body.ref_url ?? null,
+    eventId: body.eventId ?? body.event_id ?? body.fbclid ?? body.gclid ?? null,
   });
 }
 

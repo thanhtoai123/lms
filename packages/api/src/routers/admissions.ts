@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { LEAD_STATUSES, DISTRIBUTION_MODES, MANUAL_LEAD_EVENTS, ASSIGNMENT_SOURCES, LEAD_IMPORT_MAX_ROWS, LEAD_DROP_REASON_MAX, HANDOVER_NOTE_MIN } from "@satarobo/core";
+import { LEAD_STATUSES, DISTRIBUTION_MODES, MANUAL_LEAD_EVENTS, ASSIGNMENT_SOURCES, LEAD_IMPORT_MAX_ROWS, LEAD_DROP_REASON_MAX, HANDOVER_NOTE_MIN, CHILD_GENDERS } from "@satarobo/core";
 import { router, protectedProcedure } from "../trpc";
 import * as L from "../services/leads";
 import * as A from "../services/admissionsAdmin";
@@ -12,9 +12,12 @@ const facebookUrl = z.string().trim().max(300).nullish();
 const childInput = z.object({
   fullName: z.string().trim().min(1, "Nhập họ tên con").max(120),
   birthYear: z.number().int().min(2000).max(2030).nullish(),
+  dateOfBirth: isoDate.nullish(),
+  gender: z.enum(CHILD_GENDERS).nullish(),
   grade: z.number().int().min(1).max(12).nullish(),
   school: z.string().max(200).nullish(),
   interestedCourseId: uuid.nullish(),
+  interestedCenterId: uuid.nullish(),
   notes: z.string().max(500).nullish(),
 });
 
@@ -40,6 +43,10 @@ const leadInput = z.object({
   autoAssign: z.boolean().optional(),
   assignedToId: uuid.nullish(),
   children: z.array(childInput).max(10).optional(),
+  // Nguồn & theo dõi — chỉ form công khai gửi lên (IP / user agent lấy từ request, không nhận từ body)
+  landingPage: z.string().max(500).nullish(),
+  referrer: z.string().max(500).nullish(),
+  eventId: z.string().max(100).nullish(),
 });
 
 /** Phiếu nhập nhanh của sale: không bắt buộc tên PH (điền được tới đâu lưu tới đó), SĐT bắt buộc để khử trùng */
@@ -95,16 +102,23 @@ const reason = (min: number, max = 500) => z.string().trim().min(min, `Nhập l�
 export type LeadInput = z.infer<typeof leadInput>;
 export { leadInput };
 
+const leadFilterInput = z.object({
+  scope: z.enum(["mine", "center", "all"]).default("all"), status: z.enum(LEAD_STATUSES).optional(), allStatuses: z.boolean().optional(),
+  centerId: z.string().uuid().optional(), q: z.string().max(100).optional(),
+  assignedToId: z.union([z.string().uuid(), z.literal("none")]).optional(), source: z.string().max(100).optional(),
+  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(), to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+});
+
 export const leadsRouter = router({
   inbox: protectedProcedure
-    .input(z.object({
-      scope: z.enum(["mine", "center", "all"]).default("all"), status: z.enum(LEAD_STATUSES).optional(), allStatuses: z.boolean().optional(),
-      centerId: z.string().uuid().optional(), q: z.string().max(100).optional(),
-      assignedToId: z.union([z.string().uuid(), z.literal("none")]).optional(), source: z.string().max(100).optional(),
-      from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(), to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    .input(leadFilterInput.extend({
       limit: z.number().int().min(1).max(500).optional(), page: z.number().int().min(1).max(10_000).optional(), pageSize: z.number().int().min(10).max(200).optional(),
     }).default({ scope: "all" }))
     .query(({ ctx, input }) => L.leadInbox(ctx, input)),
+  /** Xuất CSV toàn bộ kết quả lọc (không chỉ trang hiện tại) — tối đa 10.000 dòng, SĐT che theo quyền */
+  exportRows: protectedProcedure.input(leadFilterInput.default({ scope: "all" })).query(({ ctx, input }) => L.exportLeads(ctx, input)),
+  /** Bật / tắt "Dùng chung cho CSKH cùng cơ sở" */
+  setShared: protectedProcedure.input(z.object({ leadId: uuid, shared: z.boolean() })).mutation(({ ctx, input }) => L.setLeadShared(ctx, input)),
   get: protectedProcedure.input(z.object({ id: uuid })).query(({ ctx, input }) => L.getLead(ctx, input.id)),
   create: protectedProcedure.input(intakeInput).mutation(({ ctx, input }) => L.createLead(ctx.db, { ...input, email: input.email || null }, ctx.user.id)),
   update: protectedProcedure

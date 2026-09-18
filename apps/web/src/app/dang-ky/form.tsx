@@ -14,7 +14,14 @@ export function TrialForm({ utm, thankYou }: { utm: { utm_source: string; utm_me
     setState("sending");
     const fd = new FormData(e.currentTarget);
     const body = Object.fromEntries(fd.entries());
-    const r = await fetch("/api/public/leads", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...body, ...Object.fromEntries(Object.entries(utm).filter(([, v]) => v)), source: "web-form", anonId: anonId() }) });
+    // Nguồn & theo dõi: trang đích, trang giới thiệu, id sự kiện quảng cáo (IP và trình duyệt do máy chủ tự ghi)
+    const url = new URL(window.location.href);
+    const tracking = {
+      landingPage: url.href.slice(0, 500),
+      referrer: document.referrer ? document.referrer.slice(0, 500) : null,
+      eventId: url.searchParams.get("fbclid") ?? url.searchParams.get("gclid") ?? url.searchParams.get("event_id") ?? null,
+    };
+    const r = await fetch("/api/public/leads", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...body, ...Object.fromEntries(Object.entries(utm).filter(([, v]) => v)), ...tracking, source: "web-form", anonId: anonId() }) });
     const j = (await r.json()) as { ok: boolean; error?: string; duplicated?: boolean };
     if (j.ok) { setState("done"); setMsg(j.duplicated ? "Chúng tôi đã nhận thông tin của bạn trước đó và sẽ liên hệ sớm." : thankYou || "Sata Robo sẽ gọi lại cho bạn trong 15 phút (giờ làm việc)."); }
     else { setState("error"); setMsg(j.error ?? "Có lỗi, vui lòng thử lại."); }

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "@/lib/trpc/client";
-import { LEAD_STATUS_VI, OPEN_LEAD_STATUSES, DISTRIBUTION_MODE_VI, HANDOVER_NOTE_MIN, type LeadStatus } from "@satarobo/core";
+import { LEAD_STATUS_VI, OPEN_LEAD_STATUSES, DISTRIBUTION_MODE_VI, HANDOVER_NOTE_MIN, LEAD_SHARE_LABEL, type LeadStatus } from "@satarobo/core";
 import { LeadChip, SlaChip, ACTIVITY_VI, fmtDateTime, fmtDay } from "@/components/lead-ui";
 import { LeadStatusSelect, LeadDeleteButton } from "@/components/lead-status";
 import { OrderChip, vnd } from "@/components/finance-ui";
@@ -36,6 +36,7 @@ export function LeadDetail({ id, assignees, centers, courses }: { id: string; as
   const onErr = (e: { message: string }) => { setNotice(null); setError(e.message); };
   const ok = (text: string) => { setError(null); setNotice(text); refresh(); };
   const addAct = useMutation(trpc.admissions.leads.addActivity.mutationOptions({ onSuccess: () => { setAct((a) => ({ ...a, content: "", durationMin: "", subject: "" })); ok("Đã ghi hoạt động"); }, onError: onErr }));
+  const setShared = useMutation(trpc.admissions.leads.setShared.mutationOptions({ onSuccess: (r) => ok(r.notice), onError: onErr }));
   const assign = useMutation(trpc.admissions.leads.assign.mutationOptions({ onSuccess: () => ok("Đã gán lead"), onError: onErr }));
   const done = useMutation(trpc.admissions.leads.completeTask.mutationOptions({ onSuccess: refresh, onError: onErr }));
   const transfer = useMutation(trpc.admissions.leads.transfer.mutationOptions({
@@ -50,7 +51,7 @@ export function LeadDetail({ id, assignees, centers, courses }: { id: string; as
   if (q.isLoading) return <div className="card p-6 text-sm text-ink-400">Đang tải…</div>;
   if (q.error || !q.data) return <div className="card p-6 text-sm text-danger">{q.error?.message ?? "Không tìm thấy"}</div>;
   const l = q.data;
-  const busy = addAct.isPending || assign.isPending || done.isPending || transfer.isPending || redistribute.isPending;
+  const busy = addAct.isPending || assign.isPending || done.isPending || transfer.isPending || redistribute.isPending || setShared.isPending;
   const isOpen = (OPEN_LEAD_STATUSES as readonly LeadStatus[]).includes(l.status);
   const openChildren = l.children.filter((c) => !c.convertedStudentId);
   const canConvert = l.perms.convert && l.status !== "lost" && (l.status !== "enrolled" || openChildren.length > 0);
@@ -92,7 +93,20 @@ export function LeadDetail({ id, assignees, centers, courses }: { id: string; as
           {l.notes && <div className="whitespace-pre-line pt-1 text-xs text-ink-600">{l.notes}</div>}
         </div>
         <div className="flex flex-col items-end gap-2">
-          <div className="flex gap-2"><LeadChip status={l.status} /><SlaChip sla={l.sla} /></div>
+          <div className="flex gap-2">
+            <LeadChip status={l.status} />
+            <SlaChip sla={l.sla} />
+            {l.sharedWithCenter && <span className="chip bg-sky-100 text-sky-800">{LEAD_SHARE_LABEL.chip}</span>}
+          </div>
+          {/* Lead dùng chung: mọi CSKH cùng cơ sở thấy được lead này */}
+          {l.perms.share && (
+            <label className="flex items-center gap-2 text-xs text-ink-600" title="Bật để người trực cùng cơ sở trả lời khách thay bạn khi bạn bận">
+              <input type="checkbox" checked={l.sharedWithCenter} disabled={busy} onChange={(e) => setShared.mutate({ leadId: id, shared: e.target.checked })} />
+              {LEAD_SHARE_LABEL.toggle}
+            </label>
+          )}
+          {l.sharedWithCenter && l.visibility === "owner" && <span className="text-[11px] text-sky-700">{LEAD_SHARE_LABEL.mineShared}</span>}
+          {!l.sharedWithCenter && !l.perms.share && l.visibility === "shared" && <span className="text-[11px] text-ink-400">{LEAD_SHARE_LABEL.off}</span>}
           <div className="flex flex-wrap justify-end gap-2">
             {l.perms.update && <LeadStatusSelect leadId={id} status={l.status} onDone={() => ok("Đã đổi trạng thái")} />}
             {l.perms.update && <Link href={`/leads/${id}/edit`} className="btn-ghost !py-1.5 text-xs">Sửa</Link>}
@@ -210,7 +224,22 @@ export function LeadDetail({ id, assignees, centers, courses }: { id: string; as
             )}
           </section>
 
-          <LeadChildrenBlock leadId={id} legacyChildName={l.childName} legacyGrade={l.childGrade} items={l.children} courses={courses} canEdit={l.perms.update && l.status !== "lost"} onChanged={refresh} />
+          {/* Nguồn & theo dõi — chỉ có khi lead vào từ form công khai */}
+          {l.tracking.hasAny && (
+            <section className="card space-y-2 p-4">
+              <h2 className="font-bold">Nguồn &amp; theo dõi <span className="text-xs font-normal text-ink-400">(lead vào từ form công khai)</span></h2>
+              <dl className="grid gap-x-4 gap-y-1.5 text-sm sm:grid-cols-[150px_1fr]">
+                <Track label="Chiến dịch" value={[l.utmSource, l.utmMedium, l.utmCampaign].filter(Boolean).join(" · ") || null} />
+                <Track label="Trang đích" value={l.tracking.landingPage} link />
+                <Track label="Từ trang" value={l.tracking.referrer} link />
+                <Track label="Id sự kiện QC" value={l.tracking.eventId} mono />
+                <Track label="Địa chỉ IP" value={l.tracking.ipAddress} mono note={l.tracking.ipMasked ? "che — cần quyền xem PII" : null} />
+                <Track label="Trình duyệt" value={l.tracking.userAgent} />
+              </dl>
+            </section>
+          )}
+
+          <LeadChildrenBlock leadId={id} legacyChildName={l.childName} legacyGrade={l.childGrade} items={l.children} courses={courses} centers={centers} canEdit={l.perms.update && l.status !== "lost"} onChanged={refresh} />
           {isOpen && <LeadTrialClassesBlock leadId={id} legacyChildName={l.childName} onChanged={refresh} />}
           {isOpen && <p className="px-1 text-xs text-ink-600">Muốn xếp bé vào một buổi học lẻ của lớp chính quy (có kiểm tra chỗ trống, báo GV)? <Link href={`/lop-trial/buoi-le?lead=${id}`} className="font-semibold text-brand-600 hover:underline">Xếp học thử buổi lẻ →</Link></p>}
 
@@ -281,5 +310,22 @@ export function LeadDetail({ id, assignees, centers, courses }: { id: string; as
         </aside>
       </div>
     </div>
+  );
+}
+
+/** Một dòng trong khối "Nguồn & theo dõi" — bỏ qua khi không có dữ liệu */
+function Track({ label, value, link, mono, note }: { label: string; value: string | null; link?: boolean; mono?: boolean; note?: string | null }) {
+  if (!value) return null;
+  const cls = `min-w-0 break-words ${mono ? "font-mono text-xs" : ""}`;
+  return (
+    <>
+      <dt className="text-xs text-ink-400">{label}</dt>
+      <dd className={cls}>
+        {link && /^https?:\/\//i.test(value)
+          ? <a href={value} target="_blank" rel="noreferrer nofollow" className="text-brand-600 hover:underline">{value}</a>
+          : value}
+        {note && <span className="ml-2 text-[11px] text-ink-400">{note}</span>}
+      </dd>
+    </>
   );
 }

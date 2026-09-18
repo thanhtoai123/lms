@@ -17,6 +17,7 @@ import {
   commissionRules, commissions, commissionPolicies, commissionPolicyShares, commissionPolicyTiers, paymentQrCodes, bankTransactions,
   staff, staffPrivate, staffPositions, positions, staffDeployments, workShifts, shiftTemplates, shiftAssignments, attendancePunches, staffRequests, checkinPoints,
   parentRequests, parentRequestEvents, parentFeedback, surveys, surveyInvites, surveyResponses, parentNotifications, userNotifications, careTasks,
+  evalForms, evalQuestions, evalRounds, evalResponses, evalAnswers,
   emailLogs, otpRequests, userGroups, userGroupMembers, userGroupPermissions, notificationTypes, orgUnits, legalEntities, webhookEvents, appSettings, revenueTargets,
   inventoryItems, kitComponents, stockLevels, stockMovements, stockCounters, rentals, rewardItems, coinRules, coinTransactions, redemptions,
   documents, assignmentTemplates, assignments, submissions, lessonProposals,
@@ -276,23 +277,33 @@ async function main() {
   const leadRows = await db
     .insert(leads)
     .values([
-      { centerId: cs1!.id, status: "new", parentName: "PH Mẫu 01", phone: "0900000001", phoneNormalized: "84900000001", childName: "Bé An", childGrade: 3, source: "web-form", utmCampaign: "he-2026", assignedToId: sale1U!.id, assignedAt: h(1), lastTouchAt: h(1), consentAt: h(1) },
+      { centerId: cs1!.id, status: "new", parentName: "PH Mẫu 01", phone: "0900000001", phoneNormalized: "84900000001", childName: "Bé An", childGrade: 3, source: "web-form", utmCampaign: "he-2026", assignedToId: sale1U!.id, assignedAt: h(1), lastTouchAt: h(1), consentAt: h(1),
+        // Lead vào từ form công khai → có khối "Nguồn & theo dõi"; đã bật dùng chung cho CSKH cùng cơ sở
+        landingPage: "https://satarobo.vn/dang-ky?utm_campaign=he-2026", referrer: "https://www.facebook.com/", eventId: "fb.1.1758000000000.123456789",
+        ipAddress: "113.161.42.7", userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 Safari/604.1", sharedWithCenter: true },
       { centerId: cs1!.id, status: "new", parentName: "PH Mẫu 02", phone: "0900000002", phoneNormalized: "84900000002", childName: "Bé Bình", childGrade: 5, source: "ads", utmSource: "facebook", assignedToId: null, lastTouchAt: h(0.2) },
       { centerId: cs1!.id, status: "contacted", parentName: "PH Mẫu 03", phone: "0900000003", phoneNormalized: "84900000003", childName: "Bé Chi", childGrade: 2, source: "referral", assignedToId: sale2U!.id, assignedAt: h(30), lastTouchAt: h(30) },
       { centerId: cs1!.id, status: "trial_scheduled", parentName: "PH Mẫu 04", phone: "0900000004", phoneNormalized: "84900000004", childName: "Bé Dũng", childGrade: 4, source: "walk-in", interestedCourseId: sata4!.id, assignedToId: sale1U!.id, assignedAt: h(50), lastTouchAt: h(20), nextActionAt: new Date(Date.now() + 26 * 3600e3) },
-      { centerId: cs1!.id, status: "trial_in_progress", parentName: "PH Mẫu 05", phone: "0900000005", phoneNormalized: "84900000005", childName: "Bé Em", childGrade: 6, source: "web-form", interestedCourseId: sata6!.id, assignedToId: sale2U!.id, assignedAt: h(100), lastTouchAt: h(40) },
+      { centerId: cs1!.id, status: "trial_in_progress", parentName: "PH Mẫu 05", phone: "0900000005", phoneNormalized: "84900000005", childName: "Bé Em", childGrade: 6, source: "web-form", interestedCourseId: sata6!.id, assignedToId: sale2U!.id, assignedAt: h(100), lastTouchAt: h(40),
+        landingPage: "https://satarobo.vn/lop-trai-nghiem", referrer: "https://www.google.com/", ipAddress: "27.72.100.19", userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/141.0 Safari/537.36", sharedWithCenter: true },
       { centerId: cs1!.id, status: "trial_done", parentName: "PH Mẫu 06", phone: "0900000006", phoneNormalized: "84900000006", childName: "Bé Giang", childGrade: 3, source: "ads", utmSource: "google", assignedToId: sale1U!.id, assignedAt: h(120), lastTouchAt: h(30) },
       { centerId: cs1!.id, status: "deciding", parentName: "PH Mẫu 07", phone: "0900000007", phoneNormalized: "84900000007", childName: "Bé Hà", childGrade: 4, source: "referral", assignedToId: sale2U!.id, assignedAt: h(200), lastTouchAt: h(100) },
       { centerId: cs1!.id, status: "nurturing", parentName: "PH Mẫu 08", phone: "0900000008", phoneNormalized: "84900000008", childName: "Bé Khoa", childGrade: 1, source: "web-form", assignedToId: sale1U!.id, assignedAt: h(400), lastTouchAt: h(300) },
       { centerId: cs1!.id, status: "enrolled", parentName: "PH Mẫu 09", phone: "0900000009", phoneNormalized: "84900000009", childName: "Bé Lâm", childGrade: 5, source: "ads", assignedToId: sale1U!.id, assignedAt: h(600), lastTouchAt: h(500), convertedAt: h(500) },
       { centerId: cs1!.id, status: "lost", parentName: "PH Mẫu 10", phone: "0900000010", phoneNormalized: "84900000010", childName: "Bé Minh", childGrade: 7, source: "web-form", assignedToId: sale2U!.id, assignedAt: h(700), lastTouchAt: h(650), lostReason: "Chọn trung tâm gần nhà" },
-      { centerId: cs2!.id, status: "new", parentName: "PH Mẫu 11", phone: "0900000011", phoneNormalized: "84900000011", childName: "Bé Ngân", childGrade: 3, source: "web-form", assignedToId: null, lastTouchAt: h(5) },
+      { centerId: cs2!.id, status: "new", parentName: "PH Mẫu 11", phone: "0900000011", phoneNormalized: "84900000011", childName: "Bé Ngân", childGrade: 3, source: "web-form", assignedToId: null, lastTouchAt: h(5), sharedWithCenter: true },
     ])
     .returning();
+  const yearNow = new Date().getFullYear();
   await db.insert(leadChildren).values(
     leadRows.flatMap((l, i) => [
-      { leadId: l.id, fullName: l.childName!, grade: l.childGrade, interestedCourseId: l.interestedCourseId },
-      ...(i === 6 ? [{ leadId: l.id, fullName: "Bé Hải (em)", grade: 2, interestedCourseId: sata4!.id }] : []),
+      {
+        leadId: l.id, fullName: l.childName!, grade: l.childGrade, interestedCourseId: l.interestedCourseId,
+        gender: i % 2 === 0 ? "male" : "female",
+        dateOfBirth: `${yearNow - 6 - (l.childGrade ?? 3)}-0${(i % 9) + 1}-1${i % 9}`,
+        interestedCenterId: l.centerId,
+      },
+      ...(i === 6 ? [{ leadId: l.id, fullName: "Bé Hải (em)", grade: 2, interestedCourseId: sata4!.id, gender: "male", dateOfBirth: `${yearNow - 8}-04-12`, interestedCenterId: cs2!.id }] : []),
     ]),
   );
   await db.insert(leadActivities).values(leadRows.flatMap((l) => [
@@ -611,6 +622,42 @@ async function main() {
     { parentId: parentRows[2]!.id, studentId: enrollA[2]!.studentId, channel: "in_app", template: "SURVEY_INVITE", title: "Mời anh/chị góp ý", body: "Khảo sát sau buổi 4", link: `/ks/${invRows[2]!.token}`, status: "sent", sentAt: new Date() },
     { parentId: parentRows[0]!.id, studentId: enrollA[0]!.studentId, channel: "zns", template: "TUITION_DUE", title: "Nhắc học phí", body: "Kỳ học phí sắp đến hạn", status: "failed", error: "Chưa cấu hình Zalo ZNS" },
   ]);
+  // ---- Đánh giá & Khảo sát v2 (mẫu): một phiếu Đánh giá GV + một đợt đang chạy ----
+  const [evForm] = await db.insert(evalForms).values({
+    title: "Phiếu đánh giá giáo viên (mẫu)",
+    description: "Phụ huynh chấm giáo viên theo bốn nhóm tiêu chí",
+    type: "teacher_eval", centerId: null, isActive: true, createdBy: mgrU!.id,
+  }).returning();
+  await db.insert(evalQuestions).values([
+    { formId: evForm!.id, type: "rating", label: "Thầy cô nắm chắc nội dung bài học", criteriaGroup: "Kiến thức", required: true, sortOrder: 0 },
+    { formId: evForm!.id, type: "rating", label: "Thầy cô giảng dễ hiểu, ví dụ sát thực tế", criteriaGroup: "Kiến thức", required: true, sortOrder: 1 },
+    { formId: evForm!.id, type: "rating", label: "Thầy cô quan tâm, động viên con", criteriaGroup: "Thái độ", required: true, sortOrder: 2 },
+    { formId: evForm!.id, type: "radio", label: "Con có hào hứng đi học không?", criteriaGroup: "Thái độ", options: ["Rất hào hứng", "Bình thường", "Chưa hào hứng"], required: true, sortOrder: 3 },
+    { formId: evForm!.id, type: "checkbox", label: "Anh/chị mong thầy cô làm thêm điều gì?", criteriaGroup: null, options: ["Báo bài kỹ hơn", "Gửi ảnh buổi học", "Giao bài về nhà", "Gọi trao đổi định kỳ"], sortOrder: 4 },
+    { formId: evForm!.id, type: "text", label: "Góp ý thêm cho thầy cô", criteriaGroup: null, sortOrder: 5 },
+  ]);
+  const [evRound] = await db.insert(evalRounds).values({
+    formId: evForm!.id, title: "Đợt đánh giá GV học kỳ I (mẫu)", centerId: null,
+    startDate: addDays(today, -7), endDate: addDays(today, 21), status: "open", openedAt: new Date(Date.now() - 7 * 86400e3),
+    note: "Đợt mẫu — đang mở, nhận phản hồi tới hết thời gian ghi trên đợt", createdBy: mgrU!.id,
+  }).returning();
+  const evQs = await db.select().from(evalQuestions).where(eq(evalQuestions.formId, evForm!.id));
+  const qOf = (label: string) => evQs.find((q) => q.label.startsWith(label))!;
+  for (const [i, stars] of [[0, 5], [1, 4], [2, 5]] as const) {
+    const [resp] = await db.insert(evalResponses).values({
+      roundId: evRound!.id, formId: evForm!.id, centerId: cs1!.id, teacherId: gv1!.id, classId: classA!.id,
+      parentId: parentRows[i]!.id, studentId: enrollA[i]!.studentId, ratingAvgX100: stars * 100 - (i === 1 ? 33 : 0),
+    }).returning();
+    await db.insert(evalAnswers).values([
+      { responseId: resp!.id, questionId: qOf("Thầy cô nắm chắc").id, rating: stars },
+      { responseId: resp!.id, questionId: qOf("Thầy cô giảng dễ hiểu").id, rating: stars },
+      { responseId: resp!.id, questionId: qOf("Thầy cô quan tâm").id, rating: Math.max(1, stars - (i === 1 ? 1 : 0)) },
+      { responseId: resp!.id, questionId: qOf("Con có hào hứng").id, choices: [i === 1 ? "Bình thường" : "Rất hào hứng"] },
+      { responseId: resp!.id, questionId: qOf("Anh/chị mong thầy cô").id, choices: i === 0 ? ["Gửi ảnh buổi học"] : ["Báo bài kỹ hơn", "Giao bài về nhà"] },
+      { responseId: resp!.id, questionId: qOf("Góp ý thêm").id, text: i === 1 ? "Mong thầy cô nhắc con làm bài đầy đủ hơn (mẫu)" : null },
+    ]);
+  }
+
   const mdAfter = (n: number) => addDays(today, n).slice(5);
   await db.update(students).set({ dateOfBirth: `2016-${mdAfter(0)}` }).where(eq(students.id, enrollA[0]!.studentId));
   await db.update(students).set({ dateOfBirth: `2017-${mdAfter(3)}` }).where(eq(students.id, enrollA[1]!.studentId));

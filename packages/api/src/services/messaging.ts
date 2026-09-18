@@ -15,6 +15,7 @@ import { writeAudit } from "./audit";
 import { todayISO } from "./sessions";
 import { notify } from "./finance";
 import { createLead } from "./leads";
+import { requireLeadRead } from "./leadAccess";
 
 type Db = ProtectedContext["db"];
 const bad = (m: string | string[]) => new TRPCError({ code: "BAD_REQUEST", message: Array.isArray(m) ? m.join("; ") : m });
@@ -399,7 +400,8 @@ export async function linkConversation(ctx: ProtectedContext, input: { id: strin
   if (leadId) {
     const l = await ctx.db.query.leads.findFirst({ where: eq(leads.id, leadId) });
     if (!l) throw notFound("Không tìm thấy lead");
-    if (!authorize(ctx.actor, "lead:read", { centerId: l.centerId, ownerIds: l.assignedToId ? [l.assignedToId] : [] }).allowed) throw forbid("Không xem được lead này");
+    // Chủ lead và người được chia sẻ ("Dùng chung cho CSKH cùng cơ sở") đều nhắn được
+    requireLeadRead(ctx, l);
   }
   if (parentId) {
     const p = await ctx.db.query.parents.findFirst({ where: eq(parents.id, parentId) });

@@ -61,7 +61,8 @@ export async function globalSearch(ctx: ProtectedContext, input: GlobalSearchInp
   const onlyMine = !lScope && hasPermission(ctx.actor, "lead:read_own");
   if ((lScope || onlyMine) && want("lead")) {
     tasks.push((async () => {
-      const own = onlyMine ? eq(leads.assignedToId, ctx.user.id) : or(lScope!, isNull(leads.centerId))!;
+      // Chỉ lead:read_own: lead của mình + lead đã bật dùng chung ("Dùng chung cho CSKH cùng cơ sở")
+      const own = onlyMine ? or(eq(leads.assignedToId, ctx.user.id), eq(leads.sharedWithCenter, true))! : or(lScope!, isNull(leads.centerId))!;
       const rows = await ctx.db.select({ id: leads.id, parent: leads.parentName, child: leads.childName, phone: leads.phoneNormalized, status: leads.status })
         .from(leads).where(and(isNull(leads.deletedAt), isNull(leads.anonymizedAt), own, or(ilike(leads.parentName, like), ilike(leads.childName, like), phone ? eq(leads.phoneNormalized, phone) : sql`false`)))
         .orderBy(desc(leads.lastTouchAt)).limit(per + 1).offset(off);

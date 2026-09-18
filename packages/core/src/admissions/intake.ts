@@ -91,11 +91,20 @@ export const INTAKE_FIELD_VI: Record<IntakeField, string> = {
 export interface IntakeChild {
   fullName: string;
   birthYear?: number | null;
+  /** Ngày sinh đầy đủ (YYYY-MM-DD) — chính xác hơn năm sinh, dùng để xếp lớp theo tuổi */
+  dateOfBirth?: string | null;
+  /** male | female | other */
+  gender?: string | null;
   grade?: number | null;
   school?: string | null;
   interestedCourseId?: string | null;
+  /** Cơ sở bé muốn học (có thể khác cơ sở đang giữ lead) */
+  interestedCenterId?: string | null;
   notes?: string | null;
 }
+export const CHILD_GENDERS = ["male", "female", "other"] as const;
+export type ChildGender = (typeof CHILD_GENDERS)[number];
+export const CHILD_GENDER_VI: Record<ChildGender, string> = { male: "Nam", female: "Nữ", other: "Khác" };
 type ChildField = "birthYear" | "grade" | "school" | "interestedCourseId";
 const CHILD_FIELDS: readonly ChildField[] = ["birthYear", "grade", "school", "interestedCourseId"];
 const CHILD_FIELD_VI: Record<ChildField, string> = { birthYear: "năm sinh", grade: "lớp", school: "trường", interestedCourseId: "khoá quan tâm" };

@@ -19,8 +19,14 @@ export default async function SurveysPage() {
       <PageHeader
         title="Khảo sát / NPS"
         desc="Phụ huynh nhận liên kết khảo sát (không cần đăng nhập, hết hạn sau 14 ngày). NPS = % giới thiệu (9–10) − % không hài lòng (0–6). Điểm 0–6 tự tạo việc chăm sóc. Khảo sát theo mốc (sau buổi N, hoàn thành khoá) được gửi tự động."
-        actions={d.canCreate && <Link href="/khao-sat/new" className="btn-primary">+ Tạo khảo sát</Link>}
+        actions={<>
+          <Link href="/evaluations" className="btn-ghost">Đánh giá &amp; Khảo sát v2 →</Link>
+          {d.canCreate && <Link href="/khao-sat/new" className="btn-primary">+ Tạo khảo sát</Link>}
+        </>}
       />
+      <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+        NPS bên dưới là bản cũ, đang được thay dần bằng <Link href="/evaluations" className="font-semibold underline">Đánh giá &amp; Khảo sát v2</Link> (trình dựng phiếu, nhóm tiêu chí, đợt mở–đóng–lưu trữ). Khảo sát đang chạy vẫn nhận phản hồi bình thường.
+      </p>
       <div className="grid gap-3 md:grid-cols-3">
         <div className="card p-3"><div className="text-xs text-ink-400">NPS tổng</div><b className="text-2xl">{tot.c ? Math.round(((tot.p - tot.d) / tot.c) * 100) : "—"}</b><span className="text-xs text-ink-400"> · {tot.c} phản hồi</span></div>
         <div className="card p-3"><div className="text-xs text-ink-400">Giới thiệu / Không hài lòng</div><b className="text-2xl text-green-700">{tot.p}</b> / <b className="text-2xl text-red-700">{tot.d}</b></div>

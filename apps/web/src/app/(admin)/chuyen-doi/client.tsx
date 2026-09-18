@@ -8,6 +8,14 @@ import { useTRPC } from "@/lib/trpc/client";
 import { CsvFileInput } from "@/components/csv-file-input";
 import { CsvButton } from "@/components/csv-button";
 
+/** Cột của các file nhập hệ cũ — dùng chung cho nút "Tải file mẫu" (CSV và .xlsx) */
+const STUDENT_COLS = ["ma_hv", "ho_ten", "ngay_sinh", "gioi_tinh", "khoi", "truong", "co_so", "trang_thai", "ten_ph", "sdt_ph", "email_ph", "quan_he", "ten_ph_2", "sdt_ph_2", "suc_khoe", "ghi_chu"] as const;
+const STUDENT_SAMPLE = [["HV00123", "Nguyễn Văn A", "05/03/2017", "Nam", "3", "Tiểu học ABC", "CS1", "Đang học", "Nguyễn Thị B", "0900000001", "", "Mẹ", "", "", "", ""]] as const;
+const ENROLL_COLS = ["ma_hv", "ma_lop", "so_buoi_goi", "da_hoc", "con_lai", "trang_thai", "ngay_ghi_danh", "bao_luu_den", "ghi_chu"] as const;
+const ENROLL_SAMPLE = [["HV00123", "CS1.SATA4.26.001", "48", "10", "38", "Đang học", "01/02/2026", "", ""], ["HV00124", "CS1.SATA4.26.001", "24", "", "20", "Bảo lưu", "01/03/2026", "30/10/2026", ""]] as const;
+const RECON_COLS = ["ma_hv", "ma_lop", "con_lai", "cong_no"] as const;
+const RECON_SAMPLE = [["HV00123", "CS1.SATA4.26.001", "38", "0"]] as const;
+
 const Msg = ({ m }: { m: { ok: boolean; text: string } | null }) =>
   m ? <div className={`rounded-xl border p-3 text-sm ${m.ok ? "border-green-200 bg-green-50 text-green-800" : "border-red-200 bg-red-50 text-red-700"}`}>{m.text}</div> : null;
 
@@ -45,12 +53,11 @@ export function StudentImporter() {
   return (
     <section className="card space-y-3 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="font-semibold">File học viên (CSV)</h2>
-        <CsvButton filename="mau-hoc-vien-he-cu" label="Tải file mẫu" headers={["ma_hv", "ho_ten", "ngay_sinh", "gioi_tinh", "khoi", "truong", "co_so", "trang_thai", "ten_ph", "sdt_ph", "email_ph", "quan_he", "ten_ph_2", "sdt_ph_2", "suc_khoe", "ghi_chu"]}
-          rows={[["HV00123", "Nguyễn Văn A", "05/03/2017", "Nam", "3", "Tiểu học ABC", "CS1", "Đang học", "Nguyễn Thị B", "0900000001", "", "Mẹ", "", "", "", ""]]} />
+        <h2 className="font-semibold">File học viên (.xlsx / CSV)</h2>
+        <CsvButton filename="mau-hoc-vien-he-cu" label="Tải file mẫu (CSV)" headers={[...STUDENT_COLS]} rows={STUDENT_SAMPLE.map((r) => [...r])} />
       </div>
       <p className="text-xs text-ink-600">Bắt buộc: <b>ma_hv</b> (mã ở hệ cũ — giữ làm mã học viên nếu chưa trùng), <b>ho_ten</b>, <b>co_so</b> (mã cơ sở), <b>sdt_ph</b>. Trạng thái nhận: đang học, học thử, bảo lưu, nghỉ, tốt nghiệp, tiềm năng. Phụ huynh gộp theo SĐT; học viên trùng tên + SĐT phụ huynh đã có sẽ được ghép, không tạo mới. Đồng ý đăng ảnh không mang sang — xin lại qua cổng phụ huynh.</p>
-      <CsvFileInput disabled={pv.isPending || imp.isPending} onText={(text, name) => { setMsg(null); setFile({ text, name }); pv.mutate({ csv: text }); }} />
+      <CsvFileInput disabled={pv.isPending || imp.isPending} template={{ fileName: "mau-hoc-vien-he-cu", headers: STUDENT_COLS, sample: STUDENT_SAMPLE, sheetName: "Học viên" }} onText={(text, name) => { setMsg(null); setFile({ text, name }); pv.mutate({ csv: text }); }} />
       {pv.isPending && <div className="text-sm text-ink-600">Đang kiểm tra…</div>}
       {p && (p.headerErrors.length ? <div className="text-sm text-red-700">{p.headerErrors.join("; ")}</div> : (
         <div className="space-y-2">
@@ -99,12 +106,11 @@ export function EnrollmentImporter() {
   return (
     <section className="card space-y-3 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="font-semibold">File ghi danh (CSV)</h2>
-        <CsvButton filename="mau-ghi-danh-he-cu" label="Tải file mẫu" headers={["ma_hv", "ma_lop", "so_buoi_goi", "da_hoc", "con_lai", "trang_thai", "ngay_ghi_danh", "bao_luu_den", "ghi_chu"]}
-          rows={[["HV00123", "CS1.SATA4.26.001", "48", "10", "38", "Đang học", "01/02/2026", "", ""], ["HV00124", "CS1.SATA4.26.001", "24", "", "20", "Bảo lưu", "01/03/2026", "30/10/2026", ""]]} />
+        <h2 className="font-semibold">File ghi danh (.xlsx / CSV)</h2>
+        <CsvButton filename="mau-ghi-danh-he-cu" label="Tải file mẫu (CSV)" headers={[...ENROLL_COLS]} rows={ENROLL_SAMPLE.map((r) => [...r])} />
       </div>
       <p className="text-xs text-ink-600">Lớp phải có sẵn trên hệ mới (đúng mã lớp). Số buổi đã học ở hệ cũ được ghi vào ghi danh; điểm danh trên hệ mới bắt đầu từ buổi chưa học tiếp theo của lớp, nên số buổi còn lại = gói − đã học − số buổi điểm danh mới.</p>
-      <CsvFileInput disabled={pv.isPending || imp.isPending} onText={(text, name) => { setMsg(null); setFile({ text, name }); pv.mutate({ csv: text }); }} />
+      <CsvFileInput disabled={pv.isPending || imp.isPending} template={{ fileName: "mau-ghi-danh-he-cu", headers: ENROLL_COLS, sample: ENROLL_SAMPLE, sheetName: "Ghi danh" }} onText={(text, name) => { setMsg(null); setFile({ text, name }); pv.mutate({ csv: text }); }} />
       {pv.isPending && <div className="text-sm text-ink-600">Đang kiểm tra…</div>}
       {p && (p.headerErrors.length ? <div className="text-sm text-red-700">{p.headerErrors.join("; ")}</div> : (
         <div className="space-y-2">
@@ -166,10 +172,10 @@ export function CompareStudents({ centerId }: { centerId: string | null }) {
     <section className="card space-y-3 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="font-semibold">So từng học viên</h2>
-        <CsvButton filename="mau-doi-soat-hoc-vien" label="Tải file mẫu" headers={["ma_hv", "ma_lop", "con_lai", "cong_no"]} rows={[["HV00123", "CS1.SATA4.26.001", "38", "0"]]} />
+        <CsvButton filename="mau-doi-soat-hoc-vien" label="Tải file mẫu (CSV)" headers={[...RECON_COLS]} rows={RECON_SAMPLE.map((r) => [...r])} />
       </div>
       <p className="text-xs text-ink-600">Xuất danh sách buổi còn lại / công nợ từ hệ cũ và chọn file. Kết quả không lưu — tải về để xử lý từng dòng.</p>
-      <CsvFileInput disabled={m.isPending} onText={(text) => m.mutate({ csv: text, centerId })} />
+      <CsvFileInput disabled={m.isPending} template={{ fileName: "mau-doi-soat-hoc-vien", headers: RECON_COLS, sample: RECON_SAMPLE, sheetName: "Đối soát" }} onText={(text) => m.mutate({ csv: text, centerId })} />
       {m.isPending && <div className="text-sm text-ink-600">Đang so…</div>}
       {m.error && <div className="text-sm text-red-700">{m.error.message}</div>}
       {d && (d.headerErrors.length ? <div className="text-sm text-red-700">{d.headerErrors.join("; ")}</div> : (

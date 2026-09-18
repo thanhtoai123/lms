@@ -102,10 +102,14 @@ export function LeadImporter({ mode }: { mode: Mode }) {
       <section className="card space-y-2 p-4 text-sm">
         <h2 className="font-semibold">1. Chọn dữ liệu</h2>
         <p className="text-ink-600">
-          Hệ thống chưa cài thư viện đọc .xlsx nên <b>file Excel cần lưu thành CSV UTF-8</b> (hoặc bôi đen vùng dữ liệu trong Excel rồi <b>dán thẳng</b> vào ô bên dưới — dán nhiều sheet được, dán lần nào nối thêm lần đó).
+          Chọn thẳng <b>file Excel (.xlsx)</b> — file nhiều sheet thì chọn sheet cần nhập. Vẫn nhận CSV UTF-8, hoặc bôi đen vùng dữ liệu trong Excel rồi <b>dán thẳng</b> vào ô bên dưới (dán lần nào nối thêm lần đó).
           Dữ liệu được đọc ngay trên máy bạn; tối đa {LEAD_IMPORT_MAX_ROWS} dòng.
         </p>
-        <CsvFileInput onText={onText} disabled={busy} />
+        <CsvFileInput
+          onText={onText}
+          disabled={busy}
+          template={{ fileName: mode === "registered" ? "mau-khach-da-dang-ky" : "mau-lead", headers: template, sheetName: mode === "registered" ? "Khách đã đăng ký" : "Lead" }}
+        />
         <div className="flex flex-wrap items-center gap-3">
           <button type="button" className="btn-ghost !py-1 text-xs" onClick={() => downloadCsv(mode === "registered" ? "mau-khach-da-dang-ky" : "mau-nhap-lead", template, [template.map(() => "")])}>Tải file mẫu (CSV)</button>
           {rows.length > 0 && <button type="button" className="text-xs text-red-700" onClick={() => { setRows([]); setPreview(null); setOverwrite(new Set()); setResults(null); setSummary(null); }}>Xoá dữ liệu đang xem</button>}
