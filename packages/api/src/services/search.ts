@@ -2,6 +2,7 @@ import { and, desc, eq, ilike, inArray, isNull, or, sql, type Column, type SQL }
 import { classes, leads, orders, parents, studentGuardians, students } from "@satarobo/db";
 import { centersWith, hasPermission, normalizeVnPhone, maskPhone, LEAD_STATUS_VI, type LeadStatus, type Permission } from "@satarobo/core";
 import type { ProtectedContext } from "../trpc";
+import { assertRateLimit, rateKey } from "../lib/rateLimit";
 
 export type SearchHit = { kind: "student" | "lead" | "class" | "order"; id: string; title: string; sub: string; href: string };
 
@@ -36,6 +37,10 @@ export interface GlobalSearchInput {
 export async function globalSearch(ctx: ProtectedContext, input: GlobalSearchInput) {
   const q = input.q.trim().slice(0, 80);
   if (q.length < 2) return { q, hits: [] as SearchHit[], page: 1, perKind: 0, hasMore: false };
+  // Tìm toàn cục quét 4 bảng lớn theo `ilike '%…%'` — vừa nặng CSDL, vừa là đường rút dần
+  // danh bạ nếu gọi bằng máy. Trần đặt rất rộng để Ctrl+K gõ tới đâu tìm tới đó vẫn mượt
+  // (nới thêm bằng RATE_LIMIT_SEARCH_USER_MAX).
+  await assertRateLimit(ctx.db, "searchUser", rateKey("search", "user", ctx.user.id), "tìm kiếm");
   const like = `%${esc(q)}%`;
   const phone = normalizeVnPhone(q);
   const page = Math.max(1, input.page ?? 1);

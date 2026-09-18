@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getDb } from "@satarobo/db";
 import { ingestBankTx, logWebhook } from "@satarobo/api";
 import { checkApiKey, parseSepayPayload } from "@satarobo/core";
+import { clientIp, sharedRateLimit } from "@/lib/route-ctx";
+import { webLogger } from "@/lib/logger";
 
 /**
  * POST /api/webhooks/sepay — SePay gọi khi có biến động số dư.
@@ -13,6 +15,10 @@ export async function POST(req: Request) {
   const db = getDb();
   const headers = Object.fromEntries(req.headers.entries());
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
+  // Trần rất rộng, chỉ để chặn đợt bắn dồn vào cổng webhook. SePay gửi lại tối đa 7 lần khi lỗi
+  // nên không được chặn nhầm; trả 429 để nhà cung cấp tự gửi lại sau.
+  const gate = await sharedRateLimit("webhookIp", "ip", clientIp(req), "wh-sepay");
+  if (gate) return NextResponse.json({ success: false, error: "Quá nhiều yêu cầu" }, { status: 429, headers: { "Retry-After": String(Math.max(1, gate.retryAfterSec)) } });
   const key = process.env.SEPAY_API_KEY;
   if (!key) return NextResponse.json({ success: false, error: "Webhook chưa được cấu hình (SEPAY_API_KEY)" }, { status: 503 });
   let body: unknown = null;
@@ -39,7 +45,8 @@ export async function POST(req: Request) {
     await logWebhook(db, { source: "sepay", status: r.duplicate ? "duplicate" : "processed", httpStatus: r.duplicate ? 200 : 201, payload: body, headers, externalId: parsed.tx.externalId, result: { status: r.status, note: r.note }, ip });
     return NextResponse.json({ success: true, duplicate: r.duplicate, status: r.status }, { status: r.duplicate ? 200 : 201 });
   } catch (e) {
-    console.error("[sepay webhook]", e);
+    // Lỗi CSDL mang theo câu SQL và giá trị tham số (tên khách, SĐT) → phải qua bộ che PII
+    webLogger.child("sepay-webhook").error("xử lý giao dịch thất bại", { err: e, externalId: parsed.tx.externalId });
     await logWebhook(db, { source: "sepay", status: "failed", httpStatus: 500, payload: body, headers, externalId: parsed.tx.externalId, error: (e as Error).message, ip });
     // Trả 500 để SePay gửi lại sau
     return NextResponse.json({ success: false, error: "Lỗi xử lý, sẽ thử lại" }, { status: 500 });

@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getDb } from "@satarobo/db";
 import { requestPasswordReset } from "@satarobo/api";
-import { rateLimited } from "@/lib/route-ctx";
+import { sharedRateLimited } from "@/lib/route-ctx";
 
 export const metadata = { title: "Quên mật khẩu", robots: { index: false } };
 export const dynamic = "force-dynamic";
@@ -13,7 +13,11 @@ async function send(formData: FormData) {
   const h = await headers();
   const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
   const email = String(formData.get("email") ?? "").slice(0, 200);
-  if (rateLimited(`pwreset|${ip}`, 5, 60 * 60_000) || rateLimited(`pwreset|${email.toLowerCase()}`, 3, 60 * 60_000)) redirect("/quen-mat-khau?sent=1");
+  // Trần dùng chung giữa các bản sao. Đụng trần vẫn trả về MÀN HÌNH GIỐNG HỆT lúc gửi thành công —
+  // không được để kẻ dò phân biệt "email này có tài khoản" qua thông báo lỗi.
+  const blocked = (await sharedRateLimited("passwordResetIp", "ip", ip, "pwreset")) ||
+    (await sharedRateLimited("passwordResetEmail", "email", email, "pwreset"));
+  if (blocked) redirect("/quen-mat-khau?sent=1");
   await requestPasswordReset(getDb(), { email });
   redirect("/quen-mat-khau?sent=1");
 }

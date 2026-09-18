@@ -6,6 +6,7 @@ import Link from "next/link";
 import { createServerClient } from "@supabase/ssr";
 import { devActorAllowed, DEV_ACTOR_HEADER } from "@satarobo/core";
 import { ACCESS_COOKIE, REFRESH_COOKIE, IDLE_COOKIE, SEEN_COOKIE, clientMeta, cookieOptions, seenCookieOptions } from "@/lib/auth-session";
+import { sharedRateLimited } from "@/lib/route-ctx";
 
 export const metadata = { title: "Đăng nhập quản trị" };
 
@@ -40,6 +41,15 @@ async function supabaseLogin(formData: FormData) {
   const db = getDb();
   const back = `&next=${encodeURIComponent(next)}`;
   if (!email || email.length > 200 || !password || password.length > 200) redirect(`/login?error=1${back}`);
+  // Trần dùng chung giữa các bản sao, TRƯỚC khi hỏi Supabase — `loginLockDecision` khoá theo tài khoản,
+  // còn đây chặn máy dò rải nhiều tài khoản từ một IP. Đụng trần trả đúng màn hình "tạm khoá"
+  // như khoá theo tài khoản, để không lộ tài khoản nào có thật.
+  const gate = (await sharedRateLimited("staffLoginIp", "ip", meta.ip, "login")) ||
+    (await sharedRateLimited("staffLoginEmail", "email", email, "login"));
+  if (gate) {
+    await recordLogin(db, { email, result: "locked_out", ...meta });
+    redirect(`/login?error=locked&wait=15${back}`);
+  }
   const pre = await loginPrecheck(db, { email, ip: meta.ip });
   if (!pre.allowed) {
     await recordLogin(db, { email, result: "locked_out", ...meta });
