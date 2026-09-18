@@ -14,6 +14,7 @@
  * "chờ kích hoạt" — KHÔNG đặt và KHÔNG sinh mật khẩu; người dùng tự kích hoạt qua luồng mời sẵn có.
  */
 import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { TRPCError } from "@trpc/server";
 import {
   tenants, tenantSettings, centers, rooms, orgUnits, legalEntities, users, userRoles, appSettings,
@@ -81,7 +82,7 @@ export interface ProvisionInput {
 /* ------------------------------------------------------------------ */
 
 /** Danh mục của mô hình mẫu: hàng của chính tenant đó + hàng dùng chung (chưa gắn tenant) */
-const ofSource = (col: typeof courses.tenantId, tenantId: string) => or(eq(col, tenantId), isNull(col))!;
+const ofSource = (col: AnyPgColumn, tenantId: string) => or(eq(col, tenantId), isNull(col))!;
 const n = (rows: { n: number }[]) => rows[0]?.n ?? 0;
 
 /** Bảng kê: sao chép gì, tạo mới gì, KHÔNG đụng gì */
