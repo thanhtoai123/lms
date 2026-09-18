@@ -320,7 +320,7 @@ export function hasPerTenantConfig<T extends { tenantId?: string | null }>(rows:
 /* ------------------------------------------------------------------ */
 
 /**
- * Lớp phòng thủ cuối ở Postgres (xem `packages/db/sql/0006_rls_tenant.sql`).
+ * Lớp phòng thủ cuối ở Postgres (xem `packages/db/sql/0009_rls_tenant.sql`).
  * Ứng dụng đặt hai biến phiên ở đầu mỗi giao dịch; chính sách RLS đọc lại đúng luật dưới đây.
  * Các hàm ở đây là BẢN SAO THUẦN của luật SQL để kiểm thử được mà không cần CSDL.
  */

@@ -137,7 +137,7 @@ Ghi lại để lần kiểm định sau không phải rà lại từ đầu.
 2. **Đặt `NODE_ENV=production` tường minh** trên mọi môi trường không phải máy cá nhân
    (staging, demo, UAT). Nhiều lớp phòng thủ trong mã nguồn khoá theo biến này.
 3. **Chạy `pnpm db:apply-sql` (hoặc `db:push`) khi triển khai bản vá này** để tạo bảng
-   `rate_limits` (`packages/db/sql/0006_tran_tan_suat.sql`). Thiếu bảng thì trần tần suất **tự động
+   `rate_limits` (`packages/db/sql/0007_tran_tan_suat.sql`). Thiếu bảng thì trần tần suất **tự động
    lùi về bộ đếm trong bộ nhớ** (fail-open, có ghi cảnh báo trong log) — hệ thống vẫn chạy nhưng
    trần lại chỉ đúng trong một tiến trình. Kiểm tra bằng cách xem log có dòng
    `không ghi được bộ đếm dùng chung` hay không.
@@ -275,7 +275,7 @@ thì mất cache tĩnh — chấp nhận để đổi lấy nonce.
 ### 9.2. Trần tần suất dùng chung trong CSDL (Th3)
 
 - **Bảng mới** `rate_limits` (`packages/db/src/schema/system.ts` +
-  `packages/db/sql/0006_tran_tan_suat.sql`): khoá chính `(key, window_start)`, cột `count`,
+  `packages/db/sql/0007_tran_tan_suat.sql`): khoá chính `(key, window_start)`, cột `count`,
   `expires_at`, index trên `expires_at`.
 - **Thuật toán thuần** ở `packages/core/src/security/rateLimit.ts`: `fixedWindowStart`,
   `fixedWindowDecision`, `rateLimitKey`, bảng trần `RATE_LIMITS`, `rateLimitFor` (đọc biến môi

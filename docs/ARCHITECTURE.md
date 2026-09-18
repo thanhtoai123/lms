@@ -37,7 +37,7 @@ Chi tiết (truy vấn đã chữa, danh sách chỉ mục, cách đo khi dữ l
 
 - **Đếm và lọc trong SQL, không tải dòng về rồi đếm bằng JavaScript.** Mọi thủ tục danh sách có
   phân trang hoặc trần cứng (`clampPageSize`); `total` luôn là `count(*)`.
-- Chỉ mục ở `packages/db/sql/0007_chi_muc_hieu_nang.sql` — ưu tiên chỉ mục tổ hợp đúng thứ tự cột
+- Chỉ mục ở `packages/db/sql/0008_chi_muc_hieu_nang.sql` — ưu tiên chỉ mục tổ hợp đúng thứ tự cột
   và chỉ mục một phần cho các bộ lọc trạng thái phổ biến.
 - Mọi thủ tục tRPC được đo; chậm hơn `SLOW_PROCEDURE_MS` thì ghi một dòng log kèm **số truy vấn**
   (con số phân biệt "một truy vấn nặng" với "N+1"). Log không chứa dữ liệu cá nhân.

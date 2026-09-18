@@ -184,7 +184,7 @@ Trung tâm mới bắt đầu với **0 dữ liệu cá nhân**.
 Nguồn sự thật vẫn là tầng service (`tenantCond` / `assertTenant`). RLS chỉ là hàng rào cuối:
 một truy vấn quên lọc cũng **không đọc được** dữ liệu của trung tâm khác.
 
-Tệp: `packages/db/sql/0006_rls_tenant.sql` (chạy sau `pnpm db:push`, idempotent).
+Tệp: `packages/db/sql/0009_rls_tenant.sql` (chạy sau `pnpm db:push`, idempotent).
 
 ### 4.1 Cách hoạt động
 

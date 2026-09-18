@@ -5,7 +5,7 @@
  * `SET` ở mức phiên sẽ RÒ sang lượt gọi của người khác. `set_config(..., true)` chỉ sống trong
  * giao dịch hiện tại, nên luôn đúng người đúng việc.
  *
- * Chính sách RLS đọc hai biến này (xem packages/db/sql/0006_rls_tenant.sql).
+ * Chính sách RLS đọc hai biến này (xem packages/db/sql/0009_rls_tenant.sql).
  */
 import { sql } from "drizzle-orm";
 import { tenantSessionValue } from "@satarobo/core";

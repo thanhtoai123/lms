@@ -102,7 +102,7 @@ dòng khi `created_at` bằng nhau — đây là lỗi kinh điển của phân 
 
 ---
 
-## 2. Chỉ mục — `packages/db/sql/0007_chi_muc_hieu_nang.sql`
+## 2. Chỉ mục — `packages/db/sql/0008_chi_muc_hieu_nang.sql`
 
 32 chỉ mục, tất cả `CREATE INDEX IF NOT EXISTS` nên chạy lại bao nhiêu lần cũng được.
 Mỗi chỉ mục trong tệp có chú thích tiếng Việt nói rõ nó phục vụ truy vấn nào ở `tệp:hàm`.
