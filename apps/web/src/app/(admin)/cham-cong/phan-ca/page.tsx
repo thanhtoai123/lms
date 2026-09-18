@@ -27,7 +27,7 @@ export default async function RosterPage({ searchParams }: { searchParams: Promi
     <div className="space-y-4">
       <PageHeader
         title="Lưới phân ca"
-        desc="Xếp ca theo tháng. Ô sửa tay (T) và ô sinh từ đơn đã duyệt (Đ) được giữ nguyên khi sinh lưới từ khung ca tuần hoặc nhập lại từ Sheet. Người được xếp ca nhận thông báo ngay."
+        desc="Xếp ca theo tháng. Sinh lưới có Chạy thử trước rồi mới Ghi thật, kết quả chia 8 nhóm. Ô sửa tay (T), ô sinh từ đơn đã duyệt (Đ) và ô nhập từ Sheet (N) được bảo vệ khi sinh lưới; lưới chỉ áp từ NGÀY MAI. Người được xếp ca nhận thông báo ngay."
         actions={
           <div className="flex flex-wrap gap-2">
             <Link href={`/cham-cong?center=${centerId}&period=${period}`} className="btn-ghost">Bảng công</Link>

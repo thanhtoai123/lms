@@ -5,6 +5,9 @@ import {
   computeDay, summarizeDays, validateRequest, requestMinutes, leaveDays, requestTransition, periodRange, datesBetween, lockCheck, staffCode,
   validatePositionDef, activeRoleAssignments, roleValidOn, widenByDeployments, isLateSubmission, describeRequestEffect, standardUnits,
   leaveIsPaid, leaveUsesBalance, requestKindsOf, isClassRequest, isReviewableFlag,
+  PERIOD_STATUSES, PERIOD_STATUS_VI, normalizePeriodStatus, periodFrozen, periodEditable, periodTransition,
+  DEFAULT_STANDARD_UNITS, TIMESHEET_FLAGS, TIMESHEET_FLAG_VI, FLAG_REVIEW_ACTIONS, FLAG_REVIEW_ACTION_VI,
+  DEPARTMENTS, DEPARTMENTS_GOC, DEPARTMENT_VI,
   type DayInput, type DayShift, type RequestInput,
 } from "./rules.js";
 import { plannedMinutesOf } from "./shifts.js";
@@ -280,4 +283,49 @@ test("kỳ công", () => {
   // tháng 9/2026: 30 ngày, 4 chủ nhật (6, 13, 20, 27), 1 ngày lễ
   assert.equal(standardUnits("2026-09", [7], ["2026-09-02"]), 25);
   assert.equal(plannedMinutesOf([{ from: "08:00", to: "11:30" }, { from: "13:30", to: "17:30" }]), 450);
+  assert.equal(DEFAULT_STANDARD_UNITS, 24);
+});
+
+test("kỳ công: 5 trạng thái như bản gốc", () => {
+  assert.deepEqual([...PERIOD_STATUSES], ["not_open", "open", "closing", "closed", "reopened"]);
+  assert.deepEqual(PERIOD_STATUSES.map((s) => PERIOD_STATUS_VI[s]), ["Chưa mở kỳ", "Đang mở", "Đang chốt", "Đã chốt", "Đã mở lại"]);
+  // tương thích dữ liệu cũ: locked → closed
+  assert.equal(normalizePeriodStatus("locked"), "closed");
+  assert.equal(normalizePeriodStatus(null), "open");
+  assert.equal(normalizePeriodStatus("la_gi_do"), "open");
+  assert.equal(normalizePeriodStatus("reopened"), "reopened");
+  // đóng băng công: đang chốt + đã chốt
+  assert.deepEqual(PERIOD_STATUSES.filter(periodFrozen), ["closing", "closed"]);
+  assert.deepEqual(PERIOD_STATUSES.filter(periodEditable), ["open", "reopened"]);
+  // chuyển trạng thái
+  assert.equal(periodTransition("open", "closed"), null);
+  assert.equal(periodTransition("open", "closing"), null);
+  assert.equal(periodTransition("closed", "reopened"), null);
+  assert.equal(periodTransition("reopened", "closed"), null);
+  assert.ok(periodTransition("closed", "open"));
+  assert.ok(periodTransition("closed", "closed"));
+  assert.ok(periodTransition("not_open", "closed"));
+});
+
+test("cờ nghỉ tuần & kết luận nghỉ không phép", () => {
+  assert.ok((TIMESHEET_FLAGS as readonly string[]).includes("nghi_tuan"));
+  assert.equal(TIMESHEET_FLAG_VI.nghi_tuan, "Nghỉ tuần");
+  // cờ ghi nhận, không bắt quản lý phải rà
+  assert.equal(isReviewableFlag("nghi_tuan"), false);
+  assert.deepEqual([...FLAG_REVIEW_ACTIONS], ["ack", "dismiss", "excused", "unexcused"]);
+  assert.equal(FLAG_REVIEW_ACTION_VI.unexcused, "Đã ghi nhận nghỉ không phép");
+  // Chủ nhật không có ca → cờ Nghỉ tuần
+  const off = computeDay({ date: "2026-09-20", today: "2026-09-25", shift: null, inMin: null, outMin: null, weeklyOff: true });
+  assert.ok(off.flags.includes("nghi_tuan"));
+  assert.equal(off.units, 0);
+  assert.deepEqual(computeDay({ date: "2026-09-21", today: "2026-09-25", shift: null, inMin: null, outMin: null }).flags, []);
+});
+
+test("phòng ban đủ 8 giá trị của bản gốc", () => {
+  assert.equal(DEPARTMENTS_GOC.length, 8);
+  for (const d of DEPARTMENTS_GOC) assert.ok((DEPARTMENTS as readonly string[]).includes(d), d);
+  assert.deepEqual(DEPARTMENTS_GOC.map((d) => DEPARTMENT_VI[d]), [
+    "Ban Giám đốc", "Phòng Đào tạo", "Kinh doanh / Sale", "Hành chính - Nhân sự", "Kế toán", "Tuyển sinh", "Giáo vụ", "Giảng dạy",
+  ]);
+  for (const d of DEPARTMENTS) assert.ok(DEPARTMENT_VI[d], d);
 });

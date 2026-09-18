@@ -28,11 +28,25 @@ export const EMPLOYMENT_TYPES = ["full_time", "part_time", "collaborator", "inte
 export type EmploymentType = (typeof EMPLOYMENT_TYPES)[number];
 export const EMPLOYMENT_TYPE_VI: Record<EmploymentType, string> = { full_time: "Toàn thời gian", part_time: "Bán thời gian", collaborator: "Cộng tác viên", intern: "Thực tập" };
 
-export const DEPARTMENTS = ["academic", "sales", "accounting", "hr", "operations", "marketing", "management"] as const;
+/**
+ * Phòng ban. 8 phòng ban của bản gốc đều có mặt (cột giữ nguyên tên slug đang dùng):
+ * Ban Giám đốc `management` · Đào tạo `academic` · Kinh doanh `sales` ·
+ * Hành chính - Nhân sự `hr` · Kế toán `accounting` · Tuyển sinh `admissions` ·
+ * Giáo vụ `academic_affairs` · Giảng dạy `teaching`. `operations`, `marketing` là hai
+ * phòng ban riêng của bản mới, giữ lại cho dữ liệu cũ.
+ */
+export const DEPARTMENTS = [
+  "management", "academic", "sales", "hr", "accounting", "admissions", "academic_affairs", "teaching",
+  "operations", "marketing",
+] as const;
 export type Department = (typeof DEPARTMENTS)[number];
 export const DEPARTMENT_VI: Record<Department, string> = {
-  academic: "Đào tạo / Giáo vụ", sales: "Tư vấn / CSKH", accounting: "Kế toán", hr: "Nhân sự", operations: "Vận hành", marketing: "Marketing", management: "Quản lý",
+  management: "Ban Giám đốc", academic: "Phòng Đào tạo", sales: "Kinh doanh / Sale", hr: "Hành chính - Nhân sự",
+  accounting: "Kế toán", admissions: "Tuyển sinh", academic_affairs: "Giáo vụ", teaching: "Giảng dạy",
+  operations: "Vận hành", marketing: "Marketing",
 };
+/** 8 phòng ban của bản gốc — dùng khi cần đối chiếu đúng danh sách gốc */
+export const DEPARTMENTS_GOC: readonly Department[] = ["management", "academic", "sales", "hr", "accounting", "admissions", "academic_affairs", "teaching"];
 
 export const POSITION_KINDS = ["primary", "concurrent", "delegated"] as const;
 export type PositionKind = (typeof POSITION_KINDS)[number];
@@ -230,7 +244,7 @@ export const TIMESHEET_FLAGS = [
   "no_punch", "missing_out", "missing_in", "missing_am", "missing_pm",
   "late", "early", "short_hours", "near_start",
   "outside_geofence", "no_gps", "poor_gps", "no_geo_point", "wrong_place",
-  "off_schedule", "duplicate_punch", "over_limit", "holiday_work", "manual_fix", "excused",
+  "off_schedule", "duplicate_punch", "over_limit", "holiday_work", "manual_fix", "excused", "nghi_tuan",
 ] as const;
 export type TimesheetFlag = (typeof TIMESHEET_FLAGS)[number];
 
@@ -239,6 +253,7 @@ export const TIMESHEET_FLAG_VI: Record<TimesheetFlag, string> = {
   late: "Đi muộn", early: "Về sớm", short_hours: "Thiếu giờ", near_start: "Đến sát giờ",
   outside_geofence: "Ngoài vùng", no_gps: "Thiếu GPS", poor_gps: "GPS kém", no_geo_point: "Chưa toạ độ", wrong_place: "Sai nơi làm",
   off_schedule: "Chấm ngoài lịch", duplicate_punch: "Bấm trùng", over_limit: "Vượt trần lượt", holiday_work: "Làm ngày lễ", manual_fix: "Chỉnh tay (đơn duyệt)", excused: "Vắng có lý do",
+  nghi_tuan: "Nghỉ tuần",
 };
 
 /** Cờ cần quản lý rà (các cờ còn lại chỉ để ghi nhận) */
@@ -248,9 +263,11 @@ export const REVIEWABLE_FLAGS: readonly TimesheetFlag[] = [
 ];
 export const isReviewableFlag = (f: TimesheetFlag) => REVIEWABLE_FLAGS.includes(f);
 
-export const FLAG_REVIEW_ACTIONS = ["ack", "dismiss", "excused"] as const;
+export const FLAG_REVIEW_ACTIONS = ["ack", "dismiss", "excused", "unexcused"] as const;
 export type FlagReviewAction = (typeof FLAG_REVIEW_ACTIONS)[number];
-export const FLAG_REVIEW_ACTION_VI: Record<FlagReviewAction, string> = { ack: "Đã ghi nhận có lý do", dismiss: "Đã gỡ kết luận", excused: "Vắng có lý do" };
+export const FLAG_REVIEW_ACTION_VI: Record<FlagReviewAction, string> = {
+  ack: "Đã ghi nhận có lý do", dismiss: "Đã gỡ kết luận", excused: "Vắng có lý do", unexcused: "Đã ghi nhận nghỉ không phép",
+};
 
 /* ------------------------------------------------------------------ */
 /* Tính công ngày                                                      */
@@ -296,6 +313,8 @@ export interface DayInput {
   holiday?: boolean;
   /** quản lý đã kết luận "vắng có lý do" */
   excused?: boolean;
+  /** ngày nghỉ tuần theo cấu hình cơ sở → cờ "Nghỉ tuần" */
+  weeklyOff?: boolean;
   /** ghi đè công (luôn thắng) */
   override?: { units: number; label: string; note: string } | null;
   graceMin?: number;
@@ -335,6 +354,7 @@ export function computeDay(i: DayInput): DayResult {
   const sh = i.shift;
   const flags = new Set<TimesheetFlag>(i.punchFlags ?? []);
   if (i.manualPunch) flags.add("manual_fix");
+  if (i.weeklyOff) flags.add("nghi_tuan");
   const hasIn = i.inMin != null;
   const hasOut = i.outMin != null;
   const hasPunch = hasIn || hasOut;
@@ -705,8 +725,50 @@ export function describeRequestEffect(
 /* Kỳ công                                                             */
 /* ------------------------------------------------------------------ */
 
-export const PERIOD_STATUSES = ["open", "locked"] as const;
+/** 5 trạng thái kỳ công của bản gốc */
+export const PERIOD_STATUSES = ["not_open", "open", "closing", "closed", "reopened"] as const;
 export type PeriodStatus = (typeof PERIOD_STATUSES)[number];
+export const PERIOD_STATUS_VI: Record<PeriodStatus, string> = {
+  not_open: "Chưa mở kỳ", open: "Đang mở", closing: "Đang chốt", closed: "Đã chốt", reopened: "Đã mở lại",
+};
+export const PERIOD_STATUS_CHIP: Record<PeriodStatus, string> = {
+  not_open: "bg-slate-100 text-slate-600", open: "bg-green-100 text-green-800", closing: "bg-amber-100 text-amber-800",
+  closed: "bg-slate-800 text-white", reopened: "bg-sky-100 text-sky-800",
+};
+
+/** Giá trị cũ còn nằm trong dữ liệu — đọc lên map thành `closed` */
+export const PERIOD_STATUS_LEGACY = ["locked"] as const;
+/** Danh sách giá trị enum của cột `timesheet_periods.status` (gồm cả giá trị cũ) */
+export const PERIOD_STATUS_DB = [...PERIOD_STATUSES, ...PERIOD_STATUS_LEGACY] as const;
+
+/** Chuẩn hoá trạng thái đọc từ CSDL: `locked` (bản cũ) → `closed` */
+export function normalizePeriodStatus(raw: string | null | undefined): PeriodStatus {
+  if (!raw) return "open";
+  if (raw === "locked") return "closed";
+  return (PERIOD_STATUSES as readonly string[]).includes(raw) ? (raw as PeriodStatus) : "open";
+}
+
+/** Công của kỳ đã đóng băng: không màn nào sửa được số công nữa */
+export const periodFrozen = (s: PeriodStatus) => s === "closed" || s === "closing";
+/** Kỳ còn sửa được ca / công / đơn */
+export const periodEditable = (s: PeriodStatus) => s === "open" || s === "reopened";
+
+/** Chuyển trạng thái kỳ công — trả về thông báo lỗi, null là hợp lệ */
+export function periodTransition(from: PeriodStatus, to: PeriodStatus): string | null {
+  if (from === to) return `Kỳ công đang ở trạng thái “${PERIOD_STATUS_VI[to]}”`;
+  const allowed: Record<PeriodStatus, PeriodStatus[]> = {
+    not_open: ["open"],
+    open: ["closing", "closed", "not_open"],
+    closing: ["closed", "open"],
+    closed: ["reopened"],
+    reopened: ["closing", "closed"],
+  };
+  if (!allowed[from].includes(to)) return `Không chuyển kỳ công từ “${PERIOD_STATUS_VI[from]}” sang “${PERIOD_STATUS_VI[to]}”`;
+  return null;
+}
+
+/** Số công chuẩn mặc định của một kỳ khi chưa khai (bản gốc để 24) */
+export const DEFAULT_STANDARD_UNITS = 24;
 
 export function periodRange(period: string): { from: string; to: string } {
   const m = /^(\d{4})-(\d{2})$/.exec(period);

@@ -38,6 +38,24 @@ export const WORKPLACE_VI: Record<Workplace, string> = {
 /** Số công hợp lệ của một mã ca */
 export const SHIFT_UNIT_VALUES = [0, 0.5, 1, 1.5] as const;
 
+/**
+ * Cách chấm công của mã ca — **một cột duy nhất** như bản gốc, suy ra từ `kind` + `workplace`.
+ * (cột rời `kind` / `workplace` vẫn giữ để khai báo cho chính xác)
+ */
+export const ATTENDANCE_MODES = ["timed", "location_only", "admin_hours", "any_center"] as const;
+export type AttendanceMode = (typeof ATTENDANCE_MODES)[number];
+export const ATTENDANCE_MODE_VI: Record<AttendanceMode, string> = {
+  timed: "Có giờ · phải quét",
+  location_only: "Chỉ nơi làm · quét tuỳ chọn",
+  admin_hours: "Giờ hành chính · nơi làm theo phân công Hội sở",
+  any_center: "Bất kỳ cơ sở",
+};
+
+/** Nghỉ giữa giờ: `paid_break` = đoạn nghỉ giữa giờ vẫn tính công (CS, CT của bản gốc) */
+export const PAY_MODES = ["normal", "paid_break"] as const;
+export type PayMode = (typeof PAY_MODES)[number];
+export const PAY_MODE_VI: Record<PayMode, string> = { normal: "Bình thường", paid_break: "Nghỉ giữa giờ vẫn tính công" };
+
 /** Một đoạn giờ của ca. paid = false → đoạn "nghỉ giữa giờ" không tính công. */
 export interface ShiftSegment {
   from: string;
@@ -76,6 +94,29 @@ export function workSegments(segments: readonly ShiftSegment[]): { from: number;
 
 export const shiftHasClock = (k: ShiftKind) => k === "timed";
 export const shiftCounts = (k: ShiftKind) => k === "timed" || k === "location_only" || k === "flexible";
+
+/** Cách chấm công hiển thị ở một cột duy nhất — suy ra từ loại ca + nơi làm */
+export function attendanceModeOf(kind: ShiftKind, workplace: Workplace): AttendanceMode {
+  if (kind !== "timed") return "location_only";
+  if (workplace === "assigned") return "admin_hours";
+  if (workplace === "any_center") return "any_center";
+  return "timed";
+}
+
+/** Mã ca là mã nghỉ phép (P) — 0 công nhưng tính vào ngày nghỉ có/không lương */
+export const isLeaveShift = (kind: ShiftKind) => kind === "leave";
+
+/**
+ * Phút định mức mặc định của mã ca (Giờ KH của bản gốc).
+ * `paid_break` → tính trọn từ đầu đoạn đầu tới cuối đoạn cuối (nghỉ giữa giờ vẫn tính công).
+ */
+export function nominalMinutesOf(segments: readonly ShiftSegment[], payMode: PayMode = "normal"): number {
+  if (!segments.length) return 0;
+  if (payMode !== "paid_break") return plannedMinutesOf(segments);
+  const s = workSegments(segments);
+  if (!s.length) return plannedMinutesOf(segments);
+  return Math.max(0, s[s.length - 1]!.to - s[0]!.from);
+}
 
 /** Kiểm tra khai báo mã ca */
 export function validateShiftDef(s: ShiftDef): string[] {
@@ -145,6 +186,12 @@ export const SHIFT_CATALOGUE: (ShiftDef & { fixedCenterCode?: string })[] = [
   { code: "P", name: "Nghỉ phép", kind: "leave", units: 0, segments: [], workplace: "flexible", punchRequired: false },
 ];
 
+/**
+ * Quy tắc vàng của bản gốc khi sửa một mã ca: giờ và số công **chụp ảnh vào ô phân ca
+ * lúc xếp**, nên sửa mã ca không làm đổi lịch đã xếp.
+ */
+export const SHIFT_EDIT_WARNING = "Đổi giờ/số công chỉ áp cho ô xếp SAU khi lưu — lịch đã xếp giữ nguyên.";
+
 /** Mã ca mặc định sinh từ đơn đã duyệt */
 export const SHIFT_CODE_OFF = "X";
 export const SHIFT_CODE_LEAVE = "P";
@@ -162,5 +209,81 @@ export type CellOrigin = (typeof CELL_ORIGINS)[number];
 export const CELL_ORIGIN_VI: Record<CellOrigin, string> = { template: "Sinh từ khung", manual: "Sửa tay", request: "Từ đơn đã duyệt", import: "Nhập từ Sheet" };
 export const CELL_ORIGIN_MARK: Record<CellOrigin, string> = { template: "", manual: "T", request: "Đ", import: "N" };
 
-/** Ô được giữ nguyên khi sinh lưới từ khung hoặc import lại */
+/** Ô được giữ nguyên khi **import lại từ Sheet** (file được đè ô do chính file cũ tạo) */
 export const isProtectedCell = (o: CellOrigin) => o === "manual" || o === "request";
+
+/**
+ * Ô được giữ nguyên khi **sinh lưới từ khung ca tuần**:
+ * sửa tay / đơn đã duyệt / file import — bản gốc gọi là "Ô được bảo vệ".
+ */
+export const isTemplateProtected = (o: CellOrigin) => o === "manual" || o === "request" || o === "import";
+
+/* ------------------------------------------------------------------ */
+/* Sinh lưới phân ca: 8 nhóm kết quả của bản gốc                       */
+/* ------------------------------------------------------------------ */
+
+export const ROSTER_CELL_RESULTS = [
+  "created", "recoded", "kept", "removed", "protected", "skipped_past", "out_of_scope", "unknown_code",
+] as const;
+export type RosterCellResult = (typeof ROSTER_CELL_RESULTS)[number];
+
+/** Tên nhóm — dùng đúng chữ của bản gốc */
+export const ROSTER_CELL_RESULT_VI: Record<RosterCellResult, string> = {
+  created: "Ô mới",
+  recoded: "Ô đổi mã",
+  kept: "Ô giữ nguyên",
+  removed: "Ô bị xoá",
+  protected: "Ô được bảo vệ",
+  skipped_past: "Ô chừa lại",
+  out_of_scope: "Ô ngoài quyền",
+  unknown_code: "Mã lạ",
+};
+
+/** Giải thích ngắn từng nhóm — hiển thị dưới bảng tổng hợp khi chạy thử */
+export const ROSTER_CELL_RESULT_NOTE: Record<RosterCellResult, string> = {
+  created: "Ô chưa có ca, lưới ghi mã của khung vào.",
+  recoded: "Ô đã có ca nhưng khác mã trong khung — lưới ghi mã mới đè lên.",
+  kept: "Ô đã đúng mã của khung — không ghi lại.",
+  removed: "Khung không xếp ngày này mà ô cũ do lưới sinh ra — ô bị xoá.",
+  protected: "Ô được bảo vệ (sửa tay / đơn đã duyệt / file import).",
+  skipped_past: "Ô chừa lại (ngày đã qua và hôm nay — lưới chỉ áp từ NGÀY MAI).",
+  out_of_scope: "Ô ngoài quyền (khối không được xếp).",
+  unknown_code: "Mã lạ (mã trong khung ca không có trong danh mục).",
+};
+
+export interface RosterCellInput {
+  /** Ngày của ô */
+  date: string;
+  /** Hôm nay (giờ Việt Nam) — lưới chỉ áp từ NGÀY MAI */
+  today: string;
+  /** Mã ca khung ca tuần đặt cho ngày này; null = khung không xếp */
+  templateCode: string | null;
+  /** Mã ca đang có trên lưới; null = ô trống */
+  currentCode: string | null;
+  /** Nguồn ô đang có trên lưới */
+  currentOrigin: CellOrigin | null;
+  /** Người này thuộc khối mà người xếp được phép xếp hay không */
+  inScope?: boolean;
+  /** Mã ca của khung có trong danh mục đang dùng hay không */
+  knownCode?: boolean;
+}
+
+/**
+ * Xếp một ô của lưới phân ca vào **đúng một** trong 8 nhóm của bản gốc.
+ *
+ * Thứ tự xét: ngoài quyền → ngày đã qua / hôm nay → ô được bảo vệ → mã lạ →
+ * rồi mới so khung với ô đang có (mới / đổi mã / giữ nguyên / bị xoá).
+ */
+export function classifyRosterCell(i: RosterCellInput): RosterCellResult {
+  if (i.inScope === false) return "out_of_scope";
+  if (i.date <= i.today) return "skipped_past";
+  if (i.currentOrigin && isTemplateProtected(i.currentOrigin)) return "protected";
+  if (i.templateCode && i.knownCode === false) return "unknown_code";
+  if (!i.templateCode) return i.currentCode ? "removed" : "kept";
+  if (!i.currentCode) return "created";
+  return i.currentCode === i.templateCode ? "kept" : "recoded";
+}
+
+/** Đếm rỗng cho 8 nhóm — dùng làm điểm khởi đầu khi tổng hợp */
+export const emptyRosterTally = (): Record<RosterCellResult, number> =>
+  Object.fromEntries(ROSTER_CELL_RESULTS.map((k) => [k, 0])) as Record<RosterCellResult, number>;

@@ -8,6 +8,7 @@ import { originLabel, originMark, units, wdOf, dmy } from "@/components/hr-ui";
 import type { RouterOutputs } from "@/lib/trpc/types";
 
 type Roster = RouterOutputs["hr"]["roster"];
+type Gen = RouterOutputs["hr"]["generateRoster"];
 
 const WD = ["", "T2", "T3", "T4", "T5", "T6", "T7", "CN"];
 
@@ -21,9 +22,14 @@ export function RosterMonth({ centerId, period, data }: { centerId: string; peri
     onSuccess: (r) => { setMsg({ ok: true, text: `Đã xếp ${r.set} ô, xoá ${r.cleared} ô` }); setSel(null); router.refresh(); },
     onError: (e) => setMsg({ ok: false, text: e.message }),
   }));
+  const [gen8, setGen8] = useState<Gen | null>(null);
   const gen = useMutation(trpc.hr.generateRoster.mutationOptions({
-    onSuccess: (r) => { setMsg({ ok: true, text: `Sinh lưới: ${r.created} ô mới · ${r.updated} ô cập nhật · giữ ${r.kept} ô sửa tay / từ đơn` }); router.refresh(); },
-    onError: (e) => setMsg({ ok: false, text: e.message }),
+    onSuccess: (r) => {
+      setGen8(r);
+      setMsg({ ok: true, text: r.applied ? `Đã ghi thật: ${r.tally.created} ô mới · ${r.tally.recoded} ô đổi mã · ${r.tally.removed} ô bị xoá · giữ ${r.tally.protected} ô được bảo vệ` : "Chạy thử xong — chưa ghi gì. Soát bảng dưới rồi bấm Ghi thật." });
+      if (r.applied) router.refresh();
+    },
+    onError: (e) => { setGen8(null); setMsg({ ok: false, text: e.message }); },
   }));
   const locked = !!data.lockedPeriod;
   const canEdit = data.canEdit && !locked;
@@ -49,9 +55,13 @@ export function RosterMonth({ centerId, period, data }: { centerId: string; peri
       {tab === "grid" && (
         <>
           {canEdit && (
-            <div className="flex flex-wrap items-center gap-2 text-xs">
-              <button className="btn-ghost !py-1 text-xs" disabled={gen.isPending} onClick={() => gen.mutate({ centerId, period })}>Sinh lưới từ khung ca tuần</button>
-              <span className="text-ink-400">Ô sửa tay và ô từ đơn đã duyệt không bị ghi đè.</span>
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <button className="btn-ghost !py-1 text-xs" disabled={gen.isPending} onClick={() => gen.mutate({ centerId, period, dryRun: true })}>Chạy thử sinh lưới từ khung ca tuần</button>
+                <button className="btn-primary !py-1 text-xs" disabled={gen.isPending || !gen8 || gen8.applied} onClick={() => gen.mutate({ centerId, period })}>Ghi thật</button>
+                <span className="text-ink-400">Chạy thử trước để soát 8 nhóm kết quả; ô được bảo vệ (sửa tay / đơn đã duyệt / file import) không bị đụng. Lưới chỉ áp từ NGÀY MAI.</span>
+              </div>
+              {gen8 && <GenResult data={gen8} />}
             </div>
           )}
           <div className="card overflow-x-auto">
@@ -119,6 +129,43 @@ export function RosterMonth({ centerId, period, data }: { centerId: string; peri
   );
 }
 
+/** Bảng tổng hợp 8 nhóm kết quả của bản gốc — kèm giải thích ngắn từng nhóm */
+function GenResult({ data }: { data: Gen }) {
+  const [open, setOpen] = useState<string | null>(null);
+  return (
+    <div className="card p-3 text-xs">
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <b>{data.applied ? "Đã ghi thật" : "Chạy thử (chưa ghi gì)"}</b>
+        <span className="text-ink-500">Kỳ {data.period} · lưới áp từ {dmy(data.appliedFrom)}</span>
+      </div>
+      <table className="w-full">
+        <thead className="text-left text-ink-400"><tr><th className="p-1">Nhóm</th><th className="p-1 text-right">Số ô</th><th className="p-1">Nghĩa là gì</th><th className="p-1"></th></tr></thead>
+        <tbody className="divide-y divide-black/5">
+          {data.groups.map((g) => (
+            <tr key={g.key} className={g.count ? "" : "text-ink-400"}>
+              <td className="p-1 font-medium">{g.label}</td>
+              <td className="p-1 text-right tabular-nums font-semibold">{g.count}</td>
+              <td className="p-1 text-ink-500">{g.note}</td>
+              <td className="p-1 text-right">
+                {g.samples.length > 0 && <button className="text-brand-700" onClick={() => setOpen(open === g.key ? null : g.key)}>{open === g.key ? "Ẩn" : "Xem ô"}</button>}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {open && (
+        <div className="mt-2 rounded-lg bg-black/5 p-2">
+          {(data.groups.find((g) => g.key === open)?.samples ?? []).map((s, i) => (
+            <div key={i}>{s.staffName} · {dmy(s.date)}{s.from || s.to ? ` — ${s.from ?? "—"} → ${s.to ?? "—"}` : ""}</div>
+          ))}
+          <div className="text-ink-400">Hiển thị tối đa 20 ô đầu tiên của nhóm.</div>
+        </div>
+      )}
+      {data.unknownCodes.length > 0 && <div className="mt-2 text-amber-700">Mã lạ trong khung ca: {data.unknownCodes.join(", ")} — khai ở Cấu hình → Mã ca rồi chạy lại.</div>}
+    </div>
+  );
+}
+
 function TemplateGrid({ centerId, data, canEdit, onMsg }: { centerId: string; data: Roster; canEdit: boolean; onMsg: (m: { ok: boolean; text: string }) => void }) {
   const trpc = useTRPC();
   const router = useRouter();
@@ -130,7 +177,7 @@ function TemplateGrid({ centerId, data, canEdit, onMsg }: { centerId: string; da
   const set = (staffId: string, wd: number, v: string) => setDraft((d) => ({ ...d, [`${staffId}|${wd}`]: v }));
   return (
     <div className="space-y-2">
-      <p className="text-xs text-ink-500">Khung ca tuần là mẫu để sinh lưới tháng: mỗi người × thứ = một mã ca. Sinh lưới không đụng vào ô sửa tay và ô từ đơn đã duyệt.</p>
+      <p className="text-xs text-ink-500">Khung ca tuần là mẫu để sinh lưới tháng: mỗi người × thứ = một mã ca. Sinh lưới không đụng vào ô được bảo vệ (sửa tay / đơn đã duyệt / file import) và chỉ áp từ NGÀY MAI.</p>
       <div className="card overflow-x-auto">
         <table className="w-full text-xs">
           <thead><tr className="text-ink-400"><th className="p-2 text-left">Nhân sự</th>{[1, 2, 3, 4, 5, 6, 7].map((w) => <th key={w} className="p-2">{WD[w]}</th>)}</tr></thead>

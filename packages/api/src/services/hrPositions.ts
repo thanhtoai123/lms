@@ -94,7 +94,7 @@ async function syncRolesOfPosition(tx: Db, ctx: ProtectedContext, positionId: st
 /* Phân công người vào vị trí                                          */
 /* ------------------------------------------------------------------ */
 
-export async function assignPosition(ctx: ProtectedContext, input: { staffId: string; positionId?: string | null; centerId: string; title?: string | null; department: string; kind: PositionKind; effectiveFrom: string; effectiveTo?: string | null; note?: string | null }) {
+export async function assignPosition(ctx: ProtectedContext, input: { staffId: string; positionId?: string | null; centerId: string; title?: string | null; department: string; kind: PositionKind; effectiveFrom: string; effectiveTo?: string | null; decisionNo?: string | null; note?: string | null }) {
   const s = await ctx.db.query.staff.findFirst({ where: eq(staff.id, input.staffId) });
   if (!s) throw notFound("Không tìm thấy nhân sự");
   requirePermission(ctx, "staff:update", { centerId: s.centerId });
@@ -113,7 +113,8 @@ export async function assignPosition(ctx: ProtectedContext, input: { staffId: st
   return ctx.db.transaction(async (txx) => {
     const tx = txx as unknown as Db;
     const [row] = await tx.insert(staffPositions).values({
-      staffId: s.id, positionId: def?.id ?? null, ...p, department: input.department, note: input.note?.trim() || null, createdBy: ctx.user.id,
+      staffId: s.id, positionId: def?.id ?? null, ...p, department: input.department,
+      decisionNo: input.decisionNo?.trim() || null, note: input.note?.trim() || null, createdBy: ctx.user.id,
     }).returning({ id: staffPositions.id });
     const roles = (def?.roles ?? []) as Role[];
     if (s.userId && roles.length) {
@@ -123,7 +124,7 @@ export async function assignPosition(ctx: ProtectedContext, input: { staffId: st
       })));
     }
     if (input.kind === "primary" && input.effectiveFrom <= todayISO()) await tx.update(staff).set({ title, department: input.department, centerId: input.centerId }).where(eq(staff.id, s.id));
-    await writeAudit(tx, { actorId: ctx.user.id, action: "CREATE", module: "hr", entity: "staff_positions", entityId: row!.id, after: { staff: s.code, position: def?.name ?? null, roles, ...p }, ip: ctx.ip });
+    await writeAudit(tx, { actorId: ctx.user.id, action: "CREATE", module: "hr", entity: "staff_positions", entityId: row!.id, after: { staff: s.code, position: def?.name ?? null, roles, decisionNo: input.decisionNo?.trim() || null, ...p }, ip: ctx.ip });
     if (s.userId && s.userId !== ctx.user.id) {
       await notify(tx, [s.userId], "Cập nhật vị trí công việc", `${title} (${POSITION_KIND_VI[input.kind].toLowerCase()}) từ ${dmy(p.effectiveFrom)}${roles.length ? ` · ${roles.length} vai trò` : ""}`, `/nhan-su/${s.id}`, 3);
     }
@@ -150,7 +151,7 @@ export async function listDeployments(ctx: ProtectedContext, input: { centerId?:
   };
 }
 
-export async function addDeployment(ctx: ProtectedContext, input: { staffId: string; centerId: string; effectiveFrom: string; effectiveTo?: string | null; reason: string; note?: string | null }) {
+export async function addDeployment(ctx: ProtectedContext, input: { staffId: string; centerId: string; effectiveFrom: string; effectiveTo?: string | null; reason: string; decisionNo?: string | null; note?: string | null }) {
   const s = await ctx.db.query.staff.findFirst({ where: eq(staff.id, input.staffId) });
   if (!s) throw notFound("Không tìm thấy nhân sự");
   requirePermission(ctx, "staff:update", { centerId: s.centerId });
@@ -164,10 +165,15 @@ export async function addDeployment(ctx: ProtectedContext, input: { staffId: str
     .where(and(eq(staffDeployments.staffId, s.id), eq(staffDeployments.centerId, input.centerId),
       lte(staffDeployments.effectiveFrom, input.effectiveTo ?? "9999-12-31"), or(isNull(staffDeployments.effectiveTo), gte(staffDeployments.effectiveTo, input.effectiveFrom))!)).limit(1);
   if (dup.length) throw pre("Đã có điều động tới cơ sở này trong khoảng thời gian trên");
-  const [row] = await ctx.db.insert(staffDeployments).values({
-    staffId: s.id, centerId: input.centerId, effectiveFrom: input.effectiveFrom, effectiveTo: input.effectiveTo || null, reason, note: input.note?.trim() || null, createdBy: ctx.user.id,
-  }).returning({ id: staffDeployments.id });
-  await writeAudit(ctx.db, { actorId: ctx.user.id, action: "CREATE", module: "hr", entity: "staff_deployments", entityId: row!.id, after: { staff: s.code, centerId: input.centerId, from: input.effectiveFrom, to: input.effectiveTo ?? null }, reason, ip: ctx.ip });
+  const [row] = await ctx.db.transaction(async (txx) => {
+    const tx = txx as unknown as Db;
+    const r = await tx.insert(staffDeployments).values({
+      staffId: s.id, centerId: input.centerId, effectiveFrom: input.effectiveFrom, effectiveTo: input.effectiveTo || null, reason,
+      decisionNo: input.decisionNo?.trim() || null, note: input.note?.trim() || null, createdBy: ctx.user.id,
+    }).returning({ id: staffDeployments.id });
+    await writeAudit(tx, { actorId: ctx.user.id, action: "CREATE", module: "hr", entity: "staff_deployments", entityId: r[0]!.id, after: { staff: s.code, centerId: input.centerId, from: input.effectiveFrom, to: input.effectiveTo ?? null, decisionNo: input.decisionNo?.trim() || null }, reason, ip: ctx.ip });
+    return r;
+  });
   if (s.userId) await notify(ctx.db, [s.userId], "Điều động tác nghiệp", `Làm việc tại cơ sở khác từ ${dmy(input.effectiveFrom)}${input.effectiveTo ? ` đến ${dmy(input.effectiveTo)}` : ""}`, "/cham-cong/lich-ca", 3);
   return { id: row!.id };
 }

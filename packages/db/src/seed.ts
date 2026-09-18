@@ -22,7 +22,7 @@ import {
   posts, siteBlocks, campaigns, campaignSpends, trackEvents, consentRecords, dataRequests, dataRequestEvents,
   jobPostings, candidates, candidateEvents, conversations, messages, affiliates,
 } from "./schema/index";
-import { SHIFT_CATALOGUE, plannedMinutesOf, workSegments, COIN_RULE_DEFS } from "@satarobo/core";
+import { SHIFT_CATALOGUE, plannedMinutesOf, workSegments, COIN_RULE_DEFS, attendanceModeOf, isLeaveShift, nominalMinutesOf, type PayMode } from "@satarobo/core";
 import { generateSessions, buildClassCode, buildStudentCode, toISODate, addDays, orderCode, receiptNumber, packagePrice, buildInstallmentPlan, computeCommission, describeRule, periodOf, fmtMin, hhmm, weekdayOf, leaveDays, requestCode, slaDue, SETTINGS_DEFAULTS, CONSENT_TEXT_VERSION, dsrCode, dsrDue } from "@satarobo/core";
 import { courseCompletions } from "./schema/index";
 import {
@@ -373,12 +373,18 @@ async function main() {
   await db.update(centers).set({ latitude: 16.0336, longitude: 108.2212, checkinRadiusM: 150 }).where(eq(centers.id, cs1!.id));
   // Danh mục mã ca gốc (dùng chung — Hội sở giữ)
   const shiftRows = await db.insert(workShifts).values(
-    SHIFT_CATALOGUE.map((sh, i) => ({
-      centerId: null, code: sh.code, name: sh.name, kind: sh.kind, units: sh.units, segments: sh.segments,
-      plannedMinutes: plannedMinutesOf(sh.segments), workplace: sh.workplace,
-      workplaceCenterId: sh.fixedCenterCode === "CS1" ? cs1!.id : sh.fixedCenterCode === "CS2" ? cs2!.id : null,
-      punchRequired: sh.punchRequired, sortOrder: i, isActive: true,
-    })),
+    SHIFT_CATALOGUE.map((sh, i) => {
+      // CS và CT của bản gốc: nghỉ giữa giờ vẫn tính công
+      const payMode: PayMode = sh.code === "CS" || sh.code === "CT" ? "paid_break" : "normal";
+      return {
+        centerId: null, code: sh.code, name: sh.name, kind: sh.kind, units: sh.units, segments: sh.segments,
+        plannedMinutes: plannedMinutesOf(sh.segments), workplace: sh.workplace,
+        workplaceCenterId: sh.fixedCenterCode === "CS1" ? cs1!.id : sh.fixedCenterCode === "CS2" ? cs2!.id : null,
+        punchRequired: sh.punchRequired, sortOrder: i, isActive: true,
+        dayCredit: sh.units, isLeave: isLeaveShift(sh.kind), nominalMinutes: nominalMinutesOf(sh.segments, payMode),
+        payMode, attendanceMode: attendanceModeOf(sh.kind, sh.workplace),
+      };
+    }),
   ).returning();
   const shiftByCode = new Map(shiftRows.map((r) => [r.code, r]));
   const shHC = shiftByCode.get("HC")!;
@@ -400,13 +406,13 @@ async function main() {
     { u: t1U!, code: "NV0006", department: "academic", title: "Giáo viên chính", hiredAt: "2025-05-20", status: "active" as const, shift: shC!, teacherId: gv1!.id },
   ];
   const staffRows = await db.insert(staff).values([
-    ...staffDefs.map((d) => ({ code: d.code, userId: d.u.id, teacherId: d.teacherId ?? null, fullName: d.u.fullName, email: d.u.email, centerId: cs1!.id, department: d.department, title: d.title, employmentType: "full_time" as const, status: d.status, hiredAt: d.hiredAt, createdBy: adminU!.id })),
+    ...staffDefs.map((d, i) => ({ code: d.code, userId: d.u.id, teacherId: d.teacherId ?? null, fullName: d.u.fullName, email: d.u.email, centerId: cs1!.id, department: d.department, title: d.title, employmentType: "full_time" as const, status: d.status, hiredAt: d.hiredAt, isPublic: !!d.teacherId, displayOrder: i + 1, createdBy: adminU!.id })),
     { code: "NV0007", fullName: "Nhân viên cũ (mẫu)", centerId: cs1!.id, department: "operations", title: "Lễ tân", employmentType: "part_time" as const, status: "resigned" as const, hiredAt: "2024-06-01", leftAt: "2026-05-31", statusReason: "Chuyển công tác (mẫu)", createdBy: adminU!.id },
   ]).returning();
   const [stMgr, stSale1, stSale2, stKt, stHr, stGv1, stOld] = staffRows;
   await db.insert(staffPrivate).values([
-    { staffId: stMgr!.id, idNumber: "048090001234", birthDate: "1990-04-12", baseSalary: 15_000_000, allowance: 2_000_000, bankName: "Vietcombank", bankAccount: "0000000001" },
-    { staffId: stSale1!.id, idNumber: "048095004321", baseSalary: 8_000_000, allowance: 500_000 },
+    { staffId: stMgr!.id, idNumber: "048090001234", birthDate: "1990-04-12", baseSalary: 15_000_000, allowance: 2_000_000, bankName: "Vietcombank", bankAccount: "0000000001", salaryRank: 6, salaryLevel: 3, bhxhBase: 12_000_000, emergencyContact: "Trần Thị B - Vợ - 0905000111" },
+    { staffId: stSale1!.id, idNumber: "048095004321", baseSalary: 8_000_000, allowance: 500_000, salaryRank: 3, salaryLevel: 2, bhxhBase: 7_000_000, emergencyContact: "Lê Văn C - Anh trai - 0905000222" },
   ]);
   await db.insert(staffPositions).values([
     ...staffDefs.map((d, i) => ({ staffId: staffRows[i]!.id, centerId: cs1!.id, positionId: i === 0 ? posMgr!.id : null, title: d.title, department: d.department, kind: "primary" as const, effectiveFrom: d.hiredAt, createdBy: adminU!.id })),
@@ -427,7 +433,11 @@ async function main() {
       const segs = workSegments(d.shift.segments ?? []);
       const segStart = segs[0]?.from ?? 480;
       const segEnd = segs[segs.length - 1]?.to ?? 1020;
-      asg.push({ staffId: st.id, date: day, shiftId: d.shift.id, centerId: cs1!.id, origin: "template" as const, createdBy: hrU!.id });
+      // ảnh chụp giờ + số công lúc xếp ô (sửa mã ca sau này không đổi lịch đã xếp)
+      asg.push({
+        staffId: st.id, date: day, shiftId: d.shift.id, centerId: cs1!.id, origin: "template" as const, createdBy: hrU!.id,
+        unitsSnapshot: d.shift.units, minutesSnapshot: d.shift.nominalMinutes || d.shift.plannedMinutes, segmentsSnapshot: d.shift.segments ?? [],
+      });
       if (k >= 0 || absent.get(st.id) === day) continue;
       const jitter = (i * 7 + k * 3 + 30) % 9;
       let inMin = segStart - jitter;
@@ -2404,8 +2414,8 @@ async function seedDemoVolume(x: DemoCtx): Promise<void> {
   const shS2Id = uid();
   const shC2Id = uid();
   await db.insert(workShifts).values([
-    { id: shS2Id, centerId: cs2.id, code: "S2", name: "Ca sáng CS2", kind: "timed" as const, units: 0.5, segments: [{ from: "07:30", to: "11:30" }], plannedMinutes: 240, workplace: "own_center" as const, punchRequired: true },
-    { id: shC2Id, centerId: cs2.id, code: "C2", name: "Ca chiều tối CS2", kind: "timed" as const, units: 1, segments: [{ from: "13:30", to: "21:00" }], plannedMinutes: 450, workplace: "own_center" as const, punchRequired: true },
+    { id: shS2Id, centerId: cs2.id, code: "S2", name: "Ca sáng CS2", kind: "timed" as const, units: 0.5, segments: [{ from: "07:30", to: "11:30" }], plannedMinutes: 240, workplace: "own_center" as const, punchRequired: true, dayCredit: 0.5, nominalMinutes: 240, attendanceMode: "timed" as const },
+    { id: shC2Id, centerId: cs2.id, code: "C2", name: "Ca chiều tối CS2", kind: "timed" as const, units: 1, segments: [{ from: "13:30", to: "21:00" }], plannedMinutes: 450, workplace: "own_center" as const, punchRequired: true, dayCredit: 1, nominalMinutes: 450, attendanceMode: "timed" as const },
   ]);
   const clockOf = (sh: { segments: { from: string; to: string; paid?: boolean }[] }) => {
     const segs = workSegments(sh.segments ?? []);
@@ -2413,8 +2423,13 @@ async function seedDemoVolume(x: DemoCtx): Promise<void> {
   };
   const hcClock = clockOf(x.shHC);
   const c1Clock = clockOf(x.shC1);
+  const snapOf = (sh: { units: number; nominalMinutes?: number | null; plannedMinutes: number; segments: { from: string; to: string; paid?: boolean }[] }) =>
+    ({ units: sh.units, minutes: sh.nominalMinutes || sh.plannedMinutes, segments: sh.segments ?? [] });
+  const c2Snap = { units: 1, minutes: 450, segments: [{ from: "13:30", to: "21:00" }] };
   const shiftFor = (p: { centerId: string; kind: HrKind }) =>
-    p.kind === "office" ? { id: x.shHC.id, ...hcClock } : p.centerId === cs1.id ? { id: x.shC1.id, ...c1Clock } : { id: shC2Id, start: 810, end: 1260 };
+    p.kind === "office" ? { id: x.shHC.id, ...hcClock, ...snapOf(x.shHC) }
+      : p.centerId === cs1.id ? { id: x.shC1.id, ...c1Clock, ...snapOf(x.shC1) }
+        : { id: shC2Id, start: 810, end: 1260, ...c2Snap };
   const workDays = (kind: HrKind) => (kind === "office" ? [1, 2, 3, 4, 5, 6] : kind === "teacher" ? [2, 3, 4, 5, 6, 7] : [2, 4, 6]);
   const coords = (centerId: string) => (centerId === cs1.id ? { lat: 16.0336, lng: 108.2212 } : { lat: 16.0678, lng: 108.2208 });
   const asgIns: (typeof shiftAssignments.$inferInsert)[] = [];
@@ -2484,7 +2499,12 @@ async function seedDemoVolume(x: DemoCtx): Promise<void> {
     for (let k = -30; k <= 7; k++) {
       const day = addDays(today, k);
       if (!workDays(p.kind).includes(weekdayOf(day))) continue;
-      asgIns.push({ staffId: p.staffId, date: day, shiftId: sh.id, centerId: p.centerId, origin: "template" as const, createdBy: hrAdmin, createdAt: notFuture(vnAt(addDays(day, -7), "16:00")) });
+      asgIns.push({
+        staffId: p.staffId, date: day, shiftId: sh.id, centerId: p.centerId, origin: "template" as const, createdBy: hrAdmin,
+        createdAt: notFuture(vnAt(addDays(day, -7), "16:00")),
+        // ảnh chụp giờ + số công lúc xếp ô
+        unitsSnapshot: sh.units, minutesSnapshot: sh.minutes, segmentsSnapshot: sh.segments,
+      });
       if (k > 0 || leaveSet.has(`${p.staffId}|${day}`)) continue;
       let inMin: number | null = s0 - int(1, 12);
       let outMin: number | null = e0 + int(0, 12);

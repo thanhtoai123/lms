@@ -21,7 +21,7 @@ export default async function NewStaffPage() {
       <StaffForm
         centers={ref.centers.map((c) => ({ id: c.id, code: c.code, name: c.name }))}
         canSalary={canSalary}
-        initial={{ fullName: "", email: "", phone: "", centerId: ref.centers[0]?.id ?? "", department: "sales", title: "", employmentType: "full_time", hiredAt: today, annualLeaveDays: 12, notes: "", userId: "", teacherId: "", private: canSalary ? emptyPrivate : null }}
+        initial={{ fullName: "", email: "", phone: "", centerId: ref.centers[0]?.id ?? "", department: "sales", title: "", employmentType: "full_time", hiredAt: today, annualLeaveDays: 12, notes: "", userId: "", teacherId: "", avatarUrl: "", bio: "", isPublic: false, displayOrder: "0", private: canSalary ? emptyPrivate : null }}
       />
     </div>
   );

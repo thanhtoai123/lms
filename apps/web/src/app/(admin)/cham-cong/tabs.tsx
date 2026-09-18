@@ -3,6 +3,7 @@ import Link from "next/link";
 const TABS = [
   { key: "bang-cong", label: "Bảng công ngày", href: "/cham-cong" },
   { key: "phan-ca", label: "Lưới phân ca", href: "/cham-cong/phan-ca" },
+  { key: "ky-cong", label: "Kỳ công & chốt", href: "/cham-cong/ky-cong" },
   { key: "don-tu", label: "Đơn từ", href: "/don-tu" },
   { key: "danh-muc-ca", label: "Mã ca", href: "/cham-cong/danh-muc-ca" },
   { key: "diem-cham", label: "Điểm chấm công", href: "/cham-cong/diem-cham" },

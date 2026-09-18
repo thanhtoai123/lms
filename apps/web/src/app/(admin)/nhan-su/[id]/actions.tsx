@@ -61,7 +61,7 @@ export function PositionActions(props: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [f, setF] = useState({ centerId: props.mode === "add" ? props.centerId : "", positionId: "", title: "", kind: "concurrent" as PositionKind, department: (props.mode === "add" ? props.department : "sales") as Department, from: today(), to: "", note: "", reason: "" });
+  const [f, setF] = useState({ centerId: props.mode === "add" ? props.centerId : "", positionId: "", title: "", kind: "concurrent" as PositionKind, department: (props.mode === "add" ? props.department : "sales") as Department, from: today(), to: "", decisionNo: "", note: "", reason: "" });
   const defs = useQuery({ ...trpc.hr.positionDefs.queryOptions({}), enabled: props.mode === "add" && open });
   const done = { onSuccess: () => { setOpen(false); setErr(null); router.refresh(); }, onError: (e: { message: string }) => setErr(e.message) };
   const add = useMutation(trpc.hr.assignPosition.mutationOptions(done));
@@ -91,10 +91,11 @@ export function PositionActions(props: Props) {
       <label className="text-xs text-ink-600">Bộ phận<select className="input mt-1" value={f.department} onChange={(e) => setF({ ...f, department: e.target.value as Department })}>{DEPARTMENTS.map((k) => <option key={k} value={k}>{DEPARTMENT_VI[k]}</option>)}</select></label>
       <label className="text-xs text-ink-600">Từ ngày<input type="date" className="input mt-1" value={f.from} onChange={(e) => setF({ ...f, from: e.target.value })} /></label>
       <label className="text-xs text-ink-600">Đến ngày {f.kind === "delegated" ? "(bắt buộc, ≤ 90 ngày)" : "(tuỳ chọn)"}<input type="date" className="input mt-1" value={f.to} onChange={(e) => setF({ ...f, to: e.target.value })} /></label>
+      <label className="text-xs text-ink-600">Số quyết định<input className="input mt-1" value={f.decisionNo} onChange={(e) => setF({ ...f, decisionNo: e.target.value })} placeholder="VD: 07/2026/QĐ-SR" maxLength={60} /></label>
       <label className="text-xs text-ink-600">Ghi chú<input className="input mt-1" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></label>
       {f.kind === "primary" && <p className="text-xs text-amber-700 sm:col-span-3">Vị trí chính mới không được trùng thời gian với vị trí chính cũ — kết thúc vị trí cũ trước (ngày trước ngày bắt đầu mới).</p>}
       <div className="flex items-center gap-2 sm:col-span-3">
-        <button className="btn-primary" disabled={add.isPending || (!f.positionId && f.title.trim().length < 2)} onClick={() => add.mutate({ staffId: props.staffId, positionId: f.positionId || null, centerId: f.centerId, title: f.title.trim() || null, department: f.department, kind: f.kind, effectiveFrom: f.from, effectiveTo: f.to || null, note: f.note || null })}>Thêm</button>
+        <button className="btn-primary" disabled={add.isPending || (!f.positionId && f.title.trim().length < 2)} onClick={() => add.mutate({ staffId: props.staffId, positionId: f.positionId || null, centerId: f.centerId, title: f.title.trim() || null, department: f.department, kind: f.kind, effectiveFrom: f.from, effectiveTo: f.to || null, decisionNo: f.decisionNo.trim() || null, note: f.note || null })}>Thêm</button>
         <button className="btn-ghost" onClick={() => setOpen(false)}>Huỷ</button>
         {err && <span className="text-sm text-red-700">{err}</span>}
       </div>

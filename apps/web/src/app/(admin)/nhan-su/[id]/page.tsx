@@ -30,7 +30,8 @@ export default async function StaffDetailPage({ params, searchParams }: { params
           current={{ account: s.account ? { id: s.account.id, email: s.account.email } : null, teacher: s.teacher ?? null }}
           initial={{
             id: s.id, fullName: s.fullName, email: s.email ?? "", phone: s.phone ?? "", centerId: s.centerId, department: s.department as Department, title: s.title,
-            employmentType: s.employmentType, hiredAt: s.hiredAt ?? "", annualLeaveDays: s.annualLeaveDays, notes: s.notes ?? "", userId: s.userId ?? "", teacherId: s.teacherId ?? "", private: null,
+            employmentType: s.employmentType, hiredAt: s.hiredAt ?? "", annualLeaveDays: s.annualLeaveDays, notes: s.notes ?? "", userId: s.userId ?? "", teacherId: s.teacherId ?? "",
+            avatarUrl: s.avatarUrl ?? "", bio: s.bio ?? "", isPublic: s.isPublic, displayOrder: String(s.displayOrder ?? 0), private: null,
           }}
         />
       </div>
@@ -70,6 +71,8 @@ export default async function StaffDetailPage({ params, searchParams }: { params
                   <div>Ngày sinh: {dmy(s.private.birthDate)}</div>
                   <div>MST: {s.private.taxCode ?? "—"} · BHXH: {s.private.insuranceNo ?? "—"}</div>
                   <div>Lương cơ bản: <b>{s.private.baseSalary != null ? vnd(s.private.baseSalary) : "—"}</b> · Phụ cấp: {s.private.allowance != null ? vnd(s.private.allowance) : "—"}</div>
+                  <div>Ngạch: {s.private.salaryRank ?? "—"} · Bậc: {s.private.salaryLevel ?? "—"} · Đóng BHXH: {s.private.bhxhBase != null ? vnd(s.private.bhxhBase) : "—"}</div>
+                  {s.private.emergencyContact && <div>Liên hệ khẩn cấp: {s.private.emergencyContact}</div>}
                   {s.private.address && <div>Địa chỉ: {s.private.address}</div>}
                   {s.private.hasIdNumber && <RevealPrivate id={s.id} />}
                 </>

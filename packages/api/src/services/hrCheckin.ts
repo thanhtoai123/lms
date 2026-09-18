@@ -131,7 +131,8 @@ export async function checkinInfo(ctx: ProtectedContext, input: { token: string 
     staff: { id: s.id, code: s.code, fullName: s.fullName, centerId: s.centerId, exempt: s.timesheetExempt },
     today,
     punches: punches.map((p) => ({ kind: p.kind, at: p.at, time: fmtMin(vnParts(p.at).min), source: p.source })),
-    shift: sh ? { code: sh.code, name: sh.name, clock: (sh.segments ?? []).map((x) => `${x.from}–${x.to}`).join(", "), units: sh.units, punchRequired: sh.punchRequired } : null,
+    // giờ + số công theo ảnh chụp lúc xếp ô (sửa mã ca không đổi lịch đã xếp)
+    shift: sh ? { code: sh.code, name: sh.name, clock: (asg[0]!.a.segmentsSnapshot?.length ? asg[0]!.a.segmentsSnapshot : sh.segments ?? []).map((x) => `${x.from}–${x.to}`).join(", "), units: asg[0]!.a.unitsSnapshot ?? sh.units, punchRequired: sh.punchRequired } : null,
     nextKind: punches.some((p) => p.kind === "in") ? ("out" as const) : ("in" as const),
   };
 }
@@ -172,7 +173,7 @@ export async function punch(ctx: ProtectedContext, input: { token: string; kind:
     distanceM: g.distanceM, flags: [...new Set(flags)], ip: ctx.ip ?? null, createdBy: ctx.user.id,
     note: g.checked ? null : "Điểm chấm công chưa khai toạ độ — không kiểm bán kính",
   }).returning({ id: attendancePunches.id });
-  const cell = sh ? shiftLite(sh) : null;
+  const cell = sh ? shiftLite(sh, asg[0]!.a) : null;
   const warn = !sh ? "Hôm nay bạn không có ca — lượt chấm vẫn được ghi nhận"
     : flags.includes("wrong_place") ? "Bạn đang chấm ở cơ sở khác nơi làm của ca — quản lý sẽ rà lại"
       : input.kind === "out" && cell && cell.segments.length && vnParts(now).min < Math.max(...cell.segments.map((x) => Number(x.to.slice(0, 2)) * 60 + Number(x.to.slice(3, 5)))) ? "Chấm ra trước giờ kết thúc ca"

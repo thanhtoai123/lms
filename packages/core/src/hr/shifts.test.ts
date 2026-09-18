@@ -2,7 +2,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   SHIFT_CATALOGUE, validateShiftDef, plannedMinutesOf, workSegments, shiftClock, shiftCounts, shiftHasClock,
-  isProtectedCell, CELL_ORIGINS, type ShiftDef,
+  isProtectedCell, isTemplateProtected, CELL_ORIGINS, attendanceModeOf, isLeaveShift, nominalMinutesOf,
+  classifyRosterCell, emptyRosterTally, ROSTER_CELL_RESULTS, ROSTER_CELL_RESULT_VI, ROSTER_CELL_RESULT_NOTE,
+  ATTENDANCE_MODES, PAY_MODES, SHIFT_EDIT_WARNING, type ShiftDef, type RosterCellInput,
 } from "./shifts.js";
 
 const def = (o: Partial<ShiftDef>): ShiftDef => ({
@@ -64,5 +66,73 @@ test("nguồn ô lưới phân ca", () => {
   assert.equal(isProtectedCell("manual"), true);
   assert.equal(isProtectedCell("request"), true);
   assert.equal(isProtectedCell("template"), false);
+  // import lại từ Sheet được đè ô do chính file cũ tạo…
   assert.equal(isProtectedCell("import"), false);
+  // …nhưng sinh lưới từ khung thì ô import cũng được bảo vệ
+  assert.equal(isTemplateProtected("import"), true);
+  assert.equal(isTemplateProtected("manual"), true);
+  assert.equal(isTemplateProtected("request"), true);
+  assert.equal(isTemplateProtected("template"), false);
+});
+
+test("mã ca đúng model gốc: cách chấm công gộp, mã nghỉ, phút định mức", () => {
+  assert.deepEqual([...ATTENDANCE_MODES], ["timed", "location_only", "admin_hours", "any_center"]);
+  assert.deepEqual([...PAY_MODES], ["normal", "paid_break"]);
+  assert.equal(attendanceModeOf("timed", "own_center"), "timed");
+  assert.equal(attendanceModeOf("timed", "assigned"), "admin_hours");
+  assert.equal(attendanceModeOf("timed", "any_center"), "any_center");
+  assert.equal(attendanceModeOf("timed", "field"), "timed");
+  assert.equal(attendanceModeOf("location_only", "fixed_center"), "location_only");
+  assert.equal(attendanceModeOf("flexible", "flexible"), "location_only");
+  assert.equal(attendanceModeOf("off", "flexible"), "location_only");
+  assert.equal(isLeaveShift("leave"), true);
+  assert.equal(isLeaveShift("off"), false);
+  // CG: 09:00–11:30 + 14:00–17:45 = 6h15 dù chạy từ 09:00 tới 17:45
+  assert.equal(nominalMinutesOf([{ from: "09:00", to: "11:30" }, { from: "14:00", to: "17:45" }]), 375);
+  // paid_break: nghỉ giữa giờ vẫn tính công → tính trọn từ đầu tới cuối
+  assert.equal(nominalMinutesOf([{ from: "09:00", to: "11:30" }, { from: "14:00", to: "17:45" }], "paid_break"), 525);
+  assert.equal(nominalMinutesOf([], "paid_break"), 0);
+  assert.match(SHIFT_EDIT_WARNING, /lịch đã xếp giữ nguyên/);
+});
+
+/* ---- Sinh lưới phân ca: 8 nhóm kết quả ---- */
+
+const cell = (o: Partial<RosterCellInput>): RosterCellInput => ({
+  date: "2026-09-20", today: "2026-09-18", templateCode: "HC", currentCode: null, currentOrigin: null, inScope: true, knownCode: true, ...o,
+});
+
+test("8 nhóm kết quả sinh lưới đúng như bản gốc", () => {
+  assert.equal(ROSTER_CELL_RESULTS.length, 8);
+  assert.deepEqual(ROSTER_CELL_RESULTS.map((k) => ROSTER_CELL_RESULT_VI[k]), [
+    "Ô mới", "Ô đổi mã", "Ô giữ nguyên", "Ô bị xoá", "Ô được bảo vệ", "Ô chừa lại", "Ô ngoài quyền", "Mã lạ",
+  ]);
+  assert.match(ROSTER_CELL_RESULT_NOTE.skipped_past, /chỉ áp từ NGÀY MAI/);
+  assert.match(ROSTER_CELL_RESULT_NOTE.protected, /sửa tay \/ đơn đã duyệt \/ file import/);
+  assert.match(ROSTER_CELL_RESULT_NOTE.out_of_scope, /khối không được xếp/);
+  assert.match(ROSTER_CELL_RESULT_NOTE.unknown_code, /không có trong danh mục/);
+  assert.deepEqual(emptyRosterTally(), { created: 0, recoded: 0, kept: 0, removed: 0, protected: 0, skipped_past: 0, out_of_scope: 0, unknown_code: 0 });
+});
+
+test("xếp ô vào đúng một nhóm", () => {
+  // ô mới / đổi mã / giữ nguyên / bị xoá
+  assert.equal(classifyRosterCell(cell({})), "created");
+  assert.equal(classifyRosterCell(cell({ currentCode: "CG", currentOrigin: "template" })), "recoded");
+  assert.equal(classifyRosterCell(cell({ currentCode: "HC", currentOrigin: "template" })), "kept");
+  assert.equal(classifyRosterCell(cell({ templateCode: null, currentCode: "HC", currentOrigin: "template" })), "removed");
+  assert.equal(classifyRosterCell(cell({ templateCode: null, currentCode: null })), "kept");
+  // ô được bảo vệ: sửa tay / đơn đã duyệt / file import — thắng cả "đổi mã"
+  for (const o of ["manual", "request", "import"] as const) {
+    assert.equal(classifyRosterCell(cell({ currentCode: "CG", currentOrigin: o })), "protected", o);
+  }
+  // lưới chỉ áp từ NGÀY MAI: hôm nay và ngày đã qua đều chừa lại
+  assert.equal(classifyRosterCell(cell({ date: "2026-09-18" })), "skipped_past");
+  assert.equal(classifyRosterCell(cell({ date: "2026-09-01" })), "skipped_past");
+  assert.equal(classifyRosterCell(cell({ date: "2026-09-19" })), "created");
+  // ngoài quyền thắng tất cả
+  assert.equal(classifyRosterCell(cell({ inScope: false, date: "2026-09-01", currentOrigin: "manual" })), "out_of_scope");
+  // mã lạ chỉ tính khi khung có mã
+  assert.equal(classifyRosterCell(cell({ knownCode: false })), "unknown_code");
+  assert.equal(classifyRosterCell(cell({ templateCode: null, knownCode: false, currentCode: "HC", currentOrigin: "template" })), "removed");
+  // ô được bảo vệ thắng mã lạ (lưới không đụng vào ô đó dù khung sai mã)
+  assert.equal(classifyRosterCell(cell({ knownCode: false, currentCode: "CG", currentOrigin: "manual" })), "protected");
 });
