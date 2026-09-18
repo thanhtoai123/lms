@@ -1,8 +1,9 @@
 import { and, eq, inArray, sql, asc, desc, ilike, or, isNull } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { TRPCError } from "@trpc/server";
 import {
   enrollments, enrollmentEvents, students, classes, courses, centers, parents, studentGuardians, sessions, studentPauses, classTransferRequests,
-  userRoles, users, userNotifications,
+  orders, orderItems, payments, userRoles, users, userNotifications,
 } from "@satarobo/db";
 import {
   enrollmentTransition, planTransfer, remainingSessions, isNearingEnd, validatePause, requireReason, EVENTS_REQUIRING_REASON, DEFAULT_STUDENT_POLICY, maskPhone, authorize,
@@ -315,6 +316,94 @@ export async function transferEnrollment(ctx: ProtectedContext, input: { enrollm
 }
 
 /** Ghi danh mở của một HV (cho wizard chuyển lớp) */
+const ENROLLMENT_EVENT_VI: Record<string, string> = {
+  created: "Tạo ghi danh", activate: "Kích hoạt", pause: "Bảo lưu", resume: "Học lại", withdraw: "Nghỉ học",
+  complete: "Hoàn thành", transfer_out: "Chuyển đi", transfer_in: "Chuyển đến", package_change: "Đổi gói buổi",
+};
+
+/**
+ * Chi tiết một ghi danh (/enrollments/:id): dòng thời gian (tạo, đổi trạng thái, chuyển lớp, bảo lưu),
+ * đơn hàng & khoản thu liên quan, link học viên / lớp / đơn.
+ */
+export async function getEnrollmentDetail(ctx: ProtectedContext, id: string) {
+  const e = await loadEnrollment(ctx.db, id);
+  requirePermission(ctx, "enrollment:read", { centerId: e.centerId });
+  const canUpdate = authorize(ctx.actor, "enrollment:update", { centerId: e.centerId }).allowed;
+  const canFinance = authorize(ctx.actor, "finance:read", { centerId: e.centerId }).allowed;
+
+  const evs = await ctx.db
+    .select({ ev: enrollmentEvents, actorName: users.fullName })
+    .from(enrollmentEvents).leftJoin(users, eq(users.id, enrollmentEvents.actorId))
+    .where(eq(enrollmentEvents.enrollmentId, id)).orderBy(asc(enrollmentEvents.createdAt));
+
+  const pauseRows = await ctx.db
+    .select({ p: studentPauses, byName: users.fullName })
+    .from(studentPauses).leftJoin(users, eq(users.id, studentPauses.createdBy))
+    .where(eq(studentPauses.studentId, e.studentId)).orderBy(desc(studentPauses.createdAt));
+  const pauses = pauseRows
+    .filter((r) => (r.p.enrollmentIds ?? []).includes(id))
+    .map((r) => ({ id: r.p.id, fromDate: r.p.fromDate, expectedReturn: r.p.expectedReturn, endedAt: r.p.endedAt, endKind: r.p.endKind, reason: r.p.reason, endNote: r.p.endNote, byName: r.byName }));
+
+  const toClass = alias(classes, "to_class");
+  const transfers = await ctx.db
+    .select({
+      id: classTransferRequests.id, status: classTransferRequests.status, reason: classTransferRequests.reason,
+      decisionNote: classTransferRequests.decisionNote, decidedAt: classTransferRequests.decidedAt, createdAt: classTransferRequests.createdAt,
+      toClassId: classTransferRequests.toClassId, toClassCode: toClass.code, newEnrollmentId: classTransferRequests.newEnrollmentId,
+      byName: users.fullName,
+    })
+    .from(classTransferRequests)
+    .leftJoin(toClass, eq(toClass.id, classTransferRequests.toClassId))
+    .leftJoin(users, eq(users.id, classTransferRequests.createdBy))
+    .where(eq(classTransferRequests.enrollmentId, id)).orderBy(desc(classTransferRequests.createdAt));
+
+  // Đơn hàng liên quan: qua dòng đơn gắn ghi danh (mới) hoặc orders.enrollment_id (dữ liệu cũ)
+  const orderRows = canFinance
+    ? await ctx.db
+        .select({
+          orderId: orders.id, code: orders.code, status: orders.status, total: orders.total, createdAt: orders.createdAt,
+          itemId: orderItems.id, itemDescription: orderItems.description, net: orderItems.netAmount, packageSessions: orderItems.packageSessions,
+        })
+        .from(orders).leftJoin(orderItems, eq(orderItems.orderId, orders.id))
+        .where(or(eq(orderItems.enrollmentId, id), eq(orders.enrollmentId, id))!)
+        .orderBy(desc(orders.createdAt))
+    : [];
+  const orderMap = new Map<string, { id: string; code: string; status: string; total: number; createdAt: Date; lines: { id: string; description: string; net: number; packageSessions: number | null }[] }>();
+  for (const r of orderRows) {
+    const cur = orderMap.get(r.orderId) ?? { id: r.orderId, code: r.code, status: r.status, total: r.total, createdAt: r.createdAt, lines: [] };
+    if (r.itemId) cur.lines.push({ id: r.itemId, description: r.itemDescription ?? "", net: r.net ?? 0, packageSessions: r.packageSessions });
+    orderMap.set(r.orderId, cur);
+  }
+  const orderIds = [...orderMap.keys()];
+  const paymentRows = canFinance && orderIds.length
+    ? await ctx.db
+        .select({
+          id: payments.id, amount: payments.amount, status: payments.status, paidAt: payments.paidAt, receiptNo: payments.receiptNo,
+          orderId: payments.orderId, orderCode: orders.code, enrollmentId: payments.enrollmentId,
+        })
+        .from(payments).innerJoin(orders, eq(orders.id, payments.orderId))
+        .where(and(inArray(payments.orderId, orderIds), sql`${payments.status} <> 'voided'`))
+        .orderBy(desc(payments.paidAt))
+    : [];
+  const confirmed = paymentRows.filter((p) => p.status === "confirmed").reduce((a, b) => a + b.amount, 0);
+  const recorded = paymentRows.filter((p) => p.status === "recorded").reduce((a, b) => a + b.amount, 0);
+  const fee = [...orderMap.values()].reduce((a, o) => a + (o.lines.length ? o.lines.reduce((x, l) => x + l.net, 0) : o.total), 0);
+
+  return {
+    enrollment: { ...e, remaining: remainingSessions(e.packageSessions, e.consumed) },
+    perms: { canUpdate, canFinance, canTransfer: authorize(ctx.actor, "enrollment:update", { centerId: e.centerId }).allowed },
+    timeline: evs.map((r) => ({
+      id: r.ev.id, type: r.ev.type, label: ENROLLMENT_EVENT_VI[r.ev.type] ?? r.ev.type, fromStatus: r.ev.fromStatus, toStatus: r.ev.toStatus,
+      reason: r.ev.reason, meta: r.ev.meta, actorName: r.actorName, createdAt: r.ev.createdAt,
+    })),
+    pauses,
+    transfers,
+    orders: [...orderMap.values()],
+    payments: paymentRows,
+    money: { fee, confirmed, recorded, outstanding: Math.max(0, fee - confirmed) },
+  };
+}
+
 export async function openEnrollmentsOf(ctx: ProtectedContext, studentId: string) {
   requirePermission(ctx, "enrollment:read", {});
   const rows = await ctx.db.select(baseSelect).from(enrollments)

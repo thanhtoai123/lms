@@ -102,6 +102,7 @@ export const studentsRouter = router({
   enrollments: protectedProcedure
     .input(z.object({ q: z.string().max(100).optional(), centerId: uuid.optional(), classId: uuid.optional(), status: z.enum(ENROLLMENT_STATUSES).optional(), page: z.number().int().min(1).optional(), pageSize: z.number().int().min(1).max(100).optional() }).default({}))
     .query(({ ctx, input }) => E.listEnrollments(ctx, input)),
+  enrollment: protectedProcedure.input(z.object({ id: uuid })).query(({ ctx, input }) => E.getEnrollmentDetail(ctx, input.id)),
   enroll: protectedProcedure
     .input(z.object({ studentId: uuid, classId: uuid, packageSessions: z.number().int().min(1).max(200), startSequenceNo: z.number().int().min(1).max(200).optional(), status: z.enum(["active", "trial"]).optional(), note: nstr(300), waiverReason: nstr(300) }))
     .mutation(({ ctx, input }) => E.createEnrollment(ctx, input)),

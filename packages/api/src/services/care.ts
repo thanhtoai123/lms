@@ -295,10 +295,11 @@ export async function actOnParentRequest(ctx: ProtectedContext, input: { id: str
 /* Đánh giá phụ huynh                                                  */
 /* ------------------------------------------------------------------ */
 
-export async function listFeedback(ctx: ProtectedContext, input: { status?: FeedbackStatus; low?: boolean; teacherId?: string; from?: string; to?: string; centerId?: string }) {
+export async function listFeedback(ctx: ProtectedContext, input: { status?: FeedbackStatus; low?: boolean; teacherId?: string; from?: string; to?: string; centerId?: string; classId?: string }) {
   requirePermission(ctx, "care:read", { centerId: input.centerId ?? null });
   const base: SQL[] = [scopeOn(ctx, parentFeedback.centerId)];
   if (input.centerId) base.push(eq(parentFeedback.centerId, input.centerId));
+  if (input.classId) base.push(eq(parentFeedback.classId, input.classId));
   if (input.teacherId) base.push(eq(parentFeedback.teacherId, input.teacherId));
   if (input.from) base.push(gte(parentFeedback.createdAt, new Date(`${input.from}T00:00:00+07:00`)));
   if (input.to) base.push(lte(parentFeedback.createdAt, new Date(`${input.to}T23:59:59+07:00`)));

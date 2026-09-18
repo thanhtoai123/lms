@@ -47,7 +47,7 @@ export default async function EnrollmentsPage({ searchParams }: { searchParams: 
       {d.items.length === 0 ? <Empty>Không có đăng ký phù hợp.</Empty> : (
         <div className="card overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="text-left text-xs uppercase text-ink-400"><tr><th className="p-3">Học viên</th><th className="p-3">Lớp</th><th className="p-3">Tiến độ</th><th className="p-3">Ghi danh</th><th className="p-3">Trạng thái</th></tr></thead>
+            <thead className="text-left text-xs uppercase text-ink-400"><tr><th className="p-3">Học viên</th><th className="p-3">Lớp</th><th className="p-3">Tiến độ</th><th className="p-3">Ghi danh</th><th className="p-3">Trạng thái</th><th className="p-3"></th></tr></thead>
             <tbody className="divide-y divide-black/5">
               {d.items.map((e) => (
                 <tr key={e.id}>
@@ -59,6 +59,7 @@ export default async function EnrollmentsPage({ searchParams }: { searchParams: 
                   </td>
                   <td className="p-3 text-xs">{fmtDate(e.enrolledAt)}{e.endedAt ? <div className="text-ink-400">kết thúc {fmtDate(e.endedAt)}</div> : null}</td>
                   <td className="p-3"><EnrollmentChip status={e.status} />{e.status === "paused" && <div className="text-[11px] text-ink-400">{e.pauseUntil ? `đến ${fmtDate(e.pauseUntil)}` : "chưa hẹn ngày trở lại"}</div>}</td>
+                  <td className="p-3 text-right"><Link href={`/enrollments/${e.id}`} className="text-xs text-brand-600 underline">Chi tiết</Link></td>
                 </tr>
               ))}
             </tbody>

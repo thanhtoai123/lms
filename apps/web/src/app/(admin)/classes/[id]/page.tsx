@@ -2,16 +2,30 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { EnrollmentChip } from "@/components/admin-ui";
 import { getServerCaller } from "@/lib/trpc/server";
-import { WEEKDAY_VI } from "@/components/ui";
+import { Empty, WEEKDAY_VI } from "@/components/ui";
 import { CLASS_STATUS_VI } from "@satarobo/core";
+import type { RouterOutputs } from "@/lib/trpc/types";
 import { StatusPanel, InfoPanel, SchedulePanel, CheckPanel, AddSessionPanel, EventTimeline, CancelClassPanel } from "./workspace";
 import { SessionList } from "./session-list";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Chi tiết lớp" };
 
-export default async function ClassDetail({ params }: { params: Promise<{ id: string }> }) {
+type MakeupData = RouterOutputs["schedule"]["makeups"];
+type MediaRow = RouterOutputs["learning"]["media"][number];
+type FeedbackData = RouterOutputs["care"]["feedback"];
+
+const TABS = [
+  { key: "", label: "Tổng quan" },
+  { key: "hoc-bu", label: "Học bù" },
+  { key: "anh", label: "Ảnh lớp" },
+  { key: "danh-gia", label: "Đánh giá & nhận xét" },
+] as const;
+
+export default async function ClassDetail({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string }> }) {
   const { id } = await params;
+  const sp = await searchParams;
+  const tab = TABS.some((t) => t.key === sp.tab) ? (sp.tab ?? "") : "";
   const { caller } = await getServerCaller();
   const c = await caller.academics.classes.get({ id }).catch((e: { code?: string; data?: { code?: string } }) => {
     if (e?.code === "NOT_FOUND" || e?.data?.code === "NOT_FOUND") return null;
@@ -22,6 +36,10 @@ export default async function ClassDetail({ params }: { params: Promise<{ id: st
     caller.academics.classes.workspace({ id }),
     c.sessions.length ? caller.academics.classes.scheduleCheck({ id }) : Promise.resolve(null),
   ]);
+  // Dữ liệu của tab đang mở — tái dùng service sẵn có, chỉ thêm bộ lọc theo lớp
+  const makeups = tab === "hoc-bu" ? await caller.schedule.makeups({ classId: id }).catch(() => null) : null;
+  const media = tab === "anh" ? await caller.learning.media({ classId: id, status: "approved", limit: 200 }).catch(() => null) : null;
+  const feedback = tab === "danh-gia" ? await caller.care.feedback({ classId: id }).catch(() => null) : null;
   const regular = c.sessions.filter((s) => s.kind === "regular");
   const extra = c.sessions.filter((s) => s.kind !== "regular");
   const done = regular.filter((s) => s.status === "completed").length;
@@ -46,6 +64,17 @@ export default async function ClassDetail({ params }: { params: Promise<{ id: st
         </div>
       </div>
 
+      <nav className="flex flex-wrap gap-1 border-b border-black/5 text-sm">
+        {TABS.map((t) => (
+          <Link key={t.key} href={t.key ? `/classes/${id}?tab=${t.key}` : `/classes/${id}`} className={`rounded-t-lg px-3 py-2 ${tab === t.key ? "border-b-2 border-brand-600 font-semibold text-brand-700" : "text-ink-600 hover:text-ink-900"}`}>{t.label}</Link>
+        ))}
+      </nav>
+
+      {tab === "hoc-bu" && <MakeupTab data={makeups} />}
+      {tab === "anh" && <MediaTab data={media} />}
+      {tab === "danh-gia" && <FeedbackTab data={feedback} sessions={c.sessions} />}
+
+      {tab === "" && (
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="space-y-4">
           <StatusPanel classId={id} ws={ws} />
@@ -103,6 +132,102 @@ export default async function ClassDetail({ params }: { params: Promise<{ id: st
           <EventTimeline ws={ws} />
         </div>
       </div>
+      )}
+    </div>
+  );
+}
+
+/* --------------------------- Tab: Học bù --------------------------- */
+
+const MAKEUP_VI: Record<string, string> = { requested: "Chờ xếp buổi", approved: "Đã xếp buổi", done: "Đã học bù", rejected: "Từ chối" };
+
+function MakeupTab({ data }: { data: MakeupData | null }) {
+  if (!data) return <Empty>Bạn không có quyền xem học bù của lớp này.</Empty>;
+  if (data.items.length === 0) return <Empty>Lớp chưa có yêu cầu học bù nào.</Empty>;
+  return (
+    <div className="card overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead className="text-left text-xs uppercase text-ink-400"><tr><th className="p-3">Học viên</th><th className="p-3">Buổi vắng</th><th className="p-3">Buổi bù</th><th className="p-3">Trạng thái</th><th className="p-3">Ghi chú</th></tr></thead>
+        <tbody className="divide-y divide-black/5">
+          {data.items.map((m) => (
+            <tr key={m.id}>
+              <td className="p-3"><Link href={`/students/${m.studentId}`} className="text-brand-600">{m.studentName}</Link><div className="text-[11px] text-ink-400">{m.studentCode}</div></td>
+              <td className="p-3 text-xs">Buổi {m.missedSeq} · {m.missedDate?.split("-").reverse().join("/")}</td>
+              <td className="p-3 text-xs">{m.targetSessionId ? `${m.targetClassCode ?? ""} · ${m.targetDate?.split("-").reverse().join("/")} ${m.targetStart?.slice(0, 5) ?? ""}` : "—"}</td>
+              <td className="p-3"><span className="chip bg-black/5">{MAKEUP_VI[m.status] ?? m.status}</span>{m.done && <span className="chip ml-1 bg-green-100 text-green-800">đã điểm danh</span>}</td>
+              <td className="p-3 text-xs text-ink-600">{m.note ?? ""}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/* --------------------------- Tab: Ảnh lớp -------------------------- */
+
+function MediaTab({ data }: { data: MediaRow[] | null }) {
+  if (!data) return <Empty>Bạn không có quyền xem ảnh lớp.</Empty>;
+  if (data.length === 0) return <Empty>Chưa có ảnh buổi học nào được duyệt cho lớp này. Ảnh chờ duyệt xem ở Duyệt ảnh.</Empty>;
+  return (
+    <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
+      {data.map((m) => (
+        <figure key={m.id} className="card overflow-hidden">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={m.url} alt={m.caption ?? `Buổi ${m.sequenceNo}`} className="aspect-video w-full object-cover" loading="lazy" />
+          <figcaption className="space-y-0.5 p-2 text-xs">
+            <div className="font-medium">Buổi {m.sequenceNo} · {m.sessionDate?.split("-").reverse().join("/")}</div>
+            {m.caption && <div className="text-ink-600">{m.caption}</div>}
+            {m.tagged.length > 0 && <div className="text-ink-400">{m.tagged.map((t) => t.name).join(", ")}</div>}
+          </figcaption>
+        </figure>
+      ))}
+    </div>
+  );
+}
+
+/* ------------------ Tab: Đánh giá & nhận xét ----------------------- */
+
+function FeedbackTab({ data, sessions }: { data: FeedbackData | null; sessions: { id: string; label: string; date: string; sessionNote: string | null; remarks: number; status: string }[] }) {
+  const noted = sessions.filter((s) => (s.sessionNote ?? "").trim().length > 0 || s.remarks > 0).sort((a, b) => b.date.localeCompare(a.date));
+  return (
+    <div className="grid gap-4 lg:grid-cols-2">
+      <section className="space-y-2">
+        <h2 className="font-bold">Nhận xét buổi học</h2>
+        {noted.length === 0 ? <Empty>Chưa có nhận xét buổi nào.</Empty> : (
+          <ul className="card divide-y divide-black/5 text-sm">
+            {noted.map((s) => (
+              <li key={s.id} className="p-3">
+                <div className="flex items-center justify-between gap-2"><b>{s.label}</b><span className="text-xs text-ink-400">{s.date.split("-").reverse().join("/")}</span></div>
+                {s.sessionNote && <p className="text-ink-600">{s.sessionNote}</p>}
+                {s.remarks > 0 && <div className="text-[11px] text-ink-400">{s.remarks} nhận xét từng học viên</div>}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+      <section className="space-y-2">
+        <h2 className="font-bold">Đánh giá của phụ huynh</h2>
+        {!data ? <Empty>Bạn không có quyền xem đánh giá phụ huynh.</Empty> : data.items.length === 0 ? <Empty>Lớp chưa có đánh giá nào.</Empty> : (
+          <>
+            <div className="card p-3 text-sm">
+              Điểm chung trung bình <b>{data.stats.overall.avg?.toFixed(1) ?? "—"}</b>/5 · điểm giáo viên <b>{data.stats.teacher.avg?.toFixed(1) ?? "—"}</b>/5 · {data.stats.pending} đánh giá chưa phản hồi
+            </div>
+            <ul className="card divide-y divide-black/5 text-sm">
+              {data.items.map((f) => (
+                <li key={f.id} className="p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <span>{f.studentName}{f.teacherName ? ` · GV ${f.teacherName}` : ""}</span>
+                    <span className="text-xs">{"★".repeat(f.rating)}{f.teacherRating ? ` · GV ${f.teacherRating}/5` : ""}</span>
+                  </div>
+                  {f.comment && <p className="text-ink-600">{f.comment}</p>}
+                  <div className="text-[11px] text-ink-400">{f.sessionNo ? `Buổi ${f.sessionNo} · ` : ""}{f.sessionDate?.split("-").reverse().join("/") ?? ""}</div>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </section>
     </div>
   );
 }

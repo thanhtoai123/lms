@@ -51,11 +51,12 @@ export async function pendingAbsences(ctx: ProtectedContext, input: { centerId?:
   return rows.filter((r) => r.date >= addDays(today, -(ops.get(r.centerId)?.makeupWindowDays ?? DEFAULT_MAKEUP_POLICY.requestWindowDays)));
 }
 
-export async function listMakeup(ctx: ProtectedContext, input: { status?: MakeupStatus; centerId?: string }) {
+export async function listMakeup(ctx: ProtectedContext, input: { status?: MakeupStatus; centerId?: string; classId?: string }) {
   requirePermission(ctx, "makeup:read", { centerId: input.centerId ?? null });
   const conds = [scope(ctx)];
   if (input.status) conds.push(eq(makeupRequests.status, input.status));
   if (input.centerId) conds.push(eq(classes.centerId, input.centerId));
+  if (input.classId) conds.push(eq(classes.id, input.classId));
   const rows = await ctx.db
     .select({
       id: makeupRequests.id, status: makeupRequests.status, note: makeupRequests.note, createdAt: makeupRequests.createdAt, decidedAt: makeupRequests.decidedAt,

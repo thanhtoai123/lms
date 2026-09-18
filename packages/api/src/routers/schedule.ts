@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ATTENDANCE_STATUSES, MAKEUP_STATUSES } from "@satarobo/core";
+import { ATTENDANCE_STATUSES, CLASS_STATUSES, MAKEUP_STATUSES } from "@satarobo/core";
 import { router, protectedProcedure } from "../trpc";
 import * as Sch from "../services/schedule";
 import * as Mk from "../services/makeup";
@@ -13,6 +13,9 @@ export const scheduleRouter = router({
     .query(({ ctx, input }) => Sch.weekCalendar(ctx, input)),
   classOptions: protectedProcedure.query(({ ctx }) => Sch.classOptions(ctx)),
   attendanceGrid: protectedProcedure.input(z.object({ classId: uuid })).query(({ ctx, input }) => Sch.attendanceGrid(ctx, input.classId)),
+  attendanceOverview: protectedProcedure
+    .input(z.object({ centerId: uuid.optional(), status: z.enum(CLASS_STATUSES).optional() }).default({}))
+    .query(({ ctx, input }) => Sch.attendanceOverview(ctx, input)),
   correctAttendance: protectedProcedure
     .input(z.object({ sessionId: uuid, enrollmentId: uuid, status: z.enum(ATTENDANCE_STATUSES), reason: z.string().max(300).optional() }))
     .mutation(({ ctx, input }) => Sch.correctAttendance(ctx, input)),
@@ -20,7 +23,7 @@ export const scheduleRouter = router({
   rescanRisks: protectedProcedure.input(z.object({ centerId: uuid.optional() }).default({})).mutation(({ ctx, input }) => Sch.rescanRisks(ctx, input)),
   // Học bù
   pendingAbsences: protectedProcedure.input(z.object({ centerId: uuid.optional() }).default({})).query(({ ctx, input }) => Mk.pendingAbsences(ctx, input)),
-  makeups: protectedProcedure.input(z.object({ status: z.enum(MAKEUP_STATUSES).optional(), centerId: uuid.optional() }).default({})).query(({ ctx, input }) => Mk.listMakeup(ctx, input)),
+  makeups: protectedProcedure.input(z.object({ status: z.enum(MAKEUP_STATUSES).optional(), centerId: uuid.optional(), classId: uuid.optional() }).default({})).query(({ ctx, input }) => Mk.listMakeup(ctx, input)),
   requestMakeup: protectedProcedure.input(z.object({ enrollmentId: uuid, missedSessionId: uuid, note: z.string().max(300).nullish() })).mutation(({ ctx, input }) => Mk.createMakeupRequest(ctx, input)),
   makeupCandidates: protectedProcedure.input(z.object({ requestId: uuid })).query(({ ctx, input }) => Mk.candidatesFor(ctx, input.requestId)),
   decideMakeup: protectedProcedure

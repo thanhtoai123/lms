@@ -33,7 +33,7 @@ export const careRouter = router({
     .mutation(({ ctx, input }) => C.actOnParentRequest(ctx, input)),
 
   feedback: protectedProcedure
-    .input(z.object({ status: z.enum(FEEDBACK_STATUSES).optional(), low: z.boolean().optional(), teacherId: uuid.optional(), from: isoDate.optional(), to: isoDate.optional(), centerId: uuid.optional() }).default({}))
+    .input(z.object({ status: z.enum(FEEDBACK_STATUSES).optional(), low: z.boolean().optional(), teacherId: uuid.optional(), from: isoDate.optional(), to: isoDate.optional(), centerId: uuid.optional(), classId: uuid.optional() }).default({}))
     .query(({ ctx, input }) => C.listFeedback(ctx, input)),
   recentSessions: protectedProcedure.input(z.object({ enrollmentId: uuid })).query(({ ctx, input }) => C.recentSessionsFor(ctx, input)),
   createFeedback: protectedProcedure

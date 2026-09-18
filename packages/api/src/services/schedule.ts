@@ -1,9 +1,9 @@
-import { and, eq, inArray, sql, asc, isNull, lte } from "drizzle-orm";
+import { and, eq, inArray, sql, asc, isNull, lte, type SQL } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { sessions, classes, enrollments, attendance, students, careTasks, courses, centers } from "@satarobo/db";
 import {
-  weekStart, weekDays, addDays, isRetroactiveEdit, detectRisks, riskFrom, summarize, visibleCenterIds,
-  type AttendanceStatus, type AttendanceRecord,
+  weekStart, weekDays, addDays, isRetroactiveEdit, detectRisks, riskFrom, summarize, visibleCenterIds, authorize,
+  type AttendanceStatus, type AttendanceRecord, type ClassStatus,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { getOps, opsForCenters } from "./opsSettings";
@@ -73,6 +73,76 @@ export async function attendanceGrid(ctx: ProtectedContext, classId: string) {
       const recs: AttendanceRecord[] = cells.flatMap((c, i) => (c.status ? [{ sessionDate: ss[i]!.date, sequenceNo: ss[i]!.sequenceNo, status: c.status }] : []));
       return { ...r, cells, summary: summarize(recs) };
     }),
+  };
+}
+
+/**
+ * Tổng quan điểm danh theo lớp (màn /attendance): sĩ số, số buổi đã dạy,
+ * số buổi **chưa chốt điểm danh** (buổi đã tới ngày mà còn học viên chưa được đánh dấu).
+ * Lọc theo cơ sở / trạng thái lớp; mỗi dòng dẫn sang lưới điểm danh của lớp.
+ */
+export async function attendanceOverview(ctx: ProtectedContext, input: { centerId?: string; status?: ClassStatus }) {
+  requirePermission(ctx, "attendance:read", { centerId: input.centerId ?? null });
+  const visible = visibleCenterIds(ctx.actor);
+  const conds = [
+    isNull(classes.deletedAt),
+    visible === null ? sql`true` : visible.length ? (inArray(classes.centerId, visible) as SQL) : sql`false`,
+  ];
+  if (input.centerId) conds.push(eq(classes.centerId, input.centerId));
+  if (input.status) conds.push(eq(classes.status, input.status));
+  else conds.push(inArray(classes.status, ["recruiting", "running", "finished"]));
+  const today = todayISO();
+  const rows = await ctx.db
+    .select({
+      id: classes.id, code: classes.code, name: classes.name, status: classes.status,
+      centerId: classes.centerId, centerCode: centers.code, courseCode: courses.code,
+      leadTeacherId: classes.leadTeacherId, assistantTeacherId: classes.assistantTeacherId,
+    })
+    .from(classes).innerJoin(centers, eq(centers.id, classes.centerId)).innerJoin(courses, eq(courses.id, classes.courseId))
+    .where(and(...conds))
+    .orderBy(asc(centers.code), asc(classes.code));
+  const ids = rows.map((r) => r.id);
+  if (!ids.length) return { today, items: [], totals: { classes: 0, students: 0, pending: 0 } };
+
+  // Sĩ số đang học của từng lớp
+  const sizes = await ctx.db
+    .select({ classId: enrollments.classId, n: sql<number>`count(*)::int` })
+    .from(enrollments)
+    .where(and(inArray(enrollments.classId, ids), inArray(enrollments.status, ["trial", "active", "paused"])))
+    .groupBy(enrollments.classId);
+  // Buổi đã tới ngày (không tính huỷ / dời) + số ô điểm danh đã ghi của từng buổi
+  const ss = await ctx.db
+    .select({
+      id: sessions.id, classId: sessions.classId, date: sessions.date, sequenceNo: sessions.sequenceNo, status: sessions.status,
+      marked: sql<number>`(select count(*)::int from ${attendance} a where a.session_id = ${sessions.id})`,
+    })
+    .from(sessions)
+    .where(and(inArray(sessions.classId, ids), lte(sessions.date, today), sql`${sessions.status} not in ('cancelled','rescheduled')`))
+    .orderBy(asc(sessions.date));
+  // Số học viên thuộc diện điểm danh của từng lớp (dùng để phát hiện buổi ghi thiếu)
+  const expected = new Map(sizes.map((s) => [s.classId, s.n]));
+
+  const items = rows.map((r) => {
+    const mine = ss.filter((s) => s.classId === r.id);
+    const taught = mine.filter((s) => s.status === "completed").length;
+    const need = expected.get(r.id) ?? 0;
+    const pendingSessions = mine.filter((s) => s.status !== "completed" && (s.marked < need || s.marked === 0));
+    const last = mine[mine.length - 1] ?? null;
+    return {
+      id: r.id, code: r.code, name: r.name, status: r.status, centerId: r.centerId, centerCode: r.centerCode, courseCode: r.courseCode,
+      students: need,
+      sessionsPast: mine.length,
+      taught,
+      pending: pendingSessions.length,
+      oldestPendingDate: pendingSessions[0]?.date ?? null,
+      lastSessionDate: last?.date ?? null,
+      canMark: authorize(ctx.actor, "attendance:write", { centerId: r.centerId, ownerIds: [r.leadTeacherId ?? "", r.assistantTeacherId ?? ""].filter(Boolean) }).allowed,
+    };
+  });
+  return {
+    today,
+    items,
+    totals: { classes: items.length, students: items.reduce((a, b) => a + b.students, 0), pending: items.reduce((a, b) => a + b.pending, 0) },
   };
 }
 
