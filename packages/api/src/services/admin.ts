@@ -3,7 +3,7 @@ import { and, eq, inArray, sql, desc, asc, isNull, or, ilike, lte, gte, type SQL
 import { TRPCError } from "@trpc/server";
 import {
   emailTemplates, emailLogs, otpRequests, userGroups, userGroupMembers, userGroupPermissions, regions, webhookEvents, appSettings,
-  users, userRoles, userNotifications, centers, staff, students, classes, bankTransactions, parentNotifications, outbox,
+  users, userRoles, userNotifications, centers, staff, students, classes, bankTransactions, parentNotifications, outbox, tenants,
   type Database,
 } from "@satarobo/db";
 import {
@@ -40,8 +40,18 @@ const SAMPLE_VARS: Record<string, string> = {
   so_phieu: "PT-CS1-26-000123", so_tien: "4.800.000đ", ma_don: "DH26-000045", co_so: "CS1", han: "25/09/2026", lop: "CS1.SATA4.26.001",
 };
 
-async function templateFor(db: Db, event: EmailEvent) {
-  const t = await db.query.emailTemplates.findFirst({ where: eq(emailTemplates.eventKey, event) });
+/**
+ * Mẫu email của ĐÚNG trung tâm (tenant) gửi thư; không biết tenant thì lấy mẫu của
+ * trung tâm mặc định — nhờ vậy thư của chuỗi không bao giờ dùng nhầm mẫu của bên nhượng quyền.
+ */
+async function templateFor(db: Db, event: EmailEvent, tenantId?: string | null) {
+  const rows = await db.select().from(emailTemplates).where(eq(emailTemplates.eventKey, event));
+  let t = tenantId ? rows.find((r) => r.tenantId === tenantId) : undefined;
+  if (!t && rows.length > 1) {
+    const [d] = await db.select({ id: tenants.id }).from(tenants).where(eq(tenants.isDefault, true)).limit(1);
+    t = rows.find((r) => r.tenantId === d?.id);
+  }
+  t ??= rows[0];
   const def = EMAIL_EVENTS[event];
   return t && t.isActive ? { subject: t.subject, body: t.body, custom: true } : { subject: def.subject, body: def.body, custom: false };
 }
@@ -127,7 +137,8 @@ export async function saveEmailTemplate(ctx: ProtectedContext, input: { eventKey
 
 export async function resetEmailTemplate(ctx: ProtectedContext, input: { eventKey: EmailEvent }) {
   requirePermission(ctx, "system:update");
-  const del = await ctx.db.delete(emailTemplates).where(eq(emailTemplates.eventKey, input.eventKey)).returning({ id: emailTemplates.id });
+  // Chỉ xoá mẫu của chính trung tâm mình — không đụng mẫu của trung tâm khác
+  const del = await ctx.db.delete(emailTemplates).where(and(eq(emailTemplates.eventKey, input.eventKey), tenantCond(ctx, emailTemplates))).returning({ id: emailTemplates.id });
   if (!del.length) throw pre("Mẫu đang là mặc định");
   await writeAudit(ctx.db, { actorId: ctx.user.id, action: "DELETE", module: "system", entity: "email_templates", entityId: null, after: { eventKey: input.eventKey, reset: true }, ip: ctx.ip });
   return { ok: true };

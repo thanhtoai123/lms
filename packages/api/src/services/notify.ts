@@ -9,7 +9,7 @@
  */
 import { and, desc, eq, gte, ilike, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
-import { userNotifications, notificationTypes, users, userRoles, bankTransactions, campaigns, campaignSpends, type Database } from "@satarobo/db";
+import { userNotifications, notificationTypes, tenants, users, userRoles, bankTransactions, campaigns, campaignSpends, type Database } from "@satarobo/db";
 import {
   decideDelivery, authorizeGlobal, buildActionAlerts, marketingReportOverdue, previousPeriod, notificationTypeDef, notificationLabel,
   validateNotificationTypeReason, priorityFromRank,
@@ -34,13 +34,32 @@ export function invalidateNotificationCatalog() {
   cache = null;
 }
 
+/**
+ * Nhiều trung tâm (tenant) có thể cùng khai một mã loại thông báo.
+ * Bộ đệm dùng chung này lấy cấu hình của **trung tâm mặc định** để hành vi của chuỗi
+ * không bị bên nhượng quyền đổi; cấu hình riêng của từng tenant hiển thị ở màn danh mục.
+ */
+function pickByTenant<T extends { prefix: string; tenantId: string | null }>(rows: T[], defaultTenantId: string | null): Map<string, T> {
+  const out = new Map<string, T>();
+  for (const r of rows) {
+    const cur = out.get(r.prefix);
+    if (!cur || (defaultTenantId && r.tenantId === defaultTenantId)) out.set(r.prefix, r);
+  }
+  return out;
+}
+
+async function defaultTenantId(db: AnyDb): Promise<string | null> {
+  const [d] = await asDb(db).select({ id: tenants.id }).from(tenants).where(eq(tenants.isDefault, true)).limit(1);
+  return d?.id ?? null;
+}
+
 export async function notificationCatalog(db: AnyDb): Promise<Map<string, NotificationTypeRow>> {
   if (cache && Date.now() - cache.at < CACHE_MS) return cache.rows;
   try {
     const rows = await asDb(db)
-      .select({ prefix: notificationTypes.prefix, pushEnabled: notificationTypes.pushEnabled, isActive: notificationTypes.isActive })
+      .select({ prefix: notificationTypes.prefix, pushEnabled: notificationTypes.pushEnabled, isActive: notificationTypes.isActive, tenantId: notificationTypes.tenantId })
       .from(notificationTypes);
-    cache = { at: Date.now(), rows: new Map(rows.map((r) => [r.prefix, r])) };
+    cache = { at: Date.now(), rows: pickByTenant(rows, rows.length > 1 ? await defaultTenantId(db) : null) };
   } catch {
     // Chưa chạy migration bảng danh mục → rơi về mặc định trong core; thông báo không bao giờ bị mất
     cache = { at: Date.now(), rows: new Map() };
@@ -113,9 +132,10 @@ export async function notifyTyped(
 /* ------------------------------------------------------------------ */
 
 /** Danh mục hiệu lực = mặc định trong core, ghi đè bằng dòng trong CSDL */
-export async function effectiveCatalog(db: AnyDb) {
+export async function effectiveCatalog(db: AnyDb, tenantId?: string | null) {
   const rows = await asDb(db).select().from(notificationTypes);
-  const byPrefix = new Map(rows.map((r) => [r.prefix, r]));
+  const mine = tenantId ? rows.filter((r) => r.tenantId === tenantId) : [];
+  const byPrefix = mine.length ? new Map(mine.map((r) => [r.prefix, r])) : pickByTenant(rows, rows.length > 1 ? await defaultTenantId(db) : null);
   return NOTIFICATION_TYPES.map((def) => {
     const row = byPrefix.get(def.prefix);
     return {

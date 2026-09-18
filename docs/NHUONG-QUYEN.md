@@ -200,7 +200,7 @@ Trung tâm mới bắt đầu với **0 dữ liệu cá nhân**.
 
 ## 6. Chỗ còn phải làm tay (đã biết)
 
-- Bộ nhớ đệm danh mục loại thông báo (`notificationCatalog`) khoá theo `prefix`, chưa tách theo tenant — nếu hai tenant đặt cấu hình đẩy khác nhau cho cùng một loại, bản nạp trước thắng cho tới khi hết 60 giây đệm.
+- **Gửi thông báo / email theo tenant**: bộ đệm danh mục loại thông báo (`notificationCatalog`) và mẫu email dùng chung khoá theo mã loại, nên khi có nhiều tenant chúng **lấy cấu hình của trung tâm mặc định** để hành vi của chuỗi không đổi. Nghĩa là công tắc "bật đẩy" và mẫu email riêng của bên nhượng quyền **chưa** có hiệu lực ở tầng gửi (màn danh mục vẫn hiển thị đúng cấu hình của họ). Muốn đủ: truyền `tenantId` xuống `queueEmail` / `notifyTyped` ở từng nghiệp vụ.
 - Các truy vấn danh sách ít dùng (báo cáo chuyên sâu, màn đối soát go-live, kho / học cụ, tuyển dụng, marketing) **chưa** gắn `tenantCond`; hiện chúng vẫn an toàn vì lọc theo cơ sở, nhưng khi mở nhiều tenant nên bổ sung dần theo đúng ba bước ở mục 2.2.
 - RLS trong Postgres chưa bật cho `tenant_id` (phòng thủ cuối); nguồn sự thật vẫn là tầng service.
 - Chưa có màn "chuyển giao dữ liệu khi kết thúc hợp đồng" — hiện làm bằng tay theo mục 4.1.
