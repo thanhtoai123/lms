@@ -20,6 +20,7 @@ import { requirePermission, type ProtectedContext } from "../trpc";
 import { deliverySettings } from "./delivery";
 import { awardByRule } from "./rewards";
 import { writeAudit } from "./audit";
+import { deliverNotifications } from "./notify";
 import { todayISO } from "./sessions";
 import type { Database } from "@satarobo/db";
 
@@ -48,9 +49,8 @@ function scopeOn(ctx: ProtectedContext, col: AnyPgColumn): SQL {
 }
 const dmy = (d: string) => d.split("-").reverse().join("/");
 
-async function notifyUsers(db: Db, ids: (string | null | undefined)[], title: string, body: string, link: string, priority = 2) {
-  const u = [...new Set(ids.filter((x): x is string => !!x))];
-  if (u.length) await db.insert(userNotifications).values(u.map((userId) => ({ userId, title, body, link, priority })));
+async function notifyUsers(db: Db, ids: (string | null | undefined)[], title: string, body: string, link: string, priority = 2, type: string | null = null) {
+  await deliverNotifications(db, ids, { title, body, link, priority, type });
 }
 async function careStaffOf(db: Db, centerId: string) {
   return (await db.select({ u: userRoles.userId }).from(userRoles).innerJoin(users, eq(users.id, userRoles.userId))
@@ -194,7 +194,7 @@ export async function createParentRequest(ctx: ProtectedContext, input: CreatePa
     }).returning({ id: parentRequests.id });
     await tx.insert(parentRequestEvents).values({ requestId: r!.id, action: "create", toStatus: input.assigneeId ? "in_progress" : "new", note: input.content.trim(), actorId: ctx.user.id });
     const targets = input.assigneeId ? [input.assigneeId] : (await careStaffOf(tx, centerId)).filter((u) => u !== ctx.user.id);
-    await notifyUsers(tx, targets, `Yêu cầu PH: ${PARENT_REQUEST_TYPE_VI[input.type]}`, `${code} · ${st.fullName}`, `/parent-requests/${r!.id}`, input.type === "absence" || input.type === "complaint" ? 1 : 2);
+    await notifyUsers(tx, targets, `Yêu cầu PH: ${PARENT_REQUEST_TYPE_VI[input.type]}`, `${code} · ${st.fullName}`, `/parent-requests/${r!.id}`, input.type === "absence" || input.type === "complaint" ? 1 : 2, "parent_request.new");
     await notifyParent(tx, { parentId, studentId: st.id, template: "REQUEST_RECEIVED", title: "Trung tâm đã nhận yêu cầu", body: `${PARENT_REQUEST_TYPE_VI[input.type]} (${code}) — chúng tôi sẽ phản hồi sớm`, actorId: ctx.user.id });
     await writeAudit(tx, { actorId: ctx.user.id, action: "CREATE", module: "care", entity: "parent_requests", entityId: r!.id, after: { code, type: input.type, studentId: st.id }, ip: ctx.ip });
     return { id: r!.id, code };
@@ -281,7 +281,7 @@ export async function actOnParentRequest(ctx: ProtectedContext, input: { id: str
     if (!up.length) throw new TRPCError({ code: "CONFLICT", message: "Yêu cầu vừa được xử lý" });
     const evNote = [note, ...extra].filter(Boolean).join(" · ") || null;
     await tx.insert(parentRequestEvents).values({ requestId: r.id, action: input.action, fromStatus: r.status, toStatus: to, note: input.action === "assign" ? `Giao cho ${(await tx.query.users.findFirst({ where: eq(users.id, assignee!), columns: { fullName: true } }))?.fullName ?? ""}${evNote ? ` — ${evNote}` : ""}` : evNote, actorId: ctx.user.id });
-    if (input.action === "assign" && assignee !== ctx.user.id) await notifyUsers(tx, [assignee], "Bạn được giao yêu cầu PH", `${r.code} · ${PARENT_REQUEST_TYPE_VI[r.type]}`, `/parent-requests/${r.id}`, 1);
+    if (input.action === "assign" && assignee !== ctx.user.id) await notifyUsers(tx, [assignee], "Bạn được giao yêu cầu PH", `${r.code} · ${PARENT_REQUEST_TYPE_VI[r.type]}`, `/parent-requests/${r.id}`, 1, "parent_request.assigned");
     if (input.action === "approve" || input.action === "reject" || input.action === "complete") {
       const title = input.action === "approve" ? "Yêu cầu đã được chấp thuận" : input.action === "reject" ? "Yêu cầu chưa được chấp thuận" : "Yêu cầu đã xử lý xong";
       await notifyParent(tx, { parentId: r.parentId, studentId: r.studentId, template: "REQUEST_UPDATE", title, body: `${PARENT_REQUEST_TYPE_VI[r.type]} (${r.code})${note ? `: ${note}` : ""}`, actorId: ctx.user.id });
@@ -377,7 +377,7 @@ export async function createFeedback(ctx: ProtectedContext, input: { studentId: 
     if (pri === "urgent") {
       taskId = await openCareTask(tx, { studentId: input.studentId, enrollmentId: e.id, centerId: e.centerId, code: "LOW_FEEDBACK", title: `PH đánh giá thấp (${Math.min(input.rating, input.teacherRating ?? 5)}★) — gọi lại trong 24h`, dedupeKey: `feedback:${f!.id}`, hours: 24 });
       await tx.update(parentFeedback).set({ careTaskId: taskId }).where(eq(parentFeedback.id, f!.id));
-      await notifyUsers(tx, (await careStaffOf(tx, e.centerId)).filter((u) => u !== ctx.user.id), "Đánh giá thấp từ phụ huynh", `${Math.min(input.rating, input.teacherRating ?? 5)}★ — ${input.comment ?? ""}`.slice(0, 200), "/parent-feedback?low=1", 1);
+      await notifyUsers(tx, (await careStaffOf(tx, e.centerId)).filter((u) => u !== ctx.user.id), "Đánh giá thấp từ phụ huynh", `${Math.min(input.rating, input.teacherRating ?? 5)}★ — ${input.comment ?? ""}`.slice(0, 200), "/parent-feedback?low=1", 1, "feedback.low");
     }
     await writeAudit(tx, { actorId: ctx.user.id, action: "CREATE", module: "care", entity: "parent_feedback", entityId: f!.id, after: { rating: input.rating, teacherRating: input.teacherRating, priority: pri }, ip: ctx.ip });
     return { id: f!.id, priority: pri, careTaskId: taskId };
@@ -602,7 +602,7 @@ export async function submitPublicSurvey(db: Database, token: string, answers: S
     if (v.nps != null && npsGroup(v.nps) === "detractor") {
       const taskId = await openCareTask(tx, { studentId: x.i.studentId, enrollmentId: x.i.enrollmentId, centerId: x.i.centerId, code: "LOW_NPS", title: `NPS thấp (${v.nps}/10) — gọi hỏi thăm`, dedupeKey: `nps:${x.i.id}`, hours: 24 });
       await tx.update(surveyResponses).set({ careTaskId: taskId }).where(eq(surveyResponses.id, resp!.id));
-      await notifyUsers(tx, await careStaffOf(tx, x.i.centerId), "Phụ huynh chấm NPS thấp", `${x.s.title}: ${v.nps}/10`, `/khao-sat/${x.s.id}`, 1);
+      await notifyUsers(tx, await careStaffOf(tx, x.i.centerId), "Phụ huynh chấm NPS thấp", `${x.s.title}: ${v.nps}/10`, `/khao-sat/${x.s.id}`, 1, "feedback.low");
     }
     return { ok: true as const };
   });

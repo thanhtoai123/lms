@@ -26,6 +26,6 @@ export type NotificationChannel = (typeof NOTIFICATION_CHANNELS)[number];
 /** Hành động mà automation có thể tạo ra */
 export type Action =
   | { kind: "notify_parent"; studentId: string; template: string; params: Record<string, string>; channels: NotificationChannel[] }
-  | { kind: "notify_user"; userId: string | null; role?: string; centerId?: string | null; title: string; body: string; link?: string; priority: 1 | 2 | 3 }
+  | { kind: "notify_user"; userId: string | null; role?: string; centerId?: string | null; title: string; body: string; link?: string; priority: 1 | 2 | 3; /** Mã loại trong danh mục thông báo (notification_types.prefix) */ notificationType?: string }
   | { kind: "create_care_task"; studentId: string; enrollmentId: string; code: string; title: string; dueInHours: number; severity: number }
   | { kind: "create_lead_task"; leadId: string; title: string; dueInMinutes: number };

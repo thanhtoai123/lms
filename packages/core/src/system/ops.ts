@@ -25,6 +25,7 @@ export const OPS_GROUPS = {
     { key: "staffIdleMinutes", label: "Nhân sự tự đăng xuất khi không thao tác", type: "int", min: 5, max: 480, unit: "phút", def: 60, scope: "global", usedBy: "Đăng nhập nhân sự (áp dụng từ lần đăng nhập kế tiếp)" },
     { key: "staffLoginMaxFails", label: "Tạm khoá đăng nhập nhân sự sau số lần sai mật khẩu", type: "int", min: 3, max: 20, unit: "lần", def: 5, scope: "global", usedBy: "Chống dò mật khẩu" },
     { key: "staffLoginLockMinutes", label: "Thời gian tạm khoá đăng nhập", type: "int", min: 5, max: 120, unit: "phút", def: 15, scope: "global", usedBy: "Chống dò mật khẩu" },
+    { key: "znsUnitCostVnd", label: "Đơn giá một tin ZNS (để ước chi phí)", type: "int", min: 0, max: 10_000, unit: "đ/tin", def: 0, scope: "global", usedBy: "Nhật ký OTP — thẻ \"Chi phí ZNS hôm nay (ước)\"" },
   ],
   "hoc-vien": [
     { key: "nearingEndSessions", label: "Báo \"sắp hết khoá\" khi còn", type: "int", min: 1, max: 12, unit: "buổi", def: 4, scope: "center", usedBy: "Học viên → Sắp hết khoá, thông báo tái tục" },
@@ -107,4 +108,28 @@ export function otpPolicyFrom(o: OpsSettings) {
 }
 export function riskFrom(o: OpsSettings) {
   return { consecutiveAbsences: o.riskConsecutiveAbsences, minRate: o.riskMinRatePct / 100, maxPendingMakeup: 2 };
+}
+
+/* ------------------------------------------------------------------ */
+/* OTP / ZNS: ngưỡng tự ngắt & ước chi phí (thẻ số ở /otp-logs)        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Ngưỡng tự ngắt trong NGÀY — suy từ chính sách hiện có, không thêm tham số mới:
+ * trần theo IP mỗi cửa sổ (`perIpMax` / `perIpWindowMin`) chiếu ra cả ngày.
+ */
+export function otpDailyCutoff(p: { perIpMax: number; perIpWindowMin: number }): number {
+  const windows = Math.max(1, Math.round(1440 / Math.max(1, p.perIpWindowMin)));
+  return p.perIpMax * windows;
+}
+
+/** Chi phí ZNS ước tính (đơn giá 0 = chưa khai báo → 0đ) */
+export function znsCostEstimate(sentCount: number, unitCostVnd: number): number {
+  return Math.max(0, Math.round(sentCount)) * Math.max(0, Math.round(unitCostVnd));
+}
+
+/** Đã chạm ngưỡng tự ngắt chưa */
+export function otpCutoffState(sentToday: number, cutoff: number): { hit: boolean; pct: number } {
+  const pct = cutoff > 0 ? Math.min(999, Math.round((sentToday / cutoff) * 100)) : 0;
+  return { hit: cutoff > 0 && sentToday >= cutoff, pct };
 }

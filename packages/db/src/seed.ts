@@ -15,14 +15,14 @@ import {
   paymentMethods, orders, orderItems, orderInstallments, orderEvents, payments, refunds, financeLedger,
   commissionRules, commissions, bankTransactions,
   staff, staffPrivate, staffPositions, positions, staffDeployments, workShifts, shiftTemplates, shiftAssignments, attendancePunches, staffRequests, checkinPoints,
-  parentRequests, parentRequestEvents, parentFeedback, surveys, surveyInvites, surveyResponses, parentNotifications, careTasks,
-  emailLogs, otpRequests, userGroups, userGroupMembers, webhookEvents, appSettings, revenueTargets,
+  parentRequests, parentRequestEvents, parentFeedback, surveys, surveyInvites, surveyResponses, parentNotifications, userNotifications, careTasks,
+  emailLogs, otpRequests, userGroups, userGroupMembers, userGroupPermissions, notificationTypes, orgUnits, legalEntities, webhookEvents, appSettings, revenueTargets,
   inventoryItems, kitComponents, stockLevels, stockMovements, stockCounters, rentals, rewardItems, coinRules, coinTransactions, redemptions,
   documents, assignmentTemplates, assignments, submissions, lessonProposals,
   posts, siteBlocks, campaigns, campaignSpends, trackEvents, consentRecords, dataRequests, dataRequestEvents,
   jobPostings, candidates, candidateEvents, conversations, messages, affiliates,
 } from "./schema/index";
-import { SHIFT_CATALOGUE, plannedMinutesOf, workSegments, COIN_RULE_DEFS } from "@satarobo/core";
+import { SHIFT_CATALOGUE, plannedMinutesOf, workSegments, COIN_RULE_DEFS, NOTIFICATION_TYPES, NOTIFICATION_GROUPS, buildPath } from "@satarobo/core";
 import { generateSessions, buildClassCode, buildStudentCode, toISODate, addDays, orderCode, receiptNumber, packagePrice, buildInstallmentPlan, computeCommission, describeRule, periodOf, fmtMin, hhmm, weekdayOf, leaveDays, requestCode, slaDue, SETTINGS_DEFAULTS, CONSENT_TEXT_VERSION, dsrCode, dsrDue } from "@satarobo/core";
 import { courseCompletions } from "./schema/index";
 import {
@@ -509,6 +509,48 @@ async function main() {
   await db.update(centers).set({ regionId: rg!.id });
   const [grp] = await db.insert(userGroups).values({ name: "Ban quản lý cơ sở", description: "Nhận thông báo vận hành chung", createdBy: adminU!.id }).returning();
   await db.insert(userGroupMembers).values([{ groupId: grp!.id, userId: mgrU!.id, addedBy: adminU!.id }, { groupId: grp!.id, userId: ktU!.id, addedBy: adminU!.id }]);
+  // Nhóm có QUYỀN: cấp thêm quyền cho cả nhóm mà không sửa vai trò từng người
+  const [grpReport] = await db.insert(userGroups).values({ name: "Tổ báo cáo vận hành", description: "Được xem báo cáo và marketing toàn hệ thống mà không đổi vai trò", createdBy: adminU!.id }).returning();
+  await db.insert(userGroupMembers).values([{ groupId: grpReport!.id, userId: mgrU!.id, addedBy: adminU!.id }]);
+  await db.insert(userGroupPermissions).values(
+    ["report:read", "marketing:read", "student:read"].map((permission) => ({ groupId: grpReport!.id, permission, grantedBy: adminU!.id, reason: "Seed: nhóm mẫu có quyền (không sửa vai trò)" })),
+  );
+
+  // ---- Cây tổ chức động (/to-chuc): dựng từ chính khu vực + cơ sở ở trên ----
+  const [le] = await db.insert(legalEntities).values({
+    legalName: "Công ty Cổ phần Giáo dục Sata Robo (mẫu)", taxCode: "0401234567",
+    address: "211 Nguyễn Hữu Thọ, Đà Nẵng", representative: "Nguyễn Văn A (mẫu)",
+  }).returning();
+  const unitRow = (x: { code: string; name: string; type: "root" | "ho" | "region" | "center"; parentId: string | null; parentPath: string | null; centerId?: string; regionId?: string; address?: string | null; sortOrder?: number }) => ({
+    code: x.code, name: x.name, type: x.type, parentId: x.parentId,
+    path: buildPath(x.parentPath, x.code), address: x.address ?? null,
+    relationshipType: "owned" as const, status: "active" as const, legalEntityId: le!.id,
+    centerId: x.centerId ?? null, regionId: x.regionId ?? null, sortOrder: x.sortOrder ?? 0,
+  });
+  const [uRoot] = await db.insert(orgUnits).values(unitRow({ code: "ROOT", name: "Sata Robo", type: "root", parentId: null, parentPath: null })).returning();
+  const [uHo] = await db.insert(orgUnits).values(unitRow({ code: "HO", name: "Hội sở Sata Robo", type: "ho", parentId: uRoot!.id, parentPath: uRoot!.path, address: "211 Nguyễn Hữu Thọ, Đà Nẵng" })).returning();
+  const [uRegion] = await db.insert(orgUnits).values(unitRow({ code: rg!.code, name: rg!.name, type: "region", parentId: uHo!.id, parentPath: uHo!.path, regionId: rg!.id })).returning();
+  await db.insert(orgUnits).values([
+    unitRow({ code: cs1!.code, name: cs1!.name, type: "center", parentId: uRegion!.id, parentPath: uRegion!.path, centerId: cs1!.id, address: cs1!.address }),
+    unitRow({ code: cs2!.code, name: cs2!.name, type: "center", parentId: uRegion!.id, parentPath: uRegion!.path, centerId: cs2!.id, address: cs2!.address }),
+  ]);
+
+  // ---- Danh mục loại thông báo: khai đủ danh mục mặc định để tab Cấu hình vận hành dùng được ----
+  await db.insert(notificationTypes).values(
+    NOTIFICATION_TYPES.map((t) => ({
+      prefix: t.prefix, label: t.label, groupKey: t.groupKey, groupLabel: NOTIFICATION_GROUPS[t.groupKey],
+      priority: t.priority, recipients: [...t.recipients], pushEnabled: t.pushEnabled, isActive: true, updatedBy: adminU!.id,
+    })),
+  );
+
+  // ---- Thông báo nội bộ mẫu cho Trung tâm thông báo (/thong-bao), gồm loại "Cần thực hiện" ----
+  const todayVn = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10);
+  await db.insert(userNotifications).values([
+    { userId: ktU!.id, title: "Cần đối soát tay giao dịch ngân hàng", body: "2 giao dịch (3.000.000 đ) chưa rót được vào phiếu thu nào — cần đối soát tay", link: "/bien-dong-so-du?status=unmatched", priority: 1, type: "action_required", dedupeKey: `action:bank_unallocated:${todayVn}` },
+    { userId: mgrU!.id, title: "Khoản thu chờ xác nhận", body: "DH26-000001 · 4.800.000đ · Phụ huynh mẫu", link: "/payments?status=recorded", priority: 2, type: "payment.pending" },
+    { userId: mgrU!.id, title: "Lead mới được phân công", body: "Gọi tư vấn trong 15 phút", link: "/leads", priority: 1, type: "lead.moi", createdAt: new Date(Date.now() - 26 * 3600e3) },
+    { userId: mgrU!.id, title: "Đơn nghỉ phép chờ duyệt", body: "Giáo viên mẫu — nghỉ phép 1 ngày", link: "/don-tu?status=pending", priority: 2, type: "request.submitted", createdAt: new Date(Date.now() - 5 * 86400e3) },
+  ]);
   await db.insert(emailLogs).values([
     { toEmail: "ph.mau1@example.test", eventKey: "RECEIPT_ISSUED", subject: "Sata Robo xác nhận thanh toán PT-CS1-26-000001", body: "(mẫu)", status: "skipped", error: "Chưa cấu hình nhà cung cấp email (RESEND_API_KEY)", attempts: 1, createdAt: new Date(Date.now() - 86400e3) },
     { toEmail: "sai-dia-chi", eventKey: "TEST", subject: "Email thử", body: "(mẫu)", status: "failed", error: "Địa chỉ email không hợp lệ", attempts: 3 },

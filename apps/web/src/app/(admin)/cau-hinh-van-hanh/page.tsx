@@ -4,6 +4,7 @@ import { getServerCaller } from "@/lib/trpc/server";
 import { SettingsForm } from "./form";
 import { DeliverySettingsPanel } from "./delivery";
 import { OpsForm } from "./ops-form";
+import { NotificationTypesPanel } from "./notification-types";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Cấu hình vận hành" };
@@ -11,12 +12,14 @@ export const metadata = { title: "Cấu hình vận hành" };
 type Tab =
   | { key: string; label: string; kind: "lead" }
   | { key: string; label: string; kind: "zalo" }
+  | { key: string; label: string; kind: "notification-types"; desc: string }
   | { key: string; label: string; kind: "ops"; group: OpsGroup; desc: string }
   | { key: string; label: string; kind: "link"; desc: string; links: { href: string; label: string }[] };
 
-/** 11 nhóm như trang Cấu hình vận hành của hệ cũ (ADMIN-SPEC §13.1) */
+/** Các nhóm như trang Cấu hình vận hành của bản gốc (ADMIN-SPEC §13.1 · KHAO-SAT-GOC-2 §5) */
 const TABS: Tab[] = [
-  { key: "thong-bao", label: "Thông báo đẩy", kind: "link", desc: "Thông báo đẩy tới phụ huynh dùng khoá VAPID và giờ yên lặng chung với tin Zalo. Thông báo nội bộ cho nhân sự hiện ở chuông góc trên, gửi theo vai trò.", links: [{ href: "/cau-hinh-van-hanh?tab=zalo", label: "Giờ yên lặng, trần tin mỗi phụ huynh" }, { href: "/tich-hop", label: "Trạng thái Web Push" }, { href: "/user-groups", label: "Nhóm nhận thông báo nội bộ" }] },
+  { key: "thong-bao", label: "Thông báo đẩy", kind: "link", desc: "Thông báo đẩy tới phụ huynh dùng khoá VAPID và giờ yên lặng chung với tin Zalo. Thông báo nội bộ cho nhân sự hiện ở chuông góc trên, gửi theo vai trò.", links: [{ href: "/cau-hinh-van-hanh?tab=zalo", label: "Giờ yên lặng, trần tin mỗi phụ huynh" }, { href: "/tich-hop", label: "Trạng thái Web Push" }, { href: "/cau-hinh-van-hanh?tab=danh-muc-thong-bao", label: "Danh mục loại thông báo (chọn loại được đẩy)" }, { href: "/user-groups", label: "Nhóm nhận thông báo nội bộ" }] },
+  { key: "danh-muc-thong-bao", label: "Danh mục thông báo", kind: "notification-types", desc: "Danh mục loại thông báo nội bộ: nhóm nghiệp vụ, mức ưu tiên (Khẩn / Thường / Tham khảo), người nhận và chọn loại nào được đẩy. Mọi thay đổi bắt buộc ghi lý do." },
   { key: "zalo", label: "Tin Zalo (ZNS) / SMS", kind: "zalo" },
   { key: "otp", label: "Đăng nhập/OTP", kind: "ops", group: "otp", desc: "Áp cho toàn hệ thống: đăng nhập nhân sự (tự đăng xuất, khoá tạm khi sai mật khẩu), đăng nhập cổng phụ huynh và kích hoạt tài khoản." },
   { key: "hoc-vien", label: "Học viên", kind: "ops", group: "hoc-vien", desc: "Ngưỡng sắp hết khoá, bảo lưu tối đa, hạn học bù, cảnh báo chuyên cần." },
@@ -66,6 +69,7 @@ export default async function OperationalSettings({ searchParams }: { searchPara
       </nav>
 
       {tab.kind === "zalo" && <DeliverySettingsPanel />}
+      {tab.kind === "notification-types" && (<><p className="text-sm text-ink-600">{tab.desc}</p><NotificationTypesPanel /></>)}
       {tab.kind === "lead" && (<>{centerPicker}<SettingsForm centerId={centerId} /></>)}
       {tab.kind === "ops" && (
         <>

@@ -6,7 +6,7 @@ import * as P from "../services/parentAccounts";
 import * as O from "../services/org";
 import * as L from "../services/studentLifecycle";
 import * as T from "../services/classTransfers";
-import { ENROLLMENT_STATUSES, BLOOD_TYPES, GUARDIAN_RELATIONS, ROOM_STATUSES, TRANSFER_REQUEST_STATUSES } from "@satarobo/core";
+import { ENROLLMENT_STATUSES, BLOOD_TYPES, GUARDIAN_RELATIONS, ROOM_STATUSES, TRANSFER_REQUEST_STATUSES, ORG_UNIT_TYPES, ORG_RELATIONSHIPS, ORG_UNIT_STATUSES } from "@satarobo/core";
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "YYYY-MM-DD");
 const uuid = z.string().uuid();
@@ -139,4 +139,29 @@ export const orgRouter = router({
       status: z.enum(ROOM_STATUSES).optional(), equipment: z.array(z.string().max(60)).max(20).optional(), isActive: z.boolean().optional(),
     }))
     .mutation(({ ctx, input }) => O.upsertRoom(ctx, input)),
+
+  /* Cây tổ chức động (/to-chuc) */
+  unitTree: protectedProcedure.query(({ ctx }) => O.orgUnitTree(ctx)),
+  unlinkedCenters: protectedProcedure.query(({ ctx }) => O.unlinkedCenters(ctx)),
+  unitScope: protectedProcedure.input(z.object({ path: z.string().max(400).nullable() })).query(({ ctx, input }) => O.orgUnitScope(ctx, input.path)),
+  createUnit: protectedProcedure
+    .input(z.object({
+      code: z.string().trim().min(2).max(20), name: z.string().trim().min(2).max(120), type: z.enum(ORG_UNIT_TYPES),
+      parentId: uuid.nullable(), address: nstr(300), relationshipType: z.enum(ORG_RELATIONSHIPS).optional(),
+      legalEntityId: uuid.nullish(), centerId: uuid.nullish(), note: nstr(300), reason,
+    }))
+    .mutation(({ ctx, input }) => O.createOrgUnit(ctx, input)),
+  updateUnit: protectedProcedure
+    .input(z.object({
+      id: uuid, name: z.string().trim().min(2).max(120), address: nstr(300), relationshipType: z.enum(ORG_RELATIONSHIPS).optional(),
+      status: z.enum(ORG_UNIT_STATUSES).optional(), legalEntityId: uuid.nullish(), note: nstr(300),
+      code: z.string().max(20).optional(), type: z.enum(ORG_UNIT_TYPES).optional(), reason,
+    }))
+    .mutation(({ ctx, input }) => O.updateOrgUnit(ctx, input)),
+  moveUnit: protectedProcedure.input(z.object({ id: uuid, parentId: uuid.nullable(), reason })).mutation(({ ctx, input }) => O.moveOrgUnit(ctx, input)),
+  deleteUnit: protectedProcedure.input(z.object({ id: uuid, reason })).mutation(({ ctx, input }) => O.deleteOrgUnit(ctx, input)),
+  seedUnits: protectedProcedure.input(z.object({ reason })).mutation(({ ctx, input }) => O.seedOrgUnitsFromCenters(ctx, input)),
+  upsertLegalEntity: protectedProcedure
+    .input(z.object({ id: uuid.optional(), legalName: z.string().trim().min(3).max(200), taxCode: z.string().trim().min(10).max(14), address: nstr(300), representative: nstr(120), isActive: z.boolean().optional(), reason }))
+    .mutation(({ ctx, input }) => O.upsertLegalEntity(ctx, input)),
 });

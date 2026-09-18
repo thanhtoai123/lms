@@ -84,6 +84,8 @@ export function CommandPalette({ nav, open, onOpenChange }: { nav: NavGroup[]; o
       .slice(0, 8)
       .forEach(({ g, i }) => out.push({ key: `p:${i.href}`, group: "Trang", title: i.label, sub: i.desc ?? g, href: i.href }));
     if (debounced === q.trim()) (search.data?.hits ?? []).forEach((h) => out.push({ key: `${h.kind}:${h.id}`, group: KIND_LABEL[h.kind] ?? h.kind, title: h.title, sub: h.sub, href: h.href }));
+    // Luôn có lối sang trang kết quả đầy đủ (phân nhóm theo loại, phân trang)
+    if (f.length >= 2) out.push({ key: "all", group: "Tất cả", title: "Xem tất cả kết quả →", sub: `Trang /search cho “${q.trim()}”`, href: `/search?q=${encodeURIComponent(q.trim())}` });
     return out;
   }, [q, debounced, nav, recent, search.data]);
 

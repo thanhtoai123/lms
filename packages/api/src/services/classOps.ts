@@ -13,6 +13,7 @@ import {
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { writeAudit } from "./audit";
+import { deliverNotifications } from "./notify";
 import { todayISO } from "./sessions";
 import { assertTeacherQualified } from "./teachers";
 import { logEvent, syncStudentStatus, afterEnrollmentEnded, trackPause } from "./enrollments";
@@ -57,9 +58,8 @@ export async function holidayDates(db: Db, centerId: string) {
   return rows.map((h) => h.date);
 }
 
-export async function notifyUsers(db: Db, userIds: (string | null | undefined)[], title: string, body: string, link: string, priority = 2) {
-  const ids = [...new Set(userIds.filter((x): x is string => !!x))];
-  if (ids.length) await db.insert(userNotifications).values(ids.map((userId) => ({ userId, title, body, link, priority })));
+export async function notifyUsers(db: Db, userIds: (string | null | undefined)[], title: string, body: string, link: string, priority = 2, type: string | null = null) {
+  await deliverNotifications(db, userIds, { title, body, link, priority, type });
 }
 
 export async function teacherUserIds(db: Db, teacherIds: (string | null | undefined)[]) {
@@ -132,7 +132,7 @@ export async function cancelTrialsFor(db: Db, sessionIds: string[], reason: stri
   for (const t of rows) {
     await db.insert(leadActivities).values({ leadId: t.leadId, type: "note", actorId, content: `Buổi học thử ${classCode} bị huỷ — ${reason}. Cần xếp lại buổi thử.`, meta: { event: "trial_session_cancelled", trialBookingId: t.id } });
     const lead = await db.query.leads.findFirst({ where: eq(leads.id, t.leadId), columns: { assignedToId: true, parentName: true } });
-    await notifyUsers(db, [lead?.assignedToId], "Buổi học thử bị huỷ", `${t.childName ?? lead?.parentName ?? "Khách"} (${classCode}): ${reason} — xếp lại buổi thử`, `/leads/${t.leadId}`, 1);
+    await notifyUsers(db, [lead?.assignedToId], "Buổi học thử bị huỷ", `${t.childName ?? lead?.parentName ?? "Khách"} (${classCode}): ${reason} — xếp lại buổi thử`, `/leads/${t.leadId}`, 1, "trial.cancelled");
   }
   return rows.length;
 }
@@ -143,7 +143,7 @@ export async function notifyTrialsMoved(db: Db, sessionIds: string[], note: stri
   const rows = await db.select({ id: trialBookings.id, leadId: trialBookings.leadId, childName: trialBookings.childName, assignedToId: leads.assignedToId })
     .from(trialBookings).innerJoin(leads, eq(leads.id, trialBookings.leadId))
     .where(and(inArray(trialBookings.sessionId, sessionIds), eq(trialBookings.status, "booked")));
-  for (const t of rows) await notifyUsers(db, [t.assignedToId], "Buổi học thử đổi lịch", `${t.childName ?? "Khách"} (${classCode}): ${note} — báo lại phụ huynh`, `/leads/${t.leadId}`, 1);
+  for (const t of rows) await notifyUsers(db, [t.assignedToId], "Buổi học thử đổi lịch", `${t.childName ?? "Khách"} (${classCode}): ${note} — báo lại phụ huynh`, `/leads/${t.leadId}`, 1, "trial.rescheduled");
   return rows.length;
 }
 
@@ -265,7 +265,7 @@ export async function createClass(ctx: ProtectedContext, input: CreateClassInput
         const errs = classReadiness({ scheduleCount, startDate: input.startDate, leadTeacherId: input.leadTeacherId ?? null, capacity: cls!.capacity, minCapacity: cls!.minCapacity, totalSessions: cls!.plannedSessions ?? 0 });
         if (errs.length) throw precondition(errs);
         await tx.insert(classEvents).values({ classId: cls!.id, event: "submit", fromStatus: "draft", toStatus: "pending_approval", actorId: ctx.user.id });
-        await notifyUsers(tx as unknown as Db, await centerManagers(tx as unknown as Db, cls!.centerId), "Lớp mới chờ duyệt", `${code} — ${input.name}`, `/classes/${cls!.id}`);
+        await notifyUsers(tx as unknown as Db, await centerManagers(tx as unknown as Db, cls!.centerId), "Lớp mới chờ duyệt", `${code} — ${input.name}`, `/classes/${cls!.id}`, 2, "class.pending_approval");
       }
       if (mode === "open") {
         const r = await generateSessionsFor(tx as unknown as Db, cls!, ctx.user.id);
@@ -384,10 +384,10 @@ export async function transitionClass(ctx: ProtectedContext, input: { classId: s
       await tx.insert(classEvents).values({ classId: cls.id, event: input.event, fromStatus: cls.status, toStatus: to, reason, actorId: ctx.user.id, meta: created ? { sessions: created } : input.event === "cancel" ? cascade : null });
       await writeAudit(db, { actorId: ctx.user.id, action: "TRANSITION", module: "academics", entity: "classes", entityId: cls.id, before: { status: cls.status, openEnrollments: activeEnrollments }, after: { status: to, event: input.event, sessions: created || undefined, ...(input.event === "cancel" ? { cascade } : {}) }, reason, ip: ctx.ip });
       const link = `/classes/${cls.id}`;
-      if (input.event === "submit") await notifyUsers(db, await centerManagers(db, cls.centerId), "Lớp mới chờ duyệt", `${cls.code} — ${cls.name}`, link);
-      if (input.event === "approve") await notifyUsers(db, [cls.submittedBy, ...(await teacherUserIds(db, [cls.leadTeacherId, cls.assistantTeacherId]))], "Lớp đã được duyệt mở", `${cls.code} — đã sinh ${created} buổi học`, link);
-      if (input.event === "reject") await notifyUsers(db, [cls.submittedBy], "Lớp bị trả về nháp", `${cls.code}: ${reason}`, link, 1);
-      if (input.event === "cancel") await notifyUsers(db, [...(await teacherUserIds(db, [cls.leadTeacherId, cls.assistantTeacherId])), ...(await centerManagers(db, cls.centerId))], "Lớp đã huỷ", `${cls.code}: ${reason} — rút ${cascade.withdrawn} ghi danh, huỷ ${cascade.sessions} buổi${cascade.refunds ? `, ${cascade.refunds} đề xuất hoàn tiền` : ""}`, link, 1);
+      if (input.event === "submit") await notifyUsers(db, await centerManagers(db, cls.centerId), "Lớp mới chờ duyệt", `${cls.code} — ${cls.name}`, link, 2, "class.pending_approval");
+      if (input.event === "approve") await notifyUsers(db, [cls.submittedBy, ...(await teacherUserIds(db, [cls.leadTeacherId, cls.assistantTeacherId]))], "Lớp đã được duyệt mở", `${cls.code} — đã sinh ${created} buổi học`, link, 2, "class.approved");
+      if (input.event === "reject") await notifyUsers(db, [cls.submittedBy], "Lớp bị trả về nháp", `${cls.code}: ${reason}`, link, 1, "class.rejected");
+      if (input.event === "cancel") await notifyUsers(db, [...(await teacherUserIds(db, [cls.leadTeacherId, cls.assistantTeacherId])), ...(await centerManagers(db, cls.centerId))], "Lớp đã huỷ", `${cls.code}: ${reason} — rút ${cascade.withdrawn} ghi danh, huỷ ${cascade.sessions} buổi${cascade.refunds ? `, ${cascade.refunds} đề xuất hoàn tiền` : ""}`, link, 1, "class.cancelled");
     });
   } catch (e) {
     mapExclusion(e);
@@ -463,8 +463,8 @@ export async function updateClassInfo(ctx: ProtectedContext, input: UpdateClassI
         if (future.length) await tx.update(sessions).set({ teacherId: input.leadTeacherId }).where(inArray(sessions.id, future.map((f) => f.id)));
         await tx.update(classSchedules).set({ teacherId: input.leadTeacherId }).where(and(eq(classSchedules.classId, cls.id), or(isNull(classSchedules.effectiveTo), gte(classSchedules.effectiveTo, today))!));
         movedSessions = future.length;
-        await notifyUsers(tx as unknown as Db, await teacherUserIds(tx as unknown as Db, [input.leadTeacherId]), "Bạn được phân dạy lớp", `${cls.code} — ${movedSessions} buổi sắp tới`, `/teacher/classes`);
-        await notifyUsers(tx as unknown as Db, await teacherUserIds(tx as unknown as Db, [cls.leadTeacherId]), "Bàn giao lớp", `${cls.code} đã chuyển cho giáo viên khác từ buổi tới`, `/teacher/classes`);
+        await notifyUsers(tx as unknown as Db, await teacherUserIds(tx as unknown as Db, [input.leadTeacherId]), "Bạn được phân dạy lớp", `${cls.code} — ${movedSessions} buổi sắp tới`, `/teacher/classes`, 2, "session.substitute");
+        await notifyUsers(tx as unknown as Db, await teacherUserIds(tx as unknown as Db, [cls.leadTeacherId]), "Bàn giao lớp", `${cls.code} đã chuyển cho giáo viên khác từ buổi tới`, `/teacher/classes`, 2, "session.substitute");
       }
       if (teacherChanged || (input.assistantTeacherId ?? null) !== cls.assistantTeacherId) {
         await tx.insert(classEvents).values({ classId: cls.id, event: "teacher_change", actorId: ctx.user.id, meta: { lead: [cls.leadTeacherId, input.leadTeacherId ?? null], assistant: [cls.assistantTeacherId, input.assistantTeacherId ?? null], movedSessions } });
@@ -630,7 +630,7 @@ export async function applyScheduleChange(ctx: ProtectedContext, input: { classI
         before: { expectedEndDate: cls.expectedEndDate }, after: { fromDate: input.fromDate, changed: changed.length, expectedEndDate: plan.newEndDate, slots: slots.map((s) => `${s.weekday} ${s.startTime}-${s.endTime}`) }, reason, ip: ctx.ip,
       });
       const tUsers = await teacherUserIds(tx as unknown as Db, [cls.leadTeacherId, cls.assistantTeacherId, ...changed.flatMap((c) => [c.from.teacherId, c.to.teacherId])]);
-      await notifyUsers(tx as unknown as Db, tUsers, "Lịch lớp thay đổi", `${cls.code}: ${changed.length} buổi từ ${fmt(input.fromDate)} — ${reason}`, `/teacher/classes`, 1);
+      await notifyUsers(tx as unknown as Db, tUsers, "Lịch lớp thay đổi", `${cls.code}: ${changed.length} buổi từ ${fmt(input.fromDate)} — ${reason}`, `/teacher/classes`, 1, "class.schedule_changed");
       await notifyTrialsMoved(tx as unknown as Db, changed.map((c) => c.sessionId), `lớp đổi lịch từ ${fmt(input.fromDate)}`, cls.code);
       if (input.notifyParents && changed.length) {
         const slotText = slots.map((s) => `${s.weekday === 7 ? "CN" : `T${s.weekday + 1}`} ${s.startTime}`).join(", ");
@@ -687,7 +687,7 @@ export async function reanchorApply(ctx: ProtectedContext, input: { classId: str
         actorId: ctx.user.id, action: "UPDATE", module: "academics", entity: "sessions", entityId: cls.id,
         before: { expectedEndDate: cls.expectedEndDate }, after: { reanchor: true, changed: changed.map((c) => `${c.sequenceNo}: ${c.from.date}→${c.to.date}`), kept: plan.kept, expectedEndDate: plan.newEndDate }, reason, ip: ctx.ip,
       });
-      await notifyUsers(tx as unknown as Db, await teacherUserIds(tx as unknown as Db, [cls.leadTeacherId, cls.assistantTeacherId, ...changed.flatMap((c) => [c.from.teacherId, c.to.teacherId])]), "Xếp lại lịch buổi học", `${cls.code}: ${changed.length} buổi được xếp lại theo lịch — ${reason}`, `/teacher/classes`, 1);
+      await notifyUsers(tx as unknown as Db, await teacherUserIds(tx as unknown as Db, [cls.leadTeacherId, cls.assistantTeacherId, ...changed.flatMap((c) => [c.from.teacherId, c.to.teacherId])]), "Xếp lại lịch buổi học", `${cls.code}: ${changed.length} buổi được xếp lại theo lịch — ${reason}`, `/teacher/classes`, 1, "class.schedule_changed");
       await notifyTrialsMoved(tx as unknown as Db, changed.map((c) => c.sessionId), "buổi được xếp lại theo lịch", cls.code);
       if (input.notifyParents) await notifyClassParents(tx as unknown as Db, cls.id, { template: "SCHEDULE_CHANGED", title: `Lớp ${cls.name} cập nhật lịch buổi học`, body: `${changed.length} buổi được xếp lại đúng lịch. ${reason}` });
     });
@@ -806,7 +806,7 @@ export async function addExtraSession(ctx: ProtectedContext, input: { classId: s
       }).returning();
       await tx.insert(classEvents).values({ classId: cls.id, event: "add_session", actorId: ctx.user.id, meta: { sessionId: row!.id, kind: input.kind, date: input.date } });
       await writeAudit(tx as unknown as Db, { actorId: ctx.user.id, action: "CREATE", module: "academics", entity: "sessions", entityId: row!.id, after: { classId: cls.id, kind: input.kind, date: input.date, startTime: input.startTime }, ip: ctx.ip });
-      await notifyUsers(tx as unknown as Db, await teacherUserIds(tx as unknown as Db, [teacherId]), "Buổi dạy mới", `${cls.code} · ${sessionLabel(seq, input.kind)} · ${fmt(input.date)} ${input.startTime}`, `/teacher/sessions/${row!.id}`);
+      await notifyUsers(tx as unknown as Db, await teacherUserIds(tx as unknown as Db, [teacherId]), "Buổi dạy mới", `${cls.code} · ${sessionLabel(seq, input.kind)} · ${fmt(input.date)} ${input.startTime}`, `/teacher/sessions/${row!.id}`, 2, "session.substitute");
       return { id: row!.id, sequenceNo: seq, label: sessionLabel(seq, input.kind) };
     });
   } catch (e) {

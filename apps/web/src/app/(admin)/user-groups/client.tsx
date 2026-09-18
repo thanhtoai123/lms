@@ -84,6 +84,74 @@ export function DeleteGroup({ id, name }: { id: string; name: string }) {
   );
 }
 
+type Catalog = { group: string; items: { key: string; label: string; permissions: string[] }[] }[];
+
+/**
+ * Quyền cấp theo nhóm — "cấp quyền cho một nhóm người mà không sửa vai trò".
+ * Quyền của một người = quyền vai trò ∪ quyền của mọi nhóm họ thuộc (chỉ cộng thêm, không bớt).
+ */
+export function GroupPermissions({ groupId, scope, catalog, actionLabels, current, canEdit }: {
+  groupId: string;
+  scope: string;
+  catalog: Catalog;
+  actionLabels: Record<string, string>;
+  current: string[];
+  canEdit: boolean;
+}) {
+  const trpc = useTRPC();
+  const router = useRouter();
+  const [sel, setSel] = useState<string[]>(current);
+  const [reason, setReason] = useState("");
+  const m = useMutation(trpc.admin.setGroupPermissions.mutationOptions({ onSuccess: () => { setReason(""); router.refresh(); } }));
+  const toggle = (p: string) => setSel((s) => (s.includes(p) ? s.filter((x) => x !== p) : [...s, p]));
+  const dirty = [...sel].sort().join("|") !== [...current].sort().join("|");
+  const actions = Object.keys(actionLabels);
+
+  return (
+    <form className="card space-y-3 p-4" onSubmit={(e) => { e.preventDefault(); m.mutate({ groupId, permissions: sel, reason }); }}>
+      <div>
+        <h3 className="font-semibold">Quyền cấp theo nhóm <span className="text-xs font-normal text-ink-400">({sel.length} quyền · phạm vi {scope})</span></h3>
+        <p className="text-xs text-ink-600">Cấp thêm quyền cho cả nhóm mà không phải sửa vai trò từng người. Quyền nhóm chỉ <b>cộng thêm</b>, không bớt quyền sẵn có. Quyền hệ thống / audit / tuân thủ vẫn phải đi qua vai trò.</p>
+      </div>
+      <div className="space-y-3">
+        {catalog.map((g) => (
+          <div key={g.group} className="overflow-x-auto">
+            <div className="text-xs font-bold uppercase tracking-wide text-ink-400">{g.group}</div>
+            <table className="w-full text-sm">
+              <thead className="text-left text-xs text-ink-400"><tr><th className="py-1">Tài nguyên</th>{actions.map((a) => <th key={a} className="py-1 text-center">{actionLabels[a]}</th>)}</tr></thead>
+              <tbody className="divide-y divide-black/5">
+                {g.items.map((it) => (
+                  <tr key={it.key}>
+                    <td className="py-1">{it.label}</td>
+                    {actions.map((a) => {
+                      const p = `${it.key}:${a}`;
+                      const ok = it.permissions.includes(p);
+                      return (
+                        <td key={a} className="py-1 text-center">
+                          {ok ? <input type="checkbox" checked={sel.includes(p)} disabled={!canEdit} onChange={() => toggle(p)} aria-label={`${it.label} — ${actionLabels[a]}`} /> : <span className="text-ink-400">—</span>}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ))}
+      </div>
+      {canEdit ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <input className="input flex-1" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Lý do thay đổi (bắt buộc, ≥ 5 ký tự — ghi vào nhật ký)" maxLength={300} required />
+          <button className="btn-primary" disabled={m.isPending || !dirty}>{m.isPending ? "Đang lưu…" : "Lưu quyền nhóm"}</button>
+          {dirty && <span className="text-xs text-amber-700">Có thay đổi chưa lưu</span>}
+        </div>
+      ) : <p className="text-xs text-ink-400">Chỉ Quản trị tối cao đổi được quyền của nhóm.</p>}
+      {m.error && <p className="text-sm text-red-700">{m.error.message}</p>}
+      {m.isSuccess && <p className="text-sm text-green-700">Đã lưu quyền nhóm. Người trong nhóm nhận quyền mới ở lần tải trang kế tiếp.</p>}
+    </form>
+  );
+}
+
 export function Announce({ groupId, count }: { groupId: string; count: number }) {
   const trpc = useTRPC();
   const [title, setTitle] = useState("");

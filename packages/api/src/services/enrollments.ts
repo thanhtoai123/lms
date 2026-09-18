@@ -11,6 +11,7 @@ import {
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { writeAudit } from "./audit";
+import { deliverNotifications } from "./notify";
 import { enforcePrerequisites } from "./catalog";
 import { emit } from "./outbox";
 import { consumedSql, centerScope, canSeeFullPhone } from "./students";
@@ -151,7 +152,7 @@ export async function notifyWaitlist(db: Db, classId: string) {
   const managers = (await db.select({ u: userRoles.userId }).from(userRoles).innerJoin(users, eq(users.id, userRoles.userId))
     .where(and(eq(userRoles.role, "CENTER_MANAGER"), eq(userRoles.centerId, cls.centerId), eq(users.isActive, true)))).map((r) => r.u);
   const ids = [...new Set([head.createdBy, ...managers].filter((x): x is string => !!x))];
-  if (ids.length) await db.insert(userNotifications).values(ids.map((userId) => ({ userId, title: "Lớp có chỗ trống — danh sách chờ", body: `${cls.code} còn chỗ: yêu cầu chuyển lớp của ${head.studentName} đang đứng đầu danh sách chờ`, link: "/chuyen-lop", priority: 2 })));
+  await deliverNotifications(db, ids, { title: "Lớp có chỗ trống — danh sách chờ", body: `${cls.code} còn chỗ: yêu cầu chuyển lớp của ${head.studentName} đang đứng đầu danh sách chờ`, link: "/chuyen-lop", priority: 2, type: "class.waitlist" });
 }
 
 /** Ghi danh kết thúc (nghỉ học): đề xuất hoàn tiền nếu còn tiền, huỷ yêu cầu chuyển lớp đang mở, báo danh sách chờ */

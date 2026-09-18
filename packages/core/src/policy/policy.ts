@@ -56,11 +56,29 @@ export interface RoleAssignment {
   centerId: string | null;
 }
 
+/**
+ * Quyền cấp thêm ngoài vai trò — từ **nhóm người dùng** ("cấp quyền cho một nhóm người mà không sửa vai trò").
+ * `centerId = null` nghĩa là toàn hệ thống; khác null thì chỉ có hiệu lực ở đúng cơ sở đó.
+ */
+export interface ExtraPermission {
+  permission: Permission;
+  centerId: string | null;
+  /** Nguồn (tên nhóm) — chỉ để giải thích trong `Decision.reason` */
+  source?: string;
+}
+
 export interface Actor {
   userId: string;
   assignments: RoleAssignment[];
   /** Với TEACHER: id giáo viên; với PARENT: id phụ huynh */
   personId?: string | null;
+  /** Quyền hợp nhất từ các nhóm người dùng mà actor thuộc về */
+  extraPermissions?: ExtraPermission[];
+}
+
+/** Gắn quyền nhóm vào actor (dùng khi dựng ngữ cảnh đăng nhập) */
+export function withExtraPermissions(actor: Actor, extraPermissions: ExtraPermission[]): Actor {
+  return extraPermissions.length ? { ...actor, extraPermissions } : actor;
 }
 
 export interface ResourceRef {
@@ -113,8 +131,9 @@ export interface Decision {
 /**
  * Kiểm tra actor có thể thực hiện action trên resource không.
  * Thứ tự: quyền global (centerId null) → quyền theo đúng cơ sở → quyền *_own khi actor là owner.
+ * Cuối cùng xét `extraPermissions` — quyền hợp nhất từ nhóm người dùng (chỉ cộng thêm, không bớt).
  */
-export function authorize(actor: Actor, wanted: Permission, resource: ResourceRef = {}): Decision {
+export function authorize(actor: Actor, wanted: Permission, resource: ResourceRef = {}, extraPermissions: ExtraPermission[] = actor.extraPermissions ?? []): Decision {
   const [res, act] = wanted.split(":") as [string, string];
   const ownVariant: Permission = act.endsWith("_own") ? wanted : `${res}:${act}_own`;
   const isOwner = !!actor.personId && (resource.ownerIds ?? []).includes(actor.personId);
@@ -134,19 +153,33 @@ export function authorize(actor: Actor, wanted: Permission, resource: ResourceRe
       }
     }
   }
+
+  for (const g of extraPermissions) {
+    const scopeOk = g.centerId === null || resource.centerId === undefined || resource.centerId === null || g.centerId === resource.centerId;
+    if (!scopeOk) continue;
+    if (matches(g.permission, wanted) && (!wanted.endsWith("_own") || isOwner)) {
+      return { allowed: true, reason: `Nhóm ${g.source ?? "người dùng"} cấp ${g.permission}` };
+    }
+    if (matches(g.permission, ownVariant) && isOwner) {
+      return { allowed: true, reason: `Nhóm ${g.source ?? "người dùng"} cấp ${g.permission} (own) và là chủ sở hữu` };
+    }
+  }
   return { allowed: false, reason: `Không có quyền ${wanted}` };
 }
 
-/** Chỉ tính các vai trò toàn hệ thống (không gắn cơ sở) */
+/** Chỉ tính các vai trò toàn hệ thống (không gắn cơ sở) — quyền nhóm toàn hệ thống cũng tính */
 export function authorizeGlobal(actor: Actor, wanted: Permission): boolean {
-  return actor.assignments.some((a) => a.centerId === null && authorize({ ...actor, assignments: [a] }, wanted, {}).allowed);
+  const globalExtras = (actor.extraPermissions ?? []).filter((g) => g.centerId === null);
+  if (globalExtras.some((g) => matches(g.permission, wanted))) return true;
+  return actor.assignments.some((a) => a.centerId === null && authorize({ ...actor, assignments: [a], extraPermissions: [] }, wanted, {}, []).allowed);
 }
 
 /** Các cơ sở mà actor có quyền (không tính _own); null = toàn hệ thống */
 export function centersWith(actor: Actor, wanted: Permission): string[] | null {
   const ok = actor.assignments.filter((a) => (ROLE_PERMISSIONS[a.role] ?? []).some((p) => matches(p, wanted)));
-  if (ok.some((a) => a.centerId === null)) return null;
-  return [...new Set(ok.map((a) => a.centerId!))];
+  const extras = (actor.extraPermissions ?? []).filter((g) => matches(g.permission, wanted));
+  if (ok.some((a) => a.centerId === null) || extras.some((g) => g.centerId === null)) return null;
+  return [...new Set([...ok.map((a) => a.centerId!), ...extras.map((g) => g.centerId!)])];
 }
 
 export function assertAuthorized(actor: Actor, wanted: Permission, resource?: ResourceRef): void {
@@ -174,7 +207,26 @@ export function visibleCenterIds(actor: Actor): string[] | null {
 export function hasPermission(actor: Actor, wanted: Permission): boolean {
   const [res, act] = wanted.split(":") as [string, string];
   const own: Permission = act.endsWith("_own") ? wanted : `${res}:${act}_own`;
-  return actor.assignments.some((a) => (ROLE_PERMISSIONS[a.role] ?? []).some((p) => matches(p, wanted) || matches(p, own)));
+  if (actor.assignments.some((a) => (ROLE_PERMISSIONS[a.role] ?? []).some((p) => matches(p, wanted) || matches(p, own)))) return true;
+  return (actor.extraPermissions ?? []).some((g) => matches(g.permission, wanted) || matches(g.permission, own));
+}
+
+/**
+ * Bộ quyền hiệu lực của actor = quyền của các vai trò + quyền của các nhóm người dùng.
+ * Dùng cho màn "Vai trò & quyền" / "Nhóm người dùng" để giải thích vì sao ai đó làm được gì.
+ */
+export function effectivePermissions(actor: Actor): { permission: Permission; centerId: string | null; via: string }[] {
+  const out: { permission: Permission; centerId: string | null; via: string }[] = [];
+  const seen = new Set<string>();
+  const push = (permission: Permission, centerId: string | null, via: string) => {
+    const k = `${permission}|${centerId ?? "*"}`;
+    if (seen.has(k)) return;
+    seen.add(k);
+    out.push({ permission, centerId, via });
+  };
+  for (const a of actor.assignments) for (const p of ROLE_PERMISSIONS[a.role] ?? []) push(p, a.centerId, ROLE_LABEL_VI[a.role]);
+  for (const g of actor.extraPermissions ?? []) push(g.permission, g.centerId, `Nhóm ${g.source ?? "người dùng"}`);
+  return out;
 }
 
 export function hasRole(actor: Actor, ...roles: Role[]): boolean {

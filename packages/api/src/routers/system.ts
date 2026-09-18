@@ -4,7 +4,7 @@ import { router, protectedProcedure, requirePermission } from "../trpc";
 import * as Acc from "../services/accounts";
 import * as StaffAuth from "../services/staffAuth";
 import * as LoginSec from "../services/loginSecurity";
-import { globalSearch } from "../services/search";
+import { globalSearch, SEARCH_KINDS } from "../services/search";
 import * as Rep from "../services/reports";
 import * as Tr from "../services/trials";
 import * as Ops from "../services/ops";
@@ -33,7 +33,9 @@ export const systemRouter = router({
     .mutation(({ ctx, input }) => Acc.updateUser(ctx, input)),
   grantRole: protectedProcedure.input(roleAssign.extend({ userId: uuid })).mutation(({ ctx, input }) => Acc.grantRole(ctx, input)),
   revokeRole: protectedProcedure.input(z.object({ roleId: uuid, reason: z.string().max(300).nullish() })).mutation(({ ctx, input }) => Acc.revokeRole(ctx, input)),
-  search: protectedProcedure.input(z.object({ q: z.string().max(80) })).query(({ ctx, input }) => globalSearch(ctx, input)),
+  search: protectedProcedure
+    .input(z.object({ q: z.string().max(80), kind: z.enum(SEARCH_KINDS).optional(), perKind: z.number().int().min(1).max(50).optional(), page: z.number().int().min(1).max(100).optional() }))
+    .query(({ ctx, input }) => globalSearch(ctx, input)),
   loginHistory: protectedProcedure.input(z.object({ userId: uuid })).query(({ ctx, input }) => LoginSec.userLoginHistory(ctx, input)),
   clearLoginLock: protectedProcedure.input(z.object({ userId: uuid })).mutation(({ ctx, input }) => LoginSec.clearLoginLock(ctx, input)),
   securityOverview: protectedProcedure.query(({ ctx }) => LoginSec.securityOverview(ctx)),
@@ -48,6 +50,10 @@ export const systemRouter = router({
     }).default({}))
     .query(({ ctx, input }) => Acc.listAudit(ctx, input)),
   auditOptions: protectedProcedure.query(({ ctx }) => Acc.auditFilterOptions(ctx)),
+  /** "Xem đầy đủ" một dòng nhật ký — bắt buộc lý do, ghi bản ghi PII_REVEAL */
+  revealAudit: protectedProcedure
+    .input(z.object({ id: uuid, reason: z.string().trim().min(10, "Lý do tối thiểu 10 ký tự").max(500) }))
+    .mutation(({ ctx, input }) => Acc.revealAuditEntry(ctx, input)),
 });
 
 const reportInput = z.object({ from: isoDate.optional(), to: isoDate.optional(), centerId: uuid.optional() }).default({});

@@ -429,7 +429,7 @@ export async function assignShifts(ctx: ProtectedContext, input: { centerId: str
   });
   const future = input.entries.filter((e) => e.date >= today);
   const users_ = people.filter((p) => future.some((f) => f.staffId === p.id)).map((p) => p.userId);
-  await notify(ctx.db, users_, "Lịch ca thay đổi", `Cập nhật ${future.length} ngày ca làm`, "/cham-cong/lich-ca", 3);
+  await notify(ctx.db, users_, "Lịch ca thay đổi", `Cập nhật ${future.length} ngày ca làm`, "/cham-cong/lich-ca", 3, "shift.brief");
   return { set, cleared };
 }
 
@@ -688,7 +688,7 @@ export async function overrideDay(ctx: ProtectedContext, input: { staffId: strin
         .onConflictDoUpdate({ target: [timesheetOverrides.staffId, timesheetOverrides.date], set: { units: input.units, label, reason, createdBy: ctx.user.id, updatedAt: new Date() } });
     }
     await writeAudit(tx, { actorId: ctx.user.id, action: before ? (input.units === null ? "DELETE" : "UPDATE") : "CREATE", module: "hr", entity: "timesheet_overrides", entityId: s.id, before: before ? { units: before.units, label: before.label } : null, after: { date: input.date, units: input.units, label: input.label }, reason, ip: ctx.ip });
-    if (s.userId) await notify(tx, [s.userId], "Công ngày được ghi đè", `${dmy(input.date)}: ${input.units === null ? "bỏ ghi đè" : `${input.units} công`} — ${reason}`, "/cham-cong/lich-ca", 3);
+    if (s.userId) await notify(tx, [s.userId], "Công ngày được ghi đè", `${dmy(input.date)}: ${input.units === null ? "bỏ ghi đè" : `${input.units} công`} — ${reason}`, "/cham-cong/lich-ca", 3, "timesheet.override");
   });
   return { ok: true };
 }

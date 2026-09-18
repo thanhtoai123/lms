@@ -2,7 +2,9 @@ import Link from "next/link";
 import { hasPermission, type Actor } from "@satarobo/core";
 import { getServerCaller } from "@/lib/trpc/server";
 import { NoAccess, PageHeader } from "@/components/admin-ui";
-import { TestEmail } from "./test-email";
+import { Empty } from "@/components/ui";
+import { dtVN } from "@/components/care-ui";
+import { TestEmail, TestDelivery } from "./test-email";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Tích hợp" };
@@ -15,11 +17,11 @@ const TONE = {
 export default async function IntegrationsPage() {
   const { caller, ctx } = await getServerCaller();
   if (!ctx.actor || !hasPermission(ctx.actor as Actor, "system:read")) return <NoAccess title="Tích hợp" perm="system:read" />;
-  const { items } = await caller.admin.integrations();
+  const { items, providerErrors } = await caller.admin.integrations();
   const canTest = hasPermission(ctx.actor as Actor, "system:update");
   return (
     <div className="space-y-4">
-      <PageHeader title="Tích hợp" desc="Trạng thái các dịch vụ bên ngoài. Khoá bí mật chỉ đặt qua biến môi trường trên máy chủ — trang này không hiển thị giá trị khoá." />
+      <PageHeader title="Tích hợp" desc="Trạng thái các dịch vụ bên ngoài. Khoá bí mật chỉ đặt qua biến môi trường trên máy chủ — trang này không hiển thị giá trị khoá. Thiếu credential thì hệ thống dừng an toàn: không gọi ra ngoài, không mất dữ liệu." />
       <div className="grid gap-3 md:grid-cols-2">
         {items.map((it) => {
           const t = TONE[it.status];
@@ -34,11 +36,36 @@ export default async function IntegrationsPage() {
                 {it.env.map((e) => <code key={e} className="rounded bg-black/5 px-1.5 py-0.5">{e}</code>)}
                 {it.href && <Link href={it.href} className="ml-auto text-xs text-brand-600">Xem chi tiết →</Link>}
               </div>
-              {it.key === "email" && canTest && <TestEmail />}
+              {canTest && it.test === "email" && <TestEmail />}
+              {canTest && it.test === "zns" && <TestDelivery channel="zns" />}
+              {canTest && it.test === "sms" && <TestDelivery channel="sms" />}
+              {!it.test && <p className="mt-3 border-t border-black/5 pt-3 text-[11px] text-ink-400">Không có thao tác &quot;Gửi thử&quot; cho dịch vụ này.</p>}
             </div>
           );
         })}
       </div>
+
+      <section className="card">
+        <h2 className="border-b border-black/5 p-3 font-semibold">Lỗi nhà cung cấp gần nhất <span className="text-xs font-normal text-ink-400">(email · Zalo ZNS / SMS · webhook — 20 dòng mới nhất)</span></h2>
+        {providerErrors.length === 0 ? <div className="p-4"><Empty>Chưa ghi nhận lỗi nhà cung cấp nào.</Empty></div> : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="text-left text-xs uppercase text-ink-400"><tr><th className="p-3">Thời điểm</th><th className="p-3">Nhà cung cấp</th><th className="p-3">Đối tượng</th><th className="p-3">Mã lỗi</th><th className="p-3">Nội dung lỗi</th></tr></thead>
+              <tbody className="divide-y divide-black/5">
+                {providerErrors.map((e, i) => (
+                  <tr key={`${e.provider}-${i}`}>
+                    <td className="p-3 whitespace-nowrap text-xs">{dtVN(e.at)}</td>
+                    <td className="p-3 text-xs font-medium">{e.provider}</td>
+                    <td className="p-3 text-xs">{e.target}</td>
+                    <td className="p-3 font-mono text-xs">{e.code}</td>
+                    <td className="p-3 text-xs text-red-700">{e.message.slice(0, 200)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
     </div>
   );
 }

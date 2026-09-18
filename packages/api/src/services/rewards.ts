@@ -17,6 +17,7 @@ function requireCoinRead(ctx: ProtectedContext) {
   if (!hasPermission(ctx.actor, "coin:read")) throw new TRPCError({ code: "FORBIDDEN", message: "Không có quyền coin:read" });
 }
 import { writeAudit } from "./audit";
+import { deliverNotifications } from "./notify";
 import { todayISO } from "./sessions";
 import { applyMovement, nextStockCode } from "./inventory";
 
@@ -288,7 +289,7 @@ export async function revokeCoins(ctx: ProtectedContext, input: { txId: string; 
       const r = await postTx(tx as unknown as Db, { studentId: t.studentId, centerId: t.centerId, amount: -t.amount, reason: "revoke", note: input.note, classId: t.classId, sessionId: t.sessionId, revokesId: t.id, userId: ctx.user.id });
       await writeAudit(tx as unknown as Db, { actorId: ctx.user.id, action: "CREATE", module: "coin", entity: "coin_transactions", entityId: r.id, before: { txId: t.id, amount: t.amount }, reason: input.note, ip: ctx.ip });
       if (t.createdBy && t.createdBy !== ctx.user.id) {
-        await tx.insert(userNotifications).values({ userId: t.createdBy, title: "Xu thưởng bị thu hồi", body: `${t.amount} xu (${COIN_REASON_VI[t.reason as CoinReason]}) đã bị thu hồi: ${input.note.trim()}`, link: `/satacoin?student=${t.studentId}`, priority: 3 });
+        await deliverNotifications(tx, [t.createdBy], { title: "Xu thưởng bị thu hồi", body: `${t.amount} xu (${COIN_REASON_VI[t.reason as CoinReason]}) đã bị thu hồi: ${input.note.trim()}`, link: `/satacoin?student=${t.studentId}`, priority: 3, type: "coin.revoked" });
       }
       return { balance: r.balanceAfter };
     });
@@ -437,7 +438,7 @@ export async function requestRedemption(ctx: ProtectedContext, input: { studentI
     const code = await nextRedemptionCode(tx as unknown as Db, center?.code ?? "CS");
     const [r] = await tx.insert(redemptions).values({ code, studentId: s.id, centerId: s.homeCenterId!, rewardId: rw.id, cost: rw.cost, note: input.note?.trim() || null, requestedBy: ctx.user.id }).returning({ id: redemptions.id });
     const mgrs = await tx.select({ u: userRoles.userId }).from(userRoles).where(and(eq(userRoles.centerId, s.homeCenterId!), eq(userRoles.role, "CENTER_MANAGER")));
-    if (mgrs.length) await tx.insert(userNotifications).values(mgrs.map((m) => ({ userId: m.u, title: "Yêu cầu đổi quà", body: `${s.fullName} đổi "${rw.name}" (${rw.cost} xu)`, link: "/satacoin?tab=redeem", priority: 3 })));
+    await deliverNotifications(tx, mgrs.map((m) => m.u), { title: "Yêu cầu đổi quà", body: `${s.fullName} đổi "${rw.name}" (${rw.cost} xu)`, link: "/satacoin?tab=redeem", priority: 3, type: "coin.redeem" });
     await writeAudit(tx as unknown as Db, { actorId: ctx.user.id, action: "CREATE", module: "coin", entity: "redemptions", entityId: r!.id, after: { code, reward: rw.name, cost: rw.cost }, ip: ctx.ip });
     return { id: r!.id, code };
   });

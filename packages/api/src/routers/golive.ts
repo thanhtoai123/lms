@@ -7,6 +7,7 @@ import * as D from "../services/delivery";
 import * as P from "../services/pilot";
 import * as R from "../services/readiness";
 import * as O from "../services/opsSettings";
+import * as N from "../services/notify";
 
 const uuid = z.string().uuid();
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -70,4 +71,10 @@ export const opsConfigRouter = router({
   save: protectedProcedure
     .input(z.object({ group: opsGroup, centerId: uuid.nullable(), values: z.record(z.string().max(40), z.union([z.number(), z.boolean(), z.null()])), reason: z.string().max(300).nullish() }))
     .mutation(({ ctx, input }) => O.saveOpsGroup(ctx, input)),
+
+  /* Danh mục loại thông báo (tab "Danh mục thông báo") */
+  notificationTypes: protectedProcedure.query(({ ctx }) => N.effectiveCatalog(ctx.db)),
+  saveNotificationType: protectedProcedure
+    .input(z.object({ prefix: z.string().max(60), pushEnabled: z.boolean(), isActive: z.boolean(), reason: z.string().trim().min(5, "Lý do tối thiểu 5 ký tự").max(300) }))
+    .mutation(({ ctx, input }) => N.saveNotificationType(ctx, input)),
 });

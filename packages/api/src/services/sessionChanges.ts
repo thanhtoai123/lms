@@ -84,7 +84,7 @@ export async function adjustSession(ctx: ProtectedContext, input: { sessionId: s
       await tx.insert(classEvents).values({ classId: cls.id, event: "adjust_session", reason, actorId: ctx.user.id, meta: { sessionId: s.id, label, from: current, to: next } });
       await writeAudit(db, { actorId: ctx.user.id, action: "UPDATE", module: "academics", entity: "sessions", entityId: s.id, before: current, after: next, reason, ip: ctx.ip });
       const tUsers = await teacherUserIds(db, [current.teacherId, next.teacherId, cls.leadTeacherId, cls.assistantTeacherId]);
-      await notifyUsers(db, tUsers, "Điều chỉnh buổi học", `${cls.code} · ${label}: ${describe(current)} → ${describe(next)} — ${reason}`, `/teacher/sessions/${s.id}`, 1);
+      await notifyUsers(db, tUsers, "Điều chỉnh buổi học", `${cls.code} · ${label}: ${describe(current)} → ${describe(next)} — ${reason}`, `/teacher/sessions/${s.id}`, 1, "class.session_changed");
       if (timeChanged) await notifyTrialsMoved(db, [s.id], `${label} dời sang ${fmt(next.date)} ${next.startTime}`, cls.code);
       if (input.notifyParents && (timeChanged || next.roomId !== current.roomId)) {
         await notifyClassParents(db, cls.id, { template: "SESSION_CHANGED", title: `Lớp ${cls.name}: đổi lịch ${label}`, body: `${label} (${fmt(current.date)} ${current.startTime}) chuyển sang ${fmt(next.date)} ${next.startTime}–${next.endTime}${next.roomId !== current.roomId && next.roomId ? ` tại phòng ${names.room.get(next.roomId) ?? ""}` : ""}. ${reason}` });
@@ -180,7 +180,7 @@ export async function cancelSession(ctx: ProtectedContext, input: { sessionId: s
       });
       const tUsers = await teacherUserIds(db, [s.teacherId, cls.leadTeacherId, cls.assistantTeacherId, ...moved.map((m) => m.to.teacherId)]);
       const shiftText = shift ? ` Bù: ${fmt(plan!.replacement!.date)} ${plan!.replacement!.startTime}${moved.length ? `, ${moved.length} buổi sau dời một nhịp` : ""}.` : "";
-      await notifyUsers(db, tUsers, "Huỷ buổi học", `${cls.code} · ${label} ${fmt(s.date)}: ${reason}.${shiftText}`, out.replacementId ? `/teacher/sessions/${out.replacementId}` : "/teacher/classes", 1);
+      await notifyUsers(db, tUsers, "Huỷ buổi học", `${cls.code} · ${label} ${fmt(s.date)}: ${reason}.${shiftText}`, out.replacementId ? `/teacher/sessions/${out.replacementId}` : "/teacher/classes", 1, "class.session_cancelled");
       if (input.notifyParents) {
         await notifyClassParents(db, cls.id, { template: "SESSION_CANCELLED", title: `Lớp ${cls.name}: nghỉ ${label}`, body: `${label} ngày ${fmt(s.date)} ${hhmm(s.startTime)} nghỉ: ${reason}.${shiftText}` });
       }

@@ -5,6 +5,7 @@ import { NoAccess, PageHeader, Pager } from "@/components/admin-ui";
 import { Empty } from "@/components/ui";
 import { fmtDateTime } from "@/components/lead-ui";
 import { CsvButton } from "@/components/csv-button";
+import { RevealAudit } from "./client";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Audit Log" };
@@ -39,7 +40,7 @@ export default async function AuditLogPage({ searchParams }: { searchParams: Pro
   ]);
   return (
     <div className="space-y-4">
-      <PageHeader title="Audit Log" desc="Nhật ký thao tác bất biến (không sửa, không xoá được). Mỗi dòng: ai, lúc nào, làm gì, trên dữ liệu nào, trước → sau và lý do." />
+      <PageHeader title="Audit Log" desc="Nhật ký thao tác bất biến (không sửa, không xoá được). Mỗi dòng: ai, lúc nào, làm gì, trên dữ liệu nào, trước → sau và lý do. Số điện thoại và email được CHE mặc định (09***67 · a***@x.com); bấm “Xem đầy đủ” là thao tác break-glass — bắt buộc lý do và được ghi lại." />
       <form className="card flex flex-wrap items-end gap-2 p-3">
         <label className="text-xs text-ink-600">Phân hệ
           <select name="module" defaultValue={sp.module ?? ""} className="input mt-1 !py-1.5">
@@ -111,7 +112,12 @@ export default async function AuditLogPage({ searchParams }: { searchParams: Pro
                         </ul>
                       )}
                     </td>
-                    <td className="p-3 text-xs text-ink-600">{r.reason ?? ""}</td>
+                    <td className="p-3 text-xs text-ink-600">
+                      {r.reason ?? ""}
+                      {r.masked && (data.canReveal
+                        ? <RevealAudit id={r.id} />
+                        : <div className="text-[11px] text-ink-400">Đã che dữ liệu cá nhân — cần quyền <code>audit:view_pii</code> để xem đầy đủ.</div>)}
+                    </td>
                   </tr>
                 );
               })}

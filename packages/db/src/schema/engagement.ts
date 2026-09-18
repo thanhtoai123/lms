@@ -72,10 +72,18 @@ export const userNotifications = pgTable(
     body: text("body"),
     link: text("link"),
     priority: integer("priority").notNull().default(3), // 1 cao nhất
+    /** Mã loại trong danh mục thông báo (`notification_types.prefix`); null = loại chưa khai báo */
+    type: text("type"),
+    /** Chống tạo trùng trong cùng ngày cho thông báo sinh tự động ("Cần thực hiện") */
+    dedupeKey: text("dedupe_key"),
     readAt: timestamp("read_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index("user_notif_user_idx").on(t.userId, t.readAt, t.createdAt)],
+  (t) => [
+    index("user_notif_user_idx").on(t.userId, t.readAt, t.createdAt),
+    index("user_notif_type_idx").on(t.userId, t.type),
+    index("user_notif_dedupe_idx").on(t.dedupeKey),
+  ],
 );
 
 export const careTaskStatusEnum = pgEnum("care_task_status", ["open", "in_progress", "done", "escalated", "dismissed"]);

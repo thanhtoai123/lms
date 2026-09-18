@@ -190,7 +190,7 @@ export async function syncAffiliateRewards(db: Database) {
       .onConflictDoNothing({ target: affiliateRewards.leadId }).returning({ id: affiliateRewards.id });
     if (ins.length) {
       created++;
-      await notify(d, [c.created_by], "Thưởng giới thiệu chờ duyệt", `${amount.toLocaleString("vi-VN")}đ`, "/affiliates?tab=rewards", 3);
+      await notify(d, [c.created_by], "Thưởng giới thiệu chờ duyệt", `${amount.toLocaleString("vi-VN")}đ`, "/affiliates?tab=rewards", 3, "affiliate.thuong");
     }
   }
   const voided = await d.update(affiliateRewards).set({ status: "cancelled", cancelReason: "Tự động: đơn học phí đã huỷ / hoàn tiền", updatedAt: new Date() })

@@ -290,7 +290,7 @@ export async function applyRequest(tx: Db, ctx: ProtectedContext, r: RequestRow,
         const targetShiftId = r.targetShiftId ?? mineBefore[0]?.shiftId ?? null;
         if (!targetShiftId) throw pre("Người nộp chưa có ca ngày này — chọn mã ca cho người nhận");
         await setCell(tx, ctx, { staffId: t.id, centerId: t.centerId, date: r.dateFrom, shiftId: targetShiftId, requestId: r.id, note });
-        if (t.userId) await notify(tx, [t.userId], "Bạn nhận ca theo đơn đã duyệt", `${dmy(r.dateFrom)} — ${note}`, "/cham-cong/lich-ca", 3);
+        if (t.userId) await notify(tx, [t.userId], "Bạn nhận ca theo đơn đã duyệt", `${dmy(r.dateFrom)} — ${note}`, "/cham-cong/lich-ca", 3, "shift.brief");
         extra = ` · ${t.fullName} nhận ca`;
       }
       const code = (await tx.query.workShifts.findFirst({ where: eq(workShifts.id, r.requesterShiftId) }))?.code ?? "?";
@@ -388,7 +388,7 @@ export async function decideRequest(ctx: ProtectedContext, input: { id: string; 
       if (err) {
         await tx.update(staffRequests).set({ status: "pending", applyError: err, decisionNote: note }).where(eq(staffRequests.id, r.id));
         await writeAudit(tx, { actorId: ctx.user.id, action: "TRANSITION", module: "hr", entity: "staff_requests", entityId: r.id, before: { status: r.status }, after: { status: "pending", applyError: err }, reason: note, ip: ctx.ip });
-        await notify(tx, [ctx.user.id], "Duyệt đơn không áp được", `${REQUEST_KIND_VI[r.kind]} của ${s.fullName} ${dmy(r.dateFrom)}: ${err}`, "/don-tu?status=pending", 1);
+        await notify(tx, [ctx.user.id], "Duyệt đơn không áp được", `${REQUEST_KIND_VI[r.kind]} của ${s.fullName} ${dmy(r.dateFrom)}: ${err}`, "/don-tu?status=pending", 1, "request.decided");
         return;
       }
     } else {
@@ -400,7 +400,7 @@ export async function decideRequest(ctx: ProtectedContext, input: { id: string; 
     await writeAudit(tx, { actorId: ctx.user.id, action: "TRANSITION", module: "hr", entity: "staff_requests", entityId: r.id, before: { status: r.status }, after: { status: to, applied: out.applied }, reason: note, ip: ctx.ip });
     if (!isRequester) {
       const title = to === "approved" ? "Đơn đã được duyệt" : to === "rejected" ? "Đơn bị từ chối" : "Đơn đã bị huỷ";
-      await notify(tx, [s.userId], title, `${REQUEST_KIND_VI[r.kind]} ${dmy(r.dateFrom)}${note ? ` — ${note}` : ""}${out.applied ? ` · ${out.applied}` : ""}`, "/cham-cong/lich-ca", to === "approved" ? 3 : 1);
+      await notify(tx, [s.userId], title, `${REQUEST_KIND_VI[r.kind]} ${dmy(r.dateFrom)}${note ? ` — ${note}` : ""}${out.applied ? ` · ${out.applied}` : ""}`, "/cham-cong/lich-ca", to === "approved" ? 3 : 1, "request.decided");
     }
   });
   if (out.applyError) throw pre(`Không áp được đơn: ${out.applyError} — đơn vẫn ở Chờ duyệt`);

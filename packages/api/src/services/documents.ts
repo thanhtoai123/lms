@@ -14,6 +14,7 @@ import {
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { writeAudit } from "./audit";
+import { deliverNotifications } from "./notify";
 import { putObject, signedFileUrl, signedScormBase } from "../storage";
 import { listZip, readZipEntry } from "../zip";
 
@@ -419,7 +420,7 @@ export async function createProposal(ctx: ProtectedContext, input: { lessonId: s
   const code = await nextProposalCode(ctx.db);
   const [p] = await ctx.db.insert(lessonProposals).values({ code, lessonId: l.l.id, curriculumId: l.l.curriculumId, type: input.type, reason: input.reason.trim(), snapshot: current, patch, classId: input.classId ?? null, proposedBy: ctx.user.id }).returning({ id: lessonProposals.id });
   const reviewers = await ctx.db.select({ u: userRoles.userId }).from(userRoles).where(and(eq(userRoles.role, "TRAINING")));
-  if (reviewers.length) await ctx.db.insert(userNotifications).values([...new Set(reviewers.map((r) => r.u))].map((userId) => ({ userId, title: `Đề xuất sửa giáo án ${code}`, body: `Bài ${l.l.sequenceNo}: ${l.l.title} — ${PROPOSAL_TYPE_VI[input.type]}`, link: `/de-xuat-giao-an?id=${p!.id}`, priority: 3 })));
+  await deliverNotifications(ctx.db, reviewers.map((r) => r.u), { title: `Đề xuất sửa giáo án ${code}`, body: `Bài ${l.l.sequenceNo}: ${l.l.title} — ${PROPOSAL_TYPE_VI[input.type]}`, link: `/de-xuat-giao-an?id=${p!.id}`, priority: 3, type: "lesson_proposal.submitted" });
   await writeAudit(ctx.db, { actorId: ctx.user.id, action: "CREATE", module: "content", entity: "lesson_proposals", entityId: p!.id, after: { code, lessonId: l.l.id, type: input.type, fields: changedFields(patch, current) }, ip: ctx.ip });
   return { id: p!.id, code };
 }
@@ -488,7 +489,7 @@ export async function proposalAction(ctx: ProtectedContext, input: { id: string;
     }).where(eq(lessonProposals.id, p.id));
     if (note) await tx.insert(proposalComments).values({ proposalId: p.id, userId: ctx.user.id, body: `[${PROPOSAL_STATUS_VI[to]}] ${note}` });
     if (p.proposedBy !== ctx.user.id) {
-      await tx.insert(userNotifications).values({ userId: p.proposedBy, title: `Đề xuất ${p.code}: ${PROPOSAL_STATUS_VI[to]}`, body: note ?? `Bài ${p.lessonSeq ?? ""} — ${p.current.title}`, link: `/de-xuat-giao-an?id=${p.id}`, priority: 3 });
+      await deliverNotifications(tx, [p.proposedBy], { title: `Đề xuất ${p.code}: ${PROPOSAL_STATUS_VI[to]}`, body: note ?? `Bài ${p.lessonSeq ?? ""} — ${p.current.title}`, link: `/de-xuat-giao-an?id=${p.id}`, priority: 3, type: "lesson_proposal.decided" });
     }
     await writeAudit(tx as unknown as Db, { actorId: ctx.user.id, action: "TRANSITION", module: "content", entity: "lesson_proposals", entityId: p.id, before: { status: p.status }, after: { status: to }, reason: note, ip: ctx.ip });
   });
@@ -502,6 +503,6 @@ export async function addProposalComment(ctx: ProtectedContext, input: { id: str
   if (body.length < 2) throw bad("Nhập nội dung");
   await ctx.db.insert(proposalComments).values({ proposalId: p.id, userId: ctx.user.id, body });
   const target = p.proposedBy === ctx.user.id ? p.reviewerId : p.proposedBy;
-  if (target) await ctx.db.insert(userNotifications).values({ userId: target, title: `Bình luận đề xuất ${p.code}`, body: body.slice(0, 200), link: `/de-xuat-giao-an?id=${p.id}`, priority: 3 });
+  await deliverNotifications(ctx.db, [target], { title: `Bình luận đề xuất ${p.code}`, body: body.slice(0, 200), link: `/de-xuat-giao-an?id=${p.id}`, priority: 3, type: "lesson_proposal.decided" });
   return { ok: true };
 }

@@ -4,7 +4,7 @@ import { getServerCaller } from "@/lib/trpc/server";
 import { NoAccess, PageHeader } from "@/components/admin-ui";
 import { Empty } from "@/components/ui";
 import { dtVN } from "@/components/care-ui";
-import { GroupForm, MemberAdder, RemoveMember, Announce, DeleteGroup } from "./client";
+import { GroupForm, MemberAdder, RemoveMember, Announce, DeleteGroup, GroupPermissions } from "./client";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Nhóm người dùng" };
@@ -21,13 +21,13 @@ export default async function UserGroupsPage({ searchParams }: { searchParams: P
   const g = selId ? await caller.admin.group({ id: selId }) : null;
   return (
     <div className="space-y-4">
-      <PageHeader title="Nhóm người dùng" desc="Gom tài khoản theo nhóm (ban quản lý, tư vấn khu vực…) để gửi thông báo nội bộ hàng loạt. Quyền truy cập vẫn theo vai trò." actions={canEdit ? <GroupForm centers={centers} /> : null} />
+      <PageHeader title="Nhóm người dùng" desc="Gom tài khoản theo nhóm (ban quản lý, tư vấn khu vực…) để gửi thông báo nội bộ hàng loạt VÀ cấp thêm quyền cho cả nhóm mà không phải sửa vai trò từng người." actions={canEdit ? <GroupForm centers={centers} /> : null} />
       <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
         <div className="card divide-y divide-black/5 self-start">
           {groups.length === 0 ? <div className="p-4"><Empty>Chưa có nhóm.</Empty></div> : groups.map((x) => (
             <Link key={x.id} href={`/user-groups?id=${x.id}`} className={`block p-3 text-sm hover:bg-black/5 ${x.id === selId ? "bg-brand-50" : ""}`}>
               <div className="font-medium">{x.name}</div>
-              <div className="text-xs text-ink-400">{x.members} thành viên{x.centerCode ? ` · ${x.centerCode}` : " · toàn hệ thống"}</div>
+              <div className="text-xs text-ink-400">{x.members} thành viên{x.centerCode ? ` · ${x.centerCode}` : " · toàn hệ thống"}{x.permissions > 0 ? ` · ${x.permissions} quyền` : ""}</div>
             </Link>
           ))}
         </div>
@@ -68,6 +68,14 @@ export default async function UserGroupsPage({ searchParams }: { searchParams: P
                 </table>
               )}
             </div>
+            <GroupPermissions
+              groupId={g.id}
+              scope={g.centerId ? "cơ sở của nhóm" : "toàn hệ thống"}
+              catalog={g.catalog}
+              actionLabels={g.actionLabels}
+              current={g.permissions.map((p) => p.permission)}
+              canEdit={canDelete}
+            />
             {canEdit && <Announce groupId={g.id} count={g.members.filter((m) => m.isActive).length} />}
           </div>
         ) : <Empty>Tạo nhóm đầu tiên để bắt đầu.</Empty>}
