@@ -5,6 +5,7 @@ import { teacherRouter } from "./routers/teacher";
 import { leadsRouter } from "./routers/admissions";
 import { engagementRouter } from "./routers/engagement";
 import { dashboardRouter } from "./routers/dashboard";
+import { inboxRouter } from "./routers/inbox";
 import { studentsRouter, orgRouter } from "./routers/students";
 import { scheduleRouter } from "./routers/schedule";
 import { learningRouter } from "./routers/learning";
@@ -31,6 +32,7 @@ export const appRouter = router({
   admissions: router({ leads: leadsRouter, trials: trialsRouter }),
   engagement: engagementRouter,
   dashboard: dashboardRouter,
+  inbox: inboxRouter,
   students: studentsRouter,
   org: orgRouter,
   schedule: scheduleRouter,
