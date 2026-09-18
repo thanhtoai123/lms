@@ -11,7 +11,6 @@ import {
   type AdmissionsPolicy, type DistributionMode, type LeadStatus, type SlaPolicy, type AssignmentSource, type PoolAction,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
-import { tenantCond } from "./tenantScope";
 import { tenantCond, assertTenant, assertCenterTransferAllowed } from "./tenantScope";
 import { writeAudit } from "./audit";
 import { emit } from "./outbox";
