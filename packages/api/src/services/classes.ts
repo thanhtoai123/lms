@@ -8,7 +8,7 @@ import {
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { getOps } from "./opsSettings";
 import { createEnrollment } from "./enrollments";
-import { tenantCond } from "./tenantScope";
+import { tenantCond, assertTenant } from "./tenantScope";
 
 export async function listClasses(ctx: ProtectedContext, input: { centerId?: string; status?: ClassStatus; q?: string; teacherId?: string; courseId?: string; classGroupId?: string }) {
   const conds = [sql`${classes.deletedAt} is null`];
@@ -53,6 +53,7 @@ export async function getClass(ctx: ProtectedContext, id: string) {
     with: { course: true, center: true, homeRoom: true, leadTeacher: true, assistantTeacher: true, schedules: true, curriculum: true },
   });
   if (!c) throw new TRPCError({ code: "NOT_FOUND" });
+  assertTenant(ctx, c, "Lớp học");
   requirePermission(ctx, "class:read", { centerId: c.centerId, ownerIds: [c.leadTeacherId ?? "", c.assistantTeacherId ?? ""].filter(Boolean) });
 
   const sessionRows = await ctx.db.select().from(sessions).where(eq(sessions.classId, id)).orderBy(asc(sessions.sequenceNo));

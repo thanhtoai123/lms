@@ -10,6 +10,7 @@ import {
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { writeAudit } from "./audit";
+import { tenantCond, assertTenant } from "./tenantScope";
 
 type Db = ProtectedContext["db"];
 
@@ -71,7 +72,8 @@ export async function enforcePrerequisites(ctx: ProtectedContext, input: { stude
 
 export async function listCourses(ctx: ProtectedContext, input: { q?: string; active?: boolean }) {
   requirePermission(ctx, "course:read");
-  const conds = [];
+  // Danh mục khoá học là của TỪNG trung tâm (tenant)
+  const conds = [tenantCond(ctx, courses)];
   if (input.q?.trim()) conds.push(or(ilike(courses.code, `%${input.q.trim()}%`), ilike(courses.name, `%${input.q.trim()}%`))!);
   if (input.active !== undefined) conds.push(eq(courses.isActive, input.active));
   const rows = await ctx.db
@@ -116,7 +118,7 @@ export async function upsertCourse(ctx: ProtectedContext, input: CourseUpsert) {
   const errs = validateCourse({ ...input, code });
   if (errs.length) throw bad(errs);
   if (input.nextCourseId && input.nextCourseId === input.id) throw bad("Khoá tiếp theo phải khác khoá hiện tại");
-  const dup = (await ctx.db.select({ id: courses.id }).from(courses).where(and(eq(courses.code, code), input.id ? ne(courses.id, input.id) : undefined)).limit(1))[0];
+  const dup = (await ctx.db.select({ id: courses.id }).from(courses).where(and(eq(courses.code, code), tenantCond(ctx, courses), input.id ? ne(courses.id, input.id) : undefined)).limit(1))[0];
   if (dup) throw new TRPCError({ code: "CONFLICT", message: `Mã khoá ${code} đã tồn tại` });
   const values = {
     code, name: input.name.trim(), gradeFrom: input.gradeFrom ?? null, gradeTo: input.gradeTo ?? null, totalSessions: input.totalSessions,
@@ -164,7 +166,7 @@ function packageRow(p: typeof coursePackages.$inferSelect, courseCode: string, c
 
 export async function listCoursePackages(ctx: ProtectedContext, input: { q?: string; courseId?: string; active?: boolean }) {
   requirePermission(ctx, "course:read");
-  const conds: SQL[] = [];
+  const conds: SQL[] = [tenantCond(ctx, coursePackages)];
   if (input.q?.trim()) conds.push(or(ilike(coursePackages.code, `%${input.q.trim()}%`), ilike(coursePackages.name, `%${input.q.trim()}%`))!);
   if (input.courseId) conds.push(eq(coursePackages.courseId, input.courseId));
   if (input.active !== undefined) conds.push(eq(coursePackages.isActive, input.active));
@@ -182,7 +184,7 @@ export async function coursePackageOptions(ctx: ProtectedContext) {
   const rows = await ctx.db
     .select({ p: coursePackages, courseCode: courses.code, courseName: courses.name, courseSessions: courses.totalSessions })
     .from(coursePackages).innerJoin(courses, eq(courses.id, coursePackages.courseId))
-    .where(and(eq(coursePackages.isActive, true), eq(courses.isActive, true)))
+    .where(and(eq(coursePackages.isActive, true), eq(courses.isActive, true), tenantCond(ctx, coursePackages)))
     .orderBy(asc(courses.code), desc(coursePackages.isFeatured), asc(coursePackages.sortOrder), asc(coursePackages.sessions));
   return rows.map((r) => packageRow(r.p, r.courseCode, r.courseName, r.courseSessions));
 }
@@ -210,7 +212,7 @@ export async function upsertCoursePackage(ctx: ProtectedContext, input: CoursePa
   const salePrice = input.salePrice != null && input.salePrice > 0 ? Math.round(input.salePrice) : null;
   const errs = validateCoursePackage({ ...input, code, listPrice: Math.round(input.listPrice), salePrice, sortOrder: input.sortOrder ?? 0 }, { courseSessions: course.totalSessions });
   if (errs.length) throw bad(errs);
-  const dup = (await ctx.db.select({ id: coursePackages.id }).from(coursePackages).where(and(eq(coursePackages.code, code), input.id ? ne(coursePackages.id, input.id) : undefined)).limit(1))[0];
+  const dup = (await ctx.db.select({ id: coursePackages.id }).from(coursePackages).where(and(eq(coursePackages.code, code), tenantCond(ctx, coursePackages), input.id ? ne(coursePackages.id, input.id) : undefined)).limit(1))[0];
   if (dup) throw new TRPCError({ code: "CONFLICT", message: `Mã gói ${code} đã tồn tại` });
   const values = {
     courseId: input.courseId, code, name: input.name.trim(), level: input.level?.trim() || null, sessions: input.sessions,
@@ -303,6 +305,7 @@ export async function listCurricula(ctx: ProtectedContext, input: { courseId?: s
   const conds = [];
   if (input.courseId) conds.push(eq(curricula.courseId, input.courseId));
   if (input.status) conds.push(eq(curricula.status, input.status));
+  conds.push(tenantCond(ctx, curricula));
   return ctx.db
     .select({
       id: curricula.id, name: curricula.name, version: curricula.version, status: curricula.status, description: curricula.description, updatedAt: curricula.updatedAt,
@@ -324,6 +327,7 @@ async function loadCurriculum(db: Db, id: string) {
 export async function getCurriculum(ctx: ProtectedContext, id: string) {
   requirePermission(ctx, "curriculum:read");
   const c = await loadCurriculum(ctx.db, id);
+  assertTenant(ctx, c, "Giáo trình");
   const course = await ctx.db.query.courses.findFirst({ where: eq(courses.id, c.courseId) });
   const ls = await ctx.db
     .select({
@@ -463,6 +467,6 @@ export async function deleteLesson(ctx: ProtectedContext, input: { curriculumId:
 /** Danh sách khoá cho bộ chọn */
 export async function courseOptions(ctx: ProtectedContext) {
   requirePermission(ctx, "course:read");
-  return ctx.db.select({ id: courses.id, code: courses.code, name: courses.name, isActive: courses.isActive, totalSessions: courses.totalSessions }).from(courses).orderBy(asc(courses.code));
+  return ctx.db.select({ id: courses.id, code: courses.code, name: courses.name, isActive: courses.isActive, totalSessions: courses.totalSessions }).from(courses).where(tenantCond(ctx, courses)).orderBy(asc(courses.code));
 }
 
