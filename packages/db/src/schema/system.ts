@@ -22,6 +22,8 @@ export const emailLogs = pgTable(
   "email_logs",
   {
     id: id(),
+    /** Trung tâm (tenant) đứng tên gửi thư — quyết định mẫu email được dùng */
+    tenantId: tenantCol(),
     toEmail: text("to_email").notNull(),
     eventKey: text("event_key").notNull(),
     subject: text("subject").notNull(),

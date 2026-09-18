@@ -45,8 +45,8 @@ export async function sendLoginLink(ctx: ProtectedContext, input: { userId: stri
   const r = await makeLink(admin, u.email, u.authSubject ? "recovery" : "invite").catch((e: Error) => {
     throw new TRPCError({ code: "BAD_GATEWAY", message: `Supabase: ${e.message.slice(0, 200)}` });
   });
-  if (r.type === "invite") await queueEmail(ctx.db, { to: u.email, event: "STAFF_WELCOME", vars: { ten: u.fullName, email: u.email, link: r.link }, relatedType: "user", relatedId: u.id, createdBy: ctx.user.id });
-  else await queueEmail(ctx.db, { to: u.email, event: "PASSWORD_RESET", vars: { ten: u.fullName, link: r.link, het_han: "sau 1 giờ" }, relatedType: "user", relatedId: u.id, createdBy: ctx.user.id });
+  if (r.type === "invite") await queueEmail(ctx.db, { to: u.email, event: "STAFF_WELCOME", vars: { ten: u.fullName, email: u.email, link: r.link }, relatedType: "user", relatedId: u.id, createdBy: ctx.user.id, tenantId: u.tenantId ?? ctx.tenantId });
+  else await queueEmail(ctx.db, { to: u.email, event: "PASSWORD_RESET", vars: { ten: u.fullName, link: r.link, het_han: "sau 1 giờ" }, relatedType: "user", relatedId: u.id, createdBy: ctx.user.id, tenantId: u.tenantId ?? ctx.tenantId });
   await writeAudit(ctx.db, { actorId: ctx.user.id, action: "UPDATE", module: "system", entity: "users", entityId: u.id, after: { loginLink: r.type }, ip: ctx.ip });
   return { sent: true, type: r.type, to: maskEmail(u.email) };
 }
@@ -62,7 +62,7 @@ export async function requestPasswordReset(database: Database, input: { email: s
   if (!u || !u.isActive || u.lockedAt || !admin) return generic;
   try {
     const r = await makeLink(admin, u.email, "recovery");
-    await queueEmail(db, { to: u.email, event: "PASSWORD_RESET", vars: { ten: u.fullName, link: r.link, het_han: "sau 1 giờ" }, relatedType: "user", relatedId: u.id });
+    await queueEmail(db, { to: u.email, event: "PASSWORD_RESET", vars: { ten: u.fullName, link: r.link, het_han: "sau 1 giờ" }, relatedType: "user", relatedId: u.id, tenantId: u.tenantId });
   } catch (e) {
     console.error("[password reset]", (e as Error).message);
   }

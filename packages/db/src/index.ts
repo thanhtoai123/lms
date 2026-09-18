@@ -4,6 +4,7 @@ import * as schema from "./schema/index";
 
 export * from "./schema/index";
 export * from "./health";
+export * from "./rls";
 export { schema };
 
 export type Database = ReturnType<typeof createDb>;

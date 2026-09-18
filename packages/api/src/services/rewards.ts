@@ -12,6 +12,7 @@ import {
   type Permission, type CoinReason, type CoinLevel, type CoinRuleCode, type RedemptionStatus, type RedemptionAction,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
+import { tenantCond, tenantCondViaCenter } from "./tenantScope";
 
 function requireCoinRead(ctx: ProtectedContext) {
   if (!hasPermission(ctx.actor, "coin:read")) throw new TRPCError({ code: "FORBIDDEN", message: "Không có quyền coin:read" });
@@ -39,8 +40,10 @@ function rule<T>(fn: () => T): T {
 }
 function scopeOn(ctx: ProtectedContext, col: AnyPgColumn): SQL {
   const v = visibleCenterIds(ctx.actor);
-  if (v === null) return sql`true`;
-  return v.length ? (inArray(col, v) as SQL) : sql`false`;
+  // Cách ly trung tâm (tenant) suy qua cơ sở của dòng — đứng trước mọi luật phạm vi cơ sở
+  const tenant = tenantCondViaCenter(ctx, col);
+  if (v === null) return tenant;
+  return v.length ? and(inArray(col, v), tenant)! : sql`false`;
 }
 const dayStartVN = () => new Date(`${todayISO()}T00:00:00+07:00`);
 
@@ -94,7 +97,7 @@ async function balancesOf(db: Db, ids: string[]) {
 export async function leaderboard(ctx: ProtectedContext, input: { centerId?: string; classId?: string; q?: string; page?: number }) {
   requireCoinRead(ctx);
   const teacherOnly = !ctx.actor.assignments.some((a) => authorize({ userId: ctx.actor.userId, assignments: [a] }, "coin:read", {}).allowed);
-  const conds: SQL[] = [inArray(students.status, ["active", "trial", "paused"])];
+  const conds: SQL[] = [inArray(students.status, ["active", "trial", "paused"]), tenantCond(ctx, students)];
   if (input.q?.trim()) conds.push(or(ilike(students.fullName, `%${input.q.trim()}%`), ilike(students.code, `%${input.q.trim()}%`))!);
   let classScope: SQL = sql`true`;
   if (input.classId) classScope = sql`exists (select 1 from ${enrollments} e where e.student_id = ${students.id} and e.class_id = ${input.classId} and e.status in ('active','trial'))`;

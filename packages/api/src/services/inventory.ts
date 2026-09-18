@@ -16,6 +16,7 @@ import { requirePermission, type ProtectedContext } from "../trpc";
 import { writeAudit } from "./audit";
 import { todayISO } from "./sessions";
 import { createOrder } from "./finance";
+import { assertTenant, tenantCond, tenantCondViaCenter } from "./tenantScope";
 
 type Db = ProtectedContext["db"];
 const bad = (m: string | string[]) => new TRPCError({ code: "BAD_REQUEST", message: Array.isArray(m) ? m.join("; ") : m });
@@ -34,17 +35,21 @@ function rule<T>(fn: () => T): T {
 }
 function scopeOn(ctx: ProtectedContext, col: AnyPgColumn): SQL {
   const v = visibleCenterIds(ctx.actor);
-  if (v === null) return sql`true`;
-  return v.length ? (inArray(col, v) as SQL) : sql`false`;
+  // Cách ly trung tâm (tenant) suy qua cơ sở của dòng — đứng trước mọi luật phạm vi cơ sở
+  const tenant = tenantCondViaCenter(ctx, col);
+  if (v === null) return tenant;
+  return v.length ? and(inArray(col, v), tenant)! : sql`false`;
 }
 /** Danh mục hàng dùng chung: chỉ Hội sở (quyền toàn hệ thống) được sửa */
 function requireCatalogEditor(ctx: ProtectedContext) {
   const ok = ctx.actor.assignments.some((a) => a.centerId === null && authorize({ userId: ctx.actor.userId, assignments: [a] }, "inventory:update", {}).allowed);
   if (!ok) throw new TRPCError({ code: "FORBIDDEN", message: "Chỉ Hội sở được sửa danh mục hàng / định mức bộ học cụ" });
 }
-async function centerRow(db: Db, id: string) {
-  const c = await db.query.centers.findFirst({ where: eq(centers.id, id) });
+/** Nạp cơ sở và chặn thao tác kho chéo trung tâm (tenant) */
+async function centerRow(ctx: ProtectedContext, id: string) {
+  const c = await ctx.db.query.centers.findFirst({ where: eq(centers.id, id) });
   if (!c) throw notFound("Không tìm thấy cơ sở");
+  assertTenant(ctx, c, "Cơ sở");
   return c;
 }
 async function itemRow(db: Db, id: string) {
@@ -117,7 +122,7 @@ export async function listItems(ctx: ProtectedContext, input: { type?: ItemType;
     ids.length ? ctx.db.select({ itemId: stockLevels.itemId, centerId: stockLevels.centerId, onHand: stockLevels.onHand, avgCost: stockLevels.avgCost }).from(stockLevels).where(and(inArray(stockLevels.itemId, ids), scopeOn(ctx, stockLevels.centerId))) : [],
     ids.length ? ctx.db.select({ kitId: kitComponents.kitId, componentId: kitComponents.componentId, qty: kitComponents.qty, sku: inventoryItems.sku, name: inventoryItems.name, unit: inventoryItems.unit })
       .from(kitComponents).innerJoin(inventoryItems, eq(inventoryItems.id, kitComponents.componentId)).where(inArray(kitComponents.kitId, ids)) : [],
-    ctx.db.select({ id: centers.id, code: centers.code, name: centers.name }).from(centers).where(and(eq(centers.isActive, true), scopeOn(ctx, centers.id))).orderBy(asc(centers.code)),
+    ctx.db.select({ id: centers.id, code: centers.code, name: centers.name }).from(centers).where(and(eq(centers.isActive, true), scopeOn(ctx, centers.id), tenantCond(ctx, centers))).orderBy(asc(centers.code)),
   ]);
   const stockMap = new Map<string, number>(stock.map((s) => [`${s.itemId}|${s.centerId}`, s.onHand]));
   return {
@@ -194,7 +199,7 @@ export async function setBom(ctx: ProtectedContext, input: { kitId: string; line
 
 export async function stockOverview(ctx: ProtectedContext, input: { centerId?: string; type?: ItemType; tone?: StockTone; q?: string }) {
   requirePermission(ctx, "inventory:read", input.centerId ? { centerId: input.centerId } : undefined);
-  const ctrs = await ctx.db.select({ id: centers.id, code: centers.code, name: centers.name }).from(centers).where(and(eq(centers.isActive, true), scopeOn(ctx, centers.id))).orderBy(asc(centers.code));
+  const ctrs = await ctx.db.select({ id: centers.id, code: centers.code, name: centers.name }).from(centers).where(and(eq(centers.isActive, true), scopeOn(ctx, centers.id), tenantCond(ctx, centers))).orderBy(asc(centers.code));
   const cids = input.centerId ? ctrs.filter((c) => c.id === input.centerId).map((c) => c.id) : ctrs.map((c) => c.id);
   const conds: SQL[] = [eq(inventoryItems.isActive, true)];
   if (input.type) conds.push(eq(inventoryItems.type, input.type));
@@ -256,7 +261,7 @@ export async function createMovement(ctx: ProtectedContext, input: { centerId: s
   requirePermission(ctx, input.type === "receipt" || input.type === "damage" ? "inventory:update" : "inventory:create", { centerId: input.centerId });
   const errs = validateMovement(input);
   if (errs.length) throw bad(errs);
-  const center = await centerRow(ctx.db, input.centerId);
+  const center = await centerRow(ctx, input.centerId);
   const item = await itemRow(ctx.db, input.itemId);
   if (!item.isActive) throw pre("Mặt hàng đã ngừng dùng");
   if (input.studentId && !(await ctx.db.query.students.findFirst({ where: eq(students.id, input.studentId) }))) throw notFound("Không tìm thấy học viên");
@@ -283,8 +288,8 @@ export async function transferStock(ctx: ProtectedContext, input: { fromCenterId
   requirePermission(ctx, "inventory:update", { centerId: input.fromCenterId });
   if (input.fromCenterId === input.toCenterId) throw bad("Cơ sở nhận phải khác cơ sở chuyển");
   if (!Number.isInteger(input.qty) || input.qty <= 0) throw bad("Số lượng phải là số nguyên > 0");
-  const from = await centerRow(ctx.db, input.fromCenterId);
-  const to = await centerRow(ctx.db, input.toCenterId);
+  const from = await centerRow(ctx, input.fromCenterId);
+  const to = await centerRow(ctx, input.toCenterId);
   if (!to.isActive) throw pre("Cơ sở nhận đã ngừng hoạt động");
   const item = await itemRow(ctx.db, input.itemId);
   return ctx.db.transaction(async (tx) => {
@@ -299,7 +304,7 @@ export async function transferStock(ctx: ProtectedContext, input: { fromCenterId
 export async function assembleKit(ctx: ProtectedContext, input: { centerId: string; kitId: string; qty: number; note?: string | null }) {
   requirePermission(ctx, "inventory:update", { centerId: input.centerId });
   if (!Number.isInteger(input.qty) || input.qty <= 0 || input.qty > 1000) throw bad("Số bộ 1–1000");
-  const center = await centerRow(ctx.db, input.centerId);
+  const center = await centerRow(ctx, input.centerId);
   const kit = await itemRow(ctx.db, input.kitId);
   if (kit.type !== "kit") throw pre("Chỉ đóng bộ cho bộ học cụ");
   const bom = await ctx.db.select().from(kitComponents).where(eq(kitComponents.kitId, kit.id));
@@ -335,7 +340,7 @@ export async function sellProducts(ctx: ProtectedContext, input: {
   requirePermission(ctx, "finance:create", { centerId: input.centerId });
   if (!input.lines.length || input.lines.length > 20) throw bad("Đơn bán 1–20 dòng");
   if (new Set(input.lines.map((l) => l.itemId)).size !== input.lines.length) throw bad("Mặt hàng bị lặp");
-  const center = await centerRow(ctx.db, input.centerId);
+  const center = await centerRow(ctx, input.centerId);
   const items = await ctx.db.select().from(inventoryItems).where(inArray(inventoryItems.id, input.lines.map((l) => l.itemId)));
   const levels = await ctx.db.select().from(stockLevels).where(and(eq(stockLevels.centerId, center.id), inArray(stockLevels.itemId, input.lines.map((l) => l.itemId))));
   const errs: string[] = [];
@@ -415,7 +420,7 @@ export async function listRentals(ctx: ProtectedContext, input: { centerId?: str
 
 export async function rentOut(ctx: ProtectedContext, input: { centerId: string; itemId: string; studentId: string; qty: number; days: number; paymentMethodId?: string | null; note?: string | null }) {
   requirePermission(ctx, "inventory:create", { centerId: input.centerId });
-  const center = await centerRow(ctx.db, input.centerId);
+  const center = await centerRow(ctx, input.centerId);
   const item = await itemRow(ctx.db, input.itemId);
   if (!item.isActive || !item.rentPrice) throw pre("Mặt hàng không cho thuê (chưa có giá thuê)");
   if (!Number.isInteger(input.qty) || input.qty < 1 || input.qty > 10) throw bad("Số lượng thuê 1–10");
@@ -492,13 +497,13 @@ export async function listAudits(ctx: ProtectedContext, input: { centerId?: stri
     diff: sql<number>`(select count(*)::int from ${stockAuditLines} l where l.audit_id = ${stockAudits.id} and l.counted_qty is not null and l.counted_qty <> l.system_qty)`,
   }).from(stockAudits).innerJoin(centers, eq(centers.id, stockAudits.centerId)).leftJoin(users, eq(users.id, stockAudits.createdBy))
     .where(and(...conds)).orderBy(desc(stockAudits.createdAt)).limit(100);
-  const ctrs = await ctx.db.select({ id: centers.id, code: centers.code, name: centers.name }).from(centers).where(and(eq(centers.isActive, true), scopeOn(ctx, centers.id))).orderBy(asc(centers.code));
+  const ctrs = await ctx.db.select({ id: centers.id, code: centers.code, name: centers.name }).from(centers).where(and(eq(centers.isActive, true), scopeOn(ctx, centers.id), tenantCond(ctx, centers))).orderBy(asc(centers.code));
   return { items: rows.map((r) => ({ ...r.a, centerCode: r.centerCode, byName: r.byName, lines: r.lines, counted: r.counted, diff: r.diff })), centers: ctrs.map((c) => ({ ...c, canCreate: can(ctx, "inventory:create", c.id) })) };
 }
 
 export async function createAudit(ctx: ProtectedContext, input: { centerId: string; type?: ItemType | null; note?: string | null }) {
   requirePermission(ctx, "inventory:create", { centerId: input.centerId });
-  const center = await centerRow(ctx.db, input.centerId);
+  const center = await centerRow(ctx, input.centerId);
   const [open] = await ctx.db.select({ code: stockAudits.code }).from(stockAudits).where(and(eq(stockAudits.centerId, center.id), inArray(stockAudits.status, ["draft", "submitted"]))).limit(1);
   if (open) throw pre(`Cơ sở đang có phiếu kiểm kê ${open.code} chưa chốt`);
   const items = await ctx.db.select({ id: inventoryItems.id, onHand: sql<number>`coalesce(${stockLevels.onHand}, 0)` }).from(inventoryItems)
@@ -518,7 +523,7 @@ export async function getAudit(ctx: ProtectedContext, id: string) {
   const a = await ctx.db.query.stockAudits.findFirst({ where: eq(stockAudits.id, id) });
   if (!a) throw notFound("Không tìm thấy phiếu kiểm kê");
   requirePermission(ctx, "inventory:read", { centerId: a.centerId });
-  const center = await centerRow(ctx.db, a.centerId);
+  const center = await centerRow(ctx, a.centerId);
   const lines = await ctx.db.select({ l: stockAuditLines, sku: inventoryItems.sku, name: inventoryItems.name, unit: inventoryItems.unit, type: inventoryItems.type, onHand: stockLevels.onHand, avgCost: stockLevels.avgCost })
     .from(stockAuditLines).innerJoin(inventoryItems, eq(inventoryItems.id, stockAuditLines.itemId))
     .leftJoin(stockLevels, and(eq(stockLevels.itemId, stockAuditLines.itemId), eq(stockLevels.centerId, a.centerId)))
@@ -572,7 +577,7 @@ export async function auditAction(ctx: ProtectedContext, input: { id: string; ac
     if (input.action === "approve" && a.submittedBy === ctx.user.id && !hasRole(ctx.actor, "SUPER_ADMIN")) throw new TRPCError({ code: "FORBIDDEN", message: "Người nộp phiếu không tự duyệt" });
     if ((input.action === "cancel" || input.action === "reopen") && (input.note ?? "").trim().length < 5) throw bad("Cần ghi lý do (≥ 5 ký tự)");
   }
-  const center = await centerRow(ctx.db, a.centerId);
+  const center = await centerRow(ctx, a.centerId);
   return ctx.db.transaction(async (tx) => {
     const t = tx as unknown as Db;
     let adjusted = 0;

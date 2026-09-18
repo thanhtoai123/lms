@@ -12,6 +12,7 @@ import {
   type TrialStatus, type LeadStatus, type LeadEvent, type TrialClassStatus, type TrialAttendanceStatus,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
+import { assertTenant, tenantCond } from "./tenantScope";
 import { writeAudit } from "./audit";
 import { deliverNotifications } from "./notify";
 import { emit } from "./outbox";
@@ -77,6 +78,7 @@ async function notifyTeachers(db: Db, s: { teacherId: string | null; leadTeacher
 async function loadLeadForWrite(ctx: ProtectedContext, leadId: string) {
   const lead = await ctx.db.query.leads.findFirst({ where: and(eq(leads.id, leadId), isNull(leads.deletedAt)) });
   if (!lead) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy lead" });
+  assertTenant(ctx, lead, "Lead");
   requirePermission(ctx, "lead:update", { centerId: lead.centerId, ownerIds: [lead.assignedToId ?? ""].filter(Boolean) });
   return lead;
 }
@@ -128,7 +130,7 @@ export async function trialSlots(ctx: ProtectedContext, input: { centerId?: stri
   readScope(ctx, input.centerId);
   const today = todayISO();
   const to = addDays(today, Math.min(60, input.days ?? 21));
-  const conds = [gte(sessions.date, today), lte(sessions.date, to), eq(sessions.status, "scheduled"), isNull(classes.deletedAt), inArray(classes.status, ["recruiting", "running"])];
+  const conds = [gte(sessions.date, today), lte(sessions.date, to), eq(sessions.status, "scheduled"), isNull(classes.deletedAt), tenantCond(ctx, classes), inArray(classes.status, ["recruiting", "running"])];
   if (input.centerId) conds.push(eq(classes.centerId, input.centerId));
   if (input.courseId) conds.push(eq(classes.courseId, input.courseId));
   const visible = visibleCenterIds(ctx.actor);
@@ -220,7 +222,7 @@ export async function listTrials(ctx: ProtectedContext, input: TrialListInput) {
 /** Lead còn mở để chọn khi xếp học thử */
 export async function trialLeadOptions(ctx: ProtectedContext, input: { q?: string; centerId?: string; id?: string }) {
   const { onlyMine } = readScope(ctx, input.centerId);
-  const conds = [isNull(leads.deletedAt), inArray(leads.status, [...OPEN_LEAD_STATUSES])];
+  const conds = [isNull(leads.deletedAt), tenantCond(ctx, leads), inArray(leads.status, [...OPEN_LEAD_STATUSES])];
   // Chỉ lead:read_own: lead của mình + lead đã bật dùng chung cùng cơ sở
   if (onlyMine) conds.push(or(eq(leads.assignedToId, ctx.user.id), eq(leads.sharedWithCenter, true))!);
   if (input.centerId) conds.push(eq(leads.centerId, input.centerId));
@@ -289,6 +291,7 @@ async function loadBooking(ctx: ProtectedContext, bookingId: string) {
   if (!b) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy lượt học thử" });
   const lead = await ctx.db.query.leads.findFirst({ where: eq(leads.id, b.leadId) });
   if (!lead) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy lead" });
+  assertTenant(ctx, lead, "Lead");
   const s = await loadSession(ctx.db, b.sessionId);
   return { b, lead, s };
 }
@@ -461,7 +464,7 @@ export interface TrialClassListInput { scope?: "open" | "all"; centerId?: string
 export async function listTrialClasses(ctx: ProtectedContext, input: TrialClassListInput) {
   requirePermission(ctx, "trials:view", { centerId: input.centerId ?? null });
   const scope = input.scope ?? "open";
-  const conds = [isNull(trialClasses.deletedAt)];
+  const conds = [isNull(trialClasses.deletedAt), tenantCond(ctx, trialClasses)];
   if (scope === "open") conds.push(eq(trialClasses.status, "open"));
   if (input.centerId) conds.push(eq(trialClasses.centerId, input.centerId));
   if (input.q?.trim()) {
@@ -701,6 +704,7 @@ export async function enrollToTrialClass(ctx: ProtectedContext, input: { trialCl
   if (input.override) requirePermission(ctx, "trials:override-capacity", { centerId: c.centerId });
   const lead = await ctx.db.query.leads.findFirst({ where: and(eq(leads.id, input.leadId), isNull(leads.deletedAt)) });
   if (!lead) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy lead" });
+  assertTenant(ctx, lead, "Lead");
   const child = input.childId ? await ctx.db.query.leadChildren.findFirst({ where: and(eq(leadChildren.id, input.childId), eq(leadChildren.leadId, lead.id)) }) : null;
   if (input.childId && !child) throw new TRPCError({ code: "BAD_REQUEST", message: "Bé không thuộc lead này" });
   const studentName = child?.fullName ?? lead.childName ?? lead.parentName;
@@ -833,8 +837,9 @@ export async function trialClassDetail(ctx: ProtectedContext, input: { id: strin
  */
 export async function trialClassCandidates(ctx: ProtectedContext, input: { trialClassId: string; q?: string }) {
   const c = await loadTrialClass(ctx.db, input.trialClassId);
+  assertTenant(ctx, c, "Lớp học thử");
   requirePermission(ctx, "trials:manage", { centerId: c.centerId });
-  const conds = [isNull(leads.deletedAt), inArray(leads.status, [...OPEN_LEAD_STATUSES]), eq(leads.centerId, c.centerId)];
+  const conds = [isNull(leads.deletedAt), tenantCond(ctx, leads), inArray(leads.status, [...OPEN_LEAD_STATUSES]), eq(leads.centerId, c.centerId)];
   if (input.q?.trim()) {
     const q = `%${input.q.trim()}%`;
     const digits = input.q.replace(/\D/g, "").replace(/^0/, "");
@@ -900,8 +905,9 @@ export async function markTrialAttendance(
 export async function trialClassOptionsForLead(ctx: ProtectedContext, input: { leadId: string }) {
   const lead = await ctx.db.query.leads.findFirst({ where: and(eq(leads.id, input.leadId), isNull(leads.deletedAt)) });
   if (!lead) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy lead" });
+  assertTenant(ctx, lead, "Lead");
   requirePermission(ctx, "trials:view", { centerId: lead.centerId });
-  const conds = [isNull(trialClasses.deletedAt), eq(trialClasses.status, "open")];
+  const conds = [isNull(trialClasses.deletedAt), tenantCond(ctx, trialClasses), eq(trialClasses.status, "open")];
   if (lead.centerId) conds.push(eq(trialClasses.centerId, lead.centerId));
   const visible = visibleCenterIds(ctx.actor);
   if (visible !== null) conds.push(visible.length ? inArray(trialClasses.centerId, visible) : sql`false`);

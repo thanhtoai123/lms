@@ -10,6 +10,7 @@ import {
   type BankTx, type BankTxSource, type BankTxStatus, type LegacyRow, type LegacyTuitionRow, type LegacyLineStatus,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
+import { assertCenterTenant, assertTenant, tenantCond, tenantCondViaCenter } from "./tenantScope";
 import { writeAudit } from "./audit";
 import { todayISO } from "./sessions";
 import { bad, pre, reasonOrThrow, can, notify, accountantsOf, managersOf, recomputeOrderStatus, nextOrderCode, orderCodeFormatOf, nextReceiptNo, childDebtsOf, markQrUsed, installmentState, OPEN_ORDER_STATUSES, type Db } from "./finance";
@@ -127,13 +128,15 @@ function confirmCenters(ctx: ProtectedContext) {
 
 function bankScope(ctx: ProtectedContext): SQL {
   const cc = confirmCenters(ctx);
-  if (cc.includes(null)) return sql`true`;
+  // Giao dịch ngân hàng chưa có cột tenant → suy theo cơ sở ghi trên giao dịch
+  const tenant = tenantCondViaCenter(ctx, bankTransactions.centerId);
+  if (cc.includes(null)) return tenant;
   // Sao kê tài khoản công ty: chỉ kế toán (xác nhận) và quản lý (duyệt) xem, sale không xem
   const readable = ctx.actor.assignments.filter((a) => can(ctx, "finance:approve", a.centerId) || can(ctx, "finance:confirm", a.centerId)).map((a) => a.centerId!).filter(Boolean);
   const parts: SQL[] = [];
   if (readable.length) parts.push(inArray(bankTransactions.centerId, readable));
   if (cc.length) parts.push(isNull(bankTransactions.centerId));
-  return parts.length ? or(...parts)! : sql`false`;
+  return parts.length ? and(or(...parts)!, tenant)! : sql`false`;
 }
 
 function canHandle(ctx: ProtectedContext, centerId: string | null) {
@@ -198,6 +201,7 @@ export async function listBankTx(ctx: ProtectedContext, input: { status?: BankTx
 async function loadOpenTx(ctx: ProtectedContext, id: string) {
   const bt = await ctx.db.query.bankTransactions.findFirst({ where: eq(bankTransactions.id, id) });
   if (!bt) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy giao dịch" });
+  await assertCenterTenant(ctx, bt.centerId, "Giao dịch ngân hàng");
   if (!canHandle(ctx, bt.centerId)) throw new TRPCError({ code: "FORBIDDEN", message: "Không có quyền finance:confirm cho giao dịch này" });
   if (bt.status !== "unmatched" && bt.status !== "needs_review") throw pre(`Giao dịch đang "${bt.status === "matched" ? "Đã khớp" : "Bỏ qua"}" — không xử lý lại`);
   return bt;
@@ -207,7 +211,7 @@ async function loadOpenTx(ctx: ProtectedContext, id: string) {
 export async function matchCandidates(ctx: ProtectedContext, input: { id: string; q?: string }) {
   const bt = await loadOpenTx(ctx, input.id);
   const cc = confirmCenters(ctx);
-  const conds: SQL[] = [inArray(orders.status, ["pending_payment", "partially_paid"])];
+  const conds: SQL[] = [inArray(orders.status, ["pending_payment", "partially_paid"]), tenantCond(ctx, orders)];
   if (!cc.includes(null)) conds.push(inArray(orders.centerId, cc.filter((c): c is string => !!c)));
   if (bt.centerId) conds.push(eq(orders.centerId, bt.centerId));
   if (input.q?.trim()) {
@@ -530,6 +534,7 @@ export async function surplusTargets(ctx: ProtectedContext, input: { id: string 
   if (!bt?.orderId) throw pre("Giao dịch chưa gắn đơn");
   const order = await ctx.db.query.orders.findFirst({ where: eq(orders.id, bt.orderId) });
   if (!order) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy đơn" });
+  assertTenant(ctx, order, "Đơn hàng");
   requirePermission(ctx, "finance:read", { centerId: order.centerId });
   const debts = await childDebtsOf(ctx.db, order.id);
   const [c] = await ctx.db.select({ n: sql<number>`coalesce(sum(${payments.amount}), 0)::bigint` }).from(payments).where(and(eq(payments.orderId, order.id), eq(payments.status, "confirmed")));

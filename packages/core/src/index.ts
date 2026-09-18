@@ -52,6 +52,7 @@ export * from "./system/pii.js";
 export * from "./system/notifications.js";
 export * from "./org/tree.js";
 export * from "./org/tenant.js";
+export * from "./org/offboard.js";
 export * from "./auth/session.js";
 export * from "./auth/security.js";
 export * from "./security/devActor.js";

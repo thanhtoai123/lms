@@ -6,6 +6,7 @@ import {
 } from "@satarobo/db";
 import { runRules, DEFAULT_RULES, computeSla, OPEN_LEAD_STATUSES, visibleCenterIds, type DomainEvent, type Action, type Role } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
+import { assertTenant, tenantCond, tenantCondStrict } from "./tenantScope";
 import { deliverNotifications } from "./notify";
 
 /* ---------------------------------------------------------------------------------------------
@@ -125,7 +126,7 @@ export async function scanLeadSla(db: Database): Promise<number> {
 
 export async function listCareTasks(ctx: ProtectedContext, input: { status?: "open" | "in_progress" | "done" | "escalated" | "dismissed"; centerId?: string }) {
   requirePermission(ctx, "care:read", { centerId: input.centerId ?? null });
-  const conds: SQL[] = [];
+  const conds: SQL[] = [tenantCond(ctx, careTasks)];
   if (input.status) conds.push(eq(careTasks.status, input.status)); else conds.push(inArray(careTasks.status, ["open", "in_progress", "escalated"]));
   if (input.centerId) conds.push(eq(careTasks.centerId, input.centerId));
   const visible = visibleCenterIds(ctx.actor);
@@ -145,6 +146,7 @@ export async function listCareTasks(ctx: ProtectedContext, input: { status?: "op
 export async function resolveCareTask(ctx: ProtectedContext, input: { id: string; status: "in_progress" | "done" | "escalated" | "dismissed"; outcome?: string }) {
   const t = await ctx.db.query.careTasks.findFirst({ where: eq(careTasks.id, input.id) });
   if (!t) throw new TRPCError({ code: "NOT_FOUND" });
+  assertTenant(ctx, t, "Việc chăm sóc");
   requirePermission(ctx, "care:update", { centerId: t.centerId });
   await ctx.db.update(careTasks).set({ status: input.status, outcome: input.outcome ?? t.outcome, ...(input.status === "done" || input.status === "dismissed" ? { resolvedAt: new Date(), resolvedBy: ctx.user.id } : {}), assigneeId: t.assigneeId ?? ctx.user.id }).where(eq(careTasks.id, t.id));
   return { ok: true };
@@ -167,10 +169,11 @@ export async function markRead(ctx: ProtectedContext, input: { ids?: string[]; a
 
 /** Thông báo phụ huynh (cho cổng PH sau này và để Ops kiểm tra) */
 export async function parentFeed(ctx: ProtectedContext, input: { parentId: string; limit?: number }) {
-  const p = await ctx.db.query.parents.findFirst({ where: eq(parents.id, input.parentId), columns: { id: true } });
+  const p = await ctx.db.query.parents.findFirst({ where: eq(parents.id, input.parentId), columns: { id: true, tenantId: true } });
   if (!p) throw new TRPCError({ code: "NOT_FOUND" });
+  assertTenant(ctx, p, "Phụ huynh");
   requirePermission(ctx, "student:read", { ownerIds: [input.parentId] });
-  return ctx.db.select().from(parentNotifications).where(and(eq(parentNotifications.parentId, input.parentId), eq(parentNotifications.channel, "in_app"))).orderBy(desc(parentNotifications.createdAt)).limit(input.limit ?? 50);
+  return ctx.db.select().from(parentNotifications).where(and(eq(parentNotifications.parentId, input.parentId), eq(parentNotifications.channel, "in_app"), tenantCond(ctx, parentNotifications))).orderBy(desc(parentNotifications.createdAt)).limit(input.limit ?? 50);
 }
 
 /** Thống kê outbox cho trang Hệ thống */
@@ -180,8 +183,8 @@ export async function outboxStats(ctx: ProtectedContext) {
     pending: sql<number>`count(*) filter (where processed_at is null and attempts < 5)::int`,
     dead: sql<number>`count(*) filter (where processed_at is null and attempts >= 5)::int`,
     processed24h: sql<number>`count(*) filter (where processed_at > now() - interval '24 hours')::int`,
-  }).from(outbox);
-  const dead = await ctx.db.select({ id: outbox.id, type: outbox.type, lastError: outbox.lastError, createdAt: outbox.createdAt }).from(outbox).where(and(isNull(outbox.processedAt), sql`${outbox.attempts} >= 5`)).orderBy(desc(outbox.createdAt)).limit(20);
+  }).from(outbox).where(tenantCondStrict(ctx, outbox));
+  const dead = await ctx.db.select({ id: outbox.id, type: outbox.type, lastError: outbox.lastError, createdAt: outbox.createdAt }).from(outbox).where(and(isNull(outbox.processedAt), sql`${outbox.attempts} >= 5`, tenantCondStrict(ctx, outbox))).orderBy(desc(outbox.createdAt)).limit(20);
   return { ...r!, dead };
 }
 

@@ -407,6 +407,6 @@ export async function unlinkedCenters(ctx: ProtectedContext) {
   requirePermission(ctx, "system:read");
   const linked = await ctx.db.select({ centerId: orgUnits.centerId }).from(orgUnits).where(and(isNull(orgUnits.deletedAt), sql`${orgUnits.centerId} is not null`));
   const ids = linked.map((l) => l.centerId!).filter(Boolean);
-  const rows = await ctx.db.select({ id: centers.id, code: centers.code, name: centers.name }).from(centers).orderBy(asc(centers.code));
+  const rows = await ctx.db.select({ id: centers.id, code: centers.code, name: centers.name }).from(centers).where(tenantCond(ctx, centers)).orderBy(asc(centers.code));
   return rows.filter((r) => !ids.includes(r.id));
 }

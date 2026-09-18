@@ -7,7 +7,7 @@ import {
   type TransferRequestStatus,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
-import { assertCenterTransferAllowed } from "./tenantScope";
+import { assertCenterTransferAllowed, tenantCond } from "./tenantScope";
 import { writeAudit } from "./audit";
 import { deliverNotifications } from "./notify";
 import { enforcePrerequisites } from "./catalog";
@@ -39,7 +39,7 @@ export async function listEligibleClasses(ctx: ProtectedContext, input: { enroll
   requirePermission(ctx, "enrollment:update", { centerId: e.centerId });
   const canWaive = authorize(ctx.actor, "class:approve", { centerId: e.centerId }).allowed;
   const conds: SQL[] = [
-    isNull(classes.deletedAt), inArray(classes.status, ["recruiting", "running"]), ne(classes.id, e.classId),
+    isNull(classes.deletedAt), tenantCond(ctx, classes), inArray(classes.status, ["recruiting", "running"]), ne(classes.id, e.classId),
     input.includeOtherCourses && canWaive ? sql`true` : eq(classes.courseId, e.courseId),
   ];
   if (input.toCenterId) conds.push(eq(classes.centerId, input.toCenterId));

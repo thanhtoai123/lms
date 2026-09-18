@@ -14,6 +14,7 @@ import {
   type Role, type PositionKind,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
+import { tenantCond } from "./tenantScope";
 import { writeAudit } from "./audit";
 import { todayISO } from "./sessions";
 import { bad, pre, notFound, forbidden, centersWith, scopeSql, reasonOf, dmy, notify, type Db } from "./hrShared";
@@ -26,7 +27,7 @@ const ASSIGNABLE_ROLES: readonly Role[] = ROLES.filter((r) => r !== "PARENT" && 
 
 export async function listPositionDefs(ctx: ProtectedContext, input: { centerId?: string | null; includeInactive?: boolean }) {
   requirePermission(ctx, "staff:read", { centerId: input.centerId ?? null });
-  const conds: SQL[] = [];
+  const conds: SQL[] = [tenantCond(ctx, positions)];
   if (input.centerId) conds.push(eq(positions.centerId, input.centerId));
   if (!input.includeInactive) conds.push(eq(positions.isActive, true));
   const rows = await ctx.db.select({ p: positions, centerCode: centers.code }).from(positions).leftJoin(centers, eq(centers.id, positions.centerId))

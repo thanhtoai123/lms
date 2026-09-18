@@ -13,6 +13,7 @@ import {
   type DocKind, type DocAudience, type DocStatus, type DocCategory, type ScormStatus, type ProposalType, type ProposalStatus, type ProposalAction, type LessonPatch,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
+import { tenantCond, tenantSql } from "./tenantScope";
 import { writeAudit } from "./audit";
 import { deliverNotifications } from "./notify";
 import { putObject, signedFileUrl, signedScormBase } from "../storage";
@@ -69,7 +70,8 @@ async function loadDocForRead(ctx: ProtectedContext, id: string) {
 
 export async function listDocuments(ctx: ProtectedContext, input: { courseId?: string; lessonId?: string; kind?: DocKind; status?: DocStatus; category?: DocCategory; q?: string; page?: number }) {
   const scope = await docReadScope(ctx);
-  const conds: SQL[] = [scope];
+  // Tài liệu gắn khoá học → lọc theo trung tâm qua khoá học của tài liệu
+  const conds: SQL[] = [scope, sql`(${documents.courseId} is null or exists (select 1 from ${courses} tc where tc.id = ${documents.courseId} and ${tenantSql(ctx, "tc")}))`];
   if (input.courseId) conds.push(eq(documents.courseId, input.courseId));
   if (input.lessonId) conds.push(eq(documents.lessonId, input.lessonId));
   if (input.kind) conds.push(eq(documents.kind, input.kind));
@@ -87,7 +89,7 @@ export async function listDocuments(ctx: ProtectedContext, input: { courseId?: s
     .leftJoin(documentVersions, and(eq(documentVersions.documentId, documents.id), eq(documentVersions.version, documents.currentVersion)))
     .where(where).orderBy(asc(courses.code), sql`${lessons.sequenceNo} nulls first`, asc(documents.title)).limit(PAGE).offset((page - 1) * PAGE);
   const [c] = await ctx.db.select({ n: sql<number>`count(*)::int` }).from(documents).where(where);
-  const courseOpts = await ctx.db.select({ id: courses.id, code: courses.code, name: courses.name }).from(courses).where(eq(courses.isActive, true)).orderBy(asc(courses.code));
+  const courseOpts = await ctx.db.select({ id: courses.id, code: courses.code, name: courses.name }).from(courses).where(and(eq(courses.isActive, true), tenantCond(ctx, courses))).orderBy(asc(courses.code));
   return {
     page, pageSize: PAGE, total: c?.n ?? 0, canEdit: canEditDocs(ctx), courses: courseOpts,
     items: rows.map((r) => ({
@@ -332,7 +334,7 @@ export async function myMaterials(ctx: ProtectedContext, input: { classId?: stri
     : sql`(${classes.leadTeacherId} = ${tid} or ${classes.assistantTeacherId} = ${tid})`;
   const cls = await ctx.db.select({ id: classes.id, code: classes.code, name: classes.name, courseId: classes.courseId, curriculumId: classes.curriculumId, courseCode: courses.code, status: classes.status })
     .from(classes).innerJoin(courses, eq(courses.id, classes.courseId))
-    .where(and(classScope, inArray(classes.status, ["running", "recruiting", "pending_approval"])))
+    .where(and(classScope, tenantCond(ctx, classes), inArray(classes.status, ["running", "recruiting", "pending_approval"])))
     .orderBy(sql`case ${classes.status} when 'running' then 0 when 'recruiting' then 1 else 2 end`, asc(classes.code));
   const sel = cls.find((c) => c.id === input.classId) ?? cls[0] ?? null;
   if (!sel) return { classes: cls, selected: null, lessons: [], general: [], upcoming: [] };

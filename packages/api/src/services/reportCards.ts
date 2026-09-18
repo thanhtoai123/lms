@@ -10,6 +10,7 @@ import {
   type ReportCardStatus, type CompletionStatus,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
+import { tenantCond } from "./tenantScope";
 import { writeAudit } from "./audit";
 import { emit } from "./outbox";
 import { consumedSql } from "./students";
@@ -24,7 +25,7 @@ type Db = ProtectedContext["db"];
 export async function criteriaByCourse(ctx: ProtectedContext) {
   requirePermission(ctx, "report_card:read", {});
   const [cs, cr] = await Promise.all([
-    ctx.db.select({ id: courses.id, code: courses.code, name: courses.name, totalSessions: courses.totalSessions, nextCourseId: courses.nextCourseId }).from(courses).where(eq(courses.isActive, true)).orderBy(asc(courses.code)),
+    ctx.db.select({ id: courses.id, code: courses.code, name: courses.name, totalSessions: courses.totalSessions, nextCourseId: courses.nextCourseId }).from(courses).where(and(eq(courses.isActive, true), tenantCond(ctx, courses))).orderBy(asc(courses.code)),
     ctx.db.select().from(competencyCriteria).orderBy(asc(competencyCriteria.sortOrder), asc(competencyCriteria.createdAt)),
   ]);
   return cs.map((c) => ({ ...c, milestones: reportCardMilestones(c.totalSessions), criteria: cr.filter((x) => x.courseId === c.id) }));

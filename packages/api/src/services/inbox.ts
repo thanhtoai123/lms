@@ -18,6 +18,7 @@ import {
   REQUEST_KIND_VI, PARENT_REQUEST_TYPE_VI, type Permission,
 } from "@satarobo/core";
 import type { ProtectedContext } from "../trpc";
+import { tenantCond } from "./tenantScope";
 import { todayISO, listSessions } from "./sessions";
 import { resolveAdmissionsPolicy } from "./admissionsAdmin";
 import * as L from "./leads";
@@ -157,7 +158,7 @@ async function leadSlaGroup(ctx: ProtectedContext): Promise<InboxGroup | null> {
   const rows = await ctx.db
     .select({ id: leads.id, parentName: leads.parentName, phone: leads.phoneNormalized, status: leads.status, lastTouchAt: leads.lastTouchAt, assignedToId: leads.assignedToId })
     .from(leads)
-    .where(and(isNull(leads.deletedAt), inArray(leads.status, [...OPEN_LEAD_STATUSES]), scope))
+    .where(and(isNull(leads.deletedAt), inArray(leads.status, [...OPEN_LEAD_STATUSES]), scope, tenantCond(ctx, leads)))
     .orderBy(leads.lastTouchAt)
     .limit(400);
   const policy = await resolveAdmissionsPolicy(ctx.db, null);

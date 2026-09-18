@@ -12,6 +12,7 @@ import {
 import type { ProtectedContext } from "../trpc";
 import { writeAudit } from "./audit";
 import { todayISO } from "./sessions";
+import { assertCenterTenant, tenantCond } from "./tenantScope";
 
 type Db = ProtectedContext["db"];
 const bad = (m: string | string[]) => new TRPCError({ code: "BAD_REQUEST", message: Array.isArray(m) ? m.join("; ") : m });
@@ -69,7 +70,7 @@ async function stateOf(db: Db, centerId: string) {
 export async function cutoverOverview(ctx: ProtectedContext) {
   const ids = readable(ctx);
   const list = await ctx.db.select({ id: centers.id, code: centers.code, name: centers.name }).from(centers)
-    .where(ids === null ? sql`true` : inArray(centers.id, ids.length ? ids : ["00000000-0000-0000-0000-000000000000"])).orderBy(centers.code);
+    .where(and(ids === null ? sql`true` : inArray(centers.id, ids.length ? ids : ["00000000-0000-0000-0000-000000000000"]), tenantCond(ctx, centers))).orderBy(centers.code);
   const out = [];
   for (const c of list) {
     const s = await stateOf(ctx.db, c.id);
@@ -87,6 +88,7 @@ export async function cutoverOverview(ctx: ProtectedContext) {
 
 export async function logParallelDay(ctx: ProtectedContext, input: { centerId: string; date: string; legacy: Record<ParallelMetric, number>; note?: string | null }) {
   if (!canLog(ctx, input.centerId)) throw forbid("Chỉ quản lý cơ sở ghi sổ chạy song song");
+  await assertCenterTenant(ctx, input.centerId);
   const today = todayISO();
   if (input.date > today) throw bad("Không ghi cho ngày tương lai");
   const s = await stateOf(ctx.db, input.centerId);
@@ -106,6 +108,7 @@ export async function explainParallelDay(ctx: ProtectedContext, input: { id: str
   const d = await ctx.db.query.parallelRunDays.findFirst({ where: eq(parallelRunDays.id, input.id) });
   if (!d) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy ngày" });
   if (!canLog(ctx, d.centerId)) throw forbid("Không có quyền");
+  await assertCenterTenant(ctx, d.centerId);
   if (d.ok) throw pre("Ngày này đã khớp");
   if (input.explanation.trim().length < 15) throw bad("Giải thích chênh lệch tối thiểu 15 ký tự (nguyên nhân + đã xử lý thế nào)");
   await ctx.db.update(parallelRunDays).set({ explanation: input.explanation.trim(), resolvedBy: ctx.user.id, updatedAt: new Date() }).where(eq(parallelRunDays.id, d.id));
@@ -115,6 +118,7 @@ export async function explainParallelDay(ctx: ProtectedContext, input: { id: str
 
 export async function setChecklist(ctx: ProtectedContext, input: { centerId: string; key: string; done: boolean }) {
   if (!canLog(ctx, input.centerId)) throw forbid("Không có quyền");
+  await assertCenterTenant(ctx, input.centerId);
   const def = CUTOVER_CHECKLIST.find((c) => c.key === input.key);
   if (!def) throw bad("Mục không hợp lệ");
   if ("auto" in def && def.auto) throw bad("Mục này hệ thống tự kiểm tra");
@@ -128,6 +132,7 @@ export async function setChecklist(ctx: ProtectedContext, input: { centerId: str
 
 export async function setStage(ctx: ProtectedContext, input: { centerId: string; stage: CutoverStage; reason: string }) {
   if (!canApprove(ctx)) throw forbid("Chỉ Hội sở chuyển giai đoạn go-live");
+  await assertCenterTenant(ctx, input.centerId);
   if (input.reason.trim().length < 5) throw bad("Ghi lý do / quyết định (≥ 5 ký tự)");
   const s = await stateOf(ctx.db, input.centerId);
   const blockers = cutoverBlockers({ stage: s.stage, checklist: s.checklist, streak: s.streak, parallelDays: s.parallelDays, openIssues: s.openIssues, openHighFeedback: s.openHighFeedback }, input.stage);

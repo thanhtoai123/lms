@@ -93,12 +93,33 @@ Dùng chung bộ che PII của nhật ký (`packages/core/src/system/pii.ts`), m
 | Tên, SĐT, email, địa chỉ của phụ huynh / học viên | ✔ | **đã che** | ✔ (`hoSeesPii = true`) |
 | Hồ sơ nhân sự, chấm công | ✔ | **đã che** | ✔ (`hoSeesPii = true`) |
 | Từng phiếu thu / đơn hàng kèm tên học viên | ✔ | **không trả về** | ✔ (`hoSeesFinanceDetail = true`) |
+| Báo cáo chuyên sâu (lead, học thử, đào tạo, giáo viên, doanh thu, cohort, rời bỏ) | ✔ | ✔ số liệu tổng hợp | ✔ |
+| Kho / học cụ, tuyển dụng, marketing, khảo sát, chăm sóc | ✔ | ✖ (lọc theo trung tâm của cơ sở) | ✖ |
+| Đối soát go-live, chạy song song, nhập dữ liệu hệ cũ | ✔ | ✖ | ✖ |
+| Danh mục loại thông báo & mẫu email khi **gửi thật** | ✔ dùng cấu hình của chính mình | — | — |
 | Nhật ký thao tác (audit log) | ✔ | ✖ (chỉ trong tenant) | ✖ |
 | Chuyển học viên / lead sang trung tâm khác | theo công tắc | ✖ | ✔ (`allowCrossCenterTransfer = true` ở **cả hai** bên) |
+| Gói bàn giao dữ liệu (.zip) khi kết thúc hợp đồng | ✔ | ✔ **nhưng PII bị che** | ✔ đầy đủ (`hoSeesPii = true`) |
+| Tạm ngừng / đóng trung tâm | ✖ | ✔ (Quản trị tối cao của chuỗi) | ✔ |
 
 Người của FR **không bao giờ** thấy dữ liệu của chuỗi hay của trung tâm nhượng quyền khác.
 
-### 2.5 Bốn công tắc quyền riêng tư
+### 2.5 Gửi thông báo và email theo trung tâm
+
+Bộ đệm danh mục loại thông báo khoá theo **(tenantId, mã loại)**, mẫu email chọn theo
+**trung tâm của chính lượt gửi** (`queueEmail({ …, tenantId })`), dự phòng về trung tâm mặc định:
+
+| Trường hợp | Lấy cấu hình của |
+|---|---|
+| Nghiệp vụ truyền `tenantId` (email đơn hàng, phiếu thu, mời nhân sự, kích hoạt phụ huynh, hoá đơn) | đúng trung tâm đó |
+| Thông báo trong app, người nhận thuộc nhiều trung tâm | mỗi nhóm người nhận dùng danh mục **trung tâm của họ** |
+| Không xác định được trung tâm | trung tâm mặc định (`SATA`) — hành vi cũ của chuỗi giữ nguyên |
+
+Khi cả hệ thống chỉ có một trung tâm khai danh mục, tầng gửi **không phát sinh truy vấn nào thêm**
+(`hasPerTenantConfig` trả `false` → đi thẳng đường cũ). Luật chọn là hàm thuần trong
+`packages/core/src/org/tenant.ts` (`pickForTenant`, `catalogForTenant`) và có kiểm thử riêng.
+
+### 2.6 Bốn công tắc quyền riêng tư
 
 Đặt ngay trong panel chi tiết của thẻ trung tâm ở `/nhuong-quyen` (không có trang riêng).
 **Chỉ quản trị của chính trung tâm đó** bật/tắt được — Hội sở chuỗi không tự mở quyền xem dữ liệu của bên nhượng quyền. Mỗi lần đổi bắt buộc nhập lý do và được ghi nhật ký.
@@ -158,9 +179,113 @@ Trung tâm mới bắt đầu với **0 dữ liệu cá nhân**.
 
 ---
 
-## 4. Checklist pháp lý & vận hành khi mở nhượng quyền
+## 4. RLS trong Postgres — lớp phòng thủ cuối
 
-### 4.1 Pháp lý
+Nguồn sự thật vẫn là tầng service (`tenantCond` / `assertTenant`). RLS chỉ là hàng rào cuối:
+một truy vấn quên lọc cũng **không đọc được** dữ liệu của trung tâm khác.
+
+Tệp: `packages/db/sql/0006_rls_tenant.sql` (chạy sau `pnpm db:push`, idempotent).
+
+### 4.1 Cách hoạt động
+
+| Thành phần | Vai trò |
+|---|---|
+| `app.tenant_ids` | Biến phiên: danh sách uuid phân tách bằng dấu phẩy — đúng `ctx.tenantIds` của lượt gọi |
+| `app.bypass_rls` | `on` = bỏ qua RLS, dành cho lệnh quản trị (migrate, seed, nhân bản tenant, worker) |
+| `app_tenant_visible(t)` | Luật một dòng: bỏ qua → cho; `tenant_id` rỗng (dữ liệu di sản) → cho; còn lại phải nằm trong danh sách |
+| `satarobo_app` | Vai trò **không phải chủ bảng** mà ứng dụng dùng để kết nối — có vai trò này RLS mới có tác dụng |
+| `satarobo_rls_enable()` / `satarobo_rls_disable()` | Bật / tắt RLS cho mọi bảng có `tenant_id`, một lệnh, đảo ngược được |
+
+**Chưa đặt biến phiên = không đọc được gì.** Đây là mặc định an toàn, và cũng là lý do RLS
+phải bật có chủ đích. Luật trên có bản sao thuần trong `packages/core/src/org/tenant.ts`
+(`rlsAllowsRow`) kèm kiểm thử, để đổi luật ở SQL là thấy ngay ở test.
+
+### 4.2 Vì sao KHÔNG bật sẵn
+
+- Ứng dụng đang kết nối bằng vai trò **chủ sở hữu bảng**; Postgres không áp RLS cho chủ bảng
+  (trừ khi `FORCE`), nên bật lúc này chỉ là hình thức.
+- Pool `postgres-js` dùng chung kết nối cho nhiều lượt gọi ⇒ `SET` ở mức phiên sẽ **rò** sang
+  người khác. Chỉ `set_config(..., true)` **trong một giao dịch** mới an toàn:
+  `withTenantSession(db, { tenantIds }, fn)` ở `packages/db/src/rls.ts`.
+- Ba bảng `tenants`, `tenant_settings`, `users` **không** có RLS: chúng được đọc ở bước dựng ngữ
+  cảnh đăng nhập, khi hệ thống còn chưa biết người dùng thuộc trung tâm nào. Ba bảng này vẫn
+  được lọc chặt ở tầng service.
+
+### 4.3 Quy trình bật (làm trên máy thật, có thể tắt lại ngay)
+
+1. `pnpm db:push` rồi `pnpm --filter @satarobo/db exec tsx src/apply-sql.ts` (tạo vai trò, hàm, chính sách).
+2. Tạo mật khẩu cho vai trò ứng dụng: `ALTER ROLE satarobo_app LOGIN PASSWORD '…';`
+3. Đổi `DATABASE_URL` của **web + worker** sang `satarobo_app`. Giữ `DATABASE_URL` cũ (chủ bảng)
+   cho migrate / seed.
+4. Bọc các đường ghi / đọc bằng `withTenantSession(...)`; lệnh quản trị dùng `withAdminSession(...)`.
+5. `SELECT satarobo_rls_enable();` — kiểm thử lại luồng đăng nhập, danh sách, tạo dữ liệu.
+6. Có sự cố: `SELECT satarobo_rls_disable();` là về ngay hiện trạng cũ.
+
+Xem đang bật ở bảng nào:
+
+```sql
+SELECT relname, relrowsecurity FROM pg_class WHERE relname IN (SELECT table_name FROM satarobo_rls_tables());
+```
+
+---
+
+## 5. Kết thúc hợp đồng nhượng quyền — bàn giao và khoá dữ liệu
+
+Màn `/nhuong-quyen` → mở thẻ trung tâm → khu **“Vùng nguy hiểm”** (viền đỏ, nằm cuối panel chi tiết).
+Dịch vụ: `packages/api/src/services/tenantOffboard.ts`; luật thuần: `packages/core/src/org/offboard.ts`.
+
+**Không thủ tục nào xoá dữ liệu.** Mọi thủ tục bắt buộc **nhập lý do ≥ 10 ký tự** và **gõ lại mã
+trung tâm**, ghi nhật ký ở cả tenant người thao tác lẫn tenant bị tác động.
+
+### 5.1 Ai được làm
+
+Chỉ **Quản trị tối cao của chuỗi** (vai trò `SUPER_ADMIN` không gắn cơ sở), và chỉ với trung tâm
+trong phạm vi dữ liệu của mình. Trung tâm gốc `SATA` **không bao giờ** tạm ngừng / đóng được.
+Riêng gói bàn giao: chính trung tâm đó cũng tự xuất được dữ liệu của mình.
+
+### 5.2 Bốn bước
+
+| Bước | Thủ tục | Làm gì |
+|---|---|---|
+| 1 | `tenants.previewOffboard` | Bảng kê: sẽ khoá những gì, bao nhiêu bản ghi mỗi nhóm, **danh sách tài khoản mất quyền truy cập**, mốc giữ dữ liệu, cảnh báo (còn lớp đang chạy / học viên đang học / công nợ) |
+| 2 | `tenants.exportData` | Xuất **toàn bộ** dữ liệu của trung tâm ra `<MÃ>-ban-giao-<ngày>.zip` |
+| 3 | `tenants.suspend` | Tạm ngừng: đổi `status = suspended`, khoá mọi tài khoản của trung tâm (`is_active = false` → chặn đăng nhập ngay ở bước dựng ngữ cảnh). Mở lại được |
+| 4 | `tenants.close` | Đóng hẳn: `status = closed`, khoá toàn bộ tài khoản, ghi mốc giữ dữ liệu vào ghi chú của trung tâm |
+
+`tenants.reopen` mở lại trung tâm đang tạm ngừng / đóng nhầm — **tài khoản vẫn phải mở khoá bằng tay**
+ở *Hệ thống → Tài khoản* (cố ý: mở lại trung tâm không đồng nghĩa mở lại mọi quyền truy cập).
+
+Tenant `closed` không nằm trong phạm vi đọc dữ liệu (mục 2.1), nên sau khi đóng, dữ liệu vẫn nằm
+nguyên trong CSDL nhưng không ai truy cập qua ứng dụng được nữa.
+
+### 5.3 Gói bàn giao gồm gì
+
+```
+<MÃ>-ban-giao-<ngày>.zip
+├── README.md            ← tiếng Việt: ngày xuất, người xuất, lý do, mô tả từng tệp, số dòng
+├── csv/<bảng>.csv       ← mở bằng Excel (BOM UTF-8, chặn công thức)
+└── json/<bảng>.json     ← giữ nguyên kiểu dữ liệu
+```
+
+12 bảng: cơ sở · tài khoản · học viên · phụ huynh · giáo viên · nhân sự · lớp học · buổi học ·
+ghi danh · lead · đơn hàng · phiếu thu (tối đa 50.000 dòng mỗi bảng).
+
+**Không** có trong gói: mật khẩu (hệ thống không lưu dạng đọc được) · ảnh lớp và tệp đính kèm ·
+nhật ký thao tác · dữ liệu của trung tâm khác.
+
+Người xuất mà không được xem PII của trung tâm đó (`hoSeesPii = false`) thì **gói cũng bị che**
+theo đúng luật mục 2.3, và README ghi rõ điều này. Mỗi lần xuất ghi nhật ký `PII_REVEAL`.
+
+### 5.4 Giữ dữ liệu bao lâu
+
+`dataRetentionYears` của chính trung tâm đó (mặc định nhượng quyền: 5 năm). Ngày đóng + số năm =
+mốc xoá / ẩn danh, hiện ngay trên bảng kê và ghi vào ghi chú của trung tâm để đọc lại được sau nhiều năm.
+
+---
+
+## 6. Checklist pháp lý & vận hành khi mở nhượng quyền
+
+### 6.1 Pháp lý
 
 - [ ] Hợp đồng nhượng quyền ký trước khi tạo tenant; số hợp đồng và thời hạn nhập vào hồ sơ trung tâm.
 - [ ] Đăng ký hoạt động nhượng quyền thương mại theo quy định (Luật Thương mại) — bên nhượng quyền chịu trách nhiệm.
@@ -174,7 +299,7 @@ Trung tâm mới bắt đầu với **0 dữ liệu cá nhân**.
 - [ ] Thoả thuận về thương hiệu, giáo trình, tài liệu: được dùng trong phạm vi hợp đồng, không phát tán ra ngoài.
 - [ ] Điều khoản chấm dứt: dữ liệu học viên xử lý thế nào khi hết hợp đồng (chuyển giao / xoá / ẩn danh) và trong bao lâu.
 
-### 4.2 Vận hành
+### 6.2 Vận hành
 
 - [ ] Chọn mô hình mẫu đúng (thường là tenant gốc `SATA`).
 - [ ] Mã trung tâm và mã cơ sở thống nhất với cách đặt mã của chuỗi, không trùng.
@@ -187,7 +312,7 @@ Trung tâm mới bắt đầu với **0 dữ liệu cá nhân**.
 
 ---
 
-## 5. Kiểm thử nhanh sau khi triển khai
+## 7. Kiểm thử nhanh sau khi triển khai
 
 1. Đăng nhập bằng tài khoản của chuỗi → `/nhuong-quyen` hiện đủ thẻ trung tâm; thẻ nhượng quyền có nhãn **"Dữ liệu cá nhân đã che"**.
 2. Mở `/leads` và `/students`: lead / học viên của trung tâm nhượng quyền hiện SĐT dạng `0912****78`, họ tên rút gọn.
@@ -195,12 +320,26 @@ Trung tâm mới bắt đầu với **0 dữ liệu cá nhân**.
 4. Đăng nhập bằng quản trị của trung tâm nhượng quyền: chỉ thấy dữ liệu của mình; `/audit-log` không có dòng của chuỗi.
 5. Thử chuyển một lead sang cơ sở của tenant khác → bị chặn kèm lý do tiếng Việt.
 6. Bật `hoSeesPii` ở trung tâm nhượng quyền → người của chuỗi thấy dữ liệu đầy đủ; nhật ký ghi lại ai bật, lúc nào, vì sao.
+7. Mở `/bao-cao` (lead, đào tạo, giáo viên, trung tâm, cohort, rời bỏ) bằng tài khoản của bên nhượng quyền: mọi con số chỉ của trung tâm đó.
+8. Mở `/nhuong-quyen` → thẻ trung tâm nhượng quyền → **Vùng nguy hiểm**: bảng kê đúng số bản ghi và đúng danh sách tài khoản sẽ bị khoá.
+9. Bấm **Xuất gói bàn giao** → tải được `.zip`, mở README thấy đủ số dòng từng bảng; xuất bằng tài khoản chuỗi khi `hoSeesPii = false` thì dữ liệu cá nhân trong gói bị che.
+10. Gõ sai mã trung tâm → nút đỏ không bật. Gõ đúng + nhập lý do → **Tạm ngừng**: tài khoản của trung tâm đó đăng nhập bị chặn ngay; **Mở lại** đưa trạng thái về *Đang hoạt động*.
+11. Thử tạm ngừng / đóng trung tâm gốc `SATA` → bị chặn kèm lý do tiếng Việt.
 
 ---
 
-## 6. Chỗ còn phải làm tay (đã biết)
+## 8. Chỗ còn phải làm tay (đã biết)
 
-- **Gửi thông báo / email theo tenant**: bộ đệm danh mục loại thông báo (`notificationCatalog`) và mẫu email dùng chung khoá theo mã loại, nên khi có nhiều tenant chúng **lấy cấu hình của trung tâm mặc định** để hành vi của chuỗi không đổi. Nghĩa là công tắc "bật đẩy" và mẫu email riêng của bên nhượng quyền **chưa** có hiệu lực ở tầng gửi (màn danh mục vẫn hiển thị đúng cấu hình của họ). Muốn đủ: truyền `tenantId` xuống `queueEmail` / `notifyTyped` ở từng nghiệp vụ.
-- Các truy vấn danh sách ít dùng (báo cáo chuyên sâu, màn đối soát go-live, kho / học cụ, tuyển dụng, marketing) **chưa** gắn `tenantCond`; hiện chúng vẫn an toàn vì lọc theo cơ sở, nhưng khi mở nhiều tenant nên bổ sung dần theo đúng ba bước ở mục 2.2.
-- RLS trong Postgres chưa bật cho `tenant_id` (phòng thủ cuối); nguồn sự thật vẫn là tầng service.
-- Chưa có màn "chuyển giao dữ liệu khi kết thúc hợp đồng" — hiện làm bằng tay theo mục 4.1.
+- **RLS chưa bật sẵn.** Chính sách và lệnh bật / tắt đã có (mục 4), nhưng phải đổi `DATABASE_URL`
+  sang vai trò `satarobo_app` và bọc các đường ghi bằng `withTenantSession` trên máy thật trước.
+  Bật khi chưa làm hai việc đó là làm hỏng hệ đang chạy.
+- **Bảng chưa có cột `tenant_id`** (hoàn tiền, mục tiêu doanh thu, kho / học cụ, tuyển dụng,
+  nguồn giới thiệu, đánh giá của phụ huynh, khảo sát) lọc **gián tiếp qua cơ sở** của dòng
+  (`tenantCondViaCenter` / `tenantViaCenter`). Đúng luật vì mỗi cơ sở chỉ thuộc một trung tâm,
+  nhưng dòng dùng chung (`center_id` rỗng) vẫn hiện cho mọi trung tâm — giống cách `tenantCond`
+  không chặn dòng chưa gắn tenant.
+- **Job rà "Cần thực hiện"** (`buildActionRequiredAlerts`) tính số liệu trên **toàn hệ thống**
+  rồi gửi cho người nhận theo vai trò; khi có nhiều trung tâm nên tách số liệu theo từng tenant.
+- **Nhật ký thao tác** không nằm trong gói bàn giao (mục 5.3) — cấp theo yêu cầu bằng văn bản.
+- Xoá / ẩn danh dữ liệu sau khi hết hạn giữ (`dataRetentionYears`) vẫn là **quy trình tay**:
+  hệ thống chỉ ghi mốc và nhắc, chưa có job tự xoá.

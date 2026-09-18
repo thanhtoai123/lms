@@ -22,6 +22,7 @@ import { awardByRule } from "./rewards";
 import { writeAudit } from "./audit";
 import { deliverNotifications } from "./notify";
 import { todayISO } from "./sessions";
+import { assertCenterTenant, assertTenant, tenantCond, tenantCondViaCenter } from "./tenantScope";
 import type { Database } from "@satarobo/db";
 
 type Db = ProtectedContext["db"];
@@ -44,8 +45,10 @@ const reasonOf = (r: string | null | undefined, min = 5) => {
 };
 function scopeOn(ctx: ProtectedContext, col: AnyPgColumn): SQL {
   const v = visibleCenterIds(ctx.actor);
-  if (v === null) return sql`true`;
-  return v.length ? (inArray(col, v) as SQL) : sql`false`;
+  // Cách ly trung tâm (tenant) suy qua cơ sở của dòng — đứng trước mọi luật phạm vi cơ sở
+  const tenant = tenantCondViaCenter(ctx, col);
+  if (v === null) return tenant;
+  return v.length ? and(inArray(col, v), tenant)! : sql`false`;
 }
 const dmy = (d: string) => d.split("-").reverse().join("/");
 
@@ -78,7 +81,7 @@ async function openCareTask(db: Db, x: { studentId: string; enrollmentId?: strin
 
 export async function listParentRequests(ctx: ProtectedContext, input: { status?: ParentRequestStatus | "open" | "overdue"; type?: ParentRequestType; centerId?: string; q?: string; mine?: boolean }) {
   requirePermission(ctx, "care:read", { centerId: input.centerId ?? null });
-  const base: SQL[] = [scopeOn(ctx, parentRequests.centerId)];
+  const base: SQL[] = [scopeOn(ctx, parentRequests.centerId), tenantCond(ctx, parentRequests)];
   if (input.centerId) base.push(eq(parentRequests.centerId, input.centerId));
   if (input.type) base.push(eq(parentRequests.type, input.type));
   if (input.mine) base.push(eq(parentRequests.assigneeId, ctx.user.id));
@@ -209,6 +212,7 @@ export async function getParentRequest(ctx: ProtectedContext, id: string) {
     .leftJoin(parents, eq(parents.id, parentRequests.parentId)).leftJoin(enrollments, eq(enrollments.id, parentRequests.enrollmentId)).leftJoin(classes, eq(classes.id, enrollments.classId))
     .where(eq(parentRequests.id, id));
   if (!x) throw notFound("Không tìm thấy yêu cầu");
+  assertTenant(ctx, x.r, "Yêu cầu của phụ huynh");
   requirePermission(ctx, "care:read", { centerId: x.r.centerId });
   const events = await ctx.db.select({ e: parentRequestEvents, actorName: users.fullName }).from(parentRequestEvents).leftJoin(users, eq(users.id, parentRequestEvents.actorId))
     .where(eq(parentRequestEvents.requestId, id)).orderBy(asc(parentRequestEvents.createdAt));
@@ -298,7 +302,7 @@ export async function actOnParentRequest(ctx: ProtectedContext, input: { id: str
 
 export async function listFeedback(ctx: ProtectedContext, input: { status?: FeedbackStatus; low?: boolean; teacherId?: string; from?: string; to?: string; centerId?: string; classId?: string }) {
   requirePermission(ctx, "care:read", { centerId: input.centerId ?? null });
-  const base: SQL[] = [scopeOn(ctx, parentFeedback.centerId)];
+  const base: SQL[] = [scopeOn(ctx, parentFeedback.centerId), tenantCondViaCenter(ctx, parentFeedback.centerId)];
   if (input.centerId) base.push(eq(parentFeedback.centerId, input.centerId));
   if (input.classId) base.push(eq(parentFeedback.classId, input.classId));
   if (input.teacherId) base.push(eq(parentFeedback.teacherId, input.teacherId));
@@ -415,12 +419,12 @@ export async function listSurveys(ctx: ProtectedContext) {
   requirePermission(ctx, "care:read", { centerId: null });
   const v = visibleCenterIds(ctx.actor);
   const rows = await ctx.db.select({ s: surveys, centerCode: centers.code }).from(surveys).leftJoin(centers, eq(centers.id, surveys.centerId))
-    .where(v === null ? sql`true` : or(isNull(surveys.centerId), v.length ? inArray(surveys.centerId, v) : sql`false`)).orderBy(asc(surveys.status), desc(surveys.createdAt));
+    .where(and(v === null ? sql`true` : or(isNull(surveys.centerId), v.length ? inArray(surveys.centerId, v) : sql`false`), tenantCondViaCenter(ctx, surveys.centerId))).orderBy(asc(surveys.status), desc(surveys.createdAt));
   const ids = rows.map((r) => r.s.id);
   const inv = ids.length ? await ctx.db.select({ surveyId: surveyInvites.surveyId, status: surveyInvites.status, n: sql<number>`count(*)::int` }).from(surveyInvites)
-    .where(and(inArray(surveyInvites.surveyId, ids), scopeOn(ctx, surveyInvites.centerId))).groupBy(surveyInvites.surveyId, surveyInvites.status) : [];
+    .where(and(inArray(surveyInvites.surveyId, ids), and(scopeOn(ctx, surveyInvites.centerId), tenantCond(ctx, surveyInvites))!)).groupBy(surveyInvites.surveyId, surveyInvites.status) : [];
   const nps = ids.length ? await ctx.db.select({ surveyId: surveyResponses.surveyId, score: surveyResponses.npsScore }).from(surveyResponses)
-    .innerJoin(surveyInvites, eq(surveyInvites.id, surveyResponses.inviteId)).where(and(inArray(surveyResponses.surveyId, ids), scopeOn(ctx, surveyInvites.centerId))) : [];
+    .innerJoin(surveyInvites, eq(surveyInvites.id, surveyResponses.inviteId)).where(and(inArray(surveyResponses.surveyId, ids), and(scopeOn(ctx, surveyInvites.centerId), tenantCond(ctx, surveyInvites))!)) : [];
   return {
     canCreate: ctx.actor.assignments.some((a) => can(ctx, "care:create", a.centerId)),
     items: rows.map((r) => {
@@ -439,11 +443,12 @@ export async function listSurveys(ctx: ProtectedContext) {
 export async function getSurvey(ctx: ProtectedContext, id: string) {
   const s = await ctx.db.query.surveys.findFirst({ where: eq(surveys.id, id) });
   if (!s) throw notFound("Không tìm thấy khảo sát");
+  await assertCenterTenant(ctx, s.centerId, "Khảo sát");
   requirePermission(ctx, "care:read", { centerId: s.centerId });
   const inv = await ctx.db.select({ i: surveyInvites, studentName: students.fullName, parentName: parents.fullName, centerCode: centers.code, classCode: classes.code })
     .from(surveyInvites).innerJoin(students, eq(students.id, surveyInvites.studentId)).innerJoin(parents, eq(parents.id, surveyInvites.parentId)).innerJoin(centers, eq(centers.id, surveyInvites.centerId))
     .leftJoin(enrollments, eq(enrollments.id, surveyInvites.enrollmentId)).leftJoin(classes, eq(classes.id, enrollments.classId))
-    .where(and(eq(surveyInvites.surveyId, id), scopeOn(ctx, surveyInvites.centerId))).orderBy(desc(surveyInvites.sentAt)).limit(1000);
+    .where(and(eq(surveyInvites.surveyId, id), and(scopeOn(ctx, surveyInvites.centerId), tenantCond(ctx, surveyInvites))!)).orderBy(desc(surveyInvites.sentAt)).limit(1000);
   const resp = inv.length ? await ctx.db.select().from(surveyResponses).where(inArray(surveyResponses.inviteId, inv.map((x) => x.i.id))) : [];
   const now = Date.now();
   const results = s.questions.map((q) => {
@@ -519,8 +524,9 @@ async function createInvites(db: Db, s: typeof surveys.$inferSelect, targets: Ta
 export async function sendSurvey(ctx: ProtectedContext, input: { id: string; classId?: string | null; centerId?: string | null; studentIds?: string[] }) {
   const s = await ctx.db.query.surveys.findFirst({ where: eq(surveys.id, input.id) });
   if (!s) throw notFound("Không tìm thấy khảo sát");
+  await assertCenterTenant(ctx, s.centerId, "Khảo sát");
   if (s.status !== "active") throw pre("Kích hoạt khảo sát trước khi gửi");
-  const conds: SQL[] = [inArray(enrollments.status, ["active", "trial", "paused"]), scopeOn(ctx, classes.centerId)];
+  const conds: SQL[] = [inArray(enrollments.status, ["active", "trial", "paused"]), scopeOn(ctx, classes.centerId), tenantCond(ctx, classes)];
   if (input.classId) conds.push(eq(classes.id, input.classId));
   else if (input.centerId) conds.push(eq(classes.centerId, input.centerId));
   else if (input.studentIds?.length) conds.push(inArray(enrollments.studentId, input.studentIds));
@@ -615,7 +621,7 @@ export async function submitPublicSurvey(db: Database, token: string, answers: S
 export async function listParentNotifications(ctx: ProtectedContext, input: { status?: "queued" | "sent" | "failed" | "read"; channel?: string; template?: string; q?: string; page?: number; hidden?: boolean }) {
   requirePermission(ctx, "care:read", { centerId: null });
   const v = visibleCenterIds(ctx.actor);
-  const conds: SQL[] = [input.hidden ? (sql`${parentNotifications.hiddenAt} is not null` as SQL) : (isNull(parentNotifications.hiddenAt) as SQL)];
+  const conds: SQL[] = [input.hidden ? (sql`${parentNotifications.hiddenAt} is not null` as SQL) : (isNull(parentNotifications.hiddenAt) as SQL), tenantCond(ctx, parentNotifications)];
   if (v !== null) conds.push(v.length ? sql`exists (select 1 from ${students} s where s.id = ${parentNotifications.studentId} and s.home_center_id in ${v})` : sql`false`);
   if (input.status) conds.push(eq(parentNotifications.status, input.status));
   if (input.channel) conds.push(sql`${parentNotifications.channel} = ${input.channel}`);
@@ -633,11 +639,11 @@ export async function listParentNotifications(ctx: ProtectedContext, input: { st
     read: sql<number>`count(*) filter (where ${parentNotifications.status} = 'read')::int`,
     failed: sql<number>`count(*) filter (where ${parentNotifications.status} = 'failed')::int`,
   }).from(parentNotifications).innerJoin(parents, eq(parents.id, parentNotifications.parentId)).where(where);
-  const templates = await ctx.db.selectDistinct({ t: parentNotifications.template }).from(parentNotifications).orderBy(asc(parentNotifications.template));
+  const templates = await ctx.db.selectDistinct({ t: parentNotifications.template }).from(parentNotifications).where(tenantCond(ctx, parentNotifications)).orderBy(asc(parentNotifications.template));
   const [hiddenTotal] = await ctx.db.select({ n: sql<number>`count(*)::int` }).from(parentNotifications)
     .innerJoin(parents, eq(parents.id, parentNotifications.parentId))
-    .where(and(sql`${parentNotifications.hiddenAt} is not null`, v === null ? sql`true` : v.length ? sql`exists (select 1 from ${students} s where s.id = ${parentNotifications.studentId} and s.home_center_id in ${v})` : sql`false`));
-  const broadcasts = await ctx.db.select({ b: notificationBroadcasts, byName: users.fullName }).from(notificationBroadcasts).leftJoin(users, eq(users.id, notificationBroadcasts.createdBy)).orderBy(desc(notificationBroadcasts.createdAt)).limit(10);
+    .where(and(sql`${parentNotifications.hiddenAt} is not null`, tenantCond(ctx, parentNotifications), v === null ? sql`true` : v.length ? sql`exists (select 1 from ${students} s where s.id = ${parentNotifications.studentId} and s.home_center_id in ${v})` : sql`false`));
+  const broadcasts = await ctx.db.select({ b: notificationBroadcasts, byName: users.fullName }).from(notificationBroadcasts).leftJoin(users, eq(users.id, notificationBroadcasts.createdBy)).where(tenantCond(ctx, notificationBroadcasts)).orderBy(desc(notificationBroadcasts.createdAt)).limit(10);
   return {
     page, counts: c, templates: templates.map((t) => t.t),
     canSend: ctx.actor.assignments.some((a) => can(ctx, "care:create", a.centerId)),
@@ -652,7 +658,7 @@ export async function listParentNotifications(ctx: ProtectedContext, input: { st
 type Audience = { kind: "class"; classId: string } | { kind: "center"; centerId: string } | { kind: "course"; courseId: string; centerId?: string | null };
 
 async function audienceRows(ctx: ProtectedContext, a: Audience) {
-  const conds: SQL[] = [inArray(enrollments.status, ["active", "trial", "paused"]), scopeOn(ctx, classes.centerId)];
+  const conds: SQL[] = [inArray(enrollments.status, ["active", "trial", "paused"]), scopeOn(ctx, classes.centerId), tenantCond(ctx, classes)];
   if (a.kind === "class") conds.push(eq(classes.id, a.classId));
   if (a.kind === "center") conds.push(eq(classes.centerId, a.centerId));
   if (a.kind === "course") { conds.push(eq(classes.courseId, a.courseId)); if (a.centerId) conds.push(eq(classes.centerId, a.centerId)); }
@@ -755,7 +761,7 @@ export async function retryNotification(ctx: ProtectedContext, input: { id: stri
 export async function birthdays(ctx: ProtectedContext, input: { days: number; centerId?: string }) {
   requirePermission(ctx, "care:read", { centerId: input.centerId ?? null });
   const today = todayISO();
-  const conds: SQL[] = [inArray(students.status, ["active", "trial", "paused"]), sql`${students.dateOfBirth} is not null`, scopeOn(ctx, students.homeCenterId), isNull(students.deletedAt)];
+  const conds: SQL[] = [inArray(students.status, ["active", "trial", "paused"]), sql`${students.dateOfBirth} is not null`, scopeOn(ctx, students.homeCenterId), isNull(students.deletedAt), tenantCond(ctx, students)];
   if (input.centerId) conds.push(eq(students.homeCenterId, input.centerId));
   const rows = await ctx.db.select({ id: students.id, fullName: students.fullName, code: students.code, dob: students.dateOfBirth, centerCode: centers.code, centerId: students.homeCenterId,
     classCodes: sql<string | null>`(select string_agg(c.code, ', ') from ${enrollments} e join ${classes} c on c.id = e.class_id where e.student_id = ${students.id} and e.status in ('active','trial','paused'))`,
@@ -790,7 +796,7 @@ export async function runBirthdayScan(ctx: ProtectedContext, input: { days?: num
   if (!cand.length) return { scanned: d.items.length, created: 0, existing: 0, days };
   const keyOf = (s: (typeof cand)[number]) => `birthday:${s.id}:${s.date.slice(0, 4)}`;
   const have = await ctx.db.select({ k: careTasks.dedupeKey }).from(careTasks)
-    .where(and(inArray(careTasks.dedupeKey, cand.map(keyOf)), inArray(careTasks.status, ["open", "in_progress", "escalated"])));
+    .where(and(inArray(careTasks.dedupeKey, cand.map(keyOf)), inArray(careTasks.status, ["open", "in_progress", "escalated"]), tenantCond(ctx, careTasks)));
   const seen = new Set(have.map((h) => h.k));
   const todo = cand.filter((s) => !seen.has(keyOf(s)));
   if (todo.length) {
@@ -846,10 +852,10 @@ export async function careQueues(ctx: ProtectedContext) {
   const [r] = await ctx.db.select({
     n: sql<number>`count(*) filter (where ${parentRequests.status} in ('new','in_progress'))::int`,
     late: sql<number>`count(*) filter (where ${parentRequests.status} in ('new','in_progress') and ${parentRequests.dueAt} < now())::int`,
-  }).from(parentRequests).where(scopeOn(ctx, parentRequests.centerId));
+  }).from(parentRequests).where(and(scopeOn(ctx, parentRequests.centerId), tenantCond(ctx, parentRequests)));
   out.push({ key: "parent_requests", title: "Yêu cầu phụ huynh chưa xử lý", count: r?.n ?? 0, overdue: r?.late ?? 0, href: "/parent-requests?status=open" });
   const [f] = await ctx.db.select({ n: sql<number>`count(*)::int` }).from(parentFeedback)
-    .where(and(scopeOn(ctx, parentFeedback.centerId), ne(parentFeedback.status, "resolved"), sql`least(${parentFeedback.rating}, coalesce(${parentFeedback.teacherRating}, 5)) <= 2`));
+    .where(and(scopeOn(ctx, parentFeedback.centerId), tenantCondViaCenter(ctx, parentFeedback.centerId), ne(parentFeedback.status, "resolved"), sql`least(${parentFeedback.rating}, coalesce(${parentFeedback.teacherRating}, 5)) <= 2`));
   out.push({ key: "low_feedback", title: "Đánh giá thấp chưa phản hồi", count: f?.n ?? 0, overdue: f?.n ?? 0, href: "/parent-feedback?low=1" });
   return out;
 }

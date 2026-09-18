@@ -4,6 +4,7 @@ import { TRPCError } from "@trpc/server";
 import { parents, parentNotifications, studentGuardians, students, centers } from "@satarobo/db";
 import { isEmail, maskPhone, normalizeVnPhone, visibleCenterIds, MemoryRateLimiter, CODE_ATTEMPT_MAX, CODE_ATTEMPT_WINDOW_MS } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
+import { tenantCond } from "./tenantScope";
 import { writeAudit } from "./audit";
 import { queueEmail } from "./admin";
 import { canSeeFullPhone } from "./students";
@@ -34,7 +35,7 @@ function parentScope(ctx: ProtectedContext) {
 
 export async function listParentAccounts(ctx: ProtectedContext, input: { q?: string; status?: ParentAccountStatus; page?: number; pageSize?: number }) {
   requirePermission(ctx, "parent_account:read", {});
-  const conds = [isNull(parents.deletedAt), parentScope(ctx)];
+  const conds = [isNull(parents.deletedAt), parentScope(ctx), tenantCond(ctx, parents)];
   if (input.status) conds.push(eq(parents.accountStatus, input.status));
   if (input.q) {
     const pn = normalizeVnPhone(input.q);
@@ -131,7 +132,7 @@ export async function resendActivationCodes(ctx: ProtectedContext, input: { pare
         link: ACTIVATION_URL, status: "queued", createdBy: ctx.user.id,
       });
       if (isEmail(p.email)) {
-        await queueEmail(tx, { to: p.email!, event: "PARENT_ACTIVATION", vars: { ten_ph: p.fullName, ma: code, het_han: hetHan, link: ACTIVATION_URL }, relatedType: "parents", relatedId: p.id, createdBy: ctx.user.id });
+        await queueEmail(tx, { to: p.email!, event: "PARENT_ACTIVATION", vars: { ten_ph: p.fullName, ma: code, het_han: hetHan, link: ACTIVATION_URL }, relatedType: "parents", relatedId: p.id, createdBy: ctx.user.id, tenantId: p.tenantId ?? ctx.tenantId });
         emailed++;
       }
     }

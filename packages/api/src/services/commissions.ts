@@ -9,6 +9,7 @@ import {
   type CommissionEvent, type CommissionScope, type CommissionCalcMethod, type CommissionPolicy, type CommissionTier,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
+import { tenantCond } from "./tenantScope";
 import { writeAudit } from "./audit";
 import { todayISO } from "./sessions";
 import { getOps } from "./opsSettings";
@@ -230,7 +231,7 @@ export async function listRules(ctx: ProtectedContext) {
   requirePermission(ctx, "finance:read", { centerId: null });
   const v = scope(ctx, commissionRules.centerId as unknown as typeof orders.centerId);
   const rows = await ctx.db.select({ r: commissionRules, centerCode: centers.code }).from(commissionRules).leftJoin(centers, eq(centers.id, commissionRules.centerId))
-    .where(or(isNull(commissionRules.centerId), v)).orderBy(asc(commissionRules.kind), desc(commissionRules.isActive), desc(commissionRules.effectiveFrom));
+    .where(and(or(isNull(commissionRules.centerId), v), tenantCond(ctx, commissionRules))).orderBy(asc(commissionRules.kind), desc(commissionRules.isActive), desc(commissionRules.effectiveFrom));
   const used = rows.length
     ? await ctx.db.select({ ruleId: commissions.ruleId, n: sql<number>`count(*)::int` }).from(commissions).where(inArray(commissions.ruleId, rows.map((r) => r.r.id))).groupBy(commissions.ruleId)
     : [];
@@ -307,7 +308,7 @@ export async function listPolicies(ctx: ProtectedContext) {
   requirePermission(ctx, "finance:read", { centerId: null });
   const cap = await capPercentOf(ctx.db);
   const policies = await loadPolicies(ctx.db);
-  const centerCodes = new Map((await ctx.db.select({ id: centers.id, code: centers.code }).from(centers)).map((c) => [c.id, c.code]));
+  const centerCodes = new Map((await ctx.db.select({ id: centers.id, code: centers.code }).from(centers).where(tenantCond(ctx, centers))).map((c) => [c.id, c.code]));
   const used = policies.length
     ? await ctx.db.select({ policyId: commissions.policyId, n: sql<number>`count(*)::int` }).from(commissions).where(inArray(commissions.policyId, policies.map((p) => p.id))).groupBy(commissions.policyId)
     : [];

@@ -7,6 +7,7 @@ import {
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { todayISO } from "./sessions";
 import { writeAudit } from "./audit";
+import { assertTenant, tenantSql } from "./tenantScope";
 import { revenueTargets } from "@satarobo/db";
 
 export interface ReportInput { from?: string; to?: string; centerId?: string }
@@ -31,6 +32,14 @@ function inCenters(col: SQL, ids: string[] | null): SQL {
   return sql`${col} in (${sql.join(ids.map((i) => sql`${i}`), sql`, `)})`;
 }
 
+/**
+ * Bảng chưa có cột `tenant_id` (hoàn tiền, mục tiêu doanh thu) thì lọc gián tiếp qua cơ sở của dòng —
+ * vẫn đúng luật cách ly vì mỗi cơ sở chỉ thuộc đúng một trung tâm.
+ */
+function tenantViaCenter(ctx: ProtectedContext, col: SQL): SQL {
+  return sql`(${col} is null or exists (select 1 from centers tc where tc.id = ${col} and ${tenantSql(ctx, "tc")}))`;
+}
+
 function rangeOf(input: ReportInput) {
   const r = normalizeRange(input.from, input.to, todayISO());
   return { ...r, fromTs: `${r.from}T00:00:00+07:00`, toTs: `${r.to}T23:59:59.999+07:00` };
@@ -41,7 +50,7 @@ async function rows<T>(ctx: ProtectedContext, q: SQL): Promise<T[]> {
 }
 
 async function centerOptions(ctx: ProtectedContext, ids: string[] | null) {
-  return rows<{ id: string; code: string; name: string }>(ctx, sql`select id, code, name from centers where ${inCenters(sql`id`, ids)} order by code`);
+  return rows<{ id: string; code: string; name: string }>(ctx, sql`select id, code, name from centers where ${inCenters(sql`id`, ids)} and ${tenantSql(ctx, "centers")} order by code`);
 }
 
 /* ------------------------------------------------------------------ */
@@ -51,7 +60,7 @@ async function centerOptions(ctx: ProtectedContext, ids: string[] | null) {
 export async function leadReport(ctx: ProtectedContext, input: ReportInput) {
   const centersAllowed = reportCenters(ctx, input.centerId);
   const r = rangeOf(input);
-  const leadWhere = sql`l.deleted_at is null and l.created_at between ${r.fromTs}::timestamptz and ${r.toTs}::timestamptz and ${centersAllowed === null ? sql`true` : inCenters(sql`l.center_id`, centersAllowed)}`;
+  const leadWhere = sql`l.deleted_at is null and l.created_at between ${r.fromTs}::timestamptz and ${r.toTs}::timestamptz and ${centersAllowed === null ? sql`true` : inCenters(sql`l.center_id`, centersAllowed)} and ${tenantSql(ctx, "l")}`;
 
   const leadRows = await rows<{ id: string; status: LeadStatus; source: string | null; center_id: string | null; center_code: string | null; assigned_to_id: string | null; assignee: string | null; lost_reason: string | null; created_at: string; converted_at: string | null; overdue_tasks: number }>(ctx, sql`
     select l.id, l.status, l.source, l.center_id, c.code as center_code, l.assigned_to_id, u.full_name as assignee, l.lost_reason, l.created_at, l.converted_at,
@@ -162,7 +171,7 @@ export async function trialReport(ctx: ProtectedContext, input: ReportInput) {
     join leads l on l.id = tb.lead_id
     left join users u on u.id = tb.booked_by
     left join teachers t on t.id = s.teacher_id
-    where s.date between ${r.from}::date and ${r.to}::date and ${inCenters(sql`c.center_id`, centersAllowed)}
+    where s.date between ${r.from}::date and ${r.to}::date and ${inCenters(sql`c.center_id`, centersAllowed)} and ${tenantSql(ctx, "c")}
     limit 20000`);
 
   const live = list.filter((x) => x.status !== "cancelled" && x.status !== "rescheduled");
@@ -246,24 +255,24 @@ export async function trainingReport(ctx: ProtectedContext, input: ReportInput) 
     join courses co on co.id = c.course_id
     left join teachers t on t.id = c.lead_teacher_id
     join sessions s on s.class_id = c.id and s.date between ${r.from}::date and ${r.to}::date
-    where c.deleted_at is null and ${inCenters(sql`c.center_id`, centersAllowed)}
+    where c.deleted_at is null and ${inCenters(sql`c.center_id`, centersAllowed)} and ${tenantSql(ctx, "c")}
     group by c.id, ce.code, co.code, t.full_name
     order by ce.code, c.code`);
   const att = await rows<{ class_id: string; status: string; n: number }>(ctx, sql`
     select s.class_id, a.status, count(*)::int as n
     from attendance a join sessions s on s.id = a.session_id join classes c on c.id = s.class_id
-    where s.date between ${r.from}::date and ${r.to}::date and ${inCenters(sql`c.center_id`, centersAllowed)}
+    where s.date between ${r.from}::date and ${r.to}::date and ${inCenters(sql`c.center_id`, centersAllowed)} and ${tenantSql(ctx, "c")}
     group by s.class_id, a.status`);
   const mk = await rows<{ class_id: string; status: string; n: number }>(ctx, sql`
     select e.class_id, m.status, count(*)::int as n
     from makeup_requests m join enrollments e on e.id = m.enrollment_id join sessions s on s.id = m.missed_session_id join classes c on c.id = e.class_id
-    where s.date between ${r.from}::date and ${r.to}::date and ${inCenters(sql`c.center_id`, centersAllowed)}
+    where s.date between ${r.from}::date and ${r.to}::date and ${inCenters(sql`c.center_id`, centersAllowed)} and ${tenantSql(ctx, "c")}
     group by e.class_id, m.status`);
   // vắng chưa có yêu cầu bù
   const unexcused = await rows<{ class_id: string; n: number }>(ctx, sql`
     select s.class_id, count(*)::int as n
     from attendance a join sessions s on s.id = a.session_id join classes c on c.id = s.class_id
-    where a.status in ('absent_excused','absent_unexcused') and s.date between ${r.from}::date and ${r.to}::date and ${inCenters(sql`c.center_id`, centersAllowed)}
+    where a.status in ('absent_excused','absent_unexcused') and s.date between ${r.from}::date and ${r.to}::date and ${inCenters(sql`c.center_id`, centersAllowed)} and ${tenantSql(ctx, "c")}
       and not exists (select 1 from makeup_requests m where m.enrollment_id = a.enrollment_id and m.missed_session_id = a.session_id)
       and not exists (select 1 from attendance b where b.enrollment_id = a.enrollment_id and b.makeup_for_session_id = a.session_id)
     group by s.class_id`);
@@ -318,13 +327,13 @@ export async function teacherReport(ctx: ProtectedContext, input: ReportInput) {
     left join centers ce on ce.id = t.center_id
     join sessions s on s.teacher_id = t.id and s.date between ${r.from}::date and ${r.to}::date
     join classes c on c.id = s.class_id
-    where t.deleted_at is null and ${inCenters(sql`c.center_id`, centersAllowed)}
+    where t.deleted_at is null and ${inCenters(sql`c.center_id`, centersAllowed)} and ${tenantSql(ctx, "c")}
     group by t.id, ce.code
     order by t.full_name`);
   const att = await rows<{ teacher_id: string; status: string; n: number }>(ctx, sql`
     select s.teacher_id, a.status, count(*)::int as n
     from attendance a join sessions s on s.id = a.session_id join classes c on c.id = s.class_id
-    where s.teacher_id is not null and s.date between ${r.from}::date and ${r.to}::date and ${inCenters(sql`c.center_id`, centersAllowed)}
+    where s.teacher_id is not null and s.date between ${r.from}::date and ${r.to}::date and ${inCenters(sql`c.center_id`, centersAllowed)} and ${tenantSql(ctx, "c")}
     group by s.teacher_id, a.status`);
   const rc = await rows<{ author_id: string; submitted: number; published: number; returned: number; avg: string | null }>(ctx, sql`
     select rc.author_id,
@@ -333,18 +342,18 @@ export async function teacherReport(ctx: ProtectedContext, input: ReportInput) {
       count(*) filter (where rc.return_reason is not null)::int as returned,
       (avg(rc.average_score) filter (where rc.status in ('approved','published')))::numeric(3,1)::text as avg
     from report_cards rc join enrollments e on e.id = rc.enrollment_id join classes c on c.id = e.class_id
-    where rc.author_id is not null and coalesce(rc.submitted_at, rc.created_at) between ${r.fromTs}::timestamptz and ${r.toTs}::timestamptz and ${inCenters(sql`c.center_id`, centersAllowed)}
+    where rc.author_id is not null and coalesce(rc.submitted_at, rc.created_at) between ${r.fromTs}::timestamptz and ${r.toTs}::timestamptz and ${inCenters(sql`c.center_id`, centersAllowed)} and ${tenantSql(ctx, "c")}
     group by rc.author_id`);
   const media = await rows<{ uploaded_by: string; n: number; approved: number }>(ctx, sql`
     select m.uploaded_by, count(*)::int as n, count(*) filter (where m.status = 'approved')::int as approved
     from session_media m join sessions s on s.id = m.session_id join classes c on c.id = s.class_id
-    where m.uploaded_by is not null and s.date between ${r.from}::date and ${r.to}::date and ${inCenters(sql`c.center_id`, centersAllowed)}
+    where m.uploaded_by is not null and s.date between ${r.from}::date and ${r.to}::date and ${inCenters(sql`c.center_id`, centersAllowed)} and ${tenantSql(ctx, "c")}
     group by m.uploaded_by`);
   const trials = await rows<{ teacher_id: string; attended: number; converted: number }>(ctx, sql`
     select s.teacher_id, count(*) filter (where tb.status = 'attended')::int as attended,
       count(distinct tb.lead_id) filter (where tb.status = 'attended' and l.status = 'enrolled')::int as converted
     from trial_bookings tb join sessions s on s.id = tb.session_id join leads l on l.id = tb.lead_id join classes c on c.id = s.class_id
-    where s.teacher_id is not null and s.date between ${r.from}::date and ${r.to}::date and ${inCenters(sql`c.center_id`, centersAllowed)}
+    where s.teacher_id is not null and s.date between ${r.from}::date and ${r.to}::date and ${inCenters(sql`c.center_id`, centersAllowed)} and ${tenantSql(ctx, "c")}
     group by s.teacher_id`);
 
   const items = base.map((t) => {
@@ -383,32 +392,32 @@ export async function centerReport(ctx: ProtectedContext, input: ReportInput) {
   const months = monthsOf(r.from, r.to);
   const rev = await rows<{ month: string; center_id: string; amount: number; n: number }>(ctx, sql`
     select to_char(p.paid_at, 'YYYY-MM') as month, p.center_id, coalesce(sum(p.amount), 0)::float as amount, count(*)::int as n
-    from payments p where p.status = 'confirmed' and p.paid_at between ${r.from}::date and ${r.to}::date and ${inCenters(sql`p.center_id`, allowed)}
+    from payments p where p.status = 'confirmed' and p.paid_at between ${r.from}::date and ${r.to}::date and ${inCenters(sql`p.center_id`, allowed)} and ${tenantSql(ctx, "p")}
     group by 1, 2`);
   const ref = await rows<{ month: string; center_id: string; amount: number }>(ctx, sql`
     select to_char(f.paid_at at time zone 'Asia/Ho_Chi_Minh', 'YYYY-MM') as month, f.center_id, coalesce(sum(f.amount), 0)::float as amount
-    from refunds f where f.status = 'paid' and f.paid_at between ${r.fromTs}::timestamptz and ${r.toTs}::timestamptz and ${inCenters(sql`f.center_id`, allowed)}
+    from refunds f where f.status = 'paid' and f.paid_at between ${r.fromTs}::timestamptz and ${r.toTs}::timestamptz and ${inCenters(sql`f.center_id`, allowed)} and ${tenantViaCenter(ctx, sql`f.center_id`)}
     group by 1, 2`);
   const ord = await rows<{ month: string; center_id: string; n: number; total: number; discount: number }>(ctx, sql`
     select to_char(o.created_at at time zone 'Asia/Ho_Chi_Minh', 'YYYY-MM') as month, o.center_id, count(*)::int as n, coalesce(sum(o.total), 0)::float as total, coalesce(sum(o.discount_amount), 0)::float as discount
-    from orders o where o.status <> 'cancelled' and o.created_at between ${r.fromTs}::timestamptz and ${r.toTs}::timestamptz and ${inCenters(sql`o.center_id`, allowed)}
+    from orders o where o.status <> 'cancelled' and o.created_at between ${r.fromTs}::timestamptz and ${r.toTs}::timestamptz and ${inCenters(sql`o.center_id`, allowed)} and ${tenantSql(ctx, "o")}
     group by 1, 2`);
   const enr = await rows<{ month: string; center_id: string; created: number; withdrawn: number; completed: number }>(ctx, sql`
     select m.month, m.center_id, sum(m.created)::int as created, sum(m.withdrawn)::int as withdrawn, sum(m.completed)::int as completed from (
       select to_char(e.created_at at time zone 'Asia/Ho_Chi_Minh', 'YYYY-MM') as month, c.center_id, count(*) as created, 0 as withdrawn, 0 as completed
       from enrollments e join classes c on c.id = e.class_id
-      where e.created_at between ${r.fromTs}::timestamptz and ${r.toTs}::timestamptz and e.transferred_from_id is null and ${inCenters(sql`c.center_id`, allowed)}
+      where e.created_at between ${r.fromTs}::timestamptz and ${r.toTs}::timestamptz and e.transferred_from_id is null and ${inCenters(sql`c.center_id`, allowed)} and ${tenantSql(ctx, "c")}
       group by 1, 2
       union all
       select to_char(e.ended_at at time zone 'Asia/Ho_Chi_Minh', 'YYYY-MM'), c.center_id, 0, count(*) filter (where e.status = 'withdrawn'), count(*) filter (where e.status = 'completed')
       from enrollments e join classes c on c.id = e.class_id
-      where e.ended_at between ${r.fromTs}::timestamptz and ${r.toTs}::timestamptz and ${inCenters(sql`c.center_id`, allowed)}
+      where e.ended_at between ${r.fromTs}::timestamptz and ${r.toTs}::timestamptz and ${inCenters(sql`c.center_id`, allowed)} and ${tenantSql(ctx, "c")}
       group by 1, 2
     ) m group by 1, 2`);
   const att = await rows<{ month: string; center_id: string; status: string; n: number }>(ctx, sql`
     select to_char(s.date, 'YYYY-MM') as month, c.center_id, a.status, count(*)::int as n
     from attendance a join sessions s on s.id = a.session_id join classes c on c.id = s.class_id
-    where s.date between ${r.from}::date and ${r.to}::date and ${inCenters(sql`c.center_id`, allowed)}
+    where s.date between ${r.from}::date and ${r.to}::date and ${inCenters(sql`c.center_id`, allowed)} and ${tenantSql(ctx, "c")}
     group by 1, 2, 3`);
   const snap = await rows<{ center_id: string; active_students: number; running_classes: number; outstanding: number; overdue_orders: number }>(ctx, sql`
     select ce.id as center_id,
@@ -418,16 +427,16 @@ export async function centerReport(ctx: ProtectedContext, input: ReportInput) {
          from orders o where o.center_id = ce.id and o.status in ('pending_payment','partially_paid')) as outstanding,
       (select count(distinct i.order_id)::int from order_installments i join orders o on o.id = i.order_id
          where o.center_id = ce.id and o.status in ('pending_payment','partially_paid') and i.due_date < current_date) as overdue_orders
-    from centers ce where ${inCenters(sql`ce.id`, allowed)}`);
+    from centers ce where ${inCenters(sql`ce.id`, allowed)} and ${tenantSql(ctx, "ce")}`);
   const byMethod = await rows<{ method: string | null; amount: number; n: number }>(ctx, sql`
     select pm.name as method, coalesce(sum(p.amount), 0)::float as amount, count(*)::int as n
     from payments p left join payment_methods pm on pm.id = p.payment_method_id
-    where p.status = 'confirmed' and p.paid_at between ${r.from}::date and ${r.to}::date and ${inCenters(sql`p.center_id`, allowed)}
+    where p.status = 'confirmed' and p.paid_at between ${r.from}::date and ${r.to}::date and ${inCenters(sql`p.center_id`, allowed)} and ${tenantSql(ctx, "p")}
     group by 1 order by 2 desc`);
   const byCourse = await rows<{ course: string | null; amount: number }>(ctx, sql`
     select coalesce(co.code, 'Khác') as course, coalesce(sum(p.amount), 0)::float as amount
     from payments p join orders o on o.id = p.order_id left join enrollments e on e.id = o.enrollment_id left join classes c on c.id = e.class_id left join courses co on co.id = c.course_id
-    where p.status = 'confirmed' and p.paid_at between ${r.from}::date and ${r.to}::date and ${inCenters(sql`p.center_id`, allowed)}
+    where p.status = 'confirmed' and p.paid_at between ${r.from}::date and ${r.to}::date and ${inCenters(sql`p.center_id`, allowed)} and ${tenantSql(ctx, "p")}
     group by 1 order by 2 desc`);
   const centerList = await centerOptions(ctx, allowed);
   const sumBy = <T extends { month: string; center_id: string }>(xs: T[], m: string | null, c: string | null, f: (x: T) => number) =>
@@ -467,17 +476,17 @@ export async function revenueVsTarget(ctx: ProtectedContext, input: { year?: num
   const year = input.year ?? Number(today.slice(0, 4));
   const months = monthsOf(`${year}-01-01`, `${year}-12-01`);
   const targets = await rows<{ center_id: string; period: string; amount: number; new_enrollments: number | null; note: string | null }>(ctx, sql`
-    select center_id, period, amount::float as amount, new_enrollments, note from revenue_targets where period like ${`${year}-%`} and ${inCenters(sql`center_id`, allowed)}`);
+    select center_id, period, amount::float as amount, new_enrollments, note from revenue_targets where period like ${`${year}-%`} and ${inCenters(sql`center_id`, allowed)} and ${tenantViaCenter(ctx, sql`center_id`)}`);
   const rev = await rows<{ center_id: string; month: string; amount: number }>(ctx, sql`
     select p.center_id, to_char(p.paid_at, 'YYYY-MM') as month, coalesce(sum(p.amount), 0)::float as amount
-    from payments p where p.status = 'confirmed' and p.paid_at between ${`${year}-01-01`}::date and ${`${year}-12-31`}::date and ${inCenters(sql`p.center_id`, allowed)} group by 1, 2`);
+    from payments p where p.status = 'confirmed' and p.paid_at between ${`${year}-01-01`}::date and ${`${year}-12-31`}::date and ${inCenters(sql`p.center_id`, allowed)} and ${tenantSql(ctx, "p")} group by 1, 2`);
   const ref = await rows<{ center_id: string; month: string; amount: number }>(ctx, sql`
     select f.center_id, to_char(f.paid_at at time zone 'Asia/Ho_Chi_Minh', 'YYYY-MM') as month, coalesce(sum(f.amount), 0)::float as amount
-    from refunds f where f.status = 'paid' and f.paid_at >= ${`${year}-01-01T00:00:00+07:00`}::timestamptz and f.paid_at < ${`${year + 1}-01-01T00:00:00+07:00`}::timestamptz and ${inCenters(sql`f.center_id`, allowed)} group by 1, 2`);
+    from refunds f where f.status = 'paid' and f.paid_at >= ${`${year}-01-01T00:00:00+07:00`}::timestamptz and f.paid_at < ${`${year + 1}-01-01T00:00:00+07:00`}::timestamptz and ${inCenters(sql`f.center_id`, allowed)} and ${tenantViaCenter(ctx, sql`f.center_id`)} group by 1, 2`);
   const enr = await rows<{ center_id: string; month: string; n: number }>(ctx, sql`
     select c.center_id, to_char(e.created_at at time zone 'Asia/Ho_Chi_Minh', 'YYYY-MM') as month, count(*)::int as n
     from enrollments e join classes c on c.id = e.class_id
-    where e.transferred_from_id is null and e.created_at >= ${`${year}-01-01T00:00:00+07:00`}::timestamptz and e.created_at < ${`${year + 1}-01-01T00:00:00+07:00`}::timestamptz and ${inCenters(sql`c.center_id`, allowed)} group by 1, 2`);
+    where e.transferred_from_id is null and e.created_at >= ${`${year}-01-01T00:00:00+07:00`}::timestamptz and e.created_at < ${`${year + 1}-01-01T00:00:00+07:00`}::timestamptz and ${inCenters(sql`c.center_id`, allowed)} and ${tenantSql(ctx, "c")} group by 1, 2`);
   const centerList = await centerOptions(ctx, allowed);
   const canSet = ctx.actor.assignments.some((a) => a.role === "SUPER_ADMIN" || (a.centerId === null && authorize({ userId: ctx.actor.userId, assignments: [a] }, "finance:configure", {}).allowed));
   const row = (cid: string | null, m: string) => {
@@ -519,6 +528,9 @@ export async function setRevenueTarget(ctx: ProtectedContext, input: { centerId:
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(input.period)) throw new TRPCError({ code: "BAD_REQUEST", message: "Kỳ dạng YYYY-MM" });
   if (input.amount < 0 || !Number.isInteger(input.amount)) throw new TRPCError({ code: "BAD_REQUEST", message: "Mục tiêu phải là số nguyên ≥ 0" });
   if (input.period < todayISO().slice(0, 7) && !ctx.actor.assignments.some((a) => a.role === "SUPER_ADMIN")) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Không sửa mục tiêu của tháng đã qua" });
+  // Cơ sở phải thuộc trung tâm trong phạm vi của người thao tác
+  const [ctr] = await rows<{ tenant_id: string | null }>(ctx, sql`select tenant_id from centers where id = ${input.centerId}::uuid`);
+  assertTenant(ctx, ctr ? { tenantId: ctr.tenant_id } : null, "Cơ sở");
   const before = await rows<{ amount: number }>(ctx, sql`select amount::float as amount from revenue_targets where center_id = ${input.centerId} and period = ${input.period}`);
   await ctx.db.insert(revenueTargets).values({ centerId: input.centerId, period: input.period, amount: input.amount, newEnrollments: input.newEnrollments ?? null, note: input.note?.trim() || null, updatedBy: ctx.user.id })
     .onConflictDoUpdate({ target: [revenueTargets.centerId, revenueTargets.period], set: { amount: input.amount, newEnrollments: input.newEnrollments ?? null, note: input.note?.trim() || null, updatedBy: ctx.user.id, updatedAt: new Date() } });
@@ -539,7 +551,7 @@ export async function cohortReport(ctx: ProtectedContext, input: ReportInput & {
       to_char(e.ended_at at time zone 'Asia/Ho_Chi_Minh', 'YYYY-MM') as ended_month, e.enrolled_at::text as created_at, e.ended_at::text as ended_at
     from enrollments e join classes c on c.id = e.class_id join courses co on co.id = c.course_id
     where e.transferred_from_id is null and e.enrolled_at between ${r.fromTs}::timestamptz and ${r.toTs}::timestamptz
-      and ${inCenters(sql`c.center_id`, allowed)} ${input.courseId ? sql`and co.id = ${input.courseId}` : sql``}`);
+      and ${inCenters(sql`c.center_id`, allowed)} and ${tenantSql(ctx, "c")} ${input.courseId ? sql`and co.id = ${input.courseId}` : sql``}`);
   const outcome = (x: (typeof base)[number]): EnrollmentOutcome => (x.transferred ? "transferred" : (x.status as EnrollmentOutcome));
   const months = monthsOf(r.from, r.to);
   const today = todayISO().slice(0, 7);
@@ -561,7 +573,7 @@ export async function cohortReport(ctx: ProtectedContext, input: ReportInput & {
     const list = base.filter((x) => x.course === c);
     return { course: c, ...cohortRow(list.map((x) => ({ status: outcome(x) }))) };
   });
-  const courseOpts = await rows<{ id: string; code: string }>(ctx, sql`select id, code from courses where is_active order by code`);
+  const courseOpts = await rows<{ id: string; code: string }>(ctx, sql`select id, code from courses where is_active and ${tenantSql(ctx, "courses")} order by code`);
   return {
     range: { from: r.from, to: r.to }, centerId: input.centerId ?? null, courseId: input.courseId ?? null, centers: await centerOptions(ctx, reportCenters(ctx)), courses: courseOpts,
     totals: cohortRow(base.map((x) => ({ status: outcome(x) }))),
@@ -577,7 +589,8 @@ export async function churnReport(ctx: ProtectedContext, input: ReportInput) {
   const allowed = reportCenters(ctx, input.centerId);
   const r = rangeOf(input);
   const months = monthsOf(r.from, r.to);
-  const centerSql = inCenters(sql`c.center_id`, allowed);
+  // Lọc theo cơ sở VÀ theo trung tâm (tenant) — mọi truy vấn con của báo cáo rời bỏ dùng lại điều kiện này
+  const centerSql = sql`${inCenters(sql`c.center_id`, allowed)} and ${tenantSql(ctx, "c")}`;
   const monthly = await rows<{ month: string; active_start: number; withdrawn: number; completed: number; paused: number; transferred: number; new_enroll: number }>(ctx, sql`
     with m as (select to_char(d, 'YYYY-MM') as month, (d::date at time zone 'Asia/Ho_Chi_Minh') as ms, ((d + interval '1 month')::date at time zone 'Asia/Ho_Chi_Minh') as me
                from generate_series(${`${months[0]}-01`}::date, ${`${months[months.length - 1]}-01`}::date, interval '1 month') d)

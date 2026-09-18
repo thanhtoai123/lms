@@ -1,4 +1,5 @@
 import { and, eq, inArray, sql, asc, desc, isNull, gte, lte, or, ilike, ne, type SQL } from "drizzle-orm";
+import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { TRPCError } from "@trpc/server";
 import {
   paymentMethods, orders, orderPrivate, orderItems, orderItemDiscounts, orderInstallments, orderEvents, payments, paymentAdjustments, paymentQrCodes, refunds, financeLedger, bankTransactions, commissions,
@@ -23,7 +24,7 @@ import { requirePermission, type ProtectedContext } from "../trpc";
 import { getOps, opsForCenters } from "./opsSettings";
 import { writeAudit } from "./audit";
 import { deliverNotifications } from "./notify";
-import { tenantCond, assertTenant, canSeeFinanceDetailOf, redact } from "./tenantScope";
+import { tenantCond, tenantCondViaCenter, assertTenant, canSeeFinanceDetailOf, redact } from "./tenantScope";
 import { todayISO } from "./sessions";
 import { consumedSql } from "./students";
 import { accrueCommissions, adjustCommissionsForRefund } from "./commissions";
@@ -50,10 +51,15 @@ export function reasonOrThrow(reason: string | null | undefined) {
   }
 }
 
+/**
+ * Phạm vi xem của mọi truy vấn tài chính: cơ sở được phép VÀ trung tâm (tenant) của cơ sở đó.
+ * Gộp cách ly trung tâm vào đây để mọi hàm dùng `scope()` đều được bảo vệ, không phải sửa từng chỗ.
+ */
 export function scope(ctx: ProtectedContext, col: SQL | typeof orders.centerId): SQL {
   const v = visibleCenterIds(ctx.actor);
-  if (v === null) return sql`true`;
-  return v.length ? (inArray(col as typeof orders.centerId, v) as SQL) : sql`false`;
+  const tenant = tenantCondViaCenter(ctx, col as unknown as AnyPgColumn);
+  if (v === null) return tenant;
+  return v.length ? and(inArray(col as typeof orders.centerId, v), tenant)! : sql`false`;
 }
 
 export const can = (ctx: ProtectedContext, p: Permission, centerId: string | null) => authorize(ctx.actor, p, { centerId }).allowed;
@@ -706,7 +712,7 @@ export async function sendOrderEmail(ctx: ProtectedContext, input: { orderId: st
   const id = await queueEmail(ctx.db, {
     to, event: "ORDER_CREATED",
     vars: { ten_ph: o.customerName, ma_don: o.code, so_tien: formatVnd(o.total), con, co_so: center?.name ?? center?.code ?? "", han_dau: plan[0]?.dueDate?.split("-").reverse().join("/") ?? "theo thoả thuận", link: `/orders/${o.id}` },
-    relatedType: "order", relatedId: o.id, createdBy: ctx.user.id,
+    relatedType: "order", relatedId: o.id, createdBy: ctx.user.id, tenantId: o.tenantId ?? ctx.tenantId,
   });
   await writeAudit(ctx.db, { actorId: ctx.user.id, action: "CREATE", module: "finance", entity: "email_logs", entityId: id, after: { orderId: o.id, orderCode: o.code, to }, ip: ctx.ip });
   return { ok: true, to };
@@ -1159,7 +1165,7 @@ export async function decidePayment(ctx: ProtectedContext, input: { paymentId: s
   });
   if (result.status === "confirmed" && o.customerEmail) {
     const amount = input.decision === "adjust" ? Math.round(input.adjustedAmount!) : p.amount;
-    await queueEmail(ctx.db, { to: o.customerEmail, event: "RECEIPT_ISSUED", vars: { ten_ph: o.customerName, so_phieu: result.receiptNo, so_tien: formatVnd(amount), ma_don: o.code, co_so: center?.code ?? "" }, relatedType: "payment", relatedId: p.id, createdBy: ctx.user.id }).catch((e) => console.error("[receipt email]", e));
+    await queueEmail(ctx.db, { to: o.customerEmail, event: "RECEIPT_ISSUED", vars: { ten_ph: o.customerName, so_phieu: result.receiptNo, so_tien: formatVnd(amount), ma_don: o.code, co_so: center?.code ?? "" }, relatedType: "payment", relatedId: p.id, createdBy: ctx.user.id, tenantId: o.tenantId ?? ctx.tenantId }).catch((e) => console.error("[receipt email]", e));
   }
   return result;
 }

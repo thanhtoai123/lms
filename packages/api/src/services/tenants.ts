@@ -15,6 +15,7 @@ import {
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { writeAudit } from "./audit";
 import { assertTenant, canSeePiiOf, canSeeFinanceDetailOf } from "./tenantScope";
+import { canOffboard } from "./tenantOffboard";
 
 const bad = (m: string) => new TRPCError({ code: "BAD_REQUEST", message: m });
 
@@ -66,6 +67,8 @@ export async function listTenants(ctx: ProtectedContext) {
       /** Người đang xem có thấy dữ liệu cá nhân của trung tâm này không */
       seesPii: canSeePiiOf(ctx, r.id),
       seesFinanceDetail: canSeeFinanceDetailOf(ctx, r.id),
+      /** Người đang xem có được kết thúc hợp đồng của trung tâm này không (Vùng nguy hiểm) */
+      canOffboard: canOffboard(ctx, r.id),
       revenue30d: Number(r.revenue30d ?? 0),
       debt: Number(r.debt ?? 0),
     })),
@@ -98,6 +101,7 @@ export async function getTenant(ctx: ProtectedContext, id: string) {
     seesPii: canSeePiiOf(ctx, row.id),
     seesFinanceDetail: canSeeFinanceDetailOf(ctx, row.id),
     canEditSettings: canEditSettings(ctx, id),
+    canOffboard: canOffboard(ctx, row.id),
   };
 }
 

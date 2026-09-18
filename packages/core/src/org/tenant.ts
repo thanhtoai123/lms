@@ -260,6 +260,108 @@ export function assertTransferAllowed(input: Parameters<typeof canTransferAcross
 }
 
 /* ------------------------------------------------------------------ */
+/* Cấu hình dùng chung: chọn bản của đúng trung tâm                    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Chọn cấu hình (mẫu email, loại thông báo…) cho một trung tâm theo thứ tự ưu tiên:
+ *  1. dòng của CHÍNH trung tâm đó;
+ *  2. dòng của trung tâm mặc định (chuỗi gốc) — dự phòng;
+ *  3. dòng dùng chung (chưa gắn tenant) — dữ liệu di sản;
+ *  4. dòng đầu tiên còn lại.
+ *
+ * Nhờ bước 2 và 3, hệ thống một-tenant chạy y như trước khi có nhượng quyền.
+ */
+export function pickForTenant<T extends { tenantId?: string | null }>(
+  rows: readonly T[],
+  tenantId: string | null | undefined,
+  defaultTenantId?: string | null,
+): T | null {
+  if (!rows.length) return null;
+  const of = (r: T) => r.tenantId ?? null;
+  const mine = tenantId ? rows.find((r) => of(r) === tenantId) : undefined;
+  if (mine) return mine;
+  const def = defaultTenantId ? rows.find((r) => of(r) === defaultTenantId) : undefined;
+  if (def) return def;
+  return rows.find((r) => of(r) === null) ?? rows[0] ?? null;
+}
+
+/**
+ * Danh mục cấu hình theo mã, lấy đúng bản của một trung tâm.
+ * Dùng cho bộ đệm loại thông báo: bộ đệm khoá theo **(tenantId, mã)**, nên cấu hình
+ * của bên nhượng quyền không bao giờ đè lên cấu hình của chuỗi và ngược lại.
+ */
+export function catalogForTenant<T extends { tenantId?: string | null }>(
+  rows: readonly T[],
+  keyOf: (row: T) => string,
+  tenantId: string | null | undefined,
+  defaultTenantId?: string | null,
+): Map<string, T> {
+  const byKey = new Map<string, T[]>();
+  for (const r of rows) {
+    const k = keyOf(r);
+    byKey.set(k, [...(byKey.get(k) ?? []), r]);
+  }
+  const out = new Map<string, T>();
+  for (const [k, list] of byKey) {
+    const picked = pickForTenant(list, tenantId, defaultTenantId);
+    if (picked) out.set(k, picked);
+  }
+  return out;
+}
+
+/** Danh mục có cấu hình riêng của từng trung tâm không (quyết định có phải tra tenant người nhận) */
+export function hasPerTenantConfig<T extends { tenantId?: string | null }>(rows: readonly T[], defaultTenantId?: string | null): boolean {
+  return rows.some((r) => !!r.tenantId && r.tenantId !== (defaultTenantId ?? null));
+}
+
+/* ------------------------------------------------------------------ */
+/* RLS: biến phiên `app.tenant_ids` / `app.bypass_rls`                 */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Lớp phòng thủ cuối ở Postgres (xem `packages/db/sql/0006_rls_tenant.sql`).
+ * Ứng dụng đặt hai biến phiên ở đầu mỗi giao dịch; chính sách RLS đọc lại đúng luật dưới đây.
+ * Các hàm ở đây là BẢN SAO THUẦN của luật SQL để kiểm thử được mà không cần CSDL.
+ */
+export interface RlsSession {
+  /** Danh sách tenantId người dùng được thấy */
+  ids: string[];
+  /** Bỏ qua RLS (lệnh quản trị: migrate, seed, nhân bản tenant, worker) */
+  bypass: boolean;
+}
+
+/** Ghép danh sách tenantId thành giá trị của `app.tenant_ids` (uuid phân tách bằng dấu phẩy) */
+export function tenantSessionValue(ids: readonly (string | null | undefined)[]): string {
+  return [...new Set(ids.map((i) => (i ?? "").trim()).filter(Boolean))].join(",");
+}
+
+/** Đọc ngược giá trị biến phiên (bỏ khoảng trắng và phần tử rỗng) */
+export function parseTenantSession(raw: string | null | undefined): string[] {
+  return (raw ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+}
+
+export function rlsSessionFrom(rawIds: string | null | undefined, rawBypass?: string | null): RlsSession {
+  const b = (rawBypass ?? "").trim().toLowerCase();
+  return { ids: parseTenantSession(rawIds), bypass: b === "on" || b === "true" || b === "1" || b === "yes" };
+}
+
+/**
+ * Một dòng có qua được chính sách RLS không:
+ *  - đang bật cờ bỏ qua → cho;
+ *  - dòng chưa gắn tenant (dữ liệu di sản) → cho, giống `tenantCond` ở tầng service;
+ *  - còn lại: tenant của dòng phải nằm trong `app.tenant_ids`.
+ *
+ * Chưa đặt biến phiên (danh sách rỗng) → CHẶN. Đây là mặc định an toàn và cũng là lý do
+ * RLS phải bật có chủ đích: kết nối nào quên đặt biến phiên sẽ không đọc được gì.
+ */
+export function rlsAllowsRow(rowTenantId: string | null | undefined, s: RlsSession): boolean {
+  if (s.bypass) return true;
+  if (rowTenantId === null || rowTenantId === undefined || rowTenantId === "") return true;
+  return s.ids.includes(rowTenantId);
+}
+
+/* ------------------------------------------------------------------ */
 /* Mã tenant                                                           */
 /* ------------------------------------------------------------------ */
 

@@ -11,6 +11,7 @@ import type { ProtectedContext } from "../trpc";
 import { writeAudit } from "./audit";
 import { todayISO } from "./sessions";
 import { consumedSql, upsertParent } from "./students";
+import { assertCenterTenant, tenantCond, tenantSql } from "./tenantScope";
 
 type Db = ProtectedContext["db"];
 const bad = (m: string | string[]) => new TRPCError({ code: "BAD_REQUEST", message: Array.isArray(m) ? m.join("; ") : m });
@@ -50,14 +51,14 @@ async function planStudents(ctx: ProtectedContext, csv: string) {
   const parsed = parseStudentImport(csv, todayISO());
   if (parsed.headerErrors.length) return { headerErrors: parsed.headerErrors, rows: [] as StudentPlan[] };
   const ok = parsed.rows.filter((r) => r.row).map((r) => r.row!);
-  const allCenters = await ctx.db.select({ id: centers.id, code: centers.code }).from(centers);
+  const allCenters = await ctx.db.select({ id: centers.id, code: centers.code }).from(centers).where(tenantCond(ctx, centers));
   const codes = ok.map((r) => r.legacyCode);
   const refs = codes.length ? await ctx.db.select({ code: legacyRefs.legacyCode, entityId: legacyRefs.entityId }).from(legacyRefs).where(and(eq(legacyRefs.kind, "student"), inArray(legacyRefs.legacyCode, codes))) : [];
-  const usedCodes = codes.length ? await ctx.db.select({ id: students.id, code: students.code }).from(students).where(inArray(students.code, codes)) : [];
+  const usedCodes = codes.length ? await ctx.db.select({ id: students.id, code: students.code }).from(students).where(and(inArray(students.code, codes), tenantCond(ctx, students))) : [];
   const phones = [...new Set(ok.map((r) => r.parentPhone))];
   const sameFamily = phones.length ? await ctx.db.select({ id: students.id, code: students.code, name: students.fullName, phone: parents.phone })
     .from(studentGuardians).innerJoin(parents, eq(parents.id, studentGuardians.parentId)).innerJoin(students, eq(students.id, studentGuardians.studentId))
-    .where(and(inArray(parents.phone, phones), isNull(students.deletedAt))) : [];
+    .where(and(inArray(parents.phone, phones), isNull(students.deletedAt), tenantCond(ctx, students))) : [];
   const rows = parsed.rows.map((r): StudentPlan => {
     const base: StudentPlan = { ...r, status: r.row ? "ok" : "error", action: null, centerId: null, existingId: null, existingCode: null, newCode: null };
     if (!r.row) return base;
@@ -108,7 +109,7 @@ export async function importStudents(ctx: ProtectedContext, input: { csv: string
   if (p.headerErrors.length) throw bad(p.headerErrors);
   const todo = p.rows.filter((r) => r.status === "ok");
   if (!todo.length) throw pre("Không có dòng hợp lệ để nhập");
-  const centerCodes = new Map((await ctx.db.select({ id: centers.id, code: centers.code }).from(centers)).map((c) => [c.id, c.code]));
+  const centerCodes = new Map((await ctx.db.select({ id: centers.id, code: centers.code }).from(centers).where(tenantCond(ctx, centers))).map((c) => [c.id, c.code]));
   return ctx.db.transaction(async (txx) => {
     const tx = txx as unknown as Db;
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext('migration:students'))`);
@@ -166,16 +167,16 @@ async function planEnrollments(ctx: ProtectedContext, csv: string) {
   const sCodes = [...new Set(ok.map((r) => r.studentCode))];
   const cCodes = [...new Set(ok.map((r) => r.classCode))];
   const refs = sCodes.length ? await ctx.db.select({ code: legacyRefs.legacyCode, id: legacyRefs.entityId }).from(legacyRefs).where(and(eq(legacyRefs.kind, "student"), inArray(legacyRefs.legacyCode, sCodes))) : [];
-  const byCode = sCodes.length ? await ctx.db.select({ id: students.id, code: students.code }).from(students).where(and(inArray(students.code, sCodes), isNull(students.deletedAt))) : [];
+  const byCode = sCodes.length ? await ctx.db.select({ id: students.id, code: students.code }).from(students).where(and(inArray(students.code, sCodes), isNull(students.deletedAt), tenantCond(ctx, students))) : [];
   const ids = [...new Set([...refs.map((r) => r.id), ...byCode.map((r) => r.id)])];
-  const names = ids.length ? await ctx.db.select({ id: students.id, name: students.fullName }).from(students).where(inArray(students.id, ids)) : [];
-  const cls = cCodes.length ? await ctx.db.select({ id: classes.id, code: classes.code, centerId: classes.centerId, status: classes.status }).from(classes).where(inArray(classes.code, cCodes)) : [];
+  const names = ids.length ? await ctx.db.select({ id: students.id, name: students.fullName }).from(students).where(and(inArray(students.id, ids), tenantCond(ctx, students))) : [];
+  const cls = cCodes.length ? await ctx.db.select({ id: classes.id, code: classes.code, centerId: classes.centerId, status: classes.status }).from(classes).where(and(inArray(classes.code, cCodes), tenantCond(ctx, classes))) : [];
   const nextSeq = cls.length ? await ctx.db.select({ classId: sessions.classId, next: sql<number | null>`min(${sessions.sequenceNo}) filter (where ${sessions.status} in ('scheduled','in_progress'))`, last: sql<number>`coalesce(max(${sessions.sequenceNo}), 0)` })
-    .from(sessions).where(inArray(sessions.classId, cls.map((c) => c.id))).groupBy(sessions.classId) : [];
+    .from(sessions).where(and(inArray(sessions.classId, cls.map((c) => c.id)), tenantCond(ctx, sessions))).groupBy(sessions.classId) : [];
   const keys = ok.map((r) => `${r.studentCode}|${r.classCode}`);
   const eRefs = keys.length ? await ctx.db.select({ code: legacyRefs.legacyCode }).from(legacyRefs).where(and(eq(legacyRefs.kind, "enrollment"), inArray(legacyRefs.legacyCode, keys))) : [];
   const open = ids.length && cls.length ? await ctx.db.select({ studentId: enrollments.studentId, classId: enrollments.classId }).from(enrollments)
-    .where(and(inArray(enrollments.studentId, ids), inArray(enrollments.classId, cls.map((c) => c.id)), inArray(enrollments.status, ["trial", "active", "paused"]))) : [];
+    .where(and(inArray(enrollments.studentId, ids), inArray(enrollments.classId, cls.map((c) => c.id)), inArray(enrollments.status, ["trial", "active", "paused"]), tenantCond(ctx, enrollments))) : [];
   const rows = parsed.rows.map((r): EnrollPlan => {
     const base: EnrollPlan = { ...r, status: r.row ? "ok" : "error", studentId: null, studentName: null, classId: null, centerId: null, startSequenceNo: 1 };
     if (!r.row) return base;
@@ -272,18 +273,19 @@ export async function migrationBatches(ctx: ProtectedContext) {
 
 const inList = (col: SQL, ids: string[] | null) => (ids === null ? sql`true` : ids.length ? sql`${col} in (${sql.join(ids.map((i) => sql`${i}::uuid`), sql`, `)})` : sql`false`);
 
-export async function currentMetrics(db: Db, centerIds: string[] | null): Promise<Record<ReconMetric, number>> {
+export async function currentMetrics(ctx: ProtectedContext, centerIds: string[] | null): Promise<Record<ReconMetric, number>> {
   const month = todayISO().slice(0, 7);
-  const r = (await db.execute(sql`
+  // Mỗi truy vấn con lọc theo cơ sở VÀ theo trung tâm (tenant) — Hội sở chuỗi không cộng nhầm số của bên nhượng quyền
+  const r = (await ctx.db.execute(sql`
     select
-      (select count(*)::int from students s where s.status = 'active' and s.deleted_at is null and ${inList(sql`s.home_center_id`, centerIds)}) as "activeStudents",
-      (select count(*)::int from enrollments e join classes c on c.id = e.class_id where e.status in ('trial','active','paused') and ${inList(sql`c.center_id`, centerIds)}) as "openEnrollments",
-      (select count(*)::int from classes c where c.status = 'running' and ${inList(sql`c.center_id`, centerIds)}) as "runningClasses",
+      (select count(*)::int from students s where s.status = 'active' and s.deleted_at is null and ${inList(sql`s.home_center_id`, centerIds)} and ${tenantSql(ctx, "s")}) as "activeStudents",
+      (select count(*)::int from enrollments e join classes c on c.id = e.class_id where e.status in ('trial','active','paused') and ${inList(sql`c.center_id`, centerIds)} and ${tenantSql(ctx, "c")}) as "openEnrollments",
+      (select count(*)::int from classes c where c.status = 'running' and ${inList(sql`c.center_id`, centerIds)} and ${tenantSql(ctx, "c")}) as "runningClasses",
       (select coalesce(sum(greatest(0, e.package_sessions - e.carried_sessions - (select count(*) from attendance a where a.enrollment_id = e.id and a.status in ('present','late','absent_unexcused')))), 0)::int
-         from enrollments e join classes c on c.id = e.class_id where e.status in ('trial','active','paused') and ${inList(sql`c.center_id`, centerIds)}) as "remainingSessions",
+         from enrollments e join classes c on c.id = e.class_id where e.status in ('trial','active','paused') and ${inList(sql`c.center_id`, centerIds)} and ${tenantSql(ctx, "c")}) as "remainingSessions",
       (select coalesce(sum(greatest(0, o.total - coalesce((select sum(p.amount) from payments p where p.order_id = o.id and p.status = 'confirmed'), 0))), 0)::float
-         from orders o where o.status in ('pending_payment','partially_paid') and ${inList(sql`o.center_id`, centerIds)}) as "debtTotal",
-      (select coalesce(sum(p.amount), 0)::float from payments p where p.status = 'confirmed' and to_char(p.paid_at, 'YYYY-MM') = ${month} and ${inList(sql`p.center_id`, centerIds)}) as "collectedMonth"
+         from orders o where o.status in ('pending_payment','partially_paid') and ${inList(sql`o.center_id`, centerIds)} and ${tenantSql(ctx, "o")}) as "debtTotal",
+      (select coalesce(sum(p.amount), 0)::float from payments p where p.status = 'confirmed' and to_char(p.paid_at, 'YYYY-MM') = ${month} and ${inList(sql`p.center_id`, centerIds)} and ${tenantSql(ctx, "p")}) as "collectedMonth"
   `)) as unknown as Record<ReconMetric, number>[];
   const row = r[0]!;
   return Object.fromEntries(RECON_METRICS.map((m) => [m, Number(row[m] ?? 0)])) as Record<ReconMetric, number>;
@@ -300,12 +302,12 @@ function scopeFor(ctx: ProtectedContext, centerId: string | null | undefined): s
 
 export async function reconOverview(ctx: ProtectedContext, input: { centerId?: string | null }) {
   const ids = scopeFor(ctx, input.centerId);
-  const current = await currentMetrics(ctx.db, ids);
+  const current = await currentMetrics(ctx, ids);
   const history = await ctx.db.select({ s: reconSnapshots, by: users.fullName, center: centers.code }).from(reconSnapshots)
     .leftJoin(users, eq(users.id, reconSnapshots.createdBy)).leftJoin(centers, eq(centers.id, reconSnapshots.centerId))
     .where(input.centerId ? eq(reconSnapshots.centerId, input.centerId) : ids === null ? sql`true` : ids.length ? inArray(reconSnapshots.centerId, ids) : sql`false`)
     .orderBy(desc(reconSnapshots.createdAt)).limit(20);
-  const centerList = await ctx.db.select({ id: centers.id, code: centers.code, name: centers.name }).from(centers).where(ids === null ? sql`true` : inArray(centers.id, ids.length ? ids : ["00000000-0000-0000-0000-000000000000"]));
+  const centerList = await ctx.db.select({ id: centers.id, code: centers.code, name: centers.name }).from(centers).where(and(ids === null ? sql`true` : inArray(centers.id, ids.length ? ids : ["00000000-0000-0000-0000-000000000000"]), tenantCond(ctx, centers)));
   return {
     current, centers: centerList, canSave: authorizeGlobal(ctx.actor, "migration:run") || (!!input.centerId && authorize(ctx.actor, "cutover:create", { centerId: input.centerId }).allowed),
     history: history.map((h) => ({ ...h.s, by: h.by, centerCode: h.center, result: reconcile(h.s.legacy as Partial<Record<ReconMetric, number>>, h.s.current as Record<ReconMetric, number>) })),
@@ -315,7 +317,8 @@ export async function reconOverview(ctx: ProtectedContext, input: { centerId?: s
 export async function saveRecon(ctx: ProtectedContext, input: { centerId: string | null; legacy: Partial<Record<ReconMetric, number | null>>; note?: string | null }) {
   const can = input.centerId ? authorizeGlobal(ctx.actor, "migration:run") || authorize(ctx.actor, "cutover:create", { centerId: input.centerId }).allowed : authorizeGlobal(ctx.actor, "migration:run");
   if (!can) throw forbid("Không có quyền ghi đối soát");
-  const current = await currentMetrics(ctx.db, input.centerId ? [input.centerId] : null);
+  await assertCenterTenant(ctx, input.centerId);
+  const current = await currentMetrics(ctx, input.centerId ? [input.centerId] : null);
   const res = reconcile(input.legacy, current);
   if (!res.compared) throw bad("Nhập ít nhất một số liệu hệ cũ để so");
   const [row] = await ctx.db.insert(reconSnapshots).values({ centerId: input.centerId, legacy: input.legacy as Record<string, number | null>, current, ok: res.ok, note: input.note?.trim() || null, createdBy: ctx.user.id }).returning({ id: reconSnapshots.id });
@@ -332,14 +335,14 @@ export async function compareStudents(ctx: ProtectedContext, input: { csv: strin
   const rows = f.rows.filter((r) => r.row).map((r) => r.row!);
   const codes = [...new Set(rows.map((r) => r.studentCode))];
   const refs = codes.length ? await ctx.db.select({ code: legacyRefs.legacyCode, id: legacyRefs.entityId }).from(legacyRefs).where(and(eq(legacyRefs.kind, "student"), inArray(legacyRefs.legacyCode, codes))) : [];
-  const direct = codes.length ? await ctx.db.select({ id: students.id, code: students.code }).from(students).where(inArray(students.code, codes)) : [];
+  const direct = codes.length ? await ctx.db.select({ id: students.id, code: students.code }).from(students).where(and(inArray(students.code, codes), tenantCond(ctx, students))) : [];
   const idOf = new Map<string, string>();
   for (const d of direct) idOf.set(d.code!, d.id);
   for (const r of refs) idOf.set(r.code, r.id);
   const sids = [...new Set(idOf.values())];
   const enr = sids.length ? await ctx.db.select({ studentId: enrollments.studentId, classCode: classes.code, pkg: enrollments.packageSessions, consumed: consumedSql, centerId: classes.centerId })
     .from(enrollments).innerJoin(classes, eq(classes.id, enrollments.classId))
-    .where(and(inArray(enrollments.studentId, sids), inArray(enrollments.status, ["trial", "active", "paused"]))) : [];
+    .where(and(inArray(enrollments.studentId, sids), inArray(enrollments.status, ["trial", "active", "paused"]), tenantCond(ctx, enrollments))) : [];
   const debtRows = sids.length ? (await ctx.db.execute(sql`
     select o.student_id as "studentId", coalesce(sum(greatest(0, o.total - coalesce((select sum(p.amount) from payments p where p.order_id = o.id and p.status = 'confirmed'), 0))), 0)::float as debt
     from orders o where o.status in ('pending_payment','partially_paid') and o.student_id in (${sql.join(sids.map((i) => sql`${i}::uuid`), sql`, `)}) group by o.student_id`)) as unknown as { studentId: string; debt: number }[] : [];
