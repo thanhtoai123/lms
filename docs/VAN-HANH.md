@@ -119,3 +119,17 @@ Thứ tự cho mỗi cơ sở:
 - Mỗi nhân sự xem lịch sử đăng nhập của mình ở **Bảo mật tài khoản**; thấy lần đăng nhập lạ thì đổi mật khẩu và báo quản trị.
 - Nhật ký đăng nhập giữ 1 năm, tự dọn. IP hiển thị đã che khối cuối.
 - Tìm nhanh: bấm ô tìm kiếm trên cùng hoặc **Ctrl + K** (máy Mac: ⌘ + K), gõ tên trang không dấu ("hoc bu"), tên / mã học viên, tên phụ huynh, SĐT, mã lớp, mã đơn.
+
+## Bám nghiệp vụ bản gốc (Giai đoạn 13)
+
+- **Chốt lead phải có tiền**: trang lead có khối "Thanh toán" (đã nộp / tổng / còn thiếu). Chưa ghi nhận khoản thu nào thì nút Chuyển đổi bị khoá. Học bổng toàn phần vẫn chốt được nhưng phải ghi lý do. Nhập liệu ban đầu (chốt hàng loạt) được ghi khoản thu lùi ngày, kế toán xác nhận sau.
+- **Trùng số điện thoại**: nhập khách hàng trùng SĐT sẽ gộp vào khách cũ — chỉ điền ô trống, thêm con mới, giá trị khác ghi vào ghi chú kèm ngày; không đổi trạng thái phễu; đếm "nhập lại N lần".
+- **Chia lead**: chỉ máy chia luân phiên mới tiêu lượt; giao tay / theo tỷ lệ chốt không tiêu. Bật lại một sale thì lượt về mức thấp nhất. Xem "Sổ chia lead" và "Lịch sử thay đổi pool".
+- **Đơn hàng**: chia tối đa 12 đợt, có thể thu cọc; sửa được kế hoạch sau khi tạo (đợt đã thu không bị xoá). Một đơn bán cho nhiều con; giảm giá theo từng dòng phải ghi lý do; hình thức kèm riêng có hệ số nhân (bấm "Áp số này vào Đơn giá").
+- **Khoản thu**: sale sửa được khoản đang chờ; kế toán điều chỉnh khoản đã xác nhận (sinh bút toán và ghi nhật ký). Trạng thái đơn hiển thị suy từ tiền đã về.
+- **Buổi học**: mỗi buổi có "Điều chỉnh" (đổi ngày / giờ / GV / phòng, bắt buộc lý do) và "Huỷ" (chọn dời các buổi sau để giữ đủ tổng buổi). Không sửa được buổi đã qua.
+- **Học viên**: hồ sơ có địa chỉ, phụ huynh thứ hai, CCCD (mã hoá, xem phải ghi lý do), nhóm máu, dị ứng, ngày đăng ký đầu, mã nhập tay. Vòng đời: Bảo lưu → Kết thúc bảo lưu → Nghỉ hẳn (tự đề xuất hoàn tiền) → Kích hoạt lại.
+- **Chuyển lớp**: tạo yêu cầu, quản lý duyệt; cùng khoá, không vượt tiến độ, hết chỗ thì vào danh sách chờ. Duyệt xong sinh ghi danh mới ở lớp đích và mang số buổi còn lại sang.
+- **Chấm công**: công tính theo ca đã xếp; quét thẻ chỉ sinh cờ để quản lý rà (muộn, thiếu lượt, quét ngoài ca…). Chấm công phải quét mã QR tại quầy, có kiểm tra vị trí. Danh mục 22 mã ca, lưới tháng giữ nguyên ô sửa tay và ô sinh từ đơn.
+- **Đơn từ**: 10 loại, duyệt là áp ngay vào lịch / công; áp lỗi thì đơn quay lại Chờ duyệt kèm lý do. Từ chối bắt buộc có lý do, nộp muộn được đánh dấu.
+- **Vị trí công việc**: gán vị trí cho nhân sự sẽ tự cấp bộ vai trò kèm thời hạn; hết hạn là mất quyền. "Điều động tác nghiệp" mở phạm vi dữ liệu cơ sở khác trong một khoảng thời gian.
