@@ -108,7 +108,7 @@ const STUDENT_EXPORT_BATCH = 1_000;
  *        phép tra cứu trong MỘT câu lệnh; dễ chạm `statement_timeout` khi dữ liệu lớn.
  * Sau:  `count(*)` rồi đọc từng lô 1.000 dòng; thứ tự có khoá phụ `id` để các lô không chồng nhau.
  */
-function readStudentExportBatch(ctx: ProtectedContext, where: ReturnType<typeof and>, range: { offset: number; limit: number }) {
+async function readStudentExportBatch(ctx: ProtectedContext, where: ReturnType<typeof and>, range: { offset: number; limit: number }) {
   return ctx.db
     .select({
       code: students.code, fullName: students.fullName, dateOfBirth: students.dateOfBirth, grade: students.grade, school: students.school,

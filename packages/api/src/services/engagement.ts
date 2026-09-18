@@ -52,9 +52,10 @@ async function claimOutboxBatch(db: Database, batch: number, visibilityMs: numbe
     `)) as unknown as { id: string }[];
     const ids = picked.map((r) => r.id);
     if (ids.length === 0) return [];
+    const now = new Date();
     const rows = await tx
       .update(outbox)
-      .set({ lastAttemptAt: new Date(), nextAttemptAt: sql`now() + make_interval(secs => ${visibilityMs / 1000})` })
+      .set({ lastAttemptAt: now, nextAttemptAt: new Date(now.getTime() + visibilityMs) })
       .where(inArray(outbox.id, ids))
       .returning({ id: outbox.id, type: outbox.type, payload: outbox.payload, attempts: outbox.attempts });
     // Giữ đúng thứ tự cũ-trước như câu select ở trên

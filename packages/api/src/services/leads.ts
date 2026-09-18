@@ -522,7 +522,7 @@ async function leadRowsForExport(ctx: ProtectedContext, input: LeadInboxInput) {
   return { rows, total };
 }
 
-function readLeadExportBatch(ctx: ProtectedContext, conds: ReturnType<typeof leadFilterConds>, range: { offset: number; limit: number }) {
+async function readLeadExportBatch(ctx: ProtectedContext, conds: ReturnType<typeof leadFilterConds>, range: { offset: number; limit: number }) {
   return ctx.db
     .select({
       id: leads.id, tenantId: leads.tenantId, status: leads.status, parentName: leads.parentName, phoneNormalized: leads.phoneNormalized, email: leads.email, childName: leads.childName,

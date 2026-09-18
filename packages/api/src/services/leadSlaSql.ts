@@ -22,17 +22,22 @@ import { sql, type SQL } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { LEAD_STATUSES, type SlaPolicy } from "@satarobo/core";
 
-/** `case status when 'new' then 15 … end` — phút SLA của từng trạng thái; null = không áp SLA */
+/**
+ * `case status when 'new' then 15 … end` — phút SLA của từng trạng thái; null = không áp SLA.
+ *
+ * Kiểu là `double precision` chứ KHÔNG phải `numeric`: Postgres chỉ có toán tử
+ * `double precision * interval`, không có `numeric * interval`.
+ */
 function minutesCase(policy: SlaPolicy, statusCol: AnyPgColumn): SQL {
   const parts: SQL[] = [];
   for (const st of LEAD_STATUSES) {
     const m = policy.minutesByStatus[st];
     if (m === null || m === undefined) continue;
-    // `m` là số nguyên lấy từ chính sách (không phải từ người dùng) nhưng vẫn đi qua tham số ràng buộc
-    parts.push(sql`when ${statusCol}::text = ${st} then ${m}::numeric`);
+    // `m` là số lấy từ chính sách (không phải từ người dùng) nhưng vẫn đi qua tham số ràng buộc
+    parts.push(sql`when ${statusCol}::text = ${st} then ${m}::double precision`);
   }
-  if (parts.length === 0) return sql`null::numeric`;
-  return sql`(case ${sql.join(parts, sql` `)} else null end)`;
+  if (parts.length === 0) return sql`null::double precision`;
+  return sql`(case ${sql.join(parts, sql` `)} else null::double precision end)`;
 }
 
 /** Số phút đã quá hạn, làm tròn như `Math.round` — âm / null nghĩa là chưa quá hạn */
@@ -59,6 +64,6 @@ export function slaWarningSql(policy: SlaPolicy, statusCol: AnyPgColumn, lastTou
   return sql<boolean>`(
     ${m} is not null
     and ${lastTouchCol} + ${m} * interval '1 minute' >= ${at}
-    and ${lastTouchCol} + (${m} * 0.75) * interval '1 minute' <= ${at}
+    and ${lastTouchCol} + (${m} * 0.75::double precision) * interval '1 minute' <= ${at}
   )`;
 }
