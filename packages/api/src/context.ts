@@ -33,8 +33,19 @@ export interface Context {
   tenants: TenantRuntime[];
 }
 
-/** Nạp danh sách tenant + cấu hình quyền riêng tư (đã điền khuyết theo loại tenant) */
+/**
+ * Nạp danh sách tenant + cấu hình quyền riêng tư (đã điền khuyết theo loại tenant).
+ * Chưa chạy migration bảng `tenants` → trả danh sách rỗng: hệ thống chạy y như trước khi có nhượng quyền.
+ */
 export async function loadTenants(db: Database): Promise<TenantRuntime[]> {
+  try {
+    return await readTenants(db);
+  } catch {
+    return [];
+  }
+}
+
+async function readTenants(db: Database): Promise<TenantRuntime[]> {
   const rows = await db
     .select({
       id: tenants.id, code: tenants.code, name: tenants.name, type: tenants.type, status: tenants.status, isDefault: tenants.isDefault,

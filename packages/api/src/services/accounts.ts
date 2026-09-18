@@ -60,7 +60,7 @@ export async function listUsers(ctx: ProtectedContext, input: { q?: string; role
     total: sql<number>`count(*)::int`,
     active: sql<number>`count(*) filter (where ${users.isActive})::int`,
     locked: sql<number>`count(*) filter (where not ${users.isActive})::int`,
-  }).from(users);
+  }).from(users).where(tenantCond(ctx, users));
   return {
     total: tot?.n ?? 0, page, pageSize,
     counts: counts ?? { total: 0, active: 0, locked: 0 },
@@ -97,7 +97,7 @@ export async function getUser(ctx: ProtectedContext, id: string) {
 
 export async function roleOptions(ctx: ProtectedContext) {
   requirePermission(ctx, "system:read");
-  const cs = await ctx.db.select({ id: centers.id, code: centers.code, name: centers.name }).from(centers).orderBy(asc(centers.code));
+  const cs = await ctx.db.select({ id: centers.id, code: centers.code, name: centers.name }).from(centers).where(tenantCond(ctx, centers)).orderBy(asc(centers.code));
   return {
     roles: ASSIGNABLE_ROLES.map((r) => ({ role: r, label: ROLE_LABEL_VI[r], global: GLOBAL_ROLES.includes(r) })),
     centers: cs,
@@ -117,7 +117,8 @@ export async function createUser(ctx: ProtectedContext, input: { email: string; 
   const errs = input.roles.flatMap((r) => validateRoleGrant({ actor: ctx.actor, role: r.role, centerId: r.centerId, targetUserId: "new" }));
   fail([...new Set(errs)]);
   const id = await ctx.db.transaction(async (tx) => {
-    const [u] = await tx.insert(users).values({ email, fullName: input.fullName.trim(), phone: input.phone?.trim() || null }).returning({ id: users.id });
+    // Tài khoản mới thuộc đúng trung tâm (tenant) của người tạo
+    const [u] = await tx.insert(users).values({ email, fullName: input.fullName.trim(), phone: input.phone?.trim() || null, tenantId: ctx.tenantId }).returning({ id: users.id });
     const uniq = new Map(input.roles.map((r) => [`${r.role}:${r.centerId ?? ""}`, r]));
     await tx.insert(userRoles).values([...uniq.values()].map((r) => ({ userId: u!.id, role: r.role, centerId: r.centerId, grantedBy: ctx.user.id })));
     await writeAudit(tx as unknown as Db, { actorId: ctx.user.id, action: "CREATE", module: "system", entity: "users", entityId: u!.id, after: { email, fullName: input.fullName, roles: [...uniq.values()] }, ip: ctx.ip });

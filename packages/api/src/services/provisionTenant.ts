@@ -31,6 +31,15 @@ import { assertTenant } from "./tenantScope";
 type Db = ProtectedContext["db"];
 const bad = (m: string) => new TRPCError({ code: "BAD_REQUEST", message: m });
 
+/** Lý do bắt buộc — đổi lỗi thuần của core sang mã tRPC chuẩn */
+function reasonOf(reason: string | null | undefined, min: number) {
+  try {
+    return requireReason(reason, min);
+  } catch (e) {
+    throw bad((e as Error).message);
+  }
+}
+
 /** Một dòng trong bảng kê "sẽ tạo những gì" */
 export interface ProvisionLine {
   key: string;
@@ -153,7 +162,7 @@ function normCode(code: string): string {
 
 export async function provision(ctx: ProtectedContext, input: ProvisionInput) {
   requirePermission(ctx, "tenant:provision");
-  const reason = requireReason(input.reason, 10);
+  const reason = reasonOf(input.reason, 10);
   const code = normCode(input.code);
   const codeErr = validateTenantCode(code);
   if (codeErr) throw bad(codeErr);

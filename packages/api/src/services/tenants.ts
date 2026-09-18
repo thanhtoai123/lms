@@ -18,6 +18,15 @@ import { assertTenant, canSeePiiOf, canSeeFinanceDetailOf } from "./tenantScope"
 
 const bad = (m: string) => new TRPCError({ code: "BAD_REQUEST", message: m });
 
+/** Lý do bắt buộc — đổi lỗi thuần của core sang mã tRPC chuẩn */
+function reasonOf(reason: string | null | undefined, min: number) {
+  try {
+    return requireReason(reason, min);
+  } catch (e) {
+    throw bad((e as Error).message);
+  }
+}
+
 /** Thẻ trung tâm trên màn /nhuong-quyen: chỉ số TỔNG HỢP, không kèm dữ liệu cá nhân */
 export async function listTenants(ctx: ProtectedContext) {
   requirePermission(ctx, "tenant:read");
@@ -106,7 +115,7 @@ export async function updateSettings(
 ) {
   requirePermission(ctx, "tenant:update");
   assertTenant(ctx, { tenantId: input.tenantId }, "Trung tâm");
-  const reason = requireReason(input.reason, 5);
+  const reason = reasonOf(input.reason, 5);
   const cur = ctx.tenants.find((t) => t.id === input.tenantId);
   if (!cur) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy trung tâm" });
   if (!canEditSettings(ctx, input.tenantId)) {

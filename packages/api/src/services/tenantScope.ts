@@ -4,7 +4,8 @@
  * Ba việc phải làm ở MỌI service:
  *  1. Truy vấn danh sách → thêm `tenantCond(ctx, bang)` vào mệnh đề WHERE;
  *  2. Nạp bản ghi theo id → `assertTenant(ctx, row)` TRƯỚC khi trả về hoặc ghi đè;
- *  3. Trả dữ liệu ra ngoài tenant → `redact(ctx, tenantId, row)` để che PII theo cấu hình.
+ *  3. Trả dữ liệu ra ngoài tenant → `redact(ctx, row)` (hoặc `redact(ctx, row, tenantId)`)
+ *     để che PII theo cấu hình của trung tâm sở hữu dòng dữ liệu.
  *
  * Luật thuần nằm ở packages/core/src/org/tenant.ts; file này chỉ nối vào Drizzle và ngữ cảnh tRPC.
  */
