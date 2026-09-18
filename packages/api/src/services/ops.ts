@@ -90,7 +90,7 @@ export async function opsStatus(ctx: ProtectedContext) {
     (select count(*) from messages)::int as messages`)) as unknown as Record<string, number>[];
   const [q] = (await ctx.db.execute(sql`select
     -- Việc còn sống (đã loại hàng đợi chết) / việc chờ lâu nhất / việc đã bỏ cuộc.
-    -- Trước đợt 0006, "kẹt" chỉ là `attempts >= 3`; nay cột `dead_letter_at` nói thẳng
+    -- Trước đợt 0006, "kẹt" chỉ là attempts >= 3; nay cột dead_letter_at nói thẳng
     -- việc nào worker đã thôi đọc và cần người vào xử lý.
     (select count(*) from outbox where processed_at is null and dead_letter_at is null)::int as outbox_pending,
     (select coalesce(extract(epoch from now() - min(created_at)) / 60, 0)::int from outbox where processed_at is null and dead_letter_at is null) as outbox_oldest_min,
