@@ -13,6 +13,7 @@ import {
   type DsrType, type DsrStatus, type DsrAction, type SubjectType, type ConsentPurpose,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
+import { tenantCond } from "./tenantScope";
 import { writeAudit } from "./audit";
 import { putObject, signedFileUrl } from "../storage";
 import { todayISO } from "./sessions";
@@ -52,11 +53,11 @@ export async function findSubjects(ctx: ProtectedContext, input: { phone: string
   if (!pn) throw bad("Số điện thoại không hợp lệ");
   const v = visibleCenterIds(ctx.actor);
   const ls = await ctx.db.select({ id: leads.id, name: leads.parentName, status: leads.status, centerId: leads.centerId, createdAt: leads.createdAt, anonymizedAt: leads.anonymizedAt })
-    .from(leads).where(and(eq(leads.phoneNormalized, pn), isNull(leads.deletedAt))).orderBy(desc(leads.createdAt)).limit(10);
+    .from(leads).where(and(eq(leads.phoneNormalized, pn), isNull(leads.deletedAt), tenantCond(ctx, leads))).orderBy(desc(leads.createdAt)).limit(10);
   const phoneVariants = [pn, `0${pn.slice(2)}`, pn.replace(/^84/, "0")];
   const ps = await ctx.db.select({ id: parents.id, name: parents.fullName, anonymizedAt: parents.anonymizedAt,
     children: sql<string>`(select string_agg(s.full_name, ', ') from ${studentGuardians} g join ${students} s on s.id = g.student_id where g.parent_id = ${parents.id})` })
-    .from(parents).where(and(inArray(parents.phone, [...new Set(phoneVariants)]), isNull(parents.deletedAt))).limit(10);
+    .from(parents).where(and(inArray(parents.phone, [...new Set(phoneVariants)]), isNull(parents.deletedAt), tenantCond(ctx, parents))).limit(10);
   return {
     phone: maskPhone(pn),
     subjects: [

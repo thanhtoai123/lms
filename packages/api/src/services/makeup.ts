@@ -4,6 +4,7 @@ import { TRPCError } from "@trpc/server";
 import { makeupRequests, enrollments, sessions, classes, students, attendance, centers, courses } from "@satarobo/db";
 import { makeupTransition, makeupCandidates, withinMakeupWindow, visibleCenterIds, addDays, DEFAULT_MAKEUP_POLICY, type MakeupStatus } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
+import { tenantCond } from "./tenantScope";
 import { writeAudit } from "./audit";
 import { todayISO } from "./sessions";
 import { getOps, opsForCenters } from "./opsSettings";
@@ -32,6 +33,7 @@ export async function pendingAbsences(ctx: ProtectedContext, input: { centerId?:
   const from = addDays(today, -win);
   const conds = [
     inArray(attendance.status, ["absent_excused", "absent_unexcused"]),
+    tenantCond(ctx, attendance),
     inArray(enrollments.status, ["active", "trial"]),
     gte(sessions.date, from),
     sql`(${attendance.needsMakeup} is null or ${attendance.needsMakeup} = true)`,

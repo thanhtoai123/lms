@@ -7,6 +7,7 @@ import {
   type AttendanceStatus, type AttendanceRecord, type ClassStatus,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
+import { tenantCond } from "./tenantScope";
 import { getOps, opsForCenters } from "./opsSettings";
 import { writeAudit } from "./audit";
 import { emit } from "./outbox";
@@ -266,6 +267,6 @@ export async function classOptions(ctx: ProtectedContext) {
   return ctx.db
     .select({ id: classes.id, code: classes.code, name: classes.name, status: classes.status, centerCode: centers.code, courseCode: courses.code })
     .from(classes).innerJoin(centers, eq(centers.id, classes.centerId)).innerJoin(courses, eq(courses.id, classes.courseId))
-    .where(and(isNull(classes.deletedAt), visible === null ? sql`true` : visible.length ? inArray(classes.centerId, visible) : sql`false`))
+    .where(and(isNull(classes.deletedAt), tenantCond(ctx, classes), visible === null ? sql`true` : visible.length ? inArray(classes.centerId, visible) : sql`false`))
     .orderBy(asc(centers.code), asc(classes.code));
 }

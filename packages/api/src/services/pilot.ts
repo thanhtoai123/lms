@@ -7,6 +7,7 @@ import {
   type AdoptionWeek, type PilotFbCategory, type PilotFbSeverity, type PilotFbStatus, type CutoverStage,
 } from "@satarobo/core";
 import type { ProtectedContext } from "../trpc";
+import { tenantCond } from "./tenantScope";
 import { writeAudit } from "./audit";
 import { todayISO } from "./sessions";
 import { deliverySettings } from "./delivery";
@@ -195,7 +196,7 @@ export async function adoptionReport(ctx: ProtectedContext, input: { weeks?: num
   const from = weeks[0]!;
   const list = await ctx.db.select({ id: centers.id, code: centers.code, name: centers.name, stage: cutoverCenters.stage, liveAt: cutoverCenters.liveAt, parallelFrom: cutoverCenters.parallelFrom })
     .from(centers).leftJoin(cutoverCenters, eq(cutoverCenters.centerId, centers.id))
-    .where(ids === null ? sql`true` : inArray(centers.id, ids)).orderBy(centers.code);
+    .where(and(ids === null ? sql`true` : inArray(centers.id, ids), tenantCond(ctx, centers))).orderBy(centers.code);
   const ein = (await ctx.db.execute(sql`select value from app_settings where key = 'einvoice'`)) as unknown as { value: { enabled?: boolean; startDate?: string | null } }[];
   const einvoiceOn = !!ein[0]?.value?.enabled;
   const einStart = ein[0]?.value?.startDate ?? "2000-01-01";
