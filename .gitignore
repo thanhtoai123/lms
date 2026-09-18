@@ -16,3 +16,5 @@ drizzle/meta/_journal.json.bak
 .data
 backups/
 .claude/
+# Báo cáo sinh ra mỗi lần chạy scripts/kiem-thu/kich-ban-toan-dien.ps1
+scripts/kiem-thu/bao-cao-kiem-thu.md

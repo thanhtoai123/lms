@@ -6,6 +6,10 @@ quản trị · quản lý cơ sở · tư vấn · kế toán · nhân sự · 
 
 Chạy: `powershell -ExecutionPolicy Bypass -File scripts\kiem-thu\kich-ban-vai-tro.ps1`
 
+> Kịch bản này là **bộ D** của bộ kiểm thử lớn hơn ở `docs/KIEM-THU-TOAN-DIEN.md`
+> (`scripts/kiem-thu/kich-ban-toan-dien.ps1`), bộ đó chạy thêm bảo mật, cách ly trung tâm
+> nhượng quyền và trải nghiệm một chạm rồi gom tất cả vào một báo cáo Markdown.
+
 Mỗi dòng in `PASS` / `FAIL` kèm thông báo lỗi thật của hệ thống, cuối cùng in tổng kết.
 
 ## Nhóm kiểm thử
