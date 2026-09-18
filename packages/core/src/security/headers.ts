@@ -47,7 +47,9 @@ export function generateNonce(random?: (b: Uint8Array) => void): string {
   const bytes = new Uint8Array(NONCE_BYTES);
   if (random) random(bytes);
   else {
-    const c = (globalThis as { crypto?: Crypto }).crypto;
+    // Khai báo theo hình dạng thay vì kiểu `Crypto` của DOM: packages/core là logic thuần,
+    // không nạp thư viện DOM nên tên đó không tồn tại ở đây.
+    const c = (globalThis as { crypto?: { getRandomValues?: (b: Uint8Array) => Uint8Array } }).crypto;
     if (!c?.getRandomValues) throw new Error("Không có crypto.getRandomValues để sinh nonce CSP");
     c.getRandomValues(bytes);
   }
