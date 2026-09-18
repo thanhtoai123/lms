@@ -20,7 +20,10 @@ import type { ProtectedContext } from "../trpc";
 import { writeAudit } from "./audit";
 
 type Db = ProtectedContext["db"];
-const asDb = (d: Db | Database) => d as unknown as Db;
+/** Transaction của Drizzle — nhận được cả `db` lẫn `tx` như các helper cũ */
+type Tx = Parameters<Parameters<Database["transaction"]>[0]>[0];
+export type AnyDb = Db | Database | Tx;
+const asDb = (d: AnyDb) => d as unknown as Db;
 
 /** Bộ nhớ đệm ngắn cho danh mục — tránh một truy vấn mỗi lần gửi thông báo */
 let cache: { at: number; rows: Map<string, NotificationTypeRow> } | null = null;
@@ -30,7 +33,7 @@ export function invalidateNotificationCatalog() {
   cache = null;
 }
 
-export async function notificationCatalog(db: Db | Database): Promise<Map<string, NotificationTypeRow>> {
+export async function notificationCatalog(db: AnyDb): Promise<Map<string, NotificationTypeRow>> {
   if (cache && Date.now() - cache.at < CACHE_MS) return cache.rows;
   try {
     const rows = await asDb(db)
@@ -60,7 +63,7 @@ export interface NotifyPayload {
  * Ghi thông báo trong app cho danh sách người dùng. Trả về số dòng đã ghi và quyết định đẩy.
  * Gọi trong cùng transaction với nghiệp vụ (truyền `tx` vào) như các helper cũ.
  */
-export async function deliverNotifications(db: Db | Database, userIds: (string | null | undefined)[], x: NotifyPayload) {
+export async function deliverNotifications(db: AnyDb, userIds: (string | null | undefined)[], x: NotifyPayload) {
   const d = asDb(db);
   let ids = [...new Set(userIds.filter((u): u is string => !!u))];
   if (!ids.length) return { inserted: 0, push: false, priority: x.priority ?? 2 };
@@ -93,7 +96,7 @@ export async function deliverNotifications(db: Db | Database, userIds: (string |
 
 /** Dạng gọn cho các service: `notifyTyped(db, "lead.moi", ids, "Tiêu đề", "Nội dung", "/leads")` */
 export async function notifyTyped(
-  db: Db | Database,
+  db: AnyDb,
   type: string | null,
   userIds: (string | null | undefined)[],
   title: string,
@@ -109,7 +112,7 @@ export async function notifyTyped(
 /* ------------------------------------------------------------------ */
 
 /** Danh mục hiệu lực = mặc định trong core, ghi đè bằng dòng trong CSDL */
-export async function effectiveCatalog(db: Db | Database) {
+export async function effectiveCatalog(db: AnyDb) {
   const rows = await asDb(db).select().from(notificationTypes);
   const byPrefix = new Map(rows.map((r) => [r.prefix, r]));
   return NOTIFICATION_TYPES.map((def) => {
@@ -128,7 +131,7 @@ export async function effectiveCatalog(db: Db | Database) {
 }
 
 /** Số dòng thông báo chưa đọc theo loại — dùng cho bộ lọc ở /thong-bao */
-export async function unreadByType(db: Db | Database, userId: string) {
+export async function unreadByType(db: AnyDb, userId: string) {
   return asDb(db)
     .select({ type: userNotifications.type, n: sql<number>`count(*)::int` })
     .from(userNotifications)

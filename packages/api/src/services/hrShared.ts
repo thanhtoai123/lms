@@ -17,6 +17,7 @@ import {
 } from "@satarobo/core";
 import type { ProtectedContext } from "../trpc";
 import { opsForCenters } from "./opsSettings";
+import { deliverNotifications } from "./notify";
 import { todayISO } from "./sessions";
 
 export type Db = ProtectedContext["db"];
