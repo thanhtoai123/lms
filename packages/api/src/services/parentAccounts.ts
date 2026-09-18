@@ -1,8 +1,8 @@
-import { createHash, randomInt } from "node:crypto";
+import { createHash, randomInt, timingSafeEqual } from "node:crypto";
 import { and, eq, inArray, sql, desc, ilike, or, isNull } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { parents, parentNotifications, studentGuardians, students, centers } from "@satarobo/db";
-import { isEmail, maskPhone, normalizeVnPhone, visibleCenterIds } from "@satarobo/core";
+import { isEmail, maskPhone, normalizeVnPhone, visibleCenterIds, MemoryRateLimiter, CODE_ATTEMPT_MAX, CODE_ATTEMPT_WINDOW_MS } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { writeAudit } from "./audit";
 import { queueEmail } from "./admin";
@@ -150,13 +150,28 @@ export async function setParentAccountLock(ctx: ProtectedContext, input: { paren
   return { accountStatus: next };
 }
 
+/**
+ * Trần số lần thử mã kích hoạt — đếm theo SỐ ĐIỆN THOẠI, không theo IP:
+ * mã chỉ có 6 chữ số và sống 72 giờ, nếu chỉ chặn theo IP thì đổi IP là dò tiếp
+ * cho tới khi chiếm được tài khoản phụ huynh (xem được hồ sơ con, học phí).
+ */
+const activationAttempts = new MemoryRateLimiter();
+
 /** Kích hoạt bằng SĐT + mã (dùng cho trang /kich-hoat công khai — chưa gắn Supabase user ở bước này) */
 export async function verifyActivationCode(db: Db, input: { phone: string; code: string }) {
   const phone = normalizeVnPhone(input.phone);
   if (!phone) return { ok: false as const, error: "Số điện thoại không hợp lệ" };
+  const gate = activationAttempts.hit(`activate|${phone}`, Date.now(), CODE_ATTEMPT_MAX, CODE_ATTEMPT_WINDOW_MS);
+  if (!gate.allowed) {
+    return { ok: false as const, error: `Nhập sai quá nhiều lần — thử lại sau ${Math.ceil(gate.retryAfterSec / 60)} phút hoặc liên hệ trung tâm` };
+  }
   const p = await db.query.parents.findFirst({ where: and(eq(parents.phone, phone), isNull(parents.deletedAt)) });
   if (!p || p.accountStatus !== "pending_activation" || !p.activationCodeHash || !p.activationCodeExpiresAt) return { ok: false as const, error: "Không có yêu cầu kích hoạt cho số này" };
   if (p.activationCodeExpiresAt.getTime() < Date.now()) return { ok: false as const, error: "Mã đã hết hạn — liên hệ trung tâm để cấp lại" };
-  if (hashActivationCode(input.code.trim()) !== p.activationCodeHash) return { ok: false as const, error: "Mã không đúng" };
+  // So khớp băm không lệ thuộc thời gian
+  const want = Buffer.from(p.activationCodeHash);
+  const got = Buffer.from(hashActivationCode(input.code.trim()));
+  if (want.length !== got.length || !timingSafeEqual(want, got)) return { ok: false as const, error: "Mã không đúng" };
+  activationAttempts.reset(`activate|${phone}`);
   return { ok: true as const, parentId: p.id };
 }

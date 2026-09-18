@@ -4,7 +4,7 @@ import { TRPCError } from "@trpc/server";
 import { sessionMedia, sessions, classes, enrollments, students, studentGuardians, parents, users, centers, parentNotifications } from "@satarobo/db";
 import {
   addDays, authorize, consentCheck, canRestoreRejected, canSubmitMedia, isMediaOverdue, mediaAudience, mediaObjectKey, restoreDeadline,
-  MEDIA_MAX_BYTES, MEDIA_MIME, MEDIA_RESTORE_DAYS, visibleCenterIds, type MediaMime, type MediaStatus,
+  MEDIA_MAX_BYTES, MEDIA_MIME, MEDIA_RESTORE_DAYS, visibleCenterIds, checkImageUpload, type MediaMime, type MediaStatus,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { writeAudit } from "./audit";
@@ -43,8 +43,9 @@ export async function registerUploadedMedia(
 ) {
   const s = await loadSession(ctx, input.sessionId);
   requirePermission(ctx, "media:write", { centerId: s.centerId, ownerIds: s.ownerIds });
-  if (!MEDIA_MIME.includes(input.mime as MediaMime)) throw new TRPCError({ code: "BAD_REQUEST", message: "Chỉ nhận ảnh JPG, PNG, WEBP" });
-  if (input.bytes.byteLength > MEDIA_MAX_BYTES) throw new TRPCError({ code: "BAD_REQUEST", message: "Ảnh tối đa 10MB" });
+  // Không tin Content-Type do máy khách khai báo: soi magic bytes để tệp "ảnh" không phải là SVG/HTML có mã kịch bản
+  const check = checkImageUpload({ mime: input.mime, bytes: input.bytes, maxBytes: MEDIA_MAX_BYTES, allowedMimes: MEDIA_MIME });
+  if (!check.ok) throw new TRPCError({ code: "BAD_REQUEST", message: check.error! });
   const tagged = [...new Set(input.taggedStudentIds ?? [])];
   if (tagged.length) {
     const inClass = await ctx.db.select({ id: enrollments.studentId }).from(enrollments).where(and(eq(enrollments.classId, s.classId), inArray(enrollments.studentId, tagged)));

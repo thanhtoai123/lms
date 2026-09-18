@@ -17,6 +17,8 @@ export async function GET(req: Request) {
     headers: {
       "Content-Type": type, "Content-Length": String(body.length), "Cache-Control": "private, max-age=600", "X-Content-Type-Options": "nosniff",
       "Content-Disposition": `${inline ? "inline" : "attachment"}; filename="${name}"`,
+      // Tệp do người dùng tải lên: cấm mọi tài nguyên/kịch bản khi trình duyệt mở trực tiếp
+      "Content-Security-Policy": "default-src 'none'; sandbox",
     },
   });
 }

@@ -8,7 +8,8 @@ import {
 import {
   authorize, visibleCenterIds, hasPermission,
   validateAssignment, submissionTransition, validateGrade, validateSubmission, assignmentStats, earnsCoin,
-  ASSIGNMENT_STATUS_VI, SUBMISSION_STATUS_VI, SUBMISSION_TYPE_VI, SUBMISSION_MIME,
+  ASSIGNMENT_STATUS_VI, SUBMISSION_STATUS_VI, SUBMISSION_TYPE_VI, SUBMISSION_MIME, SUBMISSION_MAX_BYTES,
+  checkSubmissionFile, safeStoredFileName,
   type Permission, type AssignmentStatus, type SubmissionStatus, type SubmissionType, type SubmissionAction,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
@@ -286,10 +287,13 @@ async function submitWork(db: Db, s: typeof submissions.$inferSelect, a: typeof 
   if (errs.length) throw bad(errs);
   const stored: { key: string; name: string; mime: string; size: number }[] = [];
   for (const f of work.files) {
+    // Soi magic bytes: bài nộp đến từ internet (liên kết phụ huynh), không tin MIME khai báo
+    const chk = checkSubmissionFile({ mime: f.mime, bytes: f.bytes, maxBytes: SUBMISSION_MAX_BYTES, allowedMimes: SUBMISSION_MIME });
+    if (!chk.ok) throw bad(chk.error!);
     const ext = EXT[f.mime] ?? "bin";
     const key = `homework/${a.id}/${s.id}/${s.attempts + 1}-${randomUUID()}.${ext}`;
     await putObject(key, f.bytes);
-    stored.push({ key, name: (f.name || `bai-nop.${ext}`).replace(/[^\p{L}\p{N}._ -]/gu, "_").slice(0, 80), mime: f.mime, size: f.bytes.byteLength });
+    stored.push({ key, name: safeStoredFileName(f.name || `bai-nop.${ext}`, `bai-nop.${ext}`).slice(0, 80), mime: f.mime, size: f.bytes.byteLength });
   }
   await db.update(submissions).set({
     status: to, answerText: work.text?.trim() || null, link: work.link?.trim() || null, files: stored, submittedAt: new Date(), submittedVia: via, late, attempts: s.attempts + 1,
