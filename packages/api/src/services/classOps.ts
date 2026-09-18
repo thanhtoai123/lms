@@ -1,7 +1,7 @@
 import { and, eq, inArray, sql, asc, desc, or, isNull, gte, type SQL } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import {
-  classes, classSchedules, classEvents, sessions, enrollments, courses, centers, rooms, teachers, holidays, lessons, curricula,
+  classes, classGroups, classSchedules, classEvents, sessions, enrollments, courses, centers, rooms, teachers, holidays, lessons, curricula,
   attendance, userRoles, userNotifications, users, trialBookings, studentGuardians, parentNotifications, students, leads, leadActivities,
   sessionMedia, assignments, classTransferRequests,
 } from "@satarobo/db";
@@ -14,6 +14,7 @@ import {
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { writeAudit } from "./audit";
 import { todayISO } from "./sessions";
+import { classGroupOptions } from "./classGroups";
 import { assertTeacherQualified } from "./teachers";
 import { logEvent, syncStudentStatus, afterEnrollmentEnded, trackPause } from "./enrollments";
 import { collectedForEnrollments } from "./refundHooks";
@@ -410,6 +411,8 @@ export interface UpdateClassInfo {
   minCapacity: number;
   startDate?: string | null;
   plannedSessions?: number | null;
+  /** Nhóm lớp (nhãn tổ chức) — null = gỡ khỏi nhóm */
+  classGroupId?: string | null;
   /** Đổi GV chính: áp cho các buổi chưa diễn ra đang do GV cũ đứng */
   applyTeacherToFuture?: boolean;
 }
@@ -436,6 +439,11 @@ export async function updateClassInfo(ctx: ProtectedContext, input: UpdateClassI
     const r = await ctx.db.query.rooms.findFirst({ where: eq(rooms.id, input.homeRoomId) });
     if (!r || r.centerId !== cls.centerId) throw new TRPCError({ code: "BAD_REQUEST", message: "Phòng không thuộc cơ sở của lớp" });
   }
+  if (input.classGroupId) {
+    const g = await ctx.db.query.classGroups.findFirst({ where: eq(classGroups.id, input.classGroupId) });
+    if (!g || g.deletedAt || !g.isActive) throw new TRPCError({ code: "BAD_REQUEST", message: "Nhóm lớp không hợp lệ hoặc đã ngừng dùng" });
+    if (g.centerId && g.centerId !== cls.centerId) throw new TRPCError({ code: "BAD_REQUEST", message: "Nhóm lớp thuộc cơ sở khác" });
+  }
   const today = todayISO();
   const teacherChanged = (input.leadTeacherId ?? null) !== cls.leadTeacherId;
   if (teacherChanged) await assertTeacherQualified(ctx.db, input.leadTeacherId, cls.courseId);
@@ -444,6 +452,7 @@ export async function updateClassInfo(ctx: ProtectedContext, input: UpdateClassI
   const after = {
     name: input.name.trim(), description: input.description?.trim() || null, homeRoomId: input.homeRoomId ?? null,
     leadTeacherId: input.leadTeacherId ?? null, assistantTeacherId: input.assistantTeacherId ?? null, capacity: input.capacity, minCapacity: input.minCapacity,
+    ...(input.classGroupId !== undefined ? { classGroupId: input.classGroupId } : {}),
     ...(planning ? { startDate: input.startDate ?? cls.startDate, plannedSessions: input.plannedSessions ?? cls.plannedSessions } : {}),
   };
   try {
@@ -835,6 +844,7 @@ export async function classWorkspace(ctx: ProtectedContext, classId: string) {
     ctx.db.query.courses.findFirst({ where: eq(courses.id, cls.courseId) }),
     ctx.db.query.centers.findFirst({ where: eq(centers.id, cls.centerId), columns: { code: true } }),
   ]);
+  const groupOptions = await classGroupOptions(ctx.db, cls.centerId);
   const people = await ctx.db.select({ id: users.id, name: users.fullName }).from(users).where(inArray(users.id, [cls.submittedBy, cls.approvedBy].filter((x): x is string => !!x).concat(["00000000-0000-0000-0000-000000000000"])));
   const nameOf = (id: string | null) => (id ? people.find((p) => p.id === id)?.name ?? null : null);
   const today = todayISO();
@@ -873,7 +883,9 @@ export async function classWorkspace(ctx: ProtectedContext, classId: string) {
     info: {
       name: cls.name, description: cls.description, homeRoomId: cls.homeRoomId, leadTeacherId: cls.leadTeacherId, assistantTeacherId: cls.assistantTeacherId,
       capacity: cls.capacity, minCapacity: cls.minCapacity, startDate: cls.startDate, plannedSessions: cls.plannedSessions ?? course?.totalSessions ?? null, expectedEndDate: cls.expectedEndDate,
+      classGroupId: cls.classGroupId,
     },
+    groupOptions,
     submittedAt: cls.submittedAt, submittedByName: nameOf(cls.submittedBy), approvedAt: cls.approvedAt, approvedByName: nameOf(cls.approvedBy),
     phases: phases.map((p) => ({ ...p, startTime: p.startTime.slice(0, 5), endTime: p.endTime.slice(0, 5), current: p.effectiveFrom <= today && (!p.effectiveTo || p.effectiveTo >= today), future: p.effectiveFrom > today, past: !!p.effectiveTo && p.effectiveTo < today })),
     phaseGroups: [...groups.values()].sort((a, b) => a.from.localeCompare(b.from)),

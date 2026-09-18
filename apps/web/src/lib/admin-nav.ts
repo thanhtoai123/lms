@@ -71,6 +71,7 @@ export const ADMIN_NAV: NavGroup[] = [
     label: "Lớp học & Lịch học",
     items: [
       { label: "Lớp học", href: "/classes", perm: "class:read", ready: true },
+      { label: "Nhóm lớp", href: "/class-groups", perm: "class:read", ready: true, desc: "Gom lớp thành nhóm (khối) để lọc và báo cáo; mã hiển thị, cơ sở, số lớp, bật/tắt." },
       { label: "Buổi học", href: "/sessions", perm: "session:read", ready: true },
       { label: "Kiểm tra lịch buổi", href: "/classes/kiem-tra-lich", perm: "class:read", ready: true, desc: "Đối chiếu dãy buổi với khai giảng + lịch học; xếp lại cả dãy cho lớp bị neo sai." },
       { label: "Lịch tổng", href: "/lich", perm: "session:read", ready: true },

@@ -57,6 +57,8 @@ export async function getSessionDetail(ctx: ProtectedContext, sessionId: string)
       attendanceStatus: attendance.status,
       studentRemark: attendance.studentRemark,
       rating: attendance.rating,
+      needsMakeup: attendance.needsMakeup,
+      absenceReason: attendance.absenceReason,
       attendanceId: attendance.id,
     })
     .from(enrollments)
@@ -162,7 +164,7 @@ export async function confirmLesson(ctx: ProtectedContext, input: { sessionId: s
  */
 export async function recordAttendance(
   ctx: ProtectedContext,
-  input: { sessionId: string; records: { enrollmentId: string; status: AttendanceStatus; studentRemark?: string | null; makeupForSessionId?: string | null; rating?: number | null }[] },
+  input: { sessionId: string; records: { enrollmentId: string; status: AttendanceStatus; studentRemark?: string | null; makeupForSessionId?: string | null; rating?: number | null; needsMakeup?: boolean | null; absenceReason?: string | null }[] },
 ) {
   const s = await loadSessionForAuth(ctx, input.sessionId);
   requirePermission(ctx, "attendance:write", { centerId: s.centerId, ownerIds: s.ownerIds });
@@ -171,6 +173,10 @@ export async function recordAttendance(
 
   await ctx.db.transaction(async (tx) => {
     for (const r of input.records) {
+      // Chỉ Vắng / Phép mới giữ quyết định học bù + lý do PH xin vắng
+      const absent = r.status === "absent_excused" || r.status === "absent_unexcused";
+      const needsMakeup = absent ? r.needsMakeup ?? null : null;
+      const absenceReason = absent ? r.absenceReason?.trim() || null : null;
       await tx
         .insert(attendance)
         .values({
@@ -179,13 +185,15 @@ export async function recordAttendance(
           status: r.status,
           studentRemark: r.studentRemark ?? null,
           rating: r.rating ?? null,
+          needsMakeup,
+          absenceReason,
           makeupForSessionId: r.makeupForSessionId ?? null,
           recordedBy: ctx.user.id,
           recordedAt: new Date(),
         })
         .onConflictDoUpdate({
           target: [attendance.sessionId, attendance.enrollmentId],
-          set: { status: r.status, studentRemark: r.studentRemark ?? null, rating: r.rating ?? null, makeupForSessionId: r.makeupForSessionId ?? null, recordedBy: ctx.user.id, recordedAt: new Date() },
+          set: { status: r.status, studentRemark: r.studentRemark ?? null, rating: r.rating ?? null, needsMakeup, absenceReason, makeupForSessionId: r.makeupForSessionId ?? null, recordedBy: ctx.user.id, recordedAt: new Date() },
         });
     }
     await writeAudit(tx as unknown as typeof ctx.db, {

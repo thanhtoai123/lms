@@ -17,7 +17,10 @@ export const scheduleRouter = router({
     .input(z.object({ centerId: uuid.optional(), status: z.enum(CLASS_STATUSES).optional() }).default({}))
     .query(({ ctx, input }) => Sch.attendanceOverview(ctx, input)),
   correctAttendance: protectedProcedure
-    .input(z.object({ sessionId: uuid, enrollmentId: uuid, status: z.enum(ATTENDANCE_STATUSES), reason: z.string().max(300).optional() }))
+    .input(z.object({
+      sessionId: uuid, enrollmentId: uuid, status: z.enum(ATTENDANCE_STATUSES), reason: z.string().max(300).optional(),
+      needsMakeup: z.boolean().nullish(), absenceReason: z.string().max(500).nullish(),
+    }))
     .mutation(({ ctx, input }) => Sch.correctAttendance(ctx, input)),
   risks: protectedProcedure.input(z.object({ centerId: uuid.optional() }).default({})).query(({ ctx, input }) => Sch.riskOverview(ctx, input)),
   rescanRisks: protectedProcedure.input(z.object({ centerId: uuid.optional() }).default({})).mutation(({ ctx, input }) => Sch.rescanRisks(ctx, input)),

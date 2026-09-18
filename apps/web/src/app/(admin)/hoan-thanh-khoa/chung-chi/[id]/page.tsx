@@ -8,7 +8,7 @@ export default async function CertificatePage({ params }: { params: Promise<{ id
   const { id } = await params;
   const { caller } = await getServerCaller();
   const c = await caller.learning.certificate({ id });
-  const issued = c.issuedAt.toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh", day: "2-digit", month: "2-digit", year: "numeric" });
+  const issued = (c.issuedAt ?? new Date()).toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh", day: "2-digit", month: "2-digit", year: "numeric" });
   return (
     <div className="space-y-3">
       <div className="flex justify-end print:hidden"><PrintButton /></div>

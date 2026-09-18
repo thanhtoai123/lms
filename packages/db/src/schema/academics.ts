@@ -3,7 +3,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { id, timestamps, softDelete } from "./_common";
-import { SESSION_STATUSES, ATTENDANCE_STATUSES, ENROLLMENT_STATUSES, CLASS_STATUSES, SESSION_KINDS, TRANSFER_REQUEST_STATUSES, type ChecklistState } from "@satarobo/core";
+import { SESSION_STATUSES, ATTENDANCE_STATUSES, ENROLLMENT_STATUSES, CLASS_STATUSES, SESSION_KINDS, TRANSFER_REQUEST_STATUSES, MEDIA_STATUSES, COMPLETION_STATUSES, type ChecklistState } from "@satarobo/core";
 import { centers, rooms } from "./org";
 import { teachers, students, parents } from "./people";
 import { users } from "./identity";
@@ -138,6 +138,26 @@ export const lessons = pgTable(
   (t) => [uniqueIndex("lessons_seq_unique").on(t.curriculumId, t.sequenceNo)],
 );
 
+/**
+ * Nhóm lớp: gom nhiều lớp cùng một "khối" để lọc / báo cáo (vd "Sata4 hè 2026 CS1").
+ * Chỉ là nhãn tổ chức — không ảnh hưởng lịch học hay ghi danh.
+ */
+export const classGroups = pgTable(
+  "class_groups",
+  {
+    id: id(),
+    code: text("code").notNull(),
+    name: text("name").notNull(),
+    centerId: uuid("center_id").references(() => centers.id),
+    note: text("note"),
+    isActive: boolean("is_active").notNull().default(true),
+    createdBy: uuid("created_by").references(() => users.id),
+    ...timestamps,
+    ...softDelete,
+  },
+  (t) => [uniqueIndex("class_groups_code_unique").on(t.code).where(sql`deleted_at is null`), index("class_groups_center_idx").on(t.centerId)],
+);
+
 export const classes = pgTable(
   "classes",
   {
@@ -147,6 +167,8 @@ export const classes = pgTable(
     courseId: uuid("course_id").notNull().references(() => courses.id),
     curriculumId: uuid("curriculum_id").references(() => curricula.id),
     centerId: uuid("center_id").notNull().references(() => centers.id),
+    /** Nhóm lớp (nhãn tổ chức, không bắt buộc) */
+    classGroupId: uuid("class_group_id").references(() => classGroups.id),
     homeRoomId: uuid("home_room_id").references(() => rooms.id),
     leadTeacherId: uuid("lead_teacher_id").references(() => teachers.id),
     assistantTeacherId: uuid("assistant_teacher_id").references(() => teachers.id),
@@ -167,7 +189,7 @@ export const classes = pgTable(
     ...timestamps,
     ...softDelete,
   },
-  (t) => [index("classes_center_idx").on(t.centerId, t.status), index("classes_teacher_idx").on(t.leadTeacherId)],
+  (t) => [index("classes_center_idx").on(t.centerId, t.status), index("classes_teacher_idx").on(t.leadTeacherId), index("classes_group_idx").on(t.classGroupId)],
 );
 
 /**
@@ -268,6 +290,9 @@ export const sessions = pgTable(
     /** GV xác nhận bài đã dạy (bắt buộc trước khi hoàn tất) */
     lessonConfirmedAt: timestamp("lesson_confirmed_at", { withTimezone: true }),
     lessonConfirmedBy: uuid("lesson_confirmed_by").references(() => users.id),
+    /** Ghi nhận "Buổi này không có ảnh" ở màn Duyệt ảnh — buổi coi như đã xử lý ảnh, hết cảnh báo quá hạn */
+    noMediaAt: timestamp("no_media_at", { withTimezone: true }),
+    noMediaBy: uuid("no_media_by").references(() => users.id),
     ...timestamps,
   },
   (t) => [
@@ -379,6 +404,10 @@ export const attendance = pgTable(
     studentRemark: text("student_remark"),
     /** Đánh giá nhanh trong buổi 1–5 sao */
     rating: smallint("rating"),
+    /** Vắng/Phép: GV chốt có cần xếp học bù không. null = chưa quyết (suy diễn như cũ: cần bù) */
+    needsMakeup: boolean("needs_makeup"),
+    /** Lý do phụ huynh xin vắng (ghi ngay tại dòng điểm danh) */
+    absenceReason: text("absence_reason"),
     recordedBy: uuid("recorded_by").references(() => users.id),
     recordedAt: timestamp("recorded_at", { withTimezone: true }).notNull().defaultNow(),
     ...timestamps,
@@ -386,9 +415,14 @@ export const attendance = pgTable(
   (t) => [uniqueIndex("attendance_unique").on(t.sessionId, t.enrollmentId), index("attendance_enrollment_idx").on(t.enrollmentId)],
 );
 
-export const mediaStatusEnum = pgEnum("media_status", ["pending", "approved", "rejected"]);
+export const mediaStatusEnum = pgEnum("media_status", MEDIA_STATUSES);
 
-/** Ảnh lớp học: lưu private bucket, phát hành qua signed URL; tôn trọng mediaConsent của PH */
+/**
+ * Ảnh lớp học hai tầng: GV tải vào **kho của lớp** (`library`, PH chưa thấy) → gắn thẻ HV hoặc
+ * đánh dấu ảnh chung cả lớp → **Gửi duyệt** (`pending`) → giáo vụ duyệt (`approved`, PH mới thấy)
+ * hoặc loại (`rejected`, còn khôi phục 7 ngày).
+ * Lưu private bucket, phát hành qua signed URL; tôn trọng mediaConsent của PH.
+ */
 export const sessionMedia = pgTable(
   "session_media",
   {
@@ -396,12 +430,21 @@ export const sessionMedia = pgTable(
     sessionId: uuid("session_id").notNull().references(() => sessions.id, { onDelete: "cascade" }),
     objectKey: text("object_key").notNull(),
     caption: text("caption"),
-    status: mediaStatusEnum("status").notNull().default("pending"),
+    status: mediaStatusEnum("status").notNull().default("library"),
+    /** Ngày chụp (GV nhập; mặc định lấy ngày buổi học) */
+    takenAt: date("taken_at"),
+    /** Ảnh chung cả lớp: mọi phụ huynh trong lớp xem được, không cần gắn từng học viên */
+    isClassWide: boolean("is_class_wide").notNull().default(false),
     /** Học viên xuất hiện trong ảnh — dùng để lọc theo consent */
     taggedStudentIds: jsonb("tagged_student_ids").$type<string[]>().notNull().default([]),
     uploadedBy: uuid("uploaded_by").references(() => users.id),
+    /** Lúc GV gửi duyệt — mốc tính quá hạn duyệt (ảnh nằm trong kho không tính) */
+    submittedAt: timestamp("submitted_at", { withTimezone: true }),
+    submittedBy: uuid("submitted_by").references(() => users.id),
     reviewedBy: uuid("reviewed_by").references(() => users.id),
     reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    /** Lúc bị loại — còn khôi phục trong 7 ngày kể từ mốc này */
+    rejectedAt: timestamp("rejected_at", { withTimezone: true }),
     rejectReason: text("reject_reason"),
     mimeType: text("mime_type"),
     sizeBytes: integer("size_bytes"),
@@ -481,22 +524,40 @@ export const reportCardScores = pgTable(
   (t) => [uniqueIndex("rc_scores_pk").on(t.reportCardId, t.criterionId)],
 );
 
-/** Hoàn thành khoá & chứng chỉ */
+export const completionStatusEnum = pgEnum("course_completion_status", COMPLETION_STATUSES);
+
+/**
+ * Hoàn thành khoá & chứng chỉ theo luồng đề xuất:
+ * GV tạo ĐỀ XUẤT (`proposed`) → người có quyền duyệt Duyệt (`approved`, mới sinh số chứng chỉ)
+ * hoặc Từ chối (`rejected`, bắt buộc lý do). Người có quyền duyệt tạo thẳng bản `approved`.
+ */
 export const courseCompletions = pgTable(
   "course_completions",
   {
     id: id(),
     enrollmentId: uuid("enrollment_id").notNull().references(() => enrollments.id, { onDelete: "cascade" }),
     courseId: uuid("course_id").notNull().references(() => courses.id),
+    status: completionStatusEnum("status").notNull().default("approved"),
     grade: text("grade").notNull(),
     teacherEvaluation: text("teacher_evaluation").notNull(),
     averageScore: numeric("average_score", { precision: 3, scale: 1 }),
-    certificateNo: text("certificate_no").notNull(),
+    /** Chỉ có khi đã được duyệt */
+    certificateNo: text("certificate_no"),
     nextCourseId: uuid("next_course_id").references(() => courses.id),
-    issuedAt: timestamp("issued_at", { withTimezone: true }).notNull().defaultNow(),
+    proposedBy: uuid("proposed_by").references(() => users.id),
+    proposedAt: timestamp("proposed_at", { withTimezone: true }),
+    decidedBy: uuid("decided_by").references(() => users.id),
+    decidedAt: timestamp("decided_at", { withTimezone: true }),
+    rejectReason: text("reject_reason"),
+    issuedAt: timestamp("issued_at", { withTimezone: true }),
     issuedBy: uuid("issued_by").references(() => users.id),
     revokedAt: timestamp("revoked_at", { withTimezone: true }),
     ...timestamps,
   },
-  (t) => [uniqueIndex("completions_enrollment_unique").on(t.enrollmentId), uniqueIndex("completions_cert_unique").on(t.certificateNo)],
+  (t) => [
+    // đề xuất bị từ chối không chặn lần đề xuất sau
+    uniqueIndex("completions_enrollment_unique").on(t.enrollmentId).where(sql`status <> 'rejected'`),
+    uniqueIndex("completions_cert_unique").on(t.certificateNo),
+    index("completions_status_idx").on(t.status),
+  ],
 );

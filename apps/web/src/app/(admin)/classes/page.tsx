@@ -15,13 +15,13 @@ const STATUS_CHIP: Record<ClassStatus, string> = {
   cancelled: "bg-red-100 text-red-700",
 };
 
-export default async function ClassesPage({ searchParams }: { searchParams: Promise<{ q?: string; status?: string; center?: string; course?: string; teacher?: string }> }) {
+export default async function ClassesPage({ searchParams }: { searchParams: Promise<{ q?: string; status?: string; center?: string; course?: string; teacher?: string; group?: string }> }) {
   const sp = await searchParams;
   const uuidOr = (v?: string) => (v && /^[0-9a-f-]{36}$/i.test(v) ? v : undefined);
   const status = CLASS_STATUSES.includes(sp.status as ClassStatus) ? (sp.status as ClassStatus) : undefined;
   const { caller } = await getServerCaller();
   const [rows, ref, approvals] = await Promise.all([
-    caller.academics.classes.list({ q: sp.q || undefined, status, centerId: uuidOr(sp.center), courseId: uuidOr(sp.course), teacherId: uuidOr(sp.teacher) }),
+    caller.academics.classes.list({ q: sp.q || undefined, status, centerId: uuidOr(sp.center), courseId: uuidOr(sp.course), teacherId: uuidOr(sp.teacher), classGroupId: uuidOr(sp.group) }),
     caller.academics.classes.referenceData(),
     caller.academics.classes.pendingApprovals(),
   ]);
@@ -55,8 +55,12 @@ export default async function ClassesPage({ searchParams }: { searchParams: Prom
           <option value="">Mọi giáo viên</option>
           {ref.teachers.map((t) => <option key={t.id} value={t.id}>{t.fullName}</option>)}
         </select>
+        <select name="group" defaultValue={sp.group ?? ""} className="input max-w-[200px]" aria-label="Nhóm lớp">
+          <option value="">Mọi nhóm lớp</option>
+          {ref.classGroups.map((g) => <option key={g.id} value={g.id}>{g.code} — {g.name}</option>)}
+        </select>
         <button className="btn-ghost" type="submit">Lọc</button>
-        {(sp.q || sp.status || sp.center || sp.course || sp.teacher) && <Link href="/classes" className="btn-ghost">Xoá lọc</Link>}
+        {(sp.q || sp.status || sp.center || sp.course || sp.teacher || sp.group) && <Link href="/classes" className="btn-ghost">Xoá lọc</Link>}
       </form>
       <p className="text-xs text-ink-400">{rows.length} lớp</p>
 
@@ -71,7 +75,7 @@ export default async function ClassesPage({ searchParams }: { searchParams: Prom
             <tbody className="divide-y divide-black/5">
               {rows.map((c) => (
                 <tr key={c.id} className="hover:bg-brand-50/40">
-                  <td className="p-3"><Link href={`/classes/${c.id}`} className="font-medium text-brand-700">{c.name}</Link><div className="text-xs text-ink-400">{c.code}</div></td>
+                  <td className="p-3"><Link href={`/classes/${c.id}`} className="font-medium text-brand-700">{c.name}</Link><div className="text-xs text-ink-400">{c.code}{c.classGroupName ? ` · ${c.classGroupName}` : ""}</div></td>
                   <td className="p-3">{c.courseCode}</td>
                   <td className="p-3">{c.centerCode}{c.roomCode ? ` / ${c.roomCode}` : ""}</td>
                   <td className="p-3 whitespace-nowrap">{c.schedule ?? "—"}</td>

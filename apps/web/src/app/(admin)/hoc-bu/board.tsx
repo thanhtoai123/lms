@@ -9,7 +9,7 @@ import { MAKEUP_STATUS_VI, type MakeupStatus } from "@satarobo/core";
 import { ATT_LABEL, Empty, fmtTime } from "@/components/ui";
 import { ErrorBox, fmtDate } from "@/components/admin-ui";
 
-type Absence = { enrollmentId: string; sessionId: string; date: string; sequenceNo: number; status: "absent_excused" | "absent_unexcused" | string; studentId: string; studentName: string; studentCode: string | null; classId: string; classCode: string; centerCode: string };
+type Absence = { enrollmentId: string; sessionId: string; date: string; sequenceNo: number; status: "absent_excused" | "absent_unexcused" | string; needsMakeup: boolean | null; absenceReason: string | null; studentId: string; studentName: string; studentCode: string | null; classId: string; classCode: string; centerCode: string };
 type Req = {
   id: string; status: MakeupStatus; note: string | null; studentId: string; studentName: string; studentCode: string | null; classCode: string; centerCode: string;
   missedDate: string; missedSeq: number; targetSessionId: string | null; targetDate: string | null; targetStart: string | null; targetClassCode: string | null; done: boolean;
@@ -37,7 +37,11 @@ export function MakeupBoard({ tab, absences, items }: { tab: string; absences: A
                   <td className="p-3"><Link href={`/students/${a.studentId}`} className="font-medium text-brand-600">{a.studentName}</Link><div className="font-mono text-[11px] text-ink-400">{a.studentCode}</div></td>
                   <td className="p-3">{a.classCode}<div className="text-xs text-ink-400">{a.centerCode}</div></td>
                   <td className="p-3">Buổi {a.sequenceNo}<div className="text-xs text-ink-400">{fmtDate(a.date)}</div></td>
-                  <td className="p-3 text-xs">{ATT_LABEL[a.status as keyof typeof ATT_LABEL] ?? a.status}</td>
+                  <td className="p-3 text-xs">
+                    {ATT_LABEL[a.status as keyof typeof ATT_LABEL] ?? a.status}
+                    {a.needsMakeup === true && <div className="chip mt-1 bg-violet-100 text-violet-800">GV: cần học bù</div>}
+                    {a.absenceReason && <div className="mt-1 text-ink-400">PH: {a.absenceReason}</div>}
+                  </td>
                   <td className="p-3"><button className="btn-primary !py-1 text-xs" disabled={create.isPending} onClick={() => create.mutate({ enrollmentId: a.enrollmentId, missedSessionId: a.sessionId })}>Tạo yêu cầu học bù</button></td>
                 </tr>
               ))}

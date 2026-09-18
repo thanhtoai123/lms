@@ -57,7 +57,7 @@ export async function attendanceGrid(ctx: ProtectedContext, classId: string) {
     .orderBy(asc(students.fullName));
   const ids = roster.map((r) => r.enrollmentId);
   const marks = ids.length && ss.length
-    ? await ctx.db.select({ enrollmentId: attendance.enrollmentId, sessionId: attendance.sessionId, status: attendance.status, note: attendance.note }).from(attendance)
+    ? await ctx.db.select({ enrollmentId: attendance.enrollmentId, sessionId: attendance.sessionId, status: attendance.status, note: attendance.note, needsMakeup: attendance.needsMakeup, absenceReason: attendance.absenceReason }).from(attendance)
         .where(and(inArray(attendance.enrollmentId, ids), inArray(attendance.sessionId, ss.map((s) => s.id))))
     : [];
   const key = (e: string, s: string) => `${e}:${s}`;
@@ -69,7 +69,7 @@ export async function attendanceGrid(ctx: ProtectedContext, classId: string) {
     rows: roster.map((r) => {
       const cells = ss.map((s) => {
         const m = map.get(key(r.enrollmentId, s.id));
-        return { sessionId: s.id, status: (m?.status ?? null) as AttendanceStatus | null, note: m?.note ?? null, applicable: s.sequenceNo >= r.startSequenceNo };
+        return { sessionId: s.id, status: (m?.status ?? null) as AttendanceStatus | null, note: m?.note ?? null, needsMakeup: m?.needsMakeup ?? null, absenceReason: m?.absenceReason ?? null, applicable: s.sequenceNo >= r.startSequenceNo };
       });
       const recs: AttendanceRecord[] = cells.flatMap((c, i) => (c.status ? [{ sessionDate: ss[i]!.date, sequenceNo: ss[i]!.sequenceNo, status: c.status }] : []));
       return { ...r, cells, summary: summarize(recs) };
@@ -150,7 +150,7 @@ export async function attendanceOverview(ctx: ProtectedContext, input: { centerI
  * Sửa/ghi điểm danh một ô từ màn quản trị.
  * Hồi tố (buổi đã hoàn tất hoặc đã qua ngày) → bắt buộc lý do, ghi audit trước/sau, báo GV phụ trách buổi.
  */
-export async function correctAttendance(ctx: ProtectedContext, input: { sessionId: string; enrollmentId: string; status: AttendanceStatus; reason?: string }) {
+export async function correctAttendance(ctx: ProtectedContext, input: { sessionId: string; enrollmentId: string; status: AttendanceStatus; reason?: string; needsMakeup?: boolean | null; absenceReason?: string | null }) {
   const s = await loadSessionForAuth(ctx, input.sessionId);
   requirePermission(ctx, "attendance:update", { centerId: s.centerId });
   const today = todayISO();
@@ -161,18 +161,23 @@ export async function correctAttendance(ctx: ProtectedContext, input: { sessionI
   const enr = await ctx.db.query.enrollments.findFirst({ where: eq(enrollments.id, input.enrollmentId) });
   if (!enr || enr.classId !== s.session.classId) throw new TRPCError({ code: "BAD_REQUEST", message: "Học viên không thuộc lớp của buổi này" });
   const before = await ctx.db.query.attendance.findFirst({ where: and(eq(attendance.sessionId, input.sessionId), eq(attendance.enrollmentId, input.enrollmentId)) });
-  if (before?.status === input.status) return { changed: false };
+  const absent = input.status === "absent_excused" || input.status === "absent_unexcused";
+  const needsMakeup = absent ? input.needsMakeup ?? before?.needsMakeup ?? null : null;
+  const absenceReason = absent ? input.absenceReason?.trim() ?? before?.absenceReason ?? null : null;
+  const unchanged = before?.status === input.status && (before?.needsMakeup ?? null) === needsMakeup && (before?.absenceReason ?? null) === absenceReason;
+  if (unchanged) return { changed: false };
 
   await ctx.db.transaction(async (tx) => {
     await tx
       .insert(attendance)
-      .values({ sessionId: input.sessionId, enrollmentId: input.enrollmentId, status: input.status, note: input.reason ?? null, recordedBy: ctx.user.id, recordedAt: new Date() })
-      .onConflictDoUpdate({ target: [attendance.sessionId, attendance.enrollmentId], set: { status: input.status, note: input.reason ?? null, recordedBy: ctx.user.id, recordedAt: new Date(), updatedAt: new Date() } });
+      .values({ sessionId: input.sessionId, enrollmentId: input.enrollmentId, status: input.status, note: input.reason ?? null, needsMakeup, absenceReason, recordedBy: ctx.user.id, recordedAt: new Date() })
+      .onConflictDoUpdate({ target: [attendance.sessionId, attendance.enrollmentId], set: { status: input.status, note: input.reason ?? null, needsMakeup, absenceReason, recordedBy: ctx.user.id, recordedAt: new Date(), updatedAt: new Date() } });
     await writeAudit(tx as unknown as Db, {
       actorId: ctx.user.id, action: "UPDATE", module: "academics", entity: "attendance", entityId: input.enrollmentId,
-      before: { sessionId: input.sessionId, status: before?.status ?? null }, after: { sessionId: input.sessionId, status: input.status, retroactive: retro }, reason: input.reason ?? null, ip: ctx.ip,
+      before: { sessionId: input.sessionId, status: before?.status ?? null, needsMakeup: before?.needsMakeup ?? null },
+      after: { sessionId: input.sessionId, status: input.status, needsMakeup, retroactive: retro }, reason: input.reason ?? null, ip: ctx.ip,
     });
-    if (retro) {
+    if (retro && before?.status !== input.status) {
       await emit(tx as unknown as Db, { type: "attendance.corrected", sessionId: input.sessionId, enrollmentId: input.enrollmentId, studentId: enr.studentId, from: before?.status ?? null, to: input.status, reason: input.reason!, actorId: ctx.user.id });
     }
     // chấm lại rủi ro của HV trong lớp

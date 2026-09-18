@@ -7,6 +7,7 @@ import { CLASS_STATUS_VI } from "@satarobo/core";
 import type { RouterOutputs } from "@/lib/trpc/types";
 import { StatusPanel, InfoPanel, SchedulePanel, CheckPanel, AddSessionPanel, EventTimeline, CancelClassPanel } from "./workspace";
 import { SessionList } from "./session-list";
+import { MediaGallery } from "../../media/gallery";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Chi tiết lớp" };
@@ -38,7 +39,7 @@ export default async function ClassDetail({ params, searchParams }: { params: Pr
   ]);
   // Dữ liệu của tab đang mở — tái dùng service sẵn có, chỉ thêm bộ lọc theo lớp
   const makeups = tab === "hoc-bu" ? await caller.schedule.makeups({ classId: id }).catch(() => null) : null;
-  const media = tab === "anh" ? await caller.learning.media({ classId: id, status: "approved", limit: 200 }).catch(() => null) : null;
+  const media = tab === "anh" ? await caller.learning.media({ classId: id, limit: 300 }).catch(() => null) : null;
   const feedback = tab === "danh-gia" ? await caller.care.feedback({ classId: id }).catch(() => null) : null;
   const regular = c.sessions.filter((s) => s.kind === "regular");
   const extra = c.sessions.filter((s) => s.kind !== "regular");
@@ -71,7 +72,7 @@ export default async function ClassDetail({ params, searchParams }: { params: Pr
       </nav>
 
       {tab === "hoc-bu" && <MakeupTab data={makeups} />}
-      {tab === "anh" && <MediaTab data={media} />}
+      {tab === "anh" && <MediaTab classId={id} data={media} />}
       {tab === "danh-gia" && <FeedbackTab data={feedback} sessions={c.sessions} />}
 
       {tab === "" && (
@@ -166,22 +167,20 @@ function MakeupTab({ data }: { data: MakeupData | null }) {
 
 /* --------------------------- Tab: Ảnh lớp -------------------------- */
 
-function MediaTab({ data }: { data: MediaRow[] | null }) {
+function MediaTab({ classId, data }: { classId: string; data: MediaRow[] | null }) {
   if (!data) return <Empty>Bạn không có quyền xem ảnh lớp.</Empty>;
-  if (data.length === 0) return <Empty>Chưa có ảnh buổi học nào được duyệt cho lớp này. Ảnh chờ duyệt xem ở Duyệt ảnh.</Empty>;
+  const n = (s: MediaRow["status"]) => data.filter((m) => m.status === s).length;
   return (
-    <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
-      {data.map((m) => (
-        <figure key={m.id} className="card overflow-hidden">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={m.url} alt={m.caption ?? `Buổi ${m.sequenceNo}`} className="aspect-video w-full object-cover" loading="lazy" />
-          <figcaption className="space-y-0.5 p-2 text-xs">
-            <div className="font-medium">Buổi {m.sequenceNo} · {m.sessionDate?.split("-").reverse().join("/")}</div>
-            {m.caption && <div className="text-ink-600">{m.caption}</div>}
-            {m.tagged.length > 0 && <div className="text-ink-400">{m.tagged.map((t) => t.name).join(", ")}</div>}
-          </figcaption>
-        </figure>
-      ))}
+    <div className="space-y-3">
+      <div className="card flex flex-wrap items-center gap-2 p-3 text-xs">
+        <span className="chip bg-slate-200 text-ink-600">Trong kho {n("library")}</span>
+        <span className="chip bg-amber-100 text-amber-800">Chờ duyệt {n("pending")}</span>
+        <span className="chip bg-green-100 text-green-800">Đã duyệt {n("approved")}</span>
+        <span className="chip bg-red-100 text-red-700">Từ chối {n("rejected")}</span>
+        <span className="text-ink-400">Ảnh trong kho phụ huynh chưa thấy — gắn thẻ học viên rồi Gửi duyệt.</span>
+        <Link href={`/media?class=${classId}`} className="ml-auto text-brand-600 underline">Tải ảnh vào kho →</Link>
+      </div>
+      <MediaGallery items={data} />
     </div>
   );
 }

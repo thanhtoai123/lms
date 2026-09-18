@@ -19,7 +19,11 @@ const missed = alias(sessions, "missed");
 const target = alias(sessions, "target");
 const targetClass = alias(classes, "target_class");
 
-/** Buổi vắng chưa có yêu cầu học bù và chưa được bù (trong hạn) */
+/**
+ * Buổi vắng chờ xếp bù: chưa có yêu cầu học bù, chưa được bù, còn trong hạn xin bù
+ * và GV chưa đánh dấu "Không bù" ở màn điểm danh (`needs_makeup = false`).
+ * Dòng cũ chưa có quyết định (`null`) vẫn được suy diễn như trước — xem `needsMakeupFor`.
+ */
 export async function pendingAbsences(ctx: ProtectedContext, input: { centerId?: string }) {
   requirePermission(ctx, "makeup:read", { centerId: input.centerId ?? null });
   const today = todayISO();
@@ -30,6 +34,7 @@ export async function pendingAbsences(ctx: ProtectedContext, input: { centerId?:
     inArray(attendance.status, ["absent_excused", "absent_unexcused"]),
     inArray(enrollments.status, ["active", "trial"]),
     gte(sessions.date, from),
+    sql`(${attendance.needsMakeup} is null or ${attendance.needsMakeup} = true)`,
     scope(ctx),
     sql`not exists (select 1 from ${makeupRequests} mr where mr.enrollment_id = ${attendance.enrollmentId} and mr.missed_session_id = ${attendance.sessionId} and mr.status <> 'rejected')`,
     sql`not exists (select 1 from ${attendance} a2 where a2.enrollment_id = ${attendance.enrollmentId} and a2.makeup_for_session_id = ${attendance.sessionId})`,
@@ -38,6 +43,7 @@ export async function pendingAbsences(ctx: ProtectedContext, input: { centerId?:
   const rows = await ctx.db
     .select({
       enrollmentId: enrollments.id, sessionId: sessions.id, date: sessions.date, sequenceNo: sessions.sequenceNo, status: attendance.status,
+      needsMakeup: attendance.needsMakeup, absenceReason: attendance.absenceReason,
       studentId: students.id, studentName: students.fullName, studentCode: students.code, classId: classes.id, classCode: classes.code, centerCode: centers.code, centerId: classes.centerId,
     })
     .from(attendance)

@@ -1,4 +1,4 @@
-import type { ISODate, SessionStatus } from "../types.js";
+import type { AttendanceStatus, ISODate, SessionStatus } from "../types.js";
 
 /**
  * Học bù: HV vắng một buổi → yêu cầu → giáo vụ chọn buổi bù (cùng bài, lớp khác, còn chỗ) → duyệt → ghi nhận đã bù.
@@ -71,6 +71,17 @@ export function makeupCandidates(
     .filter((s) => s.enrolled < s.capacity)
     .filter((s) => policy.allowCrossCenter || s.centerId === missed.centerId)
     .sort((a, b) => Number(b.centerId === missed.centerId) - Number(a.centerId === missed.centerId) || a.date.localeCompare(b.date));
+}
+
+/**
+ * Buổi vắng có vào danh sách "Chờ xếp bù" không.
+ * GV chốt tại màn điểm danh (`needsMakeup` = true/false) thì theo GV; chưa quyết (null — dữ liệu cũ)
+ * thì suy diễn như trước: cứ vắng (có phép hay không) là chờ xếp bù.
+ */
+export function needsMakeupFor(status: AttendanceStatus, needsMakeup: boolean | null | undefined): boolean {
+  const absent = status === "absent_excused" || status === "absent_unexcused";
+  if (!absent) return false;
+  return needsMakeup === null || needsMakeup === undefined ? true : needsMakeup;
 }
 
 /** Sửa điểm danh là "hồi tố" khi buổi đã hoàn tất hoặc đã qua ngày — bắt buộc lý do và báo GV */

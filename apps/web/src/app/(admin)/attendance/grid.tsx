@@ -25,7 +25,7 @@ type Grid = {
   sessions: { id: string; sequenceNo: number; date: string; status: string }[];
   rows: {
     enrollmentId: string; studentId: string; fullName: string; code: string | null; status: EnrollmentStatus;
-    cells: { sessionId: string; status: AttendanceStatus | null; note: string | null; applicable: boolean }[];
+    cells: { sessionId: string; status: AttendanceStatus | null; note: string | null; needsMakeup: boolean | null; absenceReason: string | null; applicable: boolean }[];
     summary: { rate: number; total: number; attended: number; pendingMakeup: number };
   }[];
 };
@@ -36,6 +36,8 @@ export function AttendanceGrid({ data }: { data: Grid }) {
   const [edit, setEdit] = useState<{ enrollmentId: string; sessionId: string; name: string; current: AttendanceStatus | null } | null>(null);
   const [status, setStatus] = useState<AttendanceStatus>("present");
   const [reason, setReason] = useState("");
+  const [needsMakeup, setNeedsMakeup] = useState<boolean | null>(null);
+  const [absenceReason, setAbsenceReason] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const m = useMutation(trpc.schedule.correctAttendance.mutationOptions({
@@ -81,7 +83,7 @@ export function AttendanceGrid({ data }: { data: Grid }) {
                         <button
                           title={c.status ? `${ATT_LABEL[c.status]}${c.note ? ` — ${c.note}` : ""}` : "Chưa ghi"}
                           className={`h-8 w-8 rounded-lg text-xs font-bold ${c.status ? CELL[c.status] : "bg-black/[0.03] text-ink-400"} ${edit?.enrollmentId === r.enrollmentId && edit.sessionId === c.sessionId ? "ring-2 ring-brand-600" : ""}`}
-                          onClick={() => { setEdit({ enrollmentId: r.enrollmentId, sessionId: c.sessionId, name: r.fullName, current: c.status }); setStatus(c.status ?? "present"); setMsg(null); setError(null); }}
+                          onClick={() => { setEdit({ enrollmentId: r.enrollmentId, sessionId: c.sessionId, name: r.fullName, current: c.status }); setStatus(c.status ?? "present"); setNeedsMakeup(c.needsMakeup); setAbsenceReason(c.absenceReason ?? ""); setMsg(null); setError(null); }}
                         >
                           {c.status ? SHORT[c.status] : "·"}
                         </button>
@@ -98,7 +100,7 @@ export function AttendanceGrid({ data }: { data: Grid }) {
       {edit && session && (
         <form
           className="card max-w-xl space-y-2 border-brand-600/30 p-4"
-          onSubmit={(e) => { e.preventDefault(); m.mutate({ sessionId: edit.sessionId, enrollmentId: edit.enrollmentId, status, reason: reason || undefined }); }}
+          onSubmit={(e) => { e.preventDefault(); m.mutate({ sessionId: edit.sessionId, enrollmentId: edit.enrollmentId, status, reason: reason || undefined, needsMakeup, absenceReason: absenceReason.trim() || null }); }}
         >
           <div className="font-semibold">{edit.name} · buổi {session.sequenceNo} ({session.date.split("-").reverse().join("/")})</div>
           <div className="text-xs text-ink-600">Hiện tại: {edit.current ? ATT_LABEL[edit.current] : "chưa ghi"}</div>
@@ -107,6 +109,17 @@ export function AttendanceGrid({ data }: { data: Grid }) {
               <button type="button" key={s} onClick={() => setStatus(s)} className={`chip cursor-pointer px-3 py-1.5 ${status === s ? "bg-brand-600 text-white" : CELL[s]}`}>{ATT_LABEL[s]}</button>
             ))}
           </div>
+          {(status === "absent_excused" || status === "absent_unexcused") && (
+            <div className="space-y-1 rounded-lg bg-black/[0.03] p-2">
+              <div className="flex flex-wrap items-center gap-1 text-xs">
+                <span className="text-ink-600">Học bù:</span>
+                <button type="button" onClick={() => setNeedsMakeup(true)} className={`chip cursor-pointer px-2 py-0.5 ${needsMakeup === true ? "bg-violet-600 text-white" : "bg-black/5"}`}>Cần học bù</button>
+                <button type="button" onClick={() => setNeedsMakeup(false)} className={`chip cursor-pointer px-2 py-0.5 ${needsMakeup === false ? "bg-ink-900 text-white" : "bg-black/5"}`}>Không bù</button>
+                {needsMakeup === null && <span className="text-ink-400">chưa chọn — mặc định xếp vào &ldquo;Chờ xếp bù&rdquo;</span>}
+              </div>
+              <input className="input !py-1 text-xs" maxLength={500} placeholder="Lý do phụ huynh xin vắng…" value={absenceReason} onChange={(e) => setAbsenceReason(e.target.value)} />
+            </div>
+          )}
           {retro && <div className="rounded-lg bg-amber-50 p-2 text-xs text-amber-800">Buổi đã qua/đã hoàn tất: đây là sửa hồi tố — bắt buộc lý do, giáo viên phụ trách sẽ được báo.</div>}
           <input className="input" placeholder={retro ? "Lý do sửa *" : "Ghi chú (tuỳ chọn)"} required={retro} minLength={retro ? 3 : 0} value={reason} onChange={(e) => setReason(e.target.value)} />
           {error && <ErrorBox>{error}</ErrorBox>}

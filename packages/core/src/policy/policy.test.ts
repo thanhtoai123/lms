@@ -100,6 +100,26 @@ test("tuân thủ / marketing: phân quyền", () => {
   assert.equal(authorize(au, "compliance:update", {}).allowed, false);
 });
 
+test("hoàn thành khoá: GV chỉ đề xuất lớp mình, quản lý mới duyệt", () => {
+  const gv = { userId: "t", personId: "gv1", assignments: [{ role: "TEACHER" as const, centerId: "c1" }] };
+  const gvu = { userId: "g", assignments: [{ role: "CENTER_CLASS_MANAGER" as const, centerId: "c1" }] };
+  const qc = { userId: "q", assignments: [{ role: "CENTER_MANAGER" as const, centerId: "c1" }] };
+  const csm = { userId: "s", assignments: [{ role: "CENTER_SALES_CSM" as const, centerId: "c1" }] };
+  const dt = { userId: "d", assignments: [{ role: "TRAINING" as const, centerId: null }] };
+  assert.equal(authorize(gv, "completion:propose", { centerId: "c1", ownerIds: ["gv1"] }).allowed, true);
+  assert.equal(authorize(gv, "completion:propose", { centerId: "c1", ownerIds: ["gv2"] }).allowed, false);
+  assert.equal(authorize(gv, "completion:approve", { centerId: "c1", ownerIds: ["gv1"] }).allowed, false);
+  assert.equal(authorize(gvu, "completion:approve", { centerId: "c1" }).allowed, true);
+  assert.equal(authorize(gvu, "completion:approve", { centerId: "c2" }).allowed, false);
+  assert.equal(authorize(qc, "completion:approve", { centerId: "c1" }).allowed, true);
+  assert.equal(authorize(dt, "completion:approve", {}).allowed, true);
+  // tư vấn / CSKH sửa được ghi danh nhưng không cấp chứng chỉ
+  assert.equal(authorize(csm, "enrollment:update", { centerId: "c1" }).allowed, true);
+  assert.equal(authorize(csm, "completion:approve", { centerId: "c1" }).allowed, false);
+  assert.equal(hasPermission(gv, "completion:propose"), true);
+  assert.equal(hasPermission(csm, "completion:approve"), false);
+});
+
 test("5F: tuyển dụng / tin nhắn / giới thiệu + quyền toàn hệ thống", () => {
   const hr = { userId: "h", assignments: [{ role: "CENTER_HR" as const, centerId: "c1" }] };
   const qc = { userId: "q", assignments: [{ role: "CENTER_MANAGER" as const, centerId: "c1" }] };
