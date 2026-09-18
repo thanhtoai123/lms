@@ -11,13 +11,14 @@ import { getOps } from "./opsSettings";
 import { maskEmail } from "./staffAuthHelpers";
 import { supabaseConfigured } from "./staffAuth";
 import { writeAudit } from "./audit";
+import { loginEventSecret } from "../lib/secrets";
 
 type Db = ProtectedContext["db"];
 const asDb = (d: Database | Db) => d as unknown as Db;
 
 const norm = (e: string) => e.trim().toLowerCase().slice(0, 200);
 export function emailHash(email: string) {
-  return createHmac("sha256", process.env.OTP_PEPPER || "login-events").update(`login|${norm(email)}`).digest("hex");
+  return createHmac("sha256", loginEventSecret()).update(`login|${norm(email)}`).digest("hex");
 }
 const clip = (s: string | null | undefined, n: number) => (s ? s.slice(0, n) : null);
 const firstIp = (ip: string | null | undefined) => clip(ip?.split(",")[0]?.trim(), 64);

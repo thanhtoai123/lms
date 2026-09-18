@@ -1,17 +1,24 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { mkdir, readFile, writeFile, unlink } from "node:fs/promises";
 import path from "node:path";
+import { isSafeObjectKey } from "@satarobo/core";
+import { mediaSigningSecret } from "./lib/secrets";
 
 /**
  * Lưu trữ ảnh lớp. Dev: đĩa cục bộ (STORAGE_DIR). Production: thay bằng R2/S3 cùng giao diện.
  * Ảnh không bao giờ công khai: chỉ phát qua URL có chữ ký, hết hạn (mặc định 15 phút).
  */
 const ROOT = () => process.env.STORAGE_DIR ?? path.join(process.cwd(), ".data", "uploads");
-const SECRET = () => process.env.MEDIA_SIGNING_SECRET ?? "dev-only-media-secret";
+const SECRET = mediaSigningSecret;
 
 function safePath(key: string) {
-  if (!/^[a-zA-Z0-9/_.-]+$/.test(key) || key.includes("..")) throw new Error("Khoá lưu trữ không hợp lệ");
-  return path.join(ROOT(), key);
+  // isSafeObjectKey chặn cả "..", "//", đường dẫn tuyệt đối và ký tự lạ
+  if (!isSafeObjectKey(key)) throw new Error("Khoá lưu trữ không hợp lệ");
+  const p = path.join(ROOT(), key);
+  // Lớp chặn cuối: đường dẫn phải nằm trong thư mục gốc sau khi chuẩn hoá
+  const root = path.resolve(ROOT());
+  if (!path.resolve(p).startsWith(root + path.sep)) throw new Error("Khoá lưu trữ không hợp lệ");
+  return p;
 }
 
 export async function putObject(key: string, data: Uint8Array) {

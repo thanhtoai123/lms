@@ -7,8 +7,9 @@ import { requirePermission, type ProtectedContext } from "../trpc";
 import { loadSessionForAuth, recordAttendance, todayISO } from "./sessions";
 import { writeAudit } from "./audit";
 import { getOps } from "./opsSettings";
+import { mediaSigningSecret } from "../lib/secrets";
 
-const secret = () => process.env.MEDIA_SIGNING_SECRET ?? "dev-only-media-secret";
+const secret = mediaSigningSecret;
 export function cardSig(studentId: string, version: number) {
   return createHmac("sha256", secret()).update(`card|${studentId}|${version}`).digest("hex").slice(0, 16);
 }

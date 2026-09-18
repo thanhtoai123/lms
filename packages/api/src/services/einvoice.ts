@@ -15,6 +15,7 @@ import { writeAudit } from "./audit";
 import { todayISO } from "./sessions";
 import { queueEmail, getSettings } from "./admin";
 import { notify, accountantsOf } from "./finance";
+import { mediaSigningSecret } from "../lib/secrets";
 
 type Db = ProtectedContext["db"];
 const bad = (m: string | string[]) => new TRPCError({ code: "BAD_REQUEST", message: Array.isArray(m) ? m.join("; ") : m });
@@ -119,7 +120,7 @@ async function providerIssue(db: Db, provider: EInvoiceSettings["provider"], p: 
     if (process.env.NODE_ENV === "production" && process.env.EINVOICE_ALLOW_SANDBOX !== "1") throw new Error("Nhà cung cấp thử nghiệm không dùng được ở production");
     const key = `${p.templateCode}|${p.serial}`;
     const [c] = await db.insert(einvoiceCounters).values({ key, seq: 1 }).onConflictDoUpdate({ target: einvoiceCounters.key, set: { seq: sql`${einvoiceCounters.seq} + 1` } }).returning({ seq: einvoiceCounters.seq });
-    const lookupCode = createHmac("sha256", process.env.MEDIA_SIGNING_SECRET ?? "dev-only-media-secret").update(`einv|${p.invoiceId}`).digest("hex").slice(0, 12).toUpperCase();
+    const lookupCode = createHmac("sha256", mediaSigningSecret()).update(`einv|${p.invoiceId}`).digest("hex").slice(0, 12).toUpperCase();
     return { number: c!.seq, issuedAt: new Date(), lookupCode, providerRef: `SBX-${p.invoiceId.slice(0, 8)}` };
   }
   const url = process.env.EINVOICE_API_URL;

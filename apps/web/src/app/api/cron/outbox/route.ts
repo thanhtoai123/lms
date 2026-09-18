@@ -1,16 +1,29 @@
+import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { getDb } from "@satarobo/db";
+import { devActorAllowed } from "@satarobo/core";
 import { processOutbox, scanLeadSla, runSurveyTriggers, processEmailQueue, remindDueHomework, publishDuePosts, syncAffiliateRewards, recordHeartbeat, syncInvoiceDrafts, dispatchParentMessages, dispatchPush, pruneLoginEvents, remindPauseEnding, buildActionRequiredAlerts } from "@satarobo/api";
 
 /**
  * GET /api/cron/outbox — Vercel Cron (mỗi phút) hoặc gọi tay. Bảo vệ bằng CRON_SECRET.
  * Self-host: dùng `pnpm worker` (vòng lặp) thay vì route này.
  */
+/** So khớp không lệ thuộc thời gian (chống dò khoá theo độ trễ) */
+function timingSafeEqualStr(a: string, b: string) {
+  const x = Buffer.from(a);
+  const y = Buffer.from(b);
+  return x.length === y.length && timingSafeEqual(x, y);
+}
+
 export async function GET(req: Request) {
   const secret = process.env.CRON_SECRET;
   const auth = req.headers.get("authorization");
-  if (!secret && process.env.NODE_ENV === "production") return NextResponse.json({ ok: false, error: "CRON_SECRET chưa cấu hình" }, { status: 503 });
-  if (secret && auth !== `Bearer ${secret}`) return NextResponse.json({ ok: false }, { status: 401 });
+  // Không còn "mở toang khi chưa đặt CRON_SECRET": chỉ môi trường phát triển (tài khoản mẫu bật) mới được gọi tay.
+  if (!secret) {
+    if (!devActorAllowed(process.env)) return NextResponse.json({ ok: false, error: "CRON_SECRET chưa cấu hình" }, { status: 503 });
+  } else if (!timingSafeEqualStr(auth ?? "", `Bearer ${secret}`)) {
+    return NextResponse.json({ ok: false }, { status: 401 });
+  }
   const db = getDb();
   const sla = await scanLeadSla(db);
   const r = await processOutbox(db, { batch: 200 });

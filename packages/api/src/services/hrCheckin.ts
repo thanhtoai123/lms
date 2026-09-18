@@ -15,8 +15,9 @@ import { requirePermission, type ProtectedContext } from "../trpc";
 import { writeAudit } from "./audit";
 import { todayISO } from "./sessions";
 import { bad, pre, notFound, can, centersWith, reasonOf, myStaff, assertOpen, shiftLite, vnStart, vnEnd, type Db } from "./hrShared";
+import { mediaSigningSecret } from "../lib/secrets";
 
-const secret = () => process.env.MEDIA_SIGNING_SECRET ?? "dev-only-media-secret";
+const secret = mediaSigningSecret;
 const tokenOf = (p: { id: string; keyVersion: number }) => checkinToken(secret(), p.id, p.keyVersion);
 
 /* ------------------------------------------------------------------ */

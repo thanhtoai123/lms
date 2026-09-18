@@ -22,6 +22,7 @@ import { deliverNotifications } from "./notify";
 import { ingestBankTx } from "./bank";
 import { createLead } from "./leads";
 import { leadInput } from "../routers/admissions";
+import { otpPepper } from "../lib/secrets";
 
 type Db = ProtectedContext["db"];
 const bad = (m: string | string[]) => new TRPCError({ code: "BAD_REQUEST", message: Array.isArray(m) ? m.join("; ") : m });
@@ -182,7 +183,7 @@ export async function retryEmail(ctx: ProtectedContext, input: { id: string }) {
 /* OTP                                                                 */
 /* ------------------------------------------------------------------ */
 
-const hashOtp = (phone: string, purpose: string, code: string) => createHash("sha256").update(`${process.env.OTP_PEPPER ?? "dev-otp-pepper"}|${phone}|${purpose}|${code}`).digest("hex");
+const hashOtp = (phone: string, purpose: string, code: string) => createHash("sha256").update(`${otpPepper()}|${phone}|${purpose}|${code}`).digest("hex");
 
 export async function requestOtp(db: Database, input: { phone: string; purpose: OtpPurpose; ip: string | null; userAgent?: string | null }) {
   const d = asDb(db);

@@ -1,4 +1,5 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
+import { piiEncryptionSecret } from "../lib/secrets";
 
 /**
  * Mã hoá tầng ứng dụng cho PII phụ huynh (parent_private: CCCD, địa chỉ).
@@ -6,8 +7,7 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:
  * Định dạng: "v1:<iv>:<tag>:<ciphertext>" (base64url).
  */
 function key() {
-  const secret = process.env.PII_ENCRYPTION_KEY || process.env.MEDIA_SIGNING_SECRET || "dev-only-media-secret";
-  return createHash("sha256").update(`pii|${secret}`).digest();
+  return createHash("sha256").update(`pii|${piiEncryptionSecret()}`).digest();
 }
 
 export function sealPii(plain: string | null | undefined): string | null {
