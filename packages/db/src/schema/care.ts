@@ -5,6 +5,7 @@ import {
   type SurveyQuestion, type SurveyAnswers,
 } from "@satarobo/core";
 import { id, timestamps } from "./_common";
+import { tenantCol } from "./tenant";
 import { users } from "./identity";
 import { centers } from "./org";
 import { parents, students, teachers } from "./people";
@@ -22,6 +23,7 @@ export const parentRequests = pgTable(
   "parent_requests",
   {
     id: id(),
+    tenantId: tenantCol(),
     code: text("code").notNull().unique(),
     type: parentRequestTypeEnum("type").notNull(),
     status: parentRequestStatusEnum("status").notNull().default("new"),
@@ -141,6 +143,7 @@ export const surveyResponses = pgTable("survey_responses", {
 /** Đợt gửi thông báo hàng loạt */
 export const notificationBroadcasts = pgTable("notification_broadcasts", {
   id: id(),
+  tenantId: tenantCol(),
   title: text("title").notNull(),
   body: text("body").notNull(),
   channel: text("channel").notNull(),

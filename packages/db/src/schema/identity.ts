@@ -1,5 +1,6 @@
 import { pgTable, text, uuid, boolean, date, timestamp, pgEnum, jsonb, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { id, timestamps } from "./_common";
+import { tenantCol } from "./tenant";
 import { ROLES, USER_ROLE_SOURCES } from "@satarobo/core";
 import { centers } from "./org";
 
@@ -14,6 +15,7 @@ export const users = pgTable(
   "users",
   {
     id: id(),
+    tenantId: tenantCol(),
     authSubject: text("auth_subject").unique(),
     email: text("email").notNull(),
     phone: text("phone"),
@@ -64,6 +66,7 @@ export const auditLog = pgTable(
   "audit_log",
   {
     id: id(),
+    tenantId: tenantCol(),
     actorId: uuid("actor_id").references(() => users.id),
     action: text("action").notNull(), // CREATE | UPDATE | DELETE | TRANSITION | PII_REVEAL ...
     module: text("module").notNull(), // academics | finance | ...

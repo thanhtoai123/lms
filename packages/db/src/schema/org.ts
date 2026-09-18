@@ -1,6 +1,7 @@
 import { pgTable, text, uuid, boolean, integer, index, uniqueIndex, timestamp, doublePrecision, jsonb, pgEnum } from "drizzle-orm/pg-core";
 import { ROOM_STATUSES, ORG_UNIT_TYPES, ORG_RELATIONSHIPS, ORG_UNIT_STATUSES } from "@satarobo/core";
 import { id, timestamps } from "./_common";
+import { tenantCol } from "./tenant";
 
 export const roomStatusEnum = pgEnum("room_status", ROOM_STATUSES);
 export const orgUnitTypeEnum = pgEnum("org_unit_type", ORG_UNIT_TYPES);
@@ -10,6 +11,7 @@ export const orgUnitStatusEnum = pgEnum("org_unit_status", ORG_UNIT_STATUSES);
 /** Khu vực (cây tổ chức: khu vực → cơ sở → bộ phận) */
 export const regions = pgTable("regions", {
   id: id(),
+  tenantId: tenantCol(),
   code: text("code").notNull().unique(),
   name: text("name").notNull(),
   /** Người phụ trách (users.id) — không khai FK để tránh vòng import với identity */
@@ -20,6 +22,7 @@ export const regions = pgTable("regions", {
 
 export const centers = pgTable("centers", {
   id: id(),
+  tenantId: tenantCol(),
   code: text("code").notNull().unique(), // CS1, CS2
   name: text("name").notNull(),
   address: text("address"),
@@ -38,6 +41,7 @@ export const rooms = pgTable(
   "rooms",
   {
     id: id(),
+    tenantId: tenantCol(),
     centerId: uuid("center_id").notNull().references(() => centers.id, { onDelete: "cascade" }),
     code: text("code").notNull(), // P302, 101
     name: text("name").notNull(),
@@ -60,6 +64,7 @@ export const rooms = pgTable(
 /** Pháp nhân ký hợp đồng / xuất hoá đơn cho một hoặc nhiều đơn vị trong cây */
 export const legalEntities = pgTable("legal_entities", {
   id: id(),
+  tenantId: tenantCol(),
   legalName: text("legal_name").notNull(),
   taxCode: text("tax_code").notNull().unique(),
   address: text("address"),
@@ -79,6 +84,7 @@ export const orgUnits = pgTable(
   "org_units",
   {
     id: id(),
+    tenantId: tenantCol(),
     /** Không đổi sau khi tạo */
     code: text("code").notNull(),
     name: text("name").notNull(),

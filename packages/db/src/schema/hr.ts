@@ -5,6 +5,7 @@ import {
   type ShiftSegment, type Role,
 } from "@satarobo/core";
 import { id, timestamps } from "./_common";
+import { tenantCol } from "./tenant";
 import { users } from "./identity";
 import { centers } from "./org";
 import { teachers } from "./people";
@@ -37,6 +38,7 @@ export const positions = pgTable(
   "positions",
   {
     id: id(),
+    tenantId: tenantCol(),
     /** null = đơn vị Hội sở / toàn hệ thống */
     centerId: uuid("center_id").references(() => centers.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
@@ -57,6 +59,7 @@ export const staff = pgTable(
   "staff",
   {
     id: id(),
+    tenantId: tenantCol(),
     code: text("code").notNull().unique(),
     userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
     teacherId: uuid("teacher_id").references(() => teachers.id, { onDelete: "set null" }),
@@ -168,6 +171,7 @@ export const workShifts = pgTable(
   "work_shifts",
   {
     id: id(),
+    tenantId: tenantCol(),
     centerId: uuid("center_id").references(() => centers.id, { onDelete: "cascade" }),
     code: text("code").notNull(),
     name: text("name").notNull(),
@@ -287,6 +291,7 @@ export const attendancePunches = pgTable(
   "attendance_punches",
   {
     id: id(),
+    tenantId: tenantCol(),
     staffId: uuid("staff_id").notNull().references(() => staff.id, { onDelete: "cascade" }),
     centerId: uuid("center_id").notNull().references(() => centers.id),
     kind: text("kind", { enum: ["in", "out"] }).notNull(),
@@ -405,6 +410,7 @@ export const timesheetPeriods = pgTable(
   "timesheet_periods",
   {
     id: id(),
+    tenantId: tenantCol(),
     centerId: uuid("center_id").notNull().references(() => centers.id),
     period: text("period").notNull(),
     status: periodStatusEnum("status").notNull().default("open"),
