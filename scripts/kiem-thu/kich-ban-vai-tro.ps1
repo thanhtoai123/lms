@@ -27,6 +27,14 @@ function T($name, $ok, $extra) {
   else { $script:fail++; $script:failList += $name; Write-Host "FAIL  $name $extra" }
 }
 function Psql($q) { return (docker compose exec -T postgres psql -U postgres -d satarobo -tA -c $q 2>&1 | Select-Object -First 3) -join " " }
+# Lenh hang loat tra ve { results, ok, failed }: neu ok=0 thi in ly do nghiep vu that,
+# khong chi bao "loi goi thanh cong".
+function MediaLoi($r) {
+  if (-not $r.ok) { return $r.err }
+  $bad = @($r.data.results) | Where-Object { $_.ok -ne $true } | Select-Object -First 1
+  if ($null -ne $bad) { return ("ok=" + $r.data.ok + " failed=" + $r.data.failed + " ly do=" + $bad.message) }
+  return ("ok=" + $r.data.ok)
+}
 
 $A = "superadmin@example.test"; $M = "manager.cs1@example.test"; $K = "ketoan.cs1@example.test"
 $H = "hr.cs1@example.test"; $S = "sale1.cs1@example.test"; $G = "giaovu.cs1@example.test"; $TE = "teacher1@satarobo.vn"
@@ -78,12 +86,12 @@ T "B1 tao lop trai nghiem" ($r.ok -and $tcId) $r.err
 $d1 = (Get-Date).AddDays(3).ToString("yyyy-MM-dd"); $d2 = (Get-Date).AddDays(10).ToString("yyyy-MM-dd"); $d3 = (Get-Date).AddDays(17).ToString("yyyy-MM-dd")
 $r = Mu "admissions.trials.addSession" @{ trialClassId = $tcId; date = $d1; startTime = "09:00"; endTime = "10:30" } $G
 $ts1 = $r.data.id
-T "B2 them buoi 1" $r.ok $r.err
+T "B2 them buoi 1" ($r.ok -and $ts1) $r.err
 $r = Mu "admissions.trials.addSession" @{ trialClassId = $tcId; date = $d2; startTime = "14:00"; endTime = "15:30" } $G
 T "B3 them buoi 2 (khac gio)" $r.ok $r.err
 $r = Mu "admissions.trials.enrollToClass" @{ trialClassId = $tcId; leadId = $leadId; childId = $childId } $G
 $enrId = $r.data.id
-T "B4 xep hoc vien vao lop" $r.ok $r.err
+T "B4 xep hoc vien vao lop" ($r.ok -and $enrId) $r.err
 $r = Q "admissions.trials.classDetail" @{ id = $tcId } $G
 $nSess = @($r.data.sessions).Count; $nEnr = @($r.data.enrollments).Count
 T "B5 chi tiet lop: 2 buoi, 1 hoc vien" (($nSess -eq 2) -and ($nEnr -eq 1)) ("buoi=$nSess hv=$nEnr")
@@ -119,7 +127,7 @@ Write-Host ""
 Write-Host "===== C. NHOM LOP ====="
 $r = Mu "academics.classes.upsertGroup" @{ code = "NL$rnd"; name = "Nhom kiem thu $rnd"; centerId = $cs1.id } $G
 $gid = $r.data.id
-T "C1 tao nhom lop" $r.ok $r.err
+T "C1 tao nhom lop" ($r.ok -and $gid) $r.err
 $r = Q "academics.classes.groups" $null $G
 $found = @(@($r.data) | Where-Object { $_.id -eq $gid }).Count
 T "C2 danh sach nhom lop co ban ghi moi" ($found -ge 1) ("tim thay=" + $found)
@@ -137,10 +145,10 @@ $r = Mu "finance.createOrder" @{
   installments = @{ count = 2; firstDueDate = $today; depositAmount = 2000000 }
 } $S
 $orderId = $r.data.id
-T "D1 tao don + coc 2tr + 2 dot" $r.ok $r.err
+T "D1 tao don + coc 2tr + 2 dot" ($r.ok -and $orderId) $r.err
 $r = Mu "finance.recordPayment" @{ orderId = $orderId; amount = 2000000; paymentMethodId = $method.id; paidAt = $today; payerName = "PH Kiem Thu" } $S
 $payId = $r.data.id
-T "D2 sale ghi nhan khoan thu" $r.ok $r.err
+T "D2 sale ghi nhan khoan thu" ($r.ok -and $payId) $r.err
 $r = Mu "finance.decidePayment" @{ paymentId = $payId; decision = "confirm" } $S
 T "D3 sale KHONG xac nhan duoc khoan thu" (-not $r.ok) $r.err
 $r = Mu "finance.decidePayment" @{ paymentId = $payId; decision = "confirm" } $K
@@ -182,14 +190,29 @@ Write-Host ""
 Write-Host "===== F. BUOI HOC & DIEM DANH ====="
 $from = (Get-Date).AddDays(-400).ToString("yyyy-MM-dd"); $to = (Get-Date).AddDays(400).ToString("yyyy-MM-dd")
 $allSess = @((Q "academics.sessions.list" @{ from = $from; to = $to; centerId = $cs1.id } $G).data)
-$one = @($allSess) | Where-Object { $_.status -eq "scheduled" } | Select-Object -First 1
-if ($null -eq $one) { $one = @($allSess)[0] }
+# Phai chon buoi cua lop CON HOC VIEN: lop rong thi roster rong -> enrollmentId null ->
+# recordAttendance bao "Expected string, received null" va F3 hong theo.
+$one = $null; $ws = $null
+$wsCache = @{}
+# Buoi phai DA DIEN RA (recordAttendance chan buoi tuong lai) va thuoc lop con hoc vien.
+$ungVien = @($allSess | Where-Object { $_.status -eq "scheduled" -and $_.classId -and $_.date -le $today } | Sort-Object -Property date -Descending)
+foreach ($cand in $ungVien) {
+  if (-not $wsCache.ContainsKey($cand.classId)) { $wsCache[$cand.classId] = (Q "academics.classes.workspace" @{ id = $cand.classId } $G).data }
+  $w = $wsCache[$cand.classId]
+  if (@($w.roster).Count -gt 0) { $one = $cand; $ws = $w; break }
+}
+if ($null -eq $one) {
+  # Khong co buoi nao vua da dien ra vua thuoc lop con hoc vien: van lay mot buoi de F0/F7/F8 chay duoc
+  $one = @($allSess) | Where-Object { $_.status -eq "scheduled" } | Select-Object -First 1
+  if ($null -eq $one) { $one = @($allSess)[0] }
+  if ($null -ne $one -and $one.classId) { $ws = (Q "academics.classes.workspace" @{ id = $one.classId } $G).data }
+}
 if ($null -ne $one -and $one.classId) { $cls = @($clsAll) | Where-Object { $_.id -eq $one.classId } | Select-Object -First 1 }
 $sessAll = @($allSess | Where-Object { $_.classId -eq $one.classId })
 T "F0 lay duoc mot buoi hoc" ($null -ne $one) ("tong buoi cua lop=" + @($sessAll).Count)
-$ws = (Q "academics.classes.workspace" @{ id = $one.classId } $G).data
 $rosters = @($ws.roster)
-T "F1 lop co hoc vien" ($rosters.Count -gt 0) ("si so=" + $rosters.Count)
+T "F1 lop co hoc vien" ($rosters.Count -gt 0) ("lop=" + $one.classCode + " si so=" + $rosters.Count)
+if ($rosters.Count -eq 0) { Write-Host "SKIP  F2-F6 (khong tim duoc buoi 'scheduled' nao thuoc lop con hoc vien)" }
 if ($rosters.Count -gt 0 -and $null -ne $one) {
   $recs = @()
   $recs += @{ enrollmentId = $rosters[0].enrollmentId; status = "absent_excused"; needsMakeup = $true; absenceReason = "PH bao om" }
@@ -219,17 +242,23 @@ if ($null -ne $fut) {
 
 Write-Host ""
 Write-Host "===== G. ANH LOP HAI TANG ====="
-$lib = @((Q "learning.media" @{ status = "library" } $M).data)
+$lib = @((Q "learning.media" @{ status = "library"; limit = 200 } $M).data)
 T "G1 co anh trong kho lop" ($lib.Count -gt 0) ("so anh=" + $lib.Count)
-if ($lib.Count -gt 0) {
-  $mid = $lib[0].id
+# submitMedia / reviewMedia / restoreMedia tra ve { results, ok, failed } — `ok` la SO DONG
+# THANH CONG cua nghiep vu. Loi goi HTTP thanh cong ma ok=0 van la hong: phai doc results[].message.
+$pick = @($lib) | Where-Object { $_.isClassWide -eq $true -or @($_.taggedStudentIds).Count -gt 0 } | Select-Object -First 1
+if ($lib.Count -gt 0 -and $null -eq $pick) {
+  Write-Host "SKIP  G2-G5 (kho lop khong co anh nao da gan hoc vien hoac danh dau anh chung -> khong du dieu kien gui duyet)"
+}
+if ($null -ne $pick) {
+  $mid = $pick.id
   $r = Mu "learning.submitMedia" @{ ids = @($mid) } $M
-  T "G2 gui duyet anh tu kho" $r.ok $r.err
+  T "G2 gui duyet anh tu kho" ($r.ok -and ([int]$r.data.ok -ge 1)) (MediaLoi $r)
   $r = Mu "learning.reviewMedia" @{ ids = @($mid); action = "reject"; reason = "Anh mo" } $M
-  T "G3 loai anh" $r.ok $r.err
+  T "G3 loai anh" ($r.ok -and ([int]$r.data.ok -ge 1)) (MediaLoi $r)
   $r = Mu "learning.restoreMedia" @{ ids = @($mid) } $M
-  T "G4 khoi phuc anh trong 7 ngay" $r.ok $r.err
-  $r = Q "learning.media" @{ sessionId = $lib[0].sessionId; status = "pending"; limit = 200 } $M
+  T "G4 khoi phuc anh trong 7 ngay" ($r.ok -and ([int]$r.data.ok -ge 1)) (MediaLoi $r)
+  $r = Q "learning.media" @{ sessionId = $pick.sessionId; status = "pending"; limit = 200 } $M
   $back = @(@($r.data) | Where-Object { $_.id -eq $mid }).Count
   T "G5 anh khoi phuc quay lai cho duyet" ($back -ge 1) ("tim thay=" + $back)
 }
@@ -281,7 +310,7 @@ $root = @($units) | Where-Object { $_.type -eq "region" -or $_.type -eq "ho" } |
 if ($null -ne $root) {
   $r = Mu "org.createUnit" @{ code = "KT$rnd"; name = "Don vi kiem thu $rnd"; type = "department"; parentId = $root.id; relationshipType = "owned"; reason = "Kiem thu cay to chuc" } $A
   $uid = $r.data.id
-  T "J2 tao don vi con" $r.ok $r.err
+  T "J2 tao don vi con" ($r.ok -and $uid) $r.err
   if ($r.ok) {
     $r = Mu "org.updateUnit" @{ id = $uid; code = "KTX$rnd"; name = "Doi ma"; reason = "Thu doi ma" } $A
     T "J3 ma don vi khong doi duoc sau khi tao" (-not $r.ok) $r.err
@@ -316,13 +345,13 @@ $r = Mu "care.upsertEvalForm" @{ title = "Phieu kiem thu $rnd"; type = "teacher_
 T "L1 radio chi 1 lua chon -> bi chan" ((-not $r.ok) -and ($r.err -match "2|l(ự|u)a ch(ọ|o)n")) $r.err
 $r = Mu "care.upsertEvalForm" @{ title = "Phieu kiem thu $rnd"; type = "teacher_eval"; centerId = $null; questions = @(@{ type = "rating"; label = "Thay day de hieu"; criteriaGroup = "Chuyen mon" }, @{ type = "checkbox"; label = "Ban thich diem nao"; options = @("Noi dung", "Giao vien") }) } $A
 $formId = $r.data.id
-T "L2 tao phieu danh gia hop le" $r.ok $r.err
+T "L2 tao phieu danh gia hop le" ($r.ok -and $formId) $r.err
 if ($r.ok) {
   $r = Mu "care.upsertEvalForm" @{ title = "Phieu anh $rnd"; type = "teacher_eval"; centerId = $null; questions = @(@{ type = "image"; label = "Tai anh minh hoa" }) } $A
   T "L3 cau hoi Tai anh chi dung cho phieu buoi hoc -> bi chan" (-not $r.ok) $r.err
   $r = Mu "care.upsertEvalRound" @{ formId = $formId; title = "Dot kiem thu $rnd"; centerId = $null; startDate = $today; endDate = (Get-Date).AddDays(14).ToString("yyyy-MM-dd") } $A
   $roundId = $r.data.id
-  T "L4 tao dot khao sat" $r.ok $r.err
+  T "L4 tao dot khao sat" ($r.ok -and $roundId) $r.err
   if ($r.ok) {
     $r = Mu "care.transitionEvalRound" @{ id = $roundId; action = "open" } $A
     T "L5 mo dot khao sat" $r.ok $r.err
@@ -335,7 +364,7 @@ Write-Host ""
 Write-Host "===== M. THONG BAO CAN THUC HIEN ====="
 $r = Mu "engagement.runActionAlerts" @{ } $A
 $cnt = $r.data.created; if ($null -eq $cnt) { $cnt = ($r.data | ConvertTo-Json -Compress) }
-T "M1 chay ra soat canh bao" $r.ok ("ket qua=" + $cnt)
+T "M1 chay ra soat canh bao" ($r.ok -and ($null -ne $r.data)) ("ket qua=" + $cnt)
 $r = Q "engagement.notificationCenter" @{ } $K
 $items = @($r.data.items)
 T "M2 trung tam thong bao (ke toan) co du lieu" ($items.Count -gt 0) ("so thong bao=" + $items.Count)
@@ -365,7 +394,7 @@ if ($pa.Count -gt 0) {
   $a = $pa[0]
   $r = Mu "schedule.requestMakeup" @{ enrollmentId = $a.enrollmentId; missedSessionId = $a.sessionId; note = "PH xin hoc bu" } $G
   $reqId = $r.data.id
-  T "O1 tao yeu cau hoc bu" $r.ok $r.err
+  T "O1 tao yeu cau hoc bu" ($r.ok -and $reqId) $r.err
   if ($r.ok) {
     $cand = (Q "schedule.makeupCandidates" @{ requestId = $reqId } $G)
     $cn = @($cand.data).Count
