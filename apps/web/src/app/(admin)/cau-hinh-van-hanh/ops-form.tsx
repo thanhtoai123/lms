@@ -22,7 +22,7 @@ export function OpsForm({ group, centerId }: { group: OpsGroup; centerId: string
   if (q.error) return <div className="card p-6 text-sm text-red-700">{q.error.message}</div>;
   const d = q.data!;
   const submit = () => {
-    const values: Record<string, number | boolean | null> = {};
+    const values: Record<string, string | number | boolean | null> = {};
     for (const f of d.fields) {
       if (!f.editable) continue;
       if (centerId && inherit[f.key]) { if (f.overridden) values[f.key] = null; continue; }

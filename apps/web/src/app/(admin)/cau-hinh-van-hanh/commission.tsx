@@ -234,9 +234,9 @@ export function CommissionPolicyPanel({ centers, today }: { centers: { id: strin
                           sourceRef: p.sourceRef ?? "", note: p.note ?? "", effectiveFrom: p.effectiveFrom, effectiveTo: p.effectiveTo ?? "", isActive: p.isActive, reason: "",
                         });
                       }}>Sửa</button>
-                      {toggling?.id === p.id ? (
+                      {toggling && toggling.id === p.id ? (
                         <div className="space-y-1">
-                          <input className="input !py-1 text-xs" placeholder="Lý do (bắt buộc)" value={toggling.reason} onChange={(e) => setToggling({ ...toggling, reason: e.target.value })} />
+                          <input className="input !py-1 text-xs" placeholder="Lý do (bắt buộc)" value={toggling.reason} onChange={(e) => setToggling({ id: toggling.id, isActive: toggling.isActive, reason: e.target.value })} />
                           <button className="btn-ghost !px-2 !py-1 text-xs" disabled={toggling.reason.trim().length < 5 || toggle.isPending}
                             onClick={() => toggle.mutate({ id: p.id, isActive: toggling.isActive, reason: toggling.reason.trim() })}>Xác nhận</button>
                         </div>

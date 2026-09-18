@@ -88,7 +88,7 @@ export function LeadEditForm({ lead, centers, courses }: { lead: LeadForEdit; ce
           <Link href={`/leads/${lead.id}`} className="btn-ghost">Huỷ</Link>
         </div>
       </form>
-      <LeadChildrenBlock leadId={lead.id} legacyChildName={lead.legacyChildName} legacyGrade={lead.childGrade} items={lead.children} courses={courses} canEdit onChanged={() => router.refresh()} />
+      <LeadChildrenBlock leadId={lead.id} legacyChildName={lead.legacyChildName} legacyGrade={lead.childGrade} items={lead.children} courses={courses} centers={centers} canEdit onChanged={() => router.refresh()} />
     </div>
   );
 }
