@@ -193,6 +193,7 @@ export const ADMIN_NAV: NavGroup[] = [
       { label: "Nhóm người dùng", href: "/user-groups", icon: "users-round", perm: "system:read", ready: true, desc: "Nhóm nhận thông báo nội bộ và cấp quyền theo nhóm (không sửa vai trò)." },
       { label: "Vai trò & quyền", href: "/roles", icon: "key-round", perm: "system:read", ready: true, desc: "Ma trận vai trò × quyền (đọc từ policy engine)." },
       { label: "Cây tổ chức", href: "/to-chuc", icon: "network", perm: "system:read", ready: true, desc: "Gốc hệ thống → hội sở → khối vùng → phòng ban → cơ sở → điểm dạy; pháp nhân và quan hệ sở hữu / nhượng quyền / liên kết." },
+      { label: "Nhượng quyền", href: "/nhuong-quyen", icon: "store", perm: "tenant:read", ready: true, desc: "Danh sách trung tâm nhượng quyền kèm số liệu tổng hợp, tuỳ chọn quyền riêng tư của từng trung tâm, và nút tạo trung tâm mới từ mô hình mẫu chỉ một thao tác." },
       { label: "Bảo mật hệ thống", href: "/bao-mat-he-thong", icon: "shield-alert", perm: "system:read", ready: true, desc: "Khuyến nghị bảo mật, tài khoản cần rà soát, đăng nhập sai, nhật ký đăng nhập." },
       { label: "Audit Log", href: "/audit-log", icon: "scroll-text", perm: "audit:read", ready: true, desc: "Nhật ký thao tác bất biến, lọc theo cơ sở/module/người." },
       { label: "Tuân thủ dữ liệu", href: "/compliance", icon: "triangle-alert", perm: "compliance:read", ready: true, desc: "Luật BVDLCN 2025 / NĐ 356: đồng ý, yêu cầu của chủ thể dữ liệu, sổ sự cố, lưu giữ." },

@@ -75,6 +75,7 @@ export const PERMISSION_RESOURCES: { key: string; label: string; group: string }
   { key: "completion", label: "Hoàn thành khoá & chứng chỉ", group: "Học vụ" },
   { key: "system", label: "Hệ thống / tài khoản", group: "Hệ thống" },
   { key: "audit", label: "Audit Log", group: "Hệ thống" },
+  { key: "tenant", label: "Trung tâm nhượng quyền", group: "Hệ thống" },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -96,7 +97,8 @@ export const GROUP_PERMISSION_ACTION_VI: Record<GroupPermissionAction, string> =
 };
 
 /** Tài nguyên KHÔNG cấp qua nhóm (phải đi qua vai trò) */
-const GROUP_FORBIDDEN_RESOURCES = new Set(["system", "audit", "compliance"]);
+// `tenant` không cấp qua nhóm: mở / khoá một trung tâm là việc của vai trò quản trị
+const GROUP_FORBIDDEN_RESOURCES = new Set(["system", "audit", "compliance", "tenant"]);
 
 export const GROUP_PERMISSION_RESOURCES = PERMISSION_RESOURCES.filter((r) => !GROUP_FORBIDDEN_RESOURCES.has(r.key));
 
