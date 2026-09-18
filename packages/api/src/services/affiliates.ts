@@ -9,6 +9,7 @@ import {
 import type { ProtectedContext } from "../trpc";
 import { writeAudit } from "./audit";
 import { notify } from "./finance";
+import { assertCenterTenant, tenantCond, tenantCondViaCenter } from "./tenantScope";
 
 type Db = ProtectedContext["db"];
 const bad = (m: string | string[]) => new TRPCError({ code: "BAD_REQUEST", message: Array.isArray(m) ? m.join("; ") : m });
@@ -27,10 +28,12 @@ function rule<T>(fn: () => T): T {
 }
 const can = (ctx: ProtectedContext, p: `affiliate:${string}`, centerId: string | null) => authorize(ctx.actor, p, { centerId }).allowed;
 function scopeOf(ctx: ProtectedContext, col: typeof affiliates.centerId | typeof affiliateRewards.centerId): SQL {
+  // Nguồn giới thiệu chưa có cột tenant → suy theo cơ sở gắn với dòng
+  const tenant = tenantCondViaCenter(ctx, col);
   const ids = centersWith(ctx.actor, "affiliate:read");
-  if (ids === null) return sql`true`;
+  if (ids === null) return tenant;
   if (!ids.length) throw forbid("Không có quyền xem nguồn giới thiệu");
-  return or(isNull(col), inArray(col, ids))!;
+  return and(or(isNull(col), inArray(col, ids))!, tenant)!;
 }
 
 export async function listAffiliates(ctx: ProtectedContext, input: { q?: string; active?: boolean }) {
@@ -45,7 +48,7 @@ export async function listAffiliates(ctx: ProtectedContext, input: { q?: string;
     paid: sql<number>`(select coalesce(sum(amount), 0)::float from ${affiliateRewards} r where r.affiliate_id = ${affiliates.id} and r.status = 'paid')`,
   }).from(affiliates).leftJoin(centers, eq(centers.id, affiliates.centerId)).where(and(...conds)).orderBy(desc(affiliates.isActive), asc(affiliates.name)).limit(300);
   const ids = centersWith(ctx.actor, "affiliate:create");
-  const ctrs = await ctx.db.select({ id: centers.id, code: centers.code, name: centers.name }).from(centers).where(eq(centers.isActive, true)).orderBy(asc(centers.code));
+  const ctrs = await ctx.db.select({ id: centers.id, code: centers.code, name: centers.name }).from(centers).where(and(eq(centers.isActive, true), tenantCond(ctx, centers))).orderBy(asc(centers.code));
   const [rw] = await ctx.db.select({
     pending: sql<number>`count(*) filter (where ${affiliateRewards.status} = 'pending')::int`,
     approved: sql<number>`count(*) filter (where ${affiliateRewards.status} = 'approved')::int`,
@@ -75,7 +78,7 @@ export async function upsertAffiliate(ctx: ProtectedContext, input: AffiliateInp
   const errs = validateAffiliate({ ...input, code });
   if (errs.length) throw bad(errs);
   if (before && before.code !== code) {
-    const [used] = await ctx.db.select({ n: sql<number>`count(*)::int` }).from(leads).where(eq(leads.referralCode, before.code));
+    const [used] = await ctx.db.select({ n: sql<number>`count(*)::int` }).from(leads).where(and(eq(leads.referralCode, before.code), tenantCond(ctx, leads)));
     if ((used?.n ?? 0) > 0) throw pre("Mã đã có lead — không đổi mã (tạo nguồn mới)");
   }
   const dup = await ctx.db.query.affiliates.findFirst({ where: and(eq(affiliates.code, code), before ? sql`${affiliates.id} <> ${before.id}` : sql`true`) });
@@ -115,7 +118,7 @@ export async function getAffiliate(ctx: ProtectedContext, id: string) {
   if (!row) throw notFound("Không tìm thấy nguồn giới thiệu");
   const a = row.a;
   const ls = await ctx.db.select({ id: leads.id, name: leads.parentName, phone: leads.phoneNormalized, status: leads.status, createdAt: leads.createdAt, convertedAt: leads.convertedAt, owner: users.fullName })
-    .from(leads).leftJoin(users, eq(users.id, leads.assignedToId)).where(and(eq(leads.referralCode, a.code), isNull(leads.deletedAt))).orderBy(desc(leads.createdAt)).limit(200);
+    .from(leads).leftJoin(users, eq(users.id, leads.assignedToId)).where(and(eq(leads.referralCode, a.code), isNull(leads.deletedAt), tenantCond(ctx, leads))).orderBy(desc(leads.createdAt)).limit(200);
   const rs = await ctx.db.select({ r: affiliateRewards, lead: leads.parentName, order: orders.code, approver: users.fullName }).from(affiliateRewards)
     .innerJoin(leads, eq(leads.id, affiliateRewards.leadId)).leftJoin(orders, eq(orders.id, affiliateRewards.orderId)).leftJoin(users, eq(users.id, affiliateRewards.approvedBy))
     .where(eq(affiliateRewards.affiliateId, a.id)).orderBy(desc(affiliateRewards.createdAt));
@@ -148,6 +151,7 @@ export async function listRewards(ctx: ProtectedContext, input: { status?: Rewar
 export async function rewardAction(ctx: ProtectedContext, input: { id: string; action: "approve" | "pay" | "cancel"; reason?: string | null; paymentRef?: string | null }) {
   const r = await ctx.db.query.affiliateRewards.findFirst({ where: eq(affiliateRewards.id, input.id) });
   if (!r) throw notFound("Không tìm thấy khoản thưởng");
+  await assertCenterTenant(ctx, r.centerId, "Khoản thưởng giới thiệu");
   const perm = input.action === "approve" ? "affiliate:approve" : input.action === "pay" ? "affiliate:pay" : null;
   if (perm && !can(ctx, perm, r.centerId)) throw forbid("Không có quyền");
   if (!perm && !can(ctx, "affiliate:approve", r.centerId) && !can(ctx, "affiliate:pay", r.centerId)) throw forbid("Không có quyền");

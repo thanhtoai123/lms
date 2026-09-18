@@ -15,6 +15,7 @@ import { requirePermission, type ProtectedContext } from "../trpc";
 import { writeAudit } from "./audit";
 import { putObject } from "../storage";
 import { todayISO } from "./sessions";
+import { tenantCond, tenantSql } from "./tenantScope";
 
 type Db = ProtectedContext["db"];
 const bad = (m: string | string[]) => new TRPCError({ code: "BAD_REQUEST", message: Array.isArray(m) ? m.join("; ") : m });
@@ -303,7 +304,7 @@ async function leadAgg(ctx: ProtectedContext, groupExpr: SQL, r: ReturnType<type
       coalesce(sum((select coalesce(sum(p.amount), 0) from payments p join orders o on o.id = p.order_id where p.status = 'confirmed' and o.student_id = l.converted_student_id)), 0)::float as revenue,
       count(*) filter (where l.marketing_opt_out)::int as opted_out
     from leads l
-    where l.deleted_at is null and l.created_at between ${r.fromTs}::timestamptz and ${r.toTs}::timestamptz and ${centerSql}
+    where l.deleted_at is null and l.created_at between ${r.fromTs}::timestamptz and ${r.toTs}::timestamptz and ${centerSql} and ${tenantSql(ctx, "l")}
     group by 1 order by 2 desc`);
 }
 
@@ -329,7 +330,7 @@ export async function marketingOverview(ctx: ProtectedContext, input: { from?: s
   const totals = bySource.reduce((a, x) => ({ leads: a.leads + x.leads, enrolled: a.enrolled + x.enrolled, revenue: a.revenue + x.revenue, optedOut: a.optedOut + x.opted_out }), { leads: 0, enrolled: 0, revenue: 0, optedOut: 0 });
   const untracked = byCampaign.find((x) => x.key === null)?.leads ?? 0;
   const s = await getMarketingSettings(ctx.db);
-  const ctrs = await ctx.db.select({ id: centers.id, code: centers.code, name: centers.name }).from(centers).where(eq(centers.isActive, true)).orderBy(asc(centers.code));
+  const ctrs = await ctx.db.select({ id: centers.id, code: centers.code, name: centers.name }).from(centers).where(and(eq(centers.isActive, true), tenantCond(ctx, centers))).orderBy(asc(centers.code));
   const vis = visibleCenterIds(ctx.actor);
   return {
     range: { from: r.from, to: r.to }, centerId: input.centerId ?? null, centers: vis === null ? ctrs : ctrs.filter((c) => vis.includes(c.id)),
@@ -433,7 +434,7 @@ export async function marketingFunnel(ctx: ProtectedContext, input: { from?: str
       exists (select 1 from trial_bookings tb where tb.lead_id = l.id and tb.status = 'attended') as attended,
       l.converted_at is not null as converted,
       exists (select 1 from payments p join orders o on o.id = p.order_id where p.status = 'confirmed' and o.student_id = l.converted_student_id) as paid
-    from leads l where l.deleted_at is null and l.created_at between ${r.fromTs}::timestamptz and ${r.toTs}::timestamptz ${utm ? sql`and l.utm_campaign = ${utm}` : sql``}`);
+    from leads l where l.deleted_at is null and l.created_at between ${r.fromTs}::timestamptz and ${r.toTs}::timestamptz and ${tenantSql(ctx, "l")} ${utm ? sql`and l.utm_campaign = ${utm}` : sql``}`);
   const ls = input.channel ? leadRows.filter((x) => channelOf(x.utm_source, x.source) === input.channel) : leadRows;
   const steps = [
     { key: "visitors", label: "Người truy cập", n: ev?.visitors ?? 0, web: true },
