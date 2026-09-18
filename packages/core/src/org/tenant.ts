@@ -260,6 +260,62 @@ export function assertTransferAllowed(input: Parameters<typeof canTransferAcross
 }
 
 /* ------------------------------------------------------------------ */
+/* Cấu hình dùng chung: chọn bản của đúng trung tâm                    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Chọn cấu hình (mẫu email, loại thông báo…) cho một trung tâm theo thứ tự ưu tiên:
+ *  1. dòng của CHÍNH trung tâm đó;
+ *  2. dòng của trung tâm mặc định (chuỗi gốc) — dự phòng;
+ *  3. dòng dùng chung (chưa gắn tenant) — dữ liệu di sản;
+ *  4. dòng đầu tiên còn lại.
+ *
+ * Nhờ bước 2 và 3, hệ thống một-tenant chạy y như trước khi có nhượng quyền.
+ */
+export function pickForTenant<T extends { tenantId?: string | null }>(
+  rows: readonly T[],
+  tenantId: string | null | undefined,
+  defaultTenantId?: string | null,
+): T | null {
+  if (!rows.length) return null;
+  const of = (r: T) => r.tenantId ?? null;
+  const mine = tenantId ? rows.find((r) => of(r) === tenantId) : undefined;
+  if (mine) return mine;
+  const def = defaultTenantId ? rows.find((r) => of(r) === defaultTenantId) : undefined;
+  if (def) return def;
+  return rows.find((r) => of(r) === null) ?? rows[0] ?? null;
+}
+
+/**
+ * Danh mục cấu hình theo mã, lấy đúng bản của một trung tâm.
+ * Dùng cho bộ đệm loại thông báo: bộ đệm khoá theo **(tenantId, mã)**, nên cấu hình
+ * của bên nhượng quyền không bao giờ đè lên cấu hình của chuỗi và ngược lại.
+ */
+export function catalogForTenant<T extends { tenantId?: string | null }>(
+  rows: readonly T[],
+  keyOf: (row: T) => string,
+  tenantId: string | null | undefined,
+  defaultTenantId?: string | null,
+): Map<string, T> {
+  const byKey = new Map<string, T[]>();
+  for (const r of rows) {
+    const k = keyOf(r);
+    byKey.set(k, [...(byKey.get(k) ?? []), r]);
+  }
+  const out = new Map<string, T>();
+  for (const [k, list] of byKey) {
+    const picked = pickForTenant(list, tenantId, defaultTenantId);
+    if (picked) out.set(k, picked);
+  }
+  return out;
+}
+
+/** Danh mục có cấu hình riêng của từng trung tâm không (quyết định có phải tra tenant người nhận) */
+export function hasPerTenantConfig<T extends { tenantId?: string | null }>(rows: readonly T[], defaultTenantId?: string | null): boolean {
+  return rows.some((r) => !!r.tenantId && r.tenantId !== (defaultTenantId ?? null));
+}
+
+/* ------------------------------------------------------------------ */
 /* Mã tenant                                                           */
 /* ------------------------------------------------------------------ */
 

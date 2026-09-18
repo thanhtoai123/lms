@@ -13,6 +13,7 @@ import { userNotifications, notificationTypes, tenants, users, userRoles, bankTr
 import {
   decideDelivery, authorizeGlobal, buildActionAlerts, marketingReportOverdue, previousPeriod, notificationTypeDef, notificationLabel,
   validateNotificationTypeReason, priorityFromRank,
+  catalogForTenant, hasPerTenantConfig,
   NOTIFICATION_TYPES, NOTIFICATION_GROUPS, NOTIFICATION_PRIORITY_RANK, NOTIFICATION_PRIORITY_VI,
   type NotificationTypeRow, type NotificationPriority,
 } from "@satarobo/core";
@@ -26,26 +27,19 @@ type Tx = Parameters<Parameters<Database["transaction"]>[0]>[0];
 export type AnyDb = Db | Database | Tx;
 const asDb = (d: AnyDb) => d as unknown as Db;
 
-/** Bộ nhớ đệm ngắn cho danh mục — tránh một truy vấn mỗi lần gửi thông báo */
-let cache: { at: number; rows: Map<string, NotificationTypeRow> } | null = null;
+/**
+ * Bộ nhớ đệm ngắn cho danh mục — tránh một truy vấn mỗi lần gửi thông báo.
+ * Bản đã chọn được nhớ theo **(tenantId, mã loại)**: mỗi trung tâm có danh mục riêng,
+ * bên nhượng quyền bật / tắt đẩy thông báo của họ mà không đụng tới chuỗi.
+ */
+interface CatalogRow { prefix: string; pushEnabled: boolean; isActive: boolean; tenantId: string | null }
+let cache: { at: number; rows: CatalogRow[]; defaultTenantId: string | null; byTenant: Map<string, Map<string, CatalogRow>> } | null = null;
 const CACHE_MS = 60_000;
+/** Khoá bộ đệm cho "không biết tenant" — rơi về cấu hình của trung tâm mặc định */
+const NO_TENANT = "";
 
 export function invalidateNotificationCatalog() {
   cache = null;
-}
-
-/**
- * Nhiều trung tâm (tenant) có thể cùng khai một mã loại thông báo.
- * Bộ đệm dùng chung này lấy cấu hình của **trung tâm mặc định** để hành vi của chuỗi
- * không bị bên nhượng quyền đổi; cấu hình riêng của từng tenant hiển thị ở màn danh mục.
- */
-function pickByTenant<T extends { prefix: string; tenantId: string | null }>(rows: T[], defaultTenantId: string | null): Map<string, T> {
-  const out = new Map<string, T>();
-  for (const r of rows) {
-    const cur = out.get(r.prefix);
-    if (!cur || (defaultTenantId && r.tenantId === defaultTenantId)) out.set(r.prefix, r);
-  }
-  return out;
 }
 
 async function defaultTenantId(db: AnyDb): Promise<string | null> {
@@ -53,18 +47,32 @@ async function defaultTenantId(db: AnyDb): Promise<string | null> {
   return d?.id ?? null;
 }
 
-export async function notificationCatalog(db: AnyDb): Promise<Map<string, NotificationTypeRow>> {
-  if (cache && Date.now() - cache.at < CACHE_MS) return cache.rows;
+async function loadCatalog(db: AnyDb) {
+  if (cache && Date.now() - cache.at < CACHE_MS) return cache;
   try {
     const rows = await asDb(db)
       .select({ prefix: notificationTypes.prefix, pushEnabled: notificationTypes.pushEnabled, isActive: notificationTypes.isActive, tenantId: notificationTypes.tenantId })
       .from(notificationTypes);
-    cache = { at: Date.now(), rows: pickByTenant(rows, rows.length > 1 ? await defaultTenantId(db) : null) };
+    cache = { at: Date.now(), rows, defaultTenantId: rows.length > 1 ? await defaultTenantId(db) : null, byTenant: new Map() };
   } catch {
     // Chưa chạy migration bảng danh mục → rơi về mặc định trong core; thông báo không bao giờ bị mất
-    cache = { at: Date.now(), rows: new Map() };
+    cache = { at: Date.now(), rows: [], defaultTenantId: null, byTenant: new Map() };
   }
-  return cache.rows;
+  return cache;
+}
+
+/**
+ * Danh mục loại thông báo ĐANG HIỆU LỰC của một trung tâm.
+ * Không truyền `tenantId`, hoặc trung tâm đó chưa khai loại nào → lấy cấu hình của trung tâm mặc định.
+ */
+export async function notificationCatalog(db: AnyDb, tenantId?: string | null): Promise<Map<string, NotificationTypeRow>> {
+  const c = await loadCatalog(db);
+  const key = tenantId ?? NO_TENANT;
+  const hit = c.byTenant.get(key);
+  if (hit) return hit;
+  const built = catalogForTenant(c.rows, (r) => r.prefix, tenantId ?? null, c.defaultTenantId);
+  c.byTenant.set(key, built);
+  return built;
 }
 
 export interface NotifyPayload {
@@ -77,6 +85,11 @@ export interface NotifyPayload {
   type?: string | null;
   /** Không tạo lại nếu người đó đã có thông báo cùng khoá này */
   dedupeKey?: string | null;
+  /**
+   * Trung tâm (tenant) phát thông báo — quyết định lấy danh mục loại thông báo của ai.
+   * Bỏ trống: dùng danh mục của trung tâm mặc định (hành vi cũ của chuỗi giữ nguyên).
+   */
+  tenantId?: string | null;
 }
 
 /**
@@ -88,8 +101,6 @@ export async function deliverNotifications(db: AnyDb, userIds: (string | null | 
   let ids = [...new Set(userIds.filter((u): u is string => !!u))];
   if (!ids.length) return { inserted: 0, push: false, priority: x.priority ?? 2 };
 
-  const decision = decideDelivery(x.type, (await notificationCatalog(d)).get(x.type ?? "") ?? null, x.priority ?? 2);
-
   if (x.dedupeKey) {
     const existing = await d
       .select({ userId: userNotifications.userId })
@@ -97,24 +108,60 @@ export async function deliverNotifications(db: AnyDb, userIds: (string | null | 
       .where(and(inArray(userNotifications.userId, ids), eq(userNotifications.dedupeKey, x.dedupeKey)));
     const had = new Set(existing.map((e) => e.userId));
     ids = ids.filter((i) => !had.has(i));
-    if (!ids.length) return { inserted: 0, push: false, priority: decision.priority };
+    if (!ids.length) return { inserted: 0, push: false, priority: x.priority ?? 2 };
   }
 
-  await d.insert(userNotifications).values(
-    ids.map((userId) => ({
-      userId,
-      title: x.title,
-      body: x.body ?? null,
-      link: x.link ?? null,
-      priority: decision.priority,
-      type: x.type ?? null,
-      dedupeKey: x.dedupeKey ?? null,
-    })),
-  );
-  return { inserted: ids.length, push: decision.push, priority: decision.priority };
+  // Người nhận thuộc nhiều trung tâm thì mỗi nhóm dùng danh mục của trung tâm mình.
+  // Hệ thống một-tenant (chỉ có danh mục dùng chung) đi thẳng nhánh dưới — không thêm truy vấn nào.
+  const groups = await groupRecipients(d, ids, x.tenantId ?? null);
+
+  let inserted = 0;
+  let push = false;
+  let priority = x.priority ?? 2;
+  for (const g of groups) {
+    const decision = decideDelivery(x.type, (await notificationCatalog(d, g.tenantId)).get(x.type ?? "") ?? null, x.priority ?? 2);
+    await d.insert(userNotifications).values(
+      g.ids.map((userId) => ({
+        userId,
+        title: x.title,
+        body: x.body ?? null,
+        link: x.link ?? null,
+        priority: decision.priority,
+        type: x.type ?? null,
+        dedupeKey: x.dedupeKey ?? null,
+      })),
+    );
+    inserted += g.ids.length;
+    push = push || decision.push;
+    priority = decision.priority;
+  }
+  return { inserted, push, priority };
 }
 
-/** Dạng gọn cho các service: `notifyTyped(db, "lead.moi", ids, "Tiêu đề", "Nội dung", "/leads")` */
+/**
+ * Chia người nhận theo trung tâm (tenant).
+ * - Đã biết tenant (người gọi truyền vào) → một nhóm duy nhất;
+ * - Danh mục chỉ có cấu hình dùng chung → một nhóm duy nhất, KHÔNG truy vấn thêm (hành vi cũ);
+ * - Nhiều trung tâm cùng khai danh mục → tra tenant của từng người nhận.
+ */
+async function groupRecipients(d: Db, ids: string[], tenantId: string | null): Promise<{ tenantId: string | null; ids: string[] }[]> {
+  if (tenantId) return [{ tenantId, ids }];
+  const c = await loadCatalog(d);
+  // Không trung tâm nào khai danh mục riêng → giữ nguyên đường cũ, không thêm truy vấn nào
+  if (!hasPerTenantConfig(c.rows, c.defaultTenantId)) return [{ tenantId: null, ids }];
+  const rows = await d.select({ id: users.id, tenantId: users.tenantId }).from(users).where(inArray(users.id, ids));
+  const groups = new Map<string, string[]>();
+  for (const id of ids) {
+    const t = rows.find((r) => r.id === id)?.tenantId ?? NO_TENANT;
+    groups.set(t, [...(groups.get(t) ?? []), id]);
+  }
+  return [...groups.entries()].map(([t, g]) => ({ tenantId: t === NO_TENANT ? null : t, ids: g }));
+}
+
+/**
+ * Dạng gọn cho các service: `notifyTyped(db, "lead.moi", ids, "Tiêu đề", "Nội dung", "/leads", 2, ctx.tenantId)`.
+ * Tham số `tenantId` ở cuối để mọi lời gọi cũ vẫn đúng; truyền vào thì lấy danh mục của trung tâm đó.
+ */
 export async function notifyTyped(
   db: AnyDb,
   type: string | null,
@@ -123,8 +170,9 @@ export async function notifyTyped(
   body: string,
   link: string,
   priority = 2,
+  tenantId: string | null = null,
 ) {
-  return deliverNotifications(db, userIds, { title, body, link, priority, type });
+  return deliverNotifications(db, userIds, { title, body, link, priority, type, tenantId });
 }
 
 /* ------------------------------------------------------------------ */
@@ -134,8 +182,7 @@ export async function notifyTyped(
 /** Danh mục hiệu lực = mặc định trong core, ghi đè bằng dòng trong CSDL */
 export async function effectiveCatalog(db: AnyDb, tenantId?: string | null) {
   const rows = await asDb(db).select().from(notificationTypes);
-  const mine = tenantId ? rows.filter((r) => r.tenantId === tenantId) : [];
-  const byPrefix = mine.length ? new Map(mine.map((r) => [r.prefix, r])) : pickByTenant(rows, rows.length > 1 ? await defaultTenantId(db) : null);
+  const byPrefix = catalogForTenant(rows, (r) => r.prefix, tenantId ?? null, rows.length > 1 ? await defaultTenantId(db) : null);
   return NOTIFICATION_TYPES.map((def) => {
     const row = byPrefix.get(def.prefix);
     return {

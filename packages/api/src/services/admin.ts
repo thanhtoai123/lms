@@ -11,6 +11,7 @@ import {
   OTP_POLICY, otpPolicyFrom, otpRequestDecision, otpVerifyDecision, normalizeVnPhone,
   canReplay, safeHeaders, SETTINGS_DEFAULTS, validateSettings, validateCode, validateGroup, parseSepayPayload, hasRole, DEPARTMENT_VI,
   groupPermissionCatalog, validateGroupPermissions, GROUP_PERMISSION_ACTION_VI, otpDailyCutoff, znsCostEstimate, otpCutoffState,
+  pickForTenant,
   type EmailEvent, type EmailStatus, type OtpPurpose, type OtpStatus, type WebhookSource, type WebhookStatus, type AppSettings, type Department,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
@@ -18,7 +19,7 @@ import { sendOtpMessage, deliverySettings, otpDeliveryReady } from "./delivery";
 import { pushOverview } from "./pilot";
 import { getOps } from "./opsSettings";
 import { writeAudit } from "./audit";
-import { tenantCond } from "./tenantScope";
+import { assertTenant, tenantCond } from "./tenantScope";
 import { deliverNotifications } from "./notify";
 import { ingestBankTx } from "./bank";
 import { createLead } from "./leads";
@@ -47,24 +48,30 @@ const SAMPLE_VARS: Record<string, string> = {
  */
 async function templateFor(db: Db, event: EmailEvent, tenantId?: string | null) {
   const rows = await db.select().from(emailTemplates).where(eq(emailTemplates.eventKey, event));
-  let t = tenantId ? rows.find((r) => r.tenantId === tenantId) : undefined;
-  if (!t && rows.length > 1) {
+  let defaultId: string | null = null;
+  if (rows.length > 1) {
     const [d] = await db.select({ id: tenants.id }).from(tenants).where(eq(tenants.isDefault, true)).limit(1);
-    t = rows.find((r) => r.tenantId === d?.id);
+    defaultId = d?.id ?? null;
   }
-  t ??= rows[0];
+  // Luật chọn nằm ở @satarobo/core (có kiểm thử): của chính tenant → của tenant mặc định → dùng chung
+  const t = pickForTenant(rows, tenantId ?? null, defaultId);
   const def = EMAIL_EVENTS[event];
   return t && t.isActive ? { subject: t.subject, body: t.body, custom: true } : { subject: def.subject, body: def.body, custom: false };
 }
 
-/** Đưa email vào hàng đợi (dùng từ nghiệp vụ). Không ném lỗi — email là phụ. */
-export async function queueEmail(db: Db, x: { to: string; event: EmailEvent; vars: Record<string, string | number | null | undefined>; relatedType?: string; relatedId?: string; createdBy?: string | null }) {
-  const tpl = await templateFor(db, x.event);
+/**
+ * Đưa email vào hàng đợi (dùng từ nghiệp vụ). Không ném lỗi — email là phụ.
+ * `tenantId` quyết định dùng mẫu email của trung tâm nào; bỏ trống thì lấy mẫu của
+ * trung tâm mặc định, nên hệ thống một-tenant chạy y như trước.
+ */
+export async function queueEmail(db: Db, x: { to: string; event: EmailEvent; vars: Record<string, string | number | null | undefined>; relatedType?: string; relatedId?: string; createdBy?: string | null; tenantId?: string | null }) {
+  const tpl = await templateFor(db, x.event, x.tenantId ?? null);
   const allowed = EMAIL_EVENTS[x.event].vars;
   const subject = fillTemplate(tpl.subject, x.vars, allowed).text;
   const body = fillTemplate(tpl.body, x.vars, allowed).text;
   const valid = isEmail(x.to);
   const [row] = await db.insert(emailLogs).values({
+    tenantId: x.tenantId ?? null,
     toEmail: x.to.trim().slice(0, 200), eventKey: x.event, subject, body, status: valid ? "queued" : "failed", error: valid ? null : "Địa chỉ email không hợp lệ",
     attempts: valid ? 0 : 1, relatedType: x.relatedType ?? null, relatedId: x.relatedId ?? null, createdBy: x.createdBy ?? null,
   }).returning({ id: emailLogs.id });
@@ -112,7 +119,7 @@ export async function processEmailQueue(db: Database, opts: { limit?: number; id
 export async function listEmailTemplates(ctx: ProtectedContext) {
   requirePermission(ctx, "system:read");
   const rows = await ctx.db.select({ t: emailTemplates, byName: users.fullName }).from(emailTemplates).leftJoin(users, eq(users.id, emailTemplates.updatedBy)).where(tenantCond(ctx, emailTemplates));
-  const [stats] = await ctx.db.select({ n: sql<number>`count(*)::int` }).from(emailLogs).where(gte(emailLogs.createdAt, new Date(Date.now() - 30 * 86400e3)));
+  const [stats] = await ctx.db.select({ n: sql<number>`count(*)::int` }).from(emailLogs).where(and(gte(emailLogs.createdAt, new Date(Date.now() - 30 * 86400e3)), tenantCond(ctx, emailLogs)));
   return {
     canEdit: hasRole(ctx.actor, "SUPER_ADMIN"),
     sent30d: stats?.n ?? 0,
@@ -156,7 +163,7 @@ export async function previewEmail(ctx: ProtectedContext, input: { eventKey: Ema
 export async function sendTestEmail(ctx: ProtectedContext, input: { to: string; eventKey: EmailEvent }) {
   requirePermission(ctx, "system:update");
   if (!isEmail(input.to)) throw bad("Email nhận không hợp lệ");
-  const id = await queueEmail(ctx.db, { to: input.to, event: input.eventKey, vars: SAMPLE_VARS, relatedType: "test", createdBy: ctx.user.id });
+  const id = await queueEmail(ctx.db, { to: input.to, event: input.eventKey, vars: SAMPLE_VARS, relatedType: "test", createdBy: ctx.user.id, tenantId: ctx.tenantId });
   const r = await processEmailQueue(ctx.db as unknown as Database, { ids: [id] });
   const row = await ctx.db.query.emailLogs.findFirst({ where: eq(emailLogs.id, id) });
   return { id, ...r, status: row?.status as EmailStatus, error: row?.error ?? null };
@@ -164,7 +171,7 @@ export async function sendTestEmail(ctx: ProtectedContext, input: { to: string; 
 
 export async function listEmailLogs(ctx: ProtectedContext, input: { status?: EmailStatus; event?: string; q?: string; page?: number }) {
   requirePermission(ctx, "system:read");
-  const conds: SQL[] = [];
+  const conds: SQL[] = [tenantCond(ctx, emailLogs)];
   if (input.status) conds.push(eq(emailLogs.status, input.status));
   if (input.event) conds.push(eq(emailLogs.eventKey, input.event));
   if (input.q?.trim()) conds.push(or(ilike(emailLogs.toEmail, `%${input.q.trim()}%`), ilike(emailLogs.subject, `%${input.q.trim()}%`))!);
@@ -185,6 +192,7 @@ export async function retryEmail(ctx: ProtectedContext, input: { id: string }) {
   requirePermission(ctx, "system:update");
   const m = await ctx.db.query.emailLogs.findFirst({ where: eq(emailLogs.id, input.id) });
   if (!m) throw notFound("Không tìm thấy email");
+  assertTenant(ctx, m, "Email");
   if (m.status !== "failed" && m.status !== "skipped") throw pre("Chỉ gửi lại email lỗi / chưa gửi");
   if (!isEmail(m.toEmail)) throw pre("Địa chỉ email không hợp lệ — không gửi lại");
   await ctx.db.update(emailLogs).set({ status: "queued", attempts: 0, error: null, nextAttemptAt: new Date() }).where(eq(emailLogs.id, m.id));

@@ -267,7 +267,7 @@ async function doIssue(db: Db, id: string, actorId: string | null): Promise<{ st
       await queueEmail(db, {
         to: claim.buyerEmail, event: "INVOICE_ISSUED",
         vars: { ten_ph: claim.buyerName ?? claim.buyerCompany ?? "Quý khách", so_hd: String(res.number), ky_hieu: `${claim.templateCode}${claim.serial}`, so_tien: formatVnd(t.total), ma_tra_cuu: res.lookupCode, link: `${st.website.replace(/\/$/, "")}${s.lookupUrl}?ma=${res.lookupCode}` },
-        relatedType: "einvoice", relatedId: claim.id, createdBy: actorId,
+        relatedType: "einvoice", relatedId: claim.id, createdBy: actorId, tenantId: claim.tenantId ?? null,
       }).catch((e) => console.error("[invoice email]", e));
     }
     return { status: "issued", number: res.number };
