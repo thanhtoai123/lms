@@ -710,8 +710,8 @@ if ($Only -eq "tat-ca" -or $Only -eq "tenant") {
       $maCs = "QAC" + $script:Stamp.Substring(6, 8)
       $emailQt = "qa.provision." + $script:Stamp + "@example.test"
       $pr = Mu "tenants.provision" @{
-        sourceTenantId = $nguon; code = $ma; name = "QA Trung tam kiem thu " + $script:Stamp
-        centerCode = $maCs; centerName = "QA Co so kiem thu " + $script:Stamp; roomCount = 2
+        sourceTenantId = $nguon; code = $ma; name = ("QA Trung tam kiem thu " + $script:Stamp)
+        centerCode = $maCs; centerName = ("QA Co so kiem thu " + $script:Stamp); roomCount = 2
         adminEmail = $emailQt; adminFullName = "QA Quan tri kiem thu"
         reason = "Kiem thu tu dong: nhan ban mot cham de kiem chung cach ly du lieu"
       } $A
