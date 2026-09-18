@@ -784,9 +784,11 @@ export async function runBirthdayScan(ctx: ProtectedContext, input: { days?: num
   requirePermission(ctx, "care:create", { centerId: input.centerId ?? null });
   const days = Math.min(30, Math.max(0, input.days ?? 3));
   const d = await birthdays(ctx, { days, centerId: input.centerId });
-  const cand = d.items.filter((s): s is typeof s & { centerId: string } => !s.greetedAt && !!s.centerId && can(ctx, "care:create", s.centerId));
+  const cand = d.items
+    .filter((s) => !s.greetedAt && !!s.centerId && can(ctx, "care:create", s.centerId))
+    .map((s) => ({ id: s.id, fullName: s.fullName, centerId: s.centerId as string, date: s.next.date, daysUntil: s.next.daysUntil }));
   if (!cand.length) return { scanned: d.items.length, created: 0, existing: 0, days };
-  const keyOf = (s: (typeof cand)[number]) => `birthday:${s.id}:${s.next.date.slice(0, 4)}`;
+  const keyOf = (s: (typeof cand)[number]) => `birthday:${s.id}:${s.date.slice(0, 4)}`;
   const have = await ctx.db.select({ k: careTasks.dedupeKey }).from(careTasks)
     .where(and(inArray(careTasks.dedupeKey, cand.map(keyOf)), inArray(careTasks.status, ["open", "in_progress", "escalated"])));
   const seen = new Set(have.map((h) => h.k));
@@ -797,8 +799,8 @@ export async function runBirthdayScan(ctx: ProtectedContext, input: { days?: num
       for (const s of todo) {
         await openCareTask(tx, {
           studentId: s.id, centerId: s.centerId, code: "BIRTHDAY",
-          title: `Sinh nhật ${s.fullName} ngày ${dmy(s.next.date)} — chuẩn bị lời chúc & buổi chúc mừng`,
-          dedupeKey: keyOf(s), hours: Math.max(24, (s.next.daysUntil + 1) * 24),
+          title: `Sinh nhật ${s.fullName} ngày ${dmy(s.date)} — chuẩn bị lời chúc & buổi chúc mừng`,
+          dedupeKey: keyOf(s), hours: Math.max(24, (s.daysUntil + 1) * 24),
         });
       }
       await writeAudit(tx, { actorId: ctx.user.id, action: "CREATE", module: "care", entity: "care_tasks", entityId: null, after: { action: "birthday_scan", days, created: todo.length }, ip: ctx.ip });

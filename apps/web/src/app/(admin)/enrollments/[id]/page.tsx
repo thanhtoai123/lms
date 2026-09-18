@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { TRANSFER_REQUEST_VI, type TransferRequestStatus } from "@satarobo/core";
+import { TRANSFER_REQUEST_VI, type OrderStatus, type PaymentStatus, type TransferRequestStatus } from "@satarobo/core";
 import { getServerCaller } from "@/lib/trpc/server";
 import { EnrollmentChip, PageHeader, fmtDate } from "@/components/admin-ui";
 import { Empty } from "@/components/ui";
@@ -81,7 +81,7 @@ export default async function EnrollmentDetailPage({ params }: { params: Promise
                 <div key={o.id} className="space-y-1 p-3 text-sm">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <Link href={`/orders/${o.id}`} className="font-mono font-semibold text-brand-600">{o.code}</Link>
-                    <span className="flex items-center gap-2"><OrderChip status={o.status as never} /><b className="tabular-nums">{vnd(o.total)}</b></span>
+                    <span className="flex items-center gap-2"><OrderChip status={o.status as OrderStatus} /><b className="tabular-nums">{vnd(o.total)}</b></span>
                   </div>
                   {o.lines.map((l) => <div key={l.id} className="text-xs text-ink-600">{l.description}{l.packageSessions ? ` · ${l.packageSessions} buổi` : ""} — {vnd(l.net)}</div>)}
                 </div>
@@ -99,7 +99,7 @@ export default async function EnrollmentDetailPage({ params }: { params: Promise
                       <td className="p-3"><Link href={`/orders/${p.orderId}`} className="font-mono text-xs text-brand-600">{p.orderCode}</Link></td>
                       <td className="p-3 text-right tabular-nums">{vnd(p.amount)}</td>
                       <td className="p-3 text-xs">{p.paidAt?.split("-").reverse().join("/")}</td>
-                      <td className="p-3"><PaymentChip status={p.status as never} /></td>
+                      <td className="p-3"><PaymentChip status={p.status as PaymentStatus} /></td>
                     </tr>
                   ))}
                 </tbody>

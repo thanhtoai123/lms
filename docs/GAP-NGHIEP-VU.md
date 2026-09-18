@@ -1,6 +1,6 @@
 # Phân tích khoảng trống nghiệp vụ — bản gốc (NGHIEP-VU-GOC.md) ↔ bản mới
 
-Cập nhật 18/09/2026 — **đã triển khai 4 đợt (13A–13D)**, xem "Tình trạng sau 4 đợt" bên dưới. Nội dung rà gốc giữ nguyên để đối chiếu.
+Cập nhật 18/09/2026 — **đã triển khai 5 đợt (13A–13E)**, xem "Tình trạng sau 5 đợt" bên dưới. Nội dung rà gốc giữ nguyên để đối chiếu.
 
 Cập nhật lần đầu 17/09/2026. Rà theo từng màn / luồng trong `docs/NGHIEP-VU-GOC.md` (nhóm A–D), đối chiếu **mã nguồn thật** của bản mới: trang (`page.tsx` + client component), input zod của router, hàm service, quy tắc thuần trong `packages/core`, schema Drizzle. Chỉ xét **hành vi nghiệp vụ nhân sự dùng hằng ngày**, không xét câu chữ / giao diện.
 
@@ -20,7 +20,7 @@ Lỗi thực thi phát hiện khi rà (ghi thêm ở bảng):
 - `api/s/admissionsAdmin.ts#distributePool` / `leads.ts#assignLead` đều `roundsReceived + 1` ⇒ giao tay và chế độ “Theo tỷ lệ chốt” vẫn tiêu lượt (bản gốc: không tiêu).
 
 
-## Tình trạng sau 4 đợt (18/09/2026)
+## Tình trạng sau 5 đợt (18/09/2026)
 
 | Đợt | Nội dung | Tình trạng | Kiểm chứng trên máy |
 |---|---|---|---|
@@ -28,8 +28,9 @@ Lỗi thực thi phát hiện khi rà (ghi thêm ở bảng):
 | 13B | Tài chính: 1–12 đợt + cọc, sửa kế hoạch sau khi tạo, dòng đơn theo học viên / hình thức coach / giảm theo dòng, sửa & điều chỉnh khoản thu, đối soát ngân hàng phân bổ theo con, hoàn tiền tự đề xuất, nhập giao dịch cũ, công nợ theo ghi danh | Xong | Kế hoạch 9 đợt + cọc lưu đúng tổng; kế hoạch lệch tổng và xoá đợt đã thu bị chặn; sửa khoản chờ, điều chỉnh khoản đã xác nhận sinh bút toán; công nợ theo ghi danh 80 dòng |
 | 13C | Học vụ: điều chỉnh / huỷ từng buổi (giữ đủ tổng buổi), hồ sơ học viên đầy đủ + PII mã hoá, vòng đời học viên, chuyển lớp có duyệt, huỷ lớp dây chuyền, điều kiện hoàn tất buổi, lịch nhiều giai đoạn | Xong | Huỷ buổi kiểu "dời" giữ 24/24 buổi; sửa buổi đã qua bị chặn; bảo lưu → kết thúc → nghỉ hẳn (sinh đề xuất hoàn tiền) → kích hoạt lại; chuyển lớp tạo yêu cầu rồi duyệt sinh ghi danh mới mang buổi sang |
 | 13D | Chấm công & đơn từ: công theo ca đã xếp + cờ rà, 10 loại đơn áp ngay khi duyệt, QR quầy bắt buộc, danh mục 22 mã ca + lưới tháng, vị trí → bộ vai trò có hạn hiệu lực | Xong | Bảng công tính theo ca (tổng 199 công / 15 người); chấm công không có mã QR hợp lệ bị chặn; duyệt đơn nghỉ phép ghi thẳng ô ca; gán vị trí sinh vai trò `source=position` có hiệu lực |
+| 13E | Đợt 5 — nốt các khoảng trống còn lại: gói bán (`/course-packages`) + gợi ý khi tạo đơn / chốt lead, tổng quan điểm danh theo lớp, trang chi tiết ghi danh `/enrollments/:id`, tab Học bù / Ảnh lớp / Đánh giá trong trang lớp, xuất CSV Audit Log & tài khoản PH + gửi lại mã kích hoạt hàng loạt, ẩn thông báo đã đăng + mẫu email mới, luật thưởng xu (`coin_rules`), bù cột & bộ lọc nhỏ, biểu đồ phễu lead theo tuần | Xong | Gói bán hiện ở form tạo đơn (chọn gói → tự điền buổi + giá); `/attendance` đếm buổi chưa chốt điểm danh; ẩn thông báo thì cổng `/ph` không còn thấy; tắt luật thưởng xu thì chấm bài / thưởng buổi không cộng xu |
 
-**Còn lại (ngoài 25 mục ưu tiên)**: nhập lead / giao dịch cũ đọc CSV hoặc dán từ Excel (chưa đọc trực tiếp .xlsx vì không thêm được thư viện); gói bán (`/course-packages`); tạo vai trò tuỳ chỉnh; trang chi tiết ghi danh riêng; một số tab trong trang lớp (ảnh lớp, SCORM, đánh giá); xuất CSV cho Audit Log; đồng bộ MISA.
+**Còn lại (sau 5 đợt)**: nhập lead / giao dịch cũ vẫn đọc CSV hoặc dán từ Excel (chưa đọc trực tiếp `.xlsx` vì không thêm được thư viện); tạo **vai trò tuỳ chỉnh** ở `/roles` (bản mới cố ý dùng bộ vai trò cố định trong policy engine — cần quyết định); **lớp Trial riêng** `/lop-trial` (bản mới xếp học thử vào buổi của lớp thường — cần quyết định); tab **SCORM / chương trình** trong trang lớp (SCORM đã có ở khu Học liệu, chưa gắn vào trang lớp); **phiếu đánh giá học thử (PDF)**; **hồ sơ năng lực robotics 10 kỹ năng** trên hồ sơ học viên (đang dùng tiêu chí học bạ theo khoá); **ưu đãi khoá** (`course_discounts`) tách khỏi giảm giá theo dòng; **import nhân viên**; đồng bộ **MISA**.
 
 ---
 

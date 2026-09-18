@@ -1,4 +1,5 @@
 import { and, eq, inArray, sql, asc, isNull, lte, type SQL } from "drizzle-orm";
+import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { TRPCError } from "@trpc/server";
 import { sessions, classes, enrollments, attendance, students, careTasks, courses, centers } from "@satarobo/db";
 import {
@@ -102,13 +103,12 @@ export async function attendanceOverview(ctx: ProtectedContext, input: { centerI
     .where(and(...conds))
     .orderBy(asc(centers.code), asc(classes.code));
   const ids = rows.map((r) => r.id);
-  if (!ids.length) return { today, items: [], totals: { classes: 0, students: 0, pending: 0 } };
-
+  const inClasses = (col: AnyPgColumn): SQL => (ids.length ? (inArray(col, ids) as SQL) : sql`false`);
   // Sĩ số đang học của từng lớp
   const sizes = await ctx.db
     .select({ classId: enrollments.classId, n: sql<number>`count(*)::int` })
     .from(enrollments)
-    .where(and(inArray(enrollments.classId, ids), inArray(enrollments.status, ["trial", "active", "paused"])))
+    .where(and(inClasses(enrollments.classId), inArray(enrollments.status, ["trial", "active", "paused"])))
     .groupBy(enrollments.classId);
   // Buổi đã tới ngày (không tính huỷ / dời) + số ô điểm danh đã ghi của từng buổi
   const ss = await ctx.db
@@ -117,7 +117,7 @@ export async function attendanceOverview(ctx: ProtectedContext, input: { centerI
       marked: sql<number>`(select count(*)::int from ${attendance} a where a.session_id = ${sessions.id})`,
     })
     .from(sessions)
-    .where(and(inArray(sessions.classId, ids), lte(sessions.date, today), sql`${sessions.status} not in ('cancelled','rescheduled')`))
+    .where(and(inClasses(sessions.classId), lte(sessions.date, today), sql`${sessions.status} not in ('cancelled','rescheduled')`))
     .orderBy(asc(sessions.date));
   // Số học viên thuộc diện điểm danh của từng lớp (dùng để phát hiện buổi ghi thiếu)
   const expected = new Map(sizes.map((s) => [s.classId, s.n]));

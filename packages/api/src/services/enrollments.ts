@@ -358,16 +358,14 @@ export async function getEnrollmentDetail(ctx: ProtectedContext, id: string) {
     .where(eq(classTransferRequests.enrollmentId, id)).orderBy(desc(classTransferRequests.createdAt));
 
   // Đơn hàng liên quan: qua dòng đơn gắn ghi danh (mới) hoặc orders.enrollment_id (dữ liệu cũ)
-  const orderRows = canFinance
-    ? await ctx.db
-        .select({
-          orderId: orders.id, code: orders.code, status: orders.status, total: orders.total, createdAt: orders.createdAt,
-          itemId: orderItems.id, itemDescription: orderItems.description, net: orderItems.netAmount, packageSessions: orderItems.packageSessions,
-        })
-        .from(orders).leftJoin(orderItems, eq(orderItems.orderId, orders.id))
-        .where(or(eq(orderItems.enrollmentId, id), eq(orders.enrollmentId, id))!)
-        .orderBy(desc(orders.createdAt))
-    : [];
+  const orderRows = await ctx.db
+    .select({
+      orderId: orders.id, code: orders.code, status: orders.status, total: orders.total, createdAt: orders.createdAt,
+      itemId: orderItems.id, itemDescription: orderItems.description, net: orderItems.netAmount, packageSessions: orderItems.packageSessions,
+    })
+    .from(orders).leftJoin(orderItems, eq(orderItems.orderId, orders.id))
+    .where(canFinance ? or(eq(orderItems.enrollmentId, id), eq(orders.enrollmentId, id))! : sql`false`)
+    .orderBy(desc(orders.createdAt));
   const orderMap = new Map<string, { id: string; code: string; status: string; total: number; createdAt: Date; lines: { id: string; description: string; net: number; packageSessions: number | null }[] }>();
   for (const r of orderRows) {
     const cur = orderMap.get(r.orderId) ?? { id: r.orderId, code: r.code, status: r.status, total: r.total, createdAt: r.createdAt, lines: [] };
@@ -375,16 +373,14 @@ export async function getEnrollmentDetail(ctx: ProtectedContext, id: string) {
     orderMap.set(r.orderId, cur);
   }
   const orderIds = [...orderMap.keys()];
-  const paymentRows = canFinance && orderIds.length
-    ? await ctx.db
-        .select({
-          id: payments.id, amount: payments.amount, status: payments.status, paidAt: payments.paidAt, receiptNo: payments.receiptNo,
-          orderId: payments.orderId, orderCode: orders.code, enrollmentId: payments.enrollmentId,
-        })
-        .from(payments).innerJoin(orders, eq(orders.id, payments.orderId))
-        .where(and(inArray(payments.orderId, orderIds), sql`${payments.status} <> 'voided'`))
-        .orderBy(desc(payments.paidAt))
-    : [];
+  const paymentRows = await ctx.db
+    .select({
+      id: payments.id, amount: payments.amount, status: payments.status, paidAt: payments.paidAt, receiptNo: payments.receiptNo,
+      orderId: payments.orderId, orderCode: orders.code, enrollmentId: payments.enrollmentId,
+    })
+    .from(payments).innerJoin(orders, eq(orders.id, payments.orderId))
+    .where(and(orderIds.length ? inArray(payments.orderId, orderIds) : sql`false`, sql`${payments.status} <> 'voided'`))
+    .orderBy(desc(payments.paidAt));
   const confirmed = paymentRows.filter((p) => p.status === "confirmed").reduce((a, b) => a + b.amount, 0);
   const recorded = paymentRows.filter((p) => p.status === "recorded").reduce((a, b) => a + b.amount, 0);
   const fee = [...orderMap.values()].reduce((a, o) => a + (o.lines.length ? o.lines.reduce((x, l) => x + l.net, 0) : o.total), 0);

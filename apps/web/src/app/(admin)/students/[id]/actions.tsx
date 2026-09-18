@@ -45,7 +45,7 @@ export function EnrollmentCard({ e }: { e: E }) {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <Link href={`/classes/${e.classId}`} className="font-semibold text-brand-600">{e.className}</Link>
-          <div className="text-xs text-ink-400">{e.classCode} · {e.courseCode} · {e.centerCode} · ghi danh {fmtDate(e.enrolledAt)}</div>
+          <div className="text-xs text-ink-400">{e.classCode} · {e.courseCode} · {e.centerCode} · ghi danh {fmtDate(e.enrolledAt)} · <Link href={`/enrollments/${e.id}`} className="text-brand-600 hover:underline">chi tiết ghi danh</Link></div>
           {e.status === "paused" && <div className="mt-1 text-xs text-amber-700">Bảo lưu {fmtDate(e.pausedAt)} → {e.pauseUntil ? fmtDate(e.pauseUntil) : "chưa hẹn ngày trở lại"}</div>}
           {e.endedAt && <div className="mt-1 text-xs text-ink-600">Kết thúc {fmtDate(e.endedAt)}{e.endReason ? ` — ${e.endReason}` : ""}</div>}
         </div>
