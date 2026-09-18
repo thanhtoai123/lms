@@ -46,7 +46,7 @@ Xem `.env.example`. Bắt buộc khi chạy thật: `DATABASE_URL`, `NEXT_PUBLIC
 |---|---|---|
 | `/api/ready` trả 503 | Mục `checks` trong phản hồi | `database: "down"` → kết nối CSDL / ổ đĩa đầy. `outbox: "backlog"` → worker chết hoặc chạy không kịp (xem `/van-hanh` → Hàng đợi) |
 | Worker "Quá hạn" | Nhịp worker ở `/van-hanh` | Khởi động lại dịch vụ worker; xem log |
-| Outbox kẹt | `/van-hanh` → Hàng đợi | Xem lỗi ở `outbox.last_error`; sửa nguyên nhân rồi bấm **Chạy lại hàng đợi chết** (`engagement.retryDeadLetter`) — việc hỏng quá 5 lần nằm ở `dead_letter_at` |
+| Outbox kẹt | `/van-hanh` → Hàng đợi & cảnh báo → "Outbox trong hàng đợi chết" | Xem lý do ở `outbox.last_error` (hoặc `engagement.outboxStats`); sửa nguyên nhân rồi đẩy lại bằng `engagement.retryDeadLetter`. Chi tiết ở `docs/HIEU-NANG.md` mục 3 |
 | Webhook SePay / Messenger / Zalo bị từ chối | Hệ thống → Chạy lại webhook | Sai khoá / chữ ký: đối chiếu biến môi trường với cấu hình bên cung cấp |
 | Tin nhắn "chưa gửi ra kênh" | Quản trị hội thoại → Kênh kết nối | Thiếu token gửi, hoặc quá cửa sổ nhắn (Messenger 24h/7 ngày, Zalo OA 7 ngày) |
 

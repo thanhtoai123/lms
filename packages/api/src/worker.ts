@@ -69,7 +69,7 @@ async function tick() {
     await recordHeartbeat(db, "worker", { processed: r.processed, failed: r.failed, sla });
     if (r.processed || r.failed || sla) console.log(new Date().toISOString(), `outbox processed=${r.processed} failed=${r.failed} actions=${r.actions} sla=${sla}`);
     // Hàng đợi chết là việc KHÔNG tự lành: phải có người vào trang Hệ thống xem `lastError`
-    if (r.deadLettered) console.error(new Date().toISOString(), `outbox dead-letter=${r.deadLettered} — vào /he-thong để xem lý do và chạy lại`);
+    if (r.deadLettered) console.error(new Date().toISOString(), `outbox dead-letter=${r.deadLettered} — vào /van-hanh để xem lý do rồi chạy lại (engagement.retryDeadLetter)`);
   } catch (e) {
     console.error("worker error", e);
   }

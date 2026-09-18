@@ -33,8 +33,17 @@ packages/db                schema, constraints, seed; RLS là phòng thủ cuố
 
 ## Hiệu năng
 
+Chi tiết (truy vấn đã chữa, danh sách chỉ mục, cách đo khi dữ liệu lớn): **`docs/HIEU-NANG.md`**.
+
+- **Đếm và lọc trong SQL, không tải dòng về rồi đếm bằng JavaScript.** Mọi thủ tục danh sách có
+  phân trang hoặc trần cứng (`clampPageSize`); `total` luôn là `count(*)`.
+- Chỉ mục ở `packages/db/sql/0007_chi_muc_hieu_nang.sql` — ưu tiên chỉ mục tổ hợp đúng thứ tự cột
+  và chỉ mục một phần cho các bộ lọc trạng thái phổ biến.
+- Mọi thủ tục tRPC được đo; chậm hơn `SLOW_PROCEDURE_MS` thì ghi một dòng log kèm **số truy vấn**
+  (con số phân biệt "một truy vấn nặng" với "N+1"). Log không chứa dữ liệu cá nhân.
+- Việc nền (`outbox`) thử lại có giãn cách, chống chạy trùng bằng `for update skip locked`,
+  có hàng đợi chết.
 - Dữ liệu tham chiếu (cơ sở, phòng, GV, khoá) cache ở client 30s và ở server bằng `unstable_cache` (giai đoạn 2).
-- Dashboard đọc từ view/materialized view (`v_overdue_sessions`), không tính toán trong request.
 - Không prefetch toàn bộ sidebar; chỉ prefetch on-hover.
 - Region: đặt DB và function cùng khu vực Singapore.
 

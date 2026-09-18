@@ -46,7 +46,7 @@ export default async function OpsPage() {
           <table className="w-full text-sm"><tbody className="divide-y divide-black/5">
             {[
               ["Outbox chờ xử lý", q.outbox_pending, q.outbox_oldest_min ? `cũ nhất ${q.outbox_oldest_min} phút` : ""],
-              ["Outbox kẹt (≥ 3 lần lỗi)", q.outbox_stuck, ""],
+              ["Outbox trong hàng đợi chết", q.outbox_stuck, "hỏng quá 5 lần — cần người xem lý do rồi chạy lại"],
               ["Email lỗi 24h", q.email_failed_24h, ""],
               ["Webhook lỗi / bị từ chối 24h", q.webhook_bad_24h, ""],
               ["Tin nhắn gửi lỗi 24h", q.msg_failed_24h, ""],
