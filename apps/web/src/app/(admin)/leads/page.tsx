@@ -57,9 +57,9 @@ export default async function LeadsInbox({ searchParams }: { searchParams: Promi
           <p className="text-sm text-ink-600">Lead đang mở sắp theo mức quá hạn SLA: lead mới phải gọi trong 15 phút, sau học thử gọi trong 24 giờ. Chọn “Mọi trạng thái” để xem cả lead đã đăng ký / đã mất (mới nhận trước).</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <div className="flex rounded-xl bg-black/5 p-1 text-sm">
-            <Link href={qs("")} className={`rounded-lg px-3 py-1.5 ${!kanban ? "bg-white shadow-sm font-semibold" : "text-ink-600"}`}>Bảng</Link>
-            <Link href={qs("kanban")} className={`rounded-lg px-3 py-1.5 ${kanban ? "bg-white shadow-sm font-semibold" : "text-ink-600"}`}>Kanban</Link>
+          <div className="flex rounded-xl border border-border bg-muted p-1 text-sm">
+            <Link href={qs("")} className={`rounded-lg px-3 py-1.5 ${!kanban ? "bg-card font-semibold text-primary shadow-sm" : "text-muted-foreground"}`}>Bảng</Link>
+            <Link href={qs("kanban")} className={`rounded-lg px-3 py-1.5 ${kanban ? "bg-card font-semibold text-primary shadow-sm" : "text-muted-foreground"}`}>Kanban</Link>
           </div>
           <Link href="/leads/import" className="btn-ghost">Nhập từ file</Link>
           <Link href="/leads/import/registered" className="btn-ghost">Nhập khách đã đăng ký</Link>

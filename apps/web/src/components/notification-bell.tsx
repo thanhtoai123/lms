@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { Bell } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "@/lib/trpc/client";
 import { fmtDateTime } from "@/components/lead-ui";
@@ -23,13 +24,13 @@ export function NotificationBell({ canRunWorker }: { canRunWorker: boolean }) {
             {run.isPending ? "Đang chạy…" : run.data ? `Automation: ${run.data.processed} event, ${run.data.actions} hành động` : "▶ Chạy automation"}
           </button>
         )}
-        <button className="relative rounded-lg px-2 py-1 hover:bg-black/5" onClick={() => setOpen(!open)} aria-label={`Thông báo, ${unread} chưa đọc`}>
-          🔔
-          {unread > 0 && <span className={`absolute -top-1 -right-1 rounded-full px-1.5 text-[10px] font-bold text-white ${q.data?.hasPriority1 ? "bg-red-600" : "bg-brand-500"}`}>{unread > 9 ? "9+" : unread}</span>}
+        <button className="relative inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted" onClick={() => setOpen(!open)} aria-label={`Thông báo, ${unread} chưa đọc`}>
+          <Bell className="h-5 w-5" aria-hidden />
+          {unread > 0 && <span className={`absolute right-0.5 top-0.5 rounded-full px-1.5 text-[10px] font-bold text-white ${q.data?.hasPriority1 ? "bg-red-600" : "bg-primary"}`}>{unread > 9 ? "9+" : unread}</span>}
         </button>
       </div>
       {open && (
-        <div className="absolute right-0 z-20 mt-2 w-80 card p-2 max-h-96 overflow-y-auto">
+        <div className="card absolute right-0 z-20 mt-2 max-h-96 w-80 overflow-y-auto p-2 shadow-lg">
           <div className="flex items-center justify-between px-2 py-1"><span className="text-xs font-bold uppercase text-ink-400">Thông báo</span>{unread > 0 && <button className="text-xs text-brand-600" onClick={() => mark.mutate({ all: true })}>Đọc tất cả</button>}</div>
           {(q.data?.items ?? []).length === 0 && <div className="p-3 text-sm text-ink-400">Không có thông báo.</div>}
           {(q.data?.items ?? []).map((n) => (

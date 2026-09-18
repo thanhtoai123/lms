@@ -23,7 +23,7 @@ export function TimesheetTabs({ centerId, period, active }: { centerId?: string;
   return (
     <nav className="flex flex-wrap gap-1 text-xs">
       {TABS.map((t) => (
-        <Link key={t.key} href={qs(t.href)} className={`chip ${active === t.key ? "bg-brand-100 text-brand-800" : "bg-black/5"}`}>{t.label}</Link>
+        <Link key={t.key} href={qs(t.href)} className={`chip ${active === t.key ? "bg-primary-soft text-primary" : "bg-muted text-muted-foreground hover:text-foreground"}`}>{t.label}</Link>
       ))}
     </nav>
   );

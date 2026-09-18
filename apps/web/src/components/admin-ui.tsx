@@ -51,8 +51,8 @@ export function PageHeader({ title, desc, actions }: { title: string; desc?: str
   return (
     <div className="flex flex-wrap items-end justify-between gap-3">
       <div>
-        <h1 className="text-2xl font-bold">{title}</h1>
-        {desc && <p className="text-sm text-ink-600">{desc}</p>}
+        <h1 className="text-2xl font-bold text-foreground">{title}</h1>
+        {desc && <p className="text-sm text-muted-foreground">{desc}</p>}
       </div>
       {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
     </div>
@@ -92,10 +92,10 @@ export function StatTabs({ basePath, params, active, tabs }: { basePath: string;
     return s ? `${basePath}?${s}` : basePath;
   };
   return (
-    <nav className="flex gap-1 overflow-x-auto border-b border-black/5 text-sm">
+    <nav className="flex gap-1 overflow-x-auto border-b border-border text-sm">
       {tabs.map((t) => (
-        <Link key={t.key} href={href(t.key)} className={`whitespace-nowrap border-b-2 px-3 py-2 ${(active ?? "") === t.key ? "border-brand-600 font-semibold text-brand-600" : "border-transparent text-ink-600 hover:text-ink-900"}`}>
-          {t.label}{t.count !== undefined && <span className="ml-1 text-xs text-ink-400">{t.count}</span>}
+        <Link key={t.key} href={href(t.key)} className={`whitespace-nowrap border-b-2 px-3 py-2 transition-colors ${(active ?? "") === t.key ? "border-primary font-semibold text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
+          {t.label}{t.count !== undefined && <span className="ml-1 text-xs text-muted-foreground">{t.count}</span>}
         </Link>
       ))}
     </nav>
