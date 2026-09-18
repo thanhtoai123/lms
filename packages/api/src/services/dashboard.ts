@@ -107,6 +107,8 @@ export async function adminOverview(ctx: ProtectedContext) {
   let leadBlock: null | {
     kpi: { newThisMonth: number; newLastMonth: number; trialsToday: number; total: number; enrolled: number };
     series: { day: string; n: number }[];
+    /** Phễu lead theo tuần (8 tuần gần nhất): lead mới vs đã chuyển đổi */
+    funnel: { week: string; label: string; created: number; converted: number }[];
     byStatus: { status: LeadStatus; n: number }[];
     latest: { id: string; parentName: string; phone: string; status: LeadStatus; createdAt: Date }[];
   } = null;
@@ -145,6 +147,22 @@ export async function adminOverview(ctx: ProtectedContext) {
       const d = new Date(now.getTime() - i * 86_400_000).toLocaleDateString("en-CA", { timeZone: TZ });
       days.push({ day: d, n: series.find((s) => s.day === d)?.n ?? 0 });
     }
+    // Phễu lead theo tuần: lead mới vs đã chuyển đổi, 8 tuần gần nhất (tuần bắt đầu thứ Hai, giờ VN)
+    const eightWeeksAgo = new Date(now.getTime() - 8 * 7 * 86_400_000);
+    const [newByWeek, convByWeek] = await Promise.all([
+      db.select({ w: sql<string>`to_char(date_trunc('week', (${leads.createdAt} at time zone ${TZ})), 'YYYY-MM-DD')`, n: sql<number>`count(*)::int` })
+        .from(leads).where(and(scoped, gte(leads.createdAt, eightWeeksAgo))).groupBy(sql`1`),
+      db.select({ w: sql<string>`to_char(date_trunc('week', (${leads.convertedAt} at time zone ${TZ})), 'YYYY-MM-DD')`, n: sql<number>`count(*)::int` })
+        .from(leads).where(and(scoped, sql`${leads.convertedAt} is not null`, gte(leads.convertedAt, eightWeeksAgo))).groupBy(sql`1`),
+    ]);
+    const todayVn = new Date(now.getTime() + 7 * 3600_000).toISOString().slice(0, 10);
+    const base = new Date(`${todayVn}T00:00:00Z`);
+    const monday = new Date(base.getTime() - (((base.getUTCDay() + 6) % 7) * 86_400_000));
+    const funnel: { week: string; label: string; created: number; converted: number }[] = [];
+    for (let i = 7; i >= 0; i--) {
+      const w = new Date(monday.getTime() - i * 7 * 86_400_000).toISOString().slice(0, 10);
+      funnel.push({ week: w, label: `${w.slice(8)}/${w.slice(5, 7)}`, created: newByWeek.find((x) => x.w === w)?.n ?? 0, converted: convByWeek.find((x) => x.w === w)?.n ?? 0 });
+    }
     const byStatus = await db.select({ status: leads.status, n: sql<number>`count(*)::int` }).from(leads).where(scoped).groupBy(leads.status);
     const latest = await db
       .select({ id: leads.id, parentName: leads.parentName, phoneNormalized: leads.phoneNormalized, status: leads.status, createdAt: leads.createdAt })
@@ -156,6 +174,7 @@ export async function adminOverview(ctx: ProtectedContext) {
     leadBlock = {
       kpi: k ?? { newThisMonth: 0, newLastMonth: 0, trialsToday: 0, total: 0, enrolled: 0 },
       series: days,
+      funnel,
       byStatus,
       latest: latest.map((l) => ({ id: l.id, parentName: l.parentName, phone: full ? l.phoneNormalized : maskPhone(l.phoneNormalized), status: l.status, createdAt: l.createdAt })),
     };

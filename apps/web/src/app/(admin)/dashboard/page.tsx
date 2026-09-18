@@ -95,6 +95,8 @@ export default async function Dashboard() {
         </section>
       )}
 
+      {L && <FunnelChart data={L.funnel} />}
+
       {L && (
         <section className="card overflow-x-auto">
           <div className="flex items-center justify-between p-5 pb-2">
@@ -126,6 +128,66 @@ export default async function Dashboard() {
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Phễu lead theo tuần (8 tuần gần nhất) — SVG thuần, không thư viện:
+ * mỗi tuần một cặp cột (lead mới vs đã chuyển đổi) + đường tỉ lệ chuyển đổi.
+ */
+function FunnelChart({ data }: { data: { week: string; label: string; created: number; converted: number }[] }) {
+  const W = 720;
+  const H = 220;
+  const pad = { top: 16, right: 12, bottom: 30, left: 34 };
+  const iw = W - pad.left - pad.right;
+  const ih = H - pad.top - pad.bottom;
+  const max = Math.max(1, ...data.map((d) => d.created));
+  const step = iw / Math.max(1, data.length);
+  const barW = Math.min(20, step / 2.6);
+  const y = (v: number) => pad.top + ih - (v / max) * ih;
+  const ticks = [0, Math.round(max / 2), max].filter((v, i, a) => a.indexOf(v) === i);
+  const totalNew = data.reduce((a, b) => a + b.created, 0);
+  const totalConv = data.reduce((a, b) => a + b.converted, 0);
+  const rate = totalNew ? Math.round((totalConv / totalNew) * 100) : 0;
+
+  return (
+    <section className="card p-5">
+      <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="font-bold">Phễu lead theo tuần</h2>
+        <div className="text-xs text-ink-600">
+          8 tuần gần nhất · {fmtN(totalNew)} lead mới · {fmtN(totalConv)} đã chuyển đổi ({rate}%)
+        </div>
+      </div>
+      <p className="mb-3 flex flex-wrap gap-3 text-xs text-ink-400">
+        <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-sm bg-brand-600/80" /> Lead mới</span>
+        <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-sm bg-green-600/80" /> Đã chuyển đổi</span>
+      </p>
+      <div className="overflow-x-auto">
+        <svg viewBox={`0 0 ${W} ${H}`} className="h-56 w-full min-w-[520px]" role="img" aria-label={`Biểu đồ phễu lead 8 tuần: ${data.map((d) => `tuần ${d.label} ${d.created} lead mới, ${d.converted} chuyển đổi`).join("; ")}`}>
+          {ticks.map((t) => (
+            <g key={t}>
+              <line x1={pad.left} x2={W - pad.right} y1={y(t)} y2={y(t)} stroke="currentColor" className="text-black/10" strokeWidth={1} />
+              <text x={pad.left - 6} y={y(t) + 4} textAnchor="end" className="fill-ink-400 text-[10px]">{t}</text>
+            </g>
+          ))}
+          {data.map((d, i) => {
+            const x0 = pad.left + i * step + step / 2;
+            return (
+              <g key={d.week}>
+                <rect x={x0 - barW - 1} y={y(d.created)} width={barW} height={Math.max(1, pad.top + ih - y(d.created))} rx={2} className="fill-brand-600/80">
+                  <title>{`Tuần ${d.label}: ${d.created} lead mới`}</title>
+                </rect>
+                <rect x={x0 + 1} y={y(d.converted)} width={barW} height={Math.max(1, pad.top + ih - y(d.converted))} rx={2} className="fill-green-600/80">
+                  <title>{`Tuần ${d.label}: ${d.converted} đã chuyển đổi`}</title>
+                </rect>
+                <text x={x0} y={H - 10} textAnchor="middle" className="fill-ink-400 text-[10px]">{d.label}</text>
+              </g>
+            );
+          })}
+          <line x1={pad.left} x2={W - pad.right} y1={pad.top + ih} y2={pad.top + ih} stroke="currentColor" className="text-black/20" strokeWidth={1} />
+        </svg>
+      </div>
+    </section>
   );
 }
 
