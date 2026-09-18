@@ -19,18 +19,20 @@ export default async function SataCoinPage({ searchParams }: { searchParams: Pro
   const actor = ctx.actor as Actor | null;
   if (!actor || !hasPermission(actor, "coin:read")) return <NoAccess title="SataCoin" perm="coin:read" />;
   const canSeeRedeem = hasPermission(actor, "coin:redeem") || hasPermission(actor, "coin:approve");
-  const tab = sp.tab === "log" || sp.tab === "rewards" || sp.tab === "rules" || (sp.tab === "redeem" && canSeeRedeem) ? sp.tab : "board";
+  // 3 tab việc (Bảng xu · Lịch sử · Đổi quà). "Danh mục quà" + "Luật thưởng xu"
+  // là thiết lập, gộp vào một trang Thiết lập xu để tab bar không dài ra.
+  const tab = sp.tab === "log" || sp.tab === "cai-dat" || (sp.tab === "redeem" && canSeeRedeem) ? sp.tab : "board";
   const page = Math.max(1, Number(sp.page) || 1);
   const lb = await caller.coin.leaderboard({ centerId: sp.center || undefined, classId: sp.class || undefined, q: sp.q || undefined, page: tab === "board" ? page : 1 });
   const student = sp.student ? await caller.coin.student({ id: sp.student }).catch(() => null) : null;
-  const rewards = student?.canRedeem || tab === "rewards" ? await caller.coin.rewards({ includeInactive: tab === "rewards" }) : null;
-  const rules = tab === "rules" ? await caller.coin.rules() : null;
+  const rewards = student?.canRedeem || tab === "cai-dat" ? await caller.coin.rewards({ includeInactive: tab === "cai-dat" }) : null;
+  const rules = tab === "cai-dat" ? await caller.coin.rules() : null;
   const link = (patch: Partial<SP>) => {
     const u = new URLSearchParams(Object.entries({ ...sp, page: undefined, ...patch }).filter(([, v]) => v) as [string, string][]);
     const s = u.toString();
     return `/satacoin${s ? `?${s}` : ""}`;
   };
-  const tabs: [string, string][] = [["board", "Bảng xu"], ["log", "Lịch sử"], ...(canSeeRedeem ? [["redeem", `Đổi quà${lb.kpi.pendingRedemptions ? ` (${lb.kpi.pendingRedemptions})` : ""}`] as [string, string]] : []), ["rewards", "Danh mục quà"], ["rules", "Luật thưởng xu"]];
+  const tabs: [string, string][] = [["board", "Bảng xu"], ["log", "Lịch sử"], ...(canSeeRedeem ? [["redeem", `Đổi quà${lb.kpi.pendingRedemptions ? ` (${lb.kpi.pendingRedemptions})` : ""}`] as [string, string]] : [])];
   return (
     <div className="space-y-4">
       <PageHeader title="SataCoin" desc={`Sổ xu thưởng chỉ thêm (không sửa / xoá): thưởng theo hạn mức vai trò (GV ≤ ${lb.limits.teacher.perAward} xu/lần, ${lb.limits.teacher.perStudentDay} xu/HV/ngày), thu hồi / điều chỉnh cần lý do, đổi quà qua duyệt.`} />
@@ -49,8 +51,9 @@ export default async function SataCoinPage({ searchParams }: { searchParams: Pro
           tierClass={TIER_CHIP[student.tier.key] ?? ""}
         />
       )}
-      <div className="flex gap-1 border-b border-black/10 text-sm">
+      <div className="flex items-center gap-1 border-b border-black/10 text-sm">
         {tabs.map(([k, label]) => <Link key={k} href={link({ tab: k === "board" ? undefined : k })} className={`-mb-px border-b-2 px-3 py-2 ${tab === k ? "border-brand-600 font-semibold text-brand-600" : "border-transparent text-ink-600"}`}>{label}</Link>)}
+        <Link href={link({ tab: "cai-dat" })} className={`ml-auto rounded-lg px-3 py-2 text-xs font-semibold ${tab === "cai-dat" ? "bg-primary-soft text-primary" : "text-muted-foreground hover:bg-muted"}`}>Thiết lập xu</Link>
       </div>
 
       {tab === "board" && (
@@ -75,8 +78,9 @@ export default async function SataCoinPage({ searchParams }: { searchParams: Pro
 
       {tab === "log" && <Ledger sp={sp} caller={caller} link={link} />}
       {tab === "redeem" && <Redemptions sp={sp} caller={caller} />}
-      {tab === "rewards" && rewards && (
+      {tab === "cai-dat" && rewards && (
         <div className="space-y-3">
+          <h2 className="text-sm font-bold uppercase tracking-wide text-muted-foreground">Danh mục quà</h2>
           {rewards.canEdit && <RewardForm inventoryOptions={rewards.inventoryOptions.map((o) => ({ id: o.id, label: `${o.sku} — ${o.name}` }))} />}
           {rewards.items.length === 0 ? <Empty>Chưa có quà.</Empty> : (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -94,8 +98,9 @@ export default async function SataCoinPage({ searchParams }: { searchParams: Pro
         </div>
       )}
 
-      {tab === "rules" && rules && (
+      {tab === "cai-dat" && rules && (
         <div className="space-y-3">
+          <h2 className="text-sm font-bold uppercase tracking-wide text-muted-foreground">Luật thưởng xu</h2>
           <p className="text-sm text-ink-600">Luật thưởng xu tự động cho các sự kiện đã có chỗ cộng xu trong hệ thống. Tắt luật thì sự kiện tương ứng không cộng xu nữa; sửa số xu áp dụng ngay cho lần cộng kế tiếp. Mọi thay đổi ghi nhật ký.</p>
           <div className="grid gap-3 md:grid-cols-3">
             {rules.items.map((r) => (

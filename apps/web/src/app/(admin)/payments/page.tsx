@@ -8,6 +8,7 @@ import { CsvButton } from "@/components/csv-button";
 import { ColumnChooser, type ColumnDef } from "@/components/column-chooser";
 import { DecidePayment, EditPendingPayment, AdjustConfirmedPayment } from "../orders/[id]/actions";
 import { BackfillBatch } from "./backfill";
+import { RememberFilters } from "@/components/remember-filters";
 
 /** Cột của bảng thanh toán — nút "Cột hiển thị" nhớ lựa chọn theo máy */
 const PAYMENT_COLUMNS: ColumnDef[] = [
@@ -41,6 +42,7 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
   const today = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10);
   return (
     <div className="space-y-4">
+      <RememberFilters storageKey="payments" ignore={["page"]} />
       <PageHeader title="Thanh toán" desc="Luồng hai vai: tư vấn / lễ tân ghi nhận khoản thu → kế toán xác nhận, từ chối hoặc điều chỉnh (người ghi nhận không tự xác nhận). Chỉ khoản đã xác nhận mới có phiếu thu và được trừ công nợ."
         actions={hasPermission(ctx.actor as Actor, "finance:create") ? <><Link href="/cong-no" className="btn-ghost">Công nợ</Link><Link href="/orders?status=pending_payment" className="btn-primary" title="Chọn đơn cần thu rồi bấm Ghi nhận khoản">+ Ghi nhận khoản</Link></> : undefined}
       />

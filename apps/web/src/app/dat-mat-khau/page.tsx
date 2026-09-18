@@ -37,7 +37,7 @@ async function save(formData: FormData) {
   c.set(REFRESH_COOKIE, s.refresh_token, cookieOptions("refresh"));
   c.set(SEEN_COOKIE, String(Date.now()), seenCookieOptions());
   c.set(IDLE_COOKIE, String(await staffIdleMinutes(getDb())), seenCookieOptions());
-  redirect("/dashboard");
+  redirect("/viec-hom-nay");
 }
 
 export default async function SetPasswordPage({ searchParams }: { searchParams: Promise<{ token_hash?: string; type?: string; e?: string; expired?: string }> }) {

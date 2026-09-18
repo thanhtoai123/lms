@@ -6,6 +6,7 @@ import { Empty } from "@/components/ui";
 import { StaffChip, dmy } from "@/components/hr-ui";
 import { CsvButton } from "@/components/csv-button";
 import { PublicToggle } from "./public-toggle";
+import { RememberFilters } from "@/components/remember-filters";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Nhân sự" };
@@ -19,6 +20,7 @@ export default async function StaffPage({ searchParams }: { searchParams: Promis
   const [d, ref] = await Promise.all([caller.hr.staff({ status, q: sp.q || undefined, department: dept, centerId: sp.center || undefined }), caller.academics.classes.referenceData()]);
   return (
     <div className="space-y-4">
+      <RememberFilters storageKey="nhan-su" ignore={["page"]} />
       <PageHeader
         title="Nhân sự"
         desc="Hồ sơ nhân viên (kể cả giáo viên), vị trí đang giữ, tài khoản đăng nhập. Lương, CCCD, tài khoản ngân hàng chỉ Nhân sự / Kế toán / Quản trị xem."

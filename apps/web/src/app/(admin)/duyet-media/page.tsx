@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/admin-ui";
 import { Empty } from "@/components/ui";
 import { MediaGallery } from "../media/gallery";
 import { NoMediaButton } from "./actions";
+import { RememberFilters } from "@/components/remember-filters";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Duyệt ảnh lớp học" };
@@ -20,6 +21,7 @@ export default async function MediaReviewPage({ searchParams }: { searchParams: 
   const items = sessionId && current?.kind === "pending" ? await caller.learning.media({ sessionId, status: "pending", limit: 300 }) : [];
   return (
     <div className="space-y-4">
+      <RememberFilters storageKey="duyet-media" ignore={["page"]} />
       <PageHeader
         title="Duyệt ảnh lớp học"
         desc="Ảnh giáo viên đã gửi duyệt, nhóm theo ngày học. Quá 24 giờ chưa duyệt bị đánh dấu quá hạn. Duyệt xong phụ huynh của các học viên trong ảnh được thông báo; ảnh bị loại còn khôi phục trong 7 ngày. Buổi đã qua mà không có ảnh thì ghi nhận “Buổi này không có ảnh” để hết cảnh báo."

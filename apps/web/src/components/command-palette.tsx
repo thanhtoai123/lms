@@ -11,6 +11,28 @@ type Item = { key: string; group: string; title: string; sub?: string; href: str
 const KIND_LABEL: Record<string, string> = { student: "Học viên", lead: "Lead", class: "Lớp học", order: "Đơn hàng" };
 const RECENT_KEY = "admin-recent-pages";
 
+/**
+ * Hành động nhanh: gõ là ra, Enter là chạy — đi thẳng tới đúng ô nhập đầu tiên
+ * thay vì Menu → trang danh sách → nút tạo.
+ * `needs` là đường dẫn phải có trong menu của người dùng: menu đã lọc theo quyền
+ * nên không cần kiểm tra quyền lần nữa ở đây.
+ */
+const QUICK_ACTIONS: { title: string; sub: string; href: string; needs: string; words: string }[] = [
+  { title: "Xem việc hôm nay", sub: "Hộp việc gộp theo quyền của bạn", href: "/viec-hom-nay", needs: "/viec-hom-nay", words: "viec hom nay inbox todo can xu ly" },
+  { title: "Tạo lead mới", sub: "Nhập khách hàng mới", href: "/nhap-khach-hang", needs: "/nhap-khach-hang", words: "tao lead khach hang moi them" },
+  { title: "Nhập lead từ file", sub: "Dán từ Excel / đọc CSV", href: "/leads/import", needs: "/leads/import", words: "nhap lead file excel csv import" },
+  { title: "Thêm học viên", sub: "Hồ sơ học viên mới", href: "/students/new", needs: "/students", words: "them hoc vien moi tao" },
+  { title: "Tạo đăng ký học", sub: "Ghi danh học viên vào lớp", href: "/enrollments/new", needs: "/enrollments", words: "dang ky hoc ghi danh tao moi" },
+  { title: "Tạo đơn hàng / thu tiền", sub: "Lập đơn học phí, sinh QR thanh toán", href: "/orders/new", needs: "/orders", words: "tao don hang thu tien hoc phi qr" },
+  { title: "Xác nhận phiếu thu", sub: "Khoản thu đang chờ kế toán", href: "/payments?status=recorded", needs: "/payments", words: "xac nhan phieu thu ke toan tien" },
+  { title: "Xem công nợ", sub: "Đơn còn thiếu tiền theo tuổi nợ", href: "/cong-no", needs: "/cong-no", words: "cong no thieu tien" },
+  { title: "Điểm danh lớp", sub: "Mở lưới điểm danh", href: "/attendance", needs: "/attendance", words: "diem danh lop buoi hoc" },
+  { title: "Tạo lớp mới", sub: "Mở lớp và xếp lịch", href: "/classes/new", needs: "/classes", words: "tao lop moi mo lop" },
+  { title: "Duyệt ảnh lớp", sub: "Ảnh chờ duyệt theo buổi", href: "/duyet-media", needs: "/duyet-media", words: "duyet anh lop media" },
+  { title: "Duyệt đơn từ", sub: "Đơn nghỉ / đơn công chờ duyệt", href: "/don-tu?status=pending", needs: "/don-tu", words: "duyet don tu nghi phep cong" },
+  { title: "Làm đơn của tôi", sub: "Xin nghỉ, bổ sung công, đổi ca", href: "/cham-cong/lich-ca", needs: "/cham-cong/lich-ca", words: "lam don xin nghi cong ca cua toi" },
+];
+
 /** Bỏ dấu tiếng Việt để tìm "hoc bu" ra "Học bù" */
 export function fold(s: string) {
   return s.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D").toLowerCase();
@@ -65,13 +87,20 @@ export function CommandPalette({ nav, open, onOpenChange }: { nav: NavGroup[]; o
   const items = useMemo<Item[]>(() => {
     const f = fold(q.trim());
     const pages = nav.flatMap((g) => g.items.map((i) => ({ g: g.label, i })));
+    const navHrefs = new Set(pages.map(({ i }) => i.href));
+    const actions = QUICK_ACTIONS.filter((a) => navHrefs.has(a.needs));
     const out: Item[] = [];
     if (!f) {
+      actions.slice(0, 5).forEach((a) => out.push({ key: `a:${a.href}`, group: "Hành động nhanh", title: a.title, sub: a.sub, href: a.href }));
       recent.forEach((r) => out.push({ key: `r:${r.href}`, group: "Mở gần đây", title: r.title, href: r.href }));
       pages.slice(0, 8).forEach(({ g, i }) => out.push({ key: `p:${i.href}`, group: "Trang", title: i.label, sub: g, href: i.href }));
       return out;
     }
     const words = f.split(/\s+/);
+    actions
+      .filter((a) => { const hay = fold(`${a.title} ${a.sub} ${a.words}`); return words.every((w) => hay.includes(w)); })
+      .slice(0, 6)
+      .forEach((a) => out.push({ key: `a:${a.href}`, group: "Hành động nhanh", title: a.title, sub: a.sub, href: a.href }));
     pages
       .map(({ g, i }) => {
         const hay = fold(`${i.label} ${g} ${i.desc ?? ""}`);
@@ -116,7 +145,7 @@ export function CommandPalette({ nav, open, onOpenChange }: { nav: NavGroup[]; o
               else if (e.key === "Escape") { e.preventDefault(); onOpenChange(false); }
             }}
             className="h-14 flex-1 bg-transparent text-base outline-none"
-            placeholder="Tìm trang, học viên, lead, lớp, mã đơn, SĐT…"
+            placeholder="Gõ việc muốn làm (tạo lead, thu tiền, điểm danh…) hoặc tên học viên, lead, lớp, mã đơn, SĐT"
             role="combobox"
             aria-expanded="true"
             aria-controls="cmdk-list"
@@ -158,7 +187,7 @@ export function CommandPalette({ nav, open, onOpenChange }: { nav: NavGroup[]; o
           })}
         </ul>
         <div className="flex flex-wrap gap-x-4 gap-y-1 border-t border-black/5 px-4 py-2 text-[11px] text-ink-400">
-          <span><kbd>↑</kbd> <kbd>↓</kbd> chọn</span><span><kbd>Enter</kbd> mở</span><span><kbd>Ctrl</kbd>+<kbd>K</kbd> hoặc <kbd>/</kbd> mở bảng này</span><span>SĐT hiển thị đã che</span>
+          <span><kbd>↑</kbd> <kbd>↓</kbd> chọn</span><span><kbd>Enter</kbd> chạy</span><span><kbd>Ctrl</kbd>+<kbd>K</kbd> hoặc <kbd>/</kbd> mở bảng này</span><span><kbd>?</kbd> bảng phím tắt</span><span>SĐT hiển thị đã che</span>
         </div>
       </div>
     </div>

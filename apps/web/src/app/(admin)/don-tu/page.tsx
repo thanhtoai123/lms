@@ -10,6 +10,7 @@ import { RequestChip, dmy, units } from "@/components/hr-ui";
 import { RequestForm } from "@/components/request-form";
 import { TimesheetTabs } from "../cham-cong/tabs";
 import { DecideRequest } from "./actions";
+import { RememberFilters } from "@/components/remember-filters";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Duyệt đơn từ" };
@@ -30,6 +31,7 @@ export default async function RequestsPage({ searchParams }: { searchParams: Pro
   ];
   return (
     <div className="space-y-4">
+      <RememberFilters storageKey="don-tu" ignore={["page"]} />
       <PageHeader
         title="Duyệt đơn từ"
         desc="Đơn của nhân sự gửi tới cơ sở chịu công. Duyệt là áp ngay lên lịch ca và công: đổi mã ca trên lưới, ghi mã nghỉ, thêm mốc giờ chỉnh tay, huỷ buổi dạy hoặc gán người dạy thay. Áp không được thì đơn tự quay lại Chờ duyệt kèm lý do. Từ chối bắt buộc nhập lý do."

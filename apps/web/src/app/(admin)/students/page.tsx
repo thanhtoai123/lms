@@ -4,6 +4,7 @@ import { PageHeader, Pager, StudentStatusChip, STUDENT_STATUS_VI, fmtDate } from
 import { ColumnChooser, type ColumnDef } from "@/components/column-chooser";
 import { ExportAllButton } from "@/components/export-all-button";
 import { Empty } from "@/components/ui";
+import { RememberFilters } from "@/components/remember-filters";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Học viên" };
@@ -34,6 +35,7 @@ export default async function StudentsPage({ searchParams }: { searchParams: Pro
   ]);
   return (
     <div className="space-y-4">
+      <RememberFilters storageKey="students" ignore={["page"]} />
       <PageHeader
         title="Học viên"
         desc="Hồ sơ học viên theo cơ sở. Tìm theo tên, mã học viên hoặc SĐT phụ huynh."

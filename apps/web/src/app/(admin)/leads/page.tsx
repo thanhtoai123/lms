@@ -7,7 +7,8 @@ import { ColumnChooser, type ColumnDef } from "@/components/column-chooser";
 import { ExportAllButton } from "@/components/export-all-button";
 import { LeadChip, SlaChip, fmtDateTime } from "@/components/lead-ui";
 import { LeadKanban } from "@/components/lead-kanban";
-import { LeadDeleteButton } from "@/components/lead-status";
+import { LeadDeleteButton, LeadTouchButton } from "@/components/lead-status";
+import { RememberFilters } from "@/components/remember-filters";
 import { Empty } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
@@ -51,6 +52,7 @@ export default async function LeadsInbox({ searchParams }: { searchParams: Promi
 
   return (
     <div className="space-y-4">
+      <RememberFilters storageKey="leads" ignore={["page"]} />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">Danh sách Lead</h1>
@@ -164,7 +166,12 @@ export default async function LeadsInbox({ searchParams }: { searchParams: Promi
                   </td>
                   <td className="p-3 whitespace-nowrap text-xs" data-col="touched">{fmtDateTime(l.lastTouchAt)}</td>
                   <td className="p-3" data-col="tasks">{l.openTasks > 0 && <span className="chip bg-brand-100 text-brand-700">{l.openTasks}</span>}</td>
-                  <td className="p-3" data-col="actions">{l.canDelete && <LeadDeleteButton leadId={l.id} name={l.parentName} />}</td>
+                  <td className="p-3" data-col="actions">
+                    <div className="flex items-center gap-1">
+                      <LeadTouchButton leadId={l.id} name={l.parentName} />
+                      {l.canDelete && <LeadDeleteButton leadId={l.id} name={l.parentName} />}
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>

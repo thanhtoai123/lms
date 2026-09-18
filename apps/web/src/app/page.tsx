@@ -6,7 +6,7 @@ export default async function Home() {
   const me = await caller.auth.me();
   if (!me) redirect("/login");
   const roles = me.assignments.map((a) => a.role);
-  // Chỉ giáo viên/trợ giảng thuần tuý vào app giáo viên; mọi vai trò quản trị vào /dashboard
+  // Chỉ giáo viên/trợ giảng thuần tuý vào app giáo viên; mọi vai trò quản trị vào "Việc hôm nay"
   const teacherOnly = roles.every((r) => r === "TEACHER" || r === "ASSISTANT_TEACHER");
-  redirect(teacherOnly ? "/teacher" : "/dashboard");
+  redirect(teacherOnly ? "/teacher" : "/viec-hom-nay");
 }

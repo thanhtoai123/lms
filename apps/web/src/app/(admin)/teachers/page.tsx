@@ -4,6 +4,7 @@ import { getServerCaller } from "@/lib/trpc/server";
 import { NoAccess, PageHeader, StatTabs } from "@/components/admin-ui";
 import { Empty } from "@/components/ui";
 import { LOAD_CHIP, TSTATUS_CHIP } from "./chips";
+import { RememberFilters } from "@/components/remember-filters";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Giáo viên" };
@@ -24,6 +25,7 @@ export default async function TeachersPage({ searchParams }: { searchParams: Pro
   ]);
   return (
     <div className="space-y-4">
+      <RememberFilters storageKey="teachers" ignore={["page"]} />
       <PageHeader
         title="Giáo viên"
         desc="Hồ sơ giáo viên: ngạch, loại hợp đồng, khoá được dạy, lớp phụ trách, tải dạy tuần này so với định mức, số buổi đã dạy trong tháng và điểm dự giờ."

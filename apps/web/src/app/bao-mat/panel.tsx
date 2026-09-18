@@ -34,7 +34,7 @@ export function MfaPanel({ pending }: { pending: boolean }) {
     setCode("");
     await load();
     router.refresh();
-    if (pending) router.push("/dashboard");
+    if (pending) router.push("/viec-hom-nay");
   };
   if (!st) return <div className="card p-4 text-sm text-ink-400">{msg?.text ?? "Đang tải…"}</div>;
   return (

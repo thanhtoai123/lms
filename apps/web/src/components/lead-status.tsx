@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { useTRPC } from "@/lib/trpc/client";
+import { useToast } from "@/components/toast";
 import { leadNextStates, LEAD_STATUS_VI, LEAD_DROP_REASON_MIN, LEAD_DROP_REASON_MAX, type LeadStatus } from "@satarobo/core";
 
 type Next = ReturnType<typeof leadNextStates>[number];
@@ -99,5 +100,32 @@ export function LeadDeleteButton({ leadId, name, onDeleted }: { leadId: string; 
       <button type="button" className="text-xs text-ink-400" onClick={() => { setOpen(false); m.reset(); }}>Huỷ</button>
       {m.error && <span className="text-[11px] text-red-700">{m.error.message}</span>}
     </span>
+  );
+}
+
+/**
+ * Một chạm "Đã gọi": ghi hoạt động gọi điện cho lead ngay trên dòng danh sách.
+ * `lastTouchAt` được cập nhật nên đồng hồ SLA reset — trước đây phải mở trang
+ * chi tiết lead rồi mới ghi được hoạt động (3 cú nhấp → 1).
+ */
+export function LeadTouchButton({ leadId, name }: { leadId: string; name: string }) {
+  const trpc = useTRPC();
+  const router = useRouter();
+  const toast = useToast();
+  const m = useMutation(trpc.admissions.leads.addActivity.mutationOptions({
+    onSuccess: () => { toast.ok(`Đã ghi nhận liên hệ với ${name}`); router.refresh(); },
+    onError: (e) => toast.error("Không ghi được hoạt động", { detail: e.message }),
+  }));
+  return (
+    <button
+      type="button"
+      className="inline-flex min-h-10 items-center rounded-lg px-2 text-xs font-semibold text-primary transition-colors hover:bg-primary-soft disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+      disabled={m.isPending}
+      aria-label={`Ghi nhận đã liên hệ với ${name}`}
+      title="Ghi nhận đã liên hệ (đồng hồ SLA tính lại từ bây giờ)"
+      onClick={() => { if (!m.isPending) m.mutate({ leadId, type: "call", content: "Đã gọi cho phụ huynh" }); }}
+    >
+      {m.isPending ? "Đang ghi…" : "Đã gọi"}
+    </button>
   );
 }

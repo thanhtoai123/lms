@@ -7,19 +7,18 @@ import { CLASS_STATUS_VI } from "@satarobo/core";
 import type { RouterOutputs } from "@/lib/trpc/types";
 import { StatusPanel, InfoPanel, SchedulePanel, CheckPanel, AddSessionPanel, EventTimeline, CancelClassPanel } from "./workspace";
 import { SessionList } from "./session-list";
-import { MediaGallery } from "../../media/gallery";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Chi tiết lớp" };
 
 type MakeupData = RouterOutputs["schedule"]["makeups"];
-type MediaRow = RouterOutputs["learning"]["media"][number];
 type FeedbackData = RouterOutputs["care"]["feedback"];
 
+// 3 tab việc. "Ảnh lớp" trước đây là tab thứ tư nhưng chỉ lặp lại trang /media
+// (nơi có cả tải ảnh, gắn thẻ và bộ lọc trạng thái) → đổi thành một liên kết.
 const TABS = [
   { key: "", label: "Tổng quan" },
   { key: "hoc-bu", label: "Học bù" },
-  { key: "anh", label: "Ảnh lớp" },
   { key: "danh-gia", label: "Đánh giá & nhận xét" },
 ] as const;
 
@@ -39,7 +38,6 @@ export default async function ClassDetail({ params, searchParams }: { params: Pr
   ]);
   // Dữ liệu của tab đang mở — tái dùng service sẵn có, chỉ thêm bộ lọc theo lớp
   const makeups = tab === "hoc-bu" ? await caller.schedule.makeups({ classId: id }).catch(() => null) : null;
-  const media = tab === "anh" ? await caller.learning.media({ classId: id, limit: 300 }).catch(() => null) : null;
   const feedback = tab === "danh-gia" ? await caller.care.feedback({ classId: id }).catch(() => null) : null;
   const regular = c.sessions.filter((s) => s.kind === "regular");
   const extra = c.sessions.filter((s) => s.kind !== "regular");
@@ -65,14 +63,14 @@ export default async function ClassDetail({ params, searchParams }: { params: Pr
         </div>
       </div>
 
-      <nav className="flex flex-wrap gap-1 border-b border-black/5 text-sm">
+      <nav className="flex flex-wrap items-center gap-1 border-b border-black/5 text-sm">
         {TABS.map((t) => (
           <Link key={t.key} href={t.key ? `/classes/${id}?tab=${t.key}` : `/classes/${id}`} className={`rounded-t-lg px-3 py-2 ${tab === t.key ? "border-b-2 border-brand-600 font-semibold text-brand-700" : "text-ink-600 hover:text-ink-900"}`}>{t.label}</Link>
         ))}
+        <Link href={`/media?class=${id}`} className="ml-auto rounded-lg px-3 py-2 text-xs font-semibold text-muted-foreground hover:bg-muted">Ảnh lớp →</Link>
       </nav>
 
       {tab === "hoc-bu" && <MakeupTab data={makeups} />}
-      {tab === "anh" && <MediaTab classId={id} data={media} />}
       {tab === "danh-gia" && <FeedbackTab data={feedback} sessions={c.sessions} />}
 
       {tab === "" && (
@@ -161,26 +159,6 @@ function MakeupTab({ data }: { data: MakeupData | null }) {
           ))}
         </tbody>
       </table>
-    </div>
-  );
-}
-
-/* --------------------------- Tab: Ảnh lớp -------------------------- */
-
-function MediaTab({ classId, data }: { classId: string; data: MediaRow[] | null }) {
-  if (!data) return <Empty>Bạn không có quyền xem ảnh lớp.</Empty>;
-  const n = (s: MediaRow["status"]) => data.filter((m) => m.status === s).length;
-  return (
-    <div className="space-y-3">
-      <div className="card flex flex-wrap items-center gap-2 p-3 text-xs">
-        <span className="chip bg-slate-200 text-ink-600">Trong kho {n("library")}</span>
-        <span className="chip bg-amber-100 text-amber-800">Chờ duyệt {n("pending")}</span>
-        <span className="chip bg-green-100 text-green-800">Đã duyệt {n("approved")}</span>
-        <span className="chip bg-red-100 text-red-700">Từ chối {n("rejected")}</span>
-        <span className="text-ink-400">Ảnh trong kho phụ huynh chưa thấy — gắn thẻ học viên rồi Gửi duyệt.</span>
-        <Link href={`/media?class=${classId}`} className="ml-auto text-brand-600 underline">Tải ảnh vào kho →</Link>
-      </div>
-      <MediaGallery items={data} />
     </div>
   );
 }

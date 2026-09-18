@@ -19,7 +19,7 @@ export default async function SecurityPage() {
     <main className="mx-auto max-w-2xl space-y-4 p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold">Bảo mật tài khoản</h1>
-        {!pending && <Link href="/dashboard" className="text-sm text-brand-600">← Quản trị</Link>}
+        {!pending && <Link href="/viec-hom-nay" className="text-sm text-brand-600">← Quản trị</Link>}
       </div>
       <p className="text-sm text-ink-600">{me.user.fullName} · {me.user.email}</p>
       {pending && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Vai trò của bạn bắt buộc xác thực 2 lớp. Nhập mã từ ứng dụng xác thực (Google Authenticator, Microsoft Authenticator…) để tiếp tục.</div>}
