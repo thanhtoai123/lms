@@ -53,6 +53,7 @@ Cột "truy vấn" đếm số lượt chạm CSDL; cột "dòng kéo về" mớ
 | Vị trí | Trước | Sau |
 |---|---|---|
 | `services/leads.ts` — `leadInbox` | `select status, last_touch_at … limit 20_000` — **hai mươi nghìn dòng** rời CSDL mỗi lần mở màn hình, chỉ để đếm tổng / quá hạn / sắp tới hạn / phân bố trạng thái. Vượt 20.000 thì số hiển thị sai | **1 truy vấn `group by status`** với `count(*) filter (…)`: không dòng nào rời CSDL, số đúng ở mọi quy mô |
+| `services/evaluations.ts` — `evalRoundDetail` | `select … limit 20_000` lấy đủ cột từng dòng trả lời (kèm phần trả lời chữ) chỉ để tính trung bình và đếm số sao | `group by (câu hỏi, số sao)` — nhiều nhất `số câu hỏi × 6` dòng (~240 thay vì 20.000); danh sách phẳng dựng lại trong bộ nhớ để `averageByCriteria` của core chạy y hệt cũ |
 
 ### 1.4 N+1 — vòng lặp gọi CSDL cho từng phần tử
 
