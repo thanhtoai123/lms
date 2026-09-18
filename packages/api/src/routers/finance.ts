@@ -60,6 +60,10 @@ export const financeRouter = router({
     }))
     .mutation(({ ctx, input }) => F.createOrder(ctx, { ...input, customer: { ...input.customer, email: input.customer.email || null } })),
   cancelOrder: protectedProcedure.input(z.object({ id: uuid, reason: z.string().max(300) })).mutation(({ ctx, input }) => F.cancelOrder(ctx, input)),
+  /** Gửi email đơn hàng cho khách (mẫu ORDER_CREATED) */
+  sendOrderEmail: protectedProcedure
+    .input(z.object({ orderId: uuid, to: z.string().trim().email("Email không hợp lệ").max(200).nullish().or(z.literal("")) }))
+    .mutation(({ ctx, input }) => F.sendOrderEmail(ctx, { orderId: input.orderId, to: input.to || null })),
   updateOrderNotes: protectedProcedure.input(z.object({ id: uuid, internalNote: ntext(1000), customerNote: ntext(1000), remindDays: z.number().int().min(0).max(30).optional() })).mutation(({ ctx, input }) => F.updateOrderNotes(ctx, input)),
   revealCustomer: protectedProcedure.input(z.object({ id: uuid, reason: z.string().max(300) })).mutation(({ ctx, input }) => F.revealCustomerPrivate(ctx, input)),
 

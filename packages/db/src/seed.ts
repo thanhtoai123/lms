@@ -46,9 +46,10 @@ async function main() {
   const roomRows = await db
     .insert(rooms)
     .values([
-      { centerId: cs1!.id, code: "101", name: "Phòng 101", capacity: 12 },
-      { centerId: cs1!.id, code: "LAB1", name: "Lab 1", capacity: 10 },
-      { centerId: cs2!.id, code: "P302", name: "Phòng 302", capacity: 12 },
+      { centerId: cs1!.id, code: "101", name: "Phòng 101", capacity: 12, equipment: ["Máy chiếu", "Bảng trắng", "8 bộ kit Sata"] },
+      { centerId: cs1!.id, code: "LAB1", name: "Lab 1", capacity: 10, equipment: ["TV 55\"", "10 laptop", "Máy in 3D"] },
+      { centerId: cs2!.id, code: "P302", name: "Phòng 302", capacity: 12, equipment: ["TV 43\"", "Bảng trắng"] },
+      { centerId: cs2!.id, code: "P303", name: "Phòng 303 (đang sửa điều hoà)", capacity: 10, equipment: ["Bảng trắng"], status: "maintenance" as const, isActive: false },
     ])
     .returning();
 

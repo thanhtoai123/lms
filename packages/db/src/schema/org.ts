@@ -1,5 +1,8 @@
-import { pgTable, text, uuid, boolean, integer, index, doublePrecision } from "drizzle-orm/pg-core";
+import { pgTable, text, uuid, boolean, integer, index, doublePrecision, jsonb, pgEnum } from "drizzle-orm/pg-core";
+import { ROOM_STATUSES } from "@satarobo/core";
 import { id, timestamps } from "./_common";
+
+export const roomStatusEnum = pgEnum("room_status", ROOM_STATUSES);
 
 /** Khu vực (cây tổ chức: khu vực → cơ sở → bộ phận) */
 export const regions = pgTable("regions", {
@@ -36,6 +39,11 @@ export const rooms = pgTable(
     code: text("code").notNull(), // P302, 101
     name: text("name").notNull(),
     capacity: integer("capacity").notNull().default(12),
+    /** Hoạt động / Bảo trì / Tạm ngừng — chỉ "Hoạt động" mới xếp lớp được */
+    status: roomStatusEnum("status").notNull().default("active"),
+    /** Thiết bị trong phòng (máy chiếu, TV, bộ kit…) */
+    equipment: jsonb("equipment").$type<string[]>().notNull().default([]),
+    /** Giữ để tương thích: isActive = (status = 'active') */
     isActive: boolean("is_active").notNull().default(true),
     ...timestamps,
   },

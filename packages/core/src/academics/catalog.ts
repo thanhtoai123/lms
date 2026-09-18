@@ -32,6 +32,29 @@ export function validateCourse(c: CourseInput): string[] {
 }
 
 /* ------------------------------------------------------------------ */
+/* Phòng học                                                           */
+/* ------------------------------------------------------------------ */
+
+export const ROOM_STATUSES = ["active", "maintenance", "paused"] as const;
+export type RoomStatus = (typeof ROOM_STATUSES)[number];
+export const ROOM_STATUS_VI: Record<RoomStatus, string> = { active: "Hoạt động", maintenance: "Bảo trì", paused: "Tạm ngừng" };
+/** Chỉ phòng "Hoạt động" mới xếp được lớp / buổi học */
+export const roomUsable = (status: RoomStatus) => status === "active";
+
+/** Chuẩn hoá danh sách thiết bị: bỏ trắng, bỏ trùng (không phân biệt hoa thường), tối đa 20 mục */
+export function normalizeEquipment(list: readonly string[] | null | undefined): string[] {
+  const out: string[] = [];
+  for (const raw of list ?? []) {
+    const v = raw.trim().replace(/\s+/g, " ").slice(0, 60);
+    if (!v) continue;
+    if (out.some((x) => x.toLowerCase() === v.toLowerCase())) continue;
+    out.push(v);
+    if (out.length >= 20) break;
+  }
+  return out;
+}
+
+/* ------------------------------------------------------------------ */
 /* Gói bán cho khách (course_packages)                                 */
 /* ------------------------------------------------------------------ */
 

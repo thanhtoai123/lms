@@ -62,4 +62,8 @@ export const careRouter = router({
 
   birthdays: protectedProcedure.input(z.object({ days: z.number().int().min(0).max(60).default(7), centerId: uuid.optional() }).default({ days: 7 })).query(({ ctx, input }) => C.birthdays(ctx, input)),
   greetBirthday: protectedProcedure.input(z.object({ studentId: uuid, message: ntext(500) })).mutation(({ ctx, input }) => C.sendBirthdayGreeting(ctx, input)),
+  /** Quét sinh nhật sắp tới → tạo việc chăm sóc (chống trùng theo học viên + năm) */
+  runBirthdayScan: protectedProcedure
+    .input(z.object({ days: z.number().int().min(0).max(30).optional(), centerId: uuid.optional() }).default({}))
+    .mutation(({ ctx, input }) => C.runBirthdayScan(ctx, input)),
 });

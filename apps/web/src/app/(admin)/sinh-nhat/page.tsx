@@ -4,7 +4,7 @@ import { getServerCaller } from "@/lib/trpc/server";
 import { NoAccess, PageHeader } from "@/components/admin-ui";
 import { Empty } from "@/components/ui";
 import { dtVN } from "@/components/care-ui";
-import { Greet } from "./greet";
+import { Greet, BirthdayScan } from "./greet";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Sinh nhật học viên" };
@@ -18,7 +18,10 @@ export default async function BirthdaysPage({ searchParams }: { searchParams: Pr
   return (
     <div className="space-y-4">
       <PageHeader title="Sinh nhật học viên" desc={`Hôm nay ${d.counts.today} bé · 7 ngày tới ${d.counts.week} bé. Gửi lời chúc qua app phụ huynh (mỗi năm một lần, từ hôm trước đến hôm sau sinh nhật).`} />
-      <div className="flex gap-1 text-sm">{[[0, "Hôm nay"], [7, "7 ngày tới"], [30, "30 ngày tới"]].map(([n, l]) => <Link key={n} href={`/sinh-nhat?days=${n}`} className={`chip ${days === n ? "bg-brand-100 text-brand-800" : "bg-black/5"}`}>{l}</Link>)}</div>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex gap-1 text-sm">{[[0, "Hôm nay"], [7, "7 ngày tới"], [30, "30 ngày tới"]].map(([n, l]) => <Link key={n} href={`/sinh-nhat?days=${n}`} className={`chip ${days === n ? "bg-brand-100 text-brand-800" : "bg-black/5"}`}>{l}</Link>)}</div>
+        <BirthdayScan days={days} />
+      </div>
       {d.items.length === 0 ? <Empty>Không có sinh nhật trong khoảng này.</Empty> : (
         <div className="card overflow-x-auto">
           <table className="w-full text-sm">

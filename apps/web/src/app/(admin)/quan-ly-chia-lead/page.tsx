@@ -6,14 +6,17 @@ import { DistributionLogTab } from "./so-chia";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Quản lý chia lead" };
 
-export default async function DistributionPage({ searchParams }: { searchParams: Promise<{ center?: string; tab?: string }> }) {
+export default async function DistributionPage({ searchParams }: { searchParams: Promise<{ center?: string; region?: string; tab?: string }> }) {
   const sp = await searchParams;
   const { caller } = await getServerCaller();
   const ref = await caller.academics.classes.referenceData();
-  const centerId = sp.center ?? ref.centers[0]?.id ?? null;
+  // Lọc khu vực: thu hẹp danh sách cơ sở theo khu vực đã chọn
+  const regionId = ref.regions.some((r) => r.id === sp.region) ? sp.region! : null;
+  const centerOptions = regionId ? ref.centers.filter((c) => c.regionId === regionId) : ref.centers;
+  const centerId = centerOptions.some((c) => c.id === sp.center) ? sp.center! : centerOptions[0]?.id ?? null;
   const tab = sp.tab === "so-chia" ? "so-chia" : "pool";
   const assignees = centerId && tab === "so-chia" ? await caller.admissions.leads.assigneeOptions({ centerId }) : [];
-  const href = (t: string) => `/quan-ly-chia-lead?${new URLSearchParams({ ...(centerId ? { center: centerId } : {}), ...(t !== "pool" ? { tab: t } : {}) }).toString()}`;
+  const href = (t: string) => `/quan-ly-chia-lead?${new URLSearchParams({ ...(regionId ? { region: regionId } : {}), ...(centerId ? { center: centerId } : {}), ...(t !== "pool" ? { tab: t } : {}) }).toString()}`;
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -23,9 +26,15 @@ export default async function DistributionPage({ searchParams }: { searchParams:
         </div>
         {centerId && <Link href={`/quan-ly-chia-lead/lich-su?center=${centerId}`} className="btn-ghost">Lịch sử thay đổi pool</Link>}
       </div>
-      <form className="flex items-center gap-2">
-        <select name="center" defaultValue={centerId ?? ""} className="input max-w-xs">
-          {ref.centers.map((c) => <option key={c.id} value={c.id}>{c.code} — {c.name}</option>)}
+      <form className="flex flex-wrap items-center gap-2">
+        {ref.regions.length > 0 && (
+          <select name="region" defaultValue={regionId ?? ""} className="input max-w-[220px]" aria-label="Khu vực">
+            <option value="">Mọi khu vực</option>
+            {ref.regions.map((r) => <option key={r.id} value={r.id}>{r.code} — {r.name}</option>)}
+          </select>
+        )}
+        <select name="center" defaultValue={centerId ?? ""} className="input max-w-xs" aria-label="Cơ sở">
+          {centerOptions.map((c) => <option key={c.id} value={c.id}>{c.code} — {c.name}</option>)}
         </select>
         {tab !== "pool" && <input type="hidden" name="tab" value={tab} />}
         <button className="btn-ghost">Xem</button>

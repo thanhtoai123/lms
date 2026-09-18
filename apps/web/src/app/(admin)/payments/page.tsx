@@ -45,18 +45,19 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
       <StatTabs basePath="/payments" params={sp} active={status ?? ""} tabs={[{ key: "", label: "Tất cả" }, ...PAYMENT_STATUSES.map((s) => ({ key: s, label: PAYMENT_STATUS_VI[s], count: d.counts?.[s] }))]} />
       <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-ink-600">
         <span>{d.total} khoản · đã xác nhận <b className="text-green-700">{vnd(d.sums.confirmed)}</b> · chờ xác nhận <b className="text-amber-700">{vnd(d.sums.recorded)}</b></span>
-        <CsvButton filename="thanh-toan" headers={["Phiếu thu", "Mã đơn", "Khách", "Học viên", "Lớp", "Số tiền", "Hình thức", "Ngày thu", "Trạng thái", "Người thu", "Kế toán", "Cơ sở"]}
-          rows={d.items.map((p) => [p.receiptNo, p.orderCode, p.customerName, p.studentName, p.classCode, p.amount, p.methodName, p.paidAt, PAYMENT_STATUS_VI[p.status], p.recorderName, p.deciderName, p.centerCode])} />
+        <CsvButton filename="thanh-toan" headers={["Phiếu thu", "Mã đơn", "Khách", "Học viên", "Lớp", "Nguồn HV", "Sale phụ trách", "Số tiền", "Hình thức", "Ngày thu", "Trạng thái", "Người thu", "Kế toán", "Cơ sở"]}
+          rows={d.items.map((p) => [p.receiptNo, p.orderCode, p.customerName, p.studentName, p.classCode, p.leadSource, p.saleName, p.amount, p.methodName, p.paidAt, PAYMENT_STATUS_VI[p.status], p.recorderName, p.deciderName, p.centerCode])} />
       </div>
       {d.items.length === 0 ? <Empty>Không có khoản thu phù hợp.</Empty> : (
         <div className="card overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="text-left text-xs uppercase text-ink-400"><tr><th className="p-3">Đơn / phiếu thu</th><th className="p-3">Học viên / PH</th><th className="p-3 text-right">Số tiền</th><th className="p-3">Hình thức · ngày</th><th className="p-3">Người thu / kế toán</th><th className="p-3">Trạng thái</th><th className="p-3"></th></tr></thead>
+            <thead className="text-left text-xs uppercase text-ink-400"><tr><th className="p-3">Đơn / phiếu thu</th><th className="p-3">Học viên / PH</th><th className="p-3">Nguồn / sale</th><th className="p-3 text-right">Số tiền</th><th className="p-3">Hình thức · ngày</th><th className="p-3">Người thu / kế toán</th><th className="p-3">Trạng thái</th><th className="p-3"></th></tr></thead>
             <tbody className="divide-y divide-black/5 align-top">
               {d.items.map((p) => (
                 <tr key={p.id}>
                   <td className="p-3"><Link href={`/orders/${p.orderId}`} className="font-mono text-xs font-semibold text-brand-600">{p.orderCode}</Link><div>{p.receiptNo ? <Link href={`/payments/${p.id}/phieu-thu`} className="font-mono text-xs hover:underline">{p.receiptNo}</Link> : <span className="text-xs text-ink-400">chưa có phiếu</span>}</div><div className="text-xs text-ink-400">{p.centerCode}</div></td>
                   <td className="p-3">{p.studentName ?? "—"}{p.classCode ? <span className="text-xs text-ink-400"> · {p.classCode}</span> : null}<div className="text-xs text-ink-600">PH {p.customerName}{p.idNumber ? ` · CCCD ${p.idNumber}` : ""}</div></td>
+                  <td className="p-3 text-xs">{p.leadSource ?? <span className="text-ink-400">—</span>}<div className="text-ink-600">{p.saleName ?? ""}</div></td>
                   <td className="p-3 text-right font-semibold tabular-nums">{vnd(p.amount)}{p.amount !== p.recordedAmount && <div className="text-[11px] font-normal text-ink-400">ghi nhận {vnd(p.recordedAmount)}</div>}</td>
                   <td className="p-3 text-xs">{p.methodName ?? "—"}<div>{fmtD(p.paidAt)}</div></td>
                   <td className="p-3 text-xs">{p.recorderName ?? "?"}<div className="text-ink-400">{p.deciderName ?? ""}</div>{p.decisionReason && <div className="text-amber-800">{p.decisionReason}</div>}</td>

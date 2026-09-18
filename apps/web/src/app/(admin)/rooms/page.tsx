@@ -11,7 +11,7 @@ export default async function RoomsPage({ searchParams }: { searchParams: Promis
   const [ref, rows] = await Promise.all([caller.academics.classes.referenceData(), caller.org.rooms({ centerId: sp.center || undefined })]);
   return (
     <div className="space-y-4">
-      <PageHeader title="Phòng học" desc="Phòng theo cơ sở, sức chứa và mức sử dụng tuần này. Lịch lớp dùng phòng để chặn trùng giờ." />
+      <PageHeader title="Phòng học" desc="Phòng theo cơ sở, sức chứa, trạng thái (Hoạt động / Bảo trì / Tạm ngừng), thiết bị và mức sử dụng tuần này. Chỉ phòng Hoạt động mới xếp được lớp; lịch lớp dùng phòng để chặn trùng giờ." />
       <form className="flex gap-2">
         <select name="center" defaultValue={sp.center ?? ""} className="input max-w-[240px]"><option value="">Mọi cơ sở</option>{ref.centers.map((c) => <option key={c.id} value={c.id}>{c.code} — {c.name}</option>)}</select>
         <button className="btn-ghost">Lọc</button>

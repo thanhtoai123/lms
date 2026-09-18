@@ -6,7 +6,7 @@ import * as P from "../services/parentAccounts";
 import * as O from "../services/org";
 import * as L from "../services/studentLifecycle";
 import * as T from "../services/classTransfers";
-import { ENROLLMENT_STATUSES, BLOOD_TYPES, GUARDIAN_RELATIONS, TRANSFER_REQUEST_STATUSES } from "@satarobo/core";
+import { ENROLLMENT_STATUSES, BLOOD_TYPES, GUARDIAN_RELATIONS, ROOM_STATUSES, TRANSFER_REQUEST_STATUSES } from "@satarobo/core";
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "YYYY-MM-DD");
 const uuid = z.string().uuid();
@@ -134,6 +134,9 @@ export const orgRouter = router({
     .mutation(({ ctx, input }) => O.upsertCenter(ctx, input)),
   rooms: protectedProcedure.input(z.object({ centerId: uuid.optional() }).default({})).query(({ ctx, input }) => O.listRooms(ctx, input)),
   upsertRoom: protectedProcedure
-    .input(z.object({ id: uuid.optional(), centerId: uuid, code: z.string().min(1).max(20), name: z.string().min(2).max(80), capacity: z.number().int().min(1).max(60), isActive: z.boolean().optional() }))
+    .input(z.object({
+      id: uuid.optional(), centerId: uuid, code: z.string().min(1).max(20), name: z.string().min(2).max(80), capacity: z.number().int().min(1).max(60),
+      status: z.enum(ROOM_STATUSES).optional(), equipment: z.array(z.string().max(60)).max(20).optional(), isActive: z.boolean().optional(),
+    }))
     .mutation(({ ctx, input }) => O.upsertRoom(ctx, input)),
 });

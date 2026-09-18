@@ -8,7 +8,7 @@ import {
   authorize, hasRole, visibleCenterIds, addDays,
   priceLines, packagePrice, buildPlan, validateInstallmentPlan, replanInstallments, orderBalance, deriveOrderStatus, canCancelOrder,
   allocateInstallments, agingBucket, agingBucketBy, agingBucketLabels, dueSoon, validatePaymentDecision, receiptNumber, orderCode, transferMemo, maskIdNumber,
-  refundProposal, validateRefundRequest, refundTransition, vietQrImageUrl, requireReason, formatVnd, maskPhone, remainingSessions,
+  refundProposal, validateRefundRequest, refundTransition, vietQrImageUrl, requireReason, formatVnd, maskPhone, remainingSessions, isEmail,
   orderDisplayState, enrollmentDebtChip, COACH_MULTIPLIER, MAX_INSTALLMENTS, DEBT_CHIPS,
   AGING_BUCKETS, FinanceRuleError,
   type OrderType, type OrderStatus, type PaymentStatus, type PaymentDecision, type RefundStatus, type PaymentMethodKind, type AgingBucket, type Discount, type Permission,
@@ -642,6 +642,29 @@ async function loadOrder(ctx: ProtectedContext, id: string, perm: Permission = "
   return o;
 }
 
+/**
+ * Gửi email đơn hàng cho khách (mẫu ORDER_CREATED): dòng đơn, tổng tiền, hạn đợt đầu,
+ * liên kết xem đơn + QR chuyển khoản. Email vào hàng đợi, worker gửi.
+ */
+export async function sendOrderEmail(ctx: ProtectedContext, input: { orderId: string; to?: string | null }) {
+  const o = await loadOrder(ctx, input.orderId, "finance:create");
+  const to = (input.to ?? o.customerEmail ?? "").trim();
+  if (!isEmail(to)) throw bad("Đơn chưa có email khách hợp lệ — nhập email để gửi");
+  const [center, items, plan] = await Promise.all([
+    ctx.db.query.centers.findFirst({ where: eq(centers.id, o.centerId), columns: { code: true, name: true } }),
+    ctx.db.select({ description: orderItems.description, studentName: students.fullName }).from(orderItems).leftJoin(students, eq(students.id, orderItems.studentId)).where(eq(orderItems.orderId, o.id)),
+    ctx.db.select({ dueDate: orderInstallments.dueDate }).from(orderInstallments).where(and(eq(orderInstallments.orderId, o.id), isNull(orderInstallments.cancelledAt))).orderBy(asc(orderInstallments.seq)).limit(1),
+  ]);
+  const con = [...new Set(items.map((i) => i.studentName).filter((x): x is string => !!x))].join(", ") || items.map((i) => i.description).join("; ").slice(0, 120) || "học viên";
+  const id = await queueEmail(ctx.db, {
+    to, event: "ORDER_CREATED",
+    vars: { ten_ph: o.customerName, ma_don: o.code, so_tien: formatVnd(o.total), con, co_so: center?.name ?? center?.code ?? "", han_dau: plan[0]?.dueDate?.split("-").reverse().join("/") ?? "theo thoả thuận", link: `/orders/${o.id}` },
+    relatedType: "order", relatedId: o.id, createdBy: ctx.user.id,
+  });
+  await writeAudit(ctx.db, { actorId: ctx.user.id, action: "CREATE", module: "finance", entity: "email_logs", entityId: id, after: { orderId: o.id, orderCode: o.code, to }, ip: ctx.ip });
+  return { ok: true, to };
+}
+
 export async function getOrder(ctx: ProtectedContext, id: string) {
   const o = await loadOrder(ctx, id);
   const today = todayISO();
@@ -964,6 +987,9 @@ export async function listPayments(ctx: ProtectedContext, input: { status?: Paym
     recorderName: sql<string | null>`(select full_name from ${users} u where u.id = ${payments.recordedBy})`,
     deciderName: sql<string | null>`(select full_name from ${users} u where u.id = ${payments.decidedBy})`,
     idNumber: sql<string | null>`(select op.id_number from ${orderPrivate} op where op.order_id = ${orders.id})`,
+    // Nguồn học viên (kênh lead) + sale phụ trách — lấy theo lead của đơn, không có lead thì lấy người lập đơn
+    leadSource: sql<string | null>`(select l.source from ${leads} l where l.id = ${orders.leadId})`,
+    saleName: sql<string | null>`coalesce((select u.full_name from ${leads} l join ${users} u on u.id = l.assigned_to_id where l.id = ${orders.leadId}), (select u2.full_name from ${users} u2 where u2.id = ${orders.createdBy}))`,
   })
     .from(payments).innerJoin(orders, eq(orders.id, payments.orderId)).innerJoin(centers, eq(centers.id, payments.centerId))
     .leftJoin(students, eq(students.id, orders.studentId)).leftJoin(enrollments, eq(enrollments.id, orders.enrollmentId)).leftJoin(classes, eq(classes.id, enrollments.classId))

@@ -1,6 +1,6 @@
 import { and, eq, inArray, sql, asc, desc, ilike, or } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
-import { classes, classSchedules, sessions, enrollments, courses, centers, rooms, teachers, students, attendance, trialBookings } from "@satarobo/db";
+import { classes, classSchedules, sessions, enrollments, courses, centers, regions, rooms, teachers, students, attendance, trialBookings } from "@satarobo/db";
 import {
   visibleCenterIds, summarize, detectRisks, riskFrom, sessionLabel,
   type ClassStatus, type AttendanceRecord,
@@ -112,8 +112,11 @@ export async function referenceData(ctx: ProtectedContext) {
   const visible = visibleCenterIds(ctx.actor);
   const centerRows = await ctx.db.select().from(centers).where(visible === null ? sql`true` : visible.length ? inArray(centers.id, visible) : sql`false`).orderBy(asc(centers.code));
   const ids = centerRows.map((c) => c.id);
+  const regionIds = [...new Set(centerRows.map((c) => c.regionId).filter((x): x is string => !!x))];
   return {
     centers: centerRows,
+    /** Khu vực của các cơ sở đang thấy — dùng cho bộ lọc "Khu vực" */
+    regions: regionIds.length ? await ctx.db.select({ id: regions.id, code: regions.code, name: regions.name }).from(regions).where(inArray(regions.id, regionIds)).orderBy(asc(regions.sortOrder), asc(regions.code)) : [],
     rooms: ids.length ? await ctx.db.select().from(rooms).where(inArray(rooms.centerId, ids)).orderBy(asc(rooms.code)) : [],
     teachers: ids.length ? await ctx.db.select({ id: teachers.id, fullName: teachers.fullName, centerId: teachers.centerId }).from(teachers).where(and(eq(teachers.isActive, true), inArray(teachers.centerId, ids))).orderBy(asc(teachers.fullName)) : [],
     courses: await ctx.db.select().from(courses).where(eq(courses.isActive, true)).orderBy(asc(courses.code)),

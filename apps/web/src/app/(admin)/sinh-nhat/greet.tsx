@@ -5,6 +5,25 @@ import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { useTRPC } from "@/lib/trpc/client";
 
+/** Quét sinh nhật sắp tới → tạo việc chăm sóc cho cơ sở chuẩn bị */
+export function BirthdayScan({ days }: { days: number }) {
+  const trpc = useTRPC();
+  const router = useRouter();
+  const [msg, setMsg] = useState<string | null>(null);
+  const m = useMutation(trpc.care.runBirthdayScan.mutationOptions({
+    onSuccess: (r) => { setMsg(`Đã quét ${r.scanned} học viên trong ${r.days} ngày tới — tạo mới ${r.created} việc chăm sóc${r.existing ? `, ${r.existing} việc đã có` : ""}.`); router.refresh(); },
+    onError: (e) => setMsg(e.message),
+  }));
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <button className="btn-ghost" disabled={m.isPending} onClick={() => { setMsg(null); m.mutate({ days: Math.max(1, Math.min(30, days || 3)) }); }}>
+        {m.isPending ? "Đang quét…" : "Chạy quét sinh nhật"}
+      </button>
+      {msg && <span className="text-xs text-ink-600">{msg}</span>}
+    </div>
+  );
+}
+
 export function Greet({ studentId, template }: { studentId: string; template: string }) {
   const trpc = useTRPC();
   const router = useRouter();

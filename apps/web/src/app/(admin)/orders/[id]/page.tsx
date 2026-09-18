@@ -4,7 +4,7 @@ import { hasPermission, ORDER_TYPE_VI, type Actor } from "@satarobo/core";
 import { getServerCaller } from "@/lib/trpc/server";
 import { NoAccess, PageHeader } from "@/components/admin-ui";
 import { OrderChip, OrderDisplayChip, PaymentChip, RefundChip, FormatChip, vnd, fmtD } from "@/components/finance-ui";
-import { RecordPayment, DecidePayment, CancelOrder, NotesEditor, RevealCustomer, PlanEditor, ChildInstallment, CancelInstallment, EditPendingPayment, AdjustConfirmedPayment } from "./actions";
+import { RecordPayment, DecidePayment, CancelOrder, NotesEditor, RevealCustomer, PlanEditor, ChildInstallment, CancelInstallment, EditPendingPayment, AdjustConfirmedPayment, SendOrderEmail } from "./actions";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Chi tiết đơn" };
@@ -188,6 +188,13 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
             {o.customerPrivate && <div className="text-xs text-ink-600">CCCD: {o.customerPrivate.idNumber ?? "—"} · {[o.customerPrivate.address, o.customerPrivate.ward, o.customerPrivate.province].filter(Boolean).join(", ")}</div>}
             {o.customerPrivate?.hasIdNumber && o.perms.confirm && <RevealCustomer orderId={o.id} />}
           </section>
+          {o.perms.create && (
+            <section className="card space-y-1 p-4 text-sm">
+              <h2 className="mb-1 font-semibold">Gửi email đơn hàng</h2>
+              <p className="text-xs text-ink-600">Gửi khách nội dung đơn (dòng đơn, tổng tiền, hạn đợt đầu, liên kết xem đơn + QR). Nội dung theo mẫu &quot;Gửi đơn hàng cho khách&quot; ở Mẫu email.</p>
+              <SendOrderEmail orderId={o.id} customerEmail={o.customerEmail} />
+            </section>
+          )}
           <section className="card p-4 text-sm">
             <h2 className="mb-1 font-semibold">Ghi chú</h2>
             <NotesEditor orderId={o.id} internalNote={o.internalNote} customerNote={o.customerNote} remindDays={o.remindDays} canEdit={o.perms.create && open} />

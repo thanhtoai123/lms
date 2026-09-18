@@ -776,6 +776,37 @@ export async function birthdays(ctx: ProtectedContext, input: { days: number; ce
   };
 }
 
+/**
+ * Quét sinh nhật sắp tới và tạo việc chăm sóc để cơ sở chuẩn bị (lời chúc + buổi chúc mừng).
+ * Chống trùng theo `dedupeKey = birthday:<hv>:<năm>`, chạy lại nhiều lần không nhân bản.
+ */
+export async function runBirthdayScan(ctx: ProtectedContext, input: { days?: number; centerId?: string }) {
+  requirePermission(ctx, "care:create", { centerId: input.centerId ?? null });
+  const days = Math.min(30, Math.max(0, input.days ?? 3));
+  const d = await birthdays(ctx, { days, centerId: input.centerId });
+  const cand = d.items.filter((s): s is typeof s & { centerId: string } => !s.greetedAt && !!s.centerId && can(ctx, "care:create", s.centerId));
+  if (!cand.length) return { scanned: d.items.length, created: 0, existing: 0, days };
+  const keyOf = (s: (typeof cand)[number]) => `birthday:${s.id}:${s.next.date.slice(0, 4)}`;
+  const have = await ctx.db.select({ k: careTasks.dedupeKey }).from(careTasks)
+    .where(and(inArray(careTasks.dedupeKey, cand.map(keyOf)), inArray(careTasks.status, ["open", "in_progress", "escalated"])));
+  const seen = new Set(have.map((h) => h.k));
+  const todo = cand.filter((s) => !seen.has(keyOf(s)));
+  if (todo.length) {
+    await ctx.db.transaction(async (txx) => {
+      const tx = txx as unknown as Db;
+      for (const s of todo) {
+        await openCareTask(tx, {
+          studentId: s.id, centerId: s.centerId, code: "BIRTHDAY",
+          title: `Sinh nhật ${s.fullName} ngày ${dmy(s.next.date)} — chuẩn bị lời chúc & buổi chúc mừng`,
+          dedupeKey: keyOf(s), hours: Math.max(24, (s.next.daysUntil + 1) * 24),
+        });
+      }
+      await writeAudit(tx, { actorId: ctx.user.id, action: "CREATE", module: "care", entity: "care_tasks", entityId: null, after: { action: "birthday_scan", days, created: todo.length }, ip: ctx.ip });
+    });
+  }
+  return { scanned: d.items.length, created: todo.length, existing: cand.length - todo.length, days };
+}
+
 export async function sendBirthdayGreeting(ctx: ProtectedContext, input: { studentId: string; message?: string | null }) {
   const st = await ctx.db.query.students.findFirst({ where: eq(students.id, input.studentId) });
   if (!st || !st.dateOfBirth) throw notFound("Không tìm thấy học viên / chưa có ngày sinh");

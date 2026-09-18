@@ -1,7 +1,7 @@
 import { and, eq, inArray, sql, asc } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { centers, rooms, classes, students, sessions } from "@satarobo/db";
-import { visibleCenterIds } from "@satarobo/core";
+import { visibleCenterIds, normalizeEquipment, roomUsable, type RoomStatus } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { writeAudit } from "./audit";
 
@@ -49,6 +49,7 @@ export async function listRooms(ctx: ProtectedContext, input: { centerId?: strin
   return ctx.db
     .select({
       id: rooms.id, centerId: rooms.centerId, centerCode: centers.code, code: rooms.code, name: rooms.name, capacity: rooms.capacity, isActive: rooms.isActive,
+      status: rooms.status, equipment: rooms.equipment,
       sessionsThisWeek: sql<number>`(select count(*)::int from ${sessions} s where s.room_id = ${rooms.id} and s.date between date_trunc('week', current_date)::date and (date_trunc('week', current_date) + interval '6 days')::date and s.status not in ('cancelled','rescheduled'))`,
       homeClasses: sql<number>`(select count(*)::int from ${classes} c where c.home_room_id = ${rooms.id} and c.status in ('recruiting','running') and c.deleted_at is null)`,
     })
@@ -56,7 +57,7 @@ export async function listRooms(ctx: ProtectedContext, input: { centerId?: strin
     .where(and(...conds)).orderBy(asc(centers.code), asc(rooms.code));
 }
 
-export async function upsertRoom(ctx: ProtectedContext, input: { id?: string; centerId: string; code: string; name: string; capacity: number; isActive?: boolean }) {
+export async function upsertRoom(ctx: ProtectedContext, input: { id?: string; centerId: string; code: string; name: string; capacity: number; status?: RoomStatus; equipment?: string[]; isActive?: boolean }) {
   requirePermission(ctx, "room:update", { centerId: input.centerId });
   const code = input.code.trim().toUpperCase();
   return ctx.db.transaction(async (tx) => {
@@ -67,7 +68,8 @@ export async function upsertRoom(ctx: ProtectedContext, input: { id?: string; ce
     }
     const dup = await tx.query.rooms.findFirst({ where: and(eq(rooms.centerId, input.centerId), eq(rooms.code, code)) });
     if (dup && dup.id !== input.id) throw new TRPCError({ code: "CONFLICT", message: `Cơ sở đã có phòng ${code}` });
-    const data = { centerId: input.centerId, code, name: input.name.trim(), capacity: input.capacity, isActive: input.isActive ?? true };
+    const status: RoomStatus = input.status ?? (input.isActive === false ? "paused" : "active");
+    const data = { centerId: input.centerId, code, name: input.name.trim(), capacity: input.capacity, status, equipment: normalizeEquipment(input.equipment), isActive: roomUsable(status) };
     const [row] = input.id
       ? await tx.update(rooms).set({ ...data, updatedAt: new Date() }).where(eq(rooms.id, input.id)).returning()
       : await tx.insert(rooms).values(data).returning();

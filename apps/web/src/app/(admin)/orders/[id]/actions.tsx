@@ -82,6 +82,27 @@ export function CancelOrder({ orderId }: { orderId: string }) {
   );
 }
 
+/** Gửi email đơn hàng cho khách (mẫu ORDER_CREATED, vào hàng đợi email) */
+export function SendOrderEmail({ orderId, customerEmail }: { orderId: string; customerEmail: string | null }) {
+  const trpc = useTRPC();
+  const router = useRouter();
+  const [to, setTo] = useState(customerEmail ?? "");
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const m = useMutation(trpc.finance.sendOrderEmail.mutationOptions({
+    onSuccess: (r) => { setMsg({ ok: true, text: `Đã xếp email đơn hàng gửi tới ${r.to} vào hàng đợi.` }); router.refresh(); },
+    onError: (e) => setMsg({ ok: false, text: e.message }),
+  }));
+  return (
+    <div className="space-y-2">
+      <input className="input" type="email" placeholder="Email nhận đơn" value={to} onChange={(e) => setTo(e.target.value)} />
+      <button className="btn-ghost" disabled={m.isPending || !to.includes("@")} onClick={() => { setMsg(null); m.mutate({ orderId, to: to.trim() }); }}>
+        {m.isPending ? "Đang gửi…" : "Gửi email đơn hàng"}
+      </button>
+      {msg && <div className={`text-xs ${msg.ok ? "text-green-700" : "text-red-700"}`}>{msg.text}</div>}
+    </div>
+  );
+}
+
 export function NotesEditor({ orderId, internalNote, customerNote, remindDays, canEdit }: { orderId: string; internalNote: string | null; customerNote: string | null; remindDays: number; canEdit: boolean }) {
   const trpc = useTRPC();
   const router = useRouter();
