@@ -20,6 +20,7 @@ import { siteRouter, marketingRouter, complianceRouter } from "./routers/growth"
 import { recruitRouter, messagingRouter, affiliateRouter } from "./routers/outreach";
 import { invoiceRouter, cardRouter } from "./routers/billing";
 import { migrationRouter, cutoverRouter, deliveryRouter, pilotRouter, readinessRouter, opsConfigRouter } from "./routers/golive";
+import { tenantsRouter } from "./routers/tenants";
 
 export const appRouter = router({
   auth: authRouter,
@@ -59,11 +60,13 @@ export const appRouter = router({
   readiness: readinessRouter,
   opsConfig: opsConfigRouter,
   card: cardRouter,
+  tenants: tenantsRouter,
 });
 
 export type AppRouter = typeof appRouter;
 export const createCaller = createCallerFactory(appRouter);
 export { createContext, type Context } from "./context";
+export { previewProvision, provision } from "./services/provisionTenant";
 export { createLead } from "./services/leads";
 export { processOutbox, scanLeadSla } from "./services/engagement";
 export { buildActionRequiredAlerts, deliverNotifications, notifyTyped } from "./services/notify";
