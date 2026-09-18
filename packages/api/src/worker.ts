@@ -20,7 +20,10 @@ import { pruneLoginEvents } from "./services/loginSecurity";
 import { remindPauseEnding } from "./services/studentLifecycle";
 import { buildActionRequiredAlerts } from "./services/notify";
 
-const db = createDb();
+// Worker có việc quét / ẩn danh hoá chạy lâu hơn một màn hình web, nên nới riêng
+// `statement_timeout` cho tiến trình này (60s) thay vì nới cho cả hệ.
+// Pool nhỏ: worker chạy tuần tự, 4 kết nối là đủ và để dành kết nối cho web.
+const db = createDb(undefined, { statementTimeoutMs: 60_000, max: 4 });
 const interval = Number(process.env.WORKER_INTERVAL_MS ?? 10_000);
 let running = true;
 let lastSurvey = 0;
@@ -65,6 +68,8 @@ async function tick() {
     }
     await recordHeartbeat(db, "worker", { processed: r.processed, failed: r.failed, sla });
     if (r.processed || r.failed || sla) console.log(new Date().toISOString(), `outbox processed=${r.processed} failed=${r.failed} actions=${r.actions} sla=${sla}`);
+    // Hàng đợi chết là việc KHÔNG tự lành: phải có người vào trang Hệ thống xem `lastError`
+    if (r.deadLettered) console.error(new Date().toISOString(), `outbox dead-letter=${r.deadLettered} — vào /he-thong để xem lý do và chạy lại`);
   } catch (e) {
     console.error("worker error", e);
   }

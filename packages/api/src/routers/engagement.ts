@@ -6,7 +6,7 @@ import * as N from "../services/notify";
 
 export const engagementRouter = router({
   careTasks: protectedProcedure
-    .input(z.object({ status: z.enum(["open", "in_progress", "done", "escalated", "dismissed"]).optional(), centerId: z.string().uuid().optional() }).default({}))
+    .input(z.object({ status: z.enum(["open", "in_progress", "done", "escalated", "dismissed"]).optional(), centerId: z.string().uuid().optional(), limit: z.number().int().min(1).max(500).optional() }).default({}))
     .query(({ ctx, input }) => E.listCareTasks(ctx, input)),
   resolveCareTask: protectedProcedure
     .input(z.object({ id: z.string().uuid(), status: z.enum(["in_progress", "done", "escalated", "dismissed"]), outcome: z.string().max(1000).optional() }))
@@ -26,6 +26,10 @@ export const engagementRouter = router({
   markRead: protectedProcedure.input(z.object({ ids: z.array(z.string().uuid()).optional(), all: z.boolean().optional() })).mutation(({ ctx, input }) => E.markRead(ctx, input)),
   parentFeed: protectedProcedure.input(z.object({ parentId: z.string().uuid(), limit: z.number().int().min(1).max(200).optional() })).query(({ ctx, input }) => E.parentFeed(ctx, input)),
   outboxStats: protectedProcedure.query(({ ctx }) => E.outboxStats(ctx)),
+  /** Đẩy việc trong hàng đợi chết trở lại hàng đợi sống sau khi đã sửa nguyên nhân */
+  retryDeadLetter: protectedProcedure
+    .input(z.object({ ids: z.array(z.string().uuid()).max(500).optional() }).default({}))
+    .mutation(({ ctx, input }) => E.retryDeadLetter(ctx, input)),
   /** Chạy worker thủ công (dev/ops) */
   runWorker: protectedProcedure.mutation(async ({ ctx }) => {
     requirePermission(ctx, "automation:run");
