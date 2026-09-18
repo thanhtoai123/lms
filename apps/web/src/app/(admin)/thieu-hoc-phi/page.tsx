@@ -7,6 +7,7 @@ import { Kpi } from "@/components/report-ui";
 import { OrderChip, vnd } from "@/components/finance-ui";
 import { CsvButton } from "@/components/csv-button";
 import { BackfillTuition } from "./actions";
+import { RememberFilters } from "@/components/remember-filters";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Thiếu học phí" };
@@ -22,6 +23,7 @@ export default async function MissingTuitionPage({ searchParams }: { searchParam
   const link = (k?: string) => { const u = new URLSearchParams(); if (sp.center) u.set("center", sp.center); if (k) u.set("kind", k); return `/thieu-hoc-phi${u.toString() ? `?${u}` : ""}`; };
   return (
     <div className="space-y-4">
+      <RememberFilters storageKey="thieu-hoc-phi" ignore={["page"]} />
       <PageHeader title="Thiếu học phí" desc="Học viên đang học / học thử / bảo lưu nhưng chưa lập đơn học phí, hoặc đơn chưa được kế toán xác nhận đủ tiền." />
       <form className="flex gap-2">
         <select name="center" defaultValue={sp.center ?? ""} className="input max-w-[200px]">

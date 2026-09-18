@@ -6,6 +6,7 @@ import { Empty } from "@/components/ui";
 import { fmtDateTime } from "@/components/lead-ui";
 import { CsvButton } from "@/components/csv-button";
 import { RevealAudit } from "./client";
+import { RememberFilters } from "@/components/remember-filters";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Audit Log" };
@@ -40,6 +41,7 @@ export default async function AuditLogPage({ searchParams }: { searchParams: Pro
   ]);
   return (
     <div className="space-y-4">
+      <RememberFilters storageKey="audit-log" ignore={["page"]} />
       <PageHeader title="Audit Log" desc="Nhật ký thao tác bất biến (không sửa, không xoá được). Mỗi dòng: ai, lúc nào, làm gì, trên dữ liệu nào, trước → sau và lý do. Số điện thoại và email được CHE mặc định (09***67 · a***@x.com); bấm “Xem đầy đủ” là thao tác break-glass — bắt buộc lý do và được ghi lại." />
       <form className="card flex flex-wrap items-end gap-2 p-3">
         <label className="text-xs text-ink-600">Phân hệ

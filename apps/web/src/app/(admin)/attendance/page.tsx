@@ -4,6 +4,7 @@ import { getServerCaller } from "@/lib/trpc/server";
 import { NoAccess, PageHeader } from "@/components/admin-ui";
 import { Empty } from "@/components/ui";
 import { AttendanceGrid } from "./grid";
+import { RememberFilters } from "@/components/remember-filters";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Điểm danh" };
@@ -25,6 +26,7 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
 
   return (
     <div className="space-y-4">
+      <RememberFilters storageKey="attendance" ignore={["page"]} />
       <PageHeader
         title="Điểm danh"
         desc="Tổng quan theo lớp: sĩ số, số buổi đã dạy và số buổi chưa chốt điểm danh. Bấm vào lớp để mở lưới điểm danh. Sửa buổi đã qua là sửa hồi tố: bắt buộc lý do, lưu nhật ký và báo giáo viên phụ trách buổi."

@@ -5,6 +5,7 @@ import { NoAccess, PageHeader, StatTabs } from "@/components/admin-ui";
 import { Empty } from "@/components/ui";
 import { PReqChip, SlaBadge, dtVN } from "@/components/care-ui";
 import { NewParentRequest } from "./new-request";
+import { RememberFilters } from "@/components/remember-filters";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Yêu cầu phụ huynh" };
@@ -21,6 +22,7 @@ export default async function ParentRequestsPage({ searchParams }: { searchParam
   const d = await caller.care.requests({ status: status as ParentRequestStatus | "open" | "overdue" | undefined, type, q: sp.q || undefined, mine: sp.mine === "1" });
   return (
     <div className="space-y-4">
+      <RememberFilters storageKey="parent-requests" ignore={["page"]} />
       <PageHeader title="Yêu cầu phụ huynh" desc="Ghi nhận yêu cầu từ Zalo / điện thoại / tại quầy: xin nghỉ, bảo lưu, đổi lịch, học bù, hoàn phí, góp ý. Mỗi loại có hạn xử lý; duyệt xin nghỉ sẽ ghi sẵn 'vắng có phép' cho giáo viên, duyệt học bù tạo yêu cầu xếp buổi." />
       {d.canCreate && <NewParentRequest />}
       <form className="flex flex-wrap items-end gap-2" action="/parent-requests">

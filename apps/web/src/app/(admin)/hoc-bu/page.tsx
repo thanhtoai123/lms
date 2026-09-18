@@ -2,6 +2,7 @@ import { MAKEUP_STATUSES, type MakeupStatus } from "@satarobo/core";
 import { getServerCaller } from "@/lib/trpc/server";
 import { PageHeader, StatTabs } from "@/components/admin-ui";
 import { MakeupBoard } from "./board";
+import { RememberFilters } from "@/components/remember-filters";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Học bù" };
@@ -17,6 +18,7 @@ export default async function MakeupPage({ searchParams }: { searchParams: Promi
   const c = list.counts;
   return (
     <div className="space-y-4">
+      <RememberFilters storageKey="hoc-bu" ignore={["page"]} />
       <PageHeader title="Học bù" desc="Buổi vắng trong 30 ngày → tạo yêu cầu → xếp vào buổi cùng bài ở lớp khác (còn chỗ, ưu tiên cùng cơ sở) → ghi nhận đã học bù." />
       <StatTabs
         basePath="/hoc-bu"

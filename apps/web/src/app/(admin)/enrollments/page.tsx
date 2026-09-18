@@ -3,6 +3,7 @@ import { getServerCaller } from "@/lib/trpc/server";
 import { PageHeader, Pager, StatTabs, EnrollmentChip, fmtDate } from "@/components/admin-ui";
 import { ColumnChooser, type ColumnDef } from "@/components/column-chooser";
 import { Empty } from "@/components/ui";
+import { RememberFilters } from "@/components/remember-filters";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Đăng ký học" };
@@ -34,6 +35,7 @@ export default async function EnrollmentsPage({ searchParams }: { searchParams: 
   const c = d.counts;
   return (
     <div className="space-y-4">
+      <RememberFilters storageKey="enrollments" ignore={["page"]} />
       <PageHeader title="Đăng ký học" desc="Mỗi dòng là một gói học của học viên trong một lớp. Thao tác bảo lưu / nghỉ / đổi số buổi ở hồ sơ học viên." actions={<Link href="/enrollments/new" className="btn-primary">+ Ghi danh</Link>} />
       <StatTabs
         basePath="/enrollments"

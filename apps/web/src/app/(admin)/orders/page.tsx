@@ -4,6 +4,7 @@ import { getServerCaller } from "@/lib/trpc/server";
 import { NoAccess, PageHeader, Pager, StatTabs } from "@/components/admin-ui";
 import { Empty } from "@/components/ui";
 import { OrderChip, OrderDisplayChip, vnd, fmtD } from "@/components/finance-ui";
+import { RememberFilters } from "@/components/remember-filters";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Đơn hàng" };
@@ -22,6 +23,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
   ]);
   return (
     <div className="space-y-4">
+      <RememberFilters storageKey="orders" ignore={["page"]} />
       <PageHeader
         title="Đơn hàng"
         desc="Đơn học phí / sản phẩm. Badge chính suy từ tiền đã thu (kể cả khoản kế toán chưa đối soát); công nợ phụ huynh vẫn chỉ trừ khoản đã xác nhận."

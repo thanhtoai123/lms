@@ -7,6 +7,7 @@ import { Kpi, Section, th, td } from "@/components/report-ui";
 import { DebtChipView, vnd, fmtD } from "@/components/finance-ui";
 import { CsvButton } from "@/components/csv-button";
 import { EditEnrollmentFee } from "./actions";
+import { RememberFilters } from "@/components/remember-filters";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Công nợ" };
@@ -26,6 +27,7 @@ export default async function DebtsPage({ searchParams }: { searchParams: Promis
   const q = (c?: string) => { const u = new URLSearchParams(); if (sp.center) u.set("center", sp.center); if (sp.q) u.set("q", sp.q); if (c) u.set("chip", c); return `/cong-no${u.toString() ? `?${u}` : ""}`; };
   return (
     <div className="space-y-4">
+      <RememberFilters storageKey="cong-no" ignore={["page"]} />
       <PageHeader
         title="Công nợ"
         desc="Nợ học phí theo từng ghi danh. “Thiếu — PH đang thấy” là con số thật hiện trên cổng phụ huynh (chỉ giảm khi kế toán xác nhận); “Thiếu thật” đã trừ khoản sale đã thu đang chờ kế toán. Ô tuổi nợ tính theo đợt thanh toán có hạn — hai phạm vi khác nhau."
