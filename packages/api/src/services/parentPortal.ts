@@ -132,7 +132,7 @@ export async function portalHome(db: Database, parentId: string) {
     .from(submissions).innerJoin(assignments, eq(assignments.id, submissions.assignmentId))
     .where(and(inArray(submissions.studentId, ids), inArray(submissions.status, ["assigned", "returned", "submitted", "graded"]), gte(assignments.dueAt, new Date(Date.now() - 14 * 86400e3)), inArray(assignments.status, ["published", "closed"])))
     .orderBy(asc(assignments.dueAt)).limit(30) : [];
-  const [nt] = await d.select({ unread: sql<number>`count(*) filter (where ${parentNotifications.readAt} is null)::int` }).from(parentNotifications).where(and(eq(parentNotifications.parentId, parentId), eq(parentNotifications.channel, "in_app")));
+  const [nt] = await d.select({ unread: sql<number>`count(*) filter (where ${parentNotifications.readAt} is null)::int` }).from(parentNotifications).where(and(eq(parentNotifications.parentId, parentId), eq(parentNotifications.channel, "in_app"), isNull(parentNotifications.hiddenAt)));
   const bal = await balances(d, parentId);
   return {
     children: kids.map((k) => {
@@ -209,8 +209,8 @@ export async function portalFinance(db: Database, parentId: string) {
 export async function portalNotifications(db: Database, parentId: string, markRead: boolean) {
   const d = asDb(db);
   const rows = await d.select({ id: parentNotifications.id, title: parentNotifications.title, body: parentNotifications.body, link: parentNotifications.link, createdAt: parentNotifications.createdAt, readAt: parentNotifications.readAt })
-    .from(parentNotifications).where(and(eq(parentNotifications.parentId, parentId), eq(parentNotifications.channel, "in_app"))).orderBy(desc(parentNotifications.createdAt)).limit(100);
-  if (markRead) await d.update(parentNotifications).set({ readAt: new Date(), status: "read" }).where(and(eq(parentNotifications.parentId, parentId), eq(parentNotifications.channel, "in_app"), isNull(parentNotifications.readAt), sql`${parentNotifications.template} <> 'MESSAGE_NEW'`));
+    .from(parentNotifications).where(and(eq(parentNotifications.parentId, parentId), eq(parentNotifications.channel, "in_app"), isNull(parentNotifications.hiddenAt))).orderBy(desc(parentNotifications.createdAt)).limit(100);
+  if (markRead) await d.update(parentNotifications).set({ readAt: new Date(), status: "read" }).where(and(eq(parentNotifications.parentId, parentId), eq(parentNotifications.channel, "in_app"), isNull(parentNotifications.readAt), isNull(parentNotifications.hiddenAt), sql`${parentNotifications.template} <> 'MESSAGE_NEW'`));
   return rows.map((r) => ({ ...r, link: r.link && r.link.startsWith("/") && !r.link.startsWith("//") ? r.link : null }));
 }
 

@@ -123,6 +123,7 @@ export const studentsRouter = router({
     .input(z.object({ q: z.string().max(100).optional(), status: z.enum(P.PARENT_ACCOUNT_STATUSES).optional(), page: z.number().int().min(1).optional(), pageSize: z.number().int().min(1).max(100).optional() }).default({}))
     .query(({ ctx, input }) => P.listParentAccounts(ctx, input)),
   issueActivationCode: protectedProcedure.input(z.object({ parentId: uuid })).mutation(({ ctx, input }) => P.issueActivationCode(ctx, input)),
+  resendActivationCodes: protectedProcedure.input(z.object({ parentIds: z.array(uuid).min(1, "Chọn ít nhất một phụ huynh").max(300) })).mutation(({ ctx, input }) => P.resendActivationCodes(ctx, input)),
   setParentLock: protectedProcedure.input(z.object({ parentId: uuid, locked: z.boolean(), reason: z.string().min(3).max(300) })).mutation(({ ctx, input }) => P.setParentAccountLock(ctx, input)),
 });
 

@@ -1,7 +1,8 @@
 import { getServerCaller } from "@/lib/trpc/server";
-import { PageHeader, Pager, StatTabs, ParentAccountChip, fmtDate } from "@/components/admin-ui";
+import { PageHeader, Pager, StatTabs, ParentAccountChip, PARENT_ACCOUNT_VI, fmtDate } from "@/components/admin-ui";
 import { Empty } from "@/components/ui";
-import { AccountActions } from "./actions";
+import { CsvButton } from "@/components/csv-button";
+import { AccountActions, BulkResend } from "./actions";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Tài khoản phụ huynh" };
@@ -35,6 +36,21 @@ export default async function ParentAccountsPage({ searchParams }: { searchParam
         <input name="q" defaultValue={sp.q} placeholder="Tên hoặc SĐT phụ huynh…" className="input max-w-xs" />
         <button className="btn-ghost">Tìm</button>
       </form>
+      <BulkResend candidates={d.items.filter((p) => p.accountStatus === "none" || p.accountStatus === "pending_activation").map((p) => ({ id: p.id, fullName: p.fullName, hasEmail: !!p.email }))} />
+      <div className="flex items-center justify-between gap-2 text-sm text-ink-600">
+        <span>{d.total} phụ huynh</span>
+        <CsvButton
+          filename="tai-khoan-phu-huynh"
+          headers={["Phụ huynh", "SĐT", "Email", "Con", "Trạng thái", "Yêu cầu kích hoạt", "Đã kích hoạt", "Mã còn hạn đến"]}
+          rows={d.items.map((p) => [
+            p.fullName, p.phone, p.email, p.children,
+            PARENT_ACCOUNT_VI[p.accountStatus] ?? p.accountStatus,
+            p.activationRequestedAt ? fmtDate(p.activationRequestedAt) : "",
+            p.activatedAt ? fmtDate(p.activatedAt) : "",
+            p.codeValid && p.activationCodeExpiresAt ? p.activationCodeExpiresAt.toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" }) : "",
+          ])}
+        />
+      </div>
       {d.items.length === 0 ? <Empty>Không có tài khoản phù hợp.</Empty> : (
         <div className="card overflow-x-auto">
           <table className="w-full text-sm">

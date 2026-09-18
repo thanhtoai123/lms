@@ -611,10 +611,10 @@ export async function submitPublicSurvey(db: Database, token: string, answers: S
 /* Thông báo phụ huynh                                                 */
 /* ------------------------------------------------------------------ */
 
-export async function listParentNotifications(ctx: ProtectedContext, input: { status?: "queued" | "sent" | "failed" | "read"; channel?: string; template?: string; q?: string; page?: number }) {
+export async function listParentNotifications(ctx: ProtectedContext, input: { status?: "queued" | "sent" | "failed" | "read"; channel?: string; template?: string; q?: string; page?: number; hidden?: boolean }) {
   requirePermission(ctx, "care:read", { centerId: null });
   const v = visibleCenterIds(ctx.actor);
-  const conds: SQL[] = [];
+  const conds: SQL[] = [input.hidden ? (sql`${parentNotifications.hiddenAt} is not null` as SQL) : (isNull(parentNotifications.hiddenAt) as SQL)];
   if (v !== null) conds.push(v.length ? sql`exists (select 1 from ${students} s where s.id = ${parentNotifications.studentId} and s.home_center_id in ${v})` : sql`false`);
   if (input.status) conds.push(eq(parentNotifications.status, input.status));
   if (input.channel) conds.push(sql`${parentNotifications.channel} = ${input.channel}`);
@@ -633,10 +633,15 @@ export async function listParentNotifications(ctx: ProtectedContext, input: { st
     failed: sql<number>`count(*) filter (where ${parentNotifications.status} = 'failed')::int`,
   }).from(parentNotifications).innerJoin(parents, eq(parents.id, parentNotifications.parentId)).where(where);
   const templates = await ctx.db.selectDistinct({ t: parentNotifications.template }).from(parentNotifications).orderBy(asc(parentNotifications.template));
+  const [hiddenTotal] = await ctx.db.select({ n: sql<number>`count(*)::int` }).from(parentNotifications)
+    .innerJoin(parents, eq(parents.id, parentNotifications.parentId))
+    .where(and(sql`${parentNotifications.hiddenAt} is not null`, v === null ? sql`true` : v.length ? sql`exists (select 1 from ${students} s where s.id = ${parentNotifications.studentId} and s.home_center_id in ${v})` : sql`false`));
   const broadcasts = await ctx.db.select({ b: notificationBroadcasts, byName: users.fullName }).from(notificationBroadcasts).leftJoin(users, eq(users.id, notificationBroadcasts.createdBy)).orderBy(desc(notificationBroadcasts.createdAt)).limit(10);
   return {
     page, counts: c, templates: templates.map((t) => t.t),
     canSend: ctx.actor.assignments.some((a) => can(ctx, "care:create", a.centerId)),
+    canHide: ctx.actor.assignments.some((a) => can(ctx, "care:update", a.centerId)),
+    hiddenCount: hiddenTotal?.n ?? 0,
     zns: { configured: (await deliverySettings(ctx.db)).zns.mode !== "off" },
     items: rows.map((r) => ({ ...r.n, parentName: r.parentName, studentName: r.studentName })),
     broadcasts: broadcasts.map((b) => ({ ...b.b, byName: b.byName })),
@@ -702,6 +707,34 @@ export async function sendBroadcast(ctx: ProtectedContext, input: { audience: Au
     await writeAudit(tx, { actorId: ctx.user.id, action: "CREATE", module: "care", entity: "notification_broadcasts", entityId: b!.id, after: { recipients: rows.length, channel: input.channel, audience: input.audience }, ip: ctx.ip });
     return { id: b!.id, recipients: rows.length, queued: zns ? rows.length : 0 };
   });
+}
+
+/**
+ * Ẩn / xoá mềm một thông báo đã đăng: phụ huynh không còn thấy trên cổng /ph,
+ * bản ghi vẫn giữ để đối chiếu. Bắt buộc lý do ≥5 ký tự, ghi nhật ký.
+ * Tin đang "Chờ gửi" thì huỷ luôn (không gửi ra ngoài nữa).
+ */
+export async function hideNotification(ctx: ProtectedContext, input: { id: string; reason: string; hidden: boolean }) {
+  const n = await ctx.db.query.parentNotifications.findFirst({ where: eq(parentNotifications.id, input.id) });
+  if (!n) throw notFound("Không tìm thấy thông báo");
+  const st = n.studentId ? await ctx.db.query.students.findFirst({ where: eq(students.id, n.studentId), columns: { homeCenterId: true } }) : null;
+  requirePermission(ctx, "care:update", { centerId: st?.homeCenterId ?? null });
+  const reason = reasonOf(input.reason, 5);
+  if (input.hidden && n.hiddenAt) throw pre("Thông báo đã được ẩn");
+  if (!input.hidden && !n.hiddenAt) throw pre("Thông báo đang hiển thị");
+  await ctx.db.transaction(async (txx) => {
+    const tx = txx as unknown as Db;
+    await tx.update(parentNotifications)
+      .set(input.hidden
+        ? { hiddenAt: new Date(), hiddenBy: ctx.user.id, hiddenReason: reason, ...(n.status === "queued" ? { status: "failed" as const, error: `Đã ẩn: ${reason}`, nextAttemptAt: null } : {}) }
+        : { hiddenAt: null, hiddenBy: null, hiddenReason: null })
+      .where(eq(parentNotifications.id, n.id));
+    await writeAudit(tx, {
+      actorId: ctx.user.id, action: input.hidden ? "DELETE" : "UPDATE", module: "care", entity: "parent_notifications", entityId: n.id,
+      before: { hidden: !!n.hiddenAt, status: n.status, title: n.title }, after: { hidden: input.hidden }, reason, ip: ctx.ip,
+    });
+  });
+  return { ok: true, hidden: input.hidden };
 }
 
 export async function retryNotification(ctx: ProtectedContext, input: { id: string }) {

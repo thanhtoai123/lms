@@ -1,13 +1,16 @@
 import { createHash, randomInt } from "node:crypto";
 import { and, eq, inArray, sql, desc, ilike, or, isNull } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
-import { parents, studentGuardians, students, centers } from "@satarobo/db";
-import { maskPhone, normalizeVnPhone, visibleCenterIds } from "@satarobo/core";
+import { parents, parentNotifications, studentGuardians, students, centers } from "@satarobo/db";
+import { isEmail, maskPhone, normalizeVnPhone, visibleCenterIds } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { writeAudit } from "./audit";
+import { queueEmail } from "./admin";
 import { canSeeFullPhone } from "./students";
 
 type Db = ProtectedContext["db"];
+/** Trang phụ huynh đăng nhập / kích hoạt tài khoản bằng mã từ trung tâm */
+const ACTIVATION_URL = "/ph/dang-nhap";
 /** Tham chiếu đủ tên bảng cho truy vấn con tương quan (select 1 bảng, drizzle không kèm tên bảng) */
 const PARENT_ID = sql.raw('"parents"."id"');
 export const PARENT_ACCOUNT_STATUSES = ["none", "pending_activation", "active", "locked"] as const;
@@ -82,6 +85,58 @@ export async function issueActivationCode(ctx: ProtectedContext, input: { parent
     await writeAudit(tx as unknown as Db, { actorId: ctx.user.id, action: "UPDATE", module: "parent_accounts", entity: "parents", entityId: p.id, after: { action: "issue_activation_code", expiresAt }, ip: ctx.ip });
   });
   return { code, expiresAt };
+}
+
+/**
+ * Gửi lại mã kích hoạt hàng loạt cho phụ huynh chưa nhận (chưa cấp / chờ kích hoạt).
+ * Mỗi PH được cấp mã mới (chỉ lưu băm) rồi xếp vào **hàng đợi thông báo** kênh ZNS:
+ * worker gửi theo giờ yên lặng + trần tin/ngày; có email thì gửi thêm email mẫu PARENT_ACTIVATION.
+ * Mã không bao giờ được ghi vào nhật ký.
+ */
+export async function resendActivationCodes(ctx: ProtectedContext, input: { parentIds: string[] }) {
+  requirePermission(ctx, "parent_account:update", {});
+  const ids = [...new Set(input.parentIds)];
+  if (!ids.length) throw new TRPCError({ code: "BAD_REQUEST", message: "Chọn ít nhất một phụ huynh" });
+  if (ids.length > 300) throw new TRPCError({ code: "BAD_REQUEST", message: "Mỗi lượt gửi tối đa 300 phụ huynh" });
+  const rows = await ctx.db.select().from(parents).where(and(inArray(parents.id, ids), isNull(parents.deletedAt), parentScope(ctx)));
+  const expiresAt = new Date(Date.now() + CODE_TTL_HOURS * 3600_000);
+  const hetHan = expiresAt.toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" });
+  const skipped: { id: string; fullName: string; reason: string }[] = [];
+  const targets = rows.filter((p) => {
+    if (p.accountStatus === "active") { skipped.push({ id: p.id, fullName: p.fullName, reason: "Tài khoản đã kích hoạt" }); return false; }
+    if (p.accountStatus === "locked") { skipped.push({ id: p.id, fullName: p.fullName, reason: "Tài khoản đang bị khoá" }); return false; }
+    if (p.processingRestricted) { skipped.push({ id: p.id, fullName: p.fullName, reason: "Phụ huynh đã hạn chế xử lý dữ liệu" }); return false; }
+    return true;
+  });
+  for (const id of ids) if (!rows.some((r) => r.id === id)) skipped.push({ id, fullName: "?", reason: "Không tìm thấy hoặc ngoài phạm vi cơ sở" });
+  if (!targets.length) return { queued: 0, emailed: 0, skipped };
+
+  let emailed = 0;
+  await ctx.db.transaction(async (txx) => {
+    const tx = txx as unknown as Db;
+    for (const p of targets) {
+      const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
+      await tx.update(parents)
+        .set({ accountStatus: "pending_activation", activationRequestedAt: p.activationRequestedAt ?? new Date(), activationCodeHash: hashActivationCode(code), activationCodeExpiresAt: expiresAt, updatedAt: new Date() })
+        .where(eq(parents.id, p.id));
+      await tx.insert(parentNotifications).values({
+        parentId: p.id, channel: "zns", template: "PARENT_ACTIVATION",
+        title: "Mã kích hoạt tài khoản phụ huynh Sata Robo",
+        body: `Mã kích hoạt của anh/chị là ${code}, hiệu lực đến ${hetHan}. Vào ${ACTIVATION_URL} nhập số điện thoại và mã này để đặt mật khẩu.`,
+        link: ACTIVATION_URL, status: "queued", createdBy: ctx.user.id,
+      });
+      if (isEmail(p.email)) {
+        await queueEmail(tx, { to: p.email!, event: "PARENT_ACTIVATION", vars: { ten_ph: p.fullName, ma: code, het_han: hetHan, link: ACTIVATION_URL }, relatedType: "parents", relatedId: p.id, createdBy: ctx.user.id });
+        emailed++;
+      }
+    }
+    // Không ghi mã vào nhật ký — chỉ ghi ai gửi, cho bao nhiêu người
+    await writeAudit(tx, {
+      actorId: ctx.user.id, action: "UPDATE", module: "parent_accounts", entity: "parents", entityId: null,
+      after: { action: "resend_activation_bulk", parents: targets.length, emailed, expiresAt }, ip: ctx.ip,
+    });
+  });
+  return { queued: targets.length, emailed, skipped };
 }
 
 export async function setParentAccountLock(ctx: ProtectedContext, input: { parentId: string; locked: boolean; reason: string }) {

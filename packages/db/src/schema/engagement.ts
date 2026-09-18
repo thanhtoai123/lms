@@ -53,6 +53,10 @@ export const parentNotifications = pgTable(
     fallbackOf: uuid("fallback_of"),
     /** tin trong app đã đẩy tới thiết bị (Web Push) */
     pushedAt: timestamp("pushed_at", { withTimezone: true }),
+    /** Ẩn / xoá mềm thông báo đã đăng (phụ huynh không còn thấy) — bắt buộc lý do, ghi nhật ký */
+    hiddenAt: timestamp("hidden_at", { withTimezone: true }),
+    hiddenBy: uuid("hidden_by").references(() => users.id),
+    hiddenReason: text("hidden_reason"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("parent_notif_parent_idx").on(t.parentId, t.createdAt), index("parent_notif_status_idx").on(t.status, t.channel)],

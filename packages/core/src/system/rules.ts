@@ -45,6 +45,18 @@ export const EMAIL_EVENTS = {
     subject: "Sata Robo gửi hoá đơn điện tử số {so_hd}",
     body: "Kính gửi {ten_ph},\n\nSata Robo gửi anh/chị hoá đơn điện tử ký hiệu {ky_hieu} số {so_hd}, tổng tiền {so_tien}.\nMã tra cứu: {ma_tra_cuu}\nTra cứu tại: {link}\n\nSata Robo",
   },
+  ORDER_CREATED: {
+    label: "Gửi đơn hàng cho khách",
+    vars: ["ten_ph", "ma_don", "so_tien", "con", "co_so", "han_dau", "link"],
+    subject: "Sata Robo gửi đơn hàng {ma_don}",
+    body: "Kính gửi {ten_ph},\n\nSata Robo {co_so} gửi anh/chị đơn hàng {ma_don} cho {con}, tổng tiền {so_tien}.\nHạn đóng đợt đầu: {han_dau}.\nXem chi tiết và mã QR chuyển khoản: {link}\n\nSata Robo",
+  },
+  PARENT_ACTIVATION: {
+    label: "Mã kích hoạt tài khoản phụ huynh",
+    vars: ["ten_ph", "ma", "het_han", "link"],
+    subject: "Mã kích hoạt tài khoản phụ huynh Sata Robo",
+    body: "Kính gửi {ten_ph},\n\nMã kích hoạt tài khoản phụ huynh của anh/chị là {ma} (hết hạn {het_han}).\nVào {link}, nhập số điện thoại và mã này để đặt mật khẩu.\n\nSata Robo",
+  },
   TUITION_REMINDER: {
     label: "Nhắc học phí",
     vars: ["ten_ph", "ten_hv", "so_tien", "han", "ma_don"],

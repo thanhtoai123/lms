@@ -3,7 +3,7 @@ import { getServerCaller } from "@/lib/trpc/server";
 import { NoAccess, PageHeader, StatTabs, Pager } from "@/components/admin-ui";
 import { Empty } from "@/components/ui";
 import { dtVN } from "@/components/care-ui";
-import { Compose, Retry } from "./compose";
+import { Compose, Retry, HideNotification } from "./compose";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Thông báo phụ huynh" };
@@ -11,12 +11,13 @@ export const metadata = { title: "Thông báo phụ huynh" };
 const ST: Record<string, [string, string]> = { queued: ["Chờ gửi", "bg-amber-100 text-amber-800"], sent: ["Đã gửi", "bg-sky-100 text-sky-800"], read: ["Đã đọc", "bg-green-100 text-green-800"], failed: ["Lỗi", "bg-red-100 text-red-700"] };
 const CH: Record<string, string> = { in_app: "App", zns: "Zalo ZNS", push: "Push", email: "Email" };
 
-export default async function NotificationsPage({ searchParams }: { searchParams: Promise<{ status?: string; channel?: string; template?: string; q?: string; page?: string }> }) {
+export default async function NotificationsPage({ searchParams }: { searchParams: Promise<{ status?: string; channel?: string; template?: string; q?: string; page?: string; hidden?: string }> }) {
   const sp = await searchParams;
   const { caller, ctx } = await getServerCaller();
   if (!ctx.actor || !hasPermission(ctx.actor as Actor, "care:read")) return <NoAccess title="Thông báo phụ huynh" perm="care:read" />;
   const status = ["queued", "sent", "failed", "read"].includes(sp.status ?? "") ? (sp.status as "queued" | "sent" | "failed" | "read") : undefined;
-  const d = await caller.care.notifications({ status, channel: sp.channel || undefined, template: sp.template || undefined, q: sp.q || undefined, page: Math.max(1, Number(sp.page) || 1) });
+  const showHidden = sp.hidden === "1";
+  const d = await caller.care.notifications({ status, channel: sp.channel || undefined, template: sp.template || undefined, q: sp.q || undefined, page: Math.max(1, Number(sp.page) || 1), hidden: showHidden || undefined });
   const ref = d.canSend ? await caller.academics.classes.referenceData() : null;
   return (
     <div className="space-y-4">
@@ -33,6 +34,7 @@ export default async function NotificationsPage({ searchParams }: { searchParams
         <input name="q" defaultValue={sp.q} placeholder="Phụ huynh / tiêu đề" className="input w-56" />
         <select name="channel" defaultValue={sp.channel ?? ""} className="input w-auto"><option value="">Mọi kênh</option>{Object.entries(CH).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
         <select name="template" defaultValue={sp.template ?? ""} className="input w-auto"><option value="">Mọi loại</option>{d.templates.map((t) => <option key={t} value={t}>{t}</option>)}</select>
+        <label className="flex items-center gap-1 pb-2 text-xs text-ink-600"><input type="checkbox" name="hidden" value="1" defaultChecked={showHidden} /> Xem thông báo đã ẩn ({d.hiddenCount})</label>
         <button className="btn-ghost">Lọc</button>
       </form>
       <StatTabs basePath="/notifications" params={sp} active={status ?? ""} tabs={[{ key: "", label: "Tất cả", count: d.counts?.total }, ...(["queued", "sent", "read", "failed"] as const).map((s) => ({ key: s, label: ST[s]![0], count: d.counts?.[s] }))]} />
@@ -48,7 +50,14 @@ export default async function NotificationsPage({ searchParams }: { searchParams
                   <td className="p-3">{n.parentName}<div className="text-xs text-ink-400">{n.studentName ?? ""}</div></td>
                   <td className="p-3 text-xs"><div className="font-medium">{n.title}</div><div className="line-clamp-2 max-w-md text-ink-600">{n.body}</div>{n.link && <div className="font-mono text-ink-400">{n.link}</div>}</td>
                   <td className="p-3 text-xs">{CH[n.channel] ?? n.channel}</td>
-                  <td className="p-3"><span className={`chip ${ST[n.status]?.[1] ?? "bg-black/5"}`}>{ST[n.status]?.[0] ?? n.status}</span>{n.error && <div className="text-xs text-red-700">{n.error}</div>}{n.status === "failed" && <Retry id={n.id} />}</td>
+                  <td className="p-3">
+                    <span className={`chip ${ST[n.status]?.[1] ?? "bg-black/5"}`}>{ST[n.status]?.[0] ?? n.status}</span>
+                    {n.hiddenAt && <span className="chip ml-1 bg-slate-200 text-ink-600">Đã ẩn</span>}
+                    {n.error && <div className="text-xs text-red-700">{n.error}</div>}
+                    {n.hiddenReason && <div className="text-xs text-ink-600">Lý do ẩn: {n.hiddenReason}</div>}
+                    {n.status === "failed" && !n.hiddenAt && <Retry id={n.id} />}
+                    {d.canHide && <HideNotification id={n.id} hidden={!!n.hiddenAt} />}
+                  </td>
                 </tr>
               ))}
             </tbody>

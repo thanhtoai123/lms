@@ -50,11 +50,15 @@ export const careRouter = router({
   sendSurvey: protectedProcedure.input(z.object({ id: uuid, classId: uuid.nullish(), centerId: uuid.nullish(), studentIds: z.array(uuid).max(500).optional() })).mutation(({ ctx, input }) => C.sendSurvey(ctx, input)),
 
   notifications: protectedProcedure
-    .input(z.object({ status: z.enum(["queued", "sent", "failed", "read"]).optional(), channel: z.string().max(20).optional(), template: z.string().max(40).optional(), q: z.string().max(100).optional(), page: z.number().int().min(1).optional() }).default({}))
+    .input(z.object({ status: z.enum(["queued", "sent", "failed", "read"]).optional(), channel: z.string().max(20).optional(), template: z.string().max(40).optional(), q: z.string().max(100).optional(), page: z.number().int().min(1).optional(), hidden: z.boolean().optional() }).default({}))
     .query(({ ctx, input }) => C.listParentNotifications(ctx, input)),
   previewBroadcast: protectedProcedure.input(z.object({ audience, title: z.string().max(150), body: z.string().max(1000) })).mutation(({ ctx, input }) => C.previewBroadcast(ctx, input)),
   sendBroadcast: protectedProcedure.input(z.object({ audience, title: z.string().max(150), body: z.string().max(1000), channel: z.enum(BROADCAST_CHANNELS), link: ntext(300) })).mutation(({ ctx, input }) => C.sendBroadcast(ctx, input)),
   retryNotification: protectedProcedure.input(z.object({ id: uuid })).mutation(({ ctx, input }) => C.retryNotification(ctx, input)),
+  /** Ẩn / bỏ ẩn thông báo đã đăng — lý do bắt buộc, ghi nhật ký */
+  hideNotification: protectedProcedure
+    .input(z.object({ id: uuid, hidden: z.boolean(), reason: z.string().trim().min(5, "Lý do tối thiểu 5 ký tự").max(300) }))
+    .mutation(({ ctx, input }) => C.hideNotification(ctx, input)),
 
   birthdays: protectedProcedure.input(z.object({ days: z.number().int().min(0).max(60).default(7), centerId: uuid.optional() }).default({ days: 7 })).query(({ ctx, input }) => C.birthdays(ctx, input)),
   greetBirthday: protectedProcedure.input(z.object({ studentId: uuid, message: ntext(500) })).mutation(({ ctx, input }) => C.sendBirthdayGreeting(ctx, input)),

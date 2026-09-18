@@ -66,3 +66,27 @@ export function Retry({ id }: { id: string }) {
   const m = useMutation(trpc.care.retryNotification.mutationOptions({ onSuccess: () => router.refresh() }));
   return <button className="mt-1 block text-xs text-brand-600" disabled={m.isPending} onClick={() => m.mutate({ id })}>Gửi lại</button>;
 }
+
+/** Ẩn (xoá mềm) thông báo đã đăng — phụ huynh không còn thấy; lý do bắt buộc và ghi nhật ký */
+export function HideNotification({ id, hidden }: { id: string; hidden: boolean }) {
+  const trpc = useTRPC();
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const m = useMutation(trpc.care.hideNotification.mutationOptions({
+    onSuccess: () => { setOpen(false); setReason(""); setError(null); router.refresh(); },
+    onError: (e) => setError(e.message),
+  }));
+  if (!open) return <button className={`mt-1 block text-xs ${hidden ? "text-brand-600" : "text-red-700"}`} onClick={() => setOpen(true)}>{hidden ? "Bỏ ẩn" : "Ẩn thông báo"}</button>;
+  return (
+    <form className="mt-1 space-y-1" onSubmit={(e) => { e.preventDefault(); m.mutate({ id, hidden: !hidden, reason }); }}>
+      <input className="input !py-1 text-xs" required minLength={5} maxLength={300} placeholder="Lý do * (≥5 ký tự)" value={reason} onChange={(e) => setReason(e.target.value)} />
+      <div className="flex gap-1">
+        <button className="btn-ghost !px-2 !py-1 text-xs" disabled={m.isPending}>Xác nhận {hidden ? "bỏ ẩn" : "ẩn"}</button>
+        <button type="button" className="text-xs text-ink-600" onClick={() => { setOpen(false); setError(null); }}>Huỷ</button>
+      </div>
+      {error && <div className="text-xs text-red-700">{error}</div>}
+    </form>
+  );
+}

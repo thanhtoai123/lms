@@ -5,6 +5,62 @@ import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { useTRPC } from "@/lib/trpc/client";
 
+/** Gửi lại mã kích hoạt hàng loạt cho phụ huynh chưa nhận (hàng đợi thông báo, tôn trọng giờ yên lặng) */
+export function BulkResend({ candidates }: { candidates: { id: string; fullName: string; hasEmail: boolean }[] }) {
+  const trpc = useTRPC();
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [picked, setPicked] = useState<string[]>(() => candidates.map((c) => c.id));
+  const [result, setResult] = useState<{ queued: number; emailed: number; skipped: { fullName: string; reason: string }[] } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const m = useMutation(trpc.students.resendActivationCodes.mutationOptions({
+    onSuccess: (r) => { setResult(r); setError(null); router.refresh(); },
+    onError: (e) => { setError(e.message); setResult(null); },
+  }));
+  if (candidates.length === 0) return null;
+  const toggle = (id: string) => setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
+
+  return (
+    <section className="card space-y-2 p-3 text-sm">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <b>Gửi lại mã kích hoạt hàng loạt</b>
+          <div className="text-xs text-ink-600">{candidates.length} phụ huynh trong trang này chưa kích hoạt. Mã mới hiệu lực 72 giờ, xếp vào hàng đợi thông báo (Zalo ZNS) — worker gửi ngoài giờ yên lặng; phụ huynh có email được gửi thêm email.</div>
+        </div>
+        <button className="btn-ghost !py-1.5" onClick={() => setOpen((v) => !v)}>{open ? "Đóng" : "Chọn phụ huynh"}</button>
+      </div>
+      {open && (
+        <div className="space-y-2">
+          <div className="flex gap-2 text-xs">
+            <button className="underline" onClick={() => setPicked(candidates.map((c) => c.id))}>Chọn tất cả</button>
+            <button className="underline" onClick={() => setPicked([])}>Bỏ chọn</button>
+          </div>
+          <ul className="max-h-60 space-y-1 overflow-auto text-xs">
+            {candidates.map((c) => (
+              <li key={c.id}>
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" checked={picked.includes(c.id)} onChange={() => toggle(c.id)} />
+                  {c.fullName}{c.hasEmail ? " · có email" : ""}
+                </label>
+              </li>
+            ))}
+          </ul>
+          <button className="btn-primary !py-1.5" disabled={m.isPending || picked.length === 0} onClick={() => m.mutate({ parentIds: picked })}>
+            {m.isPending ? "Đang xếp hàng đợi…" : `Gửi lại mã cho ${picked.length} phụ huynh`}
+          </button>
+        </div>
+      )}
+      {result && (
+        <div className="text-xs text-green-700">
+          Đã xếp {result.queued} tin vào hàng đợi{result.emailed ? ` · ${result.emailed} email` : ""}.
+          {result.skipped.length > 0 && <span className="text-amber-700"> Bỏ qua {result.skipped.length}: {result.skipped.slice(0, 5).map((s) => `${s.fullName} (${s.reason})`).join("; ")}</span>}
+        </div>
+      )}
+      {error && <div className="text-xs text-red-700">{error}</div>}
+    </section>
+  );
+}
+
 export function AccountActions({ parentId, status }: { parentId: string; status: string }) {
   const trpc = useTRPC();
   const router = useRouter();

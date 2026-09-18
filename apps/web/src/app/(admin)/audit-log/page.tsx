@@ -4,6 +4,7 @@ import { getServerCaller } from "@/lib/trpc/server";
 import { NoAccess, PageHeader, Pager } from "@/components/admin-ui";
 import { Empty } from "@/components/ui";
 import { fmtDateTime } from "@/components/lead-ui";
+import { CsvButton } from "@/components/csv-button";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Audit Log" };
@@ -72,7 +73,18 @@ export default async function AuditLogPage({ searchParams }: { searchParams: Pro
         <Link href="/audit-log" className="btn-ghost !py-1.5">Xoá lọc</Link>
       </form>
       {sp.entityId && <div className="text-xs text-ink-600">Đang xem theo bản ghi <code className="font-mono">{sp.entityId}</code> · <Link className="underline" href="/audit-log">bỏ</Link></div>}
-      <div className="text-sm text-ink-600">{data.total} dòng</div>
+      <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-ink-600">
+        <span>{data.total} dòng{data.total > data.items.length ? ` · xuất CSV ${data.items.length} dòng của trang này` : ""}</span>
+        <CsvButton
+          filename="audit-log"
+          headers={["Thời điểm", "Người thực hiện", "Hành động", "Phân hệ", "Đối tượng", "ID bản ghi", "Thay đổi", "Lý do", "IP"]}
+          rows={data.items.map((r) => [
+            fmtDateTime(r.createdAt), r.actorName ?? "Hệ thống", r.action, MODULE_VI[r.module] ?? r.module, r.entity, r.entityId,
+            diff(r.before, r.after).map((c) => `${c.k}: ${c.from ?? "∅"} → ${c.to ?? "∅"}`).join(" | "),
+            r.reason, r.ip,
+          ])}
+        />
+      </div>
       {data.items.length === 0 ? <Empty>Không có dòng nhật ký phù hợp.</Empty> : (
         <div className="card overflow-x-auto">
           <table className="w-full text-sm">
