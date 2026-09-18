@@ -7,6 +7,18 @@ import { useTRPC } from "@/lib/trpc/client";
 
 type SettingLabels = Record<string, { label: string; desc: string }>;
 
+/** Nhãn tiếng Việt cho bảng kê "đã tạo / đã sao chép" sau khi nhân bản */
+const CREATED_LABEL: Record<string, string> = {
+  tenants: "Trung tâm", tenantSettings: "Cấu hình quyền riêng tư", orgUnits: "Đơn vị tổ chức",
+  legalEntities: "Pháp nhân", centers: "Cơ sở", rooms: "Phòng học", adminUser: "Tài khoản quản trị",
+  courses: "Khoá học", coursePackages: "Gói học phí", curricula: "Chương trình học", lessons: "Bài học",
+  workShifts: "Mã ca làm việc", commissionPolicies: "Chính sách hoa hồng",
+  commissionPolicyShares: "Mức chia hoa hồng", commissionPolicyTiers: "Bậc hoa hồng",
+  notificationTypes: "Danh mục thông báo", paymentMethods: "Phương thức thanh toán",
+  emailTemplates: "Mẫu email / ZNS", userGroups: "Nhóm quyền", userGroupPermissions: "Quyền của nhóm",
+  opsSettings: "Cấu hình vận hành",
+};
+
 export interface TenantCard {
   id: string;
   code: string;
@@ -236,7 +248,9 @@ export function NewTenantPanel({ templates }: { templates: Template[] }) {
           <div>
             <h3 className="font-semibold">Đã sao chép</h3>
             <ul className="mt-1 grid gap-1 text-xs text-muted-foreground md:grid-cols-2">
-              {Object.entries(m.data.created).map(([k, v]) => <li key={k}>{k}: <b>{v}</b></li>)}
+              {Object.entries(m.data.created as Record<string, number>).map(([k, v]) => (
+                <li key={k}>{CREATED_LABEL[k] ?? k}: <b>{v}</b></li>
+              ))}
             </ul>
           </div>
           <div>
