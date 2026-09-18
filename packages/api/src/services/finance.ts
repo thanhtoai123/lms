@@ -1,4 +1,5 @@
 import { and, eq, inArray, sql, asc, desc, isNull, gte, lte, or, ilike, ne, type SQL } from "drizzle-orm";
+import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { TRPCError } from "@trpc/server";
 import {
   paymentMethods, orders, orderPrivate, orderItems, orderItemDiscounts, orderInstallments, orderEvents, payments, paymentAdjustments, paymentQrCodes, refunds, financeLedger, bankTransactions, commissions,
@@ -23,7 +24,7 @@ import { requirePermission, type ProtectedContext } from "../trpc";
 import { getOps, opsForCenters } from "./opsSettings";
 import { writeAudit } from "./audit";
 import { deliverNotifications } from "./notify";
-import { tenantCond, assertTenant, canSeeFinanceDetailOf, redact } from "./tenantScope";
+import { tenantCond, tenantCondViaCenter, assertTenant, canSeeFinanceDetailOf, redact } from "./tenantScope";
 import { todayISO } from "./sessions";
 import { consumedSql } from "./students";
 import { accrueCommissions, adjustCommissionsForRefund } from "./commissions";
@@ -50,10 +51,15 @@ export function reasonOrThrow(reason: string | null | undefined) {
   }
 }
 
+/**
+ * Phạm vi xem của mọi truy vấn tài chính: cơ sở được phép VÀ trung tâm (tenant) của cơ sở đó.
+ * Gộp cách ly trung tâm vào đây để mọi hàm dùng `scope()` đều được bảo vệ, không phải sửa từng chỗ.
+ */
 export function scope(ctx: ProtectedContext, col: SQL | typeof orders.centerId): SQL {
   const v = visibleCenterIds(ctx.actor);
-  if (v === null) return sql`true`;
-  return v.length ? (inArray(col as typeof orders.centerId, v) as SQL) : sql`false`;
+  const tenant = tenantCondViaCenter(ctx, col as unknown as AnyPgColumn);
+  if (v === null) return tenant;
+  return v.length ? and(inArray(col as typeof orders.centerId, v), tenant)! : sql`false`;
 }
 
 export const can = (ctx: ProtectedContext, p: Permission, centerId: string | null) => authorize(ctx.actor, p, { centerId }).allowed;

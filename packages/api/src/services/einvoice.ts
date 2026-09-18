@@ -33,10 +33,12 @@ function rule<T>(fn: () => T): T {
   }
 }
 const can = (ctx: ProtectedContext, p: `finance:${string}`, centerId: string | null) => authorize(ctx.actor, p, { centerId }).allowed;
+/** Phạm vi xem hoá đơn: cơ sở được phép VÀ trung tâm (tenant) của hoá đơn */
 function scope(ctx: ProtectedContext): SQL {
   const v = visibleCenterIds(ctx.actor);
-  if (v === null) return sql`true`;
-  return v.length ? inArray(einvoices.centerId, v) : sql`false`;
+  const tenant = tenantCond(ctx, einvoices);
+  if (v === null) return tenant;
+  return v.length ? and(inArray(einvoices.centerId, v), tenant)! : sql`false`;
 }
 
 /* ------------------------------------------------------------------ */
