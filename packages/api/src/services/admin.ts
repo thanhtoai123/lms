@@ -1,4 +1,4 @@
-import { createHash, randomInt } from "node:crypto";
+import { createHash, randomInt, timingSafeEqual } from "node:crypto";
 import { and, eq, inArray, sql, desc, asc, isNull, or, ilike, lte, gte, type SQL } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import {
@@ -183,6 +183,12 @@ export async function retryEmail(ctx: ProtectedContext, input: { id: string }) {
 /* OTP                                                                 */
 /* ------------------------------------------------------------------ */
 
+/** So khớp băm không lệ thuộc thời gian */
+const safeHashEq = (a: string | null, b: string) => {
+  const x = Buffer.from(a ?? "");
+  const y = Buffer.from(b);
+  return x.length === y.length && timingSafeEqual(x, y);
+};
 const hashOtp = (phone: string, purpose: string, code: string) => createHash("sha256").update(`${otpPepper()}|${phone}|${purpose}|${code}`).digest("hex");
 
 export async function requestOtp(db: Database, input: { phone: string; purpose: OtpPurpose; ip: string | null; userAgent?: string | null }) {
@@ -218,7 +224,7 @@ export async function verifyOtp(db: Database, input: { phone: string; purpose: O
   const r = await d.query.otpRequests.findFirst({ where: and(eq(otpRequests.phone, phone), eq(otpRequests.purpose, input.purpose), sql`${otpRequests.status} <> 'blocked'`), orderBy: desc(otpRequests.createdAt) });
   if (!r) return { ok: false as const, error: "Chưa có yêu cầu mã cho số này" };
   const P = otpPolicyFrom(await getOps(d));
-  const dec = otpVerifyDecision({ status: r.status as OtpStatus, attempts: r.attempts, expiresAt: r.expiresAt, now: new Date(), matches: r.codeHash === hashOtp(phone, input.purpose, input.code.trim()) }, P);
+  const dec = otpVerifyDecision({ status: r.status as OtpStatus, attempts: r.attempts, expiresAt: r.expiresAt, now: new Date(), matches: safeHashEq(r.codeHash, hashOtp(phone, input.purpose, input.code.trim())) }, P);
   await d.update(otpRequests).set({ status: dec.status, attempts: dec.attempts, ...(dec.result === "ok" ? { verifiedAt: new Date() } : {}) }).where(eq(otpRequests.id, r.id));
   const msg = { ok: "", wrong: `Mã không đúng (còn ${P.maxAttempts - dec.attempts} lần)`, expired: "Mã đã hết hạn — yêu cầu mã mới", locked: "Nhập sai quá số lần — yêu cầu mã mới", used: "Mã đã được dùng" }[dec.result];
   return dec.result === "ok" ? { ok: true as const, phone } : { ok: false as const, error: msg };

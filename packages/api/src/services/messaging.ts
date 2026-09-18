@@ -1,4 +1,4 @@
-import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { and, eq, inArray, sql, desc, asc, or, ilike, isNull, isNotNull, gte, lte, type SQL } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import {
@@ -8,6 +8,7 @@ import {
   authorize, authorizeGlobal, centersWith, hasRole, maskPhone, normalizeVnPhone,
   replyWindow, validateMessage, messageFlags, responsePairs, responseStats, maskExternalId, readWithin, pilotVerdict, pct,
   MSG_CHANNEL_VI, CONV_STATUS_VI, FLAG_VI, FIRST_RESPONSE_SLA_MIN, READ_TARGET_HOURS, PILOT_TARGETS,
+  metaSignatureOk as coreMetaSignatureOk, zaloSignatureOk as coreZaloSignatureOk,
   type MsgChannel, type ConvStatus,
 } from "@satarobo/core";
 import type { ProtectedContext } from "../trpc";
@@ -37,22 +38,12 @@ export function channelConfig() {
   };
 }
 
-function safeEq(a: string, b: string) {
-  const x = Buffer.from(a);
-  const y = Buffer.from(b);
-  return x.length === y.length && timingSafeEqual(x, y);
-}
-/** Meta: header X-Hub-Signature-256 = "sha256=" + HMAC-SHA256(app secret, raw body) */
-export function metaSignatureOk(raw: string, header: string | null, secret: string | undefined) {
-  if (!secret || !header?.startsWith("sha256=")) return false;
-  return safeEq(header.slice(7), createHmac("sha256", secret).update(raw, "utf8").digest("hex"));
-}
-/** Zalo OA: header X-ZEvent-Signature = "mac=" + SHA256(app_id + raw body + timestamp + OA secret key) */
-export function zaloSignatureOk(raw: string, header: string | null, appId: string | undefined, secret: string | undefined, timestamp: string | number | null | undefined) {
-  if (!secret || !appId || !header || timestamp === null || timestamp === undefined) return false;
-  const mac = header.replace(/^mac=/, "");
-  return safeEq(mac, sha(`${appId}${raw}${timestamp}${secret}`));
-}
+/**
+ * Xác minh chữ ký webhook — logic thuần nằm ở @satarobo/core/security/webhook
+ * (có kiểm thử, so khớp timing-safe, và chặn phát lại theo dấu thời gian).
+ */
+export const metaSignatureOk = coreMetaSignatureOk;
+export const zaloSignatureOk = coreZaloSignatureOk;
 
 export interface MessagingSettings { defaultCenterId: string | null; autoReply: string }
 const MS_DEFAULTS: MessagingSettings = { defaultCenterId: null, autoReply: "" };

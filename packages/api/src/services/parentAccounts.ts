@@ -7,6 +7,7 @@ import { requirePermission, type ProtectedContext } from "../trpc";
 import { writeAudit } from "./audit";
 import { queueEmail } from "./admin";
 import { canSeeFullPhone } from "./students";
+import { otpPepper } from "../lib/secrets";
 
 type Db = ProtectedContext["db"];
 /** Trang phụ huynh đăng nhập / kích hoạt tài khoản bằng mã từ trung tâm */
@@ -17,7 +18,11 @@ export const PARENT_ACCOUNT_STATUSES = ["none", "pending_activation", "active", 
 export type ParentAccountStatus = (typeof PARENT_ACCOUNT_STATUSES)[number];
 
 const CODE_TTL_HOURS = 72;
-export const hashActivationCode = (code: string) => createHash("sha256").update(code).digest("hex");
+/**
+ * Băm mã kích hoạt có muối bí mật: mã chỉ 6 chữ số nên SHA-256 trần bị bẻ tức thì
+ * bằng bảng tra (1 triệu tổ hợp) nếu ai đó đọc được bảng parents.
+ */
+export const hashActivationCode = (code: string) => createHash("sha256").update(`activation|${otpPepper()}|${code}`).digest("hex");
 
 /** PH được thấy nếu có ít nhất một con thuộc cơ sở người dùng được xem */
 function parentScope(ctx: ProtectedContext) {

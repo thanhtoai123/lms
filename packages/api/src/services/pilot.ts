@@ -202,7 +202,7 @@ export async function adoptionReport(ctx: ProtectedContext, input: { weeks?: num
   const out = [];
   for (const c of list) {
     const rows = (await ctx.db.execute(sql`
-      with w as (select unnest(${sql.raw(`array[${weeks.map((x) => `'${x}'::date`).join(",")}]`)}) as ws),
+      with w as (select unnest(${weeks}::date[]) as ws),
       kids as (select distinct e.student_id from enrollments e join classes cl on cl.id = e.class_id where cl.center_id = ${c.id}::uuid and e.status in ('trial','active','paused')),
       pars as (select distinct g.parent_id from student_guardians g join kids k on k.student_id = g.student_id)
       select to_char(w.ws, 'YYYY-MM-DD') as week,

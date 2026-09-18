@@ -114,6 +114,12 @@ export async function exportStudents(ctx: ProtectedContext, input: StudentListFi
   const full = canSeeFullPhone(ctx);
   const fmtDay = (d: Date | string | null) => (d ? new Intl.DateTimeFormat("vi-VN", { dateStyle: "short", timeZone: "Asia/Ho_Chi_Minh" }).format(new Date(d)) : "");
   const total = count?.n ?? rows.length;
+  // Xuất hàng loạt hồ sơ trẻ em (tên, ngày sinh, trường, SĐT phụ huynh) là hành vi phải truy vết được
+  await writeAudit(ctx.db, {
+    actorId: ctx.user.id, action: "PII_REVEAL", module: "students", entity: "students", entityId: null,
+    after: { action: "export_csv", rows: rows.length, total, phoneMasked: !full, filters: { q: input.q ?? null, centerId: input.centerId ?? null, status: input.status ?? null, grade: input.grade ?? null } },
+    ip: ctx.ip,
+  });
   return {
     headers: [...STUDENT_EXPORT_HEADERS],
     rows: rows.map((r) => [

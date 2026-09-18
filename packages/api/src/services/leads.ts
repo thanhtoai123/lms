@@ -446,6 +446,12 @@ export async function exportLeads(ctx: ProtectedContext, input: LeadInboxInput) 
   requireLeadsAccess(ctx, input.centerId ?? null);
   const { rows, total } = await leadRowsForExport(ctx, input);
   const full = canSeeLeadPhone(ctx);
+  // Xuất hàng loạt thông tin liên hệ phụ huynh — ghi nhật ký để truy vết rò rỉ danh sách
+  await writeAudit(ctx.db, {
+    actorId: ctx.user.id, action: "PII_REVEAL", module: "admissions", entity: "leads", entityId: null,
+    after: { action: "export_csv", rows: rows.length, total, phoneMasked: !full, filters: { q: input.q ?? null, centerId: input.centerId ?? null, status: input.status ?? null, scope: input.scope ?? null } },
+    ip: ctx.ip,
+  });
   const fmtDay = (d: Date) => new Intl.DateTimeFormat("vi-VN", { dateStyle: "short", timeZone: "Asia/Ho_Chi_Minh" }).format(d);
   const fmtMin = (d: Date) => new Intl.DateTimeFormat("vi-VN", { dateStyle: "short", timeStyle: "short", timeZone: "Asia/Ho_Chi_Minh" }).format(d);
   return {
