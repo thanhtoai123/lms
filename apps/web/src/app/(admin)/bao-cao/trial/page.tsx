@@ -40,7 +40,7 @@ export default async function TrialReportPage({ searchParams }: { searchParams: 
   const maxM = Math.max(1, ...d.byMonth.map((m) => m.booked));
   return (
     <div className="space-y-4">
-      <PageHeader title="Báo cáo trải nghiệm" desc="Học thử → đăng ký: tỉ lệ đến buổi thử, tỉ lệ chốt sau học thử, lấp đầy lớp nhận học thử. Tính theo ngày của buổi học thử." actions={<Link href="/lop-trial" className="btn-ghost">Mở Lớp Trial</Link>} />
+      <PageHeader title="Báo cáo trải nghiệm" desc="Học thử → đăng ký: tỉ lệ đến buổi thử, tỉ lệ chốt sau học thử, lấp đầy lớp nhận học thử. Tính theo ngày của buổi học thử." actions={<Link href="/lop-trial/buoi-le" className="btn-ghost">Mở học thử buổi lẻ</Link>} />
       <ReportFilter basePath="/bao-cao/trial" from={d.range.from} to={d.range.to} centerId={d.centerId} centers={d.centers} today={todayVN()} />
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
         <Kpi label="Lượt xếp học thử" value={t.booked} />

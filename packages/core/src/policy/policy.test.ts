@@ -147,3 +147,25 @@ test("5F: tuyển dụng / tin nhắn / giới thiệu + quyền toàn hệ th�
   assert.deepEqual(centersWith(gv, "recruit:interview"), []);
   assert.equal(centersWith(sa, "recruit:read"), null);
 });
+
+test("lớp trải nghiệm: xem / quản lý / điểm danh / xếp GV / vượt sĩ số", () => {
+  const mgr: Actor = { userId: "m", assignments: [{ role: "CENTER_MANAGER", centerId: "c1" }] };
+  const gvu: Actor = { userId: "g", assignments: [{ role: "CENTER_CLASS_MANAGER", centerId: "c1" }] };
+  const csm: Actor = { userId: "s", assignments: [{ role: "CENTER_SALES_CSM", centerId: "c1" }] };
+  const gv: Actor = { userId: "t", personId: "gv1", assignments: [{ role: "TEACHER", centerId: "c1" }] };
+  // Quản lý cơ sở có đủ, kể cả vượt sĩ số — và chỉ trong cơ sở mình
+  assert.equal(authorize(mgr, "trials:manage", { centerId: "c1" }).allowed, true);
+  assert.equal(authorize(mgr, "trials:override-capacity", { centerId: "c1" }).allowed, true);
+  assert.equal(authorize(mgr, "trials:manage", { centerId: "c2" }).allowed, false);
+  // Giáo vụ / tư vấn quản lý được lớp nhưng không được vượt sĩ số
+  assert.equal(authorize(gvu, "trials:manage", { centerId: "c1" }).allowed, true);
+  assert.equal(authorize(gvu, "trials:assign-teacher", { centerId: "c1" }).allowed, true);
+  assert.equal(authorize(gvu, "trials:override-capacity", { centerId: "c1" }).allowed, false);
+  assert.equal(authorize(csm, "trials:manage", { centerId: "c1" }).allowed, true);
+  assert.equal(authorize(csm, "trials:override-capacity", { centerId: "c1" }).allowed, false);
+  // Giáo viên chỉ xem / điểm danh buổi của mình
+  assert.equal(authorize(gv, "trials:attendance", { centerId: "c1", ownerIds: ["gv1"] }).allowed, true);
+  assert.equal(authorize(gv, "trials:attendance", { centerId: "c1", ownerIds: ["gv9"] }).allowed, false);
+  assert.equal(authorize(gv, "trials:manage", { centerId: "c1" }).allowed, false);
+  assert.equal(hasPermission(gv, "trials:view"), true);
+});

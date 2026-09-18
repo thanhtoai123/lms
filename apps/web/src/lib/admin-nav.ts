@@ -47,7 +47,8 @@ export const ADMIN_NAV: NavGroup[] = [
       { label: "Chuyển lead liên CS", href: "/leads/bao-cao-chuyen", perm: "lead:read", ready: true },
       { label: "Nguồn giới thiệu", href: "/affiliates", perm: "affiliate:read", ready: true, desc: "Affiliate / người giới thiệu: mã giới thiệu, lead mang về, tỉ lệ chốt, thưởng khi đơn học phí đầu thu đủ, quản lý duyệt → kế toán chi." },
       { label: "Messenger CRM", href: "/crm/messenger", perm: "message:read", ready: true, desc: "Hộp thư Facebook Messenger gắn với lead: nhận tin, trả lời, tạo lead từ hội thoại, SLA 'chưa trả lời tin nhắn'." },
-      { label: "Lớp Trial", href: "/lop-trial", perm: "lead:read", ready: true, desc: "Lớp học thử (buổi lẻ): xếp lead vào buổi thử, đổi lịch phải ghi lý do và báo GV, kết quả buổi thử cập nhật trạng thái lead." },
+      { label: "Lớp Trial", href: "/lop-trial", perm: "trials:view", ready: true, desc: "Lớp trải nghiệm nhiều buổi: tạo lớp → thêm buổi → xếp học viên → điểm danh. Tên lớp tự đặt; ngày/giờ/phòng/GV theo từng buổi; đổi lịch hoặc huỷ buổi bắt buộc ghi lý do và gửi thẳng cho GV." },
+      { label: "Học thử buổi lẻ", href: "/lop-trial/buoi-le", perm: "lead:read", ready: true, desc: "Xếp lead vào một buổi của lớp chính quy để học thử; đổi lịch phải ghi lý do và báo GV, kết quả buổi thử cập nhật trạng thái lead." },
     ],
   },
   {
