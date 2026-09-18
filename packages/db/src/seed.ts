@@ -99,6 +99,12 @@ async function main() {
     .values([{ tenantId: tFr.id, email: "quantri@satarobo-hue.test", fullName: "Quản trị Sata Robo Huế", phone: "0905111222", isActive: false, lockedReason: "Chờ kích hoạt qua thư mời" }])
     .returning();
   await db.insert(userRoles).values([{ userId: hueAdminU!.id, role: "SUPER_ADMIN", centerId: null }]);
+  // Tài khoản mẫu ĐANG HOẠT ĐỘNG của bên nhượng quyền — để thấy (và kiểm thử) được sự cách ly dữ liệu
+  const [hueOwnerU] = await db
+    .insert(users)
+    .values([{ tenantId: tFr.id, email: "giamdoc@satarobo-hue.test", fullName: "Giám đốc Sata Robo Huế", phone: "0905111888" }])
+    .returning();
+  await db.insert(userRoles).values([{ userId: hueOwnerU!.id, role: "SUPER_ADMIN", centerId: null }]);
   const [hueCourse] = await db
     .insert(courses)
     .values([{ tenantId: tFr.id, code: "SATA4", name: "Sata 4 — Robotics cơ bản", slug: "sata-4-hue", gradeFrom: 3, gradeTo: 5, totalSessions: 12, sessionMinutes: 90, listPrice: "4800000", level: "Cơ bản" }])

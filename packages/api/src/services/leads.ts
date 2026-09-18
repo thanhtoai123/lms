@@ -13,6 +13,7 @@ import {
 } from "@satarobo/core";
 import { resolveAdmissionsPolicy, autoPickAssignee, recordAssignment, canSeeLeadPhone, type Db } from "./admissionsAdmin";
 import { canShareLead, leadReadCondition, leadReader, requireLeadRead, requireLeadsAccess } from "./leadAccess";
+import { assertTenant, redact, redactList } from "./tenantScope";
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { writeAudit } from "./audit";
 import { emit } from "./outbox";
@@ -271,7 +272,7 @@ export async function leadInbox(ctx: ProtectedContext, input: LeadInboxInput) {
   const [rows, light, facets] = await Promise.all([
     ctx.db
       .select({
-        id: leads.id, status: leads.status, parentName: leads.parentName, phoneNormalized: leads.phoneNormalized, childName: leads.childName, childGrade: leads.childGrade,
+        id: leads.id, tenantId: leads.tenantId, status: leads.status, parentName: leads.parentName, phoneNormalized: leads.phoneNormalized, childName: leads.childName, childGrade: leads.childGrade,
         source: leads.source, centerId: leads.centerId, centerCode: centers.code, courseCode: courses.code, assignedToId: leads.assignedToId, assigneeName: users.fullName,
         sharedWithCenter: leads.sharedWithCenter,
         lastTouchAt: leads.lastTouchAt, nextActionAt: leads.nextActionAt, createdAt: leads.createdAt, reentryCount: leads.reentryCount, lastReentryAt: leads.lastReentryAt,
@@ -299,6 +300,8 @@ export async function leadInbox(ctx: ProtectedContext, input: LeadInboxInput) {
   const policy = await resolveAdmissionsPolicy(ctx.db, input.centerId ?? null);
   const slaOf = (st: LeadStatus, t: Date) => computeSla(st, t.toISOString(), now, policy.sla);
   const items = rows
+    // Che dữ liệu cá nhân của trung tâm nhượng quyền khác khi tenant đó không cho Hội sở xem PII
+    .map((row) => redact(ctx, row))
     .map(({ phoneNormalized, ...r }) => ({
       ...r,
       phone: full ? phoneNormalized : maskPhone(phoneNormalized),
@@ -347,6 +350,7 @@ export async function getLead(ctx: ProtectedContext, id: string) {
   const lead = await ctx.db.query.leads.findFirst({ where: and(eq(leads.id, id), isNull(leads.deletedAt)) });
   if (!lead) throw new TRPCError({ code: "NOT_FOUND" });
   requireLeadRead(ctx, lead);
+  assertTenant(ctx, lead, "Lead");
   const [activities, tasks, assignee, course, center, children, creator, payment] = await Promise.all([
     ctx.db.select({ id: leadActivities.id, type: leadActivities.type, content: leadActivities.content, meta: leadActivities.meta, createdAt: leadActivities.createdAt, actorName: users.fullName })
       .from(leadActivities).leftJoin(users, eq(users.id, leadActivities.actorId)).where(eq(leadActivities.leadId, id)).orderBy(desc(leadActivities.createdAt)).limit(100),
@@ -378,7 +382,8 @@ export async function getLead(ctx: ProtectedContext, id: string) {
     userAgent: lead.userAgent,
     hasAny: !!(lead.landingPage || lead.referrer || lead.eventId || lead.ipAddress || lead.userAgent),
   };
-  return {
+  // Che PII của trung tâm nhượng quyền khác (khi tenant đó không cho Hội sở xem PII)
+  return redact(ctx, {
     ...lead,
     phone: full ? lead.phone : maskPhone(lead.phoneNormalized),
     phoneNormalized: full ? lead.phoneNormalized : maskPhone(lead.phoneNormalized),
@@ -397,7 +402,7 @@ export async function getLead(ctx: ProtectedContext, id: string) {
       share: canShareLead(ctx, lead),
       viewPii: full,
     },
-  };
+  });
 }
 
 /** Che IP cho người không có quyền xem PII: giữ 2 nhóm đầu (IPv4) / 2 cụm đầu (IPv6) */
@@ -444,7 +449,9 @@ export const LEAD_EXPORT_HEADERS = [
 export async function exportLeads(ctx: ProtectedContext, input: LeadInboxInput) {
   // Xuất đúng những dòng người này được thấy trên màn hình (leadReadCondition lo phần lọc)
   requireLeadsAccess(ctx, input.centerId ?? null);
-  const { rows, total } = await leadRowsForExport(ctx, input);
+  const { rows: rawRows, total } = await leadRowsForExport(ctx, input);
+  // Che PII của trung tâm nhượng quyền khác TRƯỚC khi đưa vào tệp xuất
+  const rows = redactList(ctx, rawRows);
   const full = canSeeLeadPhone(ctx);
   // Xuất hàng loạt thông tin liên hệ phụ huynh — ghi nhật ký để truy vết rò rỉ danh sách
   await writeAudit(ctx.db, {
@@ -473,7 +480,7 @@ async function leadRowsForExport(ctx: ProtectedContext, input: LeadInboxInput) {
   const [rows, [count]] = await Promise.all([
     ctx.db
       .select({
-        id: leads.id, status: leads.status, parentName: leads.parentName, phoneNormalized: leads.phoneNormalized, email: leads.email, childName: leads.childName,
+        id: leads.id, tenantId: leads.tenantId, status: leads.status, parentName: leads.parentName, phoneNormalized: leads.phoneNormalized, email: leads.email, childName: leads.childName,
         childGrade: leads.childGrade, source: leads.source, utmCampaign: leads.utmCampaign, centerCode: centers.code, courseCode: courses.code,
         assigneeName: users.fullName, lastTouchAt: leads.lastTouchAt, createdAt: leads.createdAt, reentryCount: leads.reentryCount, sharedWithCenter: leads.sharedWithCenter,
       })

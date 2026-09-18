@@ -10,7 +10,7 @@ import {
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { supabaseAdmin } from "./staffAuth";
 import { writeAudit } from "./audit";
-import { tenantCond, assertTenant, redact } from "./tenantScope";
+import { tenantCond, tenantCondStrict, assertTenant, redact } from "./tenantScope";
 
 type Db = ProtectedContext["db"];
 
@@ -228,8 +228,9 @@ export async function listAudit(ctx: ProtectedContext, input: AuditQuery) {
   requirePermission(ctx, "audit:read");
   const pageSize = Math.min(100, input.pageSize ?? 50);
   const page = Math.max(1, input.page ?? 1);
-  // Nhật ký chỉ hiển thị trong phạm vi trung tâm (tenant) của người xem
-  const conds = [tenantCond(ctx, auditLog)];
+  // Nhật ký chỉ hiển thị trong phạm vi trung tâm (tenant) của người xem.
+  // Chặt hơn `tenantCond`: nhật ký của trung tâm NHƯỢNG QUYỀN khác không bao giờ lộ ra Hội sở chuỗi.
+  const conds = [tenantCondStrict(ctx, auditLog)];
   if (input.module) conds.push(eq(auditLog.module, input.module));
   if (input.entity) conds.push(eq(auditLog.entity, input.entity));
   if (input.action) conds.push(eq(auditLog.action, input.action));
@@ -291,10 +292,10 @@ export async function revealAuditEntry(ctx: ProtectedContext, input: { id: strin
 export async function auditFilterOptions(ctx: ProtectedContext) {
   requirePermission(ctx, "audit:read");
   const [mods, ents, acts, actors] = await Promise.all([
-    ctx.db.selectDistinct({ v: auditLog.module }).from(auditLog).where(tenantCond(ctx, auditLog)).orderBy(asc(auditLog.module)),
-    ctx.db.selectDistinct({ v: auditLog.entity, m: auditLog.module }).from(auditLog).where(tenantCond(ctx, auditLog)).orderBy(asc(auditLog.entity)),
-    ctx.db.selectDistinct({ v: auditLog.action }).from(auditLog).where(tenantCond(ctx, auditLog)).orderBy(asc(auditLog.action)),
-    ctx.db.select({ id: users.id, name: users.fullName }).from(users).where(and(tenantCond(ctx, users), sql`exists (select 1 from ${auditLog} a where a.actor_id = ${sql.raw('"users"."id"')})`)).orderBy(asc(users.fullName)),
+    ctx.db.selectDistinct({ v: auditLog.module }).from(auditLog).where(tenantCondStrict(ctx, auditLog)).orderBy(asc(auditLog.module)),
+    ctx.db.selectDistinct({ v: auditLog.entity, m: auditLog.module }).from(auditLog).where(tenantCondStrict(ctx, auditLog)).orderBy(asc(auditLog.entity)),
+    ctx.db.selectDistinct({ v: auditLog.action }).from(auditLog).where(tenantCondStrict(ctx, auditLog)).orderBy(asc(auditLog.action)),
+    ctx.db.select({ id: users.id, name: users.fullName }).from(users).where(and(tenantCondStrict(ctx, users), sql`exists (select 1 from ${auditLog} a where a.actor_id = ${sql.raw('"users"."id"')})`)).orderBy(asc(users.fullName)),
   ]);
   return { modules: mods.map((m) => m.v), entities: ents, actions: acts.map((a) => a.v), actors };
 }

@@ -32,6 +32,30 @@ export function tenantCond(ctx: Ctx, table: TenantTable): SQL {
   return or(isNull(table.tenantId), inArray(table.tenantId, ctx.tenantIds))!;
 }
 
+/**
+ * Các tenant actor được xem CHI TIẾT chứ không chỉ số tổng hợp:
+ * tenant của chính mình + các trung tâm cùng chuỗi sở hữu (OWNED).
+ * Trung tâm nhượng quyền (FRANCHISE) của người khác luôn bị loại — kể cả với Quản trị tối cao của chuỗi.
+ */
+export function detailTenantIds(ctx: Ctx): string[] {
+  return ctx.tenantIds.filter((id) => {
+    if (id === ctx.tenantId) return true;
+    const t = tenantById(ctx, id);
+    return !t || t.type === "OWNED";
+  });
+}
+
+/**
+ * Như `tenantCond` nhưng chặt hơn: dùng cho dữ liệu KHÔNG bao giờ chia sẻ ra ngoài tenant
+ * dù có che PII — nhật ký thao tác, hồ sơ nội bộ của bên nhượng quyền.
+ */
+export function tenantCondStrict(ctx: Ctx, table: TenantTable): SQL {
+  if (!ctx.tenantIds.length) return sql`true`;
+  const ids = detailTenantIds(ctx);
+  if (!ids.length) return sql`false`;
+  return or(isNull(table.tenantId), inArray(table.tenantId, ids))!;
+}
+
 /** Chỉ đúng một tenant (dùng khi đã biết chắc tenant đích, vd bảng kê nhân bản) */
 export function onlyTenant(table: TenantTable, tenantId: string): SQL {
   return inArray(table.tenantId, [tenantId]);

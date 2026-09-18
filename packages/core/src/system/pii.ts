@@ -127,7 +127,7 @@ export function validateRevealReason(reason: string | null | undefined): string 
 /* ------------------------------------------------------------------ */
 
 /** Tên trường chứa họ tên người thật (không phải tên khoá học / tên lớp) */
-const PERSON_NAME_KEY = /^(full_?name|ho_?ten|student_?name|child_?name|parent_?name|guardian_?name|contact_?name|account_?name|teacher_?name|staff_?name|nickname|representative|actor_?name)$/i;
+const PERSON_NAME_KEY = /^(full_?name|ho_?ten|student_?name|child_?name|parent_?name|guardian_?name|contact_?name|account_?name|teacher_?name|staff_?name|nickname|representative|actor_?name|assignee_?name|owner_?name|reviewer_?name|created_?by_?name|approver_?name)$/i;
 /** Tên trường chứa địa chỉ */
 const ADDRESS_KEY = /(address|dia_?chi)/i;
 
