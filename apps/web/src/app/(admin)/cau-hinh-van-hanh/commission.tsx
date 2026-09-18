@@ -228,7 +228,7 @@ export function CommissionPolicyPanel({ centers, today }: { centers: { id: strin
                           shares: p.shares.map((s) => ({
                             role: s.role,
                             value: p.calcMethod === "percent" ? s.value / 100 : s.value,
-                            maxAmount: s.maxAmount,
+                            maxAmount: s.maxAmount ?? null,
                             tiers: (s.tiers ?? []).map((t) => ({ from: t.from, to: t.to, amount: t.amount ?? null, percent: t.percent == null ? null : t.percent / 100 })),
                           })),
                           sourceRef: p.sourceRef ?? "", note: p.note ?? "", effectiveFrom: p.effectiveFrom, effectiveTo: p.effectiveTo ?? "", isActive: p.isActive, reason: "",
