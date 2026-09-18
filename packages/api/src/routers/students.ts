@@ -51,6 +51,10 @@ export const studentsRouter = router({
   list: protectedProcedure
     .input(z.object({ q: z.string().max(100).optional(), centerId: uuid.optional(), status: z.enum(S.STUDENT_STATUSES).optional(), grade: z.number().int().min(1).max(12).optional(), page: z.number().int().min(1).optional(), pageSize: z.number().int().min(1).max(100).optional() }).default({}))
     .query(({ ctx, input }) => S.listStudents(ctx, input)),
+  /** Xuất CSV toàn bộ kết quả lọc (không chỉ trang hiện tại) — tối đa 10.000 dòng, SĐT che theo quyền */
+  exportRows: protectedProcedure
+    .input(z.object({ q: z.string().max(100).optional(), centerId: uuid.optional(), status: z.enum(S.STUDENT_STATUSES).optional(), grade: z.number().int().min(1).max(12).optional() }).default({}))
+    .query(({ ctx, input }) => S.exportStudents(ctx, input)),
   get: protectedProcedure.input(z.object({ id: uuid })).query(({ ctx, input }) => S.getStudent(ctx, input.id)),
   pick: protectedProcedure.input(z.object({ q: z.string().min(1).max(100), centerId: uuid.optional() })).query(({ ctx, input }) => S.pickStudents(ctx, input.q, input.centerId)),
   create: protectedProcedure

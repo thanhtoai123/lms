@@ -1,7 +1,11 @@
 import { z } from "zod";
-import { PARENT_REQUEST_TYPES, PARENT_REQUEST_STATUSES, CONTACT_CHANNELS, FEEDBACK_STATUSES, FEEDBACK_TAGS, SURVEY_TRIGGERS, SURVEY_STATUSES, QUESTION_TYPES, BROADCAST_CHANNELS } from "@satarobo/core";
+import {
+  PARENT_REQUEST_TYPES, PARENT_REQUEST_STATUSES, CONTACT_CHANNELS, FEEDBACK_STATUSES, FEEDBACK_TAGS, SURVEY_TRIGGERS, SURVEY_STATUSES, QUESTION_TYPES, BROADCAST_CHANNELS,
+  EVAL_FORM_TYPES, EVAL_QUESTION_TYPES, EVAL_ROUND_STATUSES, EVAL_MAX_QUESTIONS, EVAL_MAX_OPTIONS,
+} from "@satarobo/core";
 import { router, protectedProcedure } from "../trpc";
 import * as C from "../services/care";
+import * as E from "../services/evaluations";
 
 const uuid = z.string().uuid();
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Ngày không hợp lệ");
@@ -14,6 +18,14 @@ const audience = z.discriminatedUnion("kind", [
 const question = z.object({
   id: z.string().regex(/^[a-z0-9_]{1,20}$/, "Mã câu hỏi chỉ gồm a-z, 0-9, _"), type: z.enum(QUESTION_TYPES), label: z.string().max(300), required: z.boolean(),
   options: z.array(z.string().max(100)).max(10).optional(),
+});
+/** Câu hỏi của phiếu Đánh giá v2 — nhóm tiêu chí để trống nếu không nhóm */
+const evalQuestion = z.object({
+  type: z.enum(EVAL_QUESTION_TYPES),
+  label: z.string().max(500),
+  criteriaGroup: z.string().max(100).nullish(),
+  options: z.array(z.string().max(200)).max(EVAL_MAX_OPTIONS).nullish(),
+  required: z.boolean().optional(),
 });
 
 export const careRouter = router({
@@ -66,4 +78,32 @@ export const careRouter = router({
   runBirthdayScan: protectedProcedure
     .input(z.object({ days: z.number().int().min(0).max(30).optional(), centerId: uuid.optional() }).default({}))
     .mutation(({ ctx, input }) => C.runBirthdayScan(ctx, input)),
+
+  /* ---------------- Đánh giá & Khảo sát v2 (/evaluations) ---------------- */
+  evaluations: protectedProcedure.query(({ ctx }) => E.evaluationsOverview(ctx)),
+  evalForms: protectedProcedure.input(z.object({ type: z.enum(EVAL_FORM_TYPES).optional() }).default({})).query(({ ctx, input }) => E.listEvalForms(ctx, input)),
+  evalForm: protectedProcedure.input(z.object({ id: uuid })).query(({ ctx, input }) => E.getEvalForm(ctx, input.id)),
+  upsertEvalForm: protectedProcedure
+    .input(z.object({
+      id: uuid.nullish(),
+      title: z.string().trim().min(1, "Tiêu đề không được trống").max(200),
+      description: ntext(1000),
+      type: z.enum(EVAL_FORM_TYPES),
+      centerId: uuid.nullable(),
+      questions: z.array(evalQuestion).min(1, "Form cần ít nhất 1 câu hỏi").max(EVAL_MAX_QUESTIONS),
+    }))
+    .mutation(({ ctx, input }) => E.upsertEvalForm(ctx, input)),
+  setEvalFormActive: protectedProcedure.input(z.object({ id: uuid, isActive: z.boolean() })).mutation(({ ctx, input }) => E.setEvalFormActive(ctx, input)),
+  evalRounds: protectedProcedure.input(z.object({ status: z.enum(EVAL_ROUND_STATUSES).optional(), centerId: uuid.nullish() }).default({})).query(({ ctx, input }) => E.listEvalRounds(ctx, input)),
+  evalRound: protectedProcedure.input(z.object({ id: uuid })).query(({ ctx, input }) => E.evalRoundDetail(ctx, input.id)),
+  upsertEvalRound: protectedProcedure
+    .input(z.object({
+      id: uuid.nullish(), formId: uuid, title: z.string().trim().min(1, "Tiêu đề không được trống").max(200),
+      centerId: uuid.nullable(), startDate: isoDate, endDate: isoDate, note: ntext(500),
+    }))
+    .mutation(({ ctx, input }) => E.upsertEvalRound(ctx, input)),
+  /** Mở đợt / Đóng đợt / Lưu trữ */
+  transitionEvalRound: protectedProcedure
+    .input(z.object({ id: uuid, action: z.enum(["open", "close", "archive"]), reason: ntext(300) }))
+    .mutation(({ ctx, input }) => E.transitionEvalRound(ctx, input)),
 });

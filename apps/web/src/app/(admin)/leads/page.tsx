@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { getServerCaller } from "@/lib/trpc/server";
-import { LEAD_STATUSES, LEAD_STATUS_VI, OPEN_LEAD_STATUSES, type LeadStatus } from "@satarobo/core";
+import { LEAD_STATUSES, LEAD_STATUS_VI, OPEN_LEAD_STATUSES, LEAD_SHARE_LABEL, type LeadStatus } from "@satarobo/core";
 import { Pager, fmtDate } from "@/components/admin-ui";
 import { CsvButton } from "@/components/csv-button";
+import { ColumnChooser, type ColumnDef } from "@/components/column-chooser";
+import { ExportAllButton } from "@/components/export-all-button";
 import { LeadChip, SlaChip, fmtDateTime } from "@/components/lead-ui";
 import { LeadKanban } from "@/components/lead-kanban";
 import { LeadDeleteButton } from "@/components/lead-status";
@@ -12,6 +14,21 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Leads" };
 
 type SP = { scope?: string; status?: string; q?: string; view?: string; center?: string; owner?: string; source?: string; from?: string; to?: string; page?: string; size?: string };
+
+/** Cột của bảng lead — người dùng tự chọn hiện/ẩn, lưu theo máy (nút "Cột hiển thị") */
+const LEAD_COLUMNS: ColumnDef[] = [
+  { key: "sla", label: "SLA" },
+  { key: "parent", label: "Phụ huynh / con", locked: true },
+  { key: "phone", label: "SĐT" },
+  { key: "course", label: "Quan tâm" },
+  { key: "status", label: "Trạng thái" },
+  { key: "source", label: "Nguồn" },
+  { key: "owner", label: "Sale phụ trách" },
+  { key: "created", label: "Ngày nhận lead" },
+  { key: "touched", label: "Chạm cuối" },
+  { key: "tasks", label: "Việc" },
+  { key: "actions", label: "Hành động", locked: true },
+];
 
 export default async function LeadsInbox({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
@@ -96,7 +113,9 @@ export default async function LeadsInbox({ searchParams }: { searchParams: Promi
           <button className="btn-primary !py-1.5" type="submit">Lọc</button>
           {filtered && <Link href={kanban ? "/leads?view=kanban" : "/leads"} className="btn-ghost !py-1.5">Xoá lọc</Link>}
           {!kanban && (
-            <span className="ml-auto">
+            <span className="ml-auto flex flex-wrap items-center gap-2">
+              <ColumnChooser tableKey="leads" columns={LEAD_COLUMNS} />
+              <ExportAllButton kind="leads" filename="leads-theo-bo-loc" filters={filters} />
               <CsvButton
                 filename={`leads-trang-${page}`}
                 label="Xuất CSV (trang này)"
@@ -116,27 +135,36 @@ export default async function LeadsInbox({ searchParams }: { searchParams: Promi
       ) : items.length === 0 ? (
         <Empty>{filtered ? "Không có lead khớp bộ lọc." : "Không có lead nào. Thêm lead hoặc đợi form website gửi về."}</Empty>
       ) : (
-        <div className="card overflow-x-auto">
+        <div className="card overflow-x-auto" data-table="leads">
           <table className="w-full text-sm">
             <thead className="text-left text-xs uppercase text-ink-400">
-              <tr><th className="p-3">SLA</th><th className="p-3">Phụ huynh / con</th><th className="p-3">SĐT</th><th className="p-3">Quan tâm</th><th className="p-3">Trạng thái</th><th className="p-3">Nguồn</th><th className="p-3">Phụ trách</th><th className="p-3">Nhận lead</th><th className="p-3">Chạm cuối</th><th className="p-3">Việc</th><th className="p-3"></th></tr>
+              <tr>
+                <th className="p-3" data-col="sla">SLA</th><th className="p-3" data-col="parent">Phụ huynh / con</th><th className="p-3" data-col="phone">SĐT</th>
+                <th className="p-3" data-col="course">Quan tâm</th><th className="p-3" data-col="status">Trạng thái</th><th className="p-3" data-col="source">Nguồn</th>
+                <th className="p-3" data-col="owner">Phụ trách</th><th className="p-3" data-col="created">Nhận lead</th><th className="p-3" data-col="touched">Chạm cuối</th>
+                <th className="p-3" data-col="tasks">Việc</th><th className="p-3" data-col="actions"></th>
+              </tr>
             </thead>
             <tbody className="divide-y divide-black/5">
               {items.map((l) => (
                 <tr key={l.id} className={l.sla.level === "overdue" ? "bg-red-50/50" : ""}>
-                  <td className="p-3"><SlaChip sla={l.sla} /></td>
-                  <td className="p-3"><Link href={`/leads/${l.id}`} className="font-medium text-brand-700">{l.parentName}</Link><div className="text-xs text-ink-400">{l.childName ?? "—"}{l.childGrade ? ` · lớp ${l.childGrade}` : ""}</div></td>
-                  <td className="p-3 font-mono text-xs">{l.phone}</td>
-                  <td className="p-3">{l.courseCode ?? "—"}{l.centerCode ? ` · ${l.centerCode}` : ""}</td>
-                  <td className="p-3"><LeadChip status={l.status} /></td>
-                  <td className="p-3 text-xs">{l.source ?? "—"}</td>
-                  <td className="p-3">{l.assigneeName ?? <span className="text-ink-400">Chưa phân</span>}</td>
-                  <td className="p-3 whitespace-nowrap text-xs" title={`Nhận lần đầu: ${fmtDateTime(l.createdAt)}${l.lastReentryAt ? ` · nhập lại gần nhất ${fmtDateTime(l.lastReentryAt)}` : ""}`}>
+                  <td className="p-3" data-col="sla"><SlaChip sla={l.sla} /></td>
+                  <td className="p-3" data-col="parent">
+                    <Link href={`/leads/${l.id}`} className="font-medium text-brand-700">{l.parentName}</Link>
+                    {l.sharedWithCenter && <span className="ml-1 chip bg-sky-100 text-sky-800" title={l.visibility === "owner" ? LEAD_SHARE_LABEL.mineShared : LEAD_SHARE_LABEL.toggle}>{LEAD_SHARE_LABEL.chip}</span>}
+                    <div className="text-xs text-ink-400">{l.childName ?? "—"}{l.childGrade ? ` · lớp ${l.childGrade}` : ""}</div>
+                  </td>
+                  <td className="p-3 font-mono text-xs" data-col="phone">{l.phone}</td>
+                  <td className="p-3" data-col="course">{l.courseCode ?? "—"}{l.centerCode ? ` · ${l.centerCode}` : ""}</td>
+                  <td className="p-3" data-col="status"><LeadChip status={l.status} /></td>
+                  <td className="p-3 text-xs" data-col="source">{l.source ?? "—"}</td>
+                  <td className="p-3" data-col="owner">{l.assigneeName ?? <span className="text-ink-400">Chưa phân</span>}</td>
+                  <td className="p-3 whitespace-nowrap text-xs" data-col="created" title={`Nhận lần đầu: ${fmtDateTime(l.createdAt)}${l.lastReentryAt ? ` · nhập lại gần nhất ${fmtDateTime(l.lastReentryAt)}` : ""}`}>
                     {fmtDateTime(l.createdAt)}{l.reentryCount > 0 && <span className="ml-1 chip bg-amber-100 text-amber-800">· nhập lại {l.reentryCount} lần</span>}
                   </td>
-                  <td className="p-3 whitespace-nowrap text-xs">{fmtDateTime(l.lastTouchAt)}</td>
-                  <td className="p-3">{l.openTasks > 0 && <span className="chip bg-brand-100 text-brand-700">{l.openTasks}</span>}</td>
-                  <td className="p-3">{l.canDelete && <LeadDeleteButton leadId={l.id} name={l.parentName} />}</td>
+                  <td className="p-3 whitespace-nowrap text-xs" data-col="touched">{fmtDateTime(l.lastTouchAt)}</td>
+                  <td className="p-3" data-col="tasks">{l.openTasks > 0 && <span className="chip bg-brand-100 text-brand-700">{l.openTasks}</span>}</td>
+                  <td className="p-3" data-col="actions">{l.canDelete && <LeadDeleteButton leadId={l.id} name={l.parentName} />}</td>
                 </tr>
               ))}
             </tbody>

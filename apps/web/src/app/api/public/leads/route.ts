@@ -51,7 +51,14 @@ export async function POST(req: Request) {
   const db = getDb();
   const hdrs = Object.fromEntries(req.headers.entries());
   try {
-    const r = await createLead(db, parsed.data, null);
+    // Nguồn & theo dõi: IP và user agent lấy từ chính request (không tin body gửi lên)
+    const r = await createLead(db, {
+      ...parsed.data,
+      landingPage: parsed.data.landingPage ?? req.headers.get("referer"),
+      referrer: parsed.data.referrer ?? req.headers.get("referer"),
+      ipAddress: ip === "unknown" ? null : ip,
+      userAgent: req.headers.get("user-agent"),
+    }, null);
     if (typeof body.anonId === "string") {
       await recordTrack(db, { event: "form_submit", anonId: body.anonId, path: "/dang-ky", utmSource: parsed.data.utmSource, utmMedium: parsed.data.utmMedium, utmCampaign: parsed.data.utmCampaign, leadId: r.lead.id }).catch(() => null);
     }

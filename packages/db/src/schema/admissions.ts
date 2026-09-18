@@ -1,4 +1,4 @@
-import { pgTable, text, uuid, boolean, integer, timestamp, pgEnum, jsonb, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, uuid, boolean, integer, timestamp, date, pgEnum, jsonb, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { id, timestamps, softDelete } from "./_common";
 import { LEAD_STATUSES, DISTRIBUTION_MODES, TRIAL_STATUSES, ASSIGNMENT_SOURCES, POOL_ACTIONS } from "@satarobo/core";
 import { centers } from "./org";
@@ -32,6 +32,21 @@ export const leads = pgTable(
     utmSource: text("utm_source"),
     utmMedium: text("utm_medium"),
     utmCampaign: text("utm_campaign"),
+    /* --- Nguồn & theo dõi: chỉ ghi khi lead vào từ form công khai (website / landing / Zalo Mini App) --- */
+    /** URL trang đích khách điền form */
+    landingPage: text("landing_page"),
+    /** Trang giới thiệu (document.referrer) */
+    referrer: text("referrer"),
+    /** Id sự kiện quảng cáo (Meta/Google event id) — để đối soát với nền tảng quảng cáo */
+    eventId: text("event_id"),
+    /** IP người gửi form — PII, chỉ người có quyền lead:view_pii xem đầy đủ */
+    ipAddress: text("ip_address"),
+    userAgent: text("user_agent"),
+    /**
+     * Lead dùng chung: bật thì mọi CSKH cùng cơ sở thấy được lead này
+     * (người chỉ có lead:read_own vẫn thấy) — nhãn "Dùng chung cho CSKH cùng cơ sở".
+     */
+    sharedWithCenter: boolean("shared_with_center").notNull().default(false),
     referrerParentId: uuid("referrer_parent_id").references(() => parents.id),
     /** Mã giới thiệu (affiliate) — không FK để tránh vòng import; khớp affiliates.code */
     referralCode: text("referral_code"),
@@ -69,6 +84,7 @@ export const leads = pgTable(
     index("leads_assigned_idx").on(t.assignedToId, t.status),
     index("leads_phone_idx").on(t.phoneNormalized),
     index("leads_last_touch_idx").on(t.lastTouchAt),
+    index("leads_shared_idx").on(t.sharedWithCenter, t.centerId),
   ],
 );
 
@@ -132,9 +148,15 @@ export const leadChildren = pgTable(
     leadId: uuid("lead_id").notNull().references(() => leads.id, { onDelete: "cascade" }),
     fullName: text("full_name").notNull(),
     birthYear: integer("birth_year"),
+    /** Ngày sinh đầy đủ (chính xác hơn năm sinh) — dùng để xếp lớp theo tuổi */
+    dateOfBirth: date("date_of_birth"),
+    /** male | female | other */
+    gender: text("gender"),
     grade: integer("grade"),
     school: text("school"),
     interestedCourseId: uuid("interested_course_id").references(() => courses.id),
+    /** Cơ sở bé muốn học (có thể khác cơ sở đang giữ lead) */
+    interestedCenterId: uuid("interested_center_id").references(() => centers.id),
     notes: text("notes"),
     /** Khi chốt: học viên được tạo từ dòng này */
     convertedStudentId: uuid("converted_student_id").references(() => students.id),

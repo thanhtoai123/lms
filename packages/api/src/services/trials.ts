@@ -159,7 +159,9 @@ export async function listTrials(ctx: ProtectedContext, input: TrialListInput) {
   const conds = [gte(sessions.date, from), lte(sessions.date, to)];
   if (input.centerId) conds.push(eq(classes.centerId, input.centerId));
   if (input.status) conds.push(eq(trialBookings.status, input.status));
-  if (input.mine || onlyMine) conds.push(eq(leads.assignedToId, ctx.user.id));
+  // Chỉ lead:read_own: lead của mình + lead đã bật dùng chung cùng cơ sở. Tick "của tôi" thì chỉ lead của mình.
+  if (input.mine) conds.push(eq(leads.assignedToId, ctx.user.id));
+  else if (onlyMine) conds.push(or(eq(leads.assignedToId, ctx.user.id), eq(leads.sharedWithCenter, true))!);
   if (input.q?.trim()) {
     const q = `%${input.q.trim()}%`;
     conds.push(or(ilike(leads.parentName, q), ilike(trialBookings.childName, q), ilike(leads.phoneNormalized, `%${input.q.replace(/\D/g, "").replace(/^0/, "") || "~"}%`), ilike(classes.code, q))!);
@@ -209,7 +211,8 @@ export async function listTrials(ctx: ProtectedContext, input: TrialListInput) {
 export async function trialLeadOptions(ctx: ProtectedContext, input: { q?: string; centerId?: string; id?: string }) {
   const { onlyMine } = readScope(ctx, input.centerId);
   const conds = [isNull(leads.deletedAt), inArray(leads.status, [...OPEN_LEAD_STATUSES])];
-  if (onlyMine) conds.push(eq(leads.assignedToId, ctx.user.id));
+  // Chỉ lead:read_own: lead của mình + lead đã bật dùng chung cùng cơ sở
+  if (onlyMine) conds.push(or(eq(leads.assignedToId, ctx.user.id), eq(leads.sharedWithCenter, true))!);
   if (input.centerId) conds.push(eq(leads.centerId, input.centerId));
   if (input.id) conds.push(eq(leads.id, input.id));
   const visible = visibleCenterIds(ctx.actor);

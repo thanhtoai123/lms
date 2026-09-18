@@ -5,12 +5,14 @@ import {
   consentRecords, orders, orderItems, payments, trialBookings,
 } from "@satarobo/db";
 import {
-  leadTransition, computeSla, normalizeVnPhone, maskPhone, OPEN_LEAD_STATUSES, LEAD_STATUSES, visibleCenterIds, authorize, hasRole, buildStudentCode, CONSENT_TEXT_VERSION, normalizeRefCode,
+  leadTransition, computeSla, normalizeVnPhone, maskPhone, OPEN_LEAD_STATUSES, LEAD_STATUSES, authorize, hasRole, buildStudentCode, CONSENT_TEXT_VERSION, normalizeRefCode,
   mergeIntake, appendNote, summarizeLeadOrders, conversionGate, checkScholarshipReason, isValidIdNumber, isFacebookUrl, intakeAssignmentSource,
   isDropEvent, checkDropReason, packagePrice, formatVnd, PLACEHOLDER_PARENT_NAME, LEAD_DROP_REASON_MAX,
+  leadVisibilityReason, leadShareNotice, LEAD_SHARE_LABEL, LEAD_STATUS_VI,
   type LeadStatus, type LeadEvent, type AssignmentSource, type IntakeChild,
 } from "@satarobo/core";
 import { resolveAdmissionsPolicy, autoPickAssignee, recordAssignment, canSeeLeadPhone, type Db } from "./admissionsAdmin";
+import { canShareLead, leadReadCondition, leadReader, requireLeadRead, requireLeadsAccess } from "./leadAccess";
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { writeAudit } from "./audit";
 import { emit } from "./outbox";
@@ -25,6 +27,8 @@ const nowIso = () => new Date().toISOString();
 const bad = (m: string | string[]) => new TRPCError({ code: "BAD_REQUEST", message: Array.isArray(m) ? m.join("; ") : m });
 const pre = (m: string) => new TRPCError({ code: "PRECONDITION_FAILED", message: m });
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+/** Cắt gọn chuỗi theo dõi (URL / user agent) để không phình cột; rỗng → null */
+const trimTo = (v: string | null | undefined, max: number) => (v?.trim() ? v.trim().slice(0, max) : null);
 
 export interface CreateLeadInput {
   parentName?: string | null;
@@ -47,6 +51,16 @@ export interface CreateLeadInput {
   marketingConsent?: boolean;
   referralCode?: string | null;
   autoAssign?: boolean;
+  /**
+   * Nguồn & theo dõi — CHỈ ghi khi lead vào từ form công khai (website / landing / Zalo Mini App).
+   * Nhân viên nhập tay không có các trường này.
+   */
+  landingPage?: string | null;
+  referrer?: string | null;
+  /** Id sự kiện quảng cáo (Meta/Google) để đối soát với nền tảng */
+  eventId?: string | null;
+  ipAddress?: string | null;
+  userAgent?: string | null;
   /** Giao tay ngay khi tạo (bỏ qua chế độ chia) */
   assignedToId?: string | null;
   /** Nhiều con / lead (LeadChild). Nếu rỗng nhưng có childName → tạo 1 dòng từ childName */
@@ -115,7 +129,10 @@ export async function createLead(db: ProtectedContext["db"], input: CreateLeadIn
         reentryCount: sql`${leads.reentryCount} + 1`, lastReentryAt: now, lastTouchAt: now,
       }).where(eq(leads.id, existing.id));
       if (merge.childrenToAdd.length) {
-        await tx.insert(leadChildren).values(merge.childrenToAdd.map((c) => ({ leadId: existing.id, fullName: c.fullName, birthYear: c.birthYear ?? null, grade: c.grade ?? null, school: c.school ?? null, interestedCourseId: c.interestedCourseId ?? null, notes: c.notes ?? null })));
+        await tx.insert(leadChildren).values(merge.childrenToAdd.map((c) => ({
+          leadId: existing.id, fullName: c.fullName, birthYear: c.birthYear ?? null, dateOfBirth: c.dateOfBirth ?? null, gender: c.gender ?? null,
+          grade: c.grade ?? null, school: c.school ?? null, interestedCourseId: c.interestedCourseId ?? null, interestedCenterId: c.interestedCenterId ?? null, notes: c.notes ?? null,
+        })));
       }
       for (const cp of merge.childPatches) await tx.update(leadChildren).set(cp.patch).where(eq(leadChildren.id, cp.id));
       const added = merge.childrenToAdd.length;
@@ -159,6 +176,9 @@ export async function createLead(db: ProtectedContext["db"], input: CreateLeadIn
         childName: input.childName?.trim() || children[0]?.fullName || null, childGrade: input.childGrade ?? children[0]?.grade ?? null, childBirthYear: input.childBirthYear ?? null, school: input.school ?? null,
         interestedCourseId: input.interestedCourseId ?? children[0]?.interestedCourseId ?? null, centerId, source: input.source ?? null,
         utmSource: input.utmSource ?? null, utmMedium: input.utmMedium ?? null, utmCampaign: input.utmCampaign ?? null,
+        // Nguồn & theo dõi: chỉ có giá trị khi lead vào từ form công khai
+        landingPage: trimTo(input.landingPage, 500), referrer: trimTo(input.referrer, 500), eventId: trimTo(input.eventId, 100),
+        ipAddress: trimTo(input.ipAddress, 60), userAgent: trimTo(input.userAgent, 400),
         notes: input.notes?.trim() || null, facebookUrl: input.facebookUrl?.trim() || null, consentAt: input.consent ? now : null,
         referralCode: referral, status: opts.status ?? "new", createdBy: actorId,
         assignedToId, assignedAt: assignedToId ? now : null,
@@ -168,7 +188,10 @@ export async function createLead(db: ProtectedContext["db"], input: CreateLeadIn
       .returning();
 
     if (children.length > 0) {
-      await tx.insert(leadChildren).values(children.map((c) => ({ leadId: lead!.id, fullName: c.fullName, birthYear: c.birthYear ?? null, grade: c.grade ?? null, school: c.school ?? null, interestedCourseId: c.interestedCourseId ?? null, notes: c.notes ?? null })));
+      await tx.insert(leadChildren).values(children.map((c) => ({
+        leadId: lead!.id, fullName: c.fullName, birthYear: c.birthYear ?? null, dateOfBirth: c.dateOfBirth ?? null, gender: c.gender ?? null,
+        grade: c.grade ?? null, school: c.school ?? null, interestedCourseId: c.interestedCourseId ?? null, interestedCenterId: c.interestedCenterId ?? null, notes: c.notes ?? null,
+      })));
     }
 
     await tx.insert(leadActivities).values({ leadId: lead!.id, type: "system", actorId, content: `Tạo lead từ ${input.source ?? "Ops"}` });
@@ -207,15 +230,17 @@ export interface LeadInboxInput {
   pageSize?: number;
 }
 
-/** Inbox: lead của tôi / của cơ sở, kèm SLA. Trạng thái mở: quá hạn trước; mọi trạng thái / đã đóng: mới nhận trước. Có phân trang. */
-export async function leadInbox(ctx: ProtectedContext, input: LeadInboxInput) {
-  requirePermission(ctx, "lead:read", { centerId: input.centerId ?? null });
-  const scopeConds = [isNull(leads.deletedAt)];
-  const visible = visibleCenterIds(ctx.actor);
-  if (visible !== null) scopeConds.push(visible.length ? or(inArray(leads.centerId, visible), isNull(leads.centerId))! : sql`false`);
-  if (input.centerId) scopeConds.push(eq(leads.centerId, input.centerId));
-  const conds = [...scopeConds];
-  const openView = !input.allStatuses && (!input.status || (OPEN_LEAD_STATUSES as readonly string[]).includes(input.status));
+/** Phạm vi người dùng được đọc (không tính bộ lọc trên màn hình) — dùng chung cho danh sách, facet và xuất file */
+function leadScopeConds(ctx: ProtectedContext, input: LeadInboxInput) {
+  // Người chỉ có lead:read_own thấy lead của mình + lead đã bật dùng chung trong cơ sở của họ
+  const conds = [isNull(leads.deletedAt), leadReadCondition(ctx, input.centerId ?? null)];
+  if (input.centerId) conds.push(eq(leads.centerId, input.centerId));
+  return conds;
+}
+
+/** Bộ lọc đầy đủ của màn Danh sách Lead — danh sách và nút "Xuất CSV (toàn bộ kết quả lọc)" dùng chung hàm này */
+function leadFilterConds(ctx: ProtectedContext, input: LeadInboxInput) {
+  const conds = leadScopeConds(ctx, input);
   if (input.status) conds.push(eq(leads.status, input.status));
   else if (!input.allStatuses) conds.push(inArray(leads.status, [...OPEN_LEAD_STATUSES]));
   if (input.scope === "mine") conds.push(eq(leads.assignedToId, ctx.user.id));
@@ -230,6 +255,15 @@ export async function leadInbox(ctx: ProtectedContext, input: LeadInboxInput) {
     const pn = normalizeVnPhone(q);
     conds.push(or(ilike(leads.parentName, like), ilike(leads.childName, like), pn ? eq(leads.phoneNormalized, pn) : sql`false`)!);
   }
+  return conds;
+}
+
+/** Inbox: lead của tôi / của cơ sở, kèm SLA. Trạng thái mở: quá hạn trước; mọi trạng thái / đã đóng: mới nhận trước. Có phân trang. */
+export async function leadInbox(ctx: ProtectedContext, input: LeadInboxInput) {
+  requireLeadsAccess(ctx, input.centerId ?? null);
+  const scopeConds = leadScopeConds(ctx, input);
+  const conds = leadFilterConds(ctx, input);
+  const openView = !input.allStatuses && (!input.status || (OPEN_LEAD_STATUSES as readonly string[]).includes(input.status));
 
   const paged = input.page !== undefined;
   const pageSize = Math.min(200, input.pageSize ?? 50);
@@ -239,6 +273,7 @@ export async function leadInbox(ctx: ProtectedContext, input: LeadInboxInput) {
       .select({
         id: leads.id, status: leads.status, parentName: leads.parentName, phoneNormalized: leads.phoneNormalized, childName: leads.childName, childGrade: leads.childGrade,
         source: leads.source, centerId: leads.centerId, centerCode: centers.code, courseCode: courses.code, assignedToId: leads.assignedToId, assigneeName: users.fullName,
+        sharedWithCenter: leads.sharedWithCenter,
         lastTouchAt: leads.lastTouchAt, nextActionAt: leads.nextActionAt, createdAt: leads.createdAt, reentryCount: leads.reentryCount, lastReentryAt: leads.lastReentryAt,
         openTasks: sql<number>`(select count(*)::int from ${leadTasks} t where t.lead_id = ${leads.id} and t.done_at is null)`,
       })
@@ -260,6 +295,7 @@ export async function leadInbox(ctx: ProtectedContext, input: LeadInboxInput) {
 
   const now = nowIso();
   const full = canSeeLeadPhone(ctx);
+  const reader = leadReader(ctx, input.centerId ?? null);
   const policy = await resolveAdmissionsPolicy(ctx.db, input.centerId ?? null);
   const slaOf = (st: LeadStatus, t: Date) => computeSla(st, t.toISOString(), now, policy.sla);
   const items = rows
@@ -267,6 +303,8 @@ export async function leadInbox(ctx: ProtectedContext, input: LeadInboxInput) {
       ...r,
       phone: full ? phoneNormalized : maskPhone(phoneNormalized),
       sla: slaOf(r.status, r.lastTouchAt),
+      /** "owner" | "shared" | "full" — để gắn nhãn "Dùng chung" / "Bạn đang chia sẻ lead này" */
+      visibility: leadVisibilityReason(reader, r),
       canDelete: authorize(ctx.actor, "lead:delete", { centerId: r.centerId }).allowed && r.status !== "enrolled",
       canAssign: authorize(ctx.actor, "lead:update", { centerId: r.centerId }).allowed,
     }))
@@ -308,7 +346,7 @@ export async function leadPaymentSummary(db: Db, leadId: string) {
 export async function getLead(ctx: ProtectedContext, id: string) {
   const lead = await ctx.db.query.leads.findFirst({ where: and(eq(leads.id, id), isNull(leads.deletedAt)) });
   if (!lead) throw new TRPCError({ code: "NOT_FOUND" });
-  requirePermission(ctx, "lead:read", { centerId: lead.centerId, ownerIds: [lead.assignedToId ?? ""].filter(Boolean) });
+  requireLeadRead(ctx, lead);
   const [activities, tasks, assignee, course, center, children, creator, payment] = await Promise.all([
     ctx.db.select({ id: leadActivities.id, type: leadActivities.type, content: leadActivities.content, meta: leadActivities.meta, createdAt: leadActivities.createdAt, actorName: users.fullName })
       .from(leadActivities).leftJoin(users, eq(users.id, leadActivities.actorId)).where(eq(leadActivities.leadId, id)).orderBy(desc(leadActivities.createdAt)).limit(100),
@@ -316,30 +354,133 @@ export async function getLead(ctx: ProtectedContext, id: string) {
     lead.assignedToId ? ctx.db.query.users.findFirst({ where: eq(users.id, lead.assignedToId), columns: { id: true, fullName: true } }) : null,
     lead.interestedCourseId ? ctx.db.query.courses.findFirst({ where: eq(courses.id, lead.interestedCourseId), columns: { id: true, code: true, name: true } }) : null,
     lead.centerId ? ctx.db.query.centers.findFirst({ where: eq(centers.id, lead.centerId), columns: { id: true, code: true, name: true } }) : null,
-    ctx.db.select({ id: leadChildren.id, fullName: leadChildren.fullName, birthYear: leadChildren.birthYear, grade: leadChildren.grade, school: leadChildren.school, interestedCourseId: leadChildren.interestedCourseId, courseCode: courses.code, notes: leadChildren.notes, convertedStudentId: leadChildren.convertedStudentId })
-      .from(leadChildren).leftJoin(courses, eq(courses.id, leadChildren.interestedCourseId)).where(eq(leadChildren.leadId, id)).orderBy(asc(leadChildren.createdAt)),
+    ctx.db.select({
+      id: leadChildren.id, fullName: leadChildren.fullName, birthYear: leadChildren.birthYear, dateOfBirth: leadChildren.dateOfBirth, gender: leadChildren.gender,
+      grade: leadChildren.grade, school: leadChildren.school, interestedCourseId: leadChildren.interestedCourseId, courseCode: courses.code,
+      interestedCenterId: leadChildren.interestedCenterId, interestedCenterCode: centers.code,
+      notes: leadChildren.notes, convertedStudentId: leadChildren.convertedStudentId,
+    })
+      .from(leadChildren).leftJoin(courses, eq(courses.id, leadChildren.interestedCourseId)).leftJoin(centers, eq(centers.id, leadChildren.interestedCenterId))
+      .where(eq(leadChildren.leadId, id)).orderBy(asc(leadChildren.createdAt)),
     lead.createdBy ? ctx.db.query.users.findFirst({ where: eq(users.id, lead.createdBy), columns: { id: true, fullName: true } }) : null,
     leadPaymentSummary(ctx.db, id),
   ]);
   const policy = await resolveAdmissionsPolicy(ctx.db, lead.centerId);
   const full = canSeeLeadPhone(ctx);
   const owner = { centerId: lead.centerId, ownerIds: [lead.assignedToId ?? ""].filter(Boolean) };
+  // Khối "Nguồn & theo dõi": IP đầy đủ chỉ người xem được PII mới thấy
+  const tracking = {
+    landingPage: lead.landingPage,
+    referrer: lead.referrer,
+    eventId: lead.eventId,
+    ipAddress: full ? lead.ipAddress : maskIp(lead.ipAddress),
+    ipMasked: !full,
+    userAgent: lead.userAgent,
+    hasAny: !!(lead.landingPage || lead.referrer || lead.eventId || lead.ipAddress || lead.userAgent),
+  };
   return {
     ...lead,
     phone: full ? lead.phone : maskPhone(lead.phoneNormalized),
     phoneNormalized: full ? lead.phoneNormalized : maskPhone(lead.phoneNormalized),
+    ipAddress: tracking.ipAddress,
     sla: computeSla(lead.status, lead.lastTouchAt.toISOString(), nowIso(), policy.sla),
     activities, tasks, children, assignee: assignee ?? null, course: course ?? null, center: center ?? null, creator: creator ?? null,
-    payment,
+    payment, tracking,
     distributionMode: policy.distributionMode,
+    visibility: leadVisibilityReason(leadReader(ctx, lead.centerId), lead),
     perms: {
       update: authorize(ctx.actor, "lead:update", owner).allowed,
       assign: authorize(ctx.actor, "lead:update", { centerId: lead.centerId }).allowed,
       delete: authorize(ctx.actor, "lead:delete", { centerId: lead.centerId }).allowed,
       createOrder: authorize(ctx.actor, "finance:create", { centerId: lead.centerId }).allowed,
       convert: authorize(ctx.actor, "enrollment:create", { centerId: lead.centerId }).allowed,
+      share: canShareLead(ctx, lead),
+      viewPii: full,
     },
   };
+}
+
+/** Che IP cho người không có quyền xem PII: giữ 2 nhóm đầu (IPv4) / 2 cụm đầu (IPv6) */
+function maskIp(ip: string | null): string | null {
+  if (!ip) return null;
+  if (ip.includes(":")) { const p = ip.split(":"); return `${p.slice(0, 2).join(":")}:***`; }
+  const p = ip.split(".");
+  return p.length === 4 ? `${p[0]}.${p[1]}.*.*` : "***";
+}
+
+/**
+ * Bật / tắt "Dùng chung cho CSKH cùng cơ sở".
+ * Bật: mọi CSKH cùng cơ sở thấy lead này dù chỉ có `lead:read_own`.
+ */
+export async function setLeadShared(ctx: ProtectedContext, input: { leadId: string; shared: boolean }) {
+  const lead = await ctx.db.query.leads.findFirst({ where: and(eq(leads.id, input.leadId), isNull(leads.deletedAt)) });
+  if (!lead) throw new TRPCError({ code: "NOT_FOUND" });
+  if (!canShareLead(ctx, lead)) throw new TRPCError({ code: "FORBIDDEN", message: `Chỉ sale đang giữ lead hoặc quản lý cơ sở mới bật được “${LEAD_SHARE_LABEL.toggle}”` });
+  if (lead.sharedWithCenter === input.shared) return { shared: input.shared, notice: leadShareNotice(input.shared) };
+  await ctx.db.transaction(async (tx) => {
+    await tx.update(leads).set({ sharedWithCenter: input.shared }).where(eq(leads.id, lead.id));
+    await tx.insert(leadActivities).values({
+      leadId: lead.id, type: "system", actorId: ctx.user.id,
+      content: input.shared ? `${LEAD_SHARE_LABEL.on} — ${LEAD_SHARE_LABEL.toggle}` : LEAD_SHARE_LABEL.off,
+      meta: { sharedWithCenter: input.shared },
+    });
+    await writeAudit(tx as unknown as Db, {
+      actorId: ctx.user.id, action: "UPDATE", module: "admissions", entity: "leads", entityId: lead.id,
+      before: { sharedWithCenter: lead.sharedWithCenter }, after: { sharedWithCenter: input.shared }, ip: ctx.ip,
+    });
+  });
+  return { shared: input.shared, notice: leadShareNotice(input.shared) };
+}
+
+/**
+ * Xuất **toàn bộ kết quả lọc** (không chỉ trang hiện tại) — tối đa 10.000 dòng.
+ * SĐT che theo quyền, giống hệt danh sách trên màn hình.
+ */
+export const LEAD_EXPORT_MAX_ROWS = 10_000;
+export const LEAD_EXPORT_HEADERS = [
+  "Ngày nhận", "Phụ huynh", "Con", "Lớp", "SĐT", "Email", "Quan tâm", "Cơ sở", "Trạng thái", "Nguồn", "Chiến dịch", "Phụ trách", "Chạm cuối", "Nhập lại", "Dùng chung",
+] as const;
+
+export async function exportLeads(ctx: ProtectedContext, input: LeadInboxInput) {
+  // Xuất đúng những dòng người này được thấy trên màn hình (leadReadCondition lo phần lọc)
+  requireLeadsAccess(ctx, input.centerId ?? null);
+  const { rows, total } = await leadRowsForExport(ctx, input);
+  const full = canSeeLeadPhone(ctx);
+  const fmtDay = (d: Date) => new Intl.DateTimeFormat("vi-VN", { dateStyle: "short", timeZone: "Asia/Ho_Chi_Minh" }).format(d);
+  const fmtMin = (d: Date) => new Intl.DateTimeFormat("vi-VN", { dateStyle: "short", timeStyle: "short", timeZone: "Asia/Ho_Chi_Minh" }).format(d);
+  return {
+    headers: [...LEAD_EXPORT_HEADERS],
+    rows: rows.map((l) => [
+      fmtDay(l.createdAt), l.parentName, l.childName ?? "", l.childGrade ?? "", full ? l.phoneNormalized : maskPhone(l.phoneNormalized), l.email ?? "",
+      l.courseCode ?? "", l.centerCode ?? "", LEAD_STATUS_VI[l.status] ?? l.status, l.source ?? "", l.utmCampaign ?? "", l.assigneeName ?? "",
+      fmtMin(l.lastTouchAt), l.reentryCount || "", l.sharedWithCenter ? LEAD_SHARE_LABEL.chip : "",
+    ]),
+    total,
+    truncated: total > rows.length,
+    limit: LEAD_EXPORT_MAX_ROWS,
+    piiMasked: !full,
+  };
+}
+
+async function leadRowsForExport(ctx: ProtectedContext, input: LeadInboxInput) {
+  const conds = leadFilterConds(ctx, input);
+  const [rows, [count]] = await Promise.all([
+    ctx.db
+      .select({
+        id: leads.id, status: leads.status, parentName: leads.parentName, phoneNormalized: leads.phoneNormalized, email: leads.email, childName: leads.childName,
+        childGrade: leads.childGrade, source: leads.source, utmCampaign: leads.utmCampaign, centerCode: centers.code, courseCode: courses.code,
+        assigneeName: users.fullName, lastTouchAt: leads.lastTouchAt, createdAt: leads.createdAt, reentryCount: leads.reentryCount, sharedWithCenter: leads.sharedWithCenter,
+      })
+      .from(leads)
+      .leftJoin(centers, eq(centers.id, leads.centerId))
+      .leftJoin(courses, eq(courses.id, leads.interestedCourseId))
+      .leftJoin(users, eq(users.id, leads.assignedToId))
+      .where(and(...conds))
+      .orderBy(desc(leads.createdAt))
+      .limit(LEAD_EXPORT_MAX_ROWS),
+    ctx.db.select({ n: sql<number>`count(*)::int` }).from(leads).where(and(...conds)),
+  ]);
+  return { rows, total: count?.n ?? rows.length };
 }
 
 async function loadForWrite(ctx: ProtectedContext, id: string) {
@@ -540,7 +681,10 @@ export async function deleteLead(ctx: ProtectedContext, input: { leadId: string;
 export async function addLeadChild(ctx: ProtectedContext, input: { leadId: string } & IntakeChild) {
   await loadForWrite(ctx, input.leadId);
   await ctx.db.transaction(async (tx) => {
-    await tx.insert(leadChildren).values({ leadId: input.leadId, fullName: input.fullName.trim(), birthYear: input.birthYear ?? null, grade: input.grade ?? null, school: input.school ?? null, interestedCourseId: input.interestedCourseId ?? null, notes: input.notes ?? null });
+    await tx.insert(leadChildren).values({
+      leadId: input.leadId, fullName: input.fullName.trim(), birthYear: input.birthYear ?? null, dateOfBirth: input.dateOfBirth ?? null, gender: input.gender ?? null,
+      grade: input.grade ?? null, school: input.school ?? null, interestedCourseId: input.interestedCourseId ?? null, interestedCenterId: input.interestedCenterId ?? null, notes: input.notes ?? null,
+    });
     await tx.insert(leadActivities).values({ leadId: input.leadId, type: "system", actorId: ctx.user.id, content: `Thêm con: ${input.fullName.trim()}` });
     await tx.update(leads).set({ lastTouchAt: new Date() }).where(eq(leads.id, input.leadId));
   });
@@ -555,9 +699,12 @@ export async function updateLeadChild(ctx: ProtectedContext, input: { leadId: st
   const patch = {
     ...(input.fullName !== undefined ? { fullName: input.fullName.trim() } : {}),
     ...(input.birthYear !== undefined ? { birthYear: input.birthYear } : {}),
+    ...(input.dateOfBirth !== undefined ? { dateOfBirth: input.dateOfBirth || null } : {}),
+    ...(input.gender !== undefined ? { gender: input.gender || null } : {}),
     ...(input.grade !== undefined ? { grade: input.grade } : {}),
     ...(input.school !== undefined ? { school: input.school?.trim() || null } : {}),
     ...(input.interestedCourseId !== undefined ? { interestedCourseId: input.interestedCourseId } : {}),
+    ...(input.interestedCenterId !== undefined ? { interestedCenterId: input.interestedCenterId } : {}),
     ...(input.notes !== undefined ? { notes: input.notes?.trim() || null } : {}),
   };
   if (patch.fullName === "") throw bad("Nhập họ tên con");

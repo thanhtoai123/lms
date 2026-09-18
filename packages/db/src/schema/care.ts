@@ -1,6 +1,7 @@
-import { pgTable, text, uuid, integer, smallint, date, timestamp, pgEnum, jsonb, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, uuid, boolean, integer, smallint, date, timestamp, pgEnum, jsonb, index, uniqueIndex } from "drizzle-orm/pg-core";
 import {
   PARENT_REQUEST_TYPES, PARENT_REQUEST_STATUSES, CONTACT_CHANNELS, FEEDBACK_STATUSES, SURVEY_TRIGGERS, SURVEY_STATUSES,
+  EVAL_FORM_TYPES, EVAL_QUESTION_TYPES, EVAL_ROUND_STATUSES,
   type SurveyQuestion, type SurveyAnswers,
 } from "@satarobo/core";
 import { id, timestamps } from "./_common";
@@ -161,4 +162,114 @@ export const birthdayGreetings = pgTable(
     sentAt: timestamp("sent_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [uniqueIndex("birthday_greetings_unique").on(t.studentId, t.year)],
+);
+
+/* ------------------------------------------------------------------ */
+/* Đánh giá & Khảo sát v2 (bản gốc /evaluations)                       */
+/* ------------------------------------------------------------------ */
+
+export const evalFormTypeEnum = pgEnum("eval_form_type", EVAL_FORM_TYPES);
+export const evalQuestionTypeEnum = pgEnum("eval_question_type", EVAL_QUESTION_TYPES);
+export const evalRoundStatusEnum = pgEnum("eval_round_status", EVAL_ROUND_STATUSES);
+
+/**
+ * Phiếu đánh giá (trình dựng phiếu). Ba loại: Đánh giá GV · Khảo sát cơ sở · Đánh giá buổi học.
+ * NPS cũ (bảng surveys) vẫn giữ nguyên, đang được thay dần bằng bộ bảng này.
+ */
+export const evalForms = pgTable(
+  "eval_forms",
+  {
+    id: id(),
+    title: text("title").notNull(),
+    description: text("description"),
+    type: evalFormTypeEnum("type").notNull(),
+    /** null = phiếu dùng chung toàn hệ thống */
+    centerId: uuid("center_id").references(() => centers.id),
+    isActive: boolean("is_active").notNull().default(true),
+    createdBy: uuid("created_by").references(() => users.id),
+    ...timestamps,
+  },
+  (t) => [index("eval_forms_type_idx").on(t.type, t.centerId)],
+);
+
+/** Câu hỏi của phiếu — mỗi câu có thể gắn nhóm tiêu chí (vd "Kiến thức"), để trống nếu không nhóm */
+export const evalQuestions = pgTable(
+  "eval_questions",
+  {
+    id: id(),
+    formId: uuid("form_id").notNull().references(() => evalForms.id, { onDelete: "cascade" }),
+    type: evalQuestionTypeEnum("type").notNull(),
+    label: text("label").notNull(),
+    /** Nhóm tiêu chí — null = không nhóm */
+    criteriaGroup: text("criteria_group"),
+    /** Lựa chọn dựng sẵn: chỉ radio / checkbox */
+    options: jsonb("options").$type<string[]>(),
+    required: boolean("required").notNull().default(false),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("eval_questions_form_idx").on(t.formId, t.sortOrder)],
+);
+
+/** Đợt khảo sát: chọn phiếu, phạm vi cơ sở tuỳ chọn, thời gian; Mở đợt / Đóng đợt / Lưu trữ */
+export const evalRounds = pgTable(
+  "eval_rounds",
+  {
+    id: id(),
+    formId: uuid("form_id").notNull().references(() => evalForms.id),
+    title: text("title").notNull(),
+    /** null = mọi cơ sở */
+    centerId: uuid("center_id").references(() => centers.id),
+    startDate: date("start_date").notNull(),
+    endDate: date("end_date").notNull(),
+    status: evalRoundStatusEnum("status").notNull().default("draft"),
+    openedAt: timestamp("opened_at", { withTimezone: true }),
+    closedAt: timestamp("closed_at", { withTimezone: true }),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    note: text("note"),
+    createdBy: uuid("created_by").references(() => users.id),
+    ...timestamps,
+  },
+  (t) => [index("eval_rounds_status_idx").on(t.status, t.centerId), index("eval_rounds_form_idx").on(t.formId)],
+);
+
+/** Một lượt trả lời phiếu trong một đợt */
+export const evalResponses = pgTable(
+  "eval_responses",
+  {
+    id: id(),
+    roundId: uuid("round_id").notNull().references(() => evalRounds.id, { onDelete: "cascade" }),
+    formId: uuid("form_id").notNull().references(() => evalForms.id),
+    centerId: uuid("center_id").references(() => centers.id),
+    /** Đối tượng được đánh giá — theo loại phiếu */
+    teacherId: uuid("teacher_id").references(() => teachers.id),
+    sessionId: uuid("session_id").references(() => sessions.id),
+    classId: uuid("class_id").references(() => classes.id),
+    /** Người trả lời (PH / HV) — null = ẩn danh */
+    parentId: uuid("parent_id").references(() => parents.id),
+    studentId: uuid("student_id").references(() => students.id),
+    submittedBy: uuid("submitted_by").references(() => users.id),
+    /** Điểm trung bình các câu chấm sao của lượt này (×100 để khỏi dùng số thực) */
+    ratingAvgX100: integer("rating_avg_x100"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("eval_responses_round_idx").on(t.roundId), index("eval_responses_teacher_idx").on(t.teacherId)],
+);
+
+/** Trả lời từng câu — tách dòng để tổng hợp theo nhóm tiêu chí */
+export const evalAnswers = pgTable(
+  "eval_answers",
+  {
+    id: id(),
+    responseId: uuid("response_id").notNull().references(() => evalResponses.id, { onDelete: "cascade" }),
+    questionId: uuid("question_id").notNull().references(() => evalQuestions.id),
+    /** rating 1–5 */
+    rating: smallint("rating"),
+    /** radio: 1 phần tử; checkbox: nhiều phần tử */
+    choices: jsonb("choices").$type<string[]>(),
+    text: text("text"),
+    /** image: đường dẫn ảnh đã tải lên */
+    imageUrl: text("image_url"),
+  },
+  (t) => [index("eval_answers_response_idx").on(t.responseId), index("eval_answers_question_idx").on(t.questionId)],
 );

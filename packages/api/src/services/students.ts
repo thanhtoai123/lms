@@ -33,9 +33,14 @@ export function centerScope(ctx: ProtectedContext, col: typeof students.homeCent
 
 export const STUDENT_STATUSES = ["prospect", "trial", "active", "paused", "alumni", "withdrawn"] as const;
 export type StudentStatus = (typeof STUDENT_STATUSES)[number];
+const STUDENT_STATUS_VI: Record<StudentStatus, string> = {
+  prospect: "Tiềm năng", trial: "Học thử", active: "Đang học", paused: "Bảo lưu", alumni: "Đã học xong", withdrawn: "Đã nghỉ",
+};
 
-export async function listStudents(ctx: ProtectedContext, input: { q?: string; centerId?: string; status?: StudentStatus; grade?: number; page?: number; pageSize?: number }) {
-  requirePermission(ctx, "student:read", { centerId: input.centerId ?? null });
+export interface StudentListFilters { q?: string; centerId?: string; status?: StudentStatus; grade?: number }
+
+/** Bộ lọc của màn Học viên — danh sách và nút "Xuất CSV (toàn bộ kết quả lọc)" dùng chung hàm này */
+function studentFilterConds(ctx: ProtectedContext, input: StudentListFilters) {
   const conds = [isNull(students.deletedAt), centerScope(ctx, students.homeCenterId)];
   if (input.centerId) conds.push(eq(students.homeCenterId, input.centerId));
   if (input.status) conds.push(eq(students.status, input.status));
@@ -52,6 +57,12 @@ export async function listStudents(ctx: ProtectedContext, input: { q?: string; c
       )!,
     );
   }
+  return conds;
+}
+
+export async function listStudents(ctx: ProtectedContext, input: { q?: string; centerId?: string; status?: StudentStatus; grade?: number; page?: number; pageSize?: number }) {
+  requirePermission(ctx, "student:read", { centerId: input.centerId ?? null });
+  const conds = studentFilterConds(ctx, input);
   const pageSize = Math.min(input.pageSize ?? 20, 100);
   const page = Math.max(1, input.page ?? 1);
   const where = and(...conds);
@@ -72,6 +83,48 @@ export async function listStudents(ctx: ProtectedContext, input: { q?: string; c
     .offset((page - 1) * pageSize);
   const full = canSeeFullPhone(ctx);
   return { total: total?.n ?? 0, page, pageSize, items: rows.map((r) => ({ ...r, parentPhone: r.parentPhone ? (full ? r.parentPhone : maskPhone(r.parentPhone)) : null })) };
+}
+
+/**
+ * Xuất **toàn bộ kết quả lọc** của màn Học viên (không chỉ trang hiện tại) — tối đa 10.000 dòng,
+ * SĐT phụ huynh che theo quyền.
+ */
+export const STUDENT_EXPORT_MAX_ROWS = 10_000;
+export const STUDENT_EXPORT_HEADERS = ["Mã HV", "Họ tên", "Ngày sinh", "Khối", "Trường", "Cơ sở", "Trạng thái", "Phụ huynh", "SĐT phụ huynh", "Lớp đang học", "Ngày tạo"] as const;
+
+export async function exportStudents(ctx: ProtectedContext, input: StudentListFilters) {
+  requirePermission(ctx, "student:read", { centerId: input.centerId ?? null });
+  const where = and(...studentFilterConds(ctx, input));
+  const [rows, [count]] = await Promise.all([
+    ctx.db
+      .select({
+        code: students.code, fullName: students.fullName, dateOfBirth: students.dateOfBirth, grade: students.grade, school: students.school,
+        status: students.status, centerCode: centers.code, createdAt: students.createdAt,
+        parentName: sql<string | null>`(select p.full_name from ${studentGuardians} g join ${parents} p on p.id = g.parent_id where g.student_id = ${students.id} order by g.is_primary desc limit 1)`,
+        parentPhone: sql<string | null>`(select p.phone from ${studentGuardians} g join ${parents} p on p.id = g.parent_id where g.student_id = ${students.id} order by g.is_primary desc limit 1)`,
+        classes: sql<string | null>`(select string_agg(c.code, ', ') from ${enrollments} e join ${classes} c on c.id = e.class_id where e.student_id = ${students.id} and e.status in ('trial','active','paused'))`,
+      })
+      .from(students)
+      .leftJoin(centers, eq(centers.id, students.homeCenterId))
+      .where(where)
+      .orderBy(desc(students.createdAt))
+      .limit(STUDENT_EXPORT_MAX_ROWS),
+    ctx.db.select({ n: sql<number>`count(*)::int` }).from(students).where(where),
+  ]);
+  const full = canSeeFullPhone(ctx);
+  const fmtDay = (d: Date | string | null) => (d ? new Intl.DateTimeFormat("vi-VN", { dateStyle: "short", timeZone: "Asia/Ho_Chi_Minh" }).format(new Date(d)) : "");
+  const total = count?.n ?? rows.length;
+  return {
+    headers: [...STUDENT_EXPORT_HEADERS],
+    rows: rows.map((r) => [
+      r.code, r.fullName, fmtDay(r.dateOfBirth), r.grade ?? "", r.school ?? "", r.centerCode ?? "", STUDENT_STATUS_VI[r.status] ?? r.status,
+      r.parentName ?? "", r.parentPhone ? (full ? r.parentPhone : maskPhone(r.parentPhone)) : "", r.classes ?? "", fmtDay(r.createdAt),
+    ]),
+    total,
+    truncated: total > rows.length,
+    limit: STUDENT_EXPORT_MAX_ROWS,
+    piiMasked: !full,
+  };
 }
 
 export async function getStudent(ctx: ProtectedContext, id: string) {

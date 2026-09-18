@@ -53,7 +53,11 @@ export function LegacyImporter({ sales }: { sales: { id: string; fullName: strin
 
   const read = (text: string, name: string | null) => {
     setMsg(null); setResolved(null); setChoices({}); setForce([]);
-    const r = parseLegacyTuitionTable(text, today, { sheet: sheet.trim() || name || null });
+    // Khi đọc .xlsx nhiều sheet, tên trả về dạng "file.xlsx — <tên sheet>" → lấy tên sheet điền sẵn
+    const fromFile = name?.includes(" — ") ? name.split(" — ").slice(1).join(" — ") : null;
+    const sheetName = sheet.trim() || fromFile || name || null;
+    if (fromFile) setSheet(fromFile);
+    const r = parseLegacyTuitionTable(text, today, { sheet: sheetName });
     setHeaderErrors(r.headerErrors);
     setFileName(name);
     setRows(r.rows.map((x) => x.row).filter((x): x is LegacyTuitionRow => !!x));
@@ -82,17 +86,21 @@ export function LegacyImporter({ sales }: { sales: { id: string; fullName: strin
     <section className="card space-y-3 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="font-semibold">Bước 1 · Chọn file</h2>
-        <CsvButton filename="mau-hoc-phi-cu" headers={LEGACY_TUITION_TEMPLATE} rows={TEMPLATE_ROWS} label="Tải file mẫu" />
+        <CsvButton filename="mau-hoc-phi-cu" headers={LEGACY_TUITION_TEMPLATE} rows={TEMPLATE_ROWS} label="Tải file mẫu (CSV)" />
       </div>
       <p className="text-xs text-ink-600">
         File được đọc <b>ngay trong trình duyệt</b>; chỉ tên, số điện thoại, số tiền, ngày và ghi chú được gửi lên máy chủ — CCCD và địa chỉ trong file không rời máy bạn.
         Khớp theo <b>số điện thoại phụ huynh + họ tên</b>: mã học viên trong file và mã trên hệ thống là hai hệ đánh số khác nhau.
-        Excel nhiều sheet: lưu từng sheet thành CSV (hoặc dán từng sheet) và điền tên sheet bên dưới.
+        Chọn thẳng <b>file Excel (.xlsx)</b>: file nhiều sheet (mỗi sheet = một tháng × cơ sở) sẽ hiện ô chọn sheet, tên sheet tự điền vào ô bên dưới — nhập xong một sheet thì chọn sheet tiếp theo.
       </p>
       <div className="flex flex-wrap items-end gap-2">
         <label className="text-xs text-ink-600">Tên sheet (tháng / cơ sở)<input className="input mt-1" placeholder="VD: Tháng 7 2026 CS1" value={sheet} onChange={(e) => setSheet(e.target.value)} /></label>
       </div>
-      <CsvFileInput onText={read} disabled={resolve.isPending || write.isPending} />
+      <CsvFileInput
+        onText={read}
+        disabled={resolve.isPending || write.isPending}
+        template={{ fileName: "mau-hoc-phi-cu", headers: LEGACY_TUITION_TEMPLATE, sample: TEMPLATE_ROWS, sheetName: "Học phí cũ" }}
+      />
       {headerErrors.length > 0 && <div className="text-sm text-red-700">{headerErrors.join("; ")}</div>}
       {parseErrors.length > 0 && <div className="text-xs text-amber-800">{parseErrors.length} dòng lỗi định dạng sẽ bị bỏ: {parseErrors.slice(0, 5).map((e) => `dòng ${e.line}: ${e.errors.join(", ")}`).join(" · ")}</div>}
       {rows.length > 0 && !resolved && (
