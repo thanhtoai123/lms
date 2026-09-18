@@ -233,8 +233,18 @@ export async function linkSubject(ctx: ProtectedContext, input: { id: string; su
   if (!d) throw notFound("Không tìm thấy yêu cầu");
   if (d.status === "completed" || d.status === "rejected") throw pre("Yêu cầu đã đóng");
   const s = await loadSubject(ctx.db, input.subjectType, input.subjectId);
-  await ctx.db.update(dataRequests).set({ subjectType: input.subjectType, subjectId: s.id, centerId: d.centerId ?? s.centerId }).where(eq(dataRequests.id, d.id));
-  await logEvent(ctx.db, d.id, "link", `${input.subjectType}: ${s.name}`, ctx.user.id);
+  // Gắn yêu cầu dữ liệu vào một hồ sơ cụ thể là bước mở đường cho "xuất dữ liệu" / "xoá dữ liệu"
+  // của chính hồ sơ đó — phải ghi nhật ký, và ghi trong cùng transaction với thay đổi.
+  await ctx.db.transaction(async (txx) => {
+    const tx = txx as unknown as Db;
+    await tx.update(dataRequests).set({ subjectType: input.subjectType, subjectId: s.id, centerId: d.centerId ?? s.centerId }).where(eq(dataRequests.id, d.id));
+    await logEvent(tx, d.id, "link", `${input.subjectType}: ${s.name}`, ctx.user.id);
+    await writeAudit(tx, {
+      actorId: ctx.user.id, action: "UPDATE", module: "compliance", entity: "data_requests", entityId: d.id,
+      before: { subjectType: d.subjectType, subjectId: d.subjectId },
+      after: { subjectType: input.subjectType, subjectId: s.id }, ip: ctx.ip,
+    });
+  });
   return { ok: true };
 }
 
@@ -291,8 +301,10 @@ export async function setConsent(ctx: ProtectedContext, input: { id: string; pur
       else await tx.update(parents).set({ processingRestricted: true }).where(eq(parents.id, d.subjectId!));
     }
     await tx.insert(dataRequestEvents).values({ requestId: d.id, action: "consent", note: `${CONSENT_PURPOSE_VI[input.purpose]}: ${input.granted ? "đồng ý" : "rút đồng ý"}`, userId: ctx.user.id });
+    // Nhật ký ghi TRONG cùng transaction: đổi đồng ý (ảnh lớp của trẻ, marketing, hạn chế xử lý)
+    // là bằng chứng pháp lý — không được có trường hợp dữ liệu đổi mà nhật ký thì không.
+    await writeAudit(tx as unknown as Db, { actorId: ctx.user.id, action: "UPDATE", module: "compliance", entity: "consent_records", entityId: d.subjectId, after: { purpose: input.purpose, granted: input.granted, subjectType: type }, ip: ctx.ip });
   });
-  await writeAudit(ctx.db, { actorId: ctx.user.id, action: "UPDATE", module: "compliance", entity: "consent_records", entityId: d.subjectId, after: { purpose: input.purpose, granted: input.granted }, ip: ctx.ip });
   return { ok: true };
 }
 

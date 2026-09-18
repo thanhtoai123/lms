@@ -14,7 +14,7 @@ import {
   buildOrderCode, orderCodePrefix, DEFAULT_ORDER_CODE_FORMAT,
   qrExpiresAt, qrExpired, qrState, DEFAULT_QR_TTL_HOURS, QR_REUSE_LABEL,
   applyDiscountPolicy, discountPolicyOf, DISCOUNT_POLICY_KIND, DISCOUNT_POLICY_VI, DEFAULT_MAX_LINE_DISCOUNT_PCT,
-  scopeFlagsToAllowFor, allowForToScopeFlags,
+  scopeFlagsToAllowFor, allowForToScopeFlags, clientSafeMessage,
   type OrderType, type OrderStatus, type PaymentStatus, type PaymentDecision, type RefundStatus, type PaymentMethodKind, type AgingBucket, type Discount, type Permission,
   type ClassFormat, type InstallmentKind, type LineDiscount, type DebtChip, type DebtAgeBucket,
   type OrderCodeFormat, type DiscountPolicy, type PaymentScopeFlag,
@@ -1278,11 +1278,19 @@ export async function bulkConfirmBackfill(ctx: ProtectedContext, input: { paymen
         await tx.insert(financeLedger).values({ orderId: t.orderId, centerId: t.centerId, entryType: "payment", amount: -t.amount, refId: t.id, note: `${receiptNo} · nhập liệu ban đầu`, actorId: ctx.user.id });
         await tx.insert(orderEvents).values({ orderId: t.orderId, event: "payment_confirmed", note: `${receiptNo} · ${formatVnd(t.amount)} · xác nhận cả lượt`, actorId: ctx.user.id });
         await recomputeOrderStatus(tx, t.orderId, ctx.user.id, receiptNo, { accrue: false });
+        // Nhật ký TỪNG khoản thu, ghi trong cùng transaction. Bản ghi tổng kết ở cuối hàm
+        // chỉ cho biết "đã xác nhận N khoản" — không truy được khoản nào của đơn nào.
+        await writeAudit(tx, {
+          actorId: ctx.user.id, action: "TRANSITION", module: "finance", entity: "payments", entityId: t.id,
+          before: { status: "recorded" }, after: { status: "confirmed", receiptNo, amount: t.amount, orderCode: t.orderCode, bulkBackfill: true },
+          reason: note, ip: ctx.ip,
+        });
       });
       confirmed++;
       amount += t.amount;
     } catch (e) {
-      failed.push({ id: t.id, error: (e as Error).message });
+      // Không trả nguyên văn lỗi tầng CSDL ra màn hình (lộ câu SQL / tên cột)
+      failed.push({ id: t.id, error: clientSafeMessage(e) });
     }
   }
   await writeAudit(ctx.db, { actorId: ctx.user.id, action: "TRANSITION", module: "finance", entity: "payments", entityId: null, after: { bulkConfirmBackfill: confirmed, amount, failed: failed.length }, reason: note, ip: ctx.ip });

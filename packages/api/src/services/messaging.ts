@@ -487,8 +487,15 @@ export async function saveMessagingSettings(ctx: ProtectedContext, input: Messag
     if (!c) throw bad("Cơ sở không tồn tại");
   }
   const v = { defaultCenterId: input.defaultCenterId || null, autoReply: input.autoReply.trim().slice(0, 500) };
-  await ctx.db.insert(appSettings).values({ key: "messaging", value: v, updatedBy: ctx.user.id })
-    .onConflictDoUpdate({ target: appSettings.key, set: { value: v, updatedBy: ctx.user.id, updatedAt: new Date() } });
+  const before = await messagingSettings(ctx.db);
+  // Cấu hình kênh nhắn tin quyết định tin của phụ huynh chảy về cơ sở nào → đổi nó là đổi phạm vi
+  // người được đọc nội dung trao đổi. Ghi nhật ký trong cùng transaction với thay đổi.
+  await ctx.db.transaction(async (txx) => {
+    const tx = txx as unknown as Db;
+    await tx.insert(appSettings).values({ key: "messaging", value: v, updatedBy: ctx.user.id })
+      .onConflictDoUpdate({ target: appSettings.key, set: { value: v, updatedBy: ctx.user.id, updatedAt: new Date() } });
+    await writeAudit(tx, { actorId: ctx.user.id, action: "UPDATE", module: "system", entity: "app_settings", entityId: "messaging", before, after: v, ip: ctx.ip });
+  });
   return { ok: true };
 }
 export async function getMessagingSettings(ctx: ProtectedContext) {
@@ -513,8 +520,13 @@ export async function savePilot(ctx: ProtectedContext, input: PilotSettings) {
   if (cls.length !== input.classIds.length) throw bad("Có lớp không tồn tại");
   for (const c of cls) if (!authorize(ctx.actor, "message:audit", { centerId: c.centerId }).allowed) throw forbid("Có lớp ngoài phạm vi quản lý");
   const v = { classIds: [...new Set(input.classIds)], startDate: input.startDate || null, note: input.note.trim().slice(0, 500) };
-  await ctx.db.insert(appSettings).values({ key: "chat_pilot", value: v, updatedBy: ctx.user.id })
-    .onConflictDoUpdate({ target: appSettings.key, set: { value: v, updatedBy: ctx.user.id, updatedAt: new Date() } });
+  const before = await pilotSettings(ctx.db);
+  await ctx.db.transaction(async (txx) => {
+    const tx = txx as unknown as Db;
+    await tx.insert(appSettings).values({ key: "chat_pilot", value: v, updatedBy: ctx.user.id })
+      .onConflictDoUpdate({ target: appSettings.key, set: { value: v, updatedBy: ctx.user.id, updatedAt: new Date() } });
+    await writeAudit(tx, { actorId: ctx.user.id, action: "UPDATE", module: "system", entity: "app_settings", entityId: "chat_pilot", before, after: v, ip: ctx.ip });
+  });
   return { ok: true };
 }
 

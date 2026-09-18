@@ -245,32 +245,38 @@ export async function assignmentAction(ctx: ProtectedContext, input: { id: strin
   const { a, c } = await loadAssignment(ctx, input.id, "assignment:update");
   let added = 0;
   let marked = 0;
-  if (input.action === "delete") {
-    if (a.status !== "draft") throw pre("Chỉ xoá bài tập nháp");
-    await ctx.db.delete(assignments).where(eq(assignments.id, a.id));
-  } else if (input.action === "publish") {
-    if (a.status !== "draft") throw pre("Bài tập đã giao");
-    if (a.dueAt.getTime() < Date.now() + 30 * 60_000) throw pre("Hạn nộp đã qua / quá gần — sửa hạn nộp trước khi giao");
-    await ctx.db.transaction(async (tx) => {
+  /**
+   * MỘT transaction cho cả thao tác lẫn nhật ký.
+   * Trước đây mỗi nhánh tự mở transaction riêng còn `writeAudit` chạy SAU tất cả: nhật ký hỏng là
+   * dữ liệu đã đổi mà không còn dấu vết. Ngoài ra nhánh "giao bài" cam kết trạng thái `published`
+   * rồi mới ném lỗi "Lớp chưa có học viên" — người dùng thấy báo lỗi nhưng bài vẫn đã giao;
+   * nay lỗi đó cuộn ngược cả transaction (xem docs/KIEM-DINH-BAO-MAT.md, mục thay đổi hành vi).
+   */
+  await ctx.db.transaction(async (txx) => {
+    const tx = txx as unknown as Db;
+    if (input.action === "delete") {
+      if (a.status !== "draft") throw pre("Chỉ xoá bài tập nháp");
+      await tx.delete(assignments).where(eq(assignments.id, a.id));
+    } else if (input.action === "publish") {
+      if (a.status !== "draft") throw pre("Bài tập đã giao");
+      if (a.dueAt.getTime() < Date.now() + 30 * 60_000) throw pre("Hạn nộp đã qua / quá gần — sửa hạn nộp trước khi giao");
       await tx.update(assignments).set({ status: "published", publishedAt: new Date() }).where(eq(assignments.id, a.id));
-      added = await syncRoster(tx as unknown as Db, a, c.id, ctx.user.id);
-    });
-    if (!added) throw pre("Lớp chưa có học viên đang học");
-  } else if (input.action === "sync") {
-    if (a.status !== "published") throw pre("Chỉ cập nhật danh sách cho bài đang giao");
-    added = await syncRoster(ctx.db, a, c.id, ctx.user.id);
-  } else if (input.action === "close") {
-    if (a.status !== "published") throw pre("Chỉ đóng bài đang giao");
-    await ctx.db.transaction(async (tx) => {
+      added = await syncRoster(tx, a, c.id, ctx.user.id);
+      if (!added) throw pre("Lớp chưa có học viên đang học");
+    } else if (input.action === "sync") {
+      if (a.status !== "published") throw pre("Chỉ cập nhật danh sách cho bài đang giao");
+      added = await syncRoster(tx, a, c.id, ctx.user.id);
+    } else if (input.action === "close") {
+      if (a.status !== "published") throw pre("Chỉ đóng bài đang giao");
       const r = await tx.update(submissions).set({ status: "missing" }).where(and(eq(submissions.assignmentId, a.id), inArray(submissions.status, ["assigned", "returned"]))).returning({ id: submissions.id });
       marked = r.length;
       await tx.update(assignments).set({ status: "closed", closedAt: new Date() }).where(eq(assignments.id, a.id));
-    });
-  } else {
-    if (a.status !== "closed") throw pre("Chỉ mở lại bài đã đóng");
-    await ctx.db.update(assignments).set({ status: "published", closedAt: null }).where(eq(assignments.id, a.id));
-  }
-  await writeAudit(ctx.db, { actorId: ctx.user.id, action: input.action === "delete" ? "DELETE" : "TRANSITION", module: "content", entity: "assignments", entityId: a.id, before: { status: a.status }, after: { action: input.action, added, marked }, ip: ctx.ip });
+    } else {
+      if (a.status !== "closed") throw pre("Chỉ mở lại bài đã đóng");
+      await tx.update(assignments).set({ status: "published", closedAt: null }).where(eq(assignments.id, a.id));
+    }
+    await writeAudit(tx, { actorId: ctx.user.id, action: input.action === "delete" ? "DELETE" : "TRANSITION", module: "content", entity: "assignments", entityId: a.id, before: { status: a.status }, after: { action: input.action, added, marked }, ip: ctx.ip });
+  });
   return { ok: true, added, marked };
 }
 

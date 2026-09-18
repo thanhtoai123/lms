@@ -346,14 +346,24 @@ export async function hireCandidate(ctx: ProtectedContext, input: { id: string; 
     employmentType: j.employmentType as EmploymentType, hiredAt: input.hiredAt, annualLeaveDays: 12, notes: `Tuyển dụng ${j.code}`,
   });
   const staffId = (r as { id: string }).id;
-  await ctx.db.update(candidates).set({ stage: "hired", hiredStaffId: staffId, lastStageAt: new Date() }).where(eq(candidates.id, c.id));
-  await ctx.db.insert(candidateEvents).values({ candidateId: c.id, action: "stage", fromStage: "offer", toStage: "hired", note: `Tạo hồ sơ nhân sự`, userId: ctx.user.id });
-  const [hired] = await ctx.db.select({ n: sql<number>`count(*)::int` }).from(candidates).where(and(eq(candidates.jobId, j.id), eq(candidates.stage, "hired")));
+  // Nhận việc = phát sinh QUAN HỆ LAO ĐỘNG (trạng thái hợp đồng) và chuyển hồ sơ ứng viên
+  // thành hồ sơ nhân sự. Gói chung một transaction và ghi nhật ký ngay trong đó.
   let autoClosed = false;
-  if ((hired?.n ?? 0) >= j.openings && j.status === "open") {
-    await ctx.db.update(jobPostings).set({ status: "closed", closedAt: new Date() }).where(eq(jobPostings.id, j.id));
-    autoClosed = true;
-  }
+  await ctx.db.transaction(async (txx) => {
+    const tx = txx as unknown as Db;
+    await tx.update(candidates).set({ stage: "hired", hiredStaffId: staffId, lastStageAt: new Date() }).where(eq(candidates.id, c.id));
+    await tx.insert(candidateEvents).values({ candidateId: c.id, action: "stage", fromStage: "offer", toStage: "hired", note: `Tạo hồ sơ nhân sự`, userId: ctx.user.id });
+    const [hired] = await tx.select({ n: sql<number>`count(*)::int` }).from(candidates).where(and(eq(candidates.jobId, j.id), eq(candidates.stage, "hired")));
+    if ((hired?.n ?? 0) >= j.openings && j.status === "open") {
+      await tx.update(jobPostings).set({ status: "closed", closedAt: new Date() }).where(eq(jobPostings.id, j.id));
+      autoClosed = true;
+    }
+    await writeAudit(tx, {
+      actorId: ctx.user.id, action: "TRANSITION", module: "recruit", entity: "candidates", entityId: c.id,
+      before: { stage: c.stage }, after: { stage: "hired", staffId, centerId: input.centerId, title: input.title, department: input.department, hiredAt: input.hiredAt, jobAutoClosed: autoClosed },
+      ip: ctx.ip,
+    });
+  });
   return { staffId, autoClosed };
 }
 
