@@ -1338,9 +1338,17 @@ export async function debts(ctx: ProtectedContext, input: { centerId?: string; b
     .where(and(...conds)).orderBy(asc(orders.createdAt)).limit(5000);
   const ids = rows.map((r) => r.id);
   const plans = ids.length ? await ctx.db.select().from(orderInstallments).where(inArray(orderInstallments.orderId, ids)) : [];
+  // Trước: `plans.filter(...)` CHO MỖI đơn — 5.000 đơn × mọi kỳ hạn là hàng triệu phép so
+  // trong JavaScript. Sau: gom một lần thành Map, tra O(1) (mỗi đơn chỉ còn vài kỳ hạn).
+  const planByOrder = new Map<string, typeof plans>();
+  for (const p of plans) {
+    const list = planByOrder.get(p.orderId);
+    if (list) list.push(p);
+    else planByOrder.set(p.orderId, [p]);
+  }
   const items = rows.map((r) => {
     const confirmed = Number(r.confirmed);
-    const plan = plans.filter((p) => p.orderId === r.id).map((p) => ({ seq: p.seq, amount: p.amount, dueDate: p.dueDate }));
+    const plan = (planByOrder.get(r.id) ?? []).map((p) => ({ seq: p.seq, amount: p.amount, dueDate: p.dueDate }));
     const alloc = allocateInstallments(plan, confirmed, today);
     const maxOverdue = alloc.reduce((m, a) => Math.max(m, a.overdueDays), 0);
     const overdueAmount = alloc.filter((a) => a.overdueDays > 0).reduce((s, a) => s + a.remaining, 0);
@@ -1352,11 +1360,25 @@ export async function debts(ctx: ProtectedContext, input: { centerId?: string; b
       customerPhone: r.customerPhone.replace(/\d(?=\d{3})/g, "•"),
     };
   }).filter((r) => r.outstanding > 0);
-  const buckets = AGING_BUCKETS.map((b) => ({ bucket: b, count: items.filter((i) => i.bucket === b).length, amount: items.filter((i) => i.bucket === b).reduce((s, i) => s + (b === "current" ? i.outstanding : i.overdueAmount), 0) }));
-  const byCenter = [...new Map(items.map((i) => [i.centerId, i.centerCode])).entries()].map(([id, code]) => {
-    const xs = items.filter((i) => i.centerId === id);
-    return { centerId: id, centerCode: code, orders: xs.length, outstanding: xs.reduce((s, i) => s + i.outstanding, 0), overdue: xs.reduce((s, i) => s + i.overdueAmount, 0), pending: xs.reduce((s, i) => s + i.pending, 0) };
-  });
+  // Một lượt duyệt cho cả nhóm tuổi nợ và nhóm cơ sở, thay cho 10+ lượt `items.filter(...)`
+  const bucketAcc = new Map<string, { count: number; amount: number }>();
+  // Kiểu `centerCode` lấy thẳng từ hàng truy vấn để không nới rộng kiểu trả về cho client
+  const centerAcc = new Map<string, { centerCode: (typeof rows)[number]["centerCode"]; orders: number; outstanding: number; overdue: number; pending: number }>();
+  for (const i of items) {
+    const b = bucketAcc.get(i.bucket) ?? { count: 0, amount: 0 };
+    b.count += 1;
+    b.amount += i.bucket === "current" ? i.outstanding : i.overdueAmount;
+    bucketAcc.set(i.bucket, b);
+    // Giữ thứ tự cơ sở theo lần xuất hiện đầu tiên, đúng như bản cũ
+    const c = centerAcc.get(i.centerId) ?? { centerCode: i.centerCode, orders: 0, outstanding: 0, overdue: 0, pending: 0 };
+    c.orders += 1;
+    c.outstanding += i.outstanding;
+    c.overdue += i.overdueAmount;
+    c.pending += i.pending;
+    centerAcc.set(i.centerId, c);
+  }
+  const buckets = AGING_BUCKETS.map((b) => ({ bucket: b, count: bucketAcc.get(b)?.count ?? 0, amount: bucketAcc.get(b)?.amount ?? 0 }));
+  const byCenter = [...centerAcc.entries()].map(([centerId, c]) => ({ centerId, centerCode: c.centerCode, orders: c.orders, outstanding: c.outstanding, overdue: c.overdue, pending: c.pending }));
   const filtered = input.bucket ? items.filter((i) => i.bucket === input.bucket) : items;
   return {
     today,

@@ -66,6 +66,7 @@ Cột "truy vấn" đếm số lượt chạm CSDL; cột "dòng kéo về" mớ
 | `services/cutover.ts` — `parallelReminders` | 1 truy vấn **cho mỗi cơ sở** đang chạy song song | 1 truy vấn `inArray` |
 | `services/studentLifecycle.ts` — `remindPauseEnding` | 1 truy vấn kiểm tra trùng + 1 insert **cho mỗi đợt bảo lưu** | 1 truy vấn `inArray` + 1 câu insert gộp |
 | `services/care.ts` — `sendSurvey` | `guardians.filter(...)` bên trong vòng lặp: 2.000 học viên × 2.000 người giám hộ = **4 triệu phép so trong JavaScript** | dựng `Map` một lần, tra O(1) |
+| `services/finance.ts` — `debts` | `plans.filter(...)` cho **mỗi đơn** (5.000 đơn × mọi kỳ hạn), rồi `items.filter(...)` thêm 10+ lượt nữa để dựng bảng tuổi nợ và bảng theo cơ sở | 1 `Map` cho kỳ hạn + **một lượt duyệt** dựng cả hai bảng |
 
 ### 1.5 Worker — chạy mỗi 10 giây
 
