@@ -1,10 +1,11 @@
-import { and, eq, inArray, sql, asc, desc, isNull, ne, or, ilike } from "drizzle-orm";
+import { and, eq, inArray, sql, asc, desc, isNull, ne, or, ilike, type SQL } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import {
-  courses, coursePrerequisites, curricula, lessons, classes, sessions, courseCompletions, enrollments, users, teacherCourses,
+  courses, coursePackages, coursePrerequisites, curricula, lessons, classes, sessions, courseCompletions, enrollments, users, teacherCourses,
 } from "@satarobo/db";
 import {
   validateCourse, normalizeCourseCode, validatePrerequisite, missingPrerequisites, moveLesson, curriculumReadiness, authorize, requireReason,
+  validateCoursePackage, normalizePackageCode, packagePriceOf, packageSavingPercent, packageUnitPrice,
   CURRICULUM_STATUS_VI, type CurriculumStatus,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
@@ -141,6 +142,108 @@ export async function upsertCourse(ctx: ProtectedContext, input: CourseUpsert) {
     after: values, ip: ctx.ip,
   });
   return { id: before.id };
+}
+
+/* ------------------------------------------------------------------ */
+/* Gói bán cho khách                                                   */
+/* ------------------------------------------------------------------ */
+
+/** Chuẩn hoá một dòng gói để trả về UI (giá là số nguyên đồng) */
+function packageRow(p: typeof coursePackages.$inferSelect, courseCode: string, courseName: string, courseSessions: number) {
+  const price = packagePriceOf({ listPrice: p.listPrice, salePrice: p.salePrice });
+  return {
+    id: p.id, courseId: p.courseId, courseCode, courseName, courseSessions,
+    code: p.code, name: p.name, level: p.level, sessions: p.sessions,
+    listPrice: p.listPrice, salePrice: p.salePrice, price,
+    savingPercent: packageSavingPercent({ listPrice: p.listPrice, salePrice: p.salePrice }),
+    unitPrice: packageUnitPrice({ listPrice: p.listPrice, salePrice: p.salePrice, sessions: p.sessions }),
+    description: p.description, isFeatured: p.isFeatured, isActive: p.isActive, sortOrder: p.sortOrder,
+    updatedAt: p.updatedAt,
+  };
+}
+
+export async function listCoursePackages(ctx: ProtectedContext, input: { q?: string; courseId?: string; active?: boolean }) {
+  requirePermission(ctx, "course:read");
+  const conds: SQL[] = [];
+  if (input.q?.trim()) conds.push(or(ilike(coursePackages.code, `%${input.q.trim()}%`), ilike(coursePackages.name, `%${input.q.trim()}%`))!);
+  if (input.courseId) conds.push(eq(coursePackages.courseId, input.courseId));
+  if (input.active !== undefined) conds.push(eq(coursePackages.isActive, input.active));
+  const rows = await ctx.db
+    .select({ p: coursePackages, courseCode: courses.code, courseName: courses.name, courseSessions: courses.totalSessions })
+    .from(coursePackages).innerJoin(courses, eq(courses.id, coursePackages.courseId))
+    .where(conds.length ? and(...conds) : undefined)
+    .orderBy(asc(courses.code), asc(coursePackages.sortOrder), asc(coursePackages.sessions));
+  return rows.map((r) => packageRow(r.p, r.courseCode, r.courseName, r.courseSessions));
+}
+
+/** Gợi ý gói khi tạo đơn / chốt lead — chỉ gói đang bán */
+export async function coursePackageOptions(ctx: ProtectedContext) {
+  requirePermission(ctx, "course:read");
+  const rows = await ctx.db
+    .select({ p: coursePackages, courseCode: courses.code, courseName: courses.name, courseSessions: courses.totalSessions })
+    .from(coursePackages).innerJoin(courses, eq(courses.id, coursePackages.courseId))
+    .where(and(eq(coursePackages.isActive, true), eq(courses.isActive, true)))
+    .orderBy(asc(courses.code), desc(coursePackages.isFeatured), asc(coursePackages.sortOrder), asc(coursePackages.sessions));
+  return rows.map((r) => packageRow(r.p, r.courseCode, r.courseName, r.courseSessions));
+}
+
+export interface CoursePackageUpsert {
+  id?: string;
+  courseId: string;
+  code: string;
+  name: string;
+  level?: string | null;
+  sessions: number;
+  listPrice: number;
+  salePrice?: number | null;
+  description?: string | null;
+  isFeatured?: boolean;
+  isActive?: boolean;
+  sortOrder?: number;
+}
+
+export async function upsertCoursePackage(ctx: ProtectedContext, input: CoursePackageUpsert) {
+  requirePermission(ctx, input.id ? "course:update" : "course:create");
+  const code = normalizePackageCode(input.code);
+  const course = await ctx.db.query.courses.findFirst({ where: eq(courses.id, input.courseId), columns: { id: true, totalSessions: true } });
+  if (!course) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy khoá học" });
+  const salePrice = input.salePrice != null && input.salePrice > 0 ? Math.round(input.salePrice) : null;
+  const errs = validateCoursePackage({ ...input, code, listPrice: Math.round(input.listPrice), salePrice, sortOrder: input.sortOrder ?? 0 }, { courseSessions: course.totalSessions });
+  if (errs.length) throw bad(errs);
+  const dup = (await ctx.db.select({ id: coursePackages.id }).from(coursePackages).where(and(eq(coursePackages.code, code), input.id ? ne(coursePackages.id, input.id) : undefined)).limit(1))[0];
+  if (dup) throw new TRPCError({ code: "CONFLICT", message: `Mã gói ${code} đã tồn tại` });
+  const values = {
+    courseId: input.courseId, code, name: input.name.trim(), level: input.level?.trim() || null, sessions: input.sessions,
+    listPrice: Math.round(input.listPrice), salePrice, description: input.description?.trim() || null,
+    isFeatured: input.isFeatured ?? false, isActive: input.isActive ?? true, sortOrder: input.sortOrder ?? 0,
+  };
+  if (!input.id) {
+    const [row] = await ctx.db.insert(coursePackages).values({ ...values, createdBy: ctx.user.id }).returning({ id: coursePackages.id });
+    await writeAudit(ctx.db, { actorId: ctx.user.id, action: "CREATE", module: "academics", entity: "course_packages", entityId: row!.id, after: values, ip: ctx.ip });
+    return { id: row!.id };
+  }
+  const before = await ctx.db.query.coursePackages.findFirst({ where: eq(coursePackages.id, input.id) });
+  if (!before) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy gói bán" });
+  await ctx.db.update(coursePackages).set({ ...values, updatedAt: new Date() }).where(eq(coursePackages.id, before.id));
+  await writeAudit(ctx.db, {
+    actorId: ctx.user.id, action: "UPDATE", module: "academics", entity: "course_packages", entityId: before.id,
+    before: { code: before.code, name: before.name, sessions: before.sessions, listPrice: before.listPrice, salePrice: before.salePrice, isActive: before.isActive, isFeatured: before.isFeatured },
+    after: values, ip: ctx.ip,
+  });
+  return { id: before.id };
+}
+
+/** Ngưng bán (không xoá cứng để giữ lịch sử gợi ý giá) */
+export async function setCoursePackageActive(ctx: ProtectedContext, input: { id: string; isActive: boolean; reason?: string | null }) {
+  requirePermission(ctx, "course:update");
+  const before = await ctx.db.query.coursePackages.findFirst({ where: eq(coursePackages.id, input.id) });
+  if (!before) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy gói bán" });
+  await ctx.db.update(coursePackages).set({ isActive: input.isActive, updatedAt: new Date() }).where(eq(coursePackages.id, before.id));
+  await writeAudit(ctx.db, {
+    actorId: ctx.user.id, action: "UPDATE", module: "academics", entity: "course_packages", entityId: before.id,
+    before: { isActive: before.isActive }, after: { isActive: input.isActive }, reason: input.reason ?? null, ip: ctx.ip,
+  });
+  return { id: before.id, isActive: input.isActive };
 }
 
 /* ------------------------------------------------------------------ */

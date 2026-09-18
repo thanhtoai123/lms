@@ -11,11 +11,12 @@ export default async function NewOrderPage({ searchParams }: { searchParams: Pro
   const sp = await searchParams;
   const { caller, ctx } = await getServerCaller();
   if (!ctx.actor || !hasPermission(ctx.actor as Actor, "finance:create")) return <NoAccess title="Tạo đơn hàng" perm="finance:create" />;
-  const [ref, methods, courses, draft] = await Promise.all([
+  const [ref, methods, courses, draft, packages] = await Promise.all([
     caller.academics.classes.referenceData(),
     caller.finance.methods({ activeOnly: true }),
     caller.catalog.courseOptions(),
     sp.enrollmentId ? caller.finance.orderDraft({ enrollmentId: sp.enrollmentId }).catch(() => null) : Promise.resolve(null),
+    caller.catalog.coursePackageOptions().catch(() => []),
   ]);
   const leadDraft = !sp.enrollmentId && sp.leadId ? await caller.finance.orderDraftFromLead({ leadId: sp.leadId }).catch(() => null) : null;
   const today = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10);
@@ -39,6 +40,7 @@ export default async function NewOrderPage({ searchParams }: { searchParams: Pro
         centers={ref.centers}
         methods={methods.map((m) => ({ id: m.id, name: m.name, centerId: m.centerId, allowFor: m.allowFor, kind: m.kind }))}
         courses={courses.filter((c) => c.isActive).map((c) => ({ ...c, listPrice: listPrices.find((x) => x.id === c.id)?.listPrice ?? 0 }))}
+        packages={packages.map((p) => ({ id: p.id, courseId: p.courseId, courseCode: p.courseCode, code: p.code, name: p.name, sessions: p.sessions, price: p.price, savingPercent: p.savingPercent }))}
         today={today}
         draft={draft ? {
           enrollmentId: draft.enrollmentId, centerId: draft.centerId, studentId: draft.studentId, studentName: draft.studentName, classCode: draft.classCode,

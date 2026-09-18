@@ -20,6 +20,23 @@ export const catalogRouter = router({
       nextCourseId: uuid.nullish(), description: ntext(2000), level: ntext(60), isActive: z.boolean().optional(),
     }))
     .mutation(({ ctx, input }) => Cat.upsertCourse(ctx, input)),
+  coursePackages: protectedProcedure
+    .input(z.object({ q: z.string().max(100).optional(), courseId: uuid.optional(), active: z.boolean().optional() }).default({}))
+    .query(({ ctx, input }) => Cat.listCoursePackages(ctx, input)),
+  coursePackageOptions: protectedProcedure.query(({ ctx }) => Cat.coursePackageOptions(ctx)),
+  upsertCoursePackage: protectedProcedure
+    .input(z.object({
+      id: uuid.optional(), courseId: uuid, code: z.string().trim().min(2, "Mã gói tối thiểu 2 ký tự").max(30), name: z.string().trim().min(3, "Tên gói tối thiểu 3 ký tự").max(150),
+      level: ntext(60), sessions: z.number().int().min(1).max(500),
+      listPrice: z.number().int("Giá phải là số nguyên đồng").min(0).max(10_000_000_000),
+      salePrice: z.number().int("Giá phải là số nguyên đồng").min(0).max(10_000_000_000).nullish(),
+      description: ntext(2000), isFeatured: z.boolean().optional(), isActive: z.boolean().optional(), sortOrder: z.number().int().min(0).max(999).optional(),
+    }))
+    .mutation(({ ctx, input }) => Cat.upsertCoursePackage(ctx, input)),
+  setCoursePackageActive: protectedProcedure
+    .input(z.object({ id: uuid, isActive: z.boolean(), reason: ntext(300) }))
+    .mutation(({ ctx, input }) => Cat.setCoursePackageActive(ctx, input)),
+
   prerequisites: protectedProcedure.query(({ ctx }) => Cat.listPrerequisites(ctx)),
   addPrerequisite: protectedProcedure.input(z.object({ courseId: uuid, requiredCourseId: uuid, note: ntext(300) })).mutation(({ ctx, input }) => Cat.addPrerequisite(ctx, input)),
   removePrerequisite: protectedProcedure.input(z.object({ id: uuid })).mutation(({ ctx, input }) => Cat.removePrerequisite(ctx, input)),

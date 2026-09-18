@@ -31,6 +31,56 @@ export function validateCourse(c: CourseInput): string[] {
   return errs;
 }
 
+/* ------------------------------------------------------------------ */
+/* Gói bán cho khách (course_packages)                                 */
+/* ------------------------------------------------------------------ */
+
+export interface CoursePackageInput {
+  code: string;
+  name: string;
+  level?: string | null;
+  sessions: number;
+  listPrice: number;
+  salePrice?: number | null;
+  description?: string | null;
+  sortOrder?: number | null;
+}
+
+export function normalizePackageCode(code: string): string {
+  return code.trim().toUpperCase().replace(/\s+/g, "");
+}
+
+/** Giá bán thực tế: có giá ưu đãi (> 0) thì dùng giá ưu đãi, không thì giá niêm yết */
+export function packagePriceOf(p: { listPrice: number; salePrice?: number | null }): number {
+  return p.salePrice != null && p.salePrice > 0 ? p.salePrice : p.listPrice;
+}
+
+/** % giảm so với giá niêm yết (làm tròn); 0 khi không có ưu đãi */
+export function packageSavingPercent(p: { listPrice: number; salePrice?: number | null }): number {
+  if (!p.listPrice || p.salePrice == null || p.salePrice <= 0 || p.salePrice >= p.listPrice) return 0;
+  return Math.round(((p.listPrice - p.salePrice) / p.listPrice) * 100);
+}
+
+/** Đơn giá một buổi của gói (dùng để so sánh các gói cùng khoá) */
+export function packageUnitPrice(p: { listPrice: number; salePrice?: number | null; sessions: number }): number {
+  return p.sessions > 0 ? Math.round(packagePriceOf(p) / p.sessions) : 0;
+}
+
+export function validateCoursePackage(p: CoursePackageInput, opts: { courseSessions?: number | null } = {}): string[] {
+  const errs: string[] = [];
+  if (!/^[A-Z0-9][A-Z0-9_.-]{1,29}$/.test(normalizePackageCode(p.code))) errs.push("Mã gói chỉ gồm chữ in hoa, số, . - _ (2–30 ký tự)");
+  if (p.name.trim().length < 3) errs.push("Tên gói tối thiểu 3 ký tự");
+  if (!Number.isInteger(p.sessions) || p.sessions < 1 || p.sessions > 500) errs.push("Số buổi của gói phải từ 1 đến 500");
+  if (!Number.isInteger(p.listPrice) || p.listPrice < 0) errs.push("Giá niêm yết phải là số nguyên đồng, không âm");
+  if (p.salePrice != null) {
+    if (!Number.isInteger(p.salePrice) || p.salePrice < 0) errs.push("Giá ưu đãi phải là số nguyên đồng, không âm");
+    else if (p.salePrice > p.listPrice) errs.push("Giá ưu đãi không được cao hơn giá niêm yết");
+  }
+  if (p.sortOrder != null && (!Number.isInteger(p.sortOrder) || p.sortOrder < 0 || p.sortOrder > 999)) errs.push("Thứ tự hiển thị từ 0 đến 999");
+  if (opts.courseSessions != null && p.sessions > opts.courseSessions) errs.push(`Gói ${p.sessions} buổi nhiều hơn số buổi của khoá (${opts.courseSessions})`);
+  return errs;
+}
+
 export interface PrereqEdge { courseId: string; requiredCourseId: string }
 
 /** Thêm cạnh "courseId cần requiredCourseId" — chặn tự tham chiếu và vòng lặp */

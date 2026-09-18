@@ -89,6 +89,7 @@ export const ADMIN_NAV: NavGroup[] = [
       { label: "Chương trình học", href: "/curriculums", perm: "curriculum:read", ready: true, desc: "Giáo trình theo khoá: bài học, mục tiêu, học cụ." },
       { label: "Đề xuất sửa giáo án", href: "/de-xuat-giao-an", perm: "curriculum:read", ready: true, desc: "GV đề xuất chỉnh bài học; Đào tạo duyệt." },
       { label: "Khoá học", href: "/courses", perm: "course:read", ready: true, desc: "Khoá dạy: mã, độ tuổi, số buổi, học phí niêm yết." },
+      { label: "Gói khoá học", href: "/course-packages", perm: "course:read", ready: true, desc: "Gói bán cho khách: số buổi, giá niêm yết / ưu đãi, gói nổi bật — gợi ý khi tạo đơn và chốt lead." },
       { label: "Khoá tiên quyết", href: "/course-prerequisites", perm: "course:read", ready: true, desc: "Khoá phải học trước; chặn ghi danh khi chưa đạt." },
       { label: "Tài liệu giảng dạy", href: "/documents", perm: "document:read", ready: true, desc: "Kho tài liệu theo khoá / bài, phiên bản, nhật ký mở / tải." },
       { label: "Bài tập về nhà", href: "/assignments", perm: "assignment:read", ready: true, desc: "Giao bài, phụ huynh nộp qua link, chấm, trả lại, thưởng xu; mẫu bài tập." },

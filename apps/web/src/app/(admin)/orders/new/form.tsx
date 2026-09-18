@@ -17,13 +17,17 @@ type LeadDraft = {
   items: { courseId: string; description: string; unitPrice: number; packageSessions: number | null; leadChildId: string | null }[];
 };
 type LineDisc = { kind: "amount" | "percent"; value: number; reason: string };
-type Item = { courseId: string; description: string; quantity: number; unitPrice: number; packageSessions: number | ""; leadChildId: string; format: ClassFormat; basePrice: number; discounts: LineDisc[] };
+type Item = { courseId: string; description: string; quantity: number; unitPrice: number; packageSessions: number | ""; leadChildId: string; format: ClassFormat; basePrice: number; discounts: LineDisc[]; packageId: string };
 type PlanRow = { amount: number; dueDate: string; kind: InstallmentKind };
 
-export function OrderForm({ centers, methods, courses, today, draft, leadDraft, maxLineDiscountPercent = 50 }: {
+type Pkg = { id: string; courseId: string; courseCode: string; code: string; name: string; sessions: number; price: number; savingPercent: number };
+
+export function OrderForm({ centers, methods, courses, packages = [], today, draft, leadDraft, maxLineDiscountPercent = 50 }: {
   centers: { id: string; code: string; name: string }[];
   methods: { id: string; name: string; centerId: string | null; allowFor: string[]; kind: string }[];
   courses: { id: string; code: string; name: string; totalSessions: number; listPrice: number }[];
+  /** Gói bán đang mở (/course-packages) — chọn gói là tự điền số buổi + đơn giá */
+  packages?: Pkg[];
   today: string;
   draft: Draft | null;
   leadDraft?: LeadDraft | null;
@@ -38,7 +42,7 @@ export function OrderForm({ centers, methods, courses, today, draft, leadDraft, 
   const [cust, setCust] = useState(leadDraft
     ? { name: leadDraft.parentName, phone: leadDraft.phone, email: leadDraft.email ?? "", idNumber: "", address: "", province: "", ward: "" }
     : { name: draft?.parent?.fullName ?? "", phone: draft?.parent?.phone ?? "", email: draft?.parent?.email ?? "", idNumber: "", address: "", province: "", ward: "" });
-  const emptyItem: Item = { courseId: "", description: "", quantity: 1, unitPrice: 0, packageSessions: "", leadChildId: "", format: "group", basePrice: 0, discounts: [] };
+  const emptyItem: Item = { courseId: "", description: "", quantity: 1, unitPrice: 0, packageSessions: "", leadChildId: "", format: "group", basePrice: 0, discounts: [], packageId: "" };
   const [items, setItems] = useState<Item[]>(draft
     ? [{ ...emptyItem, courseId: draft.courseId, description: `Học phí ${draft.courseCode} — gói ${draft.packageSessions} buổi (${draft.studentName}, lớp ${draft.classCode})`, unitPrice: draft.unitPrice, basePrice: draft.unitPrice, packageSessions: draft.packageSessions }]
     : leadDraft?.items.length
@@ -72,7 +76,13 @@ export function OrderForm({ centers, methods, courses, today, draft, leadDraft, 
   const setItem = (i: number, patch: Partial<Item>) => setItems(items.map((x, j) => (j === i ? { ...x, ...patch } : x)));
   const pickCourse = (i: number, courseId: string) => {
     const c = courses.find((x) => x.id === courseId);
-    setItem(i, { courseId, description: c ? `Học phí ${c.code} — ${c.name}` : items[i]!.description, unitPrice: c ? c.listPrice : items[i]!.unitPrice, basePrice: c ? c.listPrice : items[i]!.basePrice, packageSessions: c ? c.totalSessions : "" });
+    setItem(i, { courseId, packageId: "", description: c ? `Học phí ${c.code} — ${c.name}` : items[i]!.description, unitPrice: c ? c.listPrice : items[i]!.unitPrice, basePrice: c ? c.listPrice : items[i]!.basePrice, packageSessions: c ? c.totalSessions : "" });
+  };
+  /** Chọn gói bán → điền khoá, số buổi và đơn giá theo giá đang bán của gói */
+  const pickPackage = (i: number, packageId: string) => {
+    const p = packages.find((x) => x.id === packageId);
+    if (!p) { setItem(i, { packageId: "" }); return; }
+    setItem(i, { packageId, courseId: p.courseId, description: `Học phí ${p.courseCode} — ${p.name}`, packageSessions: p.sessions, unitPrice: p.price, basePrice: p.price, format: "group" });
   };
 
   const submit = () => {
@@ -134,6 +144,16 @@ export function OrderForm({ centers, methods, courses, today, draft, leadDraft, 
                 <select className="input mt-1" value={it.courseId} disabled={!!draft} onChange={(e) => pickCourse(i, e.target.value)}>
                   <option value="">—</option>
                   {courses.map((c) => <option key={c.id} value={c.id}>{c.code}</option>)}
+                </select>
+              </label>
+            )}
+            {type === "course" && packages.length > 0 && (
+              <label className="text-xs text-ink-600 sm:col-span-12">Gói bán (chọn gói → tự điền số buổi + đơn giá)
+                <select className="input mt-1" value={it.packageId} onChange={(e) => pickPackage(i, e.target.value)}>
+                  <option value="">— Không dùng gói, nhập tay —</option>
+                  {packages.filter((p) => !it.courseId || p.courseId === it.courseId || p.id === it.packageId).map((p) => (
+                    <option key={p.id} value={p.id}>{p.courseCode} · {p.name} — {p.sessions} buổi · {vnd(p.price)}{p.savingPercent > 0 ? ` (−${p.savingPercent}%)` : ""}</option>
+                  ))}
                 </select>
               </label>
             )}

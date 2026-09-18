@@ -14,7 +14,11 @@ export default async function ConvertPage({ params, searchParams }: { params: Pr
   const { caller } = await getServerCaller();
   const lead = await caller.admissions.leads.get({ id }).catch(() => null);
   if (!lead) notFound();
-  const [classes, courses] = await Promise.all([caller.academics.classes.list({}), caller.catalog.courses({ active: true })]);
+  const [classes, courses, packages] = await Promise.all([
+    caller.academics.classes.list({}),
+    caller.catalog.courses({ active: true }),
+    caller.catalog.coursePackageOptions().catch(() => []),
+  ]);
   const byCode = new Map(courses.map((c) => [c.code, c] as const));
   return (
     <div className="max-w-5xl space-y-4">
@@ -37,6 +41,7 @@ export default async function ConvertPage({ params, searchParams }: { params: Pr
               const course = byCode.get(c.courseCode);
               return { id: c.id, code: c.code, name: c.name, centerId: c.centerId, centerCode: c.centerCode, courseCode: c.courseCode, enrolled: c.enrolled, capacity: c.capacity, listPrice: course?.listPrice ?? null, totalSessions: course?.totalSessions ?? c.plannedSessions ?? null };
             })}
+          packages={packages.map((p) => ({ id: p.id, courseCode: p.courseCode, name: p.name, sessions: p.sessions, price: p.price, savingPercent: p.savingPercent }))}
           scholarshipMode={sp.hocbong === "1"}
         />
       )}

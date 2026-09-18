@@ -15,9 +15,11 @@ type LeadForConvert = {
   payment: { paid: number; total: number; outstanding: number; recorded: number; orders: number; gate: string | null };
   canCreateOrder: boolean;
 };
-type Item = { key: number; childId: string; studentName: string; dateOfBirth: string; grade: string; classId: string; packageSessions: string; status: "active" | "trial"; scholarship: boolean; scholarshipReason: string; showAll: boolean };
+type Item = { key: number; childId: string; studentName: string; dateOfBirth: string; grade: string; classId: string; packageSessions: string; status: "active" | "trial"; scholarship: boolean; scholarshipReason: string; showAll: boolean; packageId: string };
 
-export function ConvertForm({ lead, classes, scholarshipMode }: { lead: LeadForConvert; classes: Cls[]; scholarshipMode: boolean }) {
+type Pkg = { id: string; courseCode: string; name: string; sessions: number; price: number; savingPercent: number };
+
+export function ConvertForm({ lead, classes, packages = [], scholarshipMode }: { lead: LeadForConvert; classes: Cls[]; packages?: Pkg[]; scholarshipMode: boolean }) {
   const trpc = useTRPC();
   const openChildren = lead.children.filter((c) => !c.converted);
   const courseOf = (childId: string) => (childId ? openChildren.find((c) => c.id === childId)?.courseCode ?? null : openChildren.length ? null : lead.courseCode);
@@ -27,7 +29,7 @@ export function ConvertForm({ lead, classes, scholarshipMode }: { lead: LeadForC
     const first = matching(cc)[0];
     return {
       key, childId: child?.id ?? "", studentName: child?.fullName ?? (openChildren.length ? "" : lead.childName ?? ""), dateOfBirth: "", grade: String(child?.grade ?? (openChildren.length ? "" : lead.childGrade ?? "")),
-      classId: first?.id ?? "", packageSessions: String(first?.totalSessions ?? 48), status: "active", scholarship: scholarshipMode, scholarshipReason: "", showAll: false,
+      classId: first?.id ?? "", packageSessions: String(first?.totalSessions ?? 48), status: "active", scholarship: scholarshipMode, scholarshipReason: "", showAll: false, packageId: "",
     };
   };
   const [items, setItems] = useState<Item[]>(() => (openChildren.length ? openChildren.map((c, i) => newItem(i + 1, c)) : [newItem(1)]));
@@ -130,7 +132,7 @@ export function ConvertForm({ lead, classes, scholarshipMode }: { lead: LeadForC
                 <select className="input mt-1" value={it.childId} onChange={(e) => {
                   const c = openChildren.find((x) => x.id === e.target.value);
                   const first = matching(c ? c.courseCode : null)[0];
-                  setItem(it.key, { childId: e.target.value, studentName: c?.fullName ?? "", grade: c?.grade ? String(c.grade) : "", classId: first?.id ?? "", packageSessions: String(first?.totalSessions ?? it.packageSessions) });
+                  setItem(it.key, { childId: e.target.value, studentName: c?.fullName ?? "", grade: c?.grade ? String(c.grade) : "", classId: first?.id ?? "", packageId: "", packageSessions: String(first?.totalSessions ?? it.packageSessions) });
                 }}>
                   <option value="">— Học viên khác (nhập tên) —</option>
                   {openChildren.map((c) => <option key={c.id} value={c.id} disabled={usedChildren.has(c.id) && c.id !== it.childId}>{c.fullName}{c.courseCode ? ` · ${c.courseCode}` : ""}</option>)}
@@ -143,7 +145,7 @@ export function ConvertForm({ lead, classes, scholarshipMode }: { lead: LeadForC
             <label className="text-xs text-ink-600">Ngày sinh<input className="input mt-1" type="date" value={it.dateOfBirth} onChange={(e) => setItem(it.key, { dateOfBirth: e.target.value })} /></label>
             <label className="text-xs text-ink-600">Lớp / khối<input className="input mt-1" type="number" min={1} max={12} value={it.grade} onChange={(e) => setItem(it.key, { grade: e.target.value })} /></label>
             <div className="text-xs text-ink-600 sm:col-span-4">Lớp đăng ký * <span className="text-ink-400">({it.showAll ? "mọi lớp" : `đúng ${cc ? `khoá ${cc}` : "khoá quan tâm"} & cơ sở ${lead.centerCode ?? "của khách"}`})</span>
-              <select className="input mt-1" required value={it.classId} onChange={(e) => { const c = classes.find((x) => x.id === e.target.value); setItem(it.key, { classId: e.target.value, packageSessions: String(c?.totalSessions ?? it.packageSessions) }); }}>
+              <select className="input mt-1" required value={it.classId} onChange={(e) => { const c = classes.find((x) => x.id === e.target.value); setItem(it.key, { classId: e.target.value, packageId: "", packageSessions: String(c?.totalSessions ?? it.packageSessions) }); }}>
                 <option value="">— Chọn lớp —</option>
                 {options.map((c) => <option key={c.id} value={c.id}>{c.code} · {c.name} · {c.courseCode}{c.listPrice !== null ? ` (${vnd(c.listPrice)})` : ""} · {c.enrolled}/{c.capacity}{it.showAll ? ` · ${c.centerCode}` : ""}</option>)}
               </select>
@@ -151,6 +153,22 @@ export function ConvertForm({ lead, classes, scholarshipMode }: { lead: LeadForC
               <label className="mt-1 flex items-center gap-1 text-[11px]"><input type="checkbox" checked={it.showAll} onChange={(e) => setItem(it.key, { showAll: e.target.checked })} /> Hiện mọi lớp (khác khoá / cơ sở cần quyền quản lý cơ sở)</label>
             </div>
             <label className="text-xs text-ink-600">Số buổi *<input className="input mt-1" type="number" min={1} max={500} required value={it.packageSessions} onChange={(e) => setItem(it.key, { packageSessions: e.target.value })} /></label>
+            {(() => {
+              const cls = classes.find((x) => x.id === it.classId);
+              const pkgs = packages.filter((p) => !cls || p.courseCode === cls.courseCode);
+              if (!pkgs.length) return null;
+              return (
+                <label className="text-xs text-ink-600 sm:col-span-6">Gói bán (chọn gói → điền số buổi theo gói)
+                  <select className="input mt-1" value={it.packageId} onChange={(e) => {
+                    const p = pkgs.find((x) => x.id === e.target.value);
+                    setItem(it.key, { packageId: e.target.value, packageSessions: p ? String(p.sessions) : it.packageSessions });
+                  }}>
+                    <option value="">— Không dùng gói —</option>
+                    {pkgs.map((p) => <option key={p.id} value={p.id}>{p.name} — {p.sessions} buổi · {vnd(p.price)}{p.savingPercent > 0 ? ` (−${p.savingPercent}%)` : ""}</option>)}
+                  </select>
+                </label>
+              );
+            })()}
             <div className="flex flex-col justify-end gap-1 text-xs">
               <label className="flex items-center gap-1"><input type="radio" checked={it.status === "active"} onChange={() => setItem(it.key, { status: "active" })} /> Chính thức</label>
               <label className="flex items-center gap-1"><input type="radio" checked={it.status === "trial"} onChange={() => setItem(it.key, { status: "trial" })} /> Học thử trong lớp</label>

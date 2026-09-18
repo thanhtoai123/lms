@@ -8,7 +8,7 @@ import { and, eq } from "drizzle-orm";
 import { createDb } from "./index";
 import {
   centers, regions, rooms, users, userRoles, teachers, parents, students, studentGuardians,
-  courses, curricula, lessons, classes, classSchedules, sessions, enrollments, attendance, classEvents,
+  courses, coursePackages, curricula, lessons, classes, classSchedules, sessions, enrollments, attendance, classEvents,
   enrollmentEvents, competencyCriteria, reportCards, reportCardScores, sessionMedia,
   leads, leadChildren, leadActivities, leadTasks, leadAssignees, admissionsSettings, trialBookings, auditLog,
   holidays, coursePrerequisites, teacherCourses, teacherEvaluations,
@@ -86,7 +86,7 @@ async function main() {
     .returning();
 
   // ---- Courses & curriculum ----
-  const [sata4, sata6] = await db
+  const [sata4, sata6, sata1] = await db
     .insert(courses)
     .values([
       { code: "SATA4", name: "Sata4 — Bứt Phá Giới Hạn", slug: "sata4", gradeFrom: 3, gradeTo: 4, totalSessions: 48, listPrice: "9600000" },
@@ -94,6 +94,14 @@ async function main() {
       { code: "SATA1", name: "Sata1 — Luyện thi RoboSim", slug: "sata1", gradeFrom: 3, gradeTo: 8, totalSessions: 12, listPrice: "3600000" },
     ])
     .returning();
+
+  // ---- Gói bán cho khách (course_packages) ----
+  await db.insert(coursePackages).values([
+    { courseId: sata4!.id, code: "SATA4-48", name: "Sata4 trọn khoá 48 buổi", level: "Cơ bản", sessions: 48, listPrice: 9_600_000, salePrice: 8_640_000, description: "Học đủ 48 buổi, tặng bộ học cụ mang về (dữ liệu mẫu)", isFeatured: true, sortOrder: 1 },
+    { courseId: sata4!.id, code: "SATA4-24", name: "Sata4 học phần 24 buổi", level: "Cơ bản", sessions: 24, listPrice: 4_992_000, description: "Đóng theo nửa khoá (dữ liệu mẫu)", sortOrder: 2 },
+    { courseId: sata6!.id, code: "SATA6-48", name: "Sata6 trọn khoá 48 buổi", level: "Nâng cao", sessions: 48, listPrice: 10_800_000, salePrice: 9_990_000, description: "Chinh phục AI — trọn khoá (dữ liệu mẫu)", isFeatured: true, sortOrder: 1 },
+    { courseId: sata1!.id, code: "SATA1-12", name: "Sata1 luyện thi 12 buổi", level: "Luyện thi", sessions: 12, listPrice: 3_600_000, description: "Gói luyện thi RoboSim ngắn hạn (dữ liệu mẫu)", sortOrder: 1 },
+  ]);
 
   const [cur4] = await db.insert(curricula).values({ courseId: sata4!.id, name: "Sata4 v1 (2026)" }).returning();
   const lessonTitles = [

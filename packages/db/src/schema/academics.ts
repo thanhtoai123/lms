@@ -1,5 +1,5 @@
 import {
-  pgTable, text, uuid, boolean, integer, date, time, timestamp, pgEnum, jsonb, index, uniqueIndex, smallint, numeric,
+  pgTable, text, uuid, boolean, integer, bigint, date, time, timestamp, pgEnum, jsonb, index, uniqueIndex, smallint, numeric,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { id, timestamps, softDelete } from "./_common";
@@ -32,6 +32,34 @@ export const courses = pgTable("courses", {
   isActive: boolean("is_active").notNull().default(true),
   ...timestamps,
 });
+
+/**
+ * Gói bán cho khách: cùng một khoá có nhiều gói (trọn khoá / học phần / gói lẻ),
+ * mỗi gói có số buổi + giá niêm yết + giá ưu đãi riêng. Dùng làm gợi ý khi tạo đơn và khi chốt lead.
+ */
+export const coursePackages = pgTable(
+  "course_packages",
+  {
+    id: id(),
+    courseId: uuid("course_id").notNull().references(() => courses.id, { onDelete: "cascade" }),
+    code: text("code").notNull().unique(),
+    name: text("name").notNull(),
+    /** Cấp độ hiển thị cho khách (Cơ bản / Nâng cao…) */
+    level: text("level"),
+    sessions: integer("sessions").notNull(),
+    listPrice: bigint("list_price", { mode: "number" }).notNull().default(0),
+    /** Giá ưu đãi (≤ giá niêm yết); null = bán đúng giá niêm yết */
+    salePrice: bigint("sale_price", { mode: "number" }),
+    /** Mô tả marketing hiển thị cho khách */
+    description: text("description"),
+    isFeatured: boolean("is_featured").notNull().default(false),
+    isActive: boolean("is_active").notNull().default(true),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdBy: uuid("created_by").references(() => users.id),
+    ...timestamps,
+  },
+  (t) => [index("course_packages_course_idx").on(t.courseId, t.sortOrder)],
+);
 
 /** Khoá tiên quyết: muốn học courseId phải hoàn thành requiredCourseId */
 export const coursePrerequisites = pgTable(
