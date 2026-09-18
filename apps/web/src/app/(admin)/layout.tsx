@@ -15,7 +15,7 @@ const PRIORITY = ["SUPER_ADMIN", "AUDITOR", "HO_ACCOUNTANT", "HO_HR", "HO_MARKET
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const { caller, ctx } = await getServerCaller();
   const me = await caller.auth.me();
-  if (!me || !ctx.actor) redirect("/login?next=/dashboard");
+  if (!me || !ctx.actor) redirect("/login?next=/viec-hom-nay");
   const actor = ctx.actor as Actor;
   const roles = me.assignments.map((a) => a.role);
   if (!roles.some((r) => STAFF_ROLES.includes(r))) redirect("/login?error=forbidden");

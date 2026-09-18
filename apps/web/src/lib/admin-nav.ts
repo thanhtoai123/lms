@@ -31,6 +31,7 @@ export const ADMIN_NAV: NavGroup[] = [
     key: "overview",
     label: "Tổng quan",
     items: [
+      { label: "Việc hôm nay", href: "/viec-hom-nay", icon: "list-checks", ready: true, desc: "Hộp việc gộp: lead quá hạn, buổi chưa điểm danh, phiếu thu chờ xác nhận, đơn chờ duyệt… mỗi dòng một nút làm ngay." },
       { label: "Dashboard", href: "/dashboard", icon: "layout-dashboard", ready: true },
       { label: "Hướng dẫn & đào tạo", href: "/huong-dan", icon: "book-open-check", ready: true, desc: "Bài hướng dẫn theo vai trò, có câu hỏi kiểm tra." },
       { label: "Bảo mật tài khoản", href: "/bao-mat", icon: "shield-check", ready: true, desc: "Xác thực 2 lớp bằng ứng dụng OTP." },

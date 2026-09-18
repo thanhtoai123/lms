@@ -8,7 +8,7 @@ import {
   Cake, CalendarCheck, CalendarClock, CalendarDays, CalendarSearch, ChartColumn, ChartLine, CheckCheck,
   ChevronDown, ClipboardCheck, ClipboardList, ClipboardPen, Clock, Coins, CreditCard, Database, DoorOpen,
   FileSpreadsheet, FileText, FlaskConical, Gauge, GraduationCap, HeartHandshake, History, IdCard,
-  Image as ImageIcon, KeyRound, Landmark, Layers, LayoutDashboard, ListOrdered, Mail, MapPin, MapPinned, Menu,
+  Image as ImageIcon, KeyRound, Landmark, Layers, LayoutDashboard, ListChecks, ListOrdered, Mail, MapPin, MapPinned, Menu,
   MessageCircle, MessageSquarePlus, MessagesSquare, Monitor, Network, Newspaper, NotebookPen, Package,
   Package2, PackageOpen, Plug, Presentation, Receipt, RefreshCw, Rocket, ScrollText, Search, Send, ServerCog,
   Settings, Share2, ShieldAlert, ShieldCheck, ShoppingBag, SlidersHorizontal, Star, TableProperties, Tags,
@@ -19,6 +19,8 @@ import type { NavGroup } from "@/lib/admin-nav";
 import { NotificationBell } from "@/components/notification-bell";
 import { IdleGuard } from "@/components/idle-guard";
 import { CommandPalette, rememberPage } from "@/components/command-palette";
+import { ToastProvider } from "@/components/toast";
+import { ShortcutHelp } from "@/components/shortcuts";
 
 type Me = { fullName: string; email: string; roleLabel: string; initials: string };
 
@@ -37,7 +39,7 @@ const NAV_ICON: Record<string, LucideIcon> = {
   "file-text": FileText, "flask-conical": FlaskConical, gauge: Gauge, "graduation-cap": GraduationCap,
   "heart-handshake": HeartHandshake, history: History, "id-card": IdCard, image: ImageIcon,
   "key-round": KeyRound, landmark: Landmark, layers: Layers, "layout-dashboard": LayoutDashboard,
-  "list-ordered": ListOrdered, mail: Mail, "map-pin": MapPin, "map-pinned": MapPinned,
+  "list-checks": ListChecks, "list-ordered": ListOrdered, mail: Mail, "map-pin": MapPin, "map-pinned": MapPinned,
   "message-circle": MessageCircle, "message-square-plus": MessageSquarePlus, "messages-square": MessagesSquare,
   monitor: Monitor, network: Network, newspaper: Newspaper, "notebook-pen": NotebookPen, package: Package,
   "package-2": Package2, "package-open": PackageOpen, plug: Plug, presentation: Presentation, receipt: Receipt,
@@ -98,7 +100,7 @@ export function AdminShell({ nav, me, canRunWorker, idleMinutes = null, children
 
   const sidebar = (
     <div className="flex h-full flex-col">
-      <Link href="/dashboard" className="flex h-16 shrink-0 items-center gap-2 border-b border-border px-6">
+      <Link href="/viec-hom-nay" className="flex h-16 shrink-0 items-center gap-2 border-b border-border px-6">
         <span className="text-xl font-extrabold tracking-tight"><span className="text-primary">Sata</span><span className="text-foreground">Robo</span></span>
         <span className="mt-1 text-[11px] font-medium text-muted-foreground">Admin</span>
       </Link>
@@ -150,9 +152,11 @@ export function AdminShell({ nav, me, canRunWorker, idleMinutes = null, children
   );
 
   return (
+    <ToastProvider>
     <div className="flex h-dvh overflow-hidden bg-background print:block print:h-auto print:overflow-visible">
       <IdleGuard minutes={idleMinutes} />
       <CommandPalette nav={nav} open={paletteOpen} onOpenChange={setPaletteOpen} />
+      <ShortcutHelp />
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-card focus:px-3 focus:py-2 focus:shadow">Bỏ qua menu</a>
 
       <aside className="hidden w-64 shrink-0 border-r border-border bg-card transition-[width] duration-200 lg:block print:!hidden">{sidebar}</aside>
@@ -235,5 +239,6 @@ export function AdminShell({ nav, me, canRunWorker, idleMinutes = null, children
         <main id="main" tabIndex={-1} className="flex-1 overflow-y-auto p-4 outline-none sm:p-6 print:overflow-visible">{children}</main>
       </div>
     </div>
+    </ToastProvider>
   );
 }
