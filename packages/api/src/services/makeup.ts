@@ -2,7 +2,7 @@ import { and, eq, inArray, sql, asc, desc, isNull, gte } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { TRPCError } from "@trpc/server";
 import { makeupRequests, enrollments, sessions, classes, students, attendance, centers, courses } from "@satarobo/db";
-import { makeupTransition, makeupCandidates, withinMakeupWindow, visibleCenterIds, addDays, DEFAULT_MAKEUP_POLICY, type MakeupStatus } from "@satarobo/core";
+import { makeupTransition, makeupCandidates, withinMakeupWindow, visibleCenterIds, addDays, clampPageSize, DEFAULT_MAKEUP_POLICY, type MakeupStatus } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { writeAudit } from "./audit";
 import { todayISO } from "./sessions";
@@ -57,7 +57,7 @@ export async function pendingAbsences(ctx: ProtectedContext, input: { centerId?:
   return rows.filter((r) => r.date >= addDays(today, -(ops.get(r.centerId)?.makeupWindowDays ?? DEFAULT_MAKEUP_POLICY.requestWindowDays)));
 }
 
-export async function listMakeup(ctx: ProtectedContext, input: { status?: MakeupStatus; centerId?: string; classId?: string }) {
+export async function listMakeup(ctx: ProtectedContext, input: { status?: MakeupStatus; centerId?: string; classId?: string; limit?: number }) {
   requirePermission(ctx, "makeup:read", { centerId: input.centerId ?? null });
   const conds = [scope(ctx)];
   if (input.status) conds.push(eq(makeupRequests.status, input.status));
@@ -82,10 +82,12 @@ export async function listMakeup(ctx: ProtectedContext, input: { status?: Makeup
     .leftJoin(targetClass, eq(targetClass.id, target.classId))
     .where(and(...conds))
     .orderBy(asc(makeupRequests.status), desc(makeupRequests.createdAt))
-    .limit(300);
+    .limit(clampPageSize(input.limit, 300, 500));
   const [counts] = await ctx.db
     .select({
       requested: sql<number>`count(*) filter (where ${makeupRequests.status} = 'requested')::int`,
+      // Chờ xếp buổi quá 48 giờ — trước đây đếm bằng cách lọc mảng đã tải về
+      requestedOverdue: sql<number>`count(*) filter (where ${makeupRequests.status} = 'requested' and ${makeupRequests.createdAt} < now() - interval '48 hours')::int`,
       approved: sql<number>`count(*) filter (where ${makeupRequests.status} = 'approved')::int`,
       done: sql<number>`count(*) filter (where ${makeupRequests.status} = 'done')::int`,
       rejected: sql<number>`count(*) filter (where ${makeupRequests.status} = 'rejected')::int`,

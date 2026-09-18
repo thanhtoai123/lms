@@ -149,23 +149,37 @@ export async function remindPauseEnding(database: Database | Db, opts: { leadDay
   const today = todayISO();
   const open = await db.select({ id: studentPauses.id, studentId: studentPauses.studentId, fromDate: studentPauses.fromDate, expectedReturn: studentPauses.expectedReturn, enrollmentIds: studentPauses.enrollmentIds, centerId: students.homeCenterId, name: students.fullName })
     .from(studentPauses).innerJoin(students, eq(students.id, studentPauses.studentId))
-    .where(and(isNull(studentPauses.endedAt), isNull(students.deletedAt)));
+    .where(and(isNull(studentPauses.endedAt), isNull(students.deletedAt)))
+    // Trần cứng: việc này chạy hằng ngày và chống trùng bằng `dedupeKey`, nên phần dư
+    // (nếu có) sẽ được xử lý ở lượt sau thay vì kéo cả bảng về trong một lần.
+    .limit(2000);
   if (!open.length) return 0;
   const ops = await opsForCenters(db, open.map((p) => p.centerId).filter((x): x is string => !!x));
-  let created = 0;
+  // Tính trước danh sách việc cần tạo (thuần JS), rồi mới chạm CSDL.
+  const wanted: { p: (typeof open)[number]; centerId: string; r: NonNullable<ReturnType<typeof pauseReminder>> }[] = [];
   for (const p of open) {
     if (!p.centerId) continue;
     const max = ops.get(p.centerId)?.maxPauseMonths ?? DEFAULT_STUDENT_POLICY.maxPauseMonths;
     const r = pauseReminder({ id: p.id, fromDate: p.fromDate, expectedReturn: p.expectedReturn, today, leadDays: opts.leadDays }, { ...DEFAULT_STUDENT_POLICY, maxPauseMonths: max });
-    if (!r) continue;
-    const ex = await db.query.careTasks.findFirst({ where: eq(careTasks.dedupeKey, r.dedupeKey), columns: { id: true } });
-    if (ex) continue;
-    await db.insert(careTasks).values({
-      studentId: p.studentId, enrollmentId: p.enrollmentIds?.[0] ?? null, centerId: p.centerId,
-      code: r.kind === "over_max" ? "PAUSE_OVER_MAX" : "PAUSE_RETURN", title: `${p.name}: ${r.message}`, severity: r.kind === "return_soon" ? 3 : 2,
-      dueAt: new Date(Date.now() + 48 * 3600e3), dedupeKey: r.dedupeKey,
-    });
-    created++;
+    if (r) wanted.push({ p, centerId: p.centerId, r });
   }
-  return created;
+  if (!wanted.length) return 0;
+  // Trước: 1 truy vấn kiểm tra trùng CHO MỖI đợt bảo lưu. Sau: 1 truy vấn `inArray` cho mọi khoá chống trùng.
+  const existing = new Set(
+    (await db
+      .select({ dedupeKey: careTasks.dedupeKey })
+      .from(careTasks)
+      .where(inArray(careTasks.dedupeKey, wanted.map((w) => w.r.dedupeKey)))
+    ).map((x) => x.dedupeKey).filter((x): x is string => !!x),
+  );
+  const rows = wanted.filter((w) => !existing.has(w.r.dedupeKey)).map((w) => ({
+    studentId: w.p.studentId, enrollmentId: w.p.enrollmentIds?.[0] ?? null, centerId: w.centerId,
+    code: w.r.kind === "over_max" ? "PAUSE_OVER_MAX" : "PAUSE_RETURN", title: `${w.p.name}: ${w.r.message}`,
+    severity: w.r.kind === "return_soon" ? 3 : 2,
+    dueAt: new Date(Date.now() + 48 * 3600e3), dedupeKey: w.r.dedupeKey,
+  }));
+  if (!rows.length) return 0;
+  // Ghi gộp một câu insert thay cho N câu
+  await db.insert(careTasks).values(rows);
+  return rows.length;
 }

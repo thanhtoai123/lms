@@ -17,7 +17,7 @@ const phase = z.object({ from: isoDate, to: isoDate.nullable(), note: z.string()
 
 export const sessionsRouter = router({
   list: protectedProcedure
-    .input(z.object({ from: isoDate, to: isoDate, teacherId: uuid.optional(), centerId: uuid.optional(), classId: uuid.optional(), onlyOpen: z.boolean().optional() }))
+    .input(z.object({ from: isoDate, to: isoDate, teacherId: uuid.optional(), centerId: uuid.optional(), classId: uuid.optional(), onlyOpen: z.boolean().optional(), limit: z.number().int().min(1).max(2000).optional() }))
     .query(({ ctx, input }) => S.listSessions(ctx, input)),
 
   overdueQueue: protectedProcedure

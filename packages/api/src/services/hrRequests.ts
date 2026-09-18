@@ -10,7 +10,7 @@ import { and, eq, inArray, sql, desc, asc, isNull, or, gte, lte, ne, type SQL } 
 import { TRPCError } from "@trpc/server";
 import { staff, staffRequests, shiftAssignments, workShifts, attendancePunches, timesheetFlagReviews, centers, users, classes, teachers } from "@satarobo/db";
 import {
-  validateRequest, requestTransition, requestMinutes, leaveDays, isLateSubmission, describeRequestEffect, datesBetween, addDays,
+  validateRequest, requestTransition, requestMinutes, leaveDays, isLateSubmission, describeRequestEffect, datesBetween, addDays, clampPageSize,
   leaveIsPaid, leaveUsesBalance, isClassRequest, APPROVAL_SLA_DAYS,
   SHIFT_CODE_LEAVE, SHIFT_CODE_REMOTE, SHIFT_CODE_FIELD,
   REQUEST_KIND_VI, REQUEST_KIND_GROUP,
@@ -31,7 +31,7 @@ type RequestRow = typeof staffRequests.$inferSelect;
 /* Danh sách                                                           */
 /* ------------------------------------------------------------------ */
 
-export async function listRequests(ctx: ProtectedContext, input: { status?: RequestStatus; kind?: RequestKind; centerId?: string; mine?: boolean; applyFailed?: boolean }) {
+export async function listRequests(ctx: ProtectedContext, input: { status?: RequestStatus; kind?: RequestKind; centerId?: string; mine?: boolean; applyFailed?: boolean; limit?: number }) {
   const me = await myStaff(ctx);
   const approverScope = scopeSql(ctx, "timesheet:read", staffRequests.centerId as unknown as typeof staff.centerId);
   const base: SQL[] = [input.mine ? (me ? eq(staffRequests.staffId, me.id) : sql`false`) : (me ? or(approverScope, eq(staffRequests.staffId, me.id))! : approverScope)];
@@ -45,7 +45,7 @@ export async function listRequests(ctx: ProtectedContext, input: { status?: Requ
   })
     .from(staffRequests).innerJoin(staff, eq(staff.id, staffRequests.staffId)).innerJoin(centers, eq(centers.id, staffRequests.centerId))
     .leftJoin(users, eq(users.id, staffRequests.decidedBy)).leftJoin(classes, eq(classes.id, staffRequests.classId))
-    .where(where).orderBy(sql`case when ${staffRequests.status} = 'pending' then 0 else 1 end`, desc(staffRequests.createdAt)).limit(500);
+    .where(where).orderBy(sql`case when ${staffRequests.status} = 'pending' then 0 else 1 end`, desc(staffRequests.createdAt)).limit(clampPageSize(input.limit, 500, 500));
   const [counts] = await ctx.db.select({
     pending: sql<number>`count(*) filter (where ${staffRequests.status} = 'pending')::int`,
     approved: sql<number>`count(*) filter (where ${staffRequests.status} = 'approved')::int`,

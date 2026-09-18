@@ -313,6 +313,20 @@ export async function myNotifications(ctx: ProtectedContext, input: { unreadOnly
   return { items, unread: c?.n ?? 0, hasPriority1: (c?.p1 ?? 0) > 0 };
 }
 
+/**
+ * Thông báo chưa đọc mức Khẩn / Thường (priority ≤ 2) cho hộp việc hôm nay.
+ * Trước: hộp việc tải 60 thông báo chưa đọc rồi lọc mức ưu tiên trong JS và đếm `.length`.
+ * Sau: lọc trong SQL + `count(*)`, chỉ tải số dòng cần hiển thị.
+ */
+export async function urgentNotifications(ctx: ProtectedContext, input: { limit?: number } = {}) {
+  const where = and(eq(userNotifications.userId, ctx.user.id), isNull(userNotifications.readAt), sql`${userNotifications.priority} <= 2`);
+  const [[c], items] = await Promise.all([
+    ctx.db.select({ total: sql<number>`count(*)::int`, urgent: sql<number>`count(*) filter (where ${userNotifications.priority} = 1)::int` }).from(userNotifications).where(where),
+    ctx.db.select().from(userNotifications).where(where).orderBy(asc(userNotifications.priority), desc(userNotifications.createdAt)).limit(clampPageSize(input.limit, 25, 100)),
+  ]);
+  return { total: c?.total ?? 0, urgent: c?.urgent ?? 0, items };
+}
+
 export async function markRead(ctx: ProtectedContext, input: { ids?: string[]; all?: boolean }) {
   const conds = [eq(userNotifications.userId, ctx.user.id), isNull(userNotifications.readAt)];
   if (!input.all && input.ids?.length) conds.push(inArray(userNotifications.id, input.ids));

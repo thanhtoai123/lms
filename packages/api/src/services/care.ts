@@ -8,7 +8,7 @@ import {
   sessions, attendance, makeupRequests, teachers,
 } from "@satarobo/db";
 import {
-  authorize, visibleCenterIds, addDays,
+  authorize, visibleCenterIds, addDays, clampPageSize,
   parentRequestTransition, validateParentRequest, slaDue, slaState, requestCode, PARENT_REQUEST_TYPE_VI, REQUEST_NEEDS_DECISION, OPEN_REQUEST_STATUSES,
   feedbackPriority, validateFeedback, ratingStats, FEEDBACK_TAG_VI,
   validateSurvey, validateAnswers, npsScore, npsGroup, INVITE_TTL_DAYS,
@@ -76,7 +76,7 @@ async function openCareTask(db: Db, x: { studentId: string; enrollmentId?: strin
 /* Yêu cầu phụ huynh                                                   */
 /* ------------------------------------------------------------------ */
 
-export async function listParentRequests(ctx: ProtectedContext, input: { status?: ParentRequestStatus | "open" | "overdue"; type?: ParentRequestType; centerId?: string; q?: string; mine?: boolean }) {
+export async function listParentRequests(ctx: ProtectedContext, input: { status?: ParentRequestStatus | "open" | "overdue"; type?: ParentRequestType; centerId?: string; q?: string; mine?: boolean; limit?: number }) {
   requirePermission(ctx, "care:read", { centerId: input.centerId ?? null });
   const base: SQL[] = [scopeOn(ctx, parentRequests.centerId)];
   if (input.centerId) base.push(eq(parentRequests.centerId, input.centerId));
@@ -96,7 +96,7 @@ export async function listParentRequests(ctx: ProtectedContext, input: { status?
     sessionDate: sql<string | null>`(select s.date::text from ${sessions} s where s.id = ${parentRequests.sessionId})`,
   }).from(parentRequests).innerJoin(students, eq(students.id, parentRequests.studentId)).innerJoin(centers, eq(centers.id, parentRequests.centerId))
     .leftJoin(parents, eq(parents.id, parentRequests.parentId)).leftJoin(enrollments, eq(enrollments.id, parentRequests.enrollmentId)).leftJoin(classes, eq(classes.id, enrollments.classId))
-    .where(and(...where)).orderBy(sql`case when ${parentRequests.status} in ('new','in_progress') then 0 when ${parentRequests.status} = 'approved' then 1 else 2 end`, asc(parentRequests.dueAt)).limit(300);
+    .where(and(...where)).orderBy(sql`case when ${parentRequests.status} in ('new','in_progress') then 0 when ${parentRequests.status} = 'approved' then 1 else 2 end`, asc(parentRequests.dueAt)).limit(clampPageSize(input.limit, 300, 500));
   const [c] = await ctx.db.select({
     open: sql<number>`count(*) filter (where ${parentRequests.status} in ('new','in_progress','approved'))::int`,
     overdue: sql<number>`count(*) filter (where ${parentRequests.status} in ('new','in_progress') and ${parentRequests.dueAt} < now())::int`,
@@ -529,10 +529,17 @@ export async function sendSurvey(ctx: ProtectedContext, input: { id: string; cla
   const rows = await ctx.db.select({ enrollmentId: enrollments.id, studentId: enrollments.studentId, centerId: classes.centerId }).from(enrollments).innerJoin(classes, eq(classes.id, enrollments.classId)).where(and(...conds)).limit(2000);
   for (const c of new Set(rows.map((r) => r.centerId))) requirePermission(ctx, "care:create", { centerId: c });
   const guardians = rows.length ? await ctx.db.select({ studentId: studentGuardians.studentId, parentId: studentGuardians.parentId, isPrimary: studentGuardians.isPrimary }).from(studentGuardians).where(inArray(studentGuardians.studentId, rows.map((r) => r.studentId))) : [];
+  // Trước: `guardians.filter(...)` CHO MỖI dòng — 2.000 học viên × 2.000 người giám hộ là
+  // 4 triệu phép so trong JavaScript. Sau: dựng Map một lần, tra O(1).
+  const primaryGuardian = new Map<string, (typeof guardians)[number]>();
+  for (const g of guardians) {
+    const cur = primaryGuardian.get(g.studentId);
+    if (!cur || (g.isPrimary && !cur.isPrimary)) primaryGuardian.set(g.studentId, g);
+  }
   const targets: Target[] = [];
   let noParent = 0;
   for (const r of rows) {
-    const g = guardians.filter((x) => x.studentId === r.studentId).sort((a, b) => Number(b.isPrimary) - Number(a.isPrimary))[0];
+    const g = primaryGuardian.get(r.studentId);
     if (!g) { noParent++; continue; }
     targets.push({ parentId: g.parentId, studentId: r.studentId, enrollmentId: r.enrollmentId, centerId: r.centerId });
   }

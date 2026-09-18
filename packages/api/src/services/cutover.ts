@@ -148,11 +148,15 @@ export async function setStage(ctx: ProtectedContext, input: { centerId: string;
 export async function parallelReminders(db: Db) {
   const rows = await db.select({ centerId: cutoverCenters.centerId, code: centers.code }).from(cutoverCenters).innerJoin(centers, eq(centers.id, cutoverCenters.centerId))
     .where(eq(cutoverCenters.stage, "parallel"));
-  const out: { centerId: string; code: string }[] = [];
+  if (!rows.length) return [];
   const y = new Date(Date.now() - 86_400_000 + 7 * 3600_000).toISOString().slice(0, 10);
-  for (const r of rows) {
-    const d = await db.query.parallelRunDays.findFirst({ where: and(eq(parallelRunDays.centerId, r.centerId), eq(parallelRunDays.date, y)) });
-    if (!d) out.push(r);
-  }
-  return out;
+  // Trước: 1 truy vấn cho MỖI cơ sở đang chạy song song. Sau: 1 truy vấn `inArray` cho tất cả.
+  const logged = new Set(
+    (await db
+      .select({ centerId: parallelRunDays.centerId })
+      .from(parallelRunDays)
+      .where(and(inArray(parallelRunDays.centerId, rows.map((r) => r.centerId)), eq(parallelRunDays.date, y)))
+    ).map((d) => d.centerId),
+  );
+  return rows.filter((r) => !logged.has(r.centerId));
 }

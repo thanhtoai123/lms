@@ -5,7 +5,7 @@ import {
   centers, users, userRoles, userNotifications, enrollments, classes, courses, students, parents, studentGuardians, leads, leadChildren,
 } from "@satarobo/db";
 import {
-  authorize, hasRole, visibleCenterIds, addDays,
+  authorize, hasRole, visibleCenterIds, addDays, clampPageSize,
   priceLines, packagePrice, buildPlan, validateInstallmentPlan, replanInstallments, orderBalance, deriveOrderStatus, canCancelOrder,
   allocateInstallments, agingBucket, agingBucketBy, agingBucketLabels, dueSoon, validatePaymentDecision, receiptNumber, transferMemo, maskIdNumber,
   refundProposal, validateRefundRequest, refundTransition, vietQrImageUrl, requireReason, formatVnd, maskPhone, remainingSessions, isEmail,
@@ -1203,6 +1203,8 @@ export async function listPayments(ctx: ProtectedContext, input: { status?: Paym
   }).from(payments).innerJoin(orders, eq(orders.id, payments.orderId)).leftJoin(students, eq(students.id, orders.studentId)).where(where);
   const [counts] = await ctx.db.select({
     recorded: sql<number>`count(*) filter (where ${payments.status} = 'recorded')::int`,
+    /** Phiếu thu chờ kế toán quá 24 giờ — để hộp việc khỏi phải lọc mảng đã tải về */
+    recordedOverdue: sql<number>`count(*) filter (where ${payments.status} = 'recorded' and ${payments.recordedAt} < now() - interval '24 hours')::int`,
     confirmed: sql<number>`count(*) filter (where ${payments.status} = 'confirmed')::int`,
     rejected: sql<number>`count(*) filter (where ${payments.status} = 'rejected')::int`,
     voided: sql<number>`count(*) filter (where ${payments.status} = 'voided')::int`,
@@ -1886,7 +1888,7 @@ export async function payRefund(ctx: ProtectedContext, input: { id: string; paym
   return { status: to };
 }
 
-export async function listRefunds(ctx: ProtectedContext, input: { status?: RefundStatus; centerId?: string }) {
+export async function listRefunds(ctx: ProtectedContext, input: { status?: RefundStatus; centerId?: string; limit?: number }) {
   requirePermission(ctx, "finance:read", { centerId: input.centerId ?? null });
   const conds: SQL[] = [scope(ctx, refunds.centerId as unknown as typeof orders.centerId)];
   if (input.status) conds.push(eq(refunds.status, input.status));
@@ -1899,9 +1901,11 @@ export async function listRefunds(ctx: ProtectedContext, input: { status?: Refun
     deciderName: sql<string | null>`(select full_name from ${users} u where u.id = ${refunds.decidedBy})`,
   }).from(refunds).innerJoin(orders, eq(orders.id, refunds.orderId)).innerJoin(centers, eq(centers.id, refunds.centerId))
     .leftJoin(enrollments, eq(enrollments.id, refunds.enrollmentId)).leftJoin(students, eq(students.id, enrollments.studentId)).leftJoin(classes, eq(classes.id, enrollments.classId))
-    .where(and(...conds)).orderBy(desc(refunds.createdAt)).limit(300);
+    .where(and(...conds)).orderBy(desc(refunds.createdAt)).limit(clampPageSize(input.limit, 300, 500));
   const [counts] = await ctx.db.select({
     pending: sql<number>`count(*) filter (where ${refunds.status} = 'pending')::int`,
+    /** Yêu cầu hoàn tiền chờ duyệt quá 48 giờ — để hộp việc khỏi phải lọc mảng đã tải về */
+    pendingOverdue: sql<number>`count(*) filter (where ${refunds.status} = 'pending' and ${refunds.createdAt} < now() - interval '48 hours')::int`,
     approved: sql<number>`count(*) filter (where ${refunds.status} = 'approved')::int`,
     rejected: sql<number>`count(*) filter (where ${refunds.status} = 'rejected')::int`,
     paid: sql<number>`count(*) filter (where ${refunds.status} = 'paid')::int`,

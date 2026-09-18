@@ -5,7 +5,7 @@ import {
 } from "@satarobo/db";
 import {
   authorize, buildStudentCode, hasRole, maskPhone, maskIdNumber, normalizeVnPhone, normalizeAllergies, normalizeNationalId, normalizeStudentCode,
-  remainingSessions, summarize, visibleCenterIds, studentLifecycleActions, requireReason,
+  remainingSessions, summarize, visibleCenterIds, studentLifecycleActions, requireReason, batchRanges, clampPageSize,
   type AttendanceRecord, type BloodType, type GuardianRelation,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
@@ -69,7 +69,7 @@ function studentFilterConds(ctx: ProtectedContext, input: StudentListFilters) {
 export async function listStudents(ctx: ProtectedContext, input: { q?: string; centerId?: string; status?: StudentStatus; grade?: number; page?: number; pageSize?: number }) {
   requirePermission(ctx, "student:read", { centerId: input.centerId ?? null });
   const conds = studentFilterConds(ctx, input);
-  const pageSize = Math.min(input.pageSize ?? 20, 100);
+  const pageSize = clampPageSize(input.pageSize, 20, 100);
   const page = Math.max(1, input.page ?? 1);
   const where = and(...conds);
   const [total] = await ctx.db.select({ n: sql<number>`count(*)::int` }).from(students).where(where);
@@ -99,25 +99,42 @@ export async function listStudents(ctx: ProtectedContext, input: { q?: string; c
 export const STUDENT_EXPORT_MAX_ROWS = 10_000;
 export const STUDENT_EXPORT_HEADERS = ["Mã HV", "Họ tên", "Ngày sinh", "Khối", "Trường", "Cơ sở", "Trạng thái", "Phụ huynh", "SĐT phụ huynh", "Lớp đang học", "Ngày tạo"] as const;
 
+/** Cỡ một lô khi xuất — mỗi dòng còn kéo theo 3 truy vấn con (phụ huynh, SĐT, lớp) */
+const STUDENT_EXPORT_BATCH = 1_000;
+
+/**
+ * Đọc dữ liệu xuất THEO LÔ.
+ * Trước: một câu `limit 10_000` — mỗi dòng chạy 3 truy vấn con, nên Postgres phải làm 30.000
+ *        phép tra cứu trong MỘT câu lệnh; dễ chạm `statement_timeout` khi dữ liệu lớn.
+ * Sau:  `count(*)` rồi đọc từng lô 1.000 dòng; thứ tự có khoá phụ `id` để các lô không chồng nhau.
+ */
+function readStudentExportBatch(ctx: ProtectedContext, where: ReturnType<typeof and>, range: { offset: number; limit: number }) {
+  return ctx.db
+    .select({
+      code: students.code, fullName: students.fullName, dateOfBirth: students.dateOfBirth, grade: students.grade, school: students.school,
+      status: students.status, centerCode: centers.code, createdAt: students.createdAt,
+      parentName: sql<string | null>`(select p.full_name from ${studentGuardians} g join ${parents} p on p.id = g.parent_id where g.student_id = ${students.id} order by g.is_primary desc limit 1)`,
+      parentPhone: sql<string | null>`(select p.phone from ${studentGuardians} g join ${parents} p on p.id = g.parent_id where g.student_id = ${students.id} order by g.is_primary desc limit 1)`,
+      classes: sql<string | null>`(select string_agg(c.code, ', ') from ${enrollments} e join ${classes} c on c.id = e.class_id where e.student_id = ${students.id} and e.status in ('trial','active','paused'))`,
+    })
+    .from(students)
+    .leftJoin(centers, eq(centers.id, students.homeCenterId))
+    .where(where)
+    .orderBy(desc(students.createdAt), desc(students.id))
+    .limit(range.limit)
+    .offset(range.offset);
+}
+
 export async function exportStudents(ctx: ProtectedContext, input: StudentListFilters) {
   requirePermission(ctx, "student:read", { centerId: input.centerId ?? null });
   const where = and(...studentFilterConds(ctx, input));
-  const [rows, [count]] = await Promise.all([
-    ctx.db
-      .select({
-        code: students.code, fullName: students.fullName, dateOfBirth: students.dateOfBirth, grade: students.grade, school: students.school,
-        status: students.status, centerCode: centers.code, createdAt: students.createdAt,
-        parentName: sql<string | null>`(select p.full_name from ${studentGuardians} g join ${parents} p on p.id = g.parent_id where g.student_id = ${students.id} order by g.is_primary desc limit 1)`,
-        parentPhone: sql<string | null>`(select p.phone from ${studentGuardians} g join ${parents} p on p.id = g.parent_id where g.student_id = ${students.id} order by g.is_primary desc limit 1)`,
-        classes: sql<string | null>`(select string_agg(c.code, ', ') from ${enrollments} e join ${classes} c on c.id = e.class_id where e.student_id = ${students.id} and e.status in ('trial','active','paused'))`,
-      })
-      .from(students)
-      .leftJoin(centers, eq(centers.id, students.homeCenterId))
-      .where(where)
-      .orderBy(desc(students.createdAt))
-      .limit(STUDENT_EXPORT_MAX_ROWS),
-    ctx.db.select({ n: sql<number>`count(*)::int` }).from(students).where(where),
-  ]);
+  const [count] = await ctx.db.select({ n: sql<number>`count(*)::int` }).from(students).where(where);
+  const rows: Awaited<ReturnType<typeof readStudentExportBatch>> = [];
+  for (const range of batchRanges(Math.min(count?.n ?? 0, STUDENT_EXPORT_MAX_ROWS), STUDENT_EXPORT_BATCH)) {
+    const batch = await readStudentExportBatch(ctx, where, range);
+    rows.push(...batch);
+    if (batch.length < range.limit) break;
+  }
   const full = canSeeFullPhone(ctx);
   const fmtDay = (d: Date | string | null) => (d ? new Intl.DateTimeFormat("vi-VN", { dateStyle: "short", timeZone: "Asia/Ho_Chi_Minh" }).format(new Date(d)) : "");
   const total = count?.n ?? rows.length;

@@ -2,7 +2,7 @@ import { and, eq, inArray, sql, asc, gte, lte } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { sessions, classes, enrollments, attendance, students, teachers, rooms, centers, lessons, curricula, trialBookings, leads, sessionMedia, assignments, users } from "@satarobo/db";
 import {
-  transition, nextStep, isOverdue, OPEN_STATUSES, toISODate, visibleCenterIds, detectRisks, riskFrom, missingRequiredChecklist, sessionLabel, SESSION_CHECKLIST,
+  transition, nextStep, isOverdue, OPEN_STATUSES, toISODate, addDays, clampPageSize, visibleCenterIds, detectRisks, riskFrom, missingRequiredChecklist, sessionLabel, SESSION_CHECKLIST,
   completionBlockers, completionChecklist,
   type ChecklistState,
   type SessionEvent, type SessionStatus, type AttendanceStatus, type AttendanceRecord,
@@ -290,23 +290,56 @@ export async function transitionSession(ctx: ProtectedContext, input: { sessionI
   return getSessionDetail(ctx, input.sessionId);
 }
 
-/** Danh sách buổi trong một khoảng ngày, theo GV hoặc cơ sở (dùng cho Teacher "Hôm nay" và Ops "Buổi học") */
-export async function listSessions(
-  ctx: ProtectedContext,
-  input: { from: string; to: string; teacherId?: string; centerId?: string; onlyOpen?: boolean; classId?: string; roomId?: string },
-) {
+export interface SessionListInput {
+  from: string;
+  to: string;
+  teacherId?: string;
+  centerId?: string;
+  onlyOpen?: boolean;
+  /** Lọc đúng vài trạng thái (hẹp hơn `onlyOpen`) — để hộp việc không phải lọc lại trong JS */
+  statuses?: SessionStatus[];
+  classId?: string;
+  roomId?: string;
+  /** Trần cứng số dòng trả về (mặc định 1000, tối đa 2000) */
+  limit?: number;
+}
+
+/** Trần cứng cho danh sách buổi học — trước đây KHÔNG có `limit` nào */
+const SESSION_LIST_DEFAULT = 1000;
+const SESSION_LIST_MAX = 2000;
+
+/** Điều kiện lọc dùng chung cho danh sách buổi và cho phép đếm — một nguồn sự thật */
+function sessionListConds(ctx: ProtectedContext, input: SessionListInput) {
   const conds = [gte(sessions.date, input.from), lte(sessions.date, input.to)];
   if (input.roomId) conds.push(eq(sessions.roomId, input.roomId));
   if (input.teacherId) conds.push(eq(sessions.teacherId, input.teacherId));
   if (input.classId) conds.push(eq(sessions.classId, input.classId));
   if (input.centerId) conds.push(eq(classes.centerId, input.centerId));
   if (input.onlyOpen) conds.push(inArray(sessions.status, [...OPEN_STATUSES]));
+  if (input.statuses?.length) conds.push(inArray(sessions.status, input.statuses));
 
   // Giới hạn theo cơ sở được thấy và theo trung tâm (tenant)
   const visible = visibleCenterIds(ctx.actor);
   if (visible !== null) conds.push(visible.length ? inArray(classes.centerId, visible) : sql`false`);
   conds.push(tenantCond(ctx, sessions));
+  return conds;
+}
 
+/**
+ * Đếm buổi học khớp bộ lọc bằng `count(*)` — KHÔNG tải dòng về rồi lấy `.length`.
+ * Truy vấn nhẹ hơn hẳn danh sách vì bỏ hết join phụ (phòng, giáo viên) và hai truy vấn con đếm sĩ số.
+ */
+export async function countSessions(ctx: ProtectedContext, input: SessionListInput): Promise<number> {
+  const [r] = await ctx.db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(sessions)
+    .innerJoin(classes, eq(classes.id, sessions.classId))
+    .where(and(...sessionListConds(ctx, input)));
+  return r?.n ?? 0;
+}
+
+/** Danh sách buổi trong một khoảng ngày, theo GV hoặc cơ sở (dùng cho Teacher "Hôm nay" và Ops "Buổi học") */
+export async function listSessions(ctx: ProtectedContext, input: SessionListInput) {
   const rows = await ctx.db
     .select({
       id: sessions.id, classId: sessions.classId, classCode: classes.code, className: classes.name, centerId: classes.centerId, centerCode: centers.code,
@@ -321,18 +354,33 @@ export async function listSessions(
     .innerJoin(centers, eq(centers.id, classes.centerId))
     .leftJoin(rooms, eq(rooms.id, sessions.roomId))
     .leftJoin(teachers, eq(teachers.id, sessions.teacherId))
-    .where(and(...conds))
-    .orderBy(asc(sessions.date), asc(sessions.startTime));
+    .where(and(...sessionListConds(ctx, input)))
+    .orderBy(asc(sessions.date), asc(sessions.startTime))
+    .limit(clampPageSize(input.limit, SESSION_LIST_DEFAULT, SESSION_LIST_MAX));
 
   const today = todayISO();
   return rows.map((r) => ({ ...r, label: sessionLabel(r.sequenceNo, r.kind, r.originalSequenceNo), nextStep: nextStep(r.status), isOverdue: isOverdue(r.status, r.date, today) }));
 }
 
-/** Hàng đợi "buổi chưa hoàn tất đã qua ngày" theo cơ sở — thay cho card trên dashboard cũ */
+/**
+ * Hàng đợi "buổi chưa hoàn tất đã qua ngày" theo cơ sở — thay cho card trên dashboard cũ.
+ *
+ * Trước: gọi `listSessions` với `from: "2000-01-01"` và KHÔNG có `limit` — tải về MỌI buổi
+ *        chưa hoàn tất từ trước tới nay (kèm 2 truy vấn con đếm sĩ số cho từng dòng), rồi lọc
+ *        `date < today` và đếm bằng `.length` trong JavaScript. Ở quy mô một chuỗi, đây là
+ *        truy vấn nặng nhất của trang chủ.
+ * Sau:  `to = hôm qua` đẩy phép lọc xuống SQL (đúng định nghĩa `isOverdue`), `total` lấy bằng
+ *        `count(*)`, và chỉ tải đúng số dòng cần hiển thị.
+ * Truy vấn: 1 (tải N dòng) → 2 (1 count + 1 tải ≤ limit dòng).
+ */
 export async function overdueQueue(ctx: ProtectedContext, input: { centerId?: string; limit?: number }) {
   const today = todayISO();
-  const rows = await listSessions(ctx, { from: "2000-01-01", to: today, centerId: input.centerId, onlyOpen: true });
-  const overdue = rows.filter((r) => r.date < today);
-  return { total: overdue.length, items: overdue.sort((a, b) => a.date.localeCompare(b.date)).slice(0, input.limit ?? 50) };
+  const limit = clampPageSize(input.limit, 50, 200);
+  const filter: SessionListInput = { from: "2000-01-01", to: addDays(today, -1), centerId: input.centerId, onlyOpen: true };
+  const [total, items] = await Promise.all([
+    countSessions(ctx, filter),
+    listSessions(ctx, { ...filter, limit }),
+  ]);
+  return { total, items };
 }
 

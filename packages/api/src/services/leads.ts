@@ -8,10 +8,11 @@ import {
   leadTransition, computeSla, normalizeVnPhone, maskPhone, OPEN_LEAD_STATUSES, LEAD_STATUSES, authorize, hasRole, buildStudentCode, CONSENT_TEXT_VERSION, normalizeRefCode,
   mergeIntake, appendNote, summarizeLeadOrders, conversionGate, checkScholarshipReason, isValidIdNumber, isFacebookUrl, intakeAssignmentSource,
   isDropEvent, checkDropReason, packagePrice, formatVnd, PLACEHOLDER_PARENT_NAME, LEAD_DROP_REASON_MAX,
-  leadVisibilityReason, leadShareNotice, LEAD_SHARE_LABEL, LEAD_STATUS_VI,
+  leadVisibilityReason, leadShareNotice, LEAD_SHARE_LABEL, LEAD_STATUS_VI, clampPageSize, batchRanges,
   type LeadStatus, type LeadEvent, type AssignmentSource, type IntakeChild,
 } from "@satarobo/core";
 import { resolveAdmissionsPolicy, autoPickAssignee, recordAssignment, canSeeLeadPhone, type Db } from "./admissionsAdmin";
+import { slaOverdueSql, slaWarningSql } from "./leadSlaSql";
 import { canShareLead, leadReadCondition, leadReader, requireLeadRead, requireLeadsAccess } from "./leadAccess";
 import { assertTenant, redact, redactList } from "./tenantScope";
 import { requirePermission, type ProtectedContext } from "../trpc";
@@ -267,9 +268,14 @@ export async function leadInbox(ctx: ProtectedContext, input: LeadInboxInput) {
   const openView = !input.allStatuses && (!input.status || (OPEN_LEAD_STATUSES as readonly string[]).includes(input.status));
 
   const paged = input.page !== undefined;
-  const pageSize = Math.min(200, input.pageSize ?? 50);
+  const pageSize = clampPageSize(input.pageSize, 50);
   const page = Math.max(1, input.page ?? 1);
-  const [rows, light, facets] = await Promise.all([
+  // Chính sách SLA phải có TRƯỚC khi dựng truy vấn tổng hợp (phép so SLA nay nằm trong SQL)
+  const policy = await resolveAdmissionsPolicy(ctx.db, input.centerId ?? null);
+  const nowAt = new Date();
+  const overdueCond = slaOverdueSql(policy.sla, leads.status, leads.lastTouchAt, nowAt);
+  const warningCond = slaWarningSql(policy.sla, leads.status, leads.lastTouchAt, nowAt);
+  const [rows, summaryRows, facets] = await Promise.all([
     ctx.db
       .select({
         id: leads.id, tenantId: leads.tenantId, status: leads.status, parentName: leads.parentName, phoneNormalized: leads.phoneNormalized, childName: leads.childName, childGrade: leads.childGrade,
@@ -286,18 +292,34 @@ export async function leadInbox(ctx: ProtectedContext, input: LeadInboxInput) {
       .orderBy(openView ? asc(leads.lastTouchAt) : desc(leads.createdAt))
       .limit(paged ? pageSize : (input.limit ?? 200))
       .offset(paged ? (page - 1) * pageSize : 0),
-    // Cột nhẹ để đếm tổng + SLA trên toàn bộ kết quả lọc (không chỉ trang hiện tại)
-    ctx.db.select({ status: leads.status, lastTouchAt: leads.lastTouchAt }).from(leads).where(and(...conds)).limit(20_000),
+    /*
+     * Tổng + SLA + phân bố trạng thái trên TOÀN BỘ kết quả lọc (không chỉ trang hiện tại).
+     *
+     * Trước: `select status, last_touch_at … limit 20_000` — kéo tới HAI MƯƠI NGHÌN dòng về
+     *        máy chủ mỗi lần mở màn Lead, chỉ để đếm; và khi vượt 20.000 thì con số hiển thị SAI.
+     * Sau:  một truy vấn gộp `group by status` với `count(*) filter (...)` — không dòng nào rời
+     *       CSDL, số đúng ở mọi quy mô. Phép so SLA dịch sang SQL ở `leadSlaSql.ts` (cùng chính
+     *       sách, cùng mốc `now`) nên kết quả trùng khít với `computeSla` trong JS.
+     */
+    ctx.db
+      .select({
+        status: leads.status,
+        n: sql<number>`count(*)::int`,
+        overdue: sql<number>`count(*) filter (where ${overdueCond})::int`,
+        warning: sql<number>`count(*) filter (where ${warningCond})::int`,
+      })
+      .from(leads)
+      .where(and(...conds))
+      .groupBy(leads.status),
     Promise.all([
       ctx.db.selectDistinct({ id: users.id, name: users.fullName }).from(leads).innerJoin(users, eq(users.id, leads.assignedToId)).where(and(...scopeConds)).orderBy(asc(users.fullName)).limit(100),
       ctx.db.select({ source: leads.source, n: sql<number>`count(*)::int` }).from(leads).where(and(...scopeConds, sql`${leads.source} is not null`)).groupBy(leads.source).orderBy(desc(sql`count(*)`)).limit(30),
     ]),
   ]);
 
-  const now = nowIso();
+  const now = nowAt.toISOString();
   const full = canSeeLeadPhone(ctx);
   const reader = leadReader(ctx, input.centerId ?? null);
-  const policy = await resolveAdmissionsPolicy(ctx.db, input.centerId ?? null);
   const slaOf = (st: LeadStatus, t: Date) => computeSla(st, t.toISOString(), now, policy.sla);
   const items = rows
     // Che dữ liệu cá nhân của trung tâm nhượng quyền khác khi tenant đó không cho Hội sở xem PII
@@ -312,18 +334,19 @@ export async function leadInbox(ctx: ProtectedContext, input: LeadInboxInput) {
       canAssign: authorize(ctx.actor, "lead:update", { centerId: r.centerId }).allowed,
     }))
     .sort((a, b) => (openView ? b.sla.overdueMinutes - a.sla.overdueMinutes || a.lastTouchAt.getTime() - b.lastTouchAt.getTime() : 0));
-  const levels = light.map((l) => slaOf(l.status, l.lastTouchAt).level);
+  const total = summaryRows.reduce((n, r) => n + r.n, 0);
+  const byStatusCount = new Map(summaryRows.map((r) => [r.status, r.n]));
   return {
     items,
-    total: light.length,
+    total,
     page,
     pageSize: paged ? pageSize : items.length,
     facets: { assignees: facets[0], sources: facets[1].map((x) => ({ source: x.source!, n: x.n })) },
     summary: {
-      total: light.length,
-      overdue: levels.filter((l) => l === "overdue").length,
-      warning: levels.filter((l) => l === "warning").length,
-      byStatus: Object.fromEntries(LEAD_STATUSES.map((st) => [st, light.filter((i) => i.status === st).length])) as Record<LeadStatus, number>,
+      total,
+      overdue: summaryRows.reduce((n, r) => n + r.overdue, 0),
+      warning: summaryRows.reduce((n, r) => n + r.warning, 0),
+      byStatus: Object.fromEntries(LEAD_STATUSES.map((st) => [st, byStatusCount.get(st) ?? 0])) as Record<LeadStatus, number>,
     },
   };
 }
@@ -475,25 +498,45 @@ export async function exportLeads(ctx: ProtectedContext, input: LeadInboxInput) 
   };
 }
 
+/** Cỡ một lô khi xuất — đủ lớn để ít lượt đi về, đủ nhỏ để không dựng 10.000 dòng trong một câu */
+const LEAD_EXPORT_BATCH = 1_000;
+
+/**
+ * Đọc dữ liệu xuất THEO LÔ.
+ * Trước: một câu `limit 10_000` — Postgres phải dựng và gửi cả 10.000 dòng (kèm 3 bảng nối)
+ *        trong một lượt, đỉnh bộ nhớ cao ở cả hai đầu.
+ * Sau:  đếm trước bằng `count(*)`, rồi đọc `limit 1000 / offset` cho tới khi đủ — thứ tự có
+ *       khoá phụ `id` để hai lô liền nhau không trùng / không sót dòng khi `created_at` bằng nhau.
+ */
 async function leadRowsForExport(ctx: ProtectedContext, input: LeadInboxInput) {
   const conds = leadFilterConds(ctx, input);
-  const [rows, [count]] = await Promise.all([
-    ctx.db
-      .select({
-        id: leads.id, tenantId: leads.tenantId, status: leads.status, parentName: leads.parentName, phoneNormalized: leads.phoneNormalized, email: leads.email, childName: leads.childName,
-        childGrade: leads.childGrade, source: leads.source, utmCampaign: leads.utmCampaign, centerCode: centers.code, courseCode: courses.code,
-        assigneeName: users.fullName, lastTouchAt: leads.lastTouchAt, createdAt: leads.createdAt, reentryCount: leads.reentryCount, sharedWithCenter: leads.sharedWithCenter,
-      })
-      .from(leads)
-      .leftJoin(centers, eq(centers.id, leads.centerId))
-      .leftJoin(courses, eq(courses.id, leads.interestedCourseId))
-      .leftJoin(users, eq(users.id, leads.assignedToId))
-      .where(and(...conds))
-      .orderBy(desc(leads.createdAt))
-      .limit(LEAD_EXPORT_MAX_ROWS),
-    ctx.db.select({ n: sql<number>`count(*)::int` }).from(leads).where(and(...conds)),
-  ]);
-  return { rows, total: count?.n ?? rows.length };
+  const [count] = await ctx.db.select({ n: sql<number>`count(*)::int` }).from(leads).where(and(...conds));
+  const total = count?.n ?? 0;
+  const rows: Awaited<ReturnType<typeof readLeadExportBatch>> = [];
+  for (const range of batchRanges(Math.min(total, LEAD_EXPORT_MAX_ROWS), LEAD_EXPORT_BATCH)) {
+    const batch = await readLeadExportBatch(ctx, conds, range);
+    rows.push(...batch);
+    // Dữ liệu vừa bị xoá giữa chừng → không còn dòng nào nữa, dừng sớm
+    if (batch.length < range.limit) break;
+  }
+  return { rows, total };
+}
+
+function readLeadExportBatch(ctx: ProtectedContext, conds: ReturnType<typeof leadFilterConds>, range: { offset: number; limit: number }) {
+  return ctx.db
+    .select({
+      id: leads.id, tenantId: leads.tenantId, status: leads.status, parentName: leads.parentName, phoneNormalized: leads.phoneNormalized, email: leads.email, childName: leads.childName,
+      childGrade: leads.childGrade, source: leads.source, utmCampaign: leads.utmCampaign, centerCode: centers.code, courseCode: courses.code,
+      assigneeName: users.fullName, lastTouchAt: leads.lastTouchAt, createdAt: leads.createdAt, reentryCount: leads.reentryCount, sharedWithCenter: leads.sharedWithCenter,
+    })
+    .from(leads)
+    .leftJoin(centers, eq(centers.id, leads.centerId))
+    .leftJoin(courses, eq(courses.id, leads.interestedCourseId))
+    .leftJoin(users, eq(users.id, leads.assignedToId))
+    .where(and(...conds))
+    .orderBy(desc(leads.createdAt), desc(leads.id))
+    .limit(range.limit)
+    .offset(range.offset);
 }
 
 async function loadForWrite(ctx: ProtectedContext, id: string) {

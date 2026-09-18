@@ -7,6 +7,7 @@ import {
 import {
   reportCardTransition, reportCardMilestones, milestoneLabel, validateReportCard, averageScore, gradeFromAverage, certificateNumber,
   completionCheck, completionTransition, validateCompletionInput, enrollmentTransition, visibleCenterIds, authorize,
+  addDays as addDaysISO, clampPageSize,
   type ReportCardStatus, type CompletionStatus,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
@@ -125,10 +126,20 @@ export async function classReportCards(ctx: ProtectedContext, classId: string) {
   };
 }
 
+/** Điều kiện của "học bạ mốc chưa viết" — dùng chung cho danh sách và cho phép đếm */
+function dueReportCardConds(ctx: ProtectedContext, today: string) {
+  const visible = visibleCenterIds(ctx.actor);
+  return and(
+    lte(sessions.date, today),
+    sql`${sessions.status} not in ('cancelled','rescheduled')`,
+    visible === null ? sql`true` : visible.length ? inArray(classes.centerId, visible) : sql`false`,
+    sql`not exists (select 1 from ${reportCards} rc where rc.enrollment_id = ${enrollments.id} and rc.milestone_seq = ${sessions.sequenceNo} and rc.status in ('submitted','approved','published'))`,
+  );
+}
+
 /** Học bạ quá hạn chưa viết/chưa gửi (cho dashboard) */
 export async function dueReportCards(ctx: ProtectedContext, input: { limit?: number } = {}) {
   requirePermission(ctx, "report_card:read", {});
-  const visible = visibleCenterIds(ctx.actor);
   const today = todayISO();
   const rows = await ctx.db
     .select({ enrollmentId: enrollments.id, studentName: students.fullName, classId: classes.id, classCode: classes.code, seq: sessions.sequenceNo, date: sessions.date })
@@ -137,15 +148,35 @@ export async function dueReportCards(ctx: ProtectedContext, input: { limit?: num
     .innerJoin(lessons, and(eq(lessons.id, sessions.lessonId), eq(lessons.isReportCardMilestone, true)))
     .innerJoin(enrollments, and(eq(enrollments.classId, classes.id), inArray(enrollments.status, ["active", "trial"]), lte(enrollments.startSequenceNo, sessions.sequenceNo)))
     .innerJoin(students, eq(students.id, enrollments.studentId))
-    .where(and(
-      lte(sessions.date, today),
-      sql`${sessions.status} not in ('cancelled','rescheduled')`,
-      visible === null ? sql`true` : visible.length ? inArray(classes.centerId, visible) : sql`false`,
-      sql`not exists (select 1 from ${reportCards} rc where rc.enrollment_id = ${enrollments.id} and rc.milestone_seq = ${sessions.sequenceNo} and rc.status in ('submitted','approved','published'))`,
-    ))
+    .where(dueReportCardConds(ctx, today))
     .orderBy(asc(sessions.date))
-    .limit(input.limit ?? 200);
+    .limit(clampPageSize(input.limit, 200, 500));
   return rows;
+}
+
+/**
+ * Đếm học bạ mốc chưa viết bằng `count(*)`, kèm số đã quá 3 ngày.
+ *
+ * Trước: hộp việc và dashboard đều gọi `dueReportCards({limit: 200 | 500})` rồi lấy `.length` —
+ *        con số hiển thị BỊ CẮT ở đúng trần đó, và vẫn phải kéo về 200–500 dòng chỉ để đếm.
+ * Sau:  1 truy vấn `count(*)` (không tải dòng nào) cho cả tổng lẫn số quá hạn.
+ */
+export async function countDueReportCards(ctx: ProtectedContext): Promise<{ total: number; overdue: number }> {
+  requirePermission(ctx, "report_card:read", {});
+  const today = todayISO();
+  const cutoff = addDaysISO(today, -3);
+  const [r] = await ctx.db
+    .select({
+      total: sql<number>`count(*)::int`,
+      overdue: sql<number>`count(*) filter (where ${sessions.date} < ${cutoff})::int`,
+    })
+    .from(sessions)
+    .innerJoin(classes, eq(classes.id, sessions.classId))
+    .innerJoin(lessons, and(eq(lessons.id, sessions.lessonId), eq(lessons.isReportCardMilestone, true)))
+    .innerJoin(enrollments, and(eq(enrollments.classId, classes.id), inArray(enrollments.status, ["active", "trial"]), lte(enrollments.startSequenceNo, sessions.sequenceNo)))
+    .innerJoin(students, eq(students.id, enrollments.studentId))
+    .where(dueReportCardConds(ctx, today));
+  return { total: r?.total ?? 0, overdue: r?.overdue ?? 0 };
 }
 
 export async function getReportCard(ctx: ProtectedContext, input: { enrollmentId: string; milestoneSeq: number }) {
@@ -427,8 +458,12 @@ export async function proposeCompletion(ctx: ProtectedContext, input: { items: {
   return { results, ok: results.filter((r) => r.ok).length, failed: results.filter((r) => !r.ok).length };
 }
 
-/** Đề xuất hoàn thành khoá đang chờ duyệt (trong phạm vi cơ sở của người dùng) */
-export async function pendingCompletions(ctx: ProtectedContext) {
+/**
+ * Đề xuất hoàn thành khoá đang chờ duyệt (trong phạm vi cơ sở của người dùng).
+ * Trước: KHÔNG có `limit` — nối 6 bảng và kéo về mọi đề xuất đang chờ của toàn chuỗi.
+ * Sau:  trần cứng 300 dòng (mặc định), chỉnh được qua `limit`.
+ */
+export async function pendingCompletions(ctx: ProtectedContext, input: { limit?: number } = {}) {
   requirePermission(ctx, "completion:approve", {});
   const visible = visibleCenterIds(ctx.actor);
   const rows = await ctx.db
@@ -447,7 +482,8 @@ export async function pendingCompletions(ctx: ProtectedContext) {
     .innerJoin(courses, eq(courses.id, courseCompletions.courseId))
     .leftJoin(users, eq(users.id, courseCompletions.proposedBy))
     .where(and(eq(courseCompletions.status, "proposed"), visible === null ? sql`true` : visible.length ? inArray(classes.centerId, visible) : sql`false`))
-    .orderBy(asc(courseCompletions.proposedAt));
+    .orderBy(asc(courseCompletions.proposedAt))
+    .limit(clampPageSize(input.limit, 300, 500));
   return rows.filter((r) => authorize(ctx.actor, "completion:approve", { centerId: r.centerId }).allowed);
 }
 
