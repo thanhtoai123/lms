@@ -14,6 +14,7 @@ import { putObject, signedFileUrl } from "../storage";
 import { todayISO } from "./sessions";
 import { notify } from "./finance";
 import { upsertStaff } from "./hr";
+import { assertCenterTenant, tenantCond, tenantCondViaCenter, tenantSql } from "./tenantScope";
 
 type Db = ProtectedContext["db"];
 const bad = (m: string | string[]) => new TRPCError({ code: "BAD_REQUEST", message: Array.isArray(m) ? m.join("; ") : m });
@@ -48,7 +49,7 @@ function canManageJob(ctx: ProtectedContext, centerId: string | null) {
 export async function listJobs(ctx: ProtectedContext, input: { status?: JobStatus; q?: string }) {
   const ids = centersWith(ctx.actor, "recruit:read");
   if (ids !== null && ids.length === 0) throw forbid("Không có quyền xem tuyển dụng");
-  const conds: SQL[] = [scopeSql(jobPostings.centerId, ids)];
+  const conds: SQL[] = [scopeSql(jobPostings.centerId, ids), tenantCondViaCenter(ctx, jobPostings.centerId)];
   if (input.status) conds.push(eq(jobPostings.status, input.status));
   if (input.q?.trim()) conds.push(or(ilike(jobPostings.title, `%${input.q.trim()}%`), ilike(jobPostings.code, `%${input.q.trim()}%`))!);
   const r = await ctx.db.select({
@@ -60,7 +61,7 @@ export async function listJobs(ctx: ProtectedContext, input: { status?: JobStatu
   }).from(jobPostings).leftJoin(centers, eq(centers.id, jobPostings.centerId)).where(and(...conds))
     .orderBy(sql`case ${jobPostings.status} when 'open' then 0 when 'draft' then 1 when 'paused' then 2 else 3 end`, desc(jobPostings.createdAt)).limit(200);
   const vis = centersWith(ctx.actor, "recruit:create");
-  const ctrs = await ctx.db.select({ id: centers.id, code: centers.code, name: centers.name }).from(centers).where(eq(centers.isActive, true)).orderBy(asc(centers.code));
+  const ctrs = await ctx.db.select({ id: centers.id, code: centers.code, name: centers.name }).from(centers).where(and(eq(centers.isActive, true), tenantCond(ctx, centers))).orderBy(asc(centers.code));
   const today = todayISO();
   const upcoming = await ctx.db.select({ id: interviews.id, at: interviews.scheduledAt, candidate: candidates.fullName, candidateId: candidates.id, job: jobPostings.title })
     .from(interviews).innerJoin(candidates, eq(candidates.id, interviews.candidateId)).innerJoin(jobPostings, eq(jobPostings.id, candidates.jobId))
@@ -87,6 +88,8 @@ export async function upsertJob(ctx: ProtectedContext, input: JobInput) {
   const before = input.id ? await ctx.db.query.jobPostings.findFirst({ where: eq(jobPostings.id, input.id) }) : undefined;
   if (input.id && !before) throw notFound("Không tìm thấy tin tuyển dụng");
   if (before && !canManageJob(ctx, before.centerId)) throw forbid("Không có quyền sửa tin này");
+  await assertCenterTenant(ctx, before?.centerId ?? null, "Tin tuyển dụng");
+  await assertCenterTenant(ctx, centerId);
   const ok = centerId === null ? centersWith(ctx.actor, before ? "recruit:update" : "recruit:create") === null : can(ctx, before ? "recruit:update" : "recruit:create", centerId);
   if (!ok) throw forbid(centerId === null ? "Tin toàn hệ thống do Hội sở tạo — chọn cơ sở" : "Không có quyền tuyển dụng ở cơ sở này");
   if (before?.status === "closed") throw pre("Tin đã đóng — mở lại trước khi sửa");
@@ -115,6 +118,7 @@ export async function setJobStatus(ctx: ProtectedContext, input: { id: string; s
   const j = await ctx.db.query.jobPostings.findFirst({ where: eq(jobPostings.id, input.id) });
   if (!j) throw notFound("Không tìm thấy tin tuyển dụng");
   if (!canManageJob(ctx, j.centerId)) throw forbid("Không có quyền");
+  await assertCenterTenant(ctx, j.centerId, "Tin tuyển dụng");
   const to = rule(() => jobTransition(j.status as JobStatus, input.status, { deadline: j.deadline, today: todayISO() }));
   const now = new Date();
   await ctx.db.update(jobPostings).set({ status: to, ...(to === "open" && !j.openedAt ? { openedAt: now } : {}), ...(to === "closed" ? { closedAt: now } : {}) }).where(eq(jobPostings.id, j.id));
@@ -205,6 +209,8 @@ async function loadJobForRead(ctx: ProtectedContext, id: string) {
   if (!j) throw notFound("Không tìm thấy tin tuyển dụng");
   const ids = centersWith(ctx.actor, "recruit:read");
   if (ids !== null && (j.centerId ? !ids.includes(j.centerId) : ids.length === 0)) throw forbid("Không xem được tin này");
+  // Tin của cơ sở thuộc trung tâm khác: chặn xem chéo
+  await assertCenterTenant(ctx, j.centerId, "Tin tuyển dụng");
   return j;
 }
 
@@ -234,6 +240,8 @@ async function loadCandidate(ctx: ProtectedContext, id: string) {
   const c = await ctx.db.query.candidates.findFirst({ where: eq(candidates.id, id) });
   if (!c) throw notFound("Không tìm thấy ứng viên");
   const j = await ctx.db.query.jobPostings.findFirst({ where: eq(jobPostings.id, c.jobId) });
+  // Hồ sơ ứng viên đi theo tin tuyển dụng → theo cơ sở → theo trung tâm (tenant)
+  await assertCenterTenant(ctx, j?.centerId ?? null, "Hồ sơ ứng viên");
   return { c, j: j! };
 }
 /** Người phỏng vấn được xem hồ sơ ứng viên mình phỏng vấn */
@@ -340,6 +348,7 @@ export async function cancelInterview(ctx: ProtectedContext, input: { id: string
 export async function hireCandidate(ctx: ProtectedContext, input: { id: string; centerId: string; title: string; department: Department; hiredAt: string }) {
   const { c, j } = await loadCandidate(ctx, input.id);
   if (!can(ctx, "recruit:update", j.centerId)) throw forbid("Không có quyền");
+  await assertCenterTenant(ctx, input.centerId);
   if (c.stage !== "offer") throw pre("Chỉ nhận việc ứng viên đã được đề nghị");
   const r = await upsertStaff(ctx, {
     fullName: c.fullName, email: c.email, phone: c.phone, centerId: input.centerId, department: input.department, title: input.title,
@@ -381,7 +390,8 @@ export async function candidateRetention(db: Database, opts: { dryRun: boolean }
 export async function recruitReport(ctx: ProtectedContext) {
   const ids = centersWith(ctx.actor, "recruit:read");
   if (ids !== null && ids.length === 0) throw forbid("Không có quyền");
-  const scope = scopeSql(sql`j.center_id`, ids);
+  // Tin của cơ sở thuộc trung tâm khác không được cộng vào báo cáo
+  const scope = sql`${scopeSql(sql`j.center_id`, ids)} and (j.center_id is null or exists (select 1 from centers tc where tc.id = j.center_id and ${tenantSql(ctx, "tc")}))`;
   const [r] = (await ctx.db.execute(sql`
     select count(*)::int as total,
       count(*) filter (where c.stage = 'hired')::int as hired,

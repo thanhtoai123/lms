@@ -9,8 +9,8 @@
  *
  * Luật thuần nằm ở packages/core/src/org/tenant.ts; file này chỉ nối vào Drizzle và ngữ cảnh tRPC.
  */
-import { inArray, isNull, or, sql, type SQL } from "drizzle-orm";
-import type { PgColumn } from "drizzle-orm/pg-core";
+import { eq, inArray, isNull, or, sql, type SQL } from "drizzle-orm";
+import type { AnyPgColumn, PgColumn } from "drizzle-orm/pg-core";
 import { centers } from "@satarobo/db";
 import {
   assertTenantScope, assertTransferAllowed, canSeePii, canSeeFinanceDetail, assertFinanceDetail, maskOutsideTenant, withSettingsDefaults,
@@ -61,10 +61,62 @@ export function onlyTenant(table: TenantTable, tenantId: string): SQL {
   return inArray(table.tenantId, [tenantId]);
 }
 
+/** Bí danh bảng hợp lệ trong SQL thô (chỉ chữ / số / gạch dưới) — không bao giờ nhận dữ liệu người dùng */
+function aliasCol(alias: string): SQL {
+  const a = /^[A-Za-z_][A-Za-z0-9_]*$/.test(alias) ? alias : "tenant_alias_khong_hop_le";
+  return sql.raw(`${a}.tenant_id`);
+}
+
+/**
+ * Điều kiện lọc tenant cho SQL THÔ — các báo cáo chuyên sâu viết SQL tay và dùng bí danh bảng
+ * (`from leads l`), nên không dùng được `tenantCond` (nó in ra tên bảng đầy đủ).
+ * Cách dùng: ``sql`where ... and ${tenantSql(ctx, "l")}` ``.
+ */
+export function tenantSql(ctx: Ctx, alias: string): SQL {
+  if (!ctx.tenantIds.length) return sql`true`;
+  const col = aliasCol(alias);
+  return sql`(${col} is null or ${col} in (${sql.join(ctx.tenantIds.map((i) => sql`${i}::uuid`), sql`, `)}))`;
+}
+
+/** Như `tenantSql` nhưng chặt hơn: loại trung tâm nhượng quyền của người khác (dữ liệu không chia sẻ) */
+export function tenantSqlStrict(ctx: Ctx, alias: string): SQL {
+  if (!ctx.tenantIds.length) return sql`true`;
+  const ids = detailTenantIds(ctx);
+  if (!ids.length) return sql`false`;
+  const col = aliasCol(alias);
+  return sql`(${col} is null or ${col} in (${sql.join(ids.map((i) => sql`${i}::uuid`), sql`, `)}))`;
+}
+
+/**
+ * Lọc theo trung tâm cho bảng CHƯA có cột `tenant_id` nhưng có cột cơ sở
+ * (kho / học cụ, tuyển dụng, go-live): suy tenant qua cơ sở của dòng.
+ * Dòng dùng chung (`center_id` rỗng) vẫn hiện — giống cách `tenantCond` không chặn dòng chưa gắn tenant.
+ */
+export function tenantCondViaCenter(ctx: Ctx, centerCol: AnyPgColumn): SQL {
+  if (!ctx.tenantIds.length) return sql`true`;
+  return sql`(${centerCol} is null or exists (select 1 from ${centers} tc where tc.id = ${centerCol} and ${tenantSql(ctx, "tc")}))`;
+}
+
 /** Chặn đọc / ghi chéo tenant sau khi nạp bản ghi theo id */
 export function assertTenant(ctx: Ctx, row: { tenantId?: string | null } | null | undefined, what = "Bản ghi"): void {
   if (!row) return;
   assertTenantScope(ctx.tenantIds, row, what);
+}
+
+/**
+ * Chặn thao tác lên một CƠ SỞ thuộc trung tâm khác.
+ * Dùng cho các procedure nhận `centerId` rồi ghi dữ liệu (go-live, kho, tuyển dụng…),
+ * nơi bản thân bảng đích chưa có cột tenant.
+ */
+export async function assertCenterTenant(
+  ctx: Ctx & { db: Context["db"] },
+  centerId: string | null | undefined,
+  what = "Cơ sở",
+): Promise<void> {
+  if (!centerId) return;
+  const [c] = await ctx.db.select({ tenantId: centers.tenantId }).from(centers).where(eq(centers.id, centerId)).limit(1);
+  if (!c) return;
+  assertTenant(ctx, c, what);
 }
 
 export function tenantById(ctx: Ctx, tenantId: string | null | undefined): TenantRuntime | null {

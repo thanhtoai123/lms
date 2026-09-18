@@ -6,6 +6,7 @@ import {
   type Role, type PreflightKey,
 } from "@satarobo/core";
 import type { ProtectedContext } from "../trpc";
+import { assertCenterTenant } from "./tenantScope";
 
 type Db = ProtectedContext["db"];
 const bad = (m: string) => new TRPCError({ code: "BAD_REQUEST", message: m });
@@ -90,6 +91,7 @@ export async function preflightCounts(db: Db, centerId: string): Promise<Record<
 
 export async function centerReadiness(ctx: ProtectedContext, input: { centerId: string }) {
   if (!authorize(ctx.actor, "cutover:read", { centerId: input.centerId }).allowed) throw forbid("Không có quyền với cơ sở này");
+  await assertCenterTenant(ctx, input.centerId);
   const [pf, tr] = await Promise.all([preflightCounts(ctx.db, input.centerId), centerTraining(ctx.db, input.centerId)]);
   return { preflight: preflightSummary(pf), training: tr, modules: TRAINING_MODULES.map((m) => ({ key: m.key, title: m.title })) };
 }
