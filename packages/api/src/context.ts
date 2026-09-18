@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { and, eq, gte, isNull, lte, or } from "drizzle-orm";
-import { getDb, users, userRoles, teachers, parents, staff, staffDeployments, userGroups, userGroupMembers, userGroupPermissions, tenants, tenantSettings, type Database } from "@satarobo/db";
+import { getDb, users, userRoles, teachers, parents, staff, staffDeployments, userGroups, userGroupMembers, userGroupPermissions, tenants, tenantSettings, withDbErrors, type Database } from "@satarobo/db";
 import {
   decodeJwtPayload, mfaRequiredRoles, mfaState, activeRoleAssignments, widenByDeployments, tenantScope, withSettingsDefaults,
   devActorAllowed, normalizeDevActor, DEV_ACTOR_HEADER,
@@ -96,9 +96,11 @@ export async function createContext(opts: { headers: Headers; ip?: string }): Pr
   const emptyTenant = { tenantId: null, tenantIds: [] as string[], tenants: [] as TenantRuntime[] };
   if (!email) return { db, actor: null, user: null, ip: opts.ip, ...emptyTenant };
 
-  const u = authSubject
-    ? await db.query.users.findFirst({ where: eq(users.authSubject, authSubject) })
-    : await db.query.users.findFirst({ where: eq(users.email, email) });
+  // Truy vấn ĐẦU TIÊN chạm CSDL: nếu Postgres chưa chạy thì báo bằng một câu tiếng Việt rõ ràng
+  // thay vì ném nguyên câu SQL kèm tên mọi cột ra màn hình lỗi.
+  const u = await withDbErrors(() => (authSubject
+    ? db.query.users.findFirst({ where: eq(users.authSubject, authSubject) })
+    : db.query.users.findFirst({ where: eq(users.email, email) })));
   if (!u || !u.isActive) return { db, actor: null, user: null, ip: opts.ip, ...emptyTenant };
 
   // Liên kết auth_subject lần đầu đăng nhập qua Supabase

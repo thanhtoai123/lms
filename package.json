@@ -10,6 +10,7 @@
   "scripts": {
     "prepare": "pnpm --filter @satarobo/core build",
     "dev": "turbo run dev --parallel",
+    "khoi-dong": "powershell -ExecutionPolicy Bypass -File ./scripts/khoi-dong.ps1",
     "build": "turbo run build",
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",
