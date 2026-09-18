@@ -1,11 +1,24 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { idleExpired, devActorAllowed, DEV_ACTOR_HEADER } from "@satarobo/core";
+import {
+  idleExpired,
+  devActorAllowed,
+  DEV_ACTOR_HEADER,
+  NEXT_NONCE_REQUEST_HEADER,
+  NONCE_REQUEST_HEADER,
+  cspHeaderName,
+  generateNonce,
+  securityHeaderOptions,
+  securityHeaders,
+} from "@satarobo/core";
 import { ACCESS_COOKIE, IDLE_COOKIE, REFRESH_COOKIE, SEEN_COOKIE, cookieOptions, needsRefresh, refreshSession, seenCookieOptions, supabaseOn } from "@/lib/auth-session";
 
 /**
  * Chặn sớm: chưa có phiên đăng nhập thì chuyển về /login?next=… trước khi render
  * (không render trang quản trị rồi mới redirect). Kiểm tra quyền thật vẫn ở service/policy.
  * Phiên Supabase sắp hết hạn thì làm mới tại đây (trang) và ở /api/trpc (gọi API).
+ *
+ * Đây cũng là NƠI DUY NHẤT gắn header bảo mật cho phản hồi trang, vì CSP có **nonce sinh
+ * theo từng yêu cầu** nên không đặt tĩnh trong `next.config.ts` được.
  */
 const PUBLIC = [/^\/login(\/|$)/, /^\/quen-mat-khau(\/|$)/, /^\/dat-mat-khau(\/|$)/, /^\/ks(\/|$)/, /^\/bt(\/|$)/, /^\/tin-tuc(\/|$)/, /^\/gioi-thieu(\/|$)/, /^\/logout(\/|$)/, /^\/dang-ky(\/|$)/, /^\/tuyen-dung(\/|$)/, /^\/tn(\/|$)/, /^\/ph(\/|$)/, /^\/tra-cuu-hoa-don(\/|$)/, /^\/api\//, /^\/_next\//, /^\/manifest\.webmanifest$/, /^\/favicon/, /\.(?:png|jpg|jpeg|svg|ico|webp|txt|xml)$/];
 
@@ -17,9 +30,42 @@ function toLogin(req: NextRequest) {
   return NextResponse.redirect(url);
 }
 
+/**
+ * Gắn bộ header bảo mật (CSP có nonce, HSTS, nosniff, Referrer-Policy, Permissions-Policy,
+ * COOP, CORP, frame-ancestors) lên MỌI phản hồi đi qua proxy — kể cả redirect.
+ * Định nghĩa nằm ở `@satarobo/core/security/headers` để chỉ có một nơi phải sửa.
+ */
+function withSecurity(res: NextResponse, nonce: string) {
+  for (const [k, v] of securityHeaders(securityHeaderOptions(process.env, nonce))) res.headers.set(k, v);
+  return res;
+}
+
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
-  if (PUBLIC.some((r) => r.test(pathname))) return NextResponse.next();
+
+  // Mỗi yêu cầu một nonce. Next.js đọc nonce từ header `Content-Security-Policy` TRÊN YÊU CẦU
+  // rồi tự gắn `nonce=…` cho các thẻ <script> nó sinh ra (bootstrap, dữ liệu RSC, các mảnh JS);
+  // vì vậy phải đặt header này lên request, không chỉ lên response.
+  const nonce = generateNonce();
+  const opts = securityHeaderOptions(process.env, nonce);
+  const cspValue = securityHeaders(opts).find(([k]) => k === cspHeaderName(opts.reportOnly))![1];
+  /**
+   * Dựng lại header của YÊU CẦU tại thời điểm gọi — phải đọc `req.headers` muộn vì
+   * `req.cookies.set()` ở nhánh làm mới phiên có sửa lại header `cookie`.
+   */
+  const requestHeaders = () => {
+    const h = new Headers(req.headers);
+    // Header do máy khách tự gửi không được lẫn vào, nếu không người gọi tự chọn nonce của chính mình
+    h.delete(NONCE_REQUEST_HEADER);
+    h.delete("content-security-policy");
+    h.delete("content-security-policy-report-only");
+    h.set(NONCE_REQUEST_HEADER, nonce);
+    h.set(opts.reportOnly ? "content-security-policy-report-only" : NEXT_NONCE_REQUEST_HEADER, cspValue);
+    return h;
+  };
+  const pass = () => NextResponse.next({ request: { headers: requestHeaders() } });
+
+  if (PUBLIC.some((r) => r.test(pathname))) return withSecurity(pass(), nonce);
   const access = req.cookies.get(ACCESS_COOKIE)?.value;
   const refresh = req.cookies.get(REFRESH_COOKIE)?.value;
   const dev = devActorAllowed(process.env) && req.cookies.has(DEV_ACTOR_HEADER);
@@ -32,12 +78,12 @@ export async function proxy(req: NextRequest) {
     const url = req.nextUrl.clone();
     url.pathname = "/logout";
     url.search = "?reason=idle";
-    return NextResponse.redirect(url);
+    return withSecurity(NextResponse.redirect(url), nonce);
   }
   const touch = (res: NextResponse) => {
     // Mỗi lần mở trang = một lần thao tác; ghi tối đa mỗi 30 giây
     if ((access || refresh) && (!seen || now - seen > 30_000)) res.cookies.set(SEEN_COOKIE, String(now), seenCookieOptions());
-    return res;
+    return withSecurity(res, nonce);
   };
 
   if (supabaseOn() && needsRefresh(access, refresh)) {
@@ -45,7 +91,7 @@ export async function proxy(req: NextRequest) {
     if (s && s !== "network") {
       req.cookies.set(ACCESS_COOKIE, s.access_token);
       req.cookies.set(REFRESH_COOKIE, s.refresh_token);
-      const res = NextResponse.next({ request: { headers: req.headers } });
+      const res = NextResponse.next({ request: { headers: requestHeaders() } });
       res.cookies.set(ACCESS_COOKIE, s.access_token, cookieOptions("access", s.expires_in));
       res.cookies.set(REFRESH_COOKIE, s.refresh_token, cookieOptions("refresh"));
       return touch(res);
@@ -54,11 +100,11 @@ export async function proxy(req: NextRequest) {
       const res = toLogin(req);
       res.cookies.delete(ACCESS_COOKIE);
       res.cookies.delete(REFRESH_COOKIE);
-      return res;
+      return withSecurity(res, nonce);
     }
   }
-  if (access || refresh || dev) return touch(NextResponse.next());
-  return toLogin(req);
+  if (access || refresh || dev) return touch(pass());
+  return withSecurity(toLogin(req), nonce);
 }
 
 export const config = {
