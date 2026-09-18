@@ -56,8 +56,12 @@ BEGIN
   LOOP
     EXECUTE format('DROP TRIGGER IF EXISTS %I ON %I', 'fill_tenant_id_' || r.table_name, r.table_name);
     EXECUTE format('CREATE TRIGGER %I BEFORE INSERT ON %I FOR EACH ROW EXECUTE FUNCTION fill_tenant_id()', 'fill_tenant_id_' || r.table_name, r.table_name);
-    -- Backfill: mọi dữ liệu đang có về tenant mặc định `SATA`
+    -- Backfill: mọi dữ liệu đang có về tenant mặc định `SATA`.
+    -- Vài bảng là "chỉ ghi thêm" (audit_log, finance_ledger, attendance_punches…) nên UPDATE bị trigger chặn;
+    -- tắt trigger người dùng đúng trong lúc backfill rồi bật lại — không đụng ràng buộc khoá ngoại.
+    EXECUTE format('ALTER TABLE %I DISABLE TRIGGER USER', r.table_name);
     EXECUTE format('UPDATE %I SET tenant_id = (SELECT id FROM tenants WHERE is_default LIMIT 1) WHERE tenant_id IS NULL', r.table_name);
+    EXECUTE format('ALTER TABLE %I ENABLE TRIGGER USER', r.table_name);
     -- Lọc theo tenant phải rẻ: một index cho mỗi bảng
     EXECUTE format('CREATE INDEX IF NOT EXISTS %I ON %I (tenant_id)', r.table_name || '_tenant_idx', r.table_name);
   END LOOP;

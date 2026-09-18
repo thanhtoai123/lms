@@ -18,6 +18,7 @@
     "db:push": "pnpm --filter @satarobo/db push",
     "db:migrate": "pnpm --filter @satarobo/db migrate",
     "db:seed": "pnpm --filter @satarobo/db seed",
+    "db:reset": "pnpm --filter @satarobo/db reset",
     "db:apply-sql": "pnpm --filter @satarobo/db apply-sql",
     "db:studio": "pnpm --filter @satarobo/db studio",
     "migrate:legacy": "pnpm --filter @satarobo/migrate-legacy start",
