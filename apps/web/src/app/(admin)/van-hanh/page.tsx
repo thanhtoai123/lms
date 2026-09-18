@@ -28,8 +28,8 @@ export default async function OpsPage() {
   const v = d.volume as Record<string, number | string> | null;
   return (
     <div className="space-y-4">
-      <PageHeader title="Vận hành & sao lưu" desc={`Môi trường: ${d.production ? "PRODUCTION" : "phát triển / thử nghiệm"} · phiên bản ${d.health.version}. Giám sát ngoài gọi /api/health (200 = sống, 503 = hỏng). Sao lưu chạy hằng đêm bằng scripts/ops/backup; thử khôi phục định kỳ.`}
-        actions={<div className="flex gap-2"><Link href="/tich-hop" className="btn-ghost">Tích hợp</Link><a href="/api/health" target="_blank" className="btn-ghost">/api/health ↗</a></div>} />
+      <PageHeader title="Vận hành & sao lưu" desc={`Môi trường: ${d.production ? "PRODUCTION" : "phát triển / thử nghiệm"} · phiên bản ${d.health.version}. Giám sát ngoài gọi /api/health (tiến trình còn sống — luôn 200 khi web còn chạy) và /api/ready (200 = nhận được lưu lượng, 503 = CSDL hỏng hoặc việc nền tồn đọng). Sao lưu chạy hằng đêm bằng scripts/ops/backup; thử khôi phục định kỳ.`}
+        actions={<div className="flex gap-2"><Link href="/tich-hop" className="btn-ghost">Tích hợp</Link><a href="/api/health" target="_blank" className="btn-ghost">/api/health ↗</a><a href="/api/ready" target="_blank" className="btn-ghost">/api/ready ↗</a></div>} />
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
         <Kpi label="Sẵn sàng go-live" value={`${d.readyScore}%`} tone={d.readyScore === 100 ? "good" : d.readyScore >= 75 ? "warn" : "bad"} />
         <Kpi label="CSDL / lưu trữ" value={d.health.ok ? "Hoạt động" : "LỖI"} tone={d.health.ok ? "good" : "bad"} hint={d.health.checks.filter((c) => c.ms !== undefined).map((c) => `${c.key} ${c.ms}ms`).join(" · ")} />

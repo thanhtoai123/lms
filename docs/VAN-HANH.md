@@ -11,7 +11,16 @@ Tài liệu cho người triển khai và vận hành hệ thống quản trị.
 | PostgreSQL 16 | Dữ liệu | Không để mật khẩu mặc định; bật SSL khi DB ở máy khác |
 | Thư mục tệp (`STORAGE_DIR`) | Tài liệu, CV, ảnh, bài nộp | Đường dẫn tuyệt đối, nằm trong kế hoạch sao lưu |
 
-Theo dõi sống: cấu hình dịch vụ giám sát (UptimeRobot, BetterStack…) gọi `GET /api/health` mỗi 1–5 phút. `200` = ổn, `"status":"degraded"` = worker chậm, `503` = CSDL hoặc lưu trữ hỏng.
+Theo dõi sống — **hai endpoint, hai câu hỏi khác nhau** (chi tiết ở `docs/HIEU-NANG.md`):
+
+| Endpoint | Câu hỏi | Chạm CSDL | Dùng cho |
+|---|---|---|---|
+| `GET /api/health` | Tiến trình còn sống không? | Không | Docker / systemd / Kubernetes quyết định **khởi động lại**. Luôn `200` khi web còn chạy |
+| `GET /api/ready` | Nhận lưu lượng được không? | Có (`select 1` + tồn đọng outbox) | Bộ cân bằng tải và dịch vụ giám sát (UptimeRobot, BetterStack…) gọi mỗi 1–5 phút. `200` = sẵn sàng, `503` = CSDL hỏng **hoặc** việc nền tồn đọng |
+
+Không trộn hai vai: nếu dò "còn sống" mà phụ thuộc CSDL thì một sự cố Postgres sẽ giết và khởi động lại vòng quanh toàn bộ cụm web trong khi không tiến trình nào hỏng. Cả hai endpoint không cần đăng nhập và không tiết lộ cấu trúc hệ thống (không câu SQL, không tên bảng, không thông điệp lỗi gốc của Postgres).
+
+Trang `/van-hanh` vẫn là nơi xem chi tiết (CSDL, lưu trữ, nhịp worker, phiên bản) — endpoint chỉ trả mã và vài từ khoá.
 
 ## 2. Biến môi trường
 
@@ -22,22 +31,22 @@ Xem `.env.example`. Bắt buộc khi chạy thật: `DATABASE_URL`, `NEXT_PUBLIC
 - Hằng ngày 02:15: `scripts/ops/backup.sh` (Linux) hoặc `scripts/ops/backup.ps1` (Windows + Docker). Tạo `db-<thời điểm>.dump` (pg_dump custom) + tệp nén thư mục tải lên + `LATEST.json`. Giữ 14 ngày.
 - Chép thêm một bản ra ngoài máy chủ (ổ khác / dịch vụ đám mây) — quy tắc 3-2-1.
 - Mỗi tháng thử khôi phục: `scripts/ops/restore-test.ps1` (khôi phục vào CSDL tạm, so số dòng, ghi `restoreTestedAt`) hoặc `restore.sh` với `TARGET_URL` là CSDL thử nghiệm.
-- Khôi phục thật: dừng web + worker → `pg_restore --clean --if-exists` vào CSDL chính → giải nén tệp vào `STORAGE_DIR` → chạy `pnpm db:apply-sql` → khởi động lại → kiểm tra `/api/health`.
+- Khôi phục thật: dừng web + worker → `pg_restore --clean --if-exists` vào CSDL chính → giải nén tệp vào `STORAGE_DIR` → chạy `pnpm db:apply-sql` → khởi động lại → kiểm tra `/api/ready`.
 
 ## 4. Nâng cấp phiên bản
 
 1. Sao lưu (mục 3).
 2. `git pull` → `pnpm install --frozen-lockfile` → `pnpm db:push` (xem trước thay đổi) → `pnpm db:apply-sql` → `pnpm build`.
-3. Khởi động lại web và worker; kiểm tra `/api/health` và `/van-hanh`.
+3. Khởi động lại web và worker; kiểm tra `/api/ready` và `/van-hanh`.
 4. Đặt `APP_VERSION` = mã commit để trang Vận hành hiển thị đúng phiên bản.
 
 ## 5. Sự cố thường gặp
 
 | Hiện tượng | Kiểm tra | Xử lý |
 |---|---|---|
-| `/api/health` trả 503 | Mục `checks` | CSDL: kết nối / ổ đĩa đầy. Lưu trữ: quyền ghi `STORAGE_DIR` |
+| `/api/ready` trả 503 | Mục `checks` trong phản hồi | `database: "down"` → kết nối CSDL / ổ đĩa đầy. `outbox: "backlog"` → worker chết hoặc chạy không kịp (xem `/van-hanh` → Hàng đợi) |
 | Worker "Quá hạn" | Nhịp worker ở `/van-hanh` | Khởi động lại dịch vụ worker; xem log |
-| Outbox kẹt | `/van-hanh` → Hàng đợi | Xem lỗi trong bảng `outbox.last_error`; sửa nguyên nhân rồi đặt lại `attempts` |
+| Outbox kẹt | `/van-hanh` → Hàng đợi | Xem lỗi ở `outbox.last_error`; sửa nguyên nhân rồi bấm **Chạy lại hàng đợi chết** (`engagement.retryDeadLetter`) — việc hỏng quá 5 lần nằm ở `dead_letter_at` |
 | Webhook SePay / Messenger / Zalo bị từ chối | Hệ thống → Chạy lại webhook | Sai khoá / chữ ký: đối chiếu biến môi trường với cấu hình bên cung cấp |
 | Tin nhắn "chưa gửi ra kênh" | Quản trị hội thoại → Kênh kết nối | Thiếu token gửi, hoặc quá cửa sổ nhắn (Messenger 24h/7 ngày, Zalo OA 7 ngày) |
 
@@ -54,7 +63,7 @@ Xem `.env.example`. Bắt buộc khi chạy thật: `DATABASE_URL`, `NEXT_PUBLIC
 1. Biến môi trường đạt (trang Vận hành không còn mục đỏ).
 2. Supabase Auth bật; tạo tài khoản thật, gán vai trò theo cơ sở; tắt tài khoản mẫu.
 3. HTTPS, tên miền, `PUBLIC_FORM_ORIGINS` đúng domain website.
-4. Worker chạy như dịch vụ; `/api/health` có giám sát và cảnh báo.
+4. Worker chạy như dịch vụ; `/api/health` và `/api/ready` có giám sát và cảnh báo.
 5. Sao lưu hằng ngày + đã thử khôi phục thành công.
 6. Nhập dữ liệu cũ (`scripts/migrate-legacy`) vào môi trường thử, đối soát số học viên / công nợ / số dư xu với admin.satarobo.vn, rồi mới nhập thật.
 7. Chạy song song hệ thống cũ 1–2 tuần cho các cơ sở pilot; chốt ngày dừng nhập liệu trên hệ thống cũ.

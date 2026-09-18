@@ -1,16 +1,22 @@
-import { getDb } from "@satarobo/db";
-import { healthCheck } from "@satarobo/api";
+import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 /**
- * GET /api/health — cho giám sát (UptimeRobot, BetterStack…).
- * 200 khi DB + lưu trữ hoạt động (worker chậm chỉ báo "degraded"), 503 khi hỏng. Không chứa dữ liệu nhạy cảm.
+ * GET /api/health — "tiến trình còn sống không?" (liveness).
+ *
+ * KHÔNG chạm CSDL: bộ điều phối (Docker / Kubernetes / load balancer) dùng endpoint này để
+ * quyết định có KHỞI ĐỘNG LẠI tiến trình hay không. Nếu nó phụ thuộc vào Postgres thì một sự cố
+ * CSDL sẽ làm cả cụm web bị giết và khởi động lại vòng quanh trong khi chẳng tiến trình nào hỏng.
+ * Câu hỏi "CSDL có sẵn sàng không?" thuộc về /api/ready.
+ *
+ * Không cần đăng nhập, nhưng cũng KHÔNG tiết lộ gì: không tên máy, không phiên bản, không biến
+ * môi trường, không đường dẫn, không cấu trúc bảng. Chỉ một chữ "ok" và thời gian chạy.
  */
-export async function GET() {
-  const h = await healthCheck(getDb()).catch((e: Error) => ({ ok: false, degraded: false, checks: [{ key: "app", ok: false, note: e.message.slice(0, 120) }], version: "unknown", at: new Date().toISOString() }));
-  return Response.json(
-    { status: h.ok ? (h.degraded ? "degraded" : "ok") : "down", version: h.version, at: h.at, checks: h.checks.map((c) => ({ key: c.key, ok: c.ok, ms: "ms" in c ? c.ms : undefined, note: c.key === "worker" ? c.note : undefined })) },
-    { status: h.ok ? 200 : 503, headers: { "Cache-Control": "no-store" } },
+export function GET() {
+  return NextResponse.json(
+    { status: "ok", uptimeSec: Math.floor(process.uptime()) },
+    { headers: { "cache-control": "no-store" } },
   );
 }

@@ -1,9 +1,11 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as schema from "./schema/index";
+import { queryCountingLogger } from "./metrics";
 
 export * from "./schema/index";
 export * from "./health";
+export * from "./metrics";
 export { schema };
 
 export type Database = ReturnType<typeof createDb>;
@@ -66,7 +68,8 @@ export function createDb(url = process.env.DATABASE_URL, overrides: Partial<DbPo
       idle_in_transaction_session_timeout: String(o.idleInTransactionTimeoutMs),
     },
   });
-  return drizzle(client, { schema, casing: "snake_case" });
+  // `logger` ở đây KHÔNG in gì — chỉ đếm số truy vấn cho phần đo thủ tục chậm (xem metrics.ts)
+  return drizzle(client, { schema, casing: "snake_case", logger: queryCountingLogger });
 }
 
 /** Singleton cho runtime Next.js (tránh mở nhiều pool khi HMR) */
