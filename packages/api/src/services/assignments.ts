@@ -15,7 +15,7 @@ import { requirePermission, type ProtectedContext } from "../trpc";
 import { getOps } from "./opsSettings";
 import { writeAudit } from "./audit";
 import { putObject, signedFileUrl } from "../storage";
-import { awardCoins } from "./rewards";
+import { awardCoins, coinsForEvent } from "./rewards";
 
 type Db = ProtectedContext["db"];
 const bad = (m: string | string[]) => new TRPCError({ code: "BAD_REQUEST", message: Array.isArray(m) ? m.join("; ") : m });
@@ -369,7 +369,9 @@ export async function gradeSubmission(ctx: ProtectedContext, input: { id: string
   const now = new Date();
   await ctx.db.update(submissions).set({ status: to, score: input.score, feedback: input.feedback?.trim() || null, gradedBy: ctx.user.id, gradedAt: now, ...(s.submittedAt ? {} : { submittedAt: now, submittedVia: "staff" }) }).where(eq(submissions.id, s.id));
   let coin: { awarded: number; error: string | null } = { awarded: 0, error: null };
-  if (earnsCoin(input.score, a.maxScore, a.coinReward) && !s.coinTxId) {
+  // Luật thưởng xu "Hoàn thành bài tập" (SataCoin → Luật thưởng xu): tắt thì không cộng xu
+  const homeworkRule = await coinsForEvent(ctx.db, "HOMEWORK_DONE", a.coinReward);
+  if (homeworkRule !== null && earnsCoin(input.score, a.maxScore, a.coinReward) && !s.coinTxId) {
     try {
       const r = await awardCoins(ctx, { studentIds: [s.studentId], amount: a.coinReward, reason: "homework", classId: c.id, note: `Bài tập: ${a.title}` });
       coin = { awarded: r.total, error: null };

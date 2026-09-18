@@ -2,13 +2,14 @@ import { and, eq, inArray, sql, desc, asc, or, ilike, gte, type SQL } from "driz
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { TRPCError } from "@trpc/server";
 import {
-  coinTransactions, rewardItems, redemptions, inventoryItems, stockLevels, students, classes, centers, enrollments, sessions, attendance, users, userNotifications, userRoles,
+  coinTransactions, coinRules, rewardItems, redemptions, inventoryItems, stockLevels, students, classes, centers, enrollments, sessions, attendance, users, userNotifications, userRoles,
 } from "@satarobo/db";
 import {
   authorize, visibleCenterIds, hasRole, hasPermission,
   validateAward, validateAdjust, revokeBlock, balanceAfter, redemptionTransition, availableBalance, validateReward, coinTier,
+  validateCoinRule, coinsFor, COIN_RULE_CODES, COIN_RULE_DEFS,
   COIN_REASON_VI, REDEMPTION_STATUS_VI, COIN_LIMITS,
-  type Permission, type CoinReason, type CoinLevel, type RedemptionStatus, type RedemptionAction,
+  type Permission, type CoinReason, type CoinLevel, type CoinRuleCode, type RedemptionStatus, type RedemptionAction,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
 
@@ -61,7 +62,7 @@ async function lockedBalance(tx: Db, studentId: string): Promise<number> {
   const [r] = await tx.select({ b: coinTransactions.balanceAfter }).from(coinTransactions).where(eq(coinTransactions.studentId, studentId)).orderBy(desc(coinTransactions.createdAt), desc(coinTransactions.id)).limit(1);
   return r?.b ?? 0;
 }
-async function postTx(tx: Db, x: { studentId: string; centerId: string; amount: number; reason: CoinReason; note?: string | null; classId?: string | null; sessionId?: string | null; redemptionId?: string | null; revokesId?: string | null; userId: string }) {
+async function postTx(tx: Db, x: { studentId: string; centerId: string; amount: number; reason: CoinReason; note?: string | null; classId?: string | null; sessionId?: string | null; redemptionId?: string | null; revokesId?: string | null; userId: string | null }) {
   const bal = await lockedBalance(tx, x.studentId);
   const after = rule(() => balanceAfter(bal, x.amount));
   const [row] = await tx.insert(coinTransactions).values({
@@ -239,8 +240,14 @@ export async function awardCoins(ctx: ProtectedContext, input: { studentIds: str
   return { awarded: out.length, skipped, total: out.length * input.amount, balances: out };
 }
 
-/** Thưởng chuyên cần cho cả buổi: mọi HV có mặt / muộn / học bù, bỏ qua HV đã được thưởng buổi này */
-export async function awardSession(ctx: ProtectedContext, input: { sessionId: string; amount: number }) {
+/**
+ * Thưởng chuyên cần cho cả buổi: mọi HV có mặt / muộn / học bù, bỏ qua HV đã được thưởng buổi này.
+ * Số xu lấy theo luật `ATTENDANCE_SESSION` khi không truyền `amount`; luật tắt thì không thưởng.
+ */
+export async function awardSession(ctx: ProtectedContext, input: { sessionId: string; amount?: number | null }) {
+  const ruleCoins = await coinsForEvent(ctx.db, "ATTENDANCE_SESSION", COIN_RULE_DEFS.ATTENDANCE_SESSION.coins);
+  if (ruleCoins === null) throw pre("Luật thưởng chuyên cần đang tắt — bật ở SataCoin → Luật thưởng xu");
+  const amount = input.amount ?? ruleCoins;
   const se = await ctx.db.query.sessions.findFirst({ where: eq(sessions.id, input.sessionId) });
   if (!se) throw notFound("Không tìm thấy buổi học");
   if (!["in_progress", "attendance_done", "notes_done", "completed"].includes(se.status)) throw pre("Chỉ thưởng cho buổi đã bắt đầu / đã điểm danh");
@@ -249,7 +256,7 @@ export async function awardSession(ctx: ProtectedContext, input: { sessionId: st
   const done = await ctx.db.select({ s: coinTransactions.studentId }).from(coinTransactions).where(and(eq(coinTransactions.sessionId, se.id), eq(coinTransactions.reason, "attendance")));
   const ids = [...new Set(present.map((p) => p.s))].filter((id) => !done.some((d) => d.s === id));
   if (!ids.length) throw pre(present.length ? "Học viên có mặt đều đã được thưởng buổi này" : "Buổi chưa có học viên có mặt");
-  return awardCoins(ctx, { studentIds: ids, amount: input.amount, reason: "attendance", classId: se.classId, sessionId: se.id, note: `Chuyên cần buổi ${se.sequenceNo}` }, { skipOverDailyLimit: true, attendedSessionId: se.id });
+  return awardCoins(ctx, { studentIds: ids, amount, reason: "attendance", classId: se.classId, sessionId: se.id, note: `Chuyên cần buổi ${se.sequenceNo}` }, { skipOverDailyLimit: true, attendedSessionId: se.id });
 }
 
 export async function adjustCoins(ctx: ProtectedContext, input: { studentId: string; amount: number; note: string }) {
@@ -290,6 +297,66 @@ export async function revokeCoins(ctx: ProtectedContext, input: { txId: string; 
     if (err.code === "23505" || err.cause?.code === "23505") throw pre("Giao dịch đã bị thu hồi");
     throw e;
   }
+}
+
+/* ------------------------------------------------------------------ */
+/* Luật thưởng xu                                                       */
+/* ------------------------------------------------------------------ */
+
+/** Đọc luật thưởng đang khai (dùng cả trong luồng nghiệp vụ, không đòi quyền coin:read) */
+export async function loadCoinRules(db: Db): Promise<{ code: string; coins: number; isActive: boolean }[]> {
+  return db.select({ code: coinRules.code, coins: coinRules.coins, isActive: coinRules.isActive }).from(coinRules);
+}
+
+/** Số xu áp dụng cho một sự kiện; null = luật đang tắt (không cộng xu) */
+export async function coinsForEvent(db: Db, code: CoinRuleCode, fallback: number | null = null) {
+  return coinsFor(await loadCoinRules(db), code, fallback);
+}
+
+/**
+ * Cộng xu theo luật tự động (không phải thưởng tay nên không tính hạn mức theo vai trò).
+ * Luật tắt / chưa bật → không làm gì. Trả số xu đã cộng.
+ */
+export async function awardByRule(tx: Db, x: { code: CoinRuleCode; studentId: string; centerId: string; note: string; actorId: string | null; classId?: string | null; sessionId?: string | null }) {
+  const coins = coinsFor(await loadCoinRules(tx), x.code, null);
+  if (!coins || coins < 1) return 0;
+  await postTx(tx, {
+    studentId: x.studentId, centerId: x.centerId, amount: coins, reason: COIN_RULE_DEFS[x.code].reason,
+    note: x.note, classId: x.classId ?? null, sessionId: x.sessionId ?? null, userId: x.actorId,
+  });
+  return coins;
+}
+
+export async function listCoinRules(ctx: ProtectedContext) {
+  requireCoinRead(ctx);
+  const rows = await ctx.db.select({ r: coinRules, byName: users.fullName }).from(coinRules).leftJoin(users, eq(users.id, coinRules.updatedBy));
+  return {
+    canEdit: ctx.actor.assignments.some((a) => can(ctx, "coin:adjust", a.centerId)),
+    items: COIN_RULE_CODES.map((code) => {
+      const def = COIN_RULE_DEFS[code];
+      const r = rows.find((x) => x.r.code === code);
+      return {
+        code, label: def.label, reason: def.reason, defaultCoins: def.coins, defaultCondition: def.condition,
+        description: r?.r.description ?? def.label, coins: r?.r.coins ?? def.coins, condition: r?.r.condition ?? def.condition,
+        isActive: r?.r.isActive ?? true, configured: !!r, updatedAt: r?.r.updatedAt ?? null, updatedByName: r?.byName ?? null,
+      };
+    }),
+  };
+}
+
+export async function upsertCoinRule(ctx: ProtectedContext, input: { code: CoinRuleCode; description: string; coins: number; condition?: string | null; isActive: boolean }) {
+  if (!ctx.actor.assignments.some((a) => can(ctx, "coin:adjust", a.centerId))) throw forbid("Chỉ quản lý cơ sở / Hội sở được sửa luật thưởng xu");
+  const errs = validateCoinRule(input);
+  if (errs.length) throw bad(errs);
+  const before = await ctx.db.query.coinRules.findFirst({ where: eq(coinRules.code, input.code) });
+  const v = { description: input.description.trim(), coins: input.coins, condition: input.condition?.trim() || null, isActive: input.isActive, updatedBy: ctx.user.id, updatedAt: new Date() };
+  await ctx.db.insert(coinRules).values({ code: input.code, ...v }).onConflictDoUpdate({ target: coinRules.code, set: v });
+  await writeAudit(ctx.db, {
+    actorId: ctx.user.id, action: before ? "UPDATE" : "CREATE", module: "coin", entity: "coin_rules", entityId: before?.id ?? null,
+    before: before ? { coins: before.coins, isActive: before.isActive, condition: before.condition } : null,
+    after: { code: input.code, coins: v.coins, isActive: v.isActive, condition: v.condition }, ip: ctx.ip,
+  });
+  return { ok: true };
 }
 
 /* ------------------------------------------------------------------ */

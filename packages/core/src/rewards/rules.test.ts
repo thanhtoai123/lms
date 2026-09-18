@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { validateAward, validateAdjust, revokeBlock, balanceAfter, redemptionTransition, availableBalance, validateReward, coinTier } from "./rules.js";
+import { validateAward, validateAdjust, revokeBlock, balanceAfter, redemptionTransition, availableBalance, validateReward, coinTier, validateCoinRule, coinsFor, COIN_RULE_CODES, COIN_RULE_DEFS } from "./rules.js";
 
 test("xu: thưởng theo hạn mức", () => {
   assert.deepEqual(validateAward({ amount: 10, reason: "homework", level: "teacher", givenToday: 0 }), []);
@@ -41,4 +41,15 @@ test("xu: đổi quà, hạng", () => {
   assert.equal(coinTier(250).label, "Bạc");
   assert.deepEqual(coinTier(250).next, { label: "Vàng", need: 250 });
   assert.equal(coinTier(5000).next, null);
+});
+
+test("xu: luật thưởng (coin_rules)", () => {
+  for (const c of COIN_RULE_CODES) assert.deepEqual(validateCoinRule({ code: c, description: COIN_RULE_DEFS[c].label, coins: COIN_RULE_DEFS[c].coins, condition: COIN_RULE_DEFS[c].condition }), [], c);
+  assert.equal(validateCoinRule({ code: "KHONG_CO", description: "x", coins: 0 }).length, 3);
+  assert.match(validateCoinRule({ code: "BIRTHDAY", description: "Sinh nhật", coins: 5000 }).join(), /tối đa/);
+  const rules = [{ code: "ATTENDANCE_SESSION", coins: 7, isActive: true }, { code: "HOMEWORK_DONE", coins: 10, isActive: false }];
+  assert.equal(coinsFor(rules, "ATTENDANCE_SESSION"), 7);
+  assert.equal(coinsFor(rules, "HOMEWORK_DONE", 12), null); // luật tắt → không cộng xu
+  assert.equal(coinsFor(rules, "BIRTHDAY", 20), 20); // chưa khai → giữ hành vi cũ
+  assert.equal(coinsFor(rules, "BIRTHDAY"), null);
 });

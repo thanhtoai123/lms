@@ -17,12 +17,12 @@ import {
   staff, staffPrivate, staffPositions, positions, staffDeployments, workShifts, shiftTemplates, shiftAssignments, attendancePunches, staffRequests, checkinPoints,
   parentRequests, parentRequestEvents, parentFeedback, surveys, surveyInvites, surveyResponses, parentNotifications, careTasks,
   emailLogs, otpRequests, userGroups, userGroupMembers, webhookEvents, appSettings, revenueTargets,
-  inventoryItems, kitComponents, stockLevels, stockMovements, stockCounters, rentals, rewardItems, coinTransactions, redemptions,
+  inventoryItems, kitComponents, stockLevels, stockMovements, stockCounters, rentals, rewardItems, coinRules, coinTransactions, redemptions,
   documents, assignmentTemplates, assignments, submissions, lessonProposals,
   posts, siteBlocks, campaigns, campaignSpends, trackEvents, consentRecords, dataRequests, dataRequestEvents,
   jobPostings, candidates, candidateEvents, conversations, messages, affiliates,
 } from "./schema/index";
-import { SHIFT_CATALOGUE, plannedMinutesOf, workSegments } from "@satarobo/core";
+import { SHIFT_CATALOGUE, plannedMinutesOf, workSegments, COIN_RULE_DEFS } from "@satarobo/core";
 import { generateSessions, buildClassCode, buildStudentCode, toISODate, addDays, orderCode, receiptNumber, packagePrice, buildInstallmentPlan, computeCommission, describeRule, periodOf, fmtMin, hhmm, weekdayOf, leaveDays, requestCode, slaDue, SETTINGS_DEFAULTS, CONSENT_TEXT_VERSION, dsrCode, dsrDue } from "@satarobo/core";
 import { courseCompletions } from "./schema/index";
 import {
@@ -571,7 +571,13 @@ async function main() {
     { name: "Bình nước Sata Robo", cost: 120, inventoryItemId: it("SP-BINH-NUOC").id, sortOrder: 2 },
     { name: "Robot mini lắp ráp", cost: 400, inventoryItemId: it("SP-ROBOT-MINI").id, sortOrder: 3 },
   ]).returning();
-  const coinPlan: [number, number, "attendance" | "homework" | "competition" | "behavior"][] = [[0, 30, "attendance"], [0, 20, "homework"], [0, 100, "competition"], [1, 40, "attendance"], [1, 15, "behavior"], [2, 25, "attendance"], [3, 10, "homework"]];
+  await db.insert(coinRules).values(
+    (Object.keys(COIN_RULE_DEFS) as (keyof typeof COIN_RULE_DEFS)[]).map((code) => ({
+      code, description: COIN_RULE_DEFS[code].label, coins: COIN_RULE_DEFS[code].coins, condition: COIN_RULE_DEFS[code].condition,
+      isActive: code !== "BIRTHDAY", updatedBy: mgrU!.id,
+    })),
+  );
+  const coinPlan: [number, number, "attendance" | "homework" | "competition" | "behavior"][] =[[0, 30, "attendance"], [0, 20, "homework"], [0, 100, "competition"], [1, 40, "attendance"], [1, 15, "behavior"], [2, 25, "attendance"], [3, 10, "homework"]];
   const bal: Record<number, number> = {};
   await db.insert(coinTransactions).values(coinPlan.map(([i, amt, reason], k) => {
     bal[i] = (bal[i] ?? 0) + amt;

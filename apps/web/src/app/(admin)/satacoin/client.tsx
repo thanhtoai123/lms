@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
-import { AWARD_REASONS, COIN_REASON_VI, type CoinReason } from "@satarobo/core";
+import { AWARD_REASONS, COIN_REASON_VI, type CoinReason, type CoinRuleCode } from "@satarobo/core";
 import { useTRPC } from "@/lib/trpc/client";
 
 type Row = { id: string; rank: number; fullName: string; code: string | null; centerCode: string | null; balance: number; available: number; held: number; earned: number; tier: string; tierClass: string; href: string };
@@ -207,6 +207,34 @@ export function RewardForm({ reward, inventoryOptions }: { reward?: { id: string
         <select className="input flex-1" value={inv} onChange={(e) => setInv(e.target.value)}><option value="">Không trừ kho</option>{inventoryOptions.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}</select>
       </div>
       {reward && <label className="flex items-center gap-2"><input type="checkbox" checked={isActive} onChange={(e) => setActive(e.target.checked)} /> Đang áp dụng</label>}
+      {m.error && <p className="text-red-700">{m.error.message}</p>}
+      <div className="flex gap-2"><button className="btn-primary !py-1" disabled={m.isPending}>Lưu</button><button type="button" className="btn-ghost !py-1" onClick={() => setOpen(false)}>Huỷ</button></div>
+    </form>
+  );
+}
+
+/** Cấu hình một luật thưởng xu tự động (bật/tắt, số xu, điều kiện) */
+export function CoinRuleForm({ rule }: { rule: { code: CoinRuleCode; description: string; coins: number; condition: string; isActive: boolean } }) {
+  const trpc = useTRPC();
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [description, setDesc] = useState(rule.description);
+  const [coins, setCoins] = useState(String(rule.coins));
+  const [condition, setCondition] = useState(rule.condition);
+  const [isActive, setActive] = useState(rule.isActive);
+  const m = useMutation(trpc.coin.upsertRule.mutationOptions({ onSuccess: () => { setOpen(false); router.refresh(); } }));
+  if (!open) return <button type="button" className="mt-2 text-xs text-brand-600" onClick={() => setOpen(true)}>Sửa luật</button>;
+  return (
+    <form
+      className="mt-2 space-y-2 rounded-lg border border-black/10 p-3 text-sm"
+      onSubmit={(e) => { e.preventDefault(); m.mutate({ code: rule.code, description, coins: Number(coins), condition: condition.trim() || null, isActive }); }}
+    >
+      <input className="input w-full" placeholder="Mô tả luật" value={description} onChange={(e) => setDesc(e.target.value)} maxLength={300} required minLength={3} />
+      <label className="block text-xs text-ink-600">Số xu mỗi lần
+        <input type="number" min={1} max={200} className="input mt-1 w-28" value={coins} onChange={(e) => setCoins(e.target.value)} />
+      </label>
+      <textarea className="input min-h-16 w-full text-xs" placeholder="Điều kiện áp dụng" value={condition} onChange={(e) => setCondition(e.target.value)} maxLength={500} />
+      <label className="flex items-center gap-2"><input type="checkbox" checked={isActive} onChange={(e) => setActive(e.target.checked)} /> Đang bật</label>
       {m.error && <p className="text-red-700">{m.error.message}</p>}
       <div className="flex gap-2"><button className="btn-primary !py-1" disabled={m.isPending}>Lưu</button><button type="button" className="btn-ghost !py-1" onClick={() => setOpen(false)}>Huỷ</button></div>
     </form>

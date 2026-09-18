@@ -5,7 +5,7 @@ import { NoAccess, PageHeader, Pager } from "@/components/admin-ui";
 import { Kpi } from "@/components/report-ui";
 import { Empty } from "@/components/ui";
 import { dtVN } from "@/components/care-ui";
-import { LeaderTable, SessionAward, StudentPanel, RedemptionActions, RewardForm } from "./client";
+import { LeaderTable, SessionAward, StudentPanel, RedemptionActions, RewardForm, CoinRuleForm } from "./client";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "SataCoin" };
@@ -19,17 +19,18 @@ export default async function SataCoinPage({ searchParams }: { searchParams: Pro
   const actor = ctx.actor as Actor | null;
   if (!actor || !hasPermission(actor, "coin:read")) return <NoAccess title="SataCoin" perm="coin:read" />;
   const canSeeRedeem = hasPermission(actor, "coin:redeem") || hasPermission(actor, "coin:approve");
-  const tab = sp.tab === "log" || sp.tab === "rewards" || (sp.tab === "redeem" && canSeeRedeem) ? sp.tab : "board";
+  const tab = sp.tab === "log" || sp.tab === "rewards" || sp.tab === "rules" || (sp.tab === "redeem" && canSeeRedeem) ? sp.tab : "board";
   const page = Math.max(1, Number(sp.page) || 1);
   const lb = await caller.coin.leaderboard({ centerId: sp.center || undefined, classId: sp.class || undefined, q: sp.q || undefined, page: tab === "board" ? page : 1 });
   const student = sp.student ? await caller.coin.student({ id: sp.student }).catch(() => null) : null;
   const rewards = student?.canRedeem || tab === "rewards" ? await caller.coin.rewards({ includeInactive: tab === "rewards" }) : null;
+  const rules = tab === "rules" ? await caller.coin.rules() : null;
   const link = (patch: Partial<SP>) => {
     const u = new URLSearchParams(Object.entries({ ...sp, page: undefined, ...patch }).filter(([, v]) => v) as [string, string][]);
     const s = u.toString();
     return `/satacoin${s ? `?${s}` : ""}`;
   };
-  const tabs: [string, string][] = [["board", "Bảng xu"], ["log", "Lịch sử"], ...(canSeeRedeem ? [["redeem", `Đổi quà${lb.kpi.pendingRedemptions ? ` (${lb.kpi.pendingRedemptions})` : ""}`] as [string, string]] : []), ["rewards", "Danh mục quà"]];
+  const tabs: [string, string][] = [["board", "Bảng xu"], ["log", "Lịch sử"], ...(canSeeRedeem ? [["redeem", `Đổi quà${lb.kpi.pendingRedemptions ? ` (${lb.kpi.pendingRedemptions})` : ""}`] as [string, string]] : []), ["rewards", "Danh mục quà"], ["rules", "Luật thưởng xu"]];
   return (
     <div className="space-y-4">
       <PageHeader title="SataCoin" desc={`Sổ xu thưởng chỉ thêm (không sửa / xoá): thưởng theo hạn mức vai trò (GV ≤ ${lb.limits.teacher.perAward} xu/lần, ${lb.limits.teacher.perStudentDay} xu/HV/ngày), thu hồi / điều chỉnh cần lý do, đổi quà qua duyệt.`} />
@@ -90,6 +91,29 @@ export default async function SataCoinPage({ searchParams }: { searchParams: Pro
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {tab === "rules" && rules && (
+        <div className="space-y-3">
+          <p className="text-sm text-ink-600">Luật thưởng xu tự động cho các sự kiện đã có chỗ cộng xu trong hệ thống. Tắt luật thì sự kiện tương ứng không cộng xu nữa; sửa số xu áp dụng ngay cho lần cộng kế tiếp. Mọi thay đổi ghi nhật ký.</p>
+          <div className="grid gap-3 md:grid-cols-3">
+            {rules.items.map((r) => (
+              <div key={r.code} className={`card space-y-1 p-4 ${r.isActive ? "" : "opacity-60"}`}>
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="font-semibold">{r.label}</div>
+                    <div className="font-mono text-[11px] text-ink-400">{r.code} · ghi sổ với lý do &quot;{COIN_REASON_VI[r.reason as CoinReason]}&quot;</div>
+                  </div>
+                  <span className={`chip ${r.isActive ? "bg-green-100 text-green-800" : "bg-slate-100 text-ink-600"}`}>{r.isActive ? "Đang bật" : "Đang tắt"}</span>
+                </div>
+                <div className="text-2xl font-bold text-amber-600">{r.coins.toLocaleString("vi-VN")} <span className="text-sm font-normal">xu</span></div>
+                <p className="text-xs text-ink-600">{r.condition}</p>
+                <p className="text-[11px] text-ink-400">{r.configured ? `Sửa lần cuối ${dtVN(r.updatedAt)}${r.updatedByName ? ` · ${r.updatedByName}` : ""}` : `Chưa cấu hình — đang dùng mặc định ${r.defaultCoins} xu`}</p>
+                {rules.canEdit && <CoinRuleForm rule={{ code: r.code, description: r.description, coins: r.coins, condition: r.condition ?? "", isActive: r.isActive }} />}
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>

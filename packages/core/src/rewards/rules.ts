@@ -96,6 +96,57 @@ export function validateReward(x: { name: string; cost: number; stockLimited: bo
   return e;
 }
 
+/* ------------------------------------------------------------------ */
+/* Luật thưởng xu (coin_rules) — cấu hình ở /satacoin                   */
+/* ------------------------------------------------------------------ */
+
+/** Sự kiện đã có chỗ cộng xu trong hệ thống — luật chỉ bật/tắt và đặt số xu mặc định */
+export const COIN_RULE_CODES = ["ATTENDANCE_SESSION", "HOMEWORK_DONE", "BIRTHDAY"] as const;
+export type CoinRuleCode = (typeof COIN_RULE_CODES)[number];
+
+export interface CoinRuleDef {
+  label: string;
+  /** Lý do ghi vào sổ xu khi luật áp dụng */
+  reason: CoinReason;
+  /** Điều kiện áp dụng (mô tả mặc định, sửa được ở trang cấu hình) */
+  condition: string;
+  coins: number;
+}
+
+export const COIN_RULE_DEFS: Record<CoinRuleCode, CoinRuleDef> = {
+  ATTENDANCE_SESSION: { label: "Chuyên cần mỗi buổi", reason: "attendance", condition: "Học viên có mặt / đi muộn / học bù ở buổi đã điểm danh; mỗi buổi thưởng một lần", coins: 5 },
+  HOMEWORK_DONE: { label: "Hoàn thành bài tập", reason: "homework", condition: "Bài tập được chấm đạt từ 80% điểm tối đa trở lên", coins: 10 },
+  BIRTHDAY: { label: "Sinh nhật học viên", reason: "birthday", condition: "Khi gửi lời chúc sinh nhật (mỗi năm một lần)", coins: 20 },
+};
+
+export interface CoinRuleInput {
+  code: string;
+  description: string;
+  coins: number;
+  condition?: string | null;
+  isActive?: boolean;
+}
+
+export function validateCoinRule(r: CoinRuleInput): string[] {
+  const e: string[] = [];
+  if (!(COIN_RULE_CODES as readonly string[]).includes(r.code)) e.push(`Mã luật không hợp lệ (chỉ nhận: ${COIN_RULE_CODES.join(", ")})`);
+  if (r.description.trim().length < 3) e.push("Mô tả luật tối thiểu 3 ký tự");
+  if (!Number.isInteger(r.coins) || r.coins < 1) e.push("Số xu phải là số nguyên ≥ 1");
+  else if (r.coins > COIN_LIMITS.center.perAward) e.push(`Số xu mỗi lần tối đa ${COIN_LIMITS.center.perAward}`);
+  if ((r.condition ?? "").length > 500) e.push("Điều kiện tối đa 500 ký tự");
+  return e;
+}
+
+/**
+ * Số xu áp dụng cho một sự kiện. Luật tắt → `null` (không cộng xu);
+ * chưa khai luật → dùng `fallback` (giữ nguyên hành vi cũ khi chưa cấu hình).
+ */
+export function coinsFor(rules: readonly { code: string; coins: number; isActive: boolean }[], code: CoinRuleCode, fallback: number | null = null): number | null {
+  const r = rules.find((x) => x.code === code);
+  if (!r) return fallback;
+  return r.isActive ? r.coins : null;
+}
+
 /** Hạng theo tổng xu tích luỹ (chỉ tính cộng) */
 export const COIN_TIERS = [
   { key: "bronze", label: "Đồng", min: 0 },

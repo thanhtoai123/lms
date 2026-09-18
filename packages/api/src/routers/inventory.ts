@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ITEM_TYPES, MOVEMENT_TYPES, RENTAL_STATUSES, AUDIT_STATUSES, COIN_REASONS, REDEMPTION_STATUSES, type ItemType, type MovementType, type CoinReason } from "@satarobo/core";
+import { ITEM_TYPES, MOVEMENT_TYPES, RENTAL_STATUSES, AUDIT_STATUSES, COIN_REASONS, COIN_RULE_CODES, REDEMPTION_STATUSES, type ItemType, type MovementType, type CoinReason } from "@satarobo/core";
 import { router, protectedProcedure } from "../trpc";
 import * as I from "../services/inventory";
 import * as R from "../services/rewards";
@@ -57,7 +57,11 @@ export const coinRouter = router({
   award: protectedProcedure
     .input(z.object({ studentIds: z.array(uuid).min(1).max(60), amount: int(1, 100_000), reason: coinReason, note: s(300).nullish(), classId: uuid.nullish(), sessionId: uuid.nullish() }))
     .mutation(({ ctx, input }) => R.awardCoins(ctx, input)),
-  awardSession: protectedProcedure.input(z.object({ sessionId: uuid, amount: int(1, 100_000) })).mutation(({ ctx, input }) => R.awardSession(ctx, input)),
+  awardSession: protectedProcedure.input(z.object({ sessionId: uuid, amount: int(1, 100_000).nullish() })).mutation(({ ctx, input }) => R.awardSession(ctx, input)),
+  rules: protectedProcedure.query(({ ctx }) => R.listCoinRules(ctx)),
+  upsertRule: protectedProcedure
+    .input(z.object({ code: z.enum(COIN_RULE_CODES), description: s(300), coins: int(1, 100_000), condition: s(500).nullish(), isActive: z.boolean() }))
+    .mutation(({ ctx, input }) => R.upsertCoinRule(ctx, input)),
   adjust: protectedProcedure.input(z.object({ studentId: uuid, amount: int(-100_000, 100_000), note: s(300) })).mutation(({ ctx, input }) => R.adjustCoins(ctx, input)),
   revoke: protectedProcedure.input(z.object({ txId: uuid, note: s(300) })).mutation(({ ctx, input }) => R.revokeCoins(ctx, input)),
   rewards: protectedProcedure.input(z.object({ includeInactive: z.boolean().optional() }).default({})).query(({ ctx, input }) => R.listRewards(ctx, input)),

@@ -152,6 +152,19 @@ export const coinTransactions = pgTable("coin_transactions", {
   uniqueIndex("coin_tx_revokes_uq").on(t.revokesId),
 ]);
 
+/** Luật thưởng xu tự động — bật/tắt và số xu cho các sự kiện đã có chỗ cộng xu */
+export const coinRules = pgTable("coin_rules", {
+  id: id(),
+  code: text("code").notNull().unique(), // ATTENDANCE_SESSION | HOMEWORK_DONE | BIRTHDAY
+  description: text("description").notNull(),
+  coins: integer("coins").notNull(),
+  /** Điều kiện áp dụng (mô tả cho người vận hành) */
+  condition: text("condition"),
+  isActive: boolean("is_active").notNull().default(true),
+  updatedBy: uuid("updated_by").references(() => users.id),
+  ...timestamps,
+});
+
 export const rewardItems = pgTable("reward_items", {
   id: id(),
   name: text("name").notNull(),
