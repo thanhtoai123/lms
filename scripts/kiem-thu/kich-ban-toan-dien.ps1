@@ -35,16 +35,20 @@ $H = "hr.cs1@example.test"         # nhân sự cơ sở 1
 $S = "sale1.cs1@example.test"      # tư vấn cơ sở 1
 $G = "giaovu.cs1@example.test"     # giáo vụ cơ sở 1
 $TE = "teacher1@satarobo.vn"       # giáo viên
-$FR = "quantri@satarobo-hue.test"  # quản trị bên nhượng quyền FR_HUE (seed để ở trạng thái chờ kích hoạt)
+# Bên nhượng quyền FR_HUE: tài khoản ĐANG HOẠT ĐỘNG dùng trước, tài khoản chờ kích hoạt để dự phòng
+$FR = "giamdoc@satarobo-hue.test"
+$FR2 = "quantri@satarobo-hue.test"
 
+# `ten` chỉ là tên gọi ngắn để đọc log. Vai trò THẬT của từng tài khoản được đọc sống
+# từ `auth.me` + `system.roles`, không suy từ tên tài khoản (xem bộ C).
 $script:Roles = @(
-  @{ email = $A;  ten = "Quan tri toi cao" },
-  @{ email = $M;  ten = "Quan ly co so" },
-  @{ email = $K;  ten = "Ke toan co so" },
-  @{ email = $H;  ten = "Nhan su co so" },
-  @{ email = $S;  ten = "Tu van (sale)" },
-  @{ email = $G;  ten = "Giao vu" },
-  @{ email = $TE; ten = "Giao vien" }
+  @{ email = $A;  ten = "superadmin" },
+  @{ email = $M;  ten = "manager.cs1" },
+  @{ email = $K;  ten = "ketoan.cs1" },
+  @{ email = $H;  ten = "hr.cs1" },
+  @{ email = $S;  ten = "sale1.cs1" },
+  @{ email = $G;  ten = "giaovu.cs1" },
+  @{ email = $TE; ten = "teacher1" }
 )
 
 # --------------------------------------------------------------------------- #
@@ -204,9 +208,24 @@ function Http {
   return @{ code = $code; body = $body; headers = $hdr }
 }
 
-# Mảng sạch (bỏ phần tử rỗng) — tránh đếm nhầm khi lời gọi trả về null
+# Mảng sạch (bỏ phần tử rỗng) — tránh đếm nhầm khi lời gọi trả về null.
+# QUAN TRỌNG: procedure trả về đối tượng (vd { source, canWaive, items }) thì `@($obj).Count`
+# luôn bằng 1 — phải lấy đúng trường mảng bên trong rồi mới đếm.
 function Rows($x) {
   return @(@($x) | Where-Object { $null -ne $_ })
+}
+
+# Khớp quyền theo đúng luật `matches()` ở packages/core/src/policy/policy.ts:
+# "*" khớp mọi tài nguyên / hành động, "*_own" khớp mọi hành động có hậu tố _own.
+function KhopQuyen([string]$capCho, [string]$muon) {
+  $a = $capCho.Split(":")
+  $b = $muon.Split(":")
+  if ($a.Count -lt 2 -or $b.Count -lt 2) { return $false }
+  if (($a[0] -ne "*") -and ($a[0] -ne $b[0])) { return $false }
+  if ($a[1] -eq "*") { return $true }
+  if ($a[1] -eq $b[1]) { return $true }
+  if (($a[1] -eq "*_own") -and $b[1].EndsWith("_own")) { return $true }
+  return $false
 }
 
 # Gói JSON con thành chuỗi để soi bằng biểu thức chính quy
@@ -395,7 +414,12 @@ if ($Only -eq "tat-ca" -or $Only -eq "bao-mat") {
     $code = (& curl.exe -s -o $o -w "%{http_code}" -b "x-dev-actor=$G" -F ("sessionId=" + $sesCs1.id) -F ("files=@" + $fakePng + ";type=image/png") "$script:BaseUrl/api/media/upload") -join ""
     $body = ""
     if (Test-Path $o) { $body = [System.IO.File]::ReadAllText($o, [System.Text.Encoding]::UTF8) }
-    T "A" "A28 tep khai image/png nhung noi dung khong phai PNG -> tu choi" (($code -ne "200") -or ($body -match '"ok":false')) "tu choi" ("HTTP " + $code + " " + (Short $body 120))
+    # Khẳng định `ok` của NGHIỆP VỤ (thân phản hồi), không chỉ mã HTTP
+    if ($code -eq "401" -or $code -eq "403") {
+      Skip "A" "A28 tep khai image/png nhung noi dung khong phai PNG -> tu choi" ("tai khoan giao vu khong tai len duoc anh o buoi nay: HTTP " + $code)
+    } else {
+      T "A" "A28 tep khai image/png nhung noi dung khong phai PNG -> tu choi" ($body -match '"ok":false') "than phan hoi co ok:false" ("HTTP " + $code + " " + (Short $body 120))
+    }
 
     # (b) tệp .svg
     $svg = Join-Path $script:Tmp "anh-nguy-hiem.svg"
@@ -404,14 +428,20 @@ if ($Only -eq "tat-ca" -or $Only -eq "bao-mat") {
     $code2 = (& curl.exe -s -o $o2 -w "%{http_code}" -b "x-dev-actor=$G" -F ("sessionId=" + $sesCs1.id) -F ("files=@" + $svg + ";type=image/svg+xml") "$script:BaseUrl/api/media/upload") -join ""
     $body2 = ""
     if (Test-Path $o2) { $body2 = [System.IO.File]::ReadAllText($o2, [System.Text.Encoding]::UTF8) }
-    T "A" "A29 tep .svg -> tu choi" (($code2 -ne "200") -or ($body2 -match '"ok":false')) "tu choi" ("HTTP " + $code2 + " " + (Short $body2 120))
+    if ($code2 -eq "401" -or $code2 -eq "403") {
+      Skip "A" "A29 tep .svg -> tu choi" ("tai khoan giao vu khong tai len duoc anh o buoi nay: HTTP " + $code2)
+    } else {
+      T "A" "A29 tep .svg -> tu choi" ($body2 -match '"ok":false') "than phan hoi co ok:false" ("HTTP " + $code2 + " " + (Short $body2 120))
+    }
 
     # (c) tên tệp có ../ — ảnh PNG thật, kiểm tra khoá lưu trữ đã được làm sạch
     $pngB64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
     $pngFile = Join-Path $script:Tmp "qa-anh-that.png"
     [System.IO.File]::WriteAllBytes($pngFile, [Convert]::FromBase64String($pngB64))
     $o3 = Join-Path $script:Tmp "up3.json"
-    $code3 = (& curl.exe -s -o $o3 -w "%{http_code}" -b "x-dev-actor=$G" -F ("sessionId=" + $sesCs1.id) -F ("caption=QA-KIEM-THU-" + $script:Stamp) -F ("files=@" + $pngFile + ";filename=../../../etc/qa-traversal.png;type=image/png") "$script:BaseUrl/api/media/upload") -join ""
+    # `classWide=1`: ảnh QA phải tự đủ điều kiện gửi duyệt, nếu không nó nằm đầu kho ảnh
+    # của lớp và làm hỏng luồng kho → gửi duyệt → loại → khôi phục của kich-ban-vai-tro.ps1.
+    $code3 = (& curl.exe -s -o $o3 -w "%{http_code}" -b "x-dev-actor=$G" -F ("sessionId=" + $sesCs1.id) -F ("caption=QA-KIEM-THU-" + $script:Stamp) -F "classWide=1" -F ("files=@" + $pngFile + ";filename=../../../etc/qa-traversal.png;type=image/png") "$script:BaseUrl/api/media/upload") -join ""
     $body3 = ""
     if (Test-Path $o3) { $body3 = [System.IO.File]::ReadAllText($o3, [System.Text.Encoding]::UTF8) }
     if ($code3 -eq "200" -and $body3 -match '"ok":true') {
@@ -422,7 +452,7 @@ if ($Only -eq "tat-ca" -or $Only -eq "bao-mat") {
       if ($null -eq $media) {
         Skip "A" "A30 ten tep co ../ duoc lam sach" "khong doc lai duoc anh vua tai len de kiem tra khoa luu tru"
       } else {
-        Created ("Anh lop QA (session_media id=" + $media.id + ", caption QA-KIEM-THU-" + $script:Stamp + ")")
+        Created ("Anh lop QA (session_media id=" + $media.id + ", caption QA-KIEM-THU-" + $script:Stamp + ", danh dau anh chung ca lop)")
         $key = [string]$media.objectKey
         T "A" "A30 ten tep co ../ -> khoa luu tru duoc lam sach" ((-not $key.Contains("..")) -and (-not $key.StartsWith("/"))) "khoa khong chua .. va khong bat dau bang /" ("objectKey=" + (Short $key 120))
       }
@@ -577,7 +607,7 @@ if ($Only -eq "tat-ca" -or $Only -eq "tenant") {
 
         # Chi tiết tài chính: không dòng nào thuộc cơ sở của FR_HUE ---------
         $pay = Q "finance.payments" @{ } $A
-        $pItems = @($pay.data.items)
+        $pItems = Rows $pay.data.items
         $loTaiChinh = @($pItems | Where-Object { $_.centerId -eq $csHue.id }).Count
         T "B" "B14 danh sach phieu thu KHONG co dong chi tiet cua FR_HUE" ($loTaiChinh -eq 0) "0 dong cua FR_HUE" ("so dong lo ra=" + $loTaiChinh)
       }
@@ -597,15 +627,32 @@ if ($Only -eq "tat-ca" -or $Only -eq "tenant") {
         }
       }
 
-      # --- B16. Không có lớp nào của trung tâm khác nhận chuyển lớp --------
-      $enrMo = @((Q "students.enrollments" @{ centerId = $cs1.id; status = "active"; pageSize = 5 } $A).data.items) | Select-Object -First 1
-      if (($null -eq $enrMo) -or ($null -eq $csHue)) {
-        Skip "B" "B16 khong xep duoc lop cua trung tam khac khi chuyen lop" "thieu ghi danh dang mo o CS1 hoac thieu co so HUE1"
+      # --- B16. Danh sách lớp nhận chuyển lớp không được lẫn lớp của tenant khác
+      # `students.enrollments` trả về ĐỐI TƯỢNG phân trang { total, page, pageSize, counts, items }
+      # và `students.eligibleClasses` trả về { source, canWaive, items } — phải lấy `.items`,
+      # đếm thẳng đối tượng thì lúc nào cũng ra 1.
+      $enrMo = (Rows (Q "students.enrollments" @{ centerId = $cs1.id; status = "active"; pageSize = 5 } $A).data.items) | Select-Object -First 1
+      # Cơ sở nào thuộc trung tâm nào — dựng sống từ tenants.get của từng trung tâm
+      $tenantCuaCoSo = @{ }
+      foreach ($tn in $tenants) {
+        $tg = Q "tenants.get" @{ id = $tn.id } $A
+        if (-not $tg.ok) { continue }
+        foreach ($cc in (Rows $tg.data.centers)) { $tenantCuaCoSo[[string]$cc.id] = [string]$tn.id }
+      }
+      $tenantKhacCoLop = @($tenants | Where-Object { ($null -ne $enrMo) -and ($_.id -ne $enrMo.tenantId) -and ([int](Def $_.classes 0) -gt 0) })
+      if ($null -eq $enrMo) {
+        Skip "B" "B16 danh sach lop nhan chuyen lop khong lan lop cua trung tam khac" "khong co ghi danh dang hoc nao o co so CS1"
+      } elseif ($tenantKhacCoLop.Count -eq 0) {
+        Skip "B" "B16 danh sach lop nhan chuyen lop khong lan lop cua trung tam khac" "khong co trung tam thu hai nao dang co lop de doi chieu"
       } else {
-        $el = Q "students.eligibleClasses" @{ enrollmentId = $enrMo.id; toCenterId = $csHue.id } $A
-        $n = @($el.data).Count
-        if ($el.data -and $el.data.items) { $n = @($el.data.items).Count }
-        T "B" "B16 khong co lop nao cua trung tam khac de chuyen sang" ((-not $el.ok) -or ($n -eq 0)) "0 lua chon" ("so lua chon=" + $n)
+        $el = Q "students.eligibleClasses" @{ enrollmentId = $enrMo.id } $A
+        $lops = Rows $el.data.items
+        $lopKhacTenant = New-Object System.Collections.ArrayList
+        foreach ($lp in $lops) {
+          $tOfLop = $tenantCuaCoSo[[string]$lp.centerId]
+          if ($tOfLop -and ($tOfLop -ne [string]$enrMo.tenantId)) { [void]$lopKhacTenant.Add([string]$lp.centerCode + "/" + [string]$lp.code) }
+        }
+        T "B" "B16 danh sach lop nhan chuyen lop khong lan lop cua trung tam khac" ($lopKhacTenant.Count -eq 0) "0 lop thuoc trung tam khac" ("so lop tra ve=" + $lops.Count + " | lop khac trung tam: " + ($lopKhacTenant -join ", "))
       }
 
       # --- B17. assertSameTenant: đọc bản ghi của tenant khác --------------
@@ -621,29 +668,35 @@ if ($Only -eq "tat-ca" -or $Only -eq "tenant") {
     }
 
     # --- B18–B20. Chiều ngược lại: người của FR_HUE không thấy dữ liệu SATA
+    # Tài khoản của bên nhượng quyền: dùng tài khoản đang hoạt động, dự phòng tài khoản chờ kích hoạt
+    $frActor = $FR
     $frMe = Q "auth.me" $null $FR
+    if ((-not $frMe.ok) -or ($null -eq $frMe.data)) {
+      $frActor = $FR2
+      $frMe = Q "auth.me" $null $FR2
+    }
     $frSong = ($frMe.ok -and $null -ne $frMe.data)
     if (-not $frSong) {
-      Note ("Tai khoan quan tri cua FR_HUE (" + $FR + ") o trang thai CHO KICH HOAT trong du lieu mau nen khong dang nhap duoc bang tai khoan mau. Cac kiem tra chieu FR_HUE -> SATA bi bo qua. Muon chay day du: kich hoat tai khoan do (He thong -> Tai khoan -> Mo khoa) roi chay lai.")
+      Note ("Khong dang nhap duoc bang tai khoan nao cua FR_HUE (" + $FR + " / " + $FR2 + "). Cac kiem tra chieu FR_HUE -> SATA bi bo qua. Chay lai pnpm db:seed de co tai khoan mau dang hoat dong cua ben nhuong quyen.")
       Skip "B" "B18 nguoi cua FR_HUE chi thay co so cua minh" "tai khoan FR_HUE dang cho kich hoat"
       Skip "B" "B19 nguoi cua FR_HUE khong thay lead / hoc vien cua SATA" "tai khoan FR_HUE dang cho kich hoat"
       Skip "B" "B20 nguoi cua FR_HUE chi thay chinh trung tam minh trong tenants.list" "tai khoan FR_HUE dang cho kich hoat"
       Skip "B" "B21 FR_HUE bat hoSeesPii -> Hoi so doc thay day du, tat lai -> che lai" "tai khoan FR_HUE dang cho kich hoat"
     } else {
-      $cFr = @((Q "org.centers" $null $FR).data)
+      $cFr = Rows (Q "org.centers" $null $frActor).data
       $loCs = @($cFr | Where-Object { $_.code -eq "CS1" -or $_.code -eq "CS2" }).Count
       T "B" "B18 nguoi cua FR_HUE chi thay co so cua minh" ($loCs -eq 0) "khong thay CS1 / CS2" ("so co so SATA lo ra=" + $loCs)
 
-      $ldFr = @((Q "admissions.leads.inbox" @{ scope = "all"; allStatuses = $true; limit = 200 } $FR).data.items)
+      $ldFr = Rows (Q "admissions.leads.inbox" @{ scope = "all"; allStatuses = $true; limit = 200 } $frActor).data.items
       $loLead = 0
       if ($cs1) { $loLead += @($ldFr | Where-Object { $_.centerId -eq $cs1.id }).Count }
       if ($cs2) { $loLead += @($ldFr | Where-Object { $_.centerId -eq $cs2.id }).Count }
-      $stFr = @((Q "students.list" @{ pageSize = 100 } $FR).data.items)
+      $stFr = Rows (Q "students.list" @{ pageSize = 100 } $frActor).data.items
       $loStu = 0
       if ($cs1) { $loStu += @($stFr | Where-Object { $_.homeCenterId -eq $cs1.id }).Count }
       T "B" "B19 nguoi cua FR_HUE khong thay lead / hoc vien cua SATA" (($loLead -eq 0) -and ($loStu -eq 0)) "0 ban ghi cua SATA" ("lead lo=" + $loLead + " hoc vien lo=" + $loStu)
 
-      $tlFr = @((Q "tenants.list" $null $FR).data.items)
+      $tlFr = Rows (Q "tenants.list" $null $frActor).data.items
       $loTen = @($tlFr | Where-Object { $_.code -ne "FR_HUE" }).Count
       T "B" "B20 nguoi cua FR_HUE chi thay chinh trung tam minh" ($loTen -eq 0) "chi 1 trung tam" ("so trung tam khac lo ra=" + $loTen)
 
@@ -652,7 +705,7 @@ if ($Only -eq "tat-ca" -or $Only -eq "tenant") {
         Skip "B" "B21 FR_HUE bat hoSeesPii -> Hoi so doc thay day du, tat lai -> che lai" "thieu tenant FR_HUE hoac co so HUE1"
       } else {
         $banDau = $tFr.hoSeesPii
-        $on = Mu "tenants.updateSettings" @{ tenantId = $tFr.id; hoSeesPii = $true; reason = "Kiem thu cach ly: bat tam thoi de doi chieu, se tat lai ngay" } $FR
+        $on = Mu "tenants.updateSettings" @{ tenantId = $tFr.id; hoSeesPii = $true; reason = "Kiem thu cach ly: bat tam thoi de doi chieu, se tat lai ngay" } $frActor
         if (-not $on.ok) {
           Skip "B" "B21 FR_HUE bat hoSeesPii -> Hoi so doc thay day du, tat lai -> che lai" ("khong bat duoc cong tac: " + (Say $on.err 140))
         } else {
@@ -660,7 +713,7 @@ if ($Only -eq "tat-ca" -or $Only -eq "tenant") {
           Start-Sleep -Milliseconds 300
           $mo = Js @((Q "admissions.leads.inbox" @{ scope = "all"; centerId = $csHue.id; allStatuses = $true; limit = 50 } $A).data.items)
           T "B" "B21 bat hoSeesPii -> Hoi so doc thay du lieu day du" ((CoSdtTho $mo) -or (CoEmailTho $mo)) "thay SDT / email day du" "van con bi che sau khi bat cong tac"
-          $off = Mu "tenants.updateSettings" @{ tenantId = $tFr.id; hoSeesPii = $banDau; reason = "Kiem thu cach ly: tra ve trang thai ban dau" } $FR
+          $off = Mu "tenants.updateSettings" @{ tenantId = $tFr.id; hoSeesPii = $banDau; reason = "Kiem thu cach ly: tra ve trang thai ban dau" } $frActor
           Start-Sleep -Milliseconds 300
           $che = Js @((Q "admissions.leads.inbox" @{ scope = "all"; centerId = $csHue.id; allStatuses = $true; limit = 50 } $A).data.items)
           T "B" "B22 tat hoSeesPii -> du lieu bi che lai va tra ve trang thai ban dau" ($off.ok -and (-not (CoSdtTho $che))) "che lai va khoi phuc nguyen trang" ("tra ve ok=" + $off.ok)
@@ -780,37 +833,118 @@ if ($Only -eq "tat-ca" -or $Only -eq "mot-cham") {
   Write-Host ""
   Write-Host "===== BO C — MOT CHAM (Viec hom nay) =====" -ForegroundColor Cyan
 
-  # Nhóm việc mà từng vai trò ĐƯỢC PHÉP thấy (suy ra từ ma trận quyền ở
-  # packages/core/src/policy/policy.ts và điều kiện canAnywhere trong services/inbox.ts)
-  $nhomHopLe = @{ }
-  $nhomHopLe[$A] = @("lead_task", "lead_sla", "session_attendance", "session_note", "report_card", "makeup", "media", "payment", "refund", "staff_request", "parent_request", "care_task", "completion", "notification")
-  $nhomHopLe[$M] = @("lead_task", "lead_sla", "session_attendance", "session_note", "report_card", "makeup", "media", "refund", "staff_request", "parent_request", "care_task", "completion", "notification")
-  $nhomHopLe[$K] = @("payment", "refund", "notification")
-  $nhomHopLe[$H] = @("staff_request", "notification")
-  $nhomHopLe[$S] = @("lead_task", "lead_sla", "session_note", "makeup", "parent_request", "care_task", "notification")
-  $nhomHopLe[$G] = @("session_attendance", "session_note", "report_card", "makeup", "media", "completion", "notification")
-  $nhomHopLe[$TE] = @("notification")
+  # Mỗi nhóm việc cần MỘT quyền — bảng này lấy đúng từ `canAnywhere(...)` trong
+  # packages/api/src/services/inbox.ts. Chuỗi rỗng = nhóm ai cũng có (hộp thông báo riêng).
+  #
+  # KHÔNG dựng bảng kỳ vọng tĩnh theo TÊN tài khoản: vai trò thật của từng tài khoản mẫu
+  # được đọc sống bằng `auth.me`, còn ma trận vai trò → quyền đọc sống bằng `system.roles`
+  # và quyền cấp thêm theo nhóm người dùng đọc bằng `admin.groups` / `admin.group`.
+  # Nhờ vậy đổi ma trận quyền trong mã nguồn thì kịch bản tự theo, không báo sai.
+  $nhomQuyen = [ordered]@{ }
+  $nhomQuyen["lead_task"] = "lead:read"
+  $nhomQuyen["lead_sla"] = "lead:read"
+  $nhomQuyen["session_attendance"] = "attendance:read"
+  $nhomQuyen["session_note"] = "session:read"
+  $nhomQuyen["report_card"] = "report_card:read"
+  $nhomQuyen["makeup"] = "makeup:update"
+  $nhomQuyen["media"] = "media:update"
+  $nhomQuyen["payment"] = "finance:confirm"
+  $nhomQuyen["refund"] = "finance:approve"
+  $nhomQuyen["staff_request"] = "timesheet:approve"
+  $nhomQuyen["parent_request"] = "care:update"
+  $nhomQuyen["care_task"] = "care:update"
+  $nhomQuyen["completion"] = "completion:approve"
+  $nhomQuyen["notification"] = ""
 
-  $tatCaNhom = @("lead_task", "lead_sla", "session_attendance", "session_note", "report_card", "makeup", "media", "payment", "refund", "staff_request", "parent_request", "care_task", "completion", "notification")
+  $tatCaNhom = @($nhomQuyen.Keys | ForEach-Object { [string]$_ })
   $kieuHopLe = @("mutate", "open")
+
+  # --- Ma trận vai trò -> quyền, đọc sống từ chính hệ thống ------------------
+  $mt = Q "system.roles" $null $A
+  $quyenCuaVai = @{ }
+  $nhanCuaVai = @{ }
+  foreach ($row in (Rows $mt.data.roles)) {
+    $quyenCuaVai[[string]$row.role] = @(Rows $row.permissions | ForEach-Object { [string]$_ })
+    $nhanCuaVai[[string]$row.role] = [string]$row.label
+  }
+  $coMaTran = ($mt.ok -and ($quyenCuaVai.Count -gt 0))
+  if (-not $coMaTran) { Note ("Khong doc duoc ma tran vai tro qua system.roles: " + (Say $mt.err 120) + " — bo C chi kiem tra hinh dang du lieu, khong doi chieu quyen.") }
+
+  # --- Quyền cấp thêm theo nhóm người dùng (chỉ cộng thêm, không bớt) --------
+  $quyenNhomNguoiDung = New-Object System.Collections.ArrayList
+  foreach ($grp in (Rows (Q "admin.groups" $null $A).data)) {
+    $gd = Q "admin.group" @{ id = $grp.id } $A
+    if (-not $gd.ok) { continue }
+    $emails = @(Rows $gd.data.members | ForEach-Object { ([string]$_.email).ToLower() })
+    foreach ($pm in (Rows $gd.data.permissions)) {
+      foreach ($em in $emails) {
+        [void]$quyenNhomNguoiDung.Add(@{ email = $em; permission = [string]$pm.permission })
+      }
+    }
+  }
 
   $inboxA = $null
   $chamNhat = 0
   $iC = 1
   foreach ($vai in $script:Roles) {
     $who = $vai.email
+    $nhan = "C" + $iC.ToString("00") + " inbox.today — " + $vai.ten
+    $iC++
+
+    $me = Q "auth.me" $null $who
+    if ((-not $me.ok) -or ($null -eq $me.data)) {
+      Skip "C" ($nhan + ": khong co nhom ngoai quyen") ("khong dang nhap duoc bang tai khoan mau " + $vai.ten + ": " + (Say $me.err 100))
+      continue
+    }
+    # Vai trò THẬT (đã lọc theo hiệu lực) + nhãn tiếng Việt, đều lấy từ hệ thống
+    $vaiThat = @(Rows $me.data.assignments | ForEach-Object { [string]$_.role } | Select-Object -Unique)
+    $nhanVai = (@($vaiThat | ForEach-Object { Def $nhanCuaVai[$_] $_ }) -join " + ")
+    if (-not $nhanVai) { $nhanVai = $vai.ten }
+    $moTa = $vai.ten + " (" + $nhanVai + ")"
+
+    # Bộ quyền hiệu lực = quyền của các vai trò + quyền của các nhóm người dùng
+    $quyen = New-Object System.Collections.ArrayList
+    foreach ($rl in $vaiThat) { foreach ($p in @(Rows $quyenCuaVai[$rl])) { [void]$quyen.Add([string]$p) } }
+    foreach ($gp in $quyenNhomNguoiDung) { if ($gp.email -eq $who.ToLower()) { [void]$quyen.Add([string]$gp.permission) } }
+
     $r = CallApi -Method "GET" -Path "inbox.today" -InputObj $null -Who $who
-    Perf ("inbox.today — " + $vai.ten) $r.ms
+    Perf ("inbox.today — " + $moTa) $r.ms
     if ($r.ms -gt $chamNhat) { $chamNhat = $r.ms }
     if ($who -eq $A) { $inboxA = $r }
+
     if (-not $r.ok) {
-      T "C" ("C" + $iC.ToString("00") + " inbox.today — " + $vai.ten) $false "tra ve danh sach nhom viec" ("loi=" + $r.err)
-    } else {
-      $keys = @(@($r.data.groups) | ForEach-Object { [string]$_.key })
-      $ngoaiQuyen = @($keys | Where-Object { $nhomHopLe[$who] -notcontains $_ })
-      T "C" ("C" + $iC.ToString("00") + " inbox.today — " + $vai.ten + ": khong co nhom ngoai quyen") ($ngoaiQuyen.Count -eq 0) "0 nhom ngoai quyen" ("nhom ngoai quyen: " + ($ngoaiQuyen -join ", ") + " | nhom tra ve: " + ($keys -join ", "))
+      T "C" ($nhan + ": khong co nhom ngoai quyen") $false "tra ve danh sach nhom viec" ("vai tro=" + $nhanVai + " loi=" + $r.err)
+      continue
     }
-    $iC++
+    $keys = @(Rows $r.data.groups | ForEach-Object { [string]$_.key })
+    if (-not $coMaTran) {
+      Skip "C" ($nhan + ": khong co nhom ngoai quyen") ("khong co ma tran vai tro de doi chieu; nhom tra ve: " + ($keys -join ", "))
+      continue
+    }
+
+    # Mỗi nhóm TRẢ VỀ phải được một quyền của chính tài khoản đó giải thích
+    $viPham = New-Object System.Collections.ArrayList
+    foreach ($k in $keys) {
+      if (-not $nhomQuyen.Contains($k)) { [void]$viPham.Add($k + " (khoa nhom la)"); continue }
+      $can = [string]$nhomQuyen[$k]
+      if ([string]::IsNullOrEmpty($can)) { continue }
+      $co = $false
+      foreach ($p in $quyen) { if (KhopQuyen $p $can) { $co = $true; break } }
+      if (-not $co) { [void]$viPham.Add($k + " (thieu quyen " + $can + ")") }
+    }
+    # Nhóm CÓ quyền mà không thấy trả về: chỉ ghi chú, KHÔNG tính là lỗi —
+    # `inboxToday` lược bỏ mọi nhóm có total = 0, nên "vắng nhóm" thường chỉ là hết việc.
+    $vangMat = New-Object System.Collections.ArrayList
+    foreach ($k in $tatCaNhom) {
+      if ($keys -contains $k) { continue }
+      $can = [string]$nhomQuyen[$k]
+      if ([string]::IsNullOrEmpty($can)) { continue }
+      foreach ($p in $quyen) { if (KhopQuyen $p $can) { [void]$vangMat.Add($k); break } }
+    }
+    T "C" ($nhan + ": khong co nhom ngoai quyen") ($viPham.Count -eq 0) "moi nhom tra ve deu duoc mot quyen cua tai khoan giai thich" ("vai tro=" + $nhanVai + " | nhom ngoai quyen: " + ($viPham -join ", ") + " | nhom tra ve: " + ($keys -join ", "))
+    if ($vangMat.Count -gt 0) {
+      Note ($moTa + ": co quyen nhung khong thay nhom " + ($vangMat -join ", ") + " — nhom rong bi luoc bo, khong phai loi phan quyen.")
+    }
   }
 
   # C08 — mọi khoá nhóm hợp lệ, actionKind hợp lệ, nhãn hành động không rỗng
@@ -819,7 +953,7 @@ if ($Only -eq "tat-ca" -or $Only -eq "mot-cham") {
     Skip "C" "C09 moi dong co dung mot hanh dong chinh" "khong doc duoc inbox.today cua quan tri"
     Skip "C" "C10 co so lieu tong hop khop voi cac nhom" "khong doc duoc inbox.today cua quan tri"
   } else {
-    $groups = @($inboxA.data.groups)
+    $groups = Rows $inboxA.data.groups
     $saiKhoa = @($groups | Where-Object { $tatCaNhom -notcontains [string]$_.key }).Count
     $saiKieu = @($groups | Where-Object { $kieuHopLe -notcontains [string]$_.actionKind }).Count
     T "C" "C08 moi nhom co khoa va actionKind hop le" (($saiKhoa -eq 0) -and ($saiKieu -eq 0)) "khoa thuoc danh muc, actionKind la mutate/open" ("sai khoa=" + $saiKhoa + " sai kieu=" + $saiKieu)
@@ -828,7 +962,7 @@ if ($Only -eq "tat-ca" -or $Only -eq "mot-cham") {
     $saiDong = 0
     foreach ($g in $groups) {
       if ([string]::IsNullOrWhiteSpace([string]$g.actionLabel)) { $saiNhan++ }
-      foreach ($it in @($g.items)) {
+      foreach ($it in (Rows $g.items)) {
         if ([string]::IsNullOrWhiteSpace([string]$it.id) -or [string]::IsNullOrWhiteSpace([string]$it.title) -or [string]::IsNullOrWhiteSpace([string]$it.href)) { $saiDong++ }
       }
     }
@@ -844,7 +978,7 @@ if ($Only -eq "tat-ca" -or $Only -eq "mot-cham") {
   $chon = $null
   if ($inboxA -and $inboxA.ok) {
     foreach ($k in $nhomAnToan) {
-      $g = @($inboxA.data.groups) | Where-Object { $_.key -eq $k -and @($_.items).Count -ge 1 } | Select-Object -First 1
+      $g = (Rows $inboxA.data.groups) | Where-Object { $_.key -eq $k -and (Rows $_.items).Count -ge 1 } | Select-Object -First 1
       if ($null -ne $g) { $chon = $g; break }
     }
   }
@@ -853,7 +987,7 @@ if ($Only -eq "tat-ca" -or $Only -eq "mot-cham") {
     Skip "C" "C12 inbox.act tron dong hop le + dong ngoai pham vi" "khong co nhom viec an toan nao co du lieu"
     Skip "C" "C13 inbox.undo tra lai trang thai cu" "khong co nhom viec an toan nao co du lieu"
   } else {
-    $dong1 = @($chon.items)[0]
+    $dong1 = (Rows $chon.items)[0]
     $r = Mu "inbox.act" @{ group = $chon.key; ids = @($dong1.id); note = "Kiem thu tu dong — xu ly tu man hinh Viec hom nay" } $A
     Created ("Da chay inbox.act nhom '" + $chon.key + "' tren 1 dong (id=" + $dong1.id + ")")
     T "C" "C11 inbox.act tren mot dong hop le -> done=1" ($r.ok -and ([int]$r.data.done -eq 1)) "done=1" ("ok=" + $r.ok + " done=" + $r.data.done + " loi=" + $r.err)
@@ -864,10 +998,10 @@ if ($Only -eq "tat-ca" -or $Only -eq "mot-cham") {
       $leadLa = @((Q "admissions.leads.inbox" @{ scope = "all"; centerId = $csHue.id; allStatuses = $true; limit = 5 } $A).data.items) | Select-Object -First 1
       if ($leadLa -and ($chon.key -eq "lead_sla" -or $chon.key -eq "lead_task")) { $idLa = $leadLa.id }
     }
-    $dong2 = @($chon.items) | Select-Object -Skip 1 -First 1
+    $dong2 = (Rows $chon.items) | Select-Object -Skip 1 -First 1
     if ($null -eq $dong2) { $dong2 = $dong1 }
     $r2 = Mu "inbox.act" @{ group = $chon.key; ids = @($dong2.id, $idLa); note = "Kiem thu tu dong — tron dong hop le voi dong ngoai pham vi" } $A
-    $hong = @($r2.data.failed)
+    $hong = Rows $r2.data.failed
     $hongDung = @($hong | Where-Object { $_.id -eq $idLa }).Count
     T "C" "C12 tron dong hop le + dong ngoai pham vi: dong sai vao 'failed', dong dung van chay" ($r2.ok -and ([int]$r2.data.done -ge 1) -and ($hongDung -ge 1)) "done >= 1 va failed chua dong sai" ("done=" + $r2.data.done + " failed=" + $hong.Count + " dungDong=" + $hongDung)
 
