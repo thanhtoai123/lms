@@ -316,6 +316,52 @@ export function hasPerTenantConfig<T extends { tenantId?: string | null }>(rows:
 }
 
 /* ------------------------------------------------------------------ */
+/* RLS: biến phiên `app.tenant_ids` / `app.bypass_rls`                 */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Lớp phòng thủ cuối ở Postgres (xem `packages/db/sql/0006_rls_tenant.sql`).
+ * Ứng dụng đặt hai biến phiên ở đầu mỗi giao dịch; chính sách RLS đọc lại đúng luật dưới đây.
+ * Các hàm ở đây là BẢN SAO THUẦN của luật SQL để kiểm thử được mà không cần CSDL.
+ */
+export interface RlsSession {
+  /** Danh sách tenantId người dùng được thấy */
+  ids: string[];
+  /** Bỏ qua RLS (lệnh quản trị: migrate, seed, nhân bản tenant, worker) */
+  bypass: boolean;
+}
+
+/** Ghép danh sách tenantId thành giá trị của `app.tenant_ids` (uuid phân tách bằng dấu phẩy) */
+export function tenantSessionValue(ids: readonly (string | null | undefined)[]): string {
+  return [...new Set(ids.map((i) => (i ?? "").trim()).filter(Boolean))].join(",");
+}
+
+/** Đọc ngược giá trị biến phiên (bỏ khoảng trắng và phần tử rỗng) */
+export function parseTenantSession(raw: string | null | undefined): string[] {
+  return (raw ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+}
+
+export function rlsSessionFrom(rawIds: string | null | undefined, rawBypass?: string | null): RlsSession {
+  const b = (rawBypass ?? "").trim().toLowerCase();
+  return { ids: parseTenantSession(rawIds), bypass: b === "on" || b === "true" || b === "1" || b === "yes" };
+}
+
+/**
+ * Một dòng có qua được chính sách RLS không:
+ *  - đang bật cờ bỏ qua → cho;
+ *  - dòng chưa gắn tenant (dữ liệu di sản) → cho, giống `tenantCond` ở tầng service;
+ *  - còn lại: tenant của dòng phải nằm trong `app.tenant_ids`.
+ *
+ * Chưa đặt biến phiên (danh sách rỗng) → CHẶN. Đây là mặc định an toàn và cũng là lý do
+ * RLS phải bật có chủ đích: kết nối nào quên đặt biến phiên sẽ không đọc được gì.
+ */
+export function rlsAllowsRow(rowTenantId: string | null | undefined, s: RlsSession): boolean {
+  if (s.bypass) return true;
+  if (rowTenantId === null || rowTenantId === undefined || rowTenantId === "") return true;
+  return s.ids.includes(rowTenantId);
+}
+
+/* ------------------------------------------------------------------ */
 /* Mã tenant                                                           */
 /* ------------------------------------------------------------------ */
 

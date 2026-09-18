@@ -46,6 +46,8 @@ export interface TenantCard {
   hoSeesFinanceDetail: boolean | null;
   dataRetentionYears: number | null;
   allowCrossCenterTransfer: boolean | null;
+  /** Người đang xem có được kết thúc hợp đồng của trung tâm này không */
+  canOffboard: boolean;
 }
 
 type Template = { id: string; code: string; name: string; isDefault: boolean };
@@ -194,7 +196,159 @@ function TenantDetail({ tenant, labels, onClose }: { tenant: TenantCard; labels:
         {!tenant.seesFinanceDetail && <p className="text-xs text-amber-700">Trung tâm này chỉ chia sẻ số liệu tổng hợp — không mở được từng phiếu thu.</p>}
         {!tenant.seesPii && <p className="text-xs text-amber-700">Dữ liệu cá nhân của trung tâm này hiển thị ở dạng đã che (0912****78).</p>}
       </section>
+
+      {tenant.canOffboard && <DangerZone tenant={tenant} />}
     </Panel>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Vùng nguy hiểm — kết thúc hợp đồng nhượng quyền                     */
+/* ------------------------------------------------------------------ */
+
+const OFFBOARD_KIND_LABEL: Record<string, string> = { lock: "Sẽ khoá", keep: "Giữ nguyên", export: "Nằm trong gói bàn giao" };
+
+/** Đổi chuỗi base64 máy chủ trả về thành tệp tải xuống */
+function downloadBase64(fileName: string, base64: string, mime: string) {
+  const bin = atob(base64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
+  const url = URL.createObjectURL(new Blob([bytes], { type: mime }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function DangerZone({ tenant }: { tenant: TenantCard }) {
+  const trpc = useTRPC();
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [confirm, setConfirm] = useState("");
+  const [reason, setReason] = useState("");
+  const [done, setDone] = useState<string | null>(null);
+
+  const preview = useQuery({ ...trpc.tenants.previewOffboard.queryOptions({ tenantId: tenant.id }), enabled: open });
+  const after = () => { setConfirm(""); setReason(""); router.refresh(); };
+  const exportM = useMutation(trpc.tenants.exportData.mutationOptions({
+    onSuccess: (d) => {
+      downloadBase64(d.fileName, d.contentBase64, "application/zip");
+      setDone(`Đã tải gói bàn giao ${d.fileName} (${Math.max(1, Math.round(d.bytes / 1024))} KB)${d.masked ? " — dữ liệu cá nhân đã che theo quyền của bạn" : ""}.`);
+      setReason("");
+    },
+  }));
+  const suspendM = useMutation(trpc.tenants.suspend.mutationOptions({ onSuccess: (d) => { setDone(`Đã tạm ngừng trung tâm · khoá ${d.lockedAccounts} tài khoản.`); after(); } }));
+  const closeM = useMutation(trpc.tenants.close.mutationOptions({ onSuccess: (d) => { setDone(`Đã đóng trung tâm · khoá ${d.lockedAccounts} tài khoản · giữ dữ liệu đến ${dmy(d.retentionUntil)}.`); after(); } }));
+  const reopenM = useMutation(trpc.tenants.reopen.mutationOptions({ onSuccess: () => { setDone("Đã mở lại trung tâm — tài khoản vẫn phải mở khoá bằng tay ở màn Tài khoản."); after(); } }));
+
+  const busy = exportM.isPending || suspendM.isPending || closeM.isPending || reopenM.isPending;
+  const err = exportM.error?.message ?? suspendM.error?.message ?? closeM.error?.message ?? reopenM.error?.message ?? null;
+  const confirmOk = confirm.trim().toUpperCase() === tenant.code.toUpperCase();
+  const reasonOk = reason.trim().length >= 10;
+  const armed = confirmOk && reasonOk && !busy;
+  const payload = { tenantId: tenant.id, confirm: confirm.trim().toUpperCase(), reason: reason.trim() };
+
+  return (
+    <section className="space-y-3 rounded-xl border-2 border-red-300 bg-red-50/60 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-bold text-red-800">Vùng nguy hiểm — kết thúc hợp đồng nhượng quyền</h3>
+          <p className="text-xs text-red-800/80">
+            Bàn giao dữ liệu rồi tạm ngừng / đóng trung tâm. Các thao tác ở đây <b>khoá toàn bộ tài khoản</b> của trung tâm và được ghi nhật ký.
+            Không thao tác nào xoá dữ liệu.
+          </p>
+        </div>
+        <button type="button" className="btn-ghost !py-1.5 text-xs text-red-800" onClick={() => setOpen((v) => !v)}>
+          {open ? "Thu gọn" : "Mở vùng nguy hiểm"}
+        </button>
+      </div>
+
+      {open && (
+        <div className="space-y-3">
+          {preview.isPending && <p className="text-xs text-red-800/80">Đang tính bảng kê…</p>}
+          {preview.error && <p className="text-sm text-red-700">{preview.error.message}</p>}
+          {preview.data && (
+            <>
+              <div className="grid gap-2 text-xs sm:grid-cols-2">
+                <ul className="space-y-1 rounded-xl bg-white/70 p-3">
+                  {preview.data.lines.map((l) => (
+                    <li key={l.key} className="flex items-baseline justify-between gap-2">
+                      <span>
+                        {l.label}
+                        <span className="block text-[11px] text-muted-foreground">{OFFBOARD_KIND_LABEL[l.kind] ?? l.kind}{l.note ? ` · ${l.note}` : ""}</span>
+                      </span>
+                      <b>{l.count.toLocaleString("vi-VN")}</b>
+                    </li>
+                  ))}
+                </ul>
+                <div className="space-y-2 rounded-xl bg-white/70 p-3">
+                  <p><b>{preview.data.accountsTotal}</b> tài khoản sẽ bị khoá, không đăng nhập được nữa:</p>
+                  <ul className="max-h-32 space-y-0.5 overflow-y-auto text-[11px] text-muted-foreground">
+                    {preview.data.accounts.map((a) => <li key={a.id}>{a.fullName} · {a.email}</li>)}
+                    {preview.data.accounts.length === 0 && <li>Không có tài khoản đang hoạt động.</li>}
+                  </ul>
+                  <p className="text-[11px]">
+                    Dữ liệu giữ <b>{preview.data.retention.years} năm</b> — đến ngày <b>{dmy(preview.data.retention.until)}</b> mới xoá / ẩn danh.
+                  </p>
+                  {preview.data.warnings.map((w) => <p key={w} className="text-[11px] font-medium text-amber-800">⚠ {w}</p>)}
+                </div>
+              </div>
+
+              <div className="grid gap-2 sm:grid-cols-2">
+                <input
+                  className="input"
+                  placeholder={`Gõ lại mã trung tâm ${tenant.code} để xác nhận`}
+                  value={confirm}
+                  onChange={(e) => setConfirm(e.target.value.toUpperCase())}
+                  maxLength={12}
+                />
+                <input
+                  className="input"
+                  placeholder="Lý do (bắt buộc, ≥ 10 ký tự — ghi vào nhật ký)"
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  maxLength={500}
+                />
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  className="btn-ghost !py-1.5 text-xs"
+                  disabled={!reasonOk || busy}
+                  onClick={() => exportM.mutate({ tenantId: tenant.id, reason: reason.trim() })}
+                >
+                  {exportM.isPending ? "Đang đóng gói…" : "Xuất gói bàn giao (.zip)"}
+                </button>
+                {tenant.status !== "closed" && (
+                  <button type="button" className="btn-ghost !py-1.5 text-xs text-red-800" disabled={!armed || tenant.status === "suspended"} onClick={() => suspendM.mutate(payload)}>
+                    Tạm ngừng trung tâm
+                  </button>
+                )}
+                {tenant.status !== "closed" && (
+                  <button type="button" className="btn-primary !bg-red-700 !py-1.5 text-xs hover:!bg-red-800" disabled={!armed} onClick={() => closeM.mutate(payload)}>
+                    Đóng trung tâm (kết thúc hợp đồng)
+                  </button>
+                )}
+                {(tenant.status === "suspended" || tenant.status === "closed") && (
+                  <button type="button" className="btn-ghost !py-1.5 text-xs" disabled={!armed} onClick={() => reopenM.mutate(payload)}>
+                    Mở lại trung tâm
+                  </button>
+                )}
+              </div>
+              <p className="text-[11px] text-red-800/80">
+                Nút đỏ chỉ bật khi đã gõ đúng mã <b>{tenant.code}</b> và nhập lý do. Nên <b>xuất gói bàn giao trước</b>, rồi mới đóng.
+              </p>
+              {err && <p className="text-sm text-red-700">{err}</p>}
+              {done && <p className="text-sm font-medium text-green-800">{done}</p>}
+            </>
+          )}
+        </div>
+      )}
+    </section>
   );
 }
 
