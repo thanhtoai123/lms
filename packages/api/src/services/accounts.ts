@@ -10,6 +10,7 @@ import {
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { supabaseAdmin } from "./staffAuth";
 import { writeAudit } from "./audit";
+import { tenantCond, assertTenant, redact } from "./tenantScope";
 
 type Db = ProtectedContext["db"];
 
@@ -32,7 +33,7 @@ export async function listUsers(ctx: ProtectedContext, input: { q?: string; role
   requirePermission(ctx, "system:read");
   const pageSize = Math.min(100, input.pageSize ?? 30);
   const page = Math.max(1, input.page ?? 1);
-  const conds = [];
+  const conds = [tenantCond(ctx, users)];
   if (input.q?.trim()) {
     const q = `%${input.q.trim()}%`;
     conds.push(or(ilike(users.fullName, q), ilike(users.email, q), ilike(users.phone, q))!);
@@ -48,7 +49,7 @@ export async function listUsers(ctx: ProtectedContext, input: { q?: string; role
   const where = conds.length ? and(...conds) : undefined;
   const [tot] = await ctx.db.select({ n: sql<number>`count(*)::int` }).from(users).where(where);
   const rows = await ctx.db
-    .select({ id: users.id, email: users.email, fullName: users.fullName, phone: users.phone, isActive: users.isActive, lastLoginAt: users.lastLoginAt, lockedReason: users.lockedReason, createdAt: users.createdAt, hasAuth: sql<boolean>`${users.authSubject} is not null` })
+    .select({ id: users.id, email: users.email, fullName: users.fullName, phone: users.phone, isActive: users.isActive, lastLoginAt: users.lastLoginAt, lockedReason: users.lockedReason, createdAt: users.createdAt, tenantId: users.tenantId, hasAuth: sql<boolean>`${users.authSubject} is not null` })
     .from(users).where(where).orderBy(asc(users.fullName)).limit(pageSize).offset((page - 1) * pageSize);
   const ids = rows.map((r) => r.id);
   const roles = ids.length
@@ -59,11 +60,11 @@ export async function listUsers(ctx: ProtectedContext, input: { q?: string; role
     total: sql<number>`count(*)::int`,
     active: sql<number>`count(*) filter (where ${users.isActive})::int`,
     locked: sql<number>`count(*) filter (where not ${users.isActive})::int`,
-  }).from(users);
+  }).from(users).where(tenantCond(ctx, users));
   return {
     total: tot?.n ?? 0, page, pageSize,
     counts: counts ?? { total: 0, active: 0, locked: 0 },
-    items: rows.map((r) => ({ ...r, roles: roles.filter((x) => x.userId === r.id).map((x) => ({ ...x, label: ROLE_LABEL_VI[x.role] })) })),
+    items: rows.map((r) => redact(ctx, { ...r, roles: roles.filter((x) => x.userId === r.id).map((x) => ({ ...x, label: ROLE_LABEL_VI[x.role] })) }, r.tenantId)),
   };
 }
 
@@ -71,6 +72,7 @@ export async function getUser(ctx: ProtectedContext, id: string) {
   requirePermission(ctx, "system:read");
   const u = await ctx.db.query.users.findFirst({ where: eq(users.id, id) });
   if (!u) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy tài khoản" });
+  assertTenant(ctx, u, "Tài khoản");
   const [roles, teacher, history, acted] = await Promise.all([
     ctx.db.select({ id: userRoles.id, role: userRoles.role, centerId: userRoles.centerId, centerCode: centers.code, centerName: centers.name, createdAt: userRoles.createdAt, grantedByName: sql<string | null>`(select full_name from ${users} g where g.id = ${userRoles.grantedBy})` })
       .from(userRoles).leftJoin(centers, eq(centers.id, userRoles.centerId)).where(eq(userRoles.userId, id)).orderBy(asc(userRoles.createdAt)),
@@ -95,7 +97,7 @@ export async function getUser(ctx: ProtectedContext, id: string) {
 
 export async function roleOptions(ctx: ProtectedContext) {
   requirePermission(ctx, "system:read");
-  const cs = await ctx.db.select({ id: centers.id, code: centers.code, name: centers.name }).from(centers).orderBy(asc(centers.code));
+  const cs = await ctx.db.select({ id: centers.id, code: centers.code, name: centers.name }).from(centers).where(tenantCond(ctx, centers)).orderBy(asc(centers.code));
   return {
     roles: ASSIGNABLE_ROLES.map((r) => ({ role: r, label: ROLE_LABEL_VI[r], global: GLOBAL_ROLES.includes(r) })),
     centers: cs,
@@ -115,7 +117,8 @@ export async function createUser(ctx: ProtectedContext, input: { email: string; 
   const errs = input.roles.flatMap((r) => validateRoleGrant({ actor: ctx.actor, role: r.role, centerId: r.centerId, targetUserId: "new" }));
   fail([...new Set(errs)]);
   const id = await ctx.db.transaction(async (tx) => {
-    const [u] = await tx.insert(users).values({ email, fullName: input.fullName.trim(), phone: input.phone?.trim() || null }).returning({ id: users.id });
+    // Tài khoản mới thuộc đúng trung tâm (tenant) của người tạo
+    const [u] = await tx.insert(users).values({ email, fullName: input.fullName.trim(), phone: input.phone?.trim() || null, tenantId: ctx.tenantId }).returning({ id: users.id });
     const uniq = new Map(input.roles.map((r) => [`${r.role}:${r.centerId ?? ""}`, r]));
     await tx.insert(userRoles).values([...uniq.values()].map((r) => ({ userId: u!.id, role: r.role, centerId: r.centerId, grantedBy: ctx.user.id })));
     await writeAudit(tx as unknown as Db, { actorId: ctx.user.id, action: "CREATE", module: "system", entity: "users", entityId: u!.id, after: { email, fullName: input.fullName, roles: [...uniq.values()] }, ip: ctx.ip });
@@ -225,7 +228,8 @@ export async function listAudit(ctx: ProtectedContext, input: AuditQuery) {
   requirePermission(ctx, "audit:read");
   const pageSize = Math.min(100, input.pageSize ?? 50);
   const page = Math.max(1, input.page ?? 1);
-  const conds = [];
+  // Nhật ký chỉ hiển thị trong phạm vi trung tâm (tenant) của người xem
+  const conds = [tenantCond(ctx, auditLog)];
   if (input.module) conds.push(eq(auditLog.module, input.module));
   if (input.entity) conds.push(eq(auditLog.entity, input.entity));
   if (input.action) conds.push(eq(auditLog.action, input.action));
@@ -270,9 +274,11 @@ export async function revealAuditEntry(ctx: ProtectedContext, input: { id: strin
   return ctx.db.transaction(async (tx) => {
     const db = tx as unknown as Db;
     const [row] = await db
-      .select({ id: auditLog.id, action: auditLog.action, module: auditLog.module, entity: auditLog.entity, entityId: auditLog.entityId, before: auditLog.before, after: auditLog.after, reason: auditLog.reason, ip: auditLog.ip, createdAt: auditLog.createdAt, actorId: auditLog.actorId, actorName: users.fullName, actorEmail: users.email })
+      .select({ id: auditLog.id, action: auditLog.action, module: auditLog.module, entity: auditLog.entity, entityId: auditLog.entityId, before: auditLog.before, after: auditLog.after, reason: auditLog.reason, ip: auditLog.ip, createdAt: auditLog.createdAt, actorId: auditLog.actorId, tenantId: auditLog.tenantId, actorName: users.fullName, actorEmail: users.email })
       .from(auditLog).leftJoin(users, eq(users.id, auditLog.actorId)).where(eq(auditLog.id, input.id)).limit(1);
     if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy dòng nhật ký" });
+    // Nhật ký của trung tâm khác không mở "Xem đầy đủ" được
+    assertTenant(ctx, row, "Dòng nhật ký");
     await writeAudit(db, {
       actorId: ctx.user.id, action: "PII_REVEAL", module: "system", entity: "audit_log", entityId: row.id,
       after: { xem: `${row.module}/${row.entity}`, banGhi: row.entityId, luc: row.createdAt.toISOString() },
@@ -285,10 +291,10 @@ export async function revealAuditEntry(ctx: ProtectedContext, input: { id: strin
 export async function auditFilterOptions(ctx: ProtectedContext) {
   requirePermission(ctx, "audit:read");
   const [mods, ents, acts, actors] = await Promise.all([
-    ctx.db.selectDistinct({ v: auditLog.module }).from(auditLog).orderBy(asc(auditLog.module)),
-    ctx.db.selectDistinct({ v: auditLog.entity, m: auditLog.module }).from(auditLog).orderBy(asc(auditLog.entity)),
-    ctx.db.selectDistinct({ v: auditLog.action }).from(auditLog).orderBy(asc(auditLog.action)),
-    ctx.db.select({ id: users.id, name: users.fullName }).from(users).where(sql`exists (select 1 from ${auditLog} a where a.actor_id = ${sql.raw('"users"."id"')})`).orderBy(asc(users.fullName)),
+    ctx.db.selectDistinct({ v: auditLog.module }).from(auditLog).where(tenantCond(ctx, auditLog)).orderBy(asc(auditLog.module)),
+    ctx.db.selectDistinct({ v: auditLog.entity, m: auditLog.module }).from(auditLog).where(tenantCond(ctx, auditLog)).orderBy(asc(auditLog.entity)),
+    ctx.db.selectDistinct({ v: auditLog.action }).from(auditLog).where(tenantCond(ctx, auditLog)).orderBy(asc(auditLog.action)),
+    ctx.db.select({ id: users.id, name: users.fullName }).from(users).where(and(tenantCond(ctx, users), sql`exists (select 1 from ${auditLog} a where a.actor_id = ${sql.raw('"users"."id"')})`)).orderBy(asc(users.fullName)),
   ]);
   return { modules: mods.map((m) => m.v), entities: ents, actions: acts.map((a) => a.v), actors };
 }

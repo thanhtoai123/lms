@@ -1,18 +1,21 @@
 import { pgTable, text, uuid, integer, bigint, timestamp, jsonb, index, uniqueIndex, boolean, primaryKey } from "drizzle-orm/pg-core";
 import { id, timestamps } from "./_common";
+import { tenantCol } from "./tenant";
 import { users } from "./identity";
 import { centers } from "./org";
 
 /** Mẫu email theo sự kiện (không có dòng → dùng mẫu mặc định trong core) */
 export const emailTemplates = pgTable("email_templates", {
   id: id(),
-  eventKey: text("event_key").notNull().unique(),
+  tenantId: tenantCol(),
+  /** Duy nhất trong một trung tâm (tenant) — mỗi trung tâm có bộ mẫu email riêng */
+  eventKey: text("event_key").notNull(),
   subject: text("subject").notNull(),
   body: text("body").notNull(),
   isActive: boolean("is_active").notNull().default(true),
   updatedBy: uuid("updated_by").references(() => users.id),
   ...timestamps,
-});
+}, (t) => [uniqueIndex("email_templates_event_tenant_uq").on(t.tenantId, t.eventKey)]);
 
 /** Nhật ký / hàng đợi email */
 export const emailLogs = pgTable(
@@ -64,12 +67,14 @@ export const otpRequests = pgTable(
 /** Nhóm người dùng (nhận thông báo nội bộ) */
 export const userGroups = pgTable("user_groups", {
   id: id(),
-  name: text("name").notNull().unique(),
+  tenantId: tenantCol(),
+  /** Duy nhất trong một trung tâm (tenant) */
+  name: text("name").notNull(),
   description: text("description"),
   centerId: uuid("center_id").references(() => centers.id, { onDelete: "set null" }),
   createdBy: uuid("created_by").references(() => users.id),
   ...timestamps,
-});
+}, (t) => [uniqueIndex("user_groups_name_tenant_uq").on(t.tenantId, t.name)]);
 
 export const userGroupMembers = pgTable(
   "user_group_members",
@@ -110,8 +115,9 @@ export const notificationTypes = pgTable(
   "notification_types",
   {
     id: id(),
-    /** Mã loại, vd `lead.moi`, `class.session_changed`, `request.submitted`, `shift.brief` */
-    prefix: text("prefix").notNull().unique(),
+    tenantId: tenantCol(),
+    /** Mã loại, vd `lead.moi`, `class.session_changed`, `request.submitted`, `shift.brief` (duy nhất trong một tenant) */
+    prefix: text("prefix").notNull(),
     label: text("label").notNull(),
     groupKey: text("group_key").notNull(),
     groupLabel: text("group_label").notNull(),
@@ -124,7 +130,7 @@ export const notificationTypes = pgTable(
     updatedBy: uuid("updated_by").references(() => users.id),
     ...timestamps,
   },
-  (t) => [index("notification_types_group_idx").on(t.groupKey)],
+  (t) => [index("notification_types_group_idx").on(t.groupKey), uniqueIndex("notification_types_prefix_tenant_uq").on(t.tenantId, t.prefix)],
 );
 
 /** Nhật ký webhook nhận vào (để xem / chạy lại) */

@@ -11,7 +11,7 @@ import {
   Image as ImageIcon, KeyRound, Landmark, Layers, LayoutDashboard, ListOrdered, Mail, MapPin, MapPinned, Menu,
   MessageCircle, MessageSquarePlus, MessagesSquare, Monitor, Network, Newspaper, NotebookPen, Package,
   Package2, PackageOpen, Plug, Presentation, Receipt, RefreshCw, Rocket, ScrollText, Search, Send, ServerCog,
-  Settings, Share2, ShieldAlert, ShieldCheck, ShoppingBag, SlidersHorizontal, Star, TableProperties, Tags,
+  Settings, Share2, ShieldAlert, ShieldCheck, ShoppingBag, SlidersHorizontal, Star, Store, TableProperties, Tags,
   TriangleAlert, Undo2, Upload, UserCog, UserPlus, UserRound, Users, UsersRound, Wallet, Workflow,
   type LucideIcon,
 } from "lucide-react";
@@ -43,7 +43,7 @@ const NAV_ICON: Record<string, LucideIcon> = {
   "package-2": Package2, "package-open": PackageOpen, plug: Plug, presentation: Presentation, receipt: Receipt,
   "refresh-cw": RefreshCw, rocket: Rocket, "scroll-text": ScrollText, send: Send, "server-cog": ServerCog,
   settings: Settings, "share-2": Share2, "shield-alert": ShieldAlert, "shield-check": ShieldCheck,
-  "shopping-bag": ShoppingBag, "sliders-horizontal": SlidersHorizontal, star: Star,
+  "shopping-bag": ShoppingBag, "sliders-horizontal": SlidersHorizontal, star: Star, store: Store,
   "table-properties": TableProperties, tags: Tags, "triangle-alert": TriangleAlert, "undo-2": Undo2,
   upload: Upload, "user-cog": UserCog, "user-plus": UserPlus, "user-round": UserRound, users: Users,
   "users-round": UsersRound, wallet: Wallet, workflow: Workflow,

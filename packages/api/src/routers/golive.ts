@@ -73,7 +73,7 @@ export const opsConfigRouter = router({
     .mutation(({ ctx, input }) => O.saveOpsGroup(ctx, input)),
 
   /* Danh mục loại thông báo (tab "Danh mục thông báo") */
-  notificationTypes: protectedProcedure.query(({ ctx }) => N.effectiveCatalog(ctx.db)),
+  notificationTypes: protectedProcedure.query(({ ctx }) => N.effectiveCatalog(ctx.db, ctx.tenantId)),
   saveNotificationType: protectedProcedure
     .input(z.object({ prefix: z.string().max(60), pushEnabled: z.boolean(), isActive: z.boolean(), reason: z.string().trim().min(5, "Lý do tối thiểu 5 ký tự").max(300) }))
     .mutation(({ ctx, input }) => N.saveNotificationType(ctx, input)),

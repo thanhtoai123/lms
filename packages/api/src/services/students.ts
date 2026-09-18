@@ -12,6 +12,7 @@ import { requirePermission, type ProtectedContext } from "../trpc";
 import { writeAudit } from "./audit";
 import { encryptPii, decryptPii } from "./pii";
 import { getOps } from "./opsSettings";
+import { tenantCond, assertTenant, redact } from "./tenantScope";
 
 type Db = ProtectedContext["db"];
 const STUDENT_ID = sql.raw('"students"."id"');
@@ -25,10 +26,15 @@ export function canSeeFullPhone(ctx: ProtectedContext) {
   return hasRole(ctx.actor, "SUPER_ADMIN", "CENTER_MANAGER", "CENTER_SALES_CSM", "CENTER_CLASS_MANAGER", "HO_SALE");
 }
 
+/**
+ * Phạm vi dữ liệu của một truy vấn: cơ sở được phép **và** trung tâm (tenant) được phép.
+ * Dùng chung cho màn Học viên, Ghi danh và mọi truy vấn bắc cầu qua lớp.
+ */
 export function centerScope(ctx: ProtectedContext, col: typeof students.homeCenterId | typeof classes.centerId) {
   const visible = visibleCenterIds(ctx.actor);
-  if (visible === null) return sql`true`;
-  return visible.length ? inArray(col, visible) : sql`false`;
+  const byCenter = visible === null ? sql`true` : visible.length ? inArray(col, visible) : sql`false`;
+  const byTenant = col === students.homeCenterId ? tenantCond(ctx, students) : tenantCond(ctx, classes);
+  return and(byCenter, byTenant)!;
 }
 
 export const STUDENT_STATUSES = ["prospect", "trial", "active", "paused", "alumni", "withdrawn"] as const;
@@ -70,7 +76,7 @@ export async function listStudents(ctx: ProtectedContext, input: { q?: string; c
   const rows = await ctx.db
     .select({
       id: students.id, code: students.code, fullName: students.fullName, grade: students.grade, school: students.school, status: students.status,
-      dateOfBirth: students.dateOfBirth, centerCode: centers.code, createdAt: students.createdAt,
+      dateOfBirth: students.dateOfBirth, centerCode: centers.code, createdAt: students.createdAt, tenantId: students.tenantId,
       parentName: sql<string | null>`(select p.full_name from ${studentGuardians} g join ${parents} p on p.id = g.parent_id where g.student_id = ${students.id} order by g.is_primary desc limit 1)`,
       parentPhone: sql<string | null>`(select p.phone from ${studentGuardians} g join ${parents} p on p.id = g.parent_id where g.student_id = ${students.id} order by g.is_primary desc limit 1)`,
       classes: sql<string | null>`(select string_agg(c.code, ', ') from ${enrollments} e join ${classes} c on c.id = e.class_id where e.student_id = ${students.id} and e.status in ('trial','active','paused'))`,
@@ -82,7 +88,8 @@ export async function listStudents(ctx: ProtectedContext, input: { q?: string; c
     .limit(pageSize)
     .offset((page - 1) * pageSize);
   const full = canSeeFullPhone(ctx);
-  return { total: total?.n ?? 0, page, pageSize, items: rows.map((r) => ({ ...r, parentPhone: r.parentPhone ? (full ? r.parentPhone : maskPhone(r.parentPhone)) : null })) };
+  // Che PII của học viên thuộc trung tâm khác (theo cấu hình quyền riêng tư của trung tâm đó)
+  return { total: total?.n ?? 0, page, pageSize, items: rows.map((r) => redact(ctx, { ...r, parentPhone: r.parentPhone ? (full ? r.parentPhone : maskPhone(r.parentPhone)) : null })) };
 }
 
 /**
@@ -136,6 +143,7 @@ export async function exportStudents(ctx: ProtectedContext, input: StudentListFi
 export async function getStudent(ctx: ProtectedContext, id: string) {
   const s = await ctx.db.query.students.findFirst({ where: and(eq(students.id, id), isNull(students.deletedAt)) });
   if (!s) throw new TRPCError({ code: "NOT_FOUND" });
+  assertTenant(ctx, s, "Học viên");
   requirePermission(ctx, "student:read", { centerId: s.homeCenterId });
   const full = canSeeFullPhone(ctx);
   const canUpdate = authorize(ctx.actor, "student:update", { centerId: s.homeCenterId }).allowed;
@@ -187,7 +195,8 @@ export async function getStudent(ctx: ProtectedContext, id: string) {
   };
   const classOf = new Map(enrs.map((e) => [e.id, e.classCode]));
 
-  return {
+  // Hồ sơ của trung tâm khác: che PII nếu trung tâm đó không bật "Hội sở được xem dữ liệu cá nhân"
+  return redact(ctx, {
     ...s,
     center: center ?? null,
     preferredCenter: preferredCenter ?? null,
@@ -208,7 +217,7 @@ export async function getStudent(ctx: ProtectedContext, id: string) {
     care,
     pauses: pauses.map((p) => ({ ...p, classCodes: (p.enrollmentIds ?? []).map((x) => classOf.get(x) ?? "?") })),
     lifecycle: { studying: lifecycleState.studying, paused: lifecycleState.paused, openPause, actions: canUpdate ? studentLifecycleActions(lifecycleState) : [], maxPauseMonths: ops.maxPauseMonths },
-  };
+  }, s.tenantId);
 }
 
 export interface AddressInput { address?: string | null; ward?: string | null; district?: string | null; city?: string | null }

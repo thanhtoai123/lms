@@ -1,6 +1,7 @@
 import { pgTable, text, uuid, boolean, date, pgEnum, index, integer, timestamp, jsonb } from "drizzle-orm/pg-core";
 import { BLOOD_TYPES } from "@satarobo/core";
 import { id, timestamps, softDelete } from "./_common";
+import { tenantCol } from "./tenant";
 import { users } from "./identity";
 import { centers } from "./org";
 
@@ -14,6 +15,7 @@ export const teachers = pgTable(
   "teachers",
   {
     id: id(),
+    tenantId: tenantCol(),
     userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
     centerId: uuid("center_id").references(() => centers.id),
     code: text("code").unique(),
@@ -41,6 +43,7 @@ export const teachers = pgTable(
  */
 export const parents = pgTable("parents", {
   id: id(),
+  tenantId: tenantCol(),
   userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
   fullName: text("full_name").notNull(),
   phone: text("phone").notNull(),
@@ -78,6 +81,7 @@ export const students = pgTable(
   "students",
   {
     id: id(),
+    tenantId: tenantCol(),
     code: text("code").unique(), // CS1-26-000123 hoặc mã nhập tay
     fullName: text("full_name").notNull(),
     nickname: text("nickname"),

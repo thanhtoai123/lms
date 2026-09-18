@@ -7,6 +7,7 @@ import {
   MEDIA_MAX_BYTES, MEDIA_MIME, MEDIA_RESTORE_DAYS, visibleCenterIds, checkImageUpload, type MediaMime, type MediaStatus,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
+import { tenantCond } from "./tenantScope";
 import { writeAudit } from "./audit";
 import { putObject, deleteObject, signedMediaUrl } from "../storage";
 import { todayISO } from "./sessions";
@@ -76,7 +77,7 @@ async function consentMap(db: Db, studentIds: string[]) {
 
 export async function listMedia(ctx: ProtectedContext, input: { classId?: string; sessionId?: string; status?: MediaStatus; limit?: number }) {
   requirePermission(ctx, "media:read", {});
-  const conds = [scope(ctx)];
+  const conds = [scope(ctx), tenantCond(ctx, sessionMedia)];
   if (input.classId) conds.push(eq(sessions.classId, input.classId));
   if (input.sessionId) conds.push(eq(sessionMedia.sessionId, input.sessionId));
   if (input.status) conds.push(eq(sessionMedia.status, input.status));

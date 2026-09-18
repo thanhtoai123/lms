@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { pgTable, text, uuid, boolean, integer, bigint, date, timestamp, pgEnum, jsonb, index, uniqueIndex, smallint, numeric, primaryKey } from "drizzle-orm/pg-core";
 import { id, timestamps } from "./_common";
+import { tenantCol } from "./tenant";
 import {
   ORDER_TYPES, ORDER_STATUSES, PAYMENT_STATUSES, PAYMENT_METHOD_KINDS, REFUND_STATUSES, LEDGER_TYPES, BANK_TX_STATUSES, BANK_TX_SOURCES,
   COMMISSION_KINDS, COMMISSION_STATUSES, RATE_TYPES, PAYMENT_QR_STATUSES, DISCOUNT_POLICIES, COMMISSION_EVENTS, COMMISSION_SCOPES, COMMISSION_CALC_METHODS,
@@ -23,7 +24,9 @@ export const ledgerTypeEnum = pgEnum("ledger_type", LEDGER_TYPES);
 /** Phương thức thanh toán — dùng chung (centerId null) hoặc riêng cơ sở */
 export const paymentMethods = pgTable("payment_methods", {
   id: id(),
-  code: text("code").notNull().unique(),
+  tenantId: tenantCol(),
+  /** Duy nhất trong một trung tâm (tenant) — mỗi trung tâm có danh mục phương thức riêng */
+  code: text("code").notNull(),
   name: text("name").notNull(),
   kind: paymentMethodKindEnum("kind").notNull(),
   centerId: uuid("center_id").references(() => centers.id, { onDelete: "cascade" }),
@@ -48,13 +51,14 @@ export const paymentMethods = pgTable("payment_methods", {
   sortOrder: integer("sort_order").notNull().default(0),
   isActive: boolean("is_active").notNull().default(true),
   ...timestamps,
-});
+}, (t) => [uniqueIndex("payment_methods_code_tenant_uq").on(t.tenantId, t.code)]);
 
 /** Đơn hàng (học phí / sản phẩm) */
 export const orders = pgTable(
   "orders",
   {
     id: id(),
+    tenantId: tenantCol(),
     code: text("code").notNull().unique(),
     type: orderTypeEnum("type").notNull().default("course"),
     status: orderStatusEnum("status").notNull().default("pending_payment"),
@@ -193,6 +197,7 @@ export const payments = pgTable(
   "payments",
   {
     id: id(),
+    tenantId: tenantCol(),
     orderId: uuid("order_id").notNull().references(() => orders.id),
     centerId: uuid("center_id").notNull().references(() => centers.id),
     /** Số tiền ghi nhận ban đầu */
@@ -324,6 +329,7 @@ export const financeLedger = pgTable(
   "finance_ledger",
   {
     id: id(),
+    tenantId: tenantCol(),
     orderId: uuid("order_id").notNull().references(() => orders.id),
     centerId: uuid("center_id").notNull().references(() => centers.id),
     entryType: ledgerTypeEnum("entry_type").notNull(),
@@ -418,6 +424,7 @@ export const bankTxAllocations = pgTable(
 /** Quy tắc hoa hồng */
 export const commissionRules = pgTable("commission_rules", {
   id: id(),
+  tenantId: tenantCol(),
   name: text("name").notNull(),
   kind: commissionKindEnum("kind").notNull(),
   centerId: uuid("center_id").references(() => centers.id, { onDelete: "cascade" }),
@@ -450,6 +457,7 @@ export const commissionPolicies = pgTable(
   "commission_policies",
   {
     id: id(),
+    tenantId: tenantCol(),
     name: text("name").notNull(),
     /** Trục 1 — chi khi nào */
     event: commissionEventEnum("event").notNull(),

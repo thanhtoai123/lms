@@ -10,6 +10,12 @@ export interface AuditInput {
   after?: unknown;
   reason?: string | null;
   ip?: string;
+  /**
+   * Trung tâm (tenant) sở hữu dòng nhật ký. Bỏ trống thì trigger `fill_tenant_id_audit_log`
+   * lấy theo tenant của người thao tác — nhật ký chỉ hiển thị trong đúng tenant đó.
+   * Chỉ truyền tay khi ghi cho tenant khác (vd nhân bản trung tâm mới).
+   */
+  tenantId?: string | null;
 }
 
 /** Ghi audit trong cùng transaction với nghiệp vụ (truyền tx vào) */
@@ -24,5 +30,6 @@ export async function writeAudit(db: Database, input: AuditInput) {
     after: input.after ?? null,
     reason: input.reason ?? null,
     ip: input.ip ?? null,
+    ...(input.tenantId ? { tenantId: input.tenantId } : {}),
   });
 }

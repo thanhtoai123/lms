@@ -18,6 +18,7 @@ import { consumedSql, centerScope, canSeeFullPhone } from "./students";
 import { getOps, opsForCenters } from "./opsSettings";
 import { todayISO } from "./sessions";
 import { proposeRefundIfPaid } from "./refundHooks";
+import { assertTenant } from "./tenantScope";
 
 type Db = ProtectedContext["db"];
 const OPEN = ["active", "trial", "paused"] as const;
@@ -28,6 +29,8 @@ const baseSelect = {
   studentId: students.id, studentCode: students.code, studentName: students.fullName,
   classId: classes.id, classCode: classes.code, className: classes.name, courseId: classes.courseId, courseCode: courses.code,
   centerId: classes.centerId, centerCode: centers.code, consumed: consumedSql,
+  /** Trung tâm (tenant) sở hữu lớp — dùng để chặn truy cập chéo */
+  tenantId: classes.tenantId,
 };
 
 export async function listEnrollments(ctx: ProtectedContext, input: { q?: string; centerId?: string; classId?: string; status?: EnrollmentStatus; page?: number; pageSize?: number }) {
@@ -57,12 +60,14 @@ export async function listEnrollments(ctx: ProtectedContext, input: { q?: string
   return { total: total?.n ?? 0, page, pageSize, counts, items: rows.map((r) => ({ ...r, remaining: remainingSessions(r.packageSessions, r.consumed) })) };
 }
 
-export async function loadEnrollment(db: Db, id: string) {
+export async function loadEnrollment(db: Db, id: string, ctx?: ProtectedContext) {
   const [row] = await db.select(baseSelect).from(enrollments)
     .innerJoin(students, eq(students.id, enrollments.studentId)).innerJoin(classes, eq(classes.id, enrollments.classId))
     .innerJoin(courses, eq(courses.id, classes.courseId)).innerJoin(centers, eq(centers.id, classes.centerId))
     .where(eq(enrollments.id, id)).limit(1);
   if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy đăng ký học" });
+  // Truyền ctx vào để chặn đọc / ghi chéo trung tâm (tenant)
+  if (ctx) assertTenant(ctx, row, "Đăng ký học");
   return row;
 }
 
@@ -168,7 +173,7 @@ export async function transitionEnrollment(
   ctx: ProtectedContext,
   input: { enrollmentId: string; event: Exclude<EnrollmentEvent, "transfer_out">; reason?: string; pauseFrom?: string; pauseUntil?: string | null },
 ) {
-  const e = await loadEnrollment(ctx.db, input.enrollmentId);
+  const e = await loadEnrollment(ctx.db, input.enrollmentId, ctx);
   requirePermission(ctx, "enrollment:update", { centerId: e.centerId });
   const to = enrollmentTransition(e.status, input.event);
   const reason = EVENTS_REQUIRING_REASON.includes(input.event) ? reasonOf(input.reason) : input.reason?.trim() || null;
@@ -197,11 +202,11 @@ export async function transitionEnrollment(
     await syncStudentStatus(db, e.studentId);
     await writeAudit(db, { actorId: ctx.user.id, action: "TRANSITION", module: "enrollments", entity: "enrollments", entityId: e.id, before: { status: e.status }, after: { status: to, ...pausePatch, refundProposed: refundAmount || undefined }, reason, ip: ctx.ip });
   });
-  return { ...(await loadEnrollment(ctx.db, e.id)), refundProposed: refundAmount };
+  return { ...(await loadEnrollment(ctx.db, e.id, ctx)), refundProposed: refundAmount };
 }
 
 export async function changePackage(ctx: ProtectedContext, input: { enrollmentId: string; packageSessions: number; reason: string }) {
-  const e = await loadEnrollment(ctx.db, input.enrollmentId);
+  const e = await loadEnrollment(ctx.db, input.enrollmentId, ctx);
   requirePermission(ctx, "enrollment:update", { centerId: e.centerId });
   if (input.packageSessions < e.consumed) throw new TRPCError({ code: "BAD_REQUEST", message: `Không thể nhỏ hơn số buổi đã học (${e.consumed})` });
   await ctx.db.transaction(async (tx) => {
@@ -209,7 +214,7 @@ export async function changePackage(ctx: ProtectedContext, input: { enrollmentId
     await logEvent(tx as unknown as Db, { enrollmentId: e.id, type: "package_change", from: e.status, to: e.status, reason: input.reason, meta: { from: e.packageSessions, to: input.packageSessions }, actorId: ctx.user.id });
     await writeAudit(tx as unknown as Db, { actorId: ctx.user.id, action: "UPDATE", module: "enrollments", entity: "enrollments", entityId: e.id, before: { packageSessions: e.packageSessions }, after: { packageSessions: input.packageSessions }, reason: input.reason, ip: ctx.ip });
   });
-  return loadEnrollment(ctx.db, e.id);
+  return loadEnrollment(ctx.db, e.id, ctx);
 }
 
 /** "Sắp hết khoá": ghi danh đang học còn ≤ N buổi */
@@ -254,7 +259,7 @@ export async function classProgress(db: Db, classIds: string[]) {
 
 /** Xem trước chuyển lớp — dùng cho wizard, yêu cầu chuyển lớp và duyệt */
 export async function previewTransfer(ctx: ProtectedContext, input: { enrollmentId: string; targetClassId: string; waiverReason?: string | null; allowWaitlist?: boolean }) {
-  const e = await loadEnrollment(ctx.db, input.enrollmentId);
+  const e = await loadEnrollment(ctx.db, input.enrollmentId, ctx);
   requirePermission(ctx, "enrollment:update", { centerId: e.centerId });
   const t = await ctx.db.query.classes.findFirst({ where: and(eq(classes.id, input.targetClassId), isNull(classes.deletedAt)) });
   if (!t) throw new TRPCError({ code: "NOT_FOUND", message: "Lớp đích không tồn tại" });

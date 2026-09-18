@@ -3,6 +3,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { id, timestamps, softDelete } from "./_common";
+import { tenantCol } from "./tenant";
 import { SESSION_STATUSES, ATTENDANCE_STATUSES, ENROLLMENT_STATUSES, CLASS_STATUSES, SESSION_KINDS, TRANSFER_REQUEST_STATUSES, MEDIA_STATUSES, COMPLETION_STATUSES, type ChecklistState } from "@satarobo/core";
 import { centers, rooms } from "./org";
 import { teachers, students, parents } from "./people";
@@ -14,12 +15,17 @@ export const enrollmentStatusEnum = pgEnum("enrollment_status", ENROLLMENT_STATU
 export const classStatusEnum = pgEnum("class_status", CLASS_STATUSES);
 export const sessionKindEnum = pgEnum("session_kind", SESSION_KINDS);
 
-/** Khoá học thương mại (Sata1..Sata8, combo) */
+/**
+ * Khoá học thương mại (Sata1..Sata8, combo).
+ * Mã và slug chỉ duy nhất TRONG một trung tâm (tenant) — hai trung tâm nhượng quyền
+ * được phép cùng dùng mã SATA4 cho danh mục khoá học riêng của mình.
+ */
 export const courses = pgTable("courses", {
   id: id(),
-  code: text("code").notNull().unique(), // SATA4
+  tenantId: tenantCol(),
+  code: text("code").notNull(), // SATA4
   name: text("name").notNull(),
-  slug: text("slug").unique(),
+  slug: text("slug"),
   gradeFrom: integer("grade_from"),
   gradeTo: integer("grade_to"),
   totalSessions: integer("total_sessions").notNull(), // 12 / 48
@@ -31,7 +37,10 @@ export const courses = pgTable("courses", {
   level: text("level"),
   isActive: boolean("is_active").notNull().default(true),
   ...timestamps,
-});
+}, (t) => [
+  uniqueIndex("courses_code_tenant_uq").on(t.tenantId, t.code),
+  uniqueIndex("courses_slug_tenant_uq").on(t.tenantId, t.slug),
+]);
 
 /**
  * Gói bán cho khách: cùng một khoá có nhiều gói (trọn khoá / học phần / gói lẻ),
@@ -41,8 +50,10 @@ export const coursePackages = pgTable(
   "course_packages",
   {
     id: id(),
+    tenantId: tenantCol(),
     courseId: uuid("course_id").notNull().references(() => courses.id, { onDelete: "cascade" }),
-    code: text("code").notNull().unique(),
+    /** Duy nhất trong một trung tâm (tenant) — xem ghi chú ở bảng `courses` */
+    code: text("code").notNull(),
     name: text("name").notNull(),
     /** Cấp độ hiển thị cho khách (Cơ bản / Nâng cao…) */
     level: text("level"),
@@ -58,7 +69,7 @@ export const coursePackages = pgTable(
     createdBy: uuid("created_by").references(() => users.id),
     ...timestamps,
   },
-  (t) => [index("course_packages_course_idx").on(t.courseId, t.sortOrder)],
+  (t) => [index("course_packages_course_idx").on(t.courseId, t.sortOrder), uniqueIndex("course_packages_code_tenant_uq").on(t.tenantId, t.code)],
 );
 
 /** Khoá tiên quyết: muốn học courseId phải hoàn thành requiredCourseId */
@@ -108,6 +119,7 @@ export const curricula = pgTable(
   "curricula",
   {
     id: id(),
+    tenantId: tenantCol(),
     courseId: uuid("course_id").notNull().references(() => courses.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     version: integer("version").notNull().default(1),
@@ -146,6 +158,7 @@ export const classGroups = pgTable(
   "class_groups",
   {
     id: id(),
+    tenantId: tenantCol(),
     code: text("code").notNull(),
     name: text("name").notNull(),
     centerId: uuid("center_id").references(() => centers.id),
@@ -162,6 +175,7 @@ export const classes = pgTable(
   "classes",
   {
     id: id(),
+    tenantId: tenantCol(),
     code: text("code").notNull().unique(), // CS2.SATA6.26.003 (nhãn)
     name: text("name").notNull(),
     courseId: uuid("course_id").notNull().references(() => courses.id),
@@ -256,6 +270,7 @@ export const sessions = pgTable(
   "sessions",
   {
     id: id(),
+    tenantId: tenantCol(),
     classId: uuid("class_id").notNull().references(() => classes.id, { onDelete: "cascade" }),
     lessonId: uuid("lesson_id").references(() => lessons.id),
     sequenceNo: integer("sequence_no").notNull(),
@@ -310,6 +325,7 @@ export const enrollments = pgTable(
   "enrollments",
   {
     id: id(),
+    tenantId: tenantCol(),
     studentId: uuid("student_id").notNull().references(() => students.id),
     classId: uuid("class_id").notNull().references(() => classes.id),
     status: enrollmentStatusEnum("status").notNull().default("active"),
@@ -394,6 +410,7 @@ export const attendance = pgTable(
   "attendance",
   {
     id: id(),
+    tenantId: tenantCol(),
     sessionId: uuid("session_id").notNull().references(() => sessions.id, { onDelete: "cascade" }),
     enrollmentId: uuid("enrollment_id").notNull().references(() => enrollments.id, { onDelete: "cascade" }),
     status: attendanceStatusEnum("status").notNull(),
@@ -427,6 +444,7 @@ export const sessionMedia = pgTable(
   "session_media",
   {
     id: id(),
+    tenantId: tenantCol(),
     sessionId: uuid("session_id").notNull().references(() => sessions.id, { onDelete: "cascade" }),
     objectKey: text("object_key").notNull(),
     caption: text("caption"),

@@ -1,7 +1,22 @@
 import { createClient } from "@supabase/supabase-js";
 import { and, eq, gte, isNull, lte, or } from "drizzle-orm";
-import { getDb, users, userRoles, teachers, parents, staff, staffDeployments, userGroups, userGroupMembers, userGroupPermissions, type Database } from "@satarobo/db";
-import { decodeJwtPayload, mfaRequiredRoles, mfaState, activeRoleAssignments, widenByDeployments, devActorAllowed, normalizeDevActor, DEV_ACTOR_HEADER, type Actor, type Permission } from "@satarobo/core";
+import { getDb, users, userRoles, teachers, parents, staff, staffDeployments, userGroups, userGroupMembers, userGroupPermissions, tenants, tenantSettings, type Database } from "@satarobo/db";
+import {
+  decodeJwtPayload, mfaRequiredRoles, mfaState, activeRoleAssignments, widenByDeployments, tenantScope, withSettingsDefaults,
+  devActorAllowed, normalizeDevActor, DEV_ACTOR_HEADER,
+  type Actor, type Permission, type TenantType, type TenantStatus, type TenantSettings,
+} from "@satarobo/core";
+
+/** Một trung tâm (tenant) kèm tuỳ chọn quyền riêng tư — nạp sẵn cho mỗi lượt gọi */
+export interface TenantRuntime {
+  id: string;
+  code: string;
+  name: string;
+  type: TenantType;
+  status: TenantStatus;
+  isDefault: boolean;
+  settings: TenantSettings;
+}
 
 export interface Context {
   db: Database;
@@ -11,6 +26,42 @@ export interface Context {
   ip?: string;
   /** Cách đăng nhập + trạng thái xác thực 2 lớp */
   auth?: { via: "supabase" | "dev"; aal: string | null; mfa: { required: boolean; satisfied: boolean } };
+  /** Trung tâm (tenant) của người đăng nhập */
+  tenantId: string | null;
+  /** Các tenantId người này được thấy dữ liệu — dùng cho `tenantCond(ctx, bang)` */
+  tenantIds: string[];
+  /** Toàn bộ tenant kèm cấu hình quyền riêng tư (bảng nhỏ, nạp một lần mỗi lượt gọi) */
+  tenants: TenantRuntime[];
+}
+
+/**
+ * Nạp danh sách tenant + cấu hình quyền riêng tư (đã điền khuyết theo loại tenant).
+ * Chưa chạy migration bảng `tenants` → trả danh sách rỗng: hệ thống chạy y như trước khi có nhượng quyền.
+ */
+export async function loadTenants(db: Database): Promise<TenantRuntime[]> {
+  try {
+    return await readTenants(db);
+  } catch {
+    return [];
+  }
+}
+
+async function readTenants(db: Database): Promise<TenantRuntime[]> {
+  const rows = await db
+    .select({
+      id: tenants.id, code: tenants.code, name: tenants.name, type: tenants.type, status: tenants.status, isDefault: tenants.isDefault,
+      hoSeesPii: tenantSettings.hoSeesPii, hoSeesFinanceDetail: tenantSettings.hoSeesFinanceDetail,
+      dataRetentionYears: tenantSettings.dataRetentionYears, allowCrossCenterTransfer: tenantSettings.allowCrossCenterTransfer,
+    })
+    .from(tenants)
+    .leftJoin(tenantSettings, eq(tenantSettings.tenantId, tenants.id));
+  return rows.map((r) => ({
+    id: r.id, code: r.code, name: r.name, type: r.type, status: r.status, isDefault: r.isDefault,
+    settings: withSettingsDefaults(r.type, r.hoSeesPii === null ? null : {
+      hoSeesPii: r.hoSeesPii, hoSeesFinanceDetail: r.hoSeesFinanceDetail!,
+      dataRetentionYears: r.dataRetentionYears!, allowCrossCenterTransfer: r.allowCrossCenterTransfer!,
+    }),
+  }));
 }
 
 /**
@@ -42,12 +93,13 @@ export async function createContext(opts: { headers: Headers; ip?: string }): Pr
     email = normalizeDevActor(opts.headers.get(DEV_ACTOR_HEADER));
   }
 
-  if (!email) return { db, actor: null, user: null, ip: opts.ip };
+  const emptyTenant = { tenantId: null, tenantIds: [] as string[], tenants: [] as TenantRuntime[] };
+  if (!email) return { db, actor: null, user: null, ip: opts.ip, ...emptyTenant };
 
   const u = authSubject
     ? await db.query.users.findFirst({ where: eq(users.authSubject, authSubject) })
     : await db.query.users.findFirst({ where: eq(users.email, email) });
-  if (!u || !u.isActive) return { db, actor: null, user: null, ip: opts.ip };
+  if (!u || !u.isActive) return { db, actor: null, user: null, ip: opts.ip, ...emptyTenant };
 
   // Liên kết auth_subject lần đầu đăng nhập qua Supabase
   if (authSubject && !u.authSubject) await db.update(users).set({ authSubject, lastLoginAt: new Date() }).where(eq(users.id, u.id));
@@ -91,5 +143,14 @@ export async function createContext(opts: { headers: Headers; ip?: string }): Pr
   };
   const via = authSubject ? "supabase" as const : "dev" as const;
   const mfa = mfaState({ roles: actor.assignments.map((a) => a.role), required: mfaRequiredRoles(process.env.REQUIRE_MFA_ROLES), viaSupabase: via === "supabase", aal });
-  return { db, actor, user: { id: u.id, email: u.email, fullName: u.fullName }, ip: opts.ip, auth: { via, aal, mfa } };
+
+  // Trung tâm (tenant) của người đăng nhập; tài khoản cũ chưa gắn tenant → tenant mặc định của chuỗi
+  const allTenants = await loadTenants(db);
+  const tenantId = u.tenantId ?? allTenants.find((t) => t.isDefault)?.id ?? null;
+  const tenantIds = tenantScope({ tenantId, assignments: actor.assignments }, allTenants);
+
+  return {
+    db, actor, user: { id: u.id, email: u.email, fullName: u.fullName }, ip: opts.ip, auth: { via, aal, mfa },
+    tenantId, tenantIds, tenants: allTenants,
+  };
 }

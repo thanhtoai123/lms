@@ -7,6 +7,7 @@ import "dotenv/config";
 import { and, eq } from "drizzle-orm";
 import { createDb } from "./index";
 import {
+  tenants, tenantSettings,
   centers, regions, rooms, users, userRoles, teachers, parents, students, studentGuardians,
   courses, coursePackages, curricula, lessons, classes, classGroups, classSchedules, sessions, enrollments, attendance, classEvents,
   enrollmentEvents, competencyCriteria, reportCards, reportCardScores, sessionMedia,
@@ -24,7 +25,7 @@ import {
   posts, siteBlocks, campaigns, campaignSpends, trackEvents, consentRecords, dataRequests, dataRequestEvents,
   jobPostings, candidates, candidateEvents, conversations, messages, affiliates,
 } from "./schema/index";
-import { SHIFT_CATALOGUE, plannedMinutesOf, workSegments, COIN_RULE_DEFS, trialClassCode, trialClassName, attendanceModeOf, isLeaveShift, nominalMinutesOf, type PayMode, NOTIFICATION_TYPES, NOTIFICATION_GROUPS, buildPath } from "@satarobo/core";
+import { SHIFT_CATALOGUE, plannedMinutesOf, workSegments, COIN_RULE_DEFS, trialClassCode, trialClassName, attendanceModeOf, isLeaveShift, nominalMinutesOf, type PayMode, NOTIFICATION_TYPES, NOTIFICATION_GROUPS, buildPath, defaultTenantSettings } from "@satarobo/core";
 import { generateSessions, buildClassCode, buildStudentCode, toISODate, addDays, orderCode, receiptNumber, packagePrice, buildInstallmentPlan, computeCommission, describeRule, periodOf, transferMemo, vietQrImageUrl, fmtMin, hhmm, weekdayOf, leaveDays, requestCode, slaDue, SETTINGS_DEFAULTS, CONSENT_TEXT_VERSION, dsrCode, dsrDue } from "@satarobo/core";
 import { courseCompletions } from "./schema/index";
 import {
@@ -37,11 +38,38 @@ const db = createDb();
 async function main() {
   console.log("Seeding…");
 
+  /* ---- Trung tâm (tenant) ----------------------------------------------
+   * Chuỗi gốc `SATA` giữ toàn bộ dữ liệu mẫu như trước (một tenant OWNED → hệ thống chạy y như cũ).
+   * Thêm MỘT bên nhượng quyền mẫu `FR_HUE` với dữ liệu riêng để thấy rõ cách ly:
+   * Hội sở chuỗi chỉ thấy số liệu tổng hợp, PII bị che (xem packages/core/src/org/tenant.ts).
+   */
+  await db
+    .insert(tenants)
+    .values([
+      { code: "SATA", name: "Sata Robo (chuỗi gốc)", type: "OWNED" as const, status: "active" as const, isDefault: true, note: "Tenant mặc định — mọi dữ liệu có trước khi bật nhượng quyền thuộc về đây" },
+      {
+        code: "FR_HUE", name: "Sata Robo Huế (nhượng quyền)", type: "FRANCHISE" as const, status: "active" as const,
+        legalName: "Công ty TNHH Giáo dục Sông Hương (mẫu)", taxCode: "3300999888", address: "12 Lê Lợi, Vĩnh Ninh, Huế",
+        phone: "0234999888", email: "hue@nhuongquyen.test", contractNo: "NQ-2026-01", contractFrom: "2026-01-01", contractTo: "2031-01-01",
+      },
+    ])
+    .onConflictDoNothing({ target: tenants.code });
+  const tSata = (await db.query.tenants.findFirst({ where: eq(tenants.code, "SATA") }))!;
+  const tFr = (await db.query.tenants.findFirst({ where: eq(tenants.code, "FR_HUE") }))!;
+  await db
+    .insert(tenantSettings)
+    .values([
+      { tenantId: tSata.id, ...defaultTenantSettings("OWNED") },
+      // Bên nhượng quyền: Hội sở KHÔNG thấy PII, KHÔNG thấy chi tiết tài chính, không chuyển học viên liên trung tâm
+      { tenantId: tFr.id, ...defaultTenantSettings("FRANCHISE") },
+    ])
+    .onConflictDoNothing({ target: tenantSettings.tenantId });
+
   const [cs1, cs2] = await db
     .insert(centers)
     .values([
-      { code: "CS1", name: "Cơ sở 1 — Nguyễn Hữu Thọ", address: "211 Nguyễn Hữu Thọ, Đà Nẵng" },
-      { code: "CS2", name: "Cơ sở 2 — Hoàng Diệu", address: "114 Hoàng Diệu, Hải Châu, Đà Nẵng" },
+      { tenantId: tSata.id, code: "CS1", name: "Cơ sở 1 — Nguyễn Hữu Thọ", address: "211 Nguyễn Hữu Thọ, Đà Nẵng" },
+      { tenantId: tSata.id, code: "CS2", name: "Cơ sở 2 — Hoàng Diệu", address: "114 Hoàng Diệu, Hải Châu, Đà Nẵng" },
     ])
     .returning();
 
@@ -54,6 +82,31 @@ async function main() {
       { centerId: cs2!.id, code: "P303", name: "Phòng 303 (đang sửa điều hoà)", capacity: 10, equipment: ["Bảng trắng"], status: "maintenance" as const, isActive: false },
     ])
     .returning();
+
+  /* ---- Dữ liệu riêng của bên nhượng quyền mẫu (tenant FR_HUE) ----------
+   * Cố ý có PII (tên, SĐT, email) để kiểm chứng: người của chuỗi nhìn vào chỉ thấy bản đã che.
+   */
+  const [csHue] = await db
+    .insert(centers)
+    .values([{ tenantId: tFr.id, code: "HUE1", name: "Sata Robo Huế — Lê Lợi", address: "12 Lê Lợi, Vĩnh Ninh, Huế", phone: "0234999888" }])
+    .returning();
+  await db.insert(rooms).values([
+    { tenantId: tFr.id, centerId: csHue!.id, code: "H101", name: "Phòng H101", capacity: 12, equipment: ["Máy chiếu", "Bảng trắng", "8 bộ kit Sata"] },
+  ]);
+  // Quản trị của bên nhượng quyền: CHỜ KÍCH HOẠT — không có mật khẩu, tự kích hoạt qua luồng mời
+  const [hueAdminU] = await db
+    .insert(users)
+    .values([{ tenantId: tFr.id, email: "quantri@satarobo-hue.test", fullName: "Quản trị Sata Robo Huế", phone: "0905111222", isActive: false, lockedReason: "Chờ kích hoạt qua thư mời" }])
+    .returning();
+  await db.insert(userRoles).values([{ userId: hueAdminU!.id, role: "SUPER_ADMIN", centerId: null }]);
+  const [hueCourse] = await db
+    .insert(courses)
+    .values([{ tenantId: tFr.id, code: "SATA4", name: "Sata 4 — Robotics cơ bản", slug: "sata-4-hue", gradeFrom: 3, gradeTo: 5, totalSessions: 12, sessionMinutes: 90, listPrice: "4800000", level: "Cơ bản" }])
+    .returning();
+  await db.insert(leads).values([
+    { tenantId: tFr.id, centerId: csHue!.id, status: "new", parentName: "Nguyễn Thị Hoài Hương", phone: "0905111333", phoneNormalized: "84905111333", email: "hoaihuong@gmail.com", childName: "Bé Khánh Hà", childGrade: 3, source: "web-form", interestedCourseId: hueCourse!.id },
+    { tenantId: tFr.id, centerId: csHue!.id, status: "contacted", parentName: "Trần Quốc Việt", phone: "0905111444", phoneNormalized: "84905111444", email: "quocviet.tran@gmail.com", childName: "Bé Gia Bảo", childGrade: 4, source: "referral" },
+  ]);
 
   // ---- Users & roles ----
   const [adminU, mgrU, t1U, t2U, t3U, sale1U, sale2U] = await db

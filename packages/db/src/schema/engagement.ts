@@ -1,5 +1,6 @@
 import { pgTable, text, uuid, integer, timestamp, pgEnum, jsonb, index, boolean } from "drizzle-orm/pg-core";
 import { id, timestamps } from "./_common";
+import { tenantCol } from "./tenant";
 import { NOTIFICATION_CHANNELS } from "@satarobo/core";
 import { users } from "./identity";
 import { parents, students } from "./people";
@@ -14,6 +15,7 @@ export const outbox = pgTable(
   "outbox",
   {
     id: id(),
+    tenantId: tenantCol(),
     type: text("type").notNull(),
     payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -32,6 +34,7 @@ export const parentNotifications = pgTable(
   "parent_notifications",
   {
     id: id(),
+    tenantId: tenantCol(),
     parentId: uuid("parent_id").notNull().references(() => parents.id, { onDelete: "cascade" }),
     studentId: uuid("student_id").references(() => students.id),
     channel: notificationChannelEnum("channel").notNull(),
@@ -67,6 +70,7 @@ export const userNotifications = pgTable(
   "user_notifications",
   {
     id: id(),
+    tenantId: tenantCol(),
     userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
     body: text("body"),
@@ -93,6 +97,7 @@ export const careTasks = pgTable(
   "care_tasks",
   {
     id: id(),
+    tenantId: tenantCol(),
     studentId: uuid("student_id").notNull().references(() => students.id, { onDelete: "cascade" }),
     enrollmentId: uuid("enrollment_id").references(() => enrollments.id, { onDelete: "set null" }),
     centerId: uuid("center_id").references(() => centers.id),

@@ -11,6 +11,7 @@ import {
   type InvoiceStatus, type InvoiceKind, type InvoiceLine, type TaxRate, type InvoiceAction,
 } from "@satarobo/core";
 import type { ProtectedContext } from "../trpc";
+import { tenantCond } from "./tenantScope";
 import { writeAudit } from "./audit";
 import { todayISO } from "./sessions";
 import { queueEmail, getSettings } from "./admin";
@@ -359,7 +360,7 @@ export async function createCorrection(ctx: ProtectedContext, input: { originalI
 
 export async function listInvoices(ctx: ProtectedContext, input: { status?: InvoiceStatus; q?: string; from?: string; to?: string; centerId?: string }) {
   if (!ctx.actor.assignments.some((a) => authorize({ ...ctx.actor, assignments: [a] }, "finance:read", { centerId: a.centerId }).allowed)) throw forbid("Không có quyền xem hoá đơn");
-  const conds: SQL[] = [scope(ctx)];
+  const conds: SQL[] = [scope(ctx), tenantCond(ctx, einvoices)];
   if (input.status) conds.push(eq(einvoices.status, input.status));
   if (input.centerId) conds.push(eq(einvoices.centerId, input.centerId));
   if (input.from) conds.push(gte(einvoices.createdAt, new Date(`${input.from}T00:00:00+07:00`)));

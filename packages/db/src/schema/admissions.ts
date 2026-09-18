@@ -1,6 +1,7 @@
 import { pgTable, text, uuid, boolean, integer, date, time, timestamp, pgEnum, jsonb, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { id, timestamps, softDelete } from "./_common";
+import { tenantCol } from "./tenant";
 import {
   LEAD_STATUSES, DISTRIBUTION_MODES, TRIAL_STATUSES, ASSIGNMENT_SOURCES, POOL_ACTIONS,
   TRIAL_CLASS_STATUSES, TRIAL_SESSION_STATUSES, TRIAL_ENROLLMENT_STATUSES, TRIAL_ATTENDANCE_STATUSES,
@@ -20,6 +21,7 @@ export const leads = pgTable(
   "leads",
   {
     id: id(),
+    tenantId: tenantCol(),
     centerId: uuid("center_id").references(() => centers.id),
     status: leadStatusEnum("status").notNull().default("new"),
     parentName: text("parent_name").notNull(),
@@ -311,6 +313,7 @@ export const trialClasses = pgTable(
   "trial_classes",
   {
     id: id(),
+    tenantId: tenantCol(),
     code: text("code").notNull().unique(),
     name: text("name").notNull(),
     centerId: uuid("center_id").notNull().references(() => centers.id),

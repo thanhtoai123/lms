@@ -9,13 +9,15 @@ import {
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { writeAudit } from "./audit";
+import { tenantCond, assertTenant } from "./tenantScope";
 
 type Db = ProtectedContext["db"];
 const CENTER_ID = sql.raw('"centers"."id"');
 
 function scopeCenters(ctx: ProtectedContext) {
   const v = visibleCenterIds(ctx.actor);
-  return v === null ? sql`true` : v.length ? inArray(centers.id, v) : sql`false`;
+  const byCenter = v === null ? sql`true` : v.length ? inArray(centers.id, v) : sql`false`;
+  return and(byCenter, tenantCond(ctx, centers))!;
 }
 
 export async function listCenters(ctx: ProtectedContext) {
@@ -34,6 +36,10 @@ export async function upsertCenter(ctx: ProtectedContext, input: { id?: string; 
   requirePermission(ctx, "center:update", {}); // chỉ Super Admin (cây tổ chức)
   const code = input.code.trim().toUpperCase();
   return ctx.db.transaction(async (tx) => {
+    if (input.id) {
+      const cur = await tx.query.centers.findFirst({ where: eq(centers.id, input.id), columns: { id: true, tenantId: true } });
+      assertTenant(ctx, cur, "Cơ sở");
+    }
     const dup = await tx.query.centers.findFirst({ where: eq(centers.code, code) });
     if (dup && dup.id !== input.id) throw new TRPCError({ code: "CONFLICT", message: `Mã cơ sở ${code} đã tồn tại` });
     const data = { code, name: input.name.trim(), address: input.address ?? null, phone: input.phone ?? null, isActive: input.isActive ?? true };
@@ -49,7 +55,7 @@ export async function upsertCenter(ctx: ProtectedContext, input: { id?: string; 
 export async function listRooms(ctx: ProtectedContext, input: { centerId?: string }) {
   requirePermission(ctx, "class:read", { centerId: input.centerId ?? null });
   const v = visibleCenterIds(ctx.actor);
-  const conds = [v === null ? sql`true` : v.length ? inArray(rooms.centerId, v) : sql`false`];
+  const conds = [v === null ? sql`true` : v.length ? inArray(rooms.centerId, v) : sql`false`, tenantCond(ctx, rooms)];
   if (input.centerId) conds.push(eq(rooms.centerId, input.centerId));
   return ctx.db
     .select({
@@ -99,8 +105,10 @@ function requireReason(reason: string | null | undefined): string {
   return r;
 }
 
-async function liveUnits(db: Db): Promise<(typeof orgUnits.$inferSelect)[]> {
-  return db.select().from(orgUnits).where(isNull(orgUnits.deletedAt)).orderBy(asc(orgUnits.path));
+async function liveUnits(db: Db, ctx?: ProtectedContext): Promise<(typeof orgUnits.$inferSelect)[]> {
+  // Cây tổ chức của trung tâm khác không hiện trong cây của mình
+  const where = ctx ? and(isNull(orgUnits.deletedAt), tenantCond(ctx, orgUnits)) : isNull(orgUnits.deletedAt);
+  return db.select().from(orgUnits).where(where).orderBy(asc(orgUnits.path));
 }
 
 const asNode = (u: typeof orgUnits.$inferSelect): OrgUnitNode => ({ id: u.id, code: u.code, name: u.name, type: u.type as OrgUnitType, parentId: u.parentId, path: u.path, status: u.status as OrgUnitStatus });
@@ -109,8 +117,8 @@ const asNode = (u: typeof orgUnits.$inferSelect): OrgUnitNode => ({ id: u.id, co
 export async function orgUnitTree(ctx: ProtectedContext) {
   requirePermission(ctx, "system:read");
   const [units, ents, stu, cls, st] = await Promise.all([
-    liveUnits(ctx.db),
-    ctx.db.select().from(legalEntities).orderBy(asc(legalEntities.legalName)),
+    liveUnits(ctx.db, ctx),
+    ctx.db.select().from(legalEntities).where(tenantCond(ctx, legalEntities)).orderBy(asc(legalEntities.legalName)),
     ctx.db.select({ centerId: students.homeCenterId, n: sql<number>`count(*)::int` }).from(students).where(and(inArray(students.status, ["active", "trial", "paused"]), isNull(students.deletedAt))).groupBy(students.homeCenterId),
     ctx.db.select({ centerId: classes.centerId, n: sql<number>`count(*)::int` }).from(classes).where(inArray(classes.status, ["running", "recruiting"])).groupBy(classes.centerId),
     ctx.db.select({ centerId: staff.centerId, n: sql<number>`count(*)::int` }).from(staff).where(sql`${staff.status} <> 'resigned'`).groupBy(staff.centerId),

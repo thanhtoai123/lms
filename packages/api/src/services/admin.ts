@@ -3,7 +3,7 @@ import { and, eq, inArray, sql, desc, asc, isNull, or, ilike, lte, gte, type SQL
 import { TRPCError } from "@trpc/server";
 import {
   emailTemplates, emailLogs, otpRequests, userGroups, userGroupMembers, userGroupPermissions, regions, webhookEvents, appSettings,
-  users, userRoles, userNotifications, centers, staff, students, classes, bankTransactions, parentNotifications, outbox,
+  users, userRoles, userNotifications, centers, staff, students, classes, bankTransactions, parentNotifications, outbox, tenants,
   type Database,
 } from "@satarobo/db";
 import {
@@ -18,6 +18,7 @@ import { sendOtpMessage, deliverySettings, otpDeliveryReady } from "./delivery";
 import { pushOverview } from "./pilot";
 import { getOps } from "./opsSettings";
 import { writeAudit } from "./audit";
+import { tenantCond } from "./tenantScope";
 import { deliverNotifications } from "./notify";
 import { ingestBankTx } from "./bank";
 import { createLead } from "./leads";
@@ -40,8 +41,18 @@ const SAMPLE_VARS: Record<string, string> = {
   so_phieu: "PT-CS1-26-000123", so_tien: "4.800.000đ", ma_don: "DH26-000045", co_so: "CS1", han: "25/09/2026", lop: "CS1.SATA4.26.001",
 };
 
-async function templateFor(db: Db, event: EmailEvent) {
-  const t = await db.query.emailTemplates.findFirst({ where: eq(emailTemplates.eventKey, event) });
+/**
+ * Mẫu email của ĐÚNG trung tâm (tenant) gửi thư; không biết tenant thì lấy mẫu của
+ * trung tâm mặc định — nhờ vậy thư của chuỗi không bao giờ dùng nhầm mẫu của bên nhượng quyền.
+ */
+async function templateFor(db: Db, event: EmailEvent, tenantId?: string | null) {
+  const rows = await db.select().from(emailTemplates).where(eq(emailTemplates.eventKey, event));
+  let t = tenantId ? rows.find((r) => r.tenantId === tenantId) : undefined;
+  if (!t && rows.length > 1) {
+    const [d] = await db.select({ id: tenants.id }).from(tenants).where(eq(tenants.isDefault, true)).limit(1);
+    t = rows.find((r) => r.tenantId === d?.id);
+  }
+  t ??= rows[0];
   const def = EMAIL_EVENTS[event];
   return t && t.isActive ? { subject: t.subject, body: t.body, custom: true } : { subject: def.subject, body: def.body, custom: false };
 }
@@ -100,7 +111,7 @@ export async function processEmailQueue(db: Database, opts: { limit?: number; id
 
 export async function listEmailTemplates(ctx: ProtectedContext) {
   requirePermission(ctx, "system:read");
-  const rows = await ctx.db.select({ t: emailTemplates, byName: users.fullName }).from(emailTemplates).leftJoin(users, eq(users.id, emailTemplates.updatedBy));
+  const rows = await ctx.db.select({ t: emailTemplates, byName: users.fullName }).from(emailTemplates).leftJoin(users, eq(users.id, emailTemplates.updatedBy)).where(tenantCond(ctx, emailTemplates));
   const [stats] = await ctx.db.select({ n: sql<number>`count(*)::int` }).from(emailLogs).where(gte(emailLogs.createdAt, new Date(Date.now() - 30 * 86400e3)));
   return {
     canEdit: hasRole(ctx.actor, "SUPER_ADMIN"),
@@ -117,16 +128,18 @@ export async function saveEmailTemplate(ctx: ProtectedContext, input: { eventKey
   requirePermission(ctx, "system:update");
   const errs = validateEmailTemplate(input.eventKey, input.subject, input.body);
   if (errs.length) throw bad(errs);
-  const before = await ctx.db.query.emailTemplates.findFirst({ where: eq(emailTemplates.eventKey, input.eventKey) });
+  // Mẫu email là của TỪNG trung tâm (tenant) — khoá trùng theo cặp (tenant, sự kiện)
+  const before = await ctx.db.query.emailTemplates.findFirst({ where: and(eq(emailTemplates.eventKey, input.eventKey), tenantCond(ctx, emailTemplates)) });
   const v = { subject: input.subject.trim(), body: input.body.trim(), isActive: input.isActive, updatedBy: ctx.user.id, updatedAt: new Date() };
-  await ctx.db.insert(emailTemplates).values({ eventKey: input.eventKey, ...v }).onConflictDoUpdate({ target: emailTemplates.eventKey, set: v });
+  await ctx.db.insert(emailTemplates).values({ eventKey: input.eventKey, tenantId: ctx.tenantId, ...v }).onConflictDoUpdate({ target: [emailTemplates.tenantId, emailTemplates.eventKey], set: v });
   await writeAudit(ctx.db, { actorId: ctx.user.id, action: before ? "UPDATE" : "CREATE", module: "system", entity: "email_templates", entityId: null, before: before ? { subject: before.subject, isActive: before.isActive } : null, after: { eventKey: input.eventKey, subject: v.subject, isActive: v.isActive }, ip: ctx.ip });
   return { ok: true };
 }
 
 export async function resetEmailTemplate(ctx: ProtectedContext, input: { eventKey: EmailEvent }) {
   requirePermission(ctx, "system:update");
-  const del = await ctx.db.delete(emailTemplates).where(eq(emailTemplates.eventKey, input.eventKey)).returning({ id: emailTemplates.id });
+  // Chỉ xoá mẫu của chính trung tâm mình — không đụng mẫu của trung tâm khác
+  const del = await ctx.db.delete(emailTemplates).where(and(eq(emailTemplates.eventKey, input.eventKey), tenantCond(ctx, emailTemplates))).returning({ id: emailTemplates.id });
   if (!del.length) throw pre("Mẫu đang là mặc định");
   await writeAudit(ctx.db, { actorId: ctx.user.id, action: "DELETE", module: "system", entity: "email_templates", entityId: null, after: { eventKey: input.eventKey, reset: true }, ip: ctx.ip });
   return { ok: true };
@@ -289,7 +302,7 @@ export async function listGroups(ctx: ProtectedContext) {
     members: sql<number>`(select count(*)::int from ${userGroupMembers} m where m.group_id = ${userGroups.id})`,
     permissions: sql<number>`(select count(*)::int from ${userGroupPermissions} p where p.group_id = ${userGroups.id})`,
   })
-    .from(userGroups).leftJoin(centers, eq(centers.id, userGroups.centerId)).orderBy(asc(userGroups.name));
+    .from(userGroups).leftJoin(centers, eq(centers.id, userGroups.centerId)).where(tenantCond(ctx, userGroups)).orderBy(asc(userGroups.name));
   return rows.map((r) => ({ ...r.g, centerCode: r.centerCode, members: r.members, permissions: r.permissions }));
 }
 

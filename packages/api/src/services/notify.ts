@@ -9,7 +9,7 @@
  */
 import { and, desc, eq, gte, ilike, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
-import { userNotifications, notificationTypes, users, userRoles, bankTransactions, campaigns, campaignSpends, type Database } from "@satarobo/db";
+import { userNotifications, notificationTypes, tenants, users, userRoles, bankTransactions, campaigns, campaignSpends, type Database } from "@satarobo/db";
 import {
   decideDelivery, authorizeGlobal, buildActionAlerts, marketingReportOverdue, previousPeriod, notificationTypeDef, notificationLabel,
   validateNotificationTypeReason, priorityFromRank,
@@ -18,6 +18,7 @@ import {
 } from "@satarobo/core";
 import type { ProtectedContext } from "../trpc";
 import { writeAudit } from "./audit";
+import { tenantCond } from "./tenantScope";
 
 type Db = ProtectedContext["db"];
 /** Transaction của Drizzle — nhận được cả `db` lẫn `tx` như các helper cũ */
@@ -33,13 +34,32 @@ export function invalidateNotificationCatalog() {
   cache = null;
 }
 
+/**
+ * Nhiều trung tâm (tenant) có thể cùng khai một mã loại thông báo.
+ * Bộ đệm dùng chung này lấy cấu hình của **trung tâm mặc định** để hành vi của chuỗi
+ * không bị bên nhượng quyền đổi; cấu hình riêng của từng tenant hiển thị ở màn danh mục.
+ */
+function pickByTenant<T extends { prefix: string; tenantId: string | null }>(rows: T[], defaultTenantId: string | null): Map<string, T> {
+  const out = new Map<string, T>();
+  for (const r of rows) {
+    const cur = out.get(r.prefix);
+    if (!cur || (defaultTenantId && r.tenantId === defaultTenantId)) out.set(r.prefix, r);
+  }
+  return out;
+}
+
+async function defaultTenantId(db: AnyDb): Promise<string | null> {
+  const [d] = await asDb(db).select({ id: tenants.id }).from(tenants).where(eq(tenants.isDefault, true)).limit(1);
+  return d?.id ?? null;
+}
+
 export async function notificationCatalog(db: AnyDb): Promise<Map<string, NotificationTypeRow>> {
   if (cache && Date.now() - cache.at < CACHE_MS) return cache.rows;
   try {
     const rows = await asDb(db)
-      .select({ prefix: notificationTypes.prefix, pushEnabled: notificationTypes.pushEnabled, isActive: notificationTypes.isActive })
+      .select({ prefix: notificationTypes.prefix, pushEnabled: notificationTypes.pushEnabled, isActive: notificationTypes.isActive, tenantId: notificationTypes.tenantId })
       .from(notificationTypes);
-    cache = { at: Date.now(), rows: new Map(rows.map((r) => [r.prefix, r])) };
+    cache = { at: Date.now(), rows: pickByTenant(rows, rows.length > 1 ? await defaultTenantId(db) : null) };
   } catch {
     // Chưa chạy migration bảng danh mục → rơi về mặc định trong core; thông báo không bao giờ bị mất
     cache = { at: Date.now(), rows: new Map() };
@@ -112,9 +132,10 @@ export async function notifyTyped(
 /* ------------------------------------------------------------------ */
 
 /** Danh mục hiệu lực = mặc định trong core, ghi đè bằng dòng trong CSDL */
-export async function effectiveCatalog(db: AnyDb) {
+export async function effectiveCatalog(db: AnyDb, tenantId?: string | null) {
   const rows = await asDb(db).select().from(notificationTypes);
-  const byPrefix = new Map(rows.map((r) => [r.prefix, r]));
+  const mine = tenantId ? rows.filter((r) => r.tenantId === tenantId) : [];
+  const byPrefix = mine.length ? new Map(mine.map((r) => [r.prefix, r])) : pickByTenant(rows, rows.length > 1 ? await defaultTenantId(db) : null);
   return NOTIFICATION_TYPES.map((def) => {
     const row = byPrefix.get(def.prefix);
     return {
@@ -149,17 +170,18 @@ export async function saveNotificationType(ctx: ProtectedContext, input: { prefi
 
   return ctx.db.transaction(async (tx) => {
     const db = tx as unknown as Db;
-    const [cur] = await db.select().from(notificationTypes).where(eq(notificationTypes.prefix, input.prefix)).limit(1);
+    const [cur] = await db.select().from(notificationTypes).where(and(eq(notificationTypes.prefix, input.prefix), tenantCond(ctx, notificationTypes))).limit(1);
     const before = cur ? { pushEnabled: cur.pushEnabled, isActive: cur.isActive } : { pushEnabled: def.pushEnabled, isActive: true };
     const after = { pushEnabled: input.pushEnabled, isActive: input.isActive };
     if (before.pushEnabled === after.pushEnabled && before.isActive === after.isActive) return { changed: false };
 
     const values = {
       prefix: def.prefix, label: def.label, groupKey: def.groupKey, groupLabel: NOTIFICATION_GROUPS[def.groupKey],
-      priority: def.priority, recipients: [...def.recipients], ...after, updatedBy: ctx.user.id,
+      priority: def.priority, recipients: [...def.recipients], ...after, updatedBy: ctx.user.id, tenantId: ctx.tenantId,
     };
+    // Danh mục loại thông báo là của TỪNG trung tâm (tenant)
     await db.insert(notificationTypes).values(values)
-      .onConflictDoUpdate({ target: notificationTypes.prefix, set: { ...after, updatedBy: ctx.user.id, updatedAt: new Date() } });
+      .onConflictDoUpdate({ target: [notificationTypes.tenantId, notificationTypes.prefix], set: { ...after, updatedBy: ctx.user.id, updatedAt: new Date() } });
     await writeAudit(db, { actorId: ctx.user.id, action: "UPDATE", module: "system", entity: "notification_types", entityId: null, before, after: { prefix: def.prefix, ...after }, reason: input.reason.trim(), ip: ctx.ip });
     invalidateNotificationCatalog();
     return { changed: true };

@@ -2,6 +2,7 @@ import { pgTable, text, uuid, integer, bigint, boolean, timestamp, pgEnum, jsonb
 import { sql } from "drizzle-orm";
 import { INVOICE_STATUSES, INVOICE_KINDS } from "@satarobo/core";
 import { id, timestamps } from "./_common";
+import { tenantCol } from "./tenant";
 import { users } from "./identity";
 import { centers } from "./org";
 import { orders, payments, refunds } from "./finance";
@@ -13,6 +14,7 @@ export const invoiceKindEnum = pgEnum("invoice_kind", INVOICE_KINDS);
 /** Hoá đơn điện tử — 1 khoản thu = 1 hoá đơn gốc; điều chỉnh / thay thế trỏ về hoá đơn gốc */
 export const einvoices = pgTable("einvoices", {
   id: id(),
+  tenantId: tenantCol(),
   centerId: uuid("center_id").notNull().references(() => centers.id),
   orderId: uuid("order_id").references(() => orders.id),
   paymentId: uuid("payment_id").references(() => payments.id),

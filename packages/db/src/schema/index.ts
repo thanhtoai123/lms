@@ -1,3 +1,4 @@
+export * from "./tenant";
 export * from "./org";
 export * from "./identity";
 export * from "./people";
