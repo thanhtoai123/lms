@@ -422,9 +422,9 @@ export async function listSurveys(ctx: ProtectedContext) {
     .where(and(v === null ? sql`true` : or(isNull(surveys.centerId), v.length ? inArray(surveys.centerId, v) : sql`false`), tenantCondViaCenter(ctx, surveys.centerId))).orderBy(asc(surveys.status), desc(surveys.createdAt));
   const ids = rows.map((r) => r.s.id);
   const inv = ids.length ? await ctx.db.select({ surveyId: surveyInvites.surveyId, status: surveyInvites.status, n: sql<number>`count(*)::int` }).from(surveyInvites)
-    .where(and(inArray(surveyInvites.surveyId, ids), and(scopeOn(ctx, surveyInvites.centerId), tenantCond(ctx, surveyInvites))!)).groupBy(surveyInvites.surveyId, surveyInvites.status) : [];
+    .where(and(inArray(surveyInvites.surveyId, ids), and(scopeOn(ctx, surveyInvites.centerId), tenantCondViaCenter(ctx, surveyInvites.centerId))!)).groupBy(surveyInvites.surveyId, surveyInvites.status) : [];
   const nps = ids.length ? await ctx.db.select({ surveyId: surveyResponses.surveyId, score: surveyResponses.npsScore }).from(surveyResponses)
-    .innerJoin(surveyInvites, eq(surveyInvites.id, surveyResponses.inviteId)).where(and(inArray(surveyResponses.surveyId, ids), and(scopeOn(ctx, surveyInvites.centerId), tenantCond(ctx, surveyInvites))!)) : [];
+    .innerJoin(surveyInvites, eq(surveyInvites.id, surveyResponses.inviteId)).where(and(inArray(surveyResponses.surveyId, ids), and(scopeOn(ctx, surveyInvites.centerId), tenantCondViaCenter(ctx, surveyInvites.centerId))!)) : [];
   return {
     canCreate: ctx.actor.assignments.some((a) => can(ctx, "care:create", a.centerId)),
     items: rows.map((r) => {
@@ -448,7 +448,7 @@ export async function getSurvey(ctx: ProtectedContext, id: string) {
   const inv = await ctx.db.select({ i: surveyInvites, studentName: students.fullName, parentName: parents.fullName, centerCode: centers.code, classCode: classes.code })
     .from(surveyInvites).innerJoin(students, eq(students.id, surveyInvites.studentId)).innerJoin(parents, eq(parents.id, surveyInvites.parentId)).innerJoin(centers, eq(centers.id, surveyInvites.centerId))
     .leftJoin(enrollments, eq(enrollments.id, surveyInvites.enrollmentId)).leftJoin(classes, eq(classes.id, enrollments.classId))
-    .where(and(eq(surveyInvites.surveyId, id), and(scopeOn(ctx, surveyInvites.centerId), tenantCond(ctx, surveyInvites))!)).orderBy(desc(surveyInvites.sentAt)).limit(1000);
+    .where(and(eq(surveyInvites.surveyId, id), and(scopeOn(ctx, surveyInvites.centerId), tenantCondViaCenter(ctx, surveyInvites.centerId))!)).orderBy(desc(surveyInvites.sentAt)).limit(1000);
   const resp = inv.length ? await ctx.db.select().from(surveyResponses).where(inArray(surveyResponses.inviteId, inv.map((x) => x.i.id))) : [];
   const now = Date.now();
   const results = s.questions.map((q) => {

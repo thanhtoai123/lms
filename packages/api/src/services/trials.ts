@@ -422,7 +422,7 @@ async function notifyTrialTeacher(
 async function loadTrialClass(db: Db, id: string) {
   const [c] = await db
     .select({
-      id: trialClasses.id, code: trialClasses.code, name: trialClasses.name, status: trialClasses.status, capacity: trialClasses.capacity,
+      id: trialClasses.id, tenantId: trialClasses.tenantId, code: trialClasses.code, name: trialClasses.name, status: trialClasses.status, capacity: trialClasses.capacity,
       centerId: trialClasses.centerId, courseId: trialClasses.courseId, note: trialClasses.note, createdAt: trialClasses.createdAt,
       cancelledAt: trialClasses.cancelledAt, cancelReason: trialClasses.cancelReason,
       centerCode: centers.code, centerName: centers.name, courseCode: courses.code, courseName: courses.name,
