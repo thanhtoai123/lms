@@ -228,9 +228,9 @@ PASS/FAIL của báo cáo gộp):
 Dòng `SKIP` **không làm kịch bản trả mã thoát 1**. Đọc mục 4 của báo cáo để biết phần nào
 chưa thật sự được kiểm chứng trong lần chạy đó.
 
-## 7. Ba quy tắc khi thêm kiểm tra mới
+## 7. Bốn quy tắc khi thêm kiểm tra mới
 
-Rút ra từ đợt chạy thật đầu tiên — cả sáu mục không đạt đều là khiếm khuyết của **kịch bản**,
+Rút ra từ hai đợt chạy thật đầu tiên — cả chín mục không đạt đều là khiếm khuyết của **kịch bản**,
 không phải của sản phẩm.
 
 1. **Khẳng định `ok` của NGHIỆP VỤ, không phải `ok` của HTTP.**
@@ -252,6 +252,14 @@ không phải của sản phẩm.
    `system.roles`, quyền nhóm bằng `admin.groups`, rồi khớp theo luật `matches()`.
    Và chọn dữ liệu mẫu **có kiểm tra tiền đề** (buổi học phải đã diễn ra và lớp còn học viên;
    ảnh phải đủ điều kiện gửi duyệt), thay vì lấy phần tử đầu danh sách.
+
+4. **Gọi đúng thủ tục, và nhớ `@($null).Count = 1`.**
+   `academics.classes.workspace` là màn **cấu hình lớp** (`info`, `groupOptions`, `phases`) —
+   nó **không** có `roster`. Danh sách học viên của lớp nằm ở `academics.classes.get`.
+   Gọi nhầm thì `$ws.roster` là `$null`, mà trong PowerShell `@($null).Count` bằng **1**,
+   nên phép đếm "sĩ số > 0" vẫn đúng và lỗi chỉ lộ ra ở bước sau dưới dạng khó hiểu
+   (`Expected string, received null`). Luôn kiểm tra `$null -ne $x.truong` **trước** khi đếm.
+
 
 ## 8. Lưu ý khi chạy lại nhiều lần
 

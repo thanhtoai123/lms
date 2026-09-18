@@ -197,20 +197,22 @@ $wsCache = @{}
 # Buoi phai DA DIEN RA (recordAttendance chan buoi tuong lai) va thuoc lop con hoc vien.
 $ungVien = @($allSess | Where-Object { $_.status -eq "scheduled" -and $_.classId -and $_.date -le $today } | Sort-Object -Property date -Descending)
 foreach ($cand in $ungVien) {
-  if (-not $wsCache.ContainsKey($cand.classId)) { $wsCache[$cand.classId] = (Q "academics.classes.workspace" @{ id = $cand.classId } $G).data }
+  if (-not $wsCache.ContainsKey($cand.classId)) { $wsCache[$cand.classId] = (Q "academics.classes.get" @{ id = $cand.classId } $G).data }
   $w = $wsCache[$cand.classId]
-  if (@($w.roster).Count -gt 0) { $one = $cand; $ws = $w; break }
+  # CHU Y: @($null).Count = 1 trong PowerShell — phai kiem tra $null truoc khi dem
+  if ($null -ne $w -and $null -ne $w.roster -and @($w.roster).Count -gt 0) { $one = $cand; $ws = $w; break }
 }
 if ($null -eq $one) {
   # Khong co buoi nao vua da dien ra vua thuoc lop con hoc vien: van lay mot buoi de F0/F7/F8 chay duoc
   $one = @($allSess) | Where-Object { $_.status -eq "scheduled" } | Select-Object -First 1
   if ($null -eq $one) { $one = @($allSess)[0] }
-  if ($null -ne $one -and $one.classId) { $ws = (Q "academics.classes.workspace" @{ id = $one.classId } $G).data }
+  if ($null -ne $one -and $one.classId) { $ws = (Q "academics.classes.get" @{ id = $one.classId } $G).data }
 }
 if ($null -ne $one -and $one.classId) { $cls = @($clsAll) | Where-Object { $_.id -eq $one.classId } | Select-Object -First 1 }
 $sessAll = @($allSess | Where-Object { $_.classId -eq $one.classId })
 T "F0 lay duoc mot buoi hoc" ($null -ne $one) ("tong buoi cua lop=" + @($sessAll).Count)
-$rosters = @($ws.roster)
+$rosters = @()
+if ($null -ne $ws -and $null -ne $ws.roster) { $rosters = @($ws.roster) }
 T "F1 lop co hoc vien" ($rosters.Count -gt 0) ("lop=" + $one.classCode + " si so=" + $rosters.Count)
 if ($rosters.Count -eq 0) { Write-Host "SKIP  F2-F6 (khong tim duoc buoi 'scheduled' nao thuoc lop con hoc vien)" }
 if ($rosters.Count -gt 0 -and $null -ne $one) {
