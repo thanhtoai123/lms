@@ -37,7 +37,7 @@ export default async function Dashboard() {
           </div>
           <div className="grid gap-3 md:grid-cols-2">
             {d.queues.map((q) => (
-              <Link key={q.key} href={q.href} className={`rounded-xl border p-3.5 transition hover:shadow-sm ${q.overdue > 0 ? "border-red-200 bg-red-50/60" : "border-black/5 bg-white"}`}>
+              <Link key={q.key} href={q.href} className={`rounded-xl border p-3.5 transition hover:shadow-sm ${q.overdue > 0 ? "border-red-200 bg-red-50/60" : "border-border bg-card hover:border-primary"}`}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="font-semibold">{q.title}</div>
@@ -85,7 +85,7 @@ export default async function Dashboard() {
               {[...L.byStatus].sort((a, b) => b.n - a.n).map((s) => (
                 <div key={s.status} className="flex items-center gap-3 text-sm">
                   <span className={`chip w-32 justify-center ${LEAD_CHIP[s.status]}`}>{LEAD_STATUS_VI[s.status]}</span>
-                  <div className="h-2 flex-1 rounded-full bg-black/5"><div className="h-2 rounded-full bg-brand-600/70" style={{ width: `${statusTotal ? (s.n / statusTotal) * 100 : 0}%` }} /></div>
+                  <div className="h-2 flex-1 rounded-full bg-muted"><div className="h-2 rounded-full bg-primary" style={{ width: `${statusTotal ? (s.n / statusTotal) * 100 : 0}%` }} /></div>
                   <span className="w-10 text-right font-mono text-xs">{s.n}</span>
                 </div>
               ))}

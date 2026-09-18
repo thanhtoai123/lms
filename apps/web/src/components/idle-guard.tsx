@@ -29,7 +29,9 @@ export function IdleGuard({ minutes }: { minutes: number | null }) {
       if (Date.now() - lastPing.current > PING_EVERY) ping();
     };
     const events = ["keydown", "pointerdown", "scroll", "touchstart"] as const;
-    events.forEach((e) => window.addEventListener(e, onActive, { passive: true }));
+    // capture: khu quản trị cuộn bên trong <main> chứ không cuộn cả trang, mà sự kiện
+    // "scroll" của phần tử thì không nổi bọt — chỉ pha bắt (capture) mới nghe được.
+    events.forEach((e) => window.addEventListener(e, onActive, { passive: true, capture: true }));
     // Nhiều tab: tab khác vừa thao tác thì tab này cũng tính
     const onStorage = (e: StorageEvent) => { if (e.key === "sr-active" && e.newValue) lastActive.current = Math.max(lastActive.current, Number(e.newValue)); };
     window.addEventListener("storage", onStorage);
@@ -41,7 +43,7 @@ export function IdleGuard({ minutes }: { minutes: number | null }) {
       setLeft(remain <= WARN_BEFORE ? remain : null);
     }, 1000);
     return () => {
-      events.forEach((e) => window.removeEventListener(e, onActive));
+      events.forEach((e) => window.removeEventListener(e, onActive, { capture: true }));
       window.removeEventListener("storage", onStorage);
       clearInterval(share);
       clearInterval(tick);

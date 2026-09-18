@@ -1,33 +1,187 @@
 @import "tailwindcss";
 
+/* ─────────────────────────────────────────────────────────────────────────
+   1. Biến màu — chép đúng bộ của bản gốc admin.satarobo.vn
+   (xem docs/GIAO-DIEN-GOC.md mục 2). Bản gốc chỉ khai --primary/--accent
+   bên trong .admin-scope; ở đây khai luôn tại :root để trang công khai,
+   app giáo viên và cổng phụ huynh dùng chung một bảng màu.
+   ───────────────────────────────────────────────────────────────────────── */
+:root {
+  --background: #fff;
+  --foreground: #0a0a0a;
+  --card: #fff;
+  --card-foreground: #0a0a0a;
+  --muted: #f5f5f5;
+  --muted-foreground: #737373;
+  --border: #e5e5e5;
+  --ring: #a1a1a1;
+  --destructive: #e40014;
+  --sidebar: #fafafa;
+  --sidebar-border: #e5e5e5;
+  --radius: 0.625rem;
+
+  /* Tím thương hiệu Sata Robo */
+  --primary: #610b8a;
+  --primary-foreground: #fff;
+  --primary-dark: #4e237d;
+  --primary-darker: #3b1a5e;
+  --primary-soft: #610b8a1a;
+  --primary-soft-hover: #610b8a2e;
+  --primary-ink: #610b8a;
+  --primary-ink-hover: #4e237d;
+
+  /* Cam nhấn (bản gốc dùng cho học viên và các điểm nhấn phụ) */
+  --accent: #ff8f2d;
+  --accent-dark: #f8903b;
+  --accent-soft: #ff8f2d1f;
+  --accent-ink: #b45309;
+  --accent-foreground: #241a2e;
+
+  /* Màu vai của bản gốc */
+  --parent: #610c8d;
+  --student: #fd8f2d;
+}
+
+/* Khu quản trị: bản gốc ghi đè vòng focus và màu chữ phụ */
+.admin-scope {
+  --ring: #610b8a;
+  --muted-foreground: #6c6c6c;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   2. Ánh xạ sang thang tiện ích Tailwind.
+   Dùng `@theme inline` để tiện ích trỏ thẳng vào var(--…): nhờ vậy phần ghi
+   đè trong .admin-scope mới ăn (nếu dùng @theme thường, biến chốt ở :root).
+   ───────────────────────────────────────────────────────────────────────── */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+  --color-destructive: var(--destructive);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-border: var(--sidebar-border);
+
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-dark: var(--primary-dark);
+  --color-primary-darker: var(--primary-darker);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-soft-hover: var(--primary-soft-hover);
+  --color-primary-ink: var(--primary-ink);
+  --color-primary-ink-hover: var(--primary-ink-hover);
+
+  --color-accent: var(--accent);
+  --color-accent-dark: var(--accent-dark);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-foreground: var(--accent-foreground);
+
+  /* Thang brand-* cũ vẫn giữ tên (hàng trăm chỗ đang dùng) nhưng neo vào
+     biến của bản gốc — cùng một màu tím #610b8a. */
+  --color-brand-600: var(--primary);
+  --color-brand-700: var(--primary-dark);
+  --color-brand-800: var(--primary-darker);
+
+  /* Chữ: neo vào bộ trung tính của bản gốc thay cho xám ngả tím trước đây.
+     ink-400 gộp về --muted-foreground: xám cũ #8b86a0 quá nhạt, đọc không nổi. */
+  --color-ink-900: var(--foreground);
+  --color-ink-600: var(--muted-foreground);
+  --color-ink-400: var(--muted-foreground);
+}
+
 @theme {
-  /* Tím thương hiệu Sata Robo (khớp admin.satarobo.vn: rgb(97 11 138)) */
+  /* Thang tím đầy đủ — trước đây thiếu 200/300/400/800/900 nên các lớp đó
+     không sinh ra CSS nào và chữ bị rơi về màu thừa kế. */
   --color-brand-50: #f7f0fb;
   --color-brand-100: #ecdcf5;
+  --color-brand-200: #dbbdea;
+  --color-brand-300: #c496db;
+  --color-brand-400: #9a45c4;
   --color-brand-500: #7a1aa8;
-  --color-brand-600: #610b8a;
-  --color-brand-700: #4b076b;
-  --color-ink-900: #1f1a2e;
-  --color-ink-600: #4b4660;
-  --color-ink-400: #8b86a0;
+  --color-brand-900: #2a1243;
   --color-surface: #fafaf8;
   --color-ok: #16a34a;
   --color-warn: #d97706;
   --color-danger: #dc2626;
+
+  /* Thang cam nhấn */
+  --color-accent-50: #fff7ed;
+  --color-accent-100: #ffedd5;
+  --color-accent-200: #fed7aa;
+  --color-accent-500: #ff8f2d;
+  --color-accent-600: #f8903b;
+  --color-accent-700: #b45309;
+
+  /* Bo góc theo bản gốc: --radius = .625rem, sm .6× · md .8× · lg 1× · xl 1.4× */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.625rem;
+  --radius-xl: 0.875rem;
+
   --font-sans: var(--font-be-vietnam), "Be Vietnam Pro", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
 html, body { height: 100%; }
-body { background: var(--color-surface); font-size: 14px; color: var(--color-ink-900); -webkit-font-smoothing: antialiased; }
+body {
+  background: var(--background);
+  font-size: 14px;
+  color: var(--foreground);
+  -webkit-font-smoothing: antialiased;
+}
 
+/* ─────────────────────────────────────────────────────────────────────────
+   3. Lớp thành phần dùng chung (docs/GIAO-DIEN-GOC.md mục 4).
+   Giữ nguyên tên lớp cũ để không gãy trang nào.
+   ───────────────────────────────────────────────────────────────────────── */
 @layer components {
-  .card { @apply rounded-2xl bg-white shadow-sm border border-black/5; }
-  .btn { @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed; }
-  .btn-primary { @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed bg-brand-500 text-white hover:bg-brand-600 active:bg-brand-700; }
-  .btn-ghost { @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed bg-black/5 text-ink-900 hover:bg-black/10; }
+  .card { @apply rounded-xl border border-border bg-card; }
+  .btn { @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-bold transition disabled:opacity-50 disabled:cursor-not-allowed; }
+  .btn-primary { @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-bold transition disabled:opacity-50 disabled:cursor-not-allowed bg-primary text-primary-foreground shadow-md hover:bg-primary-dark active:bg-primary-darker; }
+  .btn-ghost { @apply inline-flex items-center justify-center gap-2 rounded-xl border-2 border-border bg-card px-4 py-2 text-sm font-bold text-foreground transition disabled:opacity-50 disabled:cursor-not-allowed hover:bg-muted; }
   .chip { @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium; }
-  .input { @apply w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100; }
-  .label { @apply block text-xs font-semibold uppercase tracking-wide text-ink-400 mb-1; }
+  .input { @apply w-full rounded-lg border border-border bg-card px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15; }
+  .label { @apply block text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1; }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   4. Chuẩn hoá trong khu quản trị — sửa ở tầng tiện ích để lan ra mọi trang,
+   khỏi phải đụng vào từng file.
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* Đường kẻ: các trang đang viết black/5 · black/10, kéo hết về --border */
+.admin-scope [class~="border-black/5"],
+.admin-scope [class~="border-black/10"] { border-color: var(--border); }
+.admin-scope [class~="divide-black/5"] > *,
+.admin-scope [class~="divide-black/10"] > * { border-color: var(--border); }
+
+/* Tiêu đề bảng: bản gốc là chữ đậm, giãn chữ, màu chữ chính */
+.admin-scope thead th {
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--foreground);
+}
+
+/* Mũi tên tự vẽ cho select, y như bản gốc (stroke #6b7280) */
+.admin-scope select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.5rem center;
+  background-size: 1rem 1rem;
+  padding-right: 2rem;
+}
+.admin-scope select[multiple],
+.admin-scope select[size]:not([size="1"]) {
+  appearance: auto;
+  -webkit-appearance: auto;
+  background-image: none;
+  padding-right: 0.75rem;
 }
 
 /* Nội dung bài viết (markdown đã render phía server) */
@@ -39,5 +193,5 @@ body { background: var(--color-surface); font-size: 14px; color: var(--color-ink
 .sr-prose ul { list-style: disc; padding-left: 1.4em; margin: .6em 0; }
 .sr-prose ol { list-style: decimal; padding-left: 1.4em; margin: .6em 0; }
 .sr-prose blockquote { border-left: 3px solid #c4a0d8; padding-left: .9em; color: #555; margin: .8em 0; }
-.sr-prose a { color: #610b8a; text-decoration: underline; }
+.sr-prose a { color: var(--primary); text-decoration: underline; }
 .sr-prose img { border-radius: .75rem; margin: 1em 0; max-width: 100%; }

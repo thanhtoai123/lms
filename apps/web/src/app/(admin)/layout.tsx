@@ -26,14 +26,19 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const main = PRIORITY.find((r) => roles.includes(r)) ?? roles[0]!;
   const initials = me.user.fullName.split(/\s+/).filter(Boolean).slice(-2).map((w) => w[0]!.toUpperCase()).join("") || "U";
 
+  // `.admin-scope` là lớp bao của bản gốc: nó ghi đè bộ biến màu cho riêng khu
+  // quản trị (tím #610b8a, vòng focus, chữ phụ, mũi tên select) — xem globals.css.
+  // `contents` để lớp bao không xen vào bố cục, chỉ truyền biến CSS xuống dưới.
   return (
-    <AdminShell
-      nav={nav}
-      me={{ fullName: me.user.fullName, email: me.user.email, roleLabel: ROLE_LABEL_VI[main], initials }}
-      canRunWorker={hasRole(actor, "SUPER_ADMIN", "CENTER_MANAGER")}
-      idleMinutes={idle}
-    >
-      {children}
-    </AdminShell>
+    <div className="admin-scope contents">
+      <AdminShell
+        nav={nav}
+        me={{ fullName: me.user.fullName, email: me.user.email, roleLabel: ROLE_LABEL_VI[main], initials }}
+        canRunWorker={hasRole(actor, "SUPER_ADMIN", "CENTER_MANAGER")}
+        idleMinutes={idle}
+      >
+        {children}
+      </AdminShell>
+    </div>
   );
 }
