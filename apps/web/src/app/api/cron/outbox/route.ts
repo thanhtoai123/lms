@@ -4,10 +4,6 @@ import { getDb } from "@satarobo/db";
 import { devActorAllowed } from "@satarobo/core";
 import { processOutbox, scanLeadSla, runSurveyTriggers, processEmailQueue, remindDueHomework, publishDuePosts, syncAffiliateRewards, recordHeartbeat, syncInvoiceDrafts, dispatchParentMessages, dispatchPush, pruneLoginEvents, remindPauseEnding, buildActionRequiredAlerts } from "@satarobo/api";
 
-/**
- * GET /api/cron/outbox — Vercel Cron (mỗi phút) hoặc gọi tay. Bảo vệ bằng CRON_SECRET.
- * Self-host: dùng `pnpm worker` (vòng lặp) thay vì route này.
- */
 /** So khớp không lệ thuộc thời gian (chống dò khoá theo độ trễ) */
 function timingSafeEqualStr(a: string, b: string) {
   const x = Buffer.from(a);
@@ -15,6 +11,10 @@ function timingSafeEqualStr(a: string, b: string) {
   return x.length === y.length && timingSafeEqual(x, y);
 }
 
+/**
+ * GET /api/cron/outbox — Vercel Cron (mỗi phút) hoặc gọi tay. Bảo vệ bằng CRON_SECRET.
+ * Self-host: dùng `pnpm worker` (vòng lặp) thay vì route này.
+ */
 export async function GET(req: Request) {
   const secret = process.env.CRON_SECRET;
   const auth = req.headers.get("authorization");
