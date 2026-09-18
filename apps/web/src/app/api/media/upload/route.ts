@@ -1,19 +1,15 @@
-import { createContext, registerUploadedMedia } from "@satarobo/api";
+import { registerUploadedMedia } from "@satarobo/api";
 import { MEDIA_UPLOAD_MAX_FILES } from "@satarobo/core";
+import { routeContext, crossSite, crossSiteResponse } from "@/lib/route-ctx";
 
 /**
  * Tải ảnh lớp vào **kho của lớp** (multipart): sessionId, caption, takenAt, classWide,
  * tagged (JSON mảng id HV), files[]. Ảnh chưa gửi duyệt nên phụ huynh chưa thấy.
  */
 export async function POST(req: Request) {
-  const h = new Headers(req.headers);
-  const cookie = req.headers.get("cookie") ?? "";
-  const dev = cookie.split("; ").find((c) => c.startsWith("x-dev-actor="))?.split("=")[1];
-  if (dev && !h.get("x-dev-actor")) h.set("x-dev-actor", decodeURIComponent(dev));
-  const sb = cookie.split("; ").find((c) => c.startsWith("sb-access-token="))?.split("=")[1];
-  if (sb && !h.get("authorization")) h.set("authorization", `Bearer ${decodeURIComponent(sb)}`);
-  const ctx = await createContext({ headers: h, ip: req.headers.get("x-forwarded-for") ?? undefined });
-  if (!ctx.actor || !ctx.user) return Response.json({ ok: false, error: "Chưa đăng nhập" }, { status: 401 });
+  if (crossSite(req)) return crossSiteResponse();
+  const ctx = await routeContext(req);
+  if (!ctx) return Response.json({ ok: false, error: "Chưa đăng nhập" }, { status: 401 });
 
   const form = await req.formData();
   const sessionId = String(form.get("sessionId") ?? "");

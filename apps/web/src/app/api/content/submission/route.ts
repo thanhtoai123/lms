@@ -1,8 +1,9 @@
 import { staffSubmit } from "@satarobo/api";
-import { routeContext, errorStatus } from "@/lib/route-ctx";
+import { routeContext, errorStatus, crossSite, crossSiteResponse } from "@/lib/route-ctx";
 
 /** Giáo viên / giáo vụ nộp hộ bài (multipart: submissionId, text, link, files[]) */
 export async function POST(req: Request) {
+  if (crossSite(req)) return crossSiteResponse();
   const ctx = await routeContext(req);
   if (!ctx) return Response.json({ ok: false, error: "Chưa đăng nhập" }, { status: 401 });
   const form = await req.formData().catch(() => null);

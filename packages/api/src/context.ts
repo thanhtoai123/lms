@@ -1,7 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { and, eq, gte, isNull, lte, or } from "drizzle-orm";
 import { getDb, users, userRoles, teachers, parents, staff, staffDeployments, userGroups, userGroupMembers, userGroupPermissions, type Database } from "@satarobo/db";
-import { decodeJwtPayload, mfaRequiredRoles, mfaState, activeRoleAssignments, widenByDeployments, type Actor, type Permission } from "@satarobo/core";
+import { decodeJwtPayload, mfaRequiredRoles, mfaState, activeRoleAssignments, widenByDeployments, devActorAllowed, normalizeDevActor, DEV_ACTOR_HEADER, type Actor, type Permission } from "@satarobo/core";
 
 export interface Context {
   db: Database;
@@ -36,11 +36,10 @@ export async function createContext(opts: { headers: Headers; ip?: string }): Pr
     }
   }
 
-  // Dev: chỉ nhận tài khoản mẫu chọn ở trang /login (cookie x-dev-actor) — không tự đăng nhập ngầm
-  // Không bao giờ nhận tài khoản mẫu khi chạy production (trừ khi cố ý bật cho môi trường thử nghiệm)
-  const devAllowed = process.env.ALLOW_DEV_ACTOR === "1" && (process.env.NODE_ENV !== "production" || process.env.ALLOW_DEV_ACTOR_IN_PRODUCTION === "1");
-  if (!email && devAllowed) {
-    email = opts.headers.get("x-dev-actor");
+  // Dev: chỉ nhận tài khoản mẫu chọn ở trang /login (cookie x-dev-actor) — không tự đăng nhập ngầm.
+  // KHÔNG BAO GIỜ nhận khi NODE_ENV=production: không còn cửa hậu bật lại bằng biến môi trường.
+  if (!email && devActorAllowed(process.env)) {
+    email = normalizeDevActor(opts.headers.get(DEV_ACTOR_HEADER));
   }
 
   if (!email) return { db, actor: null, user: null, ip: opts.ip };

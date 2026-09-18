@@ -1,8 +1,9 @@
 import { uploadSiteMedia, SITE_MEDIA_MAX } from "@satarobo/api";
-import { routeContext, errorStatus } from "@/lib/route-ctx";
+import { routeContext, errorStatus, crossSite, crossSiteResponse } from "@/lib/route-ctx";
 
 /** Tải ảnh cho website (multipart: file, alt) */
 export async function POST(req: Request) {
+  if (crossSite(req)) return crossSiteResponse();
   const ctx = await routeContext(req);
   if (!ctx) return Response.json({ ok: false, error: "Chưa đăng nhập" }, { status: 401 });
   if (Number(req.headers.get("content-length") ?? 0) > SITE_MEDIA_MAX + 100_000) return Response.json({ ok: false, error: "Ảnh tối đa 5MB" }, { status: 413 });

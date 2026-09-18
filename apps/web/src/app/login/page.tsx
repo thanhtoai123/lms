@@ -4,11 +4,12 @@ import { loginPrecheck, recordLogin, staffBlocked, staffIdleMinutes } from "@sat
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createServerClient } from "@supabase/ssr";
+import { devActorAllowed, DEV_ACTOR_HEADER } from "@satarobo/core";
 import { ACCESS_COOKIE, REFRESH_COOKIE, IDLE_COOKIE, SEEN_COOKIE, clientMeta, cookieOptions, seenCookieOptions } from "@/lib/auth-session";
 
 export const metadata = { title: "Đăng nhập quản trị" };
 
-const DEV = process.env.ALLOW_DEV_ACTOR === "1";
+const DEV = devActorAllowed(process.env);
 const hasSupabase = !!process.env.NEXT_PUBLIC_SUPABASE_URL && !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 /** Chỉ cho quay về đường dẫn nội bộ (chống open redirect) */
@@ -23,7 +24,8 @@ async function devLogin(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim();
   if (!email) return;
   const c = await cookies();
-  c.set("x-dev-actor", email, { httpOnly: false, sameSite: "lax", path: "/" });
+  // Cookie tài khoản mẫu: httpOnly để kịch bản trên trang không đọc/đổi được (chỉ có ở môi trường phát triển)
+  c.set(DEV_ACTOR_HEADER, email, { httpOnly: true, sameSite: "lax", path: "/", secure: process.env.NODE_ENV === "production" });
   await recordLogin(getDb(), { email, result: "success", ...clientMeta(await headers()) });
   redirect(safeNext(formData.get("next")));
 }

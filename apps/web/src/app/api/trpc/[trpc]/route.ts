@@ -1,6 +1,6 @@
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { appRouter, createContext } from "@satarobo/api";
-import { idleExpired } from "@satarobo/core";
+import { idleExpired, devActorAllowed, DEV_ACTOR_HEADER } from "@satarobo/core";
 import { ACCESS_COOKIE, IDLE_COOKIE, REFRESH_COOKIE, SEEN_COOKIE, cookieOptions, needsRefresh, refreshSession, supabaseOn } from "@/lib/auth-session";
 
 /** Chặn gọi API từ trang web khác (CSRF): trình duyệt luôn gửi Sec-Fetch-Site / Origin */
@@ -48,9 +48,11 @@ const handler = async (req: Request) => {
     router: appRouter,
     createContext: () => {
       const h = new Headers(req.headers);
-      // Dev bypass qua cookie (không dùng ở production)
-      const dev = readCookie(cookie, "x-dev-actor");
-      if (dev && !h.get("x-dev-actor")) h.set("x-dev-actor", dev);
+      // Tài khoản mẫu CHỈ được lấy từ cookie do máy chủ đọc: xoá header client tự gửi trước đã,
+      // nếu không ai cũng mạo danh được bằng `x-dev-actor: superadmin@…`.
+      h.delete(DEV_ACTOR_HEADER);
+      const dev = devActorAllowed(process.env) ? readCookie(cookie, DEV_ACTOR_HEADER) : undefined;
+      if (dev) h.set(DEV_ACTOR_HEADER, dev);
       if (access && !h.get("authorization")) h.set("authorization", `Bearer ${access}`);
       return createContext({ headers: h, ip: req.headers.get("x-forwarded-for") ?? undefined });
     },

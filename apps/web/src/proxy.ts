@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { idleExpired } from "@satarobo/core";
+import { idleExpired, devActorAllowed, DEV_ACTOR_HEADER } from "@satarobo/core";
 import { ACCESS_COOKIE, IDLE_COOKIE, REFRESH_COOKIE, SEEN_COOKIE, cookieOptions, needsRefresh, refreshSession, seenCookieOptions, supabaseOn } from "@/lib/auth-session";
 
 /**
@@ -22,7 +22,7 @@ export async function proxy(req: NextRequest) {
   if (PUBLIC.some((r) => r.test(pathname))) return NextResponse.next();
   const access = req.cookies.get(ACCESS_COOKIE)?.value;
   const refresh = req.cookies.get(REFRESH_COOKIE)?.value;
-  const dev = process.env.ALLOW_DEV_ACTOR === "1" && req.cookies.has("x-dev-actor");
+  const dev = devActorAllowed(process.env) && req.cookies.has(DEV_ACTOR_HEADER);
 
   // Tự đăng xuất khi không thao tác (chỉ phiên nhân sự thật). /logout ghi nhật ký và thu hồi phiên.
   const now = Date.now();

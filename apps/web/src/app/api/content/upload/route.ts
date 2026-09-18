@@ -1,8 +1,9 @@
 import { addDocumentVersion } from "@satarobo/api";
-import { routeContext, errorStatus } from "@/lib/route-ctx";
+import { routeContext, errorStatus, crossSite, crossSiteResponse } from "@/lib/route-ctx";
 
 /** Tải phiên bản tệp cho tài liệu (multipart: documentId, note, file) */
 export async function POST(req: Request) {
+  if (crossSite(req)) return crossSiteResponse();
   const ctx = await routeContext(req);
   if (!ctx) return Response.json({ ok: false, error: "Chưa đăng nhập" }, { status: 401 });
   let form: FormData;
