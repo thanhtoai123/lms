@@ -256,7 +256,7 @@ export async function provision(ctx: ProtectedContext, input: ProvisionInput) {
     bump("orgUnits", 3);
 
     /* 5) Sao chép danh mục vận hành — KHÔNG kèm bất kỳ dữ liệu cá nhân nào */
-    const mineOrShared = (col: typeof courses.tenantId) => ofSource(col, src);
+    const mineOrShared = (col: AnyPgColumn) => ofSource(col, src);
 
     // 5a. Khoá học → gói học phí → giáo trình → bài học (giữ liên kết bằng bảng ánh xạ id cũ → id mới)
     const srcCourses = await tx.select().from(courses).where(and(eq(courses.isActive, true), mineOrShared(courses.tenantId)));
