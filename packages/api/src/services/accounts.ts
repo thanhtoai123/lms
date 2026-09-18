@@ -274,9 +274,11 @@ export async function revealAuditEntry(ctx: ProtectedContext, input: { id: strin
   return ctx.db.transaction(async (tx) => {
     const db = tx as unknown as Db;
     const [row] = await db
-      .select({ id: auditLog.id, action: auditLog.action, module: auditLog.module, entity: auditLog.entity, entityId: auditLog.entityId, before: auditLog.before, after: auditLog.after, reason: auditLog.reason, ip: auditLog.ip, createdAt: auditLog.createdAt, actorId: auditLog.actorId, actorName: users.fullName, actorEmail: users.email })
+      .select({ id: auditLog.id, action: auditLog.action, module: auditLog.module, entity: auditLog.entity, entityId: auditLog.entityId, before: auditLog.before, after: auditLog.after, reason: auditLog.reason, ip: auditLog.ip, createdAt: auditLog.createdAt, actorId: auditLog.actorId, tenantId: auditLog.tenantId, actorName: users.fullName, actorEmail: users.email })
       .from(auditLog).leftJoin(users, eq(users.id, auditLog.actorId)).where(eq(auditLog.id, input.id)).limit(1);
     if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy dòng nhật ký" });
+    // Nhật ký của trung tâm khác không mở "Xem đầy đủ" được
+    assertTenant(ctx, row, "Dòng nhật ký");
     await writeAudit(db, {
       actorId: ctx.user.id, action: "PII_REVEAL", module: "system", entity: "audit_log", entityId: row.id,
       after: { xem: `${row.module}/${row.entity}`, banGhi: row.entityId, luc: row.createdAt.toISOString() },
@@ -289,10 +291,10 @@ export async function revealAuditEntry(ctx: ProtectedContext, input: { id: strin
 export async function auditFilterOptions(ctx: ProtectedContext) {
   requirePermission(ctx, "audit:read");
   const [mods, ents, acts, actors] = await Promise.all([
-    ctx.db.selectDistinct({ v: auditLog.module }).from(auditLog).orderBy(asc(auditLog.module)),
-    ctx.db.selectDistinct({ v: auditLog.entity, m: auditLog.module }).from(auditLog).orderBy(asc(auditLog.entity)),
-    ctx.db.selectDistinct({ v: auditLog.action }).from(auditLog).orderBy(asc(auditLog.action)),
-    ctx.db.select({ id: users.id, name: users.fullName }).from(users).where(sql`exists (select 1 from ${auditLog} a where a.actor_id = ${sql.raw('"users"."id"')})`).orderBy(asc(users.fullName)),
+    ctx.db.selectDistinct({ v: auditLog.module }).from(auditLog).where(tenantCond(ctx, auditLog)).orderBy(asc(auditLog.module)),
+    ctx.db.selectDistinct({ v: auditLog.entity, m: auditLog.module }).from(auditLog).where(tenantCond(ctx, auditLog)).orderBy(asc(auditLog.entity)),
+    ctx.db.selectDistinct({ v: auditLog.action }).from(auditLog).where(tenantCond(ctx, auditLog)).orderBy(asc(auditLog.action)),
+    ctx.db.select({ id: users.id, name: users.fullName }).from(users).where(and(tenantCond(ctx, users), sql`exists (select 1 from ${auditLog} a where a.actor_id = ${sql.raw('"users"."id"')})`)).orderBy(asc(users.fullName)),
   ]);
   return { modules: mods.map((m) => m.v), entities: ents, actions: acts.map((a) => a.v), actors };
 }
