@@ -12,6 +12,7 @@ import { maskEmail } from "./staffAuthHelpers";
 import { supabaseConfigured } from "./staffAuth";
 import { writeAudit } from "./audit";
 import { loginEventSecret } from "../lib/secrets";
+import { logger } from "../lib/logger";
 
 type Db = ProtectedContext["db"];
 const asDb = (d: Database | Db) => d as unknown as Db;
@@ -61,7 +62,8 @@ export async function recordLogin(database: Database, input: { email?: string | 
     });
     if (userId && input.result === "success") await db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, userId));
   } catch (e) {
-    console.error("[login-events]", (e as Error).message);
+    // KHÔNG đưa `email` vào log: đây là email đăng nhập, tức PII
+    logger.child("login-events").error("không ghi được nhật ký đăng nhập", { err: e, result: input.result });
   }
 }
 

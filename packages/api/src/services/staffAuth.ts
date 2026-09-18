@@ -7,6 +7,7 @@ import type { ProtectedContext } from "../trpc";
 import { requirePermission } from "../trpc";
 import { queueEmail } from "./admin";
 import { writeAudit } from "./audit";
+import { logger } from "../lib/logger";
 
 type Db = ProtectedContext["db"];
 
@@ -64,7 +65,8 @@ export async function requestPasswordReset(database: Database, input: { email: s
     const r = await makeLink(admin, u.email, "recovery");
     await queueEmail(db, { to: u.email, event: "PASSWORD_RESET", vars: { ten: u.fullName, link: r.link, het_han: "sau 1 giờ" }, relatedType: "user", relatedId: u.id });
   } catch (e) {
-    console.error("[password reset]", (e as Error).message);
+    // Không log email người yêu cầu — chỉ cần biết bước nào hỏng
+    logger.child("password-reset").error("không tạo được liên kết đặt lại mật khẩu", { err: e });
   }
   return generic;
 }

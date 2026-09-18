@@ -17,6 +17,7 @@ import { todayISO } from "./sessions";
 import { queueEmail, getSettings } from "./admin";
 import { notify, accountantsOf } from "./finance";
 import { mediaSigningSecret } from "../lib/secrets";
+import { logger } from "../lib/logger";
 
 type Db = ProtectedContext["db"];
 const bad = (m: string | string[]) => new TRPCError({ code: "BAD_REQUEST", message: Array.isArray(m) ? m.join("; ") : m });
@@ -207,7 +208,7 @@ export async function syncInvoiceDrafts(db: Database, opts: { limit?: number } =
       }
     } catch (e) {
       failed++;
-      console.error("[einvoice draft]", (e as Error).message);
+      logger.child("einvoice").error("không phát hành được hoá đơn nháp", { err: e });
     }
   }
   return { drafted, issued, failed };
@@ -268,7 +269,7 @@ async function doIssue(db: Db, id: string, actorId: string | null): Promise<{ st
         to: claim.buyerEmail, event: "INVOICE_ISSUED",
         vars: { ten_ph: claim.buyerName ?? claim.buyerCompany ?? "Quý khách", so_hd: String(res.number), ky_hieu: `${claim.templateCode}${claim.serial}`, so_tien: formatVnd(t.total), ma_tra_cuu: res.lookupCode, link: `${st.website.replace(/\/$/, "")}${s.lookupUrl}?ma=${res.lookupCode}` },
         relatedType: "einvoice", relatedId: claim.id, createdBy: actorId,
-      }).catch((e) => console.error("[invoice email]", e));
+      }).catch((e) => logger.child("einvoice").error("không xếp được email hoá đơn vào hàng đợi", { err: e, einvoiceId: claim.id }));
     }
     return { status: "issued", number: res.number };
   } catch (e) {

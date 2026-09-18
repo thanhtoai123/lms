@@ -11,6 +11,7 @@ import { requirePermission, type ProtectedContext } from "../trpc";
 import { supabaseAdmin } from "./staffAuth";
 import { writeAudit } from "./audit";
 import { tenantCond, tenantCondStrict, assertTenant, redact } from "./tenantScope";
+import { logger } from "../lib/logger";
 
 type Db = ProtectedContext["db"];
 
@@ -193,7 +194,7 @@ export async function setUserLock(ctx: ProtectedContext, input: { userId: string
   if (admin && u.authSubject) {
     const { error } = await admin.auth.admin.updateUserById(u.authSubject, { ban_duration: input.lock ? "876000h" : "none" });
     authSynced = !error;
-    if (error) console.error("[lock supabase]", error.message);
+    if (error) logger.child("accounts").error("không đồng bộ được khoá tài khoản sang Supabase", { err: error, userId: u.id });
   }
   return { changed: true, authSynced };
 }

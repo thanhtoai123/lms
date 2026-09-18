@@ -28,6 +28,7 @@ import { todayISO } from "./sessions";
 import { consumedSql } from "./students";
 import { accrueCommissions, adjustCommissionsForRefund } from "./commissions";
 import { queueEmail, getSettings } from "./admin";
+import { logger } from "../lib/logger";
 
 export type Db = ProtectedContext["db"];
 export const bad = (m: string | string[]) => new TRPCError({ code: "BAD_REQUEST", message: Array.isArray(m) ? m.join("; ") : m });
@@ -1159,7 +1160,7 @@ export async function decidePayment(ctx: ProtectedContext, input: { paymentId: s
   });
   if (result.status === "confirmed" && o.customerEmail) {
     const amount = input.decision === "adjust" ? Math.round(input.adjustedAmount!) : p.amount;
-    await queueEmail(ctx.db, { to: o.customerEmail, event: "RECEIPT_ISSUED", vars: { ten_ph: o.customerName, so_phieu: result.receiptNo, so_tien: formatVnd(amount), ma_don: o.code, co_so: center?.code ?? "" }, relatedType: "payment", relatedId: p.id, createdBy: ctx.user.id }).catch((e) => console.error("[receipt email]", e));
+    await queueEmail(ctx.db, { to: o.customerEmail, event: "RECEIPT_ISSUED", vars: { ten_ph: o.customerName, so_phieu: result.receiptNo, so_tien: formatVnd(amount), ma_don: o.code, co_so: center?.code ?? "" }, relatedType: "payment", relatedId: p.id, createdBy: ctx.user.id }).catch((e) => logger.child("finance").error("không xếp được email phiếu thu vào hàng đợi", { err: e, paymentId: p.id }));
   }
   return result;
 }

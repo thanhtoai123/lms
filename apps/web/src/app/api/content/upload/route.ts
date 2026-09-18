@@ -1,5 +1,6 @@
 import { addDocumentVersion } from "@satarobo/api";
 import { routeContext, errorStatus, crossSite, crossSiteResponse } from "@/lib/route-ctx";
+import { clientSafeMessage } from "@satarobo/core";
 
 /** Tải phiên bản tệp cho tài liệu (multipart: documentId, note, file) */
 export async function POST(req: Request) {
@@ -19,6 +20,7 @@ export async function POST(req: Request) {
     const r = await addDocumentVersion(ctx, { documentId, fileName: file.name, bytes: new Uint8Array(await file.arrayBuffer()), note: String(form.get("note") ?? "") || null });
     return Response.json({ ok: true, ...r });
   } catch (e) {
-    return Response.json({ ok: false, error: (e as Error).message }, { status: errorStatus(e) });
+    // Lỗi tầng CSDL không được trả nguyên văn (lộ câu SQL / tên cột) — xem core/security/log.ts
+    return Response.json({ ok: false, error: clientSafeMessage(e) }, { status: errorStatus(e) });
   }
 }
