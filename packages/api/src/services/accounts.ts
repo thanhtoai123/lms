@@ -10,6 +10,7 @@ import {
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { supabaseAdmin } from "./staffAuth";
 import { writeAudit } from "./audit";
+import { tenantCond, assertTenant, redact } from "./tenantScope";
 
 type Db = ProtectedContext["db"];
 
@@ -32,7 +33,7 @@ export async function listUsers(ctx: ProtectedContext, input: { q?: string; role
   requirePermission(ctx, "system:read");
   const pageSize = Math.min(100, input.pageSize ?? 30);
   const page = Math.max(1, input.page ?? 1);
-  const conds = [];
+  const conds = [tenantCond(ctx, users)];
   if (input.q?.trim()) {
     const q = `%${input.q.trim()}%`;
     conds.push(or(ilike(users.fullName, q), ilike(users.email, q), ilike(users.phone, q))!);
@@ -48,7 +49,7 @@ export async function listUsers(ctx: ProtectedContext, input: { q?: string; role
   const where = conds.length ? and(...conds) : undefined;
   const [tot] = await ctx.db.select({ n: sql<number>`count(*)::int` }).from(users).where(where);
   const rows = await ctx.db
-    .select({ id: users.id, email: users.email, fullName: users.fullName, phone: users.phone, isActive: users.isActive, lastLoginAt: users.lastLoginAt, lockedReason: users.lockedReason, createdAt: users.createdAt, hasAuth: sql<boolean>`${users.authSubject} is not null` })
+    .select({ id: users.id, email: users.email, fullName: users.fullName, phone: users.phone, isActive: users.isActive, lastLoginAt: users.lastLoginAt, lockedReason: users.lockedReason, createdAt: users.createdAt, tenantId: users.tenantId, hasAuth: sql<boolean>`${users.authSubject} is not null` })
     .from(users).where(where).orderBy(asc(users.fullName)).limit(pageSize).offset((page - 1) * pageSize);
   const ids = rows.map((r) => r.id);
   const roles = ids.length
@@ -63,7 +64,7 @@ export async function listUsers(ctx: ProtectedContext, input: { q?: string; role
   return {
     total: tot?.n ?? 0, page, pageSize,
     counts: counts ?? { total: 0, active: 0, locked: 0 },
-    items: rows.map((r) => ({ ...r, roles: roles.filter((x) => x.userId === r.id).map((x) => ({ ...x, label: ROLE_LABEL_VI[x.role] })) })),
+    items: rows.map((r) => redact(ctx, { ...r, roles: roles.filter((x) => x.userId === r.id).map((x) => ({ ...x, label: ROLE_LABEL_VI[x.role] })) }, r.tenantId)),
   };
 }
 
@@ -71,6 +72,7 @@ export async function getUser(ctx: ProtectedContext, id: string) {
   requirePermission(ctx, "system:read");
   const u = await ctx.db.query.users.findFirst({ where: eq(users.id, id) });
   if (!u) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy tài khoản" });
+  assertTenant(ctx, u, "Tài khoản");
   const [roles, teacher, history, acted] = await Promise.all([
     ctx.db.select({ id: userRoles.id, role: userRoles.role, centerId: userRoles.centerId, centerCode: centers.code, centerName: centers.name, createdAt: userRoles.createdAt, grantedByName: sql<string | null>`(select full_name from ${users} g where g.id = ${userRoles.grantedBy})` })
       .from(userRoles).leftJoin(centers, eq(centers.id, userRoles.centerId)).where(eq(userRoles.userId, id)).orderBy(asc(userRoles.createdAt)),
@@ -225,7 +227,8 @@ export async function listAudit(ctx: ProtectedContext, input: AuditQuery) {
   requirePermission(ctx, "audit:read");
   const pageSize = Math.min(100, input.pageSize ?? 50);
   const page = Math.max(1, input.page ?? 1);
-  const conds = [];
+  // Nhật ký chỉ hiển thị trong phạm vi trung tâm (tenant) của người xem
+  const conds = [tenantCond(ctx, auditLog)];
   if (input.module) conds.push(eq(auditLog.module, input.module));
   if (input.entity) conds.push(eq(auditLog.entity, input.entity));
   if (input.action) conds.push(eq(auditLog.action, input.action));

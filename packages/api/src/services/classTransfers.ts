@@ -7,6 +7,7 @@ import {
   type TransferRequestStatus,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
+import { assertCenterTransferAllowed } from "./tenantScope";
 import { writeAudit } from "./audit";
 import { deliverNotifications } from "./notify";
 import { enforcePrerequisites } from "./catalog";
@@ -34,7 +35,7 @@ async function managersOf(db: Db, centerIds: string[]) {
 
 /** Lớp đích phù hợp: cùng khoá (hoặc khác khoá khi quản lý miễn), đang tuyển sinh / đang chạy, kèm tiến độ và số chỗ */
 export async function listEligibleClasses(ctx: ProtectedContext, input: { enrollmentId: string; toCenterId?: string | null; includeOtherCourses?: boolean }) {
-  const e = await loadEnrollment(ctx.db, input.enrollmentId);
+  const e = await loadEnrollment(ctx.db, input.enrollmentId, ctx);
   requirePermission(ctx, "enrollment:update", { centerId: e.centerId });
   const canWaive = authorize(ctx.actor, "class:approve", { centerId: e.centerId }).allowed;
   const conds: SQL[] = [
@@ -77,6 +78,8 @@ export async function createTransferRequest(ctx: ProtectedContext, input: { enro
   const p = await previewTransfer(ctx, { enrollmentId: input.enrollmentId, targetClassId: input.toClassId, waiverReason, allowWaitlist: true });
   if (waiverReason && !p.canApprove) throw new TRPCError({ code: "FORBIDDEN", message: "Chỉ quản lý cơ sở được miễn điều kiện cùng khoá" });
   if (!p.ok) throw new TRPCError({ code: "PRECONDITION_FAILED", message: p.errors.join("; ") });
+  // Cách ly trung tâm: chuyển sang cơ sở của trung tâm khác phải được cả hai bên cho phép
+  await assertCenterTransferAllowed(ctx, { fromCenterId: p.source.centerId, toCenterId: p.target.centerId, what: "học viên" });
   const dup = await ctx.db.query.classTransferRequests.findFirst({ where: and(eq(classTransferRequests.enrollmentId, p.source.id), inArray(classTransferRequests.status, ["pending", "waitlisted"])) });
   if (dup) throw new TRPCError({ code: "CONFLICT", message: "Đăng ký này đã có yêu cầu chuyển lớp đang chờ" });
   const status: TransferRequestStatus = p.waitlist ? "waitlisted" : "pending";

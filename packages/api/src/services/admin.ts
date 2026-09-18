@@ -18,6 +18,7 @@ import { sendOtpMessage, deliverySettings, otpDeliveryReady } from "./delivery";
 import { pushOverview } from "./pilot";
 import { getOps } from "./opsSettings";
 import { writeAudit } from "./audit";
+import { tenantCond } from "./tenantScope";
 import { deliverNotifications } from "./notify";
 import { ingestBankTx } from "./bank";
 import { createLead } from "./leads";
@@ -99,7 +100,7 @@ export async function processEmailQueue(db: Database, opts: { limit?: number; id
 
 export async function listEmailTemplates(ctx: ProtectedContext) {
   requirePermission(ctx, "system:read");
-  const rows = await ctx.db.select({ t: emailTemplates, byName: users.fullName }).from(emailTemplates).leftJoin(users, eq(users.id, emailTemplates.updatedBy));
+  const rows = await ctx.db.select({ t: emailTemplates, byName: users.fullName }).from(emailTemplates).leftJoin(users, eq(users.id, emailTemplates.updatedBy)).where(tenantCond(ctx, emailTemplates));
   const [stats] = await ctx.db.select({ n: sql<number>`count(*)::int` }).from(emailLogs).where(gte(emailLogs.createdAt, new Date(Date.now() - 30 * 86400e3)));
   return {
     canEdit: hasRole(ctx.actor, "SUPER_ADMIN"),
@@ -116,9 +117,10 @@ export async function saveEmailTemplate(ctx: ProtectedContext, input: { eventKey
   requirePermission(ctx, "system:update");
   const errs = validateEmailTemplate(input.eventKey, input.subject, input.body);
   if (errs.length) throw bad(errs);
-  const before = await ctx.db.query.emailTemplates.findFirst({ where: eq(emailTemplates.eventKey, input.eventKey) });
+  // Mẫu email là của TỪNG trung tâm (tenant) — khoá trùng theo cặp (tenant, sự kiện)
+  const before = await ctx.db.query.emailTemplates.findFirst({ where: and(eq(emailTemplates.eventKey, input.eventKey), tenantCond(ctx, emailTemplates)) });
   const v = { subject: input.subject.trim(), body: input.body.trim(), isActive: input.isActive, updatedBy: ctx.user.id, updatedAt: new Date() };
-  await ctx.db.insert(emailTemplates).values({ eventKey: input.eventKey, ...v }).onConflictDoUpdate({ target: emailTemplates.eventKey, set: v });
+  await ctx.db.insert(emailTemplates).values({ eventKey: input.eventKey, tenantId: ctx.tenantId, ...v }).onConflictDoUpdate({ target: [emailTemplates.tenantId, emailTemplates.eventKey], set: v });
   await writeAudit(ctx.db, { actorId: ctx.user.id, action: before ? "UPDATE" : "CREATE", module: "system", entity: "email_templates", entityId: null, before: before ? { subject: before.subject, isActive: before.isActive } : null, after: { eventKey: input.eventKey, subject: v.subject, isActive: v.isActive }, ip: ctx.ip });
   return { ok: true };
 }
@@ -282,7 +284,7 @@ export async function listGroups(ctx: ProtectedContext) {
     members: sql<number>`(select count(*)::int from ${userGroupMembers} m where m.group_id = ${userGroups.id})`,
     permissions: sql<number>`(select count(*)::int from ${userGroupPermissions} p where p.group_id = ${userGroups.id})`,
   })
-    .from(userGroups).leftJoin(centers, eq(centers.id, userGroups.centerId)).orderBy(asc(userGroups.name));
+    .from(userGroups).leftJoin(centers, eq(centers.id, userGroups.centerId)).where(tenantCond(ctx, userGroups)).orderBy(asc(userGroups.name));
   return rows.map((r) => ({ ...r.g, centerCode: r.centerCode, members: r.members, permissions: r.permissions }));
 }
 

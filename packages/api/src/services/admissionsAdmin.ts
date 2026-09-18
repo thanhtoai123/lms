@@ -11,6 +11,7 @@ import {
   type AdmissionsPolicy, type DistributionMode, type LeadStatus, type SlaPolicy, type AssignmentSource, type PoolAction,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
+import { tenantCond, assertTenant, assertCenterTransferAllowed } from "./tenantScope";
 import { writeAudit } from "./audit";
 import { emit } from "./outbox";
 
@@ -452,6 +453,9 @@ export async function transferLead(ctx: ProtectedContext, input: { leadId: strin
   const centerChanged = targetCenterId !== lead.centerId;
   const target = input.toCenterId ? await ctx.db.query.centers.findFirst({ where: eq(centers.id, input.toCenterId), columns: { id: true, code: true } }) : null;
   if (input.toCenterId && !target) throw new TRPCError({ code: "NOT_FOUND", message: "Cơ sở đích không tồn tại" });
+  // Cách ly trung tâm: chuyển sang cơ sở của trung tâm khác phải được trung tâm đó cho phép
+  assertTenant(ctx, lead, "Lead");
+  await assertCenterTransferAllowed(ctx, { fromCenterId: lead.centerId, toCenterId: targetCenterId, what: "lead" });
   if (input.toUserId) await assertReceiver(ctx.db, input.toUserId, targetCenterId);
   const note = input.handoverNote.trim();
   const reason = input.reason?.trim() || null;

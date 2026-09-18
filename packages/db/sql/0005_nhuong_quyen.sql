@@ -63,6 +63,21 @@ BEGIN
   END LOOP;
 END $$;
 
+-- Nhật ký (audit_log) không gắn cơ sở → lấy tenant theo NGƯỜI thao tác,
+-- nhờ vậy nhật ký của bên nhượng quyền không lọt sang danh sách của Hội sở chuỗi.
+CREATE OR REPLACE FUNCTION fill_audit_tenant_id() RETURNS trigger AS $$
+DECLARE t uuid;
+BEGIN
+  IF NEW.tenant_id IS NOT NULL THEN RETURN NEW; END IF;
+  IF NEW.actor_id IS NOT NULL THEN SELECT u.tenant_id INTO t FROM users u WHERE u.id = NEW.actor_id; END IF;
+  IF t IS NULL THEN SELECT id INTO t FROM tenants WHERE is_default LIMIT 1; END IF;
+  NEW.tenant_id := t;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+DROP TRIGGER IF EXISTS fill_tenant_id_audit_log ON audit_log;
+CREATE TRIGGER fill_tenant_id_audit_log BEFORE INSERT ON audit_log FOR EACH ROW EXECUTE FUNCTION fill_audit_tenant_id();
+
 -- Dòng dữ liệu của cơ sở phải cùng tenant với cơ sở đó (phòng thủ ở tầng CSDL)
 CREATE OR REPLACE FUNCTION assert_center_tenant() RETURNS trigger AS $$
 DECLARE ct uuid;

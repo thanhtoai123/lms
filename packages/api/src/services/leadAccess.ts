@@ -13,6 +13,7 @@ import { TRPCError } from "@trpc/server";
 import { leads } from "@satarobo/db";
 import { authorize, canSeeLead, canToggleLeadShare, hasPermission, visibleCenterIds, type LeadReaderView, type LeadShareRow } from "@satarobo/core";
 import type { ProtectedContext } from "../trpc";
+import { tenantCond, assertTenant } from "./tenantScope";
 
 /** Ảnh chụp quyền đọc lead của người đang đăng nhập, tại một cơ sở cụ thể */
 export function leadReader(ctx: ProtectedContext, centerId: string | null = null): LeadReaderView {
@@ -38,7 +39,9 @@ export function requireLeadsAccess(ctx: ProtectedContext, centerId: string | nul
  */
 export function leadReadCondition(ctx: ProtectedContext, centerId: string | null = null): SQL {
   const visible = visibleCenterIds(ctx.actor);
-  const inScope: SQL = visible === null ? sql`true` : visible.length ? or(inArray(leads.centerId, visible), isNull(leads.centerId))! : sql`false`;
+  const byCenter: SQL = visible === null ? sql`true` : visible.length ? or(inArray(leads.centerId, visible), isNull(leads.centerId))! : sql`false`;
+  // Cách ly trung tâm (tenant) đứng TRƯỚC mọi luật chia lead
+  const inScope = and(byCenter, tenantCond(ctx, leads))!;
   if (authorize(ctx.actor, "lead:read", { centerId }).allowed) return inScope;
   if (!hasPermission(ctx.actor, "lead:read_own")) return sql`false`;
   // Chỉ `lead:read_own`: lead của mình + lead đã bật dùng chung trong cơ sở của mình
@@ -46,7 +49,8 @@ export function leadReadCondition(ctx: ProtectedContext, centerId: string | null
 }
 
 /** Kiểm tra quyền đọc MỘT lead đã nạp sẵn (trang chi tiết, hành động trên lead) */
-export function requireLeadRead(ctx: ProtectedContext, lead: LeadShareRow): void {
+export function requireLeadRead(ctx: ProtectedContext, lead: LeadShareRow & { tenantId?: string | null }): void {
+  assertTenant(ctx, lead, "Lead");
   if (!canSeeLead(leadReader(ctx, lead.centerId), lead)) {
     throw new TRPCError({ code: "FORBIDDEN", message: "Lead này không thuộc phạm vi của bạn (chủ lead có thể bật “Dùng chung cho CSKH cùng cơ sở”)" });
   }

@@ -18,6 +18,7 @@ import {
 } from "@satarobo/core";
 import type { ProtectedContext } from "../trpc";
 import { writeAudit } from "./audit";
+import { tenantCond } from "./tenantScope";
 
 type Db = ProtectedContext["db"];
 /** Transaction của Drizzle — nhận được cả `db` lẫn `tx` như các helper cũ */
@@ -149,17 +150,18 @@ export async function saveNotificationType(ctx: ProtectedContext, input: { prefi
 
   return ctx.db.transaction(async (tx) => {
     const db = tx as unknown as Db;
-    const [cur] = await db.select().from(notificationTypes).where(eq(notificationTypes.prefix, input.prefix)).limit(1);
+    const [cur] = await db.select().from(notificationTypes).where(and(eq(notificationTypes.prefix, input.prefix), tenantCond(ctx, notificationTypes))).limit(1);
     const before = cur ? { pushEnabled: cur.pushEnabled, isActive: cur.isActive } : { pushEnabled: def.pushEnabled, isActive: true };
     const after = { pushEnabled: input.pushEnabled, isActive: input.isActive };
     if (before.pushEnabled === after.pushEnabled && before.isActive === after.isActive) return { changed: false };
 
     const values = {
       prefix: def.prefix, label: def.label, groupKey: def.groupKey, groupLabel: NOTIFICATION_GROUPS[def.groupKey],
-      priority: def.priority, recipients: [...def.recipients], ...after, updatedBy: ctx.user.id,
+      priority: def.priority, recipients: [...def.recipients], ...after, updatedBy: ctx.user.id, tenantId: ctx.tenantId,
     };
+    // Danh mục loại thông báo là của TỪNG trung tâm (tenant)
     await db.insert(notificationTypes).values(values)
-      .onConflictDoUpdate({ target: notificationTypes.prefix, set: { ...after, updatedBy: ctx.user.id, updatedAt: new Date() } });
+      .onConflictDoUpdate({ target: [notificationTypes.tenantId, notificationTypes.prefix], set: { ...after, updatedBy: ctx.user.id, updatedAt: new Date() } });
     await writeAudit(db, { actorId: ctx.user.id, action: "UPDATE", module: "system", entity: "notification_types", entityId: null, before, after: { prefix: def.prefix, ...after }, reason: input.reason.trim(), ip: ctx.ip });
     invalidateNotificationCatalog();
     return { changed: true };

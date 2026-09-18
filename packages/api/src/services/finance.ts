@@ -23,6 +23,7 @@ import { requirePermission, type ProtectedContext } from "../trpc";
 import { getOps, opsForCenters } from "./opsSettings";
 import { writeAudit } from "./audit";
 import { deliverNotifications } from "./notify";
+import { tenantCond, assertTenant, canSeeFinanceDetailOf, redact } from "./tenantScope";
 import { todayISO } from "./sessions";
 import { consumedSql } from "./students";
 import { accrueCommissions, adjustCommissionsForRefund } from "./commissions";
@@ -138,7 +139,7 @@ export async function recomputeOrderStatus(tx: Db, orderId: string, actorId: str
 
 export async function listPaymentMethods(ctx: ProtectedContext, input: { centerId?: string | null; activeOnly?: boolean; forType?: OrderType }) {
   requirePermission(ctx, "finance:read", { centerId: input.centerId ?? null });
-  const conds: SQL[] = [];
+  const conds: SQL[] = [tenantCond(ctx, paymentMethods)];
   if (input.activeOnly) conds.push(eq(paymentMethods.isActive, true));
   if (input.centerId) conds.push(or(isNull(paymentMethods.centerId), eq(paymentMethods.centerId, input.centerId))!);
   else {
@@ -217,7 +218,7 @@ export async function upsertPaymentMethod(ctx: ProtectedContext, input: PaymentM
 
 export async function listOrders(ctx: ProtectedContext, input: { q?: string; centerId?: string; status?: OrderStatus; from?: string; to?: string; page?: number }) {
   requirePermission(ctx, "finance:read", { centerId: input.centerId ?? null });
-  const conds: SQL[] = [scope(ctx, orders.centerId)];
+  const conds: SQL[] = [scope(ctx, orders.centerId), tenantCond(ctx, orders)];
   if (input.centerId) conds.push(eq(orders.centerId, input.centerId));
   if (input.status) conds.push(eq(orders.status, input.status));
   if (input.from) conds.push(gte(orders.createdAt, new Date(`${input.from}T00:00:00+07:00`)));
@@ -681,6 +682,9 @@ export async function childDebtsOf(db: Db, orderId: string) {
 async function loadOrder(ctx: ProtectedContext, id: string, perm: Permission = "finance:read") {
   const o = await ctx.db.query.orders.findFirst({ where: eq(orders.id, id) });
   if (!o) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy đơn hàng" });
+  assertTenant(ctx, o, "Đơn hàng");
+  // Trung tâm không chia sẻ chi tiết tài chính: người ngoài không mở được từng đơn
+  if (!canSeeFinanceDetailOf(ctx, o.tenantId)) throw new TRPCError({ code: "FORBIDDEN", message: "Trung tâm này chỉ chia sẻ số liệu tài chính tổng hợp" });
   requirePermission(ctx, perm, { centerId: o.centerId });
   return o;
 }
@@ -1162,7 +1166,7 @@ export async function decidePayment(ctx: ProtectedContext, input: { paymentId: s
 
 export async function listPayments(ctx: ProtectedContext, input: { status?: PaymentStatus; centerId?: string; from?: string; to?: string; q?: string; page?: number }) {
   requirePermission(ctx, "finance:read", { centerId: input.centerId ?? null });
-  const conds: SQL[] = [scope(ctx, payments.centerId as unknown as typeof orders.centerId)];
+  const conds: SQL[] = [scope(ctx, payments.centerId as unknown as typeof orders.centerId), tenantCond(ctx, payments)];
   if (input.centerId) conds.push(eq(payments.centerId, input.centerId));
   if (input.status) conds.push(eq(payments.status, input.status));
   if (input.from) conds.push(gte(payments.paidAt, input.from));
@@ -1179,6 +1183,7 @@ export async function listPayments(ctx: ProtectedContext, input: { status?: Paym
     source: payments.source, note: payments.note, decisionReason: payments.decisionReason, recordedAt: payments.recordedAt, decidedAt: payments.decidedAt, recordedBy: payments.recordedBy,
     version: payments.version, adjustCount: payments.adjustCount, evidenceUrl: payments.evidenceUrl, enrollmentId: payments.enrollmentId, orderItemId: payments.orderItemId, paymentMethodId: payments.paymentMethodId,
     orderId: orders.id, orderCode: orders.code, customerName: orders.customerName, orderTotal: orders.total, centerId: payments.centerId, centerCode: centers.code,
+    tenantId: payments.tenantId,
     studentName: students.fullName, classCode: classes.code, methodName: paymentMethods.name,
     recorderName: sql<string | null>`(select full_name from ${users} u where u.id = ${payments.recordedBy})`,
     deciderName: sql<string | null>`(select full_name from ${users} u where u.id = ${payments.decidedBy})`,
@@ -1205,16 +1210,17 @@ export async function listPayments(ctx: ProtectedContext, input: { status?: Paym
   return {
     total: tot?.n ?? 0, page, pageSize, counts,
     sums: { confirmed: Number(tot?.confirmedSum ?? 0), recorded: Number(tot?.recordedSum ?? 0) },
-    items: rows.map((r) => {
+    // Trung tâm không chia sẻ CHI TIẾT tài chính: người ngoài chỉ được thấy phần tổng hợp phía trên
+    items: rows.filter((r) => canSeeFinanceDetailOf(ctx, r.tenantId)).map((r) => {
       const isAccountant = can(ctx, "finance:confirm", r.centerId);
-      return {
+      return redact(ctx, {
         ...r,
         idNumber: maskIdNumber(r.idNumber),
         canDecide: r.status === "recorded" && isAccountant && (r.recordedBy !== ctx.user.id || hasRole(ctx.actor, "SUPER_ADMIN")),
         canEdit: r.status === "recorded" && (isAccountant || r.recordedBy === ctx.user.id),
         canAdjust: r.status === "confirmed" && isAccountant,
         needsTarget: !r.enrollmentId && !r.orderItemId,
-      };
+      });
     }),
   };
 }

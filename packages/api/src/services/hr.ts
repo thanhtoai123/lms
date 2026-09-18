@@ -23,6 +23,8 @@ import {
   type Db,
 } from "./hrShared";
 
+import { tenantCond, assertTenant, redact } from "./tenantScope";
+
 export { myStaff, buildDays } from "./hrShared";
 
 const BACKDATE_ROSTER = 31;
@@ -33,7 +35,7 @@ const BACKDATE_ROSTER = 31;
 
 export async function listStaff(ctx: ProtectedContext, input: { q?: string; centerId?: string; status?: StaffStatus; department?: string }) {
   requirePermission(ctx, "staff:read", { centerId: input.centerId ?? null });
-  const conds: SQL[] = [scopeSql(ctx, "staff:read", staff.centerId)];
+  const conds: SQL[] = [scopeSql(ctx, "staff:read", staff.centerId), tenantCond(ctx, staff)];
   if (input.centerId) conds.push(eq(staff.centerId, input.centerId));
   if (input.status) conds.push(eq(staff.status, input.status));
   else conds.push(ne(staff.status, "resigned"));
@@ -57,7 +59,8 @@ export async function listStaff(ctx: ProtectedContext, input: { q?: string; cent
   return {
     counts,
     canCreate: centersWith(ctx, "staff:create").length > 0,
-    items: rows.map((r) => ({
+    // Nhân sự của trung tâm khác: che PII theo cấu hình quyền riêng tư của trung tâm đó
+    items: rows.map((r) => redact(ctx, {
       ...r.s, centerCode: r.centerCode, accountEmail: r.accountEmail, teacherCode: r.teacherCode,
       canUpdate: can(ctx, "staff:update", r.s.centerId),
       positions: activeOn(pos.filter((p) => p.p.staffId === r.s.id).map((p) => ({ ...p.p, centerCode: p.centerCode })), today),
@@ -68,6 +71,7 @@ export async function listStaff(ctx: ProtectedContext, input: { q?: string; cent
 export async function getStaff(ctx: ProtectedContext, id: string) {
   const s = await ctx.db.query.staff.findFirst({ where: eq(staff.id, id) });
   if (!s) throw notFound("Không tìm thấy nhân sự");
+  assertTenant(ctx, s, "Hồ sơ nhân sự");
   const own = s.userId === ctx.user.id;
   if (!own) requirePermission(ctx, "staff:read", { centerId: s.centerId });
   const salary = can(ctx, "staff:salary", s.centerId);
@@ -302,7 +306,7 @@ export async function endPosition(ctx: ProtectedContext, input: { id: string; ef
 /* ------------------------------------------------------------------ */
 
 export async function listShifts(ctx: ProtectedContext, input: { centerId?: string; includeInactive?: boolean }) {
-  const conds: SQL[] = [];
+  const conds: SQL[] = [tenantCond(ctx, workShifts)];
   if (input.centerId) conds.push(or(isNull(workShifts.centerId), eq(workShifts.centerId, input.centerId))!);
   if (!input.includeInactive) conds.push(eq(workShifts.isActive, true));
   const rows = await ctx.db.select({ s: workShifts, centerCode: centers.code }).from(workShifts).leftJoin(centers, eq(centers.id, workShifts.centerId))

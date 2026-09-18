@@ -8,6 +8,7 @@ import {
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { getOps } from "./opsSettings";
 import { createEnrollment } from "./enrollments";
+import { tenantCond } from "./tenantScope";
 
 export async function listClasses(ctx: ProtectedContext, input: { centerId?: string; status?: ClassStatus; q?: string; teacherId?: string; courseId?: string; classGroupId?: string }) {
   const conds = [sql`${classes.deletedAt} is null`];
@@ -19,6 +20,7 @@ export async function listClasses(ctx: ProtectedContext, input: { centerId?: str
   if (input.q) conds.push(or(ilike(classes.code, `%${input.q}%`), ilike(classes.name, `%${input.q}%`))!);
   const visible = visibleCenterIds(ctx.actor);
   if (visible !== null) conds.push(visible.length ? inArray(classes.centerId, visible) : sql`false`);
+  conds.push(tenantCond(ctx, classes));
 
   return ctx.db
     .select({
@@ -113,7 +115,9 @@ export async function enrollStudent(ctx: ProtectedContext, input: { classId: str
 /** Dữ liệu tham chiếu cho form (cache được ở client) */
 export async function referenceData(ctx: ProtectedContext) {
   const visible = visibleCenterIds(ctx.actor);
-  const centerRows = await ctx.db.select().from(centers).where(visible === null ? sql`true` : visible.length ? inArray(centers.id, visible) : sql`false`).orderBy(asc(centers.code));
+  const centerRows = await ctx.db.select().from(centers)
+    .where(and(tenantCond(ctx, centers), visible === null ? sql`true` : visible.length ? inArray(centers.id, visible) : sql`false`))
+    .orderBy(asc(centers.code));
   const ids = centerRows.map((c) => c.id);
   const regionIds = [...new Set(centerRows.map((c) => c.regionId).filter((x): x is string => !!x))];
   return {
@@ -122,7 +126,7 @@ export async function referenceData(ctx: ProtectedContext) {
     regions: regionIds.length ? await ctx.db.select({ id: regions.id, code: regions.code, name: regions.name }).from(regions).where(inArray(regions.id, regionIds)).orderBy(asc(regions.sortOrder), asc(regions.code)) : [],
     rooms: ids.length ? await ctx.db.select().from(rooms).where(inArray(rooms.centerId, ids)).orderBy(asc(rooms.code)) : [],
     teachers: ids.length ? await ctx.db.select({ id: teachers.id, fullName: teachers.fullName, centerId: teachers.centerId }).from(teachers).where(and(eq(teachers.isActive, true), inArray(teachers.centerId, ids))).orderBy(asc(teachers.fullName)) : [],
-    courses: await ctx.db.select().from(courses).where(eq(courses.isActive, true)).orderBy(asc(courses.code)),
+    courses: await ctx.db.select().from(courses).where(and(eq(courses.isActive, true), tenantCond(ctx, courses))).orderBy(asc(courses.code)),
     classGroups: await ctx.db
       .select({ id: classGroups.id, code: classGroups.code, name: classGroups.name, centerId: classGroups.centerId })
       .from(classGroups)

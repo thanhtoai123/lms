@@ -11,6 +11,7 @@ import { requirePermission, type ProtectedContext } from "../trpc";
 import { getOps } from "./opsSettings";
 import { writeAudit } from "./audit";
 import { emit } from "./outbox";
+import { tenantCond, assertTenant } from "./tenantScope";
 
 export function todayISO() {
   // Múi giờ vận hành: Asia/Ho_Chi_Minh (UTC+7)
@@ -36,6 +37,7 @@ export async function loadSessionForAuth(ctx: ProtectedContext, sessionId: strin
     .limit(1);
   const r = row[0];
   if (!r) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy buổi học" });
+  assertTenant(ctx, r.session, "Buổi học");
   const ownerIds = [r.session.teacherId, r.leadTeacherId, r.assistantTeacherId].filter((x): x is string => !!x);
   return { ...r, ownerIds };
 }
@@ -300,9 +302,10 @@ export async function listSessions(
   if (input.centerId) conds.push(eq(classes.centerId, input.centerId));
   if (input.onlyOpen) conds.push(inArray(sessions.status, [...OPEN_STATUSES]));
 
-  // Giới hạn theo cơ sở được thấy
+  // Giới hạn theo cơ sở được thấy và theo trung tâm (tenant)
   const visible = visibleCenterIds(ctx.actor);
   if (visible !== null) conds.push(visible.length ? inArray(classes.centerId, visible) : sql`false`);
+  conds.push(tenantCond(ctx, sessions));
 
   const rows = await ctx.db
     .select({
