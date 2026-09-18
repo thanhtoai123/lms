@@ -24,6 +24,28 @@ test("cấu hình vận hành: mặc định, kế thừa, kiểm tra", () => {
   assert.equal(riskFrom({ ...OPS_DEFAULTS, riskMinRatePct: 70 }).minRate, 0.7);
 });
 
+test("cấu hình tài chính: hạn dùng QR, dạng mã đơn, trần hoa hồng", () => {
+  // Hạn dùng mã QR mặc định 24 giờ, đặt riêng theo cơ sở được
+  assert.equal(OPS_DEFAULTS.qrTtlHours, 24);
+  assert.equal(resolveOps(null, { qrTtlHours: 6 }).qrTtlHours, 6);
+  assert.ok(validateOps("thanh-toan", { qrTtlHours: 0 }, "global")[0]!.includes("1–720"));
+
+  // Dạng mã đơn: enum, mặc định giữ kiểu hiện tại để không phá dữ liệu cũ
+  assert.equal(OPS_DEFAULTS.orderCodeFormat, "dh_year");
+  assert.equal(resolveOps({ orderCodeFormat: "ord_date" }, null).orderCodeFormat, "ord_date");
+  // Giá trị lạ bị bỏ qua, giữ mặc định
+  assert.equal(resolveOps({ orderCodeFormat: "khong-co" }, null).orderCodeFormat, "dh_year");
+  assert.deepEqual(validateOps("thanh-toan", { orderCodeFormat: "ord_date" }, "global"), []);
+  assert.ok(validateOps("thanh-toan", { orderCodeFormat: "khong-co" }, "global")[0]!.includes("chỉ nhận"));
+  assert.ok(validateOps("thanh-toan", { orderCodeFormat: 1 }, "global")[0]!.includes("chỉ nhận"));
+  // Dạng mã đơn chỉ đặt ở mức toàn hệ thống
+  assert.ok(validateOps("thanh-toan", { orderCodeFormat: "ord_date" }, "center")[0]!.includes("toàn hệ thống"));
+
+  // Trần tổng tỉ lệ hoa hồng mặc định 9%
+  assert.equal(OPS_DEFAULTS.commissionTotalCapPercent, 9);
+  assert.deepEqual(validateOps("hoa-hong", { commissionTotalCapPercent: 12 }, "global"), []);
+});
+
 test("cấu hình hoàn tất buổi: nhận xét từng HV (mặc định bật), ảnh (mặc định tắt, bật theo cơ sở)", () => {
   assert.equal(OPS_DEFAULTS.sessionRequireStudentRemarks, true);
   assert.equal(OPS_DEFAULTS.sessionRequireMedia, false);

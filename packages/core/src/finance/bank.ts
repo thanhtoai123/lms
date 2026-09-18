@@ -143,6 +143,23 @@ export interface AllocationPlan {
   errors: string[];
 }
 
+export const ALLOCATION_FIT_VI: Record<AllocationPlan["fit"], string> = {
+  exact: "Khớp đủ",
+  surplus: "Đang thừa",
+  short: "(lệch số tiền — kiểm lại)",
+};
+
+/**
+ * Nhãn đối soát như bản gốc: rót đúng số tiền về = "Khớp đủ"; còn dư = "Đang thừa" kèm số tiền;
+ * rót nhiều hơn số tiền về = "(lệch số tiền — kiểm lại)".
+ */
+export function allocationFitLabel(txAmount: number, allocated: number): { fit: AllocationPlan["fit"]; label: string; diff: number } {
+  const diff = txAmount - allocated;
+  if (diff === 0) return { fit: "exact", label: ALLOCATION_FIT_VI.exact, diff: 0 };
+  if (diff > 0) return { fit: "surplus", label: `${ALLOCATION_FIT_VI.surplus} ${formatVnd(diff)}`, diff };
+  return { fit: "short", label: `${ALLOCATION_FIT_VI.short} — rót vượt ${formatVnd(-diff)}`, diff };
+}
+
 /** Chia số tiền của một giao dịch cho từng dòng đơn (từng con). Tiền là số nguyên VND. */
 export function planAllocation(amount: number, lines: readonly AllocationLine[], requested: readonly AllocationRequest[]): AllocationPlan {
   const errors: string[] = [];

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { allocationFitLabel } from "@satarobo/core";
 import { useTRPC } from "@/lib/trpc/client";
 import { vnd, fmtD } from "@/components/finance-ui";
 import { CsvFileInput } from "@/components/csv-file-input";
@@ -29,8 +30,8 @@ function AllocateOrder({ id, txAmount, orderId, onBack }: { id: string; txAmount
   const addInst = useMutation(trpc.finance.createInstallmentForChild.mutationOptions({ onSuccess: () => { setInstFor(null); pv.refetch(); router.refresh(); }, onError: fail }));
   const d = pv.data;
   const allocated = Object.values(amounts).reduce((s, v) => s + (Number(v) || 0), 0);
-  const surplus = txAmount - allocated;
-  const fit = allocated === txAmount ? "Khớp đủ" : allocated < txAmount ? `Đang thừa ${vnd(surplus)}` : `Vượt số tiền về ${vnd(-surplus)}`;
+  // Nhãn đối soát tính bằng đúng hàm thuần dùng ở máy chủ
+  const { fit, label: fitLabel } = allocationFitLabel(txAmount, allocated);
   return (
     <div className="space-y-1 rounded-xl border border-black/10 p-2">
       <div className="flex items-center justify-between">
@@ -65,8 +66,8 @@ function AllocateOrder({ id, txAmount, orderId, onBack }: { id: string; txAmount
               ))}
             </tbody>
           </table>
-          <div className={allocated === txAmount ? "text-green-700" : allocated > txAmount ? "text-red-700" : "text-amber-800"}>
-            Đã rót {vnd(allocated)} / {vnd(txAmount)} — {fit}
+          <div className={fit === "exact" ? "text-green-700" : fit === "short" ? "text-red-700" : "text-amber-800"}>
+            Đã rót {vnd(allocated)} / {vnd(txAmount)} — {fitLabel}
           </div>
           <p className="text-[11px] text-ink-400">Tiền còn dư sau khi rót hết các đợt của đơn sẽ vào khối “Tiền thừa chưa xử lý”. Hệ thống không tự hoàn và không tự trừ sang đơn khác.</p>
           <input className="input !py-1 text-xs" placeholder="Ghi chú (bắt buộc nếu giao dịch đang Cần kiểm tra)" value={note} onChange={(e) => setNote(e.target.value)} />
@@ -150,6 +151,64 @@ export function BankRowActions({ id, amount, status, canUnlink }: { id: string; 
         </div>
       )}
       {msg && <div className={msg.ok ? "text-green-700" : "text-red-700"}>{msg.text}</div>}
+    </div>
+  );
+}
+
+/**
+ * "Tạo đợt cho phần dư": tạo một đợt trả góp mới trên chính đơn đã nhận tiền, bằng đúng số tiền
+ * thừa, rồi rót phần dư vào. Không tự hoàn và không tự trừ sang đơn khác.
+ */
+export function SurplusInstallment({ id, surplus }: { id: string; surplus: number }) {
+  const trpc = useTRPC();
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [orderItemId, setOrderItemId] = useState("");
+  const [dueDate, setDueDate] = useState("");
+  const [note, setNote] = useState("");
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const t = useQuery({ ...trpc.finance.bankSurplusTargets.queryOptions({ id }), enabled: open, retry: false });
+  const run = useMutation(trpc.finance.bankSurplusInstallment.mutationOptions({
+    onSuccess: (r) => { setMsg({ ok: true, text: `Đã tạo đợt ${r.seq} trên ${r.orderCode} — ${vnd(r.amount)} · phiếu ${r.receiptNo}` }); setOpen(false); router.refresh(); },
+    onError: (e) => setMsg({ ok: false, text: e.message }),
+  }));
+  if (!open) {
+    return (
+      <div className="space-y-1">
+        <button className="btn-primary !px-2 !py-1 text-xs" onClick={() => { setMsg(null); setOpen(true); }}>Tạo đợt cho phần dư</button>
+        {msg && <div className={`text-[11px] ${msg.ok ? "text-green-700" : "text-red-700"}`}>{msg.text}</div>}
+      </div>
+    );
+  }
+  const d = t.data;
+  return (
+    <div className="w-80 space-y-1 rounded-xl border border-black/10 p-2 text-xs">
+      <div className="flex items-center justify-between"><b>Tạo đợt cho phần dư {vnd(surplus)}</b><button className="text-ink-600" onClick={() => setOpen(false)}>Đóng</button></div>
+      {t.error && <div className="text-red-700">{t.error.message}</div>}
+      {d && (
+        <>
+          <div className="text-ink-600">Đơn {d.order.code} · {d.order.customerName} — tổng đơn hiện tại {vnd(d.order.total)}</div>
+          {d.lines.length > 1 && (
+            <label className="block text-ink-600">Đợt của con nào (tuỳ chọn)
+              <select className="input mt-1 !py-1 text-xs" value={orderItemId} onChange={(e) => setOrderItemId(e.target.value)}>
+                <option value="">— Không gắn con cụ thể —</option>
+                {d.lines.map((l) => <option key={l.orderItemId} value={l.orderItemId}>{l.label} (còn thiếu {vnd(l.outstanding)})</option>)}
+              </select>
+            </label>
+          )}
+          <label className="block text-ink-600">Hạn đóng của đợt mới<input type="date" className="input mt-1 !py-1 text-xs" value={dueDate} onChange={(e) => setDueDate(e.target.value)} placeholder={d.today} /></label>
+          <input className="input !py-1 text-xs" placeholder="Ghi chú (VD: PH chuyển dư, giữ cho kỳ sau)" value={note} onChange={(e) => setNote(e.target.value)} />
+          <p className="text-[11px] text-ink-400">
+            Đợt mới mang đúng {vnd(surplus)} và tổng đơn tăng tương ứng, rồi phần dư được rót vào đợt đó.
+            Hệ thống vẫn không tự hoàn và không tự trừ sang đơn khác.
+          </p>
+          <button className="btn-primary w-full !py-1 text-xs" disabled={run.isPending}
+            onClick={() => { setMsg(null); run.mutate({ id, orderItemId: orderItemId || null, dueDate: dueDate || null, note: note.trim() || null }); }}>
+            Tạo đợt {vnd(surplus)} & rót vào
+          </button>
+        </>
+      )}
+      {msg && !msg.ok && <div className="text-red-700">{msg.text}</div>}
     </div>
   );
 }

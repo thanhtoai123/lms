@@ -88,6 +88,8 @@ export function validateBuyer(b: Buyer): string[] {
   if (!b.noInvoiceRequested && !(b.name ?? "").trim() && !(b.company ?? "").trim()) e.push("Cần tên người mua hoặc tên đơn vị");
   if (b.taxCode && !validateTaxCode(b.taxCode)) e.push("Mã số thuế gồm 10 số, 10-3 số hoặc số định danh 12 số");
   if (b.taxCode && !(b.company ?? "").trim()) e.push("Có mã số thuế thì cần tên đơn vị");
+  // Chiều ngược lại của quy tắc gốc: hoá đơn ghi tên đơn vị thì bắt buộc có mã số thuế
+  if ((b.company ?? "").trim() && !(b.taxCode ?? "").trim()) e.push("Ghi tên đơn vị thì bắt buộc có mã số thuế");
   if (b.company && b.taxCode && !(b.address ?? "").trim()) e.push("Hoá đơn cho đơn vị cần địa chỉ");
   if (b.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(b.email)) e.push("Email không hợp lệ");
   return e;

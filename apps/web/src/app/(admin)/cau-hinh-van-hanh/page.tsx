@@ -4,6 +4,9 @@ import { getServerCaller } from "@/lib/trpc/server";
 import { SettingsForm } from "./form";
 import { DeliverySettingsPanel } from "./delivery";
 import { OpsForm } from "./ops-form";
+import { CommissionPolicyPanel } from "./commission";
+import { MethodEditor } from "../payment-methods/editor";
+import { PAYMENT_METHOD_KIND_VI, PAYMENT_SCOPE_FLAGS, PAYMENT_SCOPE_FLAG_VI, type PaymentMethodKind } from "@satarobo/core";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Cấu hình vận hành" };
@@ -12,6 +15,8 @@ type Tab =
   | { key: string; label: string; kind: "lead" }
   | { key: string; label: string; kind: "zalo" }
   | { key: string; label: string; kind: "ops"; group: OpsGroup; desc: string }
+  | { key: string; label: string; kind: "hoa-hong"; desc: string }
+  | { key: string; label: string; kind: "phuong-thuc-tt"; desc: string }
   | { key: string; label: string; kind: "link"; desc: string; links: { href: string; label: string }[] };
 
 /** 11 nhóm như trang Cấu hình vận hành của hệ cũ (ADMIN-SPEC §13.1) */
@@ -23,7 +28,10 @@ const TABS: Tab[] = [
   { key: "lop", label: "Lớp & GV", kind: "ops", group: "lop", desc: "Quy tắc điểm danh bằng thẻ QR." },
   { key: "cham-cong", label: "Chấm công", kind: "ops", group: "cham-cong", desc: "Dung sai tính đi muộn / về sớm. Bán kính chấm công đặt theo từng cơ sở ở trang Cơ sở." },
   { key: "lead", label: "Khách hàng (lead)", kind: "lead" },
-  { key: "thanh-toan", label: "Thanh toán", kind: "ops", group: "thanh-toan", desc: "Mặc định nhắc đợt thanh toán cho đơn mới (sửa được trên từng đơn)." },
+  { key: "thanh-toan", label: "Thanh toán", kind: "ops", group: "thanh-toan", desc: "Mặc định nhắc đợt thanh toán cho đơn mới (sửa được trên từng đơn), trần giảm giá dòng, tuổi nợ, hạn dùng mã QR chuyển khoản và dạng mã đơn hàng." },
+  { key: "phuong-thuc-tt", label: "Phương thức thanh toán", kind: "phuong-thuc-tt", desc: "Tiền mặt, chuyển khoản, cổng online, ví điện tử, COD — khai theo từng cơ sở hoặc dùng chung cho cả hệ thống. Phương thức gắn cơ sở chỉ hiện ở đơn của cơ sở đó; phương thức dùng chung (cột Cơ sở để trống) hiện ở mọi cơ sở, kể cả cơ sở mở sau này. Tài khoản ngân hàng dựng mã QR khai ngay trong từng phương thức." },
+  { key: "hoa-hong", label: "Hoa hồng", kind: "hoa-hong", desc: "Chính sách hoa hồng 4 trục: chi khi nào · loại đơn · cách tính · ai nhận bao nhiêu." },
+  { key: "cap-hoa-hong", label: "Trần hoa hồng", kind: "ops", group: "hoa-hong", desc: "Trần tổng tỉ lệ hoa hồng cho mỗi cặp (sự kiện + loại đơn). Mặc định 9% theo SR.QD.208 · PL04." },
   { key: "nhac", label: "Nhắc tự động", kind: "ops", group: "nhac", desc: "Nhắc hạn bài tập. Luật chăm sóc tự động (việc cần làm theo sự kiện) ở trang Tự động hoá." },
   { key: "cong-ty", label: "Công ty", kind: "link", desc: "Thông tin pháp nhân, hotline, email, chân phiếu thu và hoá đơn.", links: [{ href: "/settings", label: "Cài đặt chung" }, { href: "/hoa-don?tab=settings", label: "Thông tin người bán trên hoá đơn điện tử" }, { href: "/centers", label: "SĐT / địa chỉ theo cơ sở" }] },
   { key: "nang-cao", label: "Nâng cao", kind: "link", desc: "Cây tổ chức, sao lưu, biến môi trường, tích hợp.", links: [{ href: "/to-chuc", label: "Cây tổ chức" }, { href: "/van-hanh", label: "Vận hành & sao lưu" }, { href: "/tich-hop", label: "Tích hợp" }] },
@@ -35,6 +43,8 @@ export default async function OperationalSettings({ searchParams }: { searchPara
   const { caller } = await getServerCaller();
   const ref = await caller.academics.classes.referenceData();
   const centerId = sp.center === "global" ? null : (sp.center ?? ref.centers[0]?.id ?? null);
+  const methods = tab.kind === "phuong-thuc-tt" ? await caller.finance.methods({}) : [];
+  const today = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10);
   const centerPicker = (
     <form className="flex items-center gap-2">
       <input type="hidden" name="tab" value={tab.key} />
@@ -70,9 +80,43 @@ export default async function OperationalSettings({ searchParams }: { searchPara
       {tab.kind === "ops" && (
         <>
           <p className="text-sm text-ink-600">{tab.desc}</p>
-          {tab.group !== "otp" && tab.group !== "nhac" && centerPicker}
-          <OpsForm key={`${tab.group}-${centerId}`} group={tab.group} centerId={tab.group === "otp" || tab.group === "nhac" ? null : centerId} />
+          {tab.group !== "otp" && tab.group !== "nhac" && tab.group !== "hoa-hong" && centerPicker}
+          <OpsForm key={`${tab.group}-${centerId}`} group={tab.group} centerId={tab.group === "otp" || tab.group === "nhac" || tab.group === "hoa-hong" ? null : centerId} />
         </>
+      )}
+      {tab.kind === "hoa-hong" && (
+        <>
+          <p className="text-sm text-ink-600">{tab.desc}</p>
+          <CommissionPolicyPanel centers={ref.centers.map((c) => ({ id: c.id, code: c.code, name: c.name }))} today={today} />
+        </>
+      )}
+      {tab.kind === "phuong-thuc-tt" && (
+        <div className="space-y-3">
+          <p className="text-sm text-ink-600">{tab.desc}</p>
+          <MethodEditor centers={ref.centers.map((c) => ({ id: c.id, code: c.code, name: c.name }))} />
+          <div className="card overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="text-left text-xs uppercase text-ink-400">
+                <tr><th className="p-3">Thứ tự</th><th className="p-3">Mã</th><th className="p-3">Tên</th><th className="p-3">Loại</th><th className="p-3">Cơ sở</th><th className="p-3">Cho phép</th><th className="p-3">Trạng thái</th><th className="p-3"></th></tr>
+              </thead>
+              <tbody className="divide-y divide-black/5 align-top">
+                {methods.length === 0 && <tr><td className="p-4 text-ink-400" colSpan={8}>Chưa khai phương thức thanh toán nào.</td></tr>}
+                {methods.map((m) => (
+                  <tr key={m.id}>
+                    <td className="p-3 tabular-nums">{m.sortOrder}</td>
+                    <td className="p-3 font-mono text-xs">{m.code}</td>
+                    <td className="p-3">{m.name}{m.description && <div className="text-xs text-ink-400">{m.description}</div>}{m.accountNo && <div className="text-xs text-ink-600">{m.bankName ?? ""} {m.accountNo}{m.bankBranch ? ` · ${m.bankBranch}` : ""}</div>}</td>
+                    <td className="p-3">{PAYMENT_METHOD_KIND_VI[m.kind as PaymentMethodKind]}</td>
+                    <td className="p-3">{m.centerCode ?? <span className="text-ink-400">Dùng chung</span>}</td>
+                    <td className="p-3 text-xs">{PAYMENT_SCOPE_FLAGS.filter((k) => m.scope[k]).map((k) => PAYMENT_SCOPE_FLAG_VI[k]).join(" · ") || <span className="text-ink-400">—</span>}</td>
+                    <td className="p-3">{m.isActive ? <span className="chip bg-green-100 text-green-800">Hoạt động</span> : <span className="chip bg-black/5">Tắt</span>}</td>
+                    <td className="p-3">{m.canEdit && <MethodEditor method={m} centers={ref.centers.map((c) => ({ id: c.id, code: c.code, name: c.name }))} />}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       )}
       {tab.kind === "link" && (
         <div className="card max-w-2xl space-y-3 p-5 text-sm">

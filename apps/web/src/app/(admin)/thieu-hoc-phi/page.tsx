@@ -56,7 +56,7 @@ export default async function MissingTuitionPage({ searchParams }: { searchParam
                   <td className="p-3">
                     {canCreate && (
                       <div className="space-y-1">
-                        <BackfillTuition enrollmentId={i.enrollmentId} studentName={i.studentName} expected={i.expected} hasOrder={!!i.order} maxMore={i.outstanding} today={today} />
+                        <BackfillTuition enrollmentId={i.enrollmentId} studentName={i.studentName} expected={i.expected} hasOrder={!!i.order} maxMore={i.outstanding} today={today} maxDiscountPercent={i.maxDiscountPercent} />
                         {!i.order && <Link href={`/orders/new?enrollmentId=${i.enrollmentId}`} className="block text-xs text-brand-600 hover:underline">Tạo đơn đầy đủ</Link>}
                       </div>
                     )}

@@ -6,7 +6,8 @@ import { useMutation } from "@tanstack/react-query";
 import { useTRPC } from "@/lib/trpc/client";
 import {
   priceLines, buildPlan, validateInstallmentPlan, formatUnitPrice, COACH_MULTIPLIER, CLASS_FORMATS, CLASS_FORMAT_VI, MAX_INSTALLMENTS,
-  ORDER_TYPES, ORDER_TYPE_VI, type OrderType, type ClassFormat, type InstallmentKind,
+  ORDER_TYPES, ORDER_TYPE_VI, DISCOUNT_POLICIES, DISCOUNT_POLICY_VI, DISCOUNT_POLICY_KIND,
+  type OrderType, type ClassFormat, type InstallmentKind, type DiscountPolicy,
 } from "@satarobo/core";
 import { vnd } from "@/components/finance-ui";
 
@@ -16,7 +17,7 @@ type LeadDraft = {
   children: { id: string; fullName: string; converted: boolean; courseId: string | null }[];
   items: { courseId: string; description: string; unitPrice: number; packageSessions: number | null; leadChildId: string | null }[];
 };
-type LineDisc = { kind: "amount" | "percent"; value: number; reason: string };
+type LineDisc = { kind: "amount" | "percent"; policy: DiscountPolicy; value: number; reason: string };
 type Item = { courseId: string; description: string; quantity: number; unitPrice: number; packageSessions: number | ""; leadChildId: string; format: ClassFormat; basePrice: number; discounts: LineDisc[]; packageId: string };
 type PlanRow = { amount: number; dueDate: string; kind: InstallmentKind };
 
@@ -94,7 +95,7 @@ export function OrderForm({ centers, methods, courses, packages = [], today, dra
         courseId: i.courseId || null, description: i.description, quantity: i.quantity, unitPrice: Math.round(i.unitPrice),
         packageSessions: i.packageSessions === "" ? null : i.packageSessions, leadChildId: i.leadChildId || null,
         enrollmentId: draft && items.length === 1 ? draft.enrollmentId : null, studentId: draft && items.length === 1 ? draft.studentId : null,
-        format: i.format, discounts: i.discounts.filter((d) => d.value > 0).map((d) => ({ kind: d.kind, value: Math.round(d.value), reason: d.reason.trim() })),
+        format: i.format, discounts: i.discounts.filter((d) => d.value > 0).map((d) => ({ kind: d.kind, policy: d.policy, value: Math.round(d.value), reason: d.reason.trim() })),
       })),
       discount: discount.value ? discount : null,
       paymentMethodId: methodId,
@@ -191,16 +192,22 @@ export function OrderForm({ centers, methods, courses, packages = [], today, dra
               {it.discounts.length === 0 && <div className="text-[11px] text-ink-400">Chưa có khoản giảm nào — dòng này bán đúng giá.</div>}
               {it.discounts.map((d, k) => (
                 <div key={k} className="flex flex-wrap items-center gap-1">
-                  <input type="number" min={1} className="input !w-28 !py-1 text-xs" value={d.value} onChange={(e) => setItem(i, { discounts: it.discounts.map((x, j) => (j === k ? { ...x, value: Number(e.target.value) } : x)) })} />
-                  <select className="input !w-20 !py-1 text-xs" value={d.kind} onChange={(e) => setItem(i, { discounts: it.discounts.map((x, j) => (j === k ? { ...x, kind: e.target.value as "amount" | "percent" } : x)) })}>
-                    <option value="percent">%</option><option value="amount">đ</option>
+                  <select className="input !w-44 !py-1 text-xs" value={d.policy}
+                    onChange={(e) => {
+                      const policy = e.target.value as DiscountPolicy;
+                      const kind = DISCOUNT_POLICY_KIND[policy] === "percent" ? ("percent" as const) : ("amount" as const);
+                      setItem(i, { discounts: it.discounts.map((x, j) => (j === k ? { ...x, policy, kind, value: 0 } : x)) });
+                    }}>
+                    {DISCOUNT_POLICIES.filter((p) => p !== "none").map((p) => <option key={p} value={p}>{DISCOUNT_POLICY_VI[p]}</option>)}
                   </select>
+                  <input type="number" min={1} className="input !w-28 !py-1 text-xs" value={d.value} onChange={(e) => setItem(i, { discounts: it.discounts.map((x, j) => (j === k ? { ...x, value: Number(e.target.value) } : x)) })} />
+                  <span className="text-xs text-ink-400">{d.kind === "percent" ? "%" : "đ"}</span>
                   <input className="input !w-56 !py-1 text-xs" placeholder="Lý do giảm (bắt buộc)" value={d.reason} onChange={(e) => setItem(i, { discounts: it.discounts.map((x, j) => (j === k ? { ...x, reason: e.target.value } : x)) })} />
                   <button className="text-xs text-red-700" onClick={() => setItem(i, { discounts: it.discounts.filter((_, j) => j !== k) })}>Bỏ</button>
                 </div>
               ))}
-              {it.discounts.length < 5 && <button className="text-xs font-semibold text-brand-600" onClick={() => setItem(i, { discounts: [...it.discounts, { kind: "percent", value: 5, reason: "" }] })}>+ Thêm khoản giảm</button>}
-              <span className="ml-2 text-[11px] text-ink-400">Trần giảm theo dòng: {maxLineDiscountPercent}%. Nhiều khoản cộng dồn, không vượt thành tiền.</span>
+              {it.discounts.length < 5 && <button className="text-xs font-semibold text-brand-600" onClick={() => setItem(i, { discounts: [...it.discounts, { kind: "percent", policy: "percent", value: 5, reason: "" }] })}>+ Thêm khoản giảm</button>}
+              <span className="ml-2 text-[11px] text-ink-400">Trần giảm theo % (gồm học bổng): {maxLineDiscountPercent}%. Nhiều khoản cộng dồn, không vượt thành tiền.</span>
             </div>
           </div>
         ))}

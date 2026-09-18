@@ -12,7 +12,7 @@ import {
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { writeAudit } from "./audit";
 import { todayISO } from "./sessions";
-import { bad, pre, reasonOrThrow, can, notify, accountantsOf, managersOf, recomputeOrderStatus, nextOrderCode, nextReceiptNo, childDebtsOf, OPEN_ORDER_STATUSES, type Db } from "./finance";
+import { bad, pre, reasonOrThrow, can, notify, accountantsOf, managersOf, recomputeOrderStatus, nextOrderCode, orderCodeFormatOf, nextReceiptNo, childDebtsOf, markQrUsed, installmentState, OPEN_ORDER_STATUSES, type Db } from "./finance";
 
 /** Ngày theo giờ Việt Nam */
 const vnDate = (d: Date) => new Date(d.getTime() + 7 * 3600e3).toISOString().slice(0, 10);
@@ -108,6 +108,8 @@ export async function matchBankTx(db: Db, id: string, actorId: string | null): P
       .where(and(eq(bankTransactions.id, bt.id), sql`${bankTransactions.status} <> 'matched'`)).returning({ id: bankTransactions.id });
     if (!up.length) throw new TRPCError({ code: "CONFLICT", message: "Giao dịch vừa được xử lý" });
     await tx.insert(bankTxAllocations).values({ bankTxId: bt.id, paymentId, amount: bt.amount, createdBy: actorId }).onConflictDoNothing();
+    // Mã QR đúng số tiền này coi như đã dùng — lần sau phải xuất mã mới
+    await markQrUsed(tx, o.id, bt.amount, paymentId);
     await recomputeOrderStatus(tx, o.id, actorId, receiptNo);
     await notify(tx, [o.createdBy, recorder], "Tiền đã về tài khoản", `${o.code} · ${formatVnd(bt.amount)} · ${receiptNo}`, `/orders/${o.id}`, 3);
     await writeAudit(tx, { actorId, action: "TRANSITION", module: "finance", entity: "bank_transactions", entityId: bt.id, before: { status: bt.status }, after: { status: "matched", orderId: o.id, paymentId, receiptNo, mode: d.kind } });
@@ -451,7 +453,94 @@ export async function surplusList(ctx: ProtectedContext) {
     orderId: bankTransactions.orderId, orderCode: orders.code, customerName: orders.customerName, centerCode: centers.code,
   }).from(bankTransactions).leftJoin(orders, eq(orders.id, bankTransactions.orderId)).leftJoin(centers, eq(centers.id, bankTransactions.centerId))
     .where(and(bankScope(ctx), sql`${bankTransactions.surplusAmount} > 0`)).orderBy(desc(bankTransactions.occurredAt)).limit(200);
-  return { total: rows.reduce((s, r) => s + r.surplusAmount, 0), items: rows };
+  return {
+    total: rows.reduce((s, r) => s + r.surplusAmount, 0),
+    items: rows.map((r) => ({ ...r, canCreateInstallment: !!r.orderId && can(ctx, "finance:confirm", null) })),
+  };
+}
+
+/**
+ * Tạo một đợt trả góp mới trên đơn bằng đúng số tiền thừa rồi rót phần dư vào đợt đó.
+ * Giữ nguyên nguyên tắc gốc: không tự hoàn, không tự trừ sang đơn khác — tiền thừa chỉ ở lại
+ * chính đơn đã nhận, và chỉ khi kế toán bấm.
+ */
+export async function createInstallmentForSurplus(ctx: ProtectedContext, input: { id: string; dueDate?: string | null; orderItemId?: string | null; note?: string | null }) {
+  const bt = await ctx.db.query.bankTransactions.findFirst({ where: eq(bankTransactions.id, input.id) });
+  if (!bt) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy giao dịch" });
+  if (bt.surplusAmount <= 0) throw pre("Giao dịch này không còn tiền thừa");
+  if (!bt.orderId) throw pre("Giao dịch chưa gắn đơn — gắn vào đơn trước");
+  const order = await ctx.db.query.orders.findFirst({ where: eq(orders.id, bt.orderId) });
+  if (!order) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy đơn" });
+  requirePermission(ctx, "finance:confirm", { centerId: order.centerId });
+  if (order.status === "cancelled" || order.status === "refunded") throw pre("Đơn đã đóng — không tạo đợt mới");
+  const surplus = bt.surplusAmount;
+  const today = todayISO();
+  const dueDate = input.dueDate ?? vnDate(bt.occurredAt);
+  const methods = await bankMethodsFor(ctx.db, bt.accountNo);
+  const method = methods.find((m) => m.centerId === order.centerId) ?? methods.find((m) => m.centerId === null)
+    ?? (await ctx.db.query.paymentMethods.findFirst({ where: and(eq(paymentMethods.kind, "bank_transfer"), eq(paymentMethods.isActive, true), or(isNull(paymentMethods.centerId), eq(paymentMethods.centerId, order.centerId))) }));
+  if (!method) throw pre("Chưa có phương thức chuyển khoản nào cho cơ sở của đơn");
+  const center = await ctx.db.query.centers.findFirst({ where: eq(centers.id, order.centerId), columns: { code: true } });
+
+  return ctx.db.transaction(async (txx) => {
+    const tx = txx as unknown as Db;
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${"order:" + order.id}))`);
+    const fresh = await tx.query.bankTransactions.findFirst({ where: eq(bankTransactions.id, bt.id) });
+    if (!fresh || fresh.surplusAmount !== surplus) throw new TRPCError({ code: "CONFLICT", message: "Tiền thừa vừa được xử lý — tải lại trang" });
+    // Đợt mới nối tiếp số thứ tự đang có, mang đúng số tiền thừa
+    const [mx] = await tx.select({ n: sql<number>`coalesce(max(${orderInstallments.seq}), 0)::int` }).from(orderInstallments).where(eq(orderInstallments.orderId, order.id));
+    const seq = (mx?.n ?? 0) + 1;
+    const [inst] = await tx.insert(orderInstallments).values({
+      orderId: order.id, seq, amount: surplus, dueDate, kind: "installment",
+      orderItemId: input.orderItemId ?? null, createdBy: ctx.user.id,
+    }).returning({ id: orderInstallments.id });
+    // Tổng đơn tăng đúng bằng phần dư: đợt mới phải có chỗ trong tổng phải thu
+    const newTotal = order.total + surplus;
+    await tx.update(orders).set({ total: newTotal }).where(eq(orders.id, order.id));
+    await tx.insert(financeLedger).values({ orderId: order.id, centerId: order.centerId, entryType: "charge", amount: surplus, refId: inst!.id, note: `Đợt ${seq} cho phần dư ${formatVnd(surplus)}`, actorId: ctx.user.id });
+
+    const receiptNo = await nextReceiptNo(tx, center?.code ?? "HO", Number(today.slice(0, 4)));
+    const [p] = await tx.insert(payments).values({
+      orderId: order.id, centerId: order.centerId, recordedAmount: surplus, amount: surplus, paymentMethodId: method.id, paidAt: vnDate(bt.occurredAt),
+      status: "confirmed", source: bt.source === "sepay" ? "sepay" : "statement", externalRef: `${bt.externalId}:surplus`, note: bt.content.slice(0, 300),
+      orderItemId: input.orderItemId ?? null, recordedBy: ctx.user.id, decidedBy: ctx.user.id, decidedAt: new Date(),
+      decisionReason: `Tạo đợt cho phần dư ${formatVnd(surplus)}${input.note ? `: ${input.note.trim()}` : ""}`, receiptNo,
+    }).returning({ id: payments.id });
+    await tx.insert(bankTxAllocations).values({ bankTxId: bt.id, paymentId: p!.id, orderItemId: input.orderItemId ?? null, amount: surplus, createdBy: ctx.user.id }).onConflictDoNothing();
+    await tx.insert(financeLedger).values({ orderId: order.id, centerId: order.centerId, entryType: "payment", amount: -surplus, refId: p!.id, note: `${receiptNo} · phần dư vào đợt ${seq}`, actorId: ctx.user.id });
+    await tx.insert(orderEvents).values({ orderId: order.id, event: "installment_added", note: `Đợt ${seq} cho phần dư ${formatVnd(surplus)} · ${receiptNo}`, actorId: ctx.user.id });
+    await tx.update(bankTransactions).set({
+      surplusAmount: 0, matchNote: `${fresh.matchNote ?? ""} · phần dư ${formatVnd(surplus)} đã tạo đợt ${seq}`.trim().slice(0, 500),
+      handledBy: ctx.user.id, handledAt: new Date(),
+    }).where(and(eq(bankTransactions.id, bt.id), eq(bankTransactions.surplusAmount, surplus)));
+    await recomputeOrderStatus(tx, order.id, ctx.user.id, receiptNo);
+    await notify(tx, [order.createdBy], "Phần dư đã vào đợt mới", `${order.code} · đợt ${seq} · ${formatVnd(surplus)}`, `/orders/${order.id}`, 2);
+    await writeAudit(tx, {
+      actorId: ctx.user.id, action: "CREATE", module: "finance", entity: "order_installments", entityId: inst!.id,
+      before: { orderTotal: order.total, surplus }, after: { orderTotal: newTotal, seq, amount: surplus, dueDate, paymentId: p!.id, receiptNo },
+      reason: input.note ?? "Tạo đợt cho phần dư", ip: ctx.ip,
+    });
+    return { orderCode: order.code, seq, amount: surplus, receiptNo, orderTotal: newTotal };
+  });
+}
+
+/** Các dòng đơn (con) để chọn khi tạo đợt cho phần dư */
+export async function surplusTargets(ctx: ProtectedContext, input: { id: string }) {
+  const bt = await ctx.db.query.bankTransactions.findFirst({ where: eq(bankTransactions.id, input.id) });
+  if (!bt?.orderId) throw pre("Giao dịch chưa gắn đơn");
+  const order = await ctx.db.query.orders.findFirst({ where: eq(orders.id, bt.orderId) });
+  if (!order) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy đơn" });
+  requirePermission(ctx, "finance:read", { centerId: order.centerId });
+  const debts = await childDebtsOf(ctx.db, order.id);
+  const [c] = await ctx.db.select({ n: sql<number>`coalesce(sum(${payments.amount}), 0)::bigint` }).from(payments).where(and(eq(payments.orderId, order.id), eq(payments.status, "confirmed")));
+  const plan = await installmentState(ctx.db, order.id, Number(c?.n ?? 0), todayISO());
+  return {
+    surplus: bt.surplusAmount,
+    order: { id: order.id, code: order.code, total: order.total, customerName: order.customerName },
+    lines: debts.items.map((i) => ({ orderItemId: i.orderItemId, label: i.studentName ?? i.description, outstanding: i.outstanding })),
+    installments: plan.map((p) => ({ id: p.id, seq: p.seq, amount: p.amount, dueDate: p.dueDate, remaining: p.remaining })),
+    today: todayISO(),
+  };
 }
 
 /* ------------------------------------------------------------------ */
@@ -659,7 +748,7 @@ export async function importLegacy(ctx: ProtectedContext, input: { csv: string; 
           await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${"enroll-order:" + no.enrollmentId}))`);
           const again = await tx.select({ id: orders.id }).from(orders).where(and(eq(orders.enrollmentId, no.enrollmentId), inArray(orders.status, ["pending_payment", "partially_paid", "paid"]))).limit(1);
           if (again[0]) throw new TRPCError({ code: "CONFLICT", message: `Dòng ${x.line}: ghi danh vừa có đơn — xem trước lại` });
-          const code = await nextOrderCode(tx, Number(todayISO().slice(0, 4)));
+          const code = await nextOrderCode(tx, todayISO(), await orderCodeFormatOf(tx, x.centerId ?? null));
           const [o] = await tx.insert(orders).values({
             code, type: "course", status: "pending_payment", centerId: x.centerId!, parentId: no.parentId, studentId: no.studentId, enrollmentId: no.enrollmentId,
             customerName: no.customerName, customerPhone: no.customerPhone.replace(/\D/g, ""), subtotal: no.total, discountAmount: 0, total: no.total,
@@ -911,7 +1000,7 @@ export async function importLegacyTuition(ctx: ProtectedContext, input: {
           .where(eq(studentGuardians.studentId, e.studentId)).orderBy(desc(studentGuardians.isPrimary)).limit(1);
         if (!g?.phone) throw pre(`Dòng ${l.line}: học viên chưa có phụ huynh / SĐT để lập đơn`);
         const total = l.expectedTotal || packagePrice(Number(e.listPrice), e.courseSessions, e.packageSessions);
-        const code = await nextOrderCode(tx, Number(today.slice(0, 4)));
+        const code = await nextOrderCode(tx, today, await orderCodeFormatOf(tx, l.centerId));
         const methodId = await pickLegacyMethod(tx, l.centerId);
         const [o] = await tx.insert(orders).values({
           code, type: "course", status: "pending_payment", centerId: l.centerId, parentId: g.id, studentId: e.studentId, enrollmentId: l.enrollmentId,

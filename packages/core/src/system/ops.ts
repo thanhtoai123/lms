@@ -2,14 +2,26 @@
  * Cấu hình vận hành (các tab trên /cau-hinh-van-hanh). Chỉ gồm tham số hệ thống thực sự dùng khi chạy.
  * Phạm vi "center": cơ sở ghi đè được, không ghi đè thì kế thừa mặc định toàn hệ thống.
  */
+import { DEFAULT_QR_TTL_HOURS, DEFAULT_ORDER_CODE_FORMAT, ORDER_CODE_FORMATS, ORDER_CODE_FORMAT_VI, type OrderCodeFormat } from "../finance/rules.js";
+import { DEFAULT_COMMISSION_TOTAL_CAP_PCT } from "../finance/commission.js";
+
+const QR_TTL_DEF = DEFAULT_QR_TTL_HOURS;
+const ORDER_CODE_DEF: string = DEFAULT_ORDER_CODE_FORMAT;
+const COMMISSION_CAP_DEF = DEFAULT_COMMISSION_TOTAL_CAP_PCT;
+const ORDER_CODE_CHOICES = ORDER_CODE_FORMATS.map((v) => ({ value: v as string, label: ORDER_CODE_FORMAT_VI[v] }));
+
+export interface OpsChoice { value: string; label: string }
+
 export interface OpsField {
   key: string;
   label: string;
-  type: "int" | "bool";
+  type: "int" | "bool" | "enum";
   min?: number;
   max?: number;
   unit?: string;
-  def: number | boolean;
+  /** Chỉ cho type "enum": danh sách lựa chọn */
+  choices?: readonly OpsChoice[];
+  def: number | boolean | string;
   scope: "global" | "center";
   usedBy: string;
 }
@@ -46,6 +58,11 @@ export const OPS_GROUPS = {
     { key: "maxLineDiscountPercent", label: "Trần giảm giá theo dòng đơn", type: "int", min: 1, max: 100, unit: "%", def: 50, scope: "center", usedBy: "Tạo đơn, sửa dòng đơn (mỗi khoản giảm cần lý do)" },
     { key: "debtAgingWarnDays", label: "Tuổi nợ — mốc nhóm 1", type: "int", min: 1, max: 60, unit: "ngày", def: 7, scope: "center", usedBy: "Công nợ theo ghi danh (Quá hạn 1–N ngày)" },
     { key: "debtAgingBadDays", label: "Tuổi nợ — mốc nhóm 2", type: "int", min: 2, max: 180, unit: "ngày", def: 30, scope: "center", usedBy: "Công nợ theo ghi danh (Quá hạn N+1–M, rồi > M)" },
+    { key: "qrTtlHours", label: "Hạn dùng mã QR chuyển khoản", type: "int", min: 1, max: 720, unit: "giờ", def: QR_TTL_DEF, scope: "center", usedBy: "Xuất QR trên trang đơn — hết hạn thì phải xuất mã mới" },
+    { key: "orderCodeFormat", label: "Dạng mã đơn hàng", type: "enum", choices: ORDER_CODE_CHOICES, def: ORDER_CODE_DEF, scope: "global", usedBy: "Sinh mã đơn mới (đơn cũ giữ nguyên mã)" },
+  ],
+  "hoa-hong": [
+    { key: "commissionTotalCapPercent", label: "Trần tổng tỉ lệ hoa hồng mỗi sự kiện + loại đơn", type: "int", min: 1, max: 100, unit: "%", def: COMMISSION_CAP_DEF, scope: "global", usedBy: "Chính sách hoa hồng — tổng % của mọi vai không vượt trần" },
   ],
   nhac: [
     { key: "homeworkReminderHours", label: "Nhắc phụ huynh khi bài tập còn", type: "int", min: 2, max: 72, unit: "giờ", def: 24, scope: "global", usedBy: "Nhắc hạn bài tập" },
@@ -55,14 +72,17 @@ export const OPS_GROUPS = {
 export type OpsGroup = keyof typeof OPS_GROUPS;
 type Fields = (typeof OPS_GROUPS)[OpsGroup][number];
 export type OpsKey = Fields["key"];
-export type OpsSettings = { [K in OpsKey]: Extract<Fields, { key: K }>["def"] extends boolean ? boolean : number };
+type DefOf<K extends OpsKey> = Extract<Fields, { key: K }>["def"];
+export type OpsSettings = {
+  [K in OpsKey]: DefOf<K> extends boolean ? boolean : DefOf<K> extends string ? (K extends "orderCodeFormat" ? OrderCodeFormat : string) : number
+};
 
 export const OPS_DEFAULTS = Object.fromEntries(Object.values(OPS_GROUPS).flat().map((f) => [f.key, f.def])) as OpsSettings;
 const FIELD = new Map<string, OpsField>(Object.values(OPS_GROUPS).flat().map((f) => [f.key, f as OpsField]));
 
 /** Gộp: mặc định ← toàn hệ thống ← cơ sở (chỉ trường phạm vi cơ sở) */
 export function resolveOps(global: Partial<Record<string, unknown>> | null, center: Partial<Record<string, unknown>> | null): OpsSettings {
-  const out: Record<string, number | boolean> = { ...OPS_DEFAULTS };
+  const out: Record<string, number | boolean | string> = { ...OPS_DEFAULTS };
   for (const [src, isCenter] of [[global, false], [center, true]] as const) {
     if (!src) continue;
     for (const [k, v] of Object.entries(src)) {
@@ -70,13 +90,14 @@ export function resolveOps(global: Partial<Record<string, unknown>> | null, cent
       if (!f || (isCenter && f.scope !== "center")) continue;
       if (f.type === "int" && typeof v === "number" && Number.isInteger(v)) out[k] = v;
       if (f.type === "bool" && typeof v === "boolean") out[k] = v;
+      if (f.type === "enum" && typeof v === "string" && (f.choices ?? []).some((c) => c.value === v)) out[k] = v;
     }
   }
   return out as OpsSettings;
 }
 
 /** Kiểm tra một nhóm giá trị; null = xoá ghi đè (kế thừa) */
-export function validateOps(group: OpsGroup, values: Record<string, number | boolean | null>, level: "global" | "center"): string[] {
+export function validateOps(group: OpsGroup, values: Record<string, number | boolean | string | null>, level: "global" | "center"): string[] {
   const e: string[] = [];
   const fields = OPS_GROUPS[group] as readonly OpsField[];
   for (const [k, v] of Object.entries(values)) {
@@ -87,6 +108,8 @@ export function validateOps(group: OpsGroup, values: Record<string, number | boo
     if (f.type === "int") {
       if (typeof v !== "number" || !Number.isInteger(v)) e.push(`"${f.label}" phải là số nguyên`);
       else if ((f.min !== undefined && v < f.min) || (f.max !== undefined && v > f.max)) e.push(`"${f.label}" trong khoảng ${f.min}–${f.max}${f.unit ? ` ${f.unit}` : ""}`);
+    } else if (f.type === "enum") {
+      if (typeof v !== "string" || !(f.choices ?? []).some((c) => c.value === v)) e.push(`"${f.label}" chỉ nhận: ${(f.choices ?? []).map((c) => c.label).join(" · ")}`);
     } else if (typeof v !== "boolean") e.push(`"${f.label}" phải là bật / tắt`);
   }
   if (group === "otp") {

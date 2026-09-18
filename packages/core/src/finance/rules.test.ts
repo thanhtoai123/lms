@@ -4,6 +4,10 @@ import {
   priceOrder, packagePrice, buildInstallmentPlan, validateInstallmentPlan, orderBalance, deriveOrderStatus, canCancelOrder,
   allocateInstallments, agingBucket, dueSoon, validatePaymentDecision, receiptNumber, orderCode, transferMemo, extractOrderRef,
   maskIdNumber, refundProposal, validateRefundRequest, refundTransition, FinanceRuleError, vietQrImageUrl,
+  qrExpiresAt, qrExpired, reusableQr, qrState, QR_REUSE_LABEL, QR_EXPIRED_LABEL,
+  applyDiscountPolicy, discountPolicyOf, priceLine,
+  buildOrderCode, orderCodeByDate, orderCodePrefix, DEFAULT_ORDER_CODE_FORMAT,
+  PAYMENT_METHOD_KINDS, scopeFlagsToAllowFor, allowForToScopeFlags,
 } from "./rules.js";
 import { authorize, type Actor } from "../policy/policy.js";
 
@@ -93,4 +97,112 @@ test("quyền tài chính", () => {
   assert.equal(authorize(ql, "finance:approve", { centerId: "c1" }).allowed, true);
   assert.equal(authorize(ql, "finance:confirm", { centerId: "c1" }).allowed, false);
   assert.equal(authorize(ql, "finance:configure", { centerId: "c1" }).allowed, false);
+});
+
+/* ------------------------------------------------------------------ */
+/* Mã QR chuyển khoản có hạn dùng                                      */
+/* ------------------------------------------------------------------ */
+
+test("QR chuyển khoản: hết hạn và dùng lại", () => {
+  const t0 = "2026-09-18T08:00:00.000Z";
+  assert.equal(qrExpiresAt(t0).toISOString(), "2026-09-19T08:00:00.000Z");
+  assert.equal(qrExpiresAt(t0, 2).toISOString(), "2026-09-18T10:00:00.000Z");
+  assert.equal(qrExpired("2026-09-18T09:00:00.000Z", "2026-09-19T08:00:00.000Z"), false);
+  // Mốc trùng khít tính là đã hết hạn
+  assert.equal(qrExpired("2026-09-19T08:00:00.000Z", "2026-09-19T08:00:00.000Z"), true);
+  assert.equal(qrExpired("2026-09-20T00:00:00.000Z", "2026-09-19T08:00:00.000Z"), true);
+  assert.equal(qrExpired("2026-09-18T08:00:00.000Z", "khong-phai-ngay"), true);
+
+  const now = "2026-09-18T12:00:00.000Z";
+  const live = { amount: 4_800_000, status: "active" as const, expiresAt: "2026-09-19T08:00:00.000Z", usedAt: null };
+  const dead = { amount: 4_800_000, status: "active" as const, expiresAt: "2026-09-18T08:00:00.000Z", usedAt: null };
+  const used = { amount: 4_800_000, status: "used" as const, expiresAt: "2026-09-19T08:00:00.000Z", usedAt: "2026-09-18T09:00:00.000Z" };
+  // Còn hiệu lực + đúng số tiền → dùng lại
+  assert.equal(reusableQr([dead, live], 4_800_000, now), live);
+  // Hết hạn → phải xuất mã mới
+  assert.equal(reusableQr([dead], 4_800_000, now), null);
+  // Sai số tiền → phải xuất mã mới
+  assert.equal(reusableQr([live], 2_400_000, now), null);
+  // Đã dùng → không dùng lại
+  assert.equal(reusableQr([used], 4_800_000, now), null);
+  // Chọn mã còn hạn lâu nhất
+  const longer = { ...live, expiresAt: "2026-09-19T20:00:00.000Z" };
+  assert.equal(reusableQr([live, longer], 4_800_000, now), longer);
+
+  assert.equal(qrState([live], 4_800_000, now).label, QR_REUSE_LABEL);
+  assert.equal(qrState([dead], 4_800_000, now).label, QR_EXPIRED_LABEL);
+  assert.equal(qrState([], 4_800_000, now).label, null);
+  assert.equal(qrState([], 0, now).canIssue, false);
+});
+
+/* ------------------------------------------------------------------ */
+/* Chính sách giảm giá                                                 */
+/* ------------------------------------------------------------------ */
+
+test("chính sách giảm giá: 5 loại, lý do bắt buộc, trần %", () => {
+  const ly = "ưu đãi hè 2026";
+  assert.equal(applyDiscountPolicy({ listPrice: 9_600_000, policy: "none", value: 0 }).amount, 0);
+  assert.equal(applyDiscountPolicy({ listPrice: 9_600_000, policy: "percent", value: 5, reason: ly }).amount, 480_000);
+  assert.equal(applyDiscountPolicy({ listPrice: 9_600_000, policy: "amount", value: 500_000, reason: ly }).amount, 500_000);
+  assert.equal(applyDiscountPolicy({ listPrice: 9_600_000, policy: "program", value: 300_000, reason: ly }).amount, 300_000);
+  assert.equal(applyDiscountPolicy({ listPrice: 9_600_000, policy: "scholarship", value: 50, reason: "học bổng toàn phần" }).amount, 4_800_000);
+  // Ưu đãi chương trình tính theo số tiền, học bổng tính theo %
+  assert.equal(applyDiscountPolicy({ listPrice: 100, policy: "program", value: 1, reason: ly }).kind, "amount");
+  assert.equal(applyDiscountPolicy({ listPrice: 100, policy: "scholarship", value: 1, reason: ly }).kind, "percent");
+  // Lý do bắt buộc
+  assert.match(applyDiscountPolicy({ listPrice: 100, policy: "percent", value: 5 }).errors.join(), /lý do/);
+  // Trần % theo cấu hình vận hành
+  assert.match(applyDiscountPolicy({ listPrice: 100, policy: "percent", value: 60, reason: ly }).errors.join(), /1–50%/);
+  assert.deepEqual(applyDiscountPolicy({ listPrice: 100, policy: "percent", value: 60, reason: ly, maxPercent: 70 }).errors, []);
+  assert.match(applyDiscountPolicy({ listPrice: 100, policy: "scholarship", value: 90, reason: ly }).errors.join(), /Học bổng.*1–50%/);
+  // Không vượt giá niêm yết
+  const over = applyDiscountPolicy({ listPrice: 100, policy: "amount", value: 500, reason: ly });
+  assert.equal(over.amount, 100);
+  assert.match(over.errors.join(), /lớn hơn giá niêm yết/);
+  assert.equal(discountPolicyOf({ kind: "percent" }), "percent");
+  assert.equal(discountPolicyOf({ kind: "amount" }), "amount");
+  assert.equal(discountPolicyOf({ kind: "percent", policy: "scholarship" }), "scholarship");
+});
+
+test("giảm giá theo dòng đơn mang chính sách", () => {
+  const ly = "học bổng khuyến học";
+  const ok = priceLine({ unitPrice: 9_600_000, quantity: 1, discounts: [{ kind: "percent", value: 10, reason: ly, policy: "scholarship" }] });
+  assert.deepEqual(ok.errors, []);
+  assert.equal(ok.net, 8_640_000);
+  // Chính sách số tiền nhưng ghi theo % → chặn
+  assert.match(priceLine({ unitPrice: 100, quantity: 1, discounts: [{ kind: "percent", value: 10, reason: ly, policy: "program" }] }).errors.join(), /phải ghi theo số tiền/);
+});
+
+/* ------------------------------------------------------------------ */
+/* Dạng mã đơn                                                         */
+/* ------------------------------------------------------------------ */
+
+test("dạng mã đơn: DHyy và ORD-YYMMDD", () => {
+  assert.equal(buildOrderCode("dh_year", "2026-09-17", 12), "DH26-000012");
+  assert.equal(buildOrderCode("ord_date", "2026-09-17", 2), "ORD-260917-000002");
+  assert.equal(orderCodeByDate("2026-01-05", 1), "ORD-260105-000001");
+  assert.equal(orderCodePrefix("dh_year", "2026-09-17"), "DH26-");
+  assert.equal(orderCodePrefix("ord_date", "2026-09-17"), "ORD-260917-");
+  // Mặc định giữ kiểu hiện tại để không phá dữ liệu cũ
+  assert.equal(DEFAULT_ORDER_CODE_FORMAT, "dh_year");
+  // Đối khớp chuyển khoản nhận cả hai dạng
+  assert.equal(extractOrderRef(transferMemo("ORD-260917-000002")), "ORD-260917-000002");
+  assert.equal(extractOrderRef(transferMemo("DH26-000012")), "DH26-000012");
+  assert.equal(extractOrderRef("CK hoc phi ORD 260917 000002 cam on"), "ORD-260917-000002");
+  assert.equal(extractOrderRef("khong co ma don"), null);
+});
+
+/* ------------------------------------------------------------------ */
+/* Phương thức thanh toán: 5 cờ phạm vi                                */
+/* ------------------------------------------------------------------ */
+
+test("phương thức thanh toán: loại đầy đủ và 5 cờ phạm vi", () => {
+  assert.ok(PAYMENT_METHOD_KINDS.includes("wallet"));
+  assert.ok(PAYMENT_METHOD_KINDS.includes("cod"));
+  assert.deepEqual(scopeFlagsToAllowFor({ canBuyCourse: true, canBuyPackage: true, canBuyProduct: true }), ["course", "product"]);
+  assert.deepEqual(scopeFlagsToAllowFor({ canDeposit: true }), []);
+  const f = allowForToScopeFlags(["course", "exam"]);
+  assert.equal(f.canBuyCourse, true);
+  assert.equal(f.canBuyExam, true);
+  assert.equal(f.canBuyProduct, false);
 });
