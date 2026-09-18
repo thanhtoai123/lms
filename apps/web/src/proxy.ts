@@ -31,12 +31,35 @@ function toLogin(req: NextRequest) {
 }
 
 /**
+ * Proxy chạy ở Edge runtime: biến môi trường chỉ chắc chắn có mặt khi được ĐỌC TƯỜNG MINH
+ * (`process.env.X`) để trình đóng gói nhúng sẵn giá trị vào. Đọc cả đối tượng `process.env`
+ * có thể trả về rỗng — và khi đó mọi đường thoát CSP dưới đây sẽ im lặng không có tác dụng.
+ * Vì vậy liệt kê từng biến ở đây thay vì dựa vào việc duyệt đối tượng.
+ */
+const cspEnv = () => ({
+  NODE_ENV: process.env.NODE_ENV,
+  NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+  CSP_REPORT_ONLY: process.env.CSP_REPORT_ONLY,
+  CSP_ALLOW_UNSAFE_INLINE: process.env.CSP_ALLOW_UNSAFE_INLINE,
+  CSP_STRICT_DYNAMIC: process.env.CSP_STRICT_DYNAMIC,
+  CSP_SCRIPT_SRC_EXTRA: process.env.CSP_SCRIPT_SRC_EXTRA,
+  CSP_CONNECT_SRC_EXTRA: process.env.CSP_CONNECT_SRC_EXTRA,
+  CSP_IMG_SRC_EXTRA: process.env.CSP_IMG_SRC_EXTRA,
+  CSP_FRAME_SRC_EXTRA: process.env.CSP_FRAME_SRC_EXTRA,
+  CSP_STYLE_SRC_EXTRA: process.env.CSP_STYLE_SRC_EXTRA,
+  CSP_FRAME_ANCESTORS: process.env.CSP_FRAME_ANCESTORS,
+  CSP_REPORT_URI: process.env.CSP_REPORT_URI,
+  HSTS_MAX_AGE: process.env.HSTS_MAX_AGE,
+  HSTS_PRELOAD: process.env.HSTS_PRELOAD,
+});
+
+/**
  * Gắn bộ header bảo mật (CSP có nonce, HSTS, nosniff, Referrer-Policy, Permissions-Policy,
  * COOP, CORP, frame-ancestors) lên MỌI phản hồi đi qua proxy — kể cả redirect.
  * Định nghĩa nằm ở `@satarobo/core/security/headers` để chỉ có một nơi phải sửa.
  */
 function withSecurity(res: NextResponse, nonce: string) {
-  for (const [k, v] of securityHeaders(securityHeaderOptions(process.env, nonce))) res.headers.set(k, v);
+  for (const [k, v] of securityHeaders(securityHeaderOptions(cspEnv(), nonce))) res.headers.set(k, v);
   return res;
 }
 
@@ -47,7 +70,7 @@ export async function proxy(req: NextRequest) {
   // rồi tự gắn `nonce=…` cho các thẻ <script> nó sinh ra (bootstrap, dữ liệu RSC, các mảnh JS);
   // vì vậy phải đặt header này lên request, không chỉ lên response.
   const nonce = generateNonce();
-  const opts = securityHeaderOptions(process.env, nonce);
+  const opts = securityHeaderOptions(cspEnv(), nonce);
   const cspValue = securityHeaders(opts).find(([k]) => k === cspHeaderName(opts.reportOnly))![1];
   /**
    * Dựng lại header của YÊU CẦU tại thời điểm gọi — phải đọc `req.headers` muộn vì
