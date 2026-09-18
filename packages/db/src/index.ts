@@ -65,8 +65,9 @@ export function createDb(url = process.env.DATABASE_URL, overrides: Partial<DbPo
     connect_timeout: o.connectTimeoutSec,
     idle_timeout: o.idleTimeoutSec,
     connection: {
-      statement_timeout: String(o.statementTimeoutMs),
-      idle_in_transaction_session_timeout: String(o.idleInTransactionTimeoutMs),
+      // postgres-js nhận hai tham số phiên này ở dạng SỐ (đơn vị mili-giây)
+      statement_timeout: o.statementTimeoutMs,
+      idle_in_transaction_session_timeout: o.idleInTransactionTimeoutMs,
     },
   });
   // `logger` ở đây KHÔNG in gì — chỉ đếm số truy vấn cho phần đo thủ tục chậm (xem metrics.ts)
