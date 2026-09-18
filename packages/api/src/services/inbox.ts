@@ -241,7 +241,7 @@ async function makeupGroup(ctx: ProtectedContext): Promise<InboxGroup | null> {
     items: items.slice(0, MAX_PER_GROUP).map((r) => ({
       id: r.id, title: r.studentName, sub: `${r.classCode} · vắng buổi ${r.missedSeq} (${dmy(r.missedDate)})`,
       meta: hoursAgo(r.createdAt), overdue: Date.now() - r.createdAt.getTime() > 48 * 3600e3,
-      href: `/hoc-bu?class=${r.classId}`,
+      href: "/hoc-bu?status=requested",
     })),
   };
 }
@@ -259,7 +259,7 @@ async function mediaGroup(ctx: ProtectedContext): Promise<InboxGroup | null> {
       id: r.id, title: `${r.classCode} · buổi ${r.sequenceNo}`,
       sub: r.uploaderName ?? "Không rõ người tải", meta: hoursAgo(r.submittedAt ?? r.createdAt),
       overdue: r.overdue,
-      href: `/duyet-media?class=${r.classId}`,
+      href: `/duyet-media?session=${r.sessionId}`,
     })),
   };
 }
@@ -273,12 +273,12 @@ async function paymentGroup(ctx: ProtectedContext): Promise<InboxGroup | null> {
     actionLabel: "Xác nhận", actionKind: "mutate", undoable: false,
     href: "/payments?status=recorded", emptyHint: "Không còn phiếu thu nào chờ kế toán.",
     total: list.length,
-    overdue: list.filter((p) => p.recordedAt !== null && Date.now() - p.recordedAt.getTime() > 24 * 3600e3).length,
+    overdue: list.filter((p) => Date.now() - p.recordedAt.getTime() > 24 * 3600e3).length,
     items: list.slice(0, MAX_PER_GROUP).map((p) => ({
       id: p.id, title: `${p.orderCode} · ${vnd(p.amount)}`,
       sub: [p.studentName ?? p.customerName, p.recorderName ?? null].filter(Boolean).join(" · "),
-      meta: p.recordedAt ? hoursAgo(p.recordedAt) : "—",
-      overdue: p.recordedAt !== null && Date.now() - p.recordedAt.getTime() > 24 * 3600e3,
+      meta: hoursAgo(p.recordedAt),
+      overdue: Date.now() - p.recordedAt.getTime() > 24 * 3600e3,
       href: `/orders/${p.orderId}`,
     })),
   };
@@ -329,12 +329,12 @@ async function parentRequestGroup(ctx: ProtectedContext): Promise<InboxGroup | n
     actionLabel: "Duyệt", actionKind: "mutate", undoable: false,
     href: "/parent-requests?status=open", emptyHint: "Không có yêu cầu nào của phụ huynh đang chờ.",
     total: list.length,
-    overdue: list.filter((r) => r.dueAt !== null && r.dueAt.getTime() < Date.now()).length,
+    overdue: list.filter((r) => r.dueAt.getTime() < Date.now()).length,
     items: list.slice(0, MAX_PER_GROUP).map((r) => ({
       id: r.id, title: `${r.code} · ${PARENT_REQUEST_TYPE_VI[r.type]}`,
       sub: [r.studentName, r.centerCode].filter(Boolean).join(" · "),
-      meta: r.dueAt ? shortDate(r.dueAt) : "—",
-      overdue: r.dueAt !== null && r.dueAt.getTime() < Date.now(),
+      meta: shortDate(r.dueAt),
+      overdue: r.dueAt.getTime() < Date.now(),
       href: `/parent-requests/${r.id}`,
     })),
   };
