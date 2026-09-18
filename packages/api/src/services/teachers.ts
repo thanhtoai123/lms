@@ -7,7 +7,7 @@ import {
   type TeacherGrade, type TeacherStatus, type ContractType,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
-import { tenantCond } from "./tenantScope";
+import { assertTenant, tenantCond } from "./tenantScope";
 import { writeAudit } from "./audit";
 import { todayISO } from "./sessions";
 
@@ -23,6 +23,7 @@ function scopeCond(ctx: ProtectedContext) {
 async function loadTeacher(ctx: ProtectedContext, id: string) {
   const t = await ctx.db.query.teachers.findFirst({ where: and(eq(teachers.id, id), isNull(teachers.deletedAt)) });
   if (!t) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy giáo viên" });
+  assertTenant(ctx, t, "Giáo viên");
   return t;
 }
 

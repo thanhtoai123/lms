@@ -16,7 +16,7 @@ import { requirePermission, type ProtectedContext } from "../trpc";
 import { writeAudit } from "./audit";
 import { todayISO } from "./sessions";
 import { createOrder } from "./finance";
-import { assertTenant, tenantCond } from "./tenantScope";
+import { assertTenant, tenantCond, tenantCondViaCenter } from "./tenantScope";
 
 type Db = ProtectedContext["db"];
 const bad = (m: string | string[]) => new TRPCError({ code: "BAD_REQUEST", message: Array.isArray(m) ? m.join("; ") : m });
@@ -35,8 +35,10 @@ function rule<T>(fn: () => T): T {
 }
 function scopeOn(ctx: ProtectedContext, col: AnyPgColumn): SQL {
   const v = visibleCenterIds(ctx.actor);
-  if (v === null) return sql`true`;
-  return v.length ? (inArray(col, v) as SQL) : sql`false`;
+  // Cách ly trung tâm (tenant) suy qua cơ sở của dòng — đứng trước mọi luật phạm vi cơ sở
+  const tenant = tenantCondViaCenter(ctx, col);
+  if (v === null) return tenant;
+  return v.length ? and(inArray(col, v), tenant)! : sql`false`;
 }
 /** Danh mục hàng dùng chung: chỉ Hội sở (quyền toàn hệ thống) được sửa */
 function requireCatalogEditor(ctx: ProtectedContext) {

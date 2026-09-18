@@ -17,6 +17,7 @@ import {
   type EvalFormType, type EvalQuestionType, type EvalRoundAction, type EvalRoundStatus, type Permission,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
+import { tenantCondViaCenter } from "./tenantScope";
 import { writeAudit } from "./audit";
 import { todayISO } from "./sessions";
 
@@ -28,8 +29,10 @@ const can = (ctx: ProtectedContext, p: Permission, centerId: string | null) => a
 
 function scopeOn(ctx: ProtectedContext, col: AnyPgColumn): SQL {
   const v = visibleCenterIds(ctx.actor);
-  if (v === null) return sql`true`;
-  return v.length ? or(isNull(col), inArray(col, v))! : isNull(col);
+  // Cách ly trung tâm (tenant) suy qua cơ sở của dòng — đứng trước mọi luật phạm vi cơ sở
+  const tenant = tenantCondViaCenter(ctx, col);
+  if (v === null) return tenant;
+  return and(v.length ? or(isNull(col), inArray(col, v))! : isNull(col), tenant)!;
 }
 
 /** Phiếu / đợt dùng chung toàn hệ thống chỉ Hội sở sửa; phiếu của cơ sở thì quản lý cơ sở sửa */

@@ -13,7 +13,9 @@ type Db = ProtectedContext["db"];
 
 function scope(ctx: ProtectedContext) {
   const v = visibleCenterIds(ctx.actor);
-  return v === null ? sql`true` : v.length ? inArray(classes.centerId, v) : sql`false`;
+  // Cách ly trung tâm (tenant) suy qua cơ sở của dòng — đứng trước mọi luật phạm vi cơ sở
+  const tenant = tenantCond(ctx, classes);
+  return and(v === null ? sql`true` : v.length ? inArray(classes.centerId, v) : sql`false`, tenant)!;
 }
 
 const missed = alias(sessions, "missed");

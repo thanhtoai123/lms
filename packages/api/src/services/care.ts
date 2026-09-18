@@ -45,8 +45,10 @@ const reasonOf = (r: string | null | undefined, min = 5) => {
 };
 function scopeOn(ctx: ProtectedContext, col: AnyPgColumn): SQL {
   const v = visibleCenterIds(ctx.actor);
-  if (v === null) return sql`true`;
-  return v.length ? (inArray(col, v) as SQL) : sql`false`;
+  // Cách ly trung tâm (tenant) suy qua cơ sở của dòng — đứng trước mọi luật phạm vi cơ sở
+  const tenant = tenantCondViaCenter(ctx, col);
+  if (v === null) return tenant;
+  return v.length ? and(inArray(col, v), tenant)! : sql`false`;
 }
 const dmy = (d: string) => d.split("-").reverse().join("/");
 
