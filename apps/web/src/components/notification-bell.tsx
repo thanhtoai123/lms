@@ -39,6 +39,9 @@ export function NotificationBell({ canRunWorker }: { canRunWorker: boolean }) {
               <div className="text-[10px] text-ink-400">{fmtDateTime(n.createdAt)}</div>
             </Link>
           ))}
+          <Link href="/thong-bao" onClick={() => setOpen(false)} className="mt-1 block rounded-lg px-2 py-2 text-center text-xs font-medium text-brand-600 hover:bg-brand-50">
+            Xem tất cả thông báo →
+          </Link>
         </div>
       )}
     </div>

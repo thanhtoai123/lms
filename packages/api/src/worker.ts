@@ -18,6 +18,7 @@ import { dispatchParentMessages } from "./services/delivery";
 import { dispatchPush } from "./services/pilot";
 import { pruneLoginEvents } from "./services/loginSecurity";
 import { remindPauseEnding } from "./services/studentLifecycle";
+import { buildActionRequiredAlerts } from "./services/notify";
 
 const db = createDb();
 const interval = Number(process.env.WORKER_INTERVAL_MS ?? 10_000);
@@ -48,6 +49,8 @@ async function tick() {
       if (af.created || af.voided) console.log(new Date().toISOString(), `affiliate rewards created=${af.created} voided=${af.voided}`);
       const n = await runSurveyTriggers(db);
       if (n) console.log(new Date().toISOString(), `survey invites=${n}`);
+      const act = await buildActionRequiredAlerts(db);
+      if (act.created) console.log(new Date().toISOString(), `action required alerts=${act.created}`);
     }
     if (Date.now() - lastRetention > 24 * 3600_000) {
       const le = await pruneLoginEvents(db);

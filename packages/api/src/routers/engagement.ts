@@ -1,6 +1,8 @@
 import { z } from "zod";
+import { NOTIFICATION_PRIORITIES } from "@satarobo/core";
 import { router, protectedProcedure, requirePermission } from "../trpc";
 import * as E from "../services/engagement";
+import * as N from "../services/notify";
 
 export const engagementRouter = router({
   careTasks: protectedProcedure
@@ -10,6 +12,17 @@ export const engagementRouter = router({
     .input(z.object({ id: z.string().uuid(), status: z.enum(["in_progress", "done", "escalated", "dismissed"]), outcome: z.string().max(1000).optional() }))
     .mutation(({ ctx, input }) => E.resolveCareTask(ctx, input)),
   myNotifications: protectedProcedure.input(z.object({ unreadOnly: z.boolean().optional(), limit: z.number().int().min(1).max(100).optional() }).default({})).query(({ ctx, input }) => E.myNotifications(ctx, input)),
+  /** Trung tâm thông báo /thong-bao */
+  notificationCenter: protectedProcedure
+    .input(z.object({
+      groupKey: z.string().max(30).optional(), priority: z.enum(NOTIFICATION_PRIORITIES).optional(),
+      q: z.string().max(100).optional(), unreadOnly: z.boolean().optional(), page: z.number().int().min(1).max(200).optional(),
+    }).default({}))
+    .query(({ ctx, input }) => N.notificationCenter(ctx, input)),
+  runActionAlerts: protectedProcedure.mutation(async ({ ctx }) => {
+    requirePermission(ctx, "automation:run");
+    return N.buildActionRequiredAlerts(ctx.db);
+  }),
   markRead: protectedProcedure.input(z.object({ ids: z.array(z.string().uuid()).optional(), all: z.boolean().optional() })).mutation(({ ctx, input }) => E.markRead(ctx, input)),
   parentFeed: protectedProcedure.input(z.object({ parentId: z.string().uuid(), limit: z.number().int().min(1).max(200).optional() })).query(({ ctx, input }) => E.parentFeed(ctx, input)),
   outboxStats: protectedProcedure.query(({ ctx }) => E.outboxStats(ctx)),

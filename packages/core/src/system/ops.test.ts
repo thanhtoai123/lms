@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { OPS_DEFAULTS, OPS_GROUPS, resolveOps, validateOps, otpPolicyFrom, riskFrom } from "./ops.js";
+import { OPS_DEFAULTS, OPS_GROUPS, resolveOps, validateOps, otpPolicyFrom, riskFrom, otpDailyCutoff, znsCostEstimate, otpCutoffState } from "./ops.js";
 import { otpRequestDecision, otpVerifyDecision, OTP_POLICY } from "./rules.js";
 import { computeDay } from "../hr/rules.js";
 
@@ -71,4 +71,23 @@ test("chính sách OTP và chấm công dùng tham số", () => {
   };
   assert.equal(computeDay(day).lateMin, 8);
   assert.equal(computeDay({ ...day, graceMin: 10 }).lateMin, 0);
+});
+
+test("ngưỡng tự ngắt OTP suy từ chính sách hiện có", () => {
+  assert.equal(otpDailyCutoff({ perIpMax: 10, perIpWindowMin: 60 }), 240);
+  assert.equal(otpDailyCutoff({ perIpMax: 5, perIpWindowMin: 1440 }), 5);
+  assert.equal(otpDailyCutoff({ perIpMax: 3, perIpWindowMin: 0 }), 3 * 1440);
+});
+
+test("ước chi phí ZNS theo đơn giá cấu hình (mặc định 0)", () => {
+  assert.equal(OPS_DEFAULTS.znsUnitCostVnd, 0);
+  assert.equal(znsCostEstimate(120, 0), 0);
+  assert.equal(znsCostEstimate(120, 550), 66_000);
+  assert.equal(znsCostEstimate(-5, 550), 0);
+});
+
+test("trạng thái chạm ngưỡng tự ngắt", () => {
+  assert.deepEqual(otpCutoffState(240, 240), { hit: true, pct: 100 });
+  assert.deepEqual(otpCutoffState(120, 240), { hit: false, pct: 50 });
+  assert.deepEqual(otpCutoffState(10, 0), { hit: false, pct: 0 });
 });

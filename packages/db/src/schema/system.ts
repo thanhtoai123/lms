@@ -82,6 +82,51 @@ export const userGroupMembers = pgTable(
   (t) => [primaryKey({ columns: [t.groupId, t.userId] }), index("user_group_members_user_idx").on(t.userId)],
 );
 
+/**
+ * Quyền cấp theo NHÓM người dùng — "cấp quyền cho một nhóm người mà không sửa vai trò".
+ * Khi tính quyền của một người: quyền vai trò ∪ quyền của mọi nhóm họ thuộc.
+ * `centerId` null = toàn hệ thống; khác null = chỉ đúng cơ sở đó.
+ */
+export const userGroupPermissions = pgTable(
+  "user_group_permissions",
+  {
+    groupId: uuid("group_id").notNull().references(() => userGroups.id, { onDelete: "cascade" }),
+    /** Dạng "resource:action", vd "student:read" */
+    permission: text("permission").notNull(),
+    centerId: uuid("center_id").references(() => centers.id, { onDelete: "cascade" }),
+    grantedBy: uuid("granted_by").references(() => users.id),
+    reason: text("reason"),
+    grantedAt: timestamp("granted_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.groupId, t.permission] }), index("user_group_perms_group_idx").on(t.groupId)],
+);
+
+/**
+ * Danh mục loại thông báo cấu hình được (bản gốc: 38 loại).
+ * Mặc định nằm trong `@satarobo/core` (NOTIFICATION_TYPES); dòng ở đây ghi đè `pushEnabled` / `isActive`.
+ * Thiếu dòng + thiếu khai báo trong core ⇒ vẫn gửi trong app, KHÔNG đẩy push.
+ */
+export const notificationTypes = pgTable(
+  "notification_types",
+  {
+    id: id(),
+    /** Mã loại, vd `lead.moi`, `class.session_changed`, `request.submitted`, `shift.brief` */
+    prefix: text("prefix").notNull().unique(),
+    label: text("label").notNull(),
+    groupKey: text("group_key").notNull(),
+    groupLabel: text("group_label").notNull(),
+    /** urgent (Khẩn) · normal (Thường) · info (Tham khảo) */
+    priority: text("priority").notNull().default("normal"),
+    /** Vai trò nhận mặc định */
+    recipients: jsonb("recipients").$type<string[]>().notNull().default([]),
+    pushEnabled: boolean("push_enabled").notNull().default(false),
+    isActive: boolean("is_active").notNull().default(true),
+    updatedBy: uuid("updated_by").references(() => users.id),
+    ...timestamps,
+  },
+  (t) => [index("notification_types_group_idx").on(t.groupKey)],
+);
+
 /** Nhật ký webhook nhận vào (để xem / chạy lại) */
 export const webhookEvents = pgTable(
   "webhook_events",

@@ -6,6 +6,7 @@ import {
 } from "@satarobo/db";
 import { runRules, DEFAULT_RULES, computeSla, OPEN_LEAD_STATUSES, visibleCenterIds, type DomainEvent, type Action, type Role } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
+import { deliverNotifications } from "./notify";
 
 /* ---------------------------------------------------------------------------------------------
  * WORKER: xử lý outbox theo lô. Gọi bởi `pnpm worker` (vòng lặp) hoặc route /api/cron/outbox (Vercel Cron).
@@ -77,7 +78,7 @@ async function executeAction(db: Database, a: Action, event: DomainEvent, rule: 
       for (const userId of new Set(targets)) {
         const dup = a.link ? await db.query.userNotifications.findFirst({ where: and(eq(userNotifications.userId, userId), eq(userNotifications.link, a.link), eq(userNotifications.title, a.title), isNull(userNotifications.readAt)) }) : null;
         if (dup) continue;
-        await db.insert(userNotifications).values({ userId, title: a.title, body: a.body, link: a.link ?? null, priority: a.priority });
+        await deliverNotifications(db, [userId], { title: a.title, body: a.body, link: a.link ?? null, priority: a.priority, type: a.notificationType ?? null });
       }
       return;
     }

@@ -27,6 +27,9 @@ export const adminRouter = router({
   upsertGroup: protectedProcedure.input(z.object({ id: uuid.optional(), name: s(80), description: s(300).nullish(), centerId: uuid.nullish() })).mutation(({ ctx, input }) => A.upsertGroup(ctx, input)),
   deleteGroup: protectedProcedure.input(z.object({ id: uuid })).mutation(({ ctx, input }) => A.deleteGroup(ctx, input)),
   setGroupMembers: protectedProcedure.input(z.object({ groupId: uuid, add: z.array(uuid).max(200).optional(), remove: z.array(uuid).max(200).optional() })).mutation(({ ctx, input }) => A.setGroupMembers(ctx, input)),
+  setGroupPermissions: protectedProcedure
+    .input(z.object({ groupId: uuid, permissions: z.array(s(60)).max(120), reason: z.string().trim().min(5, "Lý do tối thiểu 5 ký tự").max(300) }))
+    .mutation(({ ctx, input }) => A.setGroupPermissions(ctx, input)),
   announce: protectedProcedure.input(z.object({ groupId: uuid, title: s(150), body: s(1000), link: s(300).nullish(), priority: z.number().int().min(1).max(3) })).mutation(({ ctx, input }) => A.announceToGroup(ctx, input)),
 
   orgTree: protectedProcedure.query(({ ctx }) => A.orgTree(ctx)),

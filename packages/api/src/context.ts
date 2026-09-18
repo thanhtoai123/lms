@@ -1,7 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { and, eq, gte, isNull, lte, or } from "drizzle-orm";
-import { getDb, users, userRoles, teachers, parents, staff, staffDeployments, type Database } from "@satarobo/db";
-import { decodeJwtPayload, mfaRequiredRoles, mfaState, activeRoleAssignments, widenByDeployments, type Actor } from "@satarobo/core";
+import { getDb, users, userRoles, teachers, parents, staff, staffDeployments, userGroups, userGroupMembers, userGroupPermissions, type Database } from "@satarobo/db";
+import { decodeJwtPayload, mfaRequiredRoles, mfaState, activeRoleAssignments, widenByDeployments, type Actor, type Permission } from "@satarobo/core";
 
 export interface Context {
   db: Database;
@@ -71,10 +71,24 @@ export async function createContext(opts: { headers: Headers; ip?: string }): Pr
     if (deps.length) assignments = widenByDeployments(assignments, deps, today);
   }
 
+  // Quyền cấp theo NHÓM người dùng — hợp nhất với quyền vai trò (chỉ cộng thêm, không bớt)
+  const groupPerms = await db
+    .select({ permission: userGroupPermissions.permission, centerId: userGroupPermissions.centerId, groupCenterId: userGroups.centerId, source: userGroups.name })
+    .from(userGroupMembers)
+    .innerJoin(userGroupPermissions, eq(userGroupPermissions.groupId, userGroupMembers.groupId))
+    .innerJoin(userGroups, eq(userGroups.id, userGroupMembers.groupId))
+    .where(eq(userGroupMembers.userId, u.id));
+
   const actor: Actor = {
     userId: u.id,
     personId: teacher?.id ?? parent?.id ?? null,
     assignments,
+    extraPermissions: groupPerms.map((g) => ({
+      permission: g.permission as Permission,
+      // quyền của nhóm gắn cơ sở thì chỉ có hiệu lực ở cơ sở đó; nhóm toàn hệ thống thì theo dòng quyền
+      centerId: g.centerId ?? g.groupCenterId ?? null,
+      source: g.source,
+    })),
   };
   const via = authSubject ? "supabase" as const : "dev" as const;
   const mfa = mfaState({ roles: actor.assignments.map((a) => a.role), required: mfaRequiredRoles(process.env.REQUIRE_MFA_ROLES), viaSupabase: via === "supabase", aal });

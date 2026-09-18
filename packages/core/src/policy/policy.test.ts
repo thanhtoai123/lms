@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { authorize, authorizeGlobal, centersWith, visibleCenterIds, hasPermission, ROLE_LABEL_VI, ROLES, STAFF_ROLES, type Actor } from "./policy.js";
+import { authorize, authorizeGlobal, centersWith, visibleCenterIds, hasPermission, withExtraPermissions, effectivePermissions, ROLE_LABEL_VI, ROLES, STAFF_ROLES, type Actor } from "./policy.js";
+import { isGroupGrantable, validateGroupPermissions, groupPermissionCatalog, GROUP_PERMISSION_ACTIONS } from "./accounts.js";
 
 const superAdmin: Actor = { userId: "u0", assignments: [{ role: "SUPER_ADMIN", centerId: null }] };
 const cs1Manager: Actor = { userId: "u1", assignments: [{ role: "CENTER_MANAGER", centerId: "cs1" }] };
@@ -168,4 +169,61 @@ test("lớp trải nghiệm: xem / quản lý / điểm danh / xếp GV / vượ
   assert.equal(authorize(gv, "trials:attendance", { centerId: "c1", ownerIds: ["gv9"] }).allowed, false);
   assert.equal(authorize(gv, "trials:manage", { centerId: "c1" }).allowed, false);
   assert.equal(hasPermission(gv, "trials:view"), true);
+});
+
+/* ------------------------------------------------------------------ */
+/* Quyền từ nhóm người dùng (hợp nhất vai trò + nhóm)                  */
+/* ------------------------------------------------------------------ */
+
+test("nhóm người dùng cấp thêm quyền mà không sửa vai trò", () => {
+  const gv = { ...teacher };
+  assert.equal(authorize(gv, "report:read", { centerId: "cs1" }).allowed, false);
+  const withGroup = withExtraPermissions(gv, [{ permission: "report:read", centerId: null, source: "Tổ trưởng chuyên môn" }]);
+  const d = authorize(withGroup, "report:read", { centerId: "cs1" });
+  assert.equal(d.allowed, true);
+  assert.match(d.reason, /Tổ trưởng chuyên môn/);
+  // vai trò gốc không đổi
+  assert.deepEqual(withGroup.assignments, gv.assignments);
+});
+
+test("quyền nhóm gắn cơ sở chỉ có hiệu lực ở đúng cơ sở đó", () => {
+  const a = withExtraPermissions({ userId: "u9", assignments: [] }, [{ permission: "student:read", centerId: "cs1", source: "CSKH vùng" }]);
+  assert.equal(authorize(a, "student:read", { centerId: "cs1" }).allowed, true);
+  assert.equal(authorize(a, "student:read", { centerId: "cs2" }).allowed, false);
+  assert.deepEqual(centersWith(a, "student:read"), ["cs1"]);
+  assert.equal(hasPermission(a, "student:read"), true);
+});
+
+test("quyền nhóm toàn hệ thống tính cả ở authorizeGlobal và centersWith", () => {
+  const a = withExtraPermissions({ userId: "u8", assignments: [{ role: "CENTER_HR" as const, centerId: "cs1" }] }, [{ permission: "report:read", centerId: null }]);
+  assert.equal(authorizeGlobal(a, "report:read"), true);
+  assert.equal(centersWith(a, "report:read"), null);
+  assert.equal(authorizeGlobal(a, "finance:update"), false);
+});
+
+test("nhóm chỉ cộng thêm, không bớt quyền sẵn có", () => {
+  const a = withExtraPermissions(cs1Manager, [{ permission: "report:read", centerId: null }]);
+  assert.equal(authorize(a, "student:update", { centerId: "cs1" }).allowed, true);
+  assert.equal(authorize(a, "student:update", { centerId: "cs2" }).allowed, false);
+});
+
+test("effectivePermissions gộp vai trò + nhóm và nói rõ nguồn", () => {
+  const a = withExtraPermissions(teacher, [{ permission: "report:read", centerId: null, source: "Tổ trưởng" }]);
+  const eff = effectivePermissions(a);
+  assert.ok(eff.some((p) => p.permission === "class:read_own" && p.via === ROLE_LABEL_VI.TEACHER));
+  assert.ok(eff.some((p) => p.permission === "report:read" && p.via === "Nhóm Tổ trưởng"));
+});
+
+test("danh mục quyền cấp theo nhóm: không cho hệ thống / audit / *", () => {
+  assert.equal(isGroupGrantable("student:read"), true);
+  assert.equal(isGroupGrantable("system:update"), false);
+  assert.equal(isGroupGrantable("audit:read"), false);
+  assert.equal(isGroupGrantable("student:*"), false);
+  assert.equal(isGroupGrantable("khong-ton-tai:read"), false);
+  assert.deepEqual(validateGroupPermissions(["student:read", "class:update"]), []);
+  assert.equal(validateGroupPermissions(["system:update"]).length, 1);
+  const cat = groupPermissionCatalog();
+  assert.ok(cat.length > 3);
+  assert.ok(cat.every((g) => g.items.every((i) => i.permissions.length === GROUP_PERMISSION_ACTIONS.length)));
+  assert.ok(!cat.some((g) => g.items.some((i) => i.key === "system")));
 });

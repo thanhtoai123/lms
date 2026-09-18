@@ -31,7 +31,7 @@ export const DEFAULT_RULES: AutomationRule[] = [
       e.type === "risk.detected"
         ? [
             { kind: "create_care_task", studentId: e.studentId, enrollmentId: e.enrollmentId, code: e.code, title: `Chăm sóc: ${e.detail}`, dueInHours: e.severity === 1 ? 24 : 72, severity: e.severity },
-            { kind: "notify_user", userId: null, role: "CENTER_SALES_CSM", title: "Học viên cần chăm sóc", body: e.detail, link: `/cham-soc-hv`, priority: e.severity as 1 | 2 | 3 },
+            { kind: "notify_user", userId: null, role: "CENTER_SALES_CSM", title: "Học viên cần chăm sóc", body: e.detail, link: `/cham-soc-hv`, priority: e.severity as 1 | 2 | 3, notificationType: "care.rui-ro" },
           ]
         : [],
   },
@@ -40,7 +40,7 @@ export const DEFAULT_RULES: AutomationRule[] = [
     name: "Lead mới vừa chia cho tôi → báo tư vấn viên được chia",
     enabled: true,
     on: "lead.assigned",
-    actions: (e) => (e.type === "lead.assigned" ? [{ kind: "notify_user", userId: e.assigneeId, title: "Bạn vừa nhận lead mới", body: `Chế độ chia: ${e.mode}. Gọi trong 15 phút.`, link: `/leads/${e.leadId}`, priority: 1 }] : []),
+    actions: (e) => (e.type === "lead.assigned" ? [{ kind: "notify_user", userId: e.assigneeId, title: "Bạn vừa nhận lead mới", body: `Chế độ chia: ${e.mode}. Gọi trong 15 phút.`, link: `/leads/${e.leadId}`, priority: 1, notificationType: "lead.moi" }] : []),
   },
   {
     code: "LEAD_TRANSFERRED_NOTIFY",
@@ -48,14 +48,14 @@ export const DEFAULT_RULES: AutomationRule[] = [
     enabled: true,
     on: "lead.transferred",
     when: (e) => e.type === "lead.transferred" && !!e.toUserId,
-    actions: (e) => (e.type === "lead.transferred" ? [{ kind: "notify_user", userId: e.toUserId, title: "Bạn được bàn giao lead", body: e.reason ?? "Không có lý do", link: `/leads/${e.leadId}`, priority: 2 }] : []),
+    actions: (e) => (e.type === "lead.transferred" ? [{ kind: "notify_user", userId: e.toUserId, title: "Bạn được bàn giao lead", body: e.reason ?? "Không có lý do", link: `/leads/${e.leadId}`, priority: 2, notificationType: "lead.ban-giao" }] : []),
   },
   {
     code: "ATTENDANCE_CORRECTED_NOTIFY_TEACHER",
     name: "Điểm danh bị sửa hồi tố → báo GV phụ trách buổi",
     enabled: true,
     on: "attendance.corrected",
-    actions: (e) => (e.type === "attendance.corrected" ? [{ kind: "notify_user", userId: null, role: "TEACHER", title: "Điểm danh buổi học đã được sửa", body: `${e.from ?? "chưa có"} → ${e.to}. Lý do: ${e.reason}`, link: `/teacher/sessions/${e.sessionId}`, priority: 2 }] : []),
+    actions: (e) => (e.type === "attendance.corrected" ? [{ kind: "notify_user", userId: null, role: "TEACHER", title: "Điểm danh buổi học đã được sửa", body: `${e.from ?? "chưa có"} → ${e.to}. Lý do: ${e.reason}`, link: `/teacher/sessions/${e.sessionId}`, priority: 2, notificationType: "class.session_changed" }] : []),
   },
   {
     code: "NEW_LEAD_FIRST_CALL",
@@ -70,14 +70,14 @@ export const DEFAULT_RULES: AutomationRule[] = [
     enabled: true,
     on: "lead.sla_breached",
     when: (e) => e.type === "lead.sla_breached" && e.overdueMinutes >= 60,
-    actions: (e) => (e.type === "lead.sla_breached" ? [{ kind: "notify_user", userId: null, role: "CENTER_MANAGER", title: "Lead quá SLA", body: `Lead ${e.leadId} quá hạn ${e.overdueMinutes} phút ở trạng thái ${e.status}`, link: `/leads/${e.leadId}`, priority: 2 }] : []),
+    actions: (e) => (e.type === "lead.sla_breached" ? [{ kind: "notify_user", userId: null, role: "CENTER_MANAGER", title: "Lead quá SLA", body: `Lead ${e.leadId} quá hạn ${e.overdueMinutes} phút ở trạng thái ${e.status}`, link: `/leads/${e.leadId}`, priority: 2, notificationType: "lead.qua-han" }] : []),
   },
   {
     code: "REPORT_CARD_MILESTONE",
     name: "Đến mốc buổi 5/12 → nhắc GV viết học bạ",
     enabled: true,
     on: "report_card.due",
-    actions: (e) => (e.type === "report_card.due" ? [{ kind: "notify_user", userId: null, role: "TEACHER", title: "Đến hạn viết học bạ", body: `Buổi ${e.sequenceNo} — viết học bạ năng lực cho học viên`, link: `/teacher/sessions/${e.sessionId}`, priority: 2 }] : []),
+    actions: (e) => (e.type === "report_card.due" ? [{ kind: "notify_user", userId: null, role: "TEACHER", title: "Đến hạn viết học bạ", body: `Buổi ${e.sequenceNo} — viết học bạ năng lực cho học viên`, link: `/teacher/sessions/${e.sessionId}`, priority: 2, notificationType: "report_card.due" }] : []),
   },
   {
     code: "COURSE_COMPLETED_RENEWAL",
@@ -88,7 +88,7 @@ export const DEFAULT_RULES: AutomationRule[] = [
       e.type === "course.completed"
         ? [
             { kind: "create_care_task", studentId: e.studentId, enrollmentId: e.enrollmentId, code: "RENEWAL", title: e.nextCourseId ? "Tư vấn tái tục: gợi ý khoá tiếp theo" : "Tư vấn tái tục sau hoàn thành khoá", dueInHours: 72, severity: 2 },
-            { kind: "notify_user", userId: null, role: "CENTER_SALES_CSM", title: "Học viên hoàn thành khoá", body: "Gọi chúc mừng và tư vấn khoá tiếp theo", link: `/students/${e.studentId}`, priority: 2 },
+            { kind: "notify_user", userId: null, role: "CENTER_SALES_CSM", title: "Học viên hoàn thành khoá", body: "Gọi chúc mừng và tư vấn khoá tiếp theo", link: `/students/${e.studentId}`, priority: 2, notificationType: "care.tai-tuc" },
           ]
         : [],
   },

@@ -3,7 +3,8 @@ import { TRPCError } from "@trpc/server";
 import { users, userRoles, centers, teachers, auditLog } from "@satarobo/db";
 import {
   ROLES, ROLE_LABEL_VI, STAFF_ROLES, ASSIGNABLE_ROLES, GLOBAL_ROLES, PERMISSION_RESOURCES,
-  validateRoleGrant, validateRoleRevoke, validateLock, accessLevel, permissionsOf,
+  validateRoleGrant, validateRoleRevoke, validateLock, accessLevel, permissionsOf, authorize,
+  maskPii, maskPiiText, maskEmailValue, hasPii, validateRevealReason,
   type Role,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
@@ -239,7 +240,46 @@ export async function listAudit(ctx: ProtectedContext, input: AuditQuery) {
     .select({ id: auditLog.id, action: auditLog.action, module: auditLog.module, entity: auditLog.entity, entityId: auditLog.entityId, before: auditLog.before, after: auditLog.after, reason: auditLog.reason, ip: auditLog.ip, createdAt: auditLog.createdAt, actorId: auditLog.actorId, actorName: users.fullName, actorEmail: users.email })
     .from(auditLog).leftJoin(users, eq(users.id, auditLog.actorId))
     .where(where).orderBy(desc(auditLog.createdAt)).limit(pageSize).offset((page - 1) * pageSize);
-  return { total: tot?.n ?? 0, page, pageSize, items: rows };
+
+  // PII che MẶC ĐỊNH ở lớp đọc: SĐT `09***67`, email `a***@x.com`.
+  // Muốn xem đầy đủ phải bấm "Xem đầy đủ" (break-glass: bắt buộc lý do + ghi audit PII_REVEAL).
+  const canReveal = authorize(ctx.actor, "audit:view_pii", {}).allowed;
+  const items = rows.map((r) => ({
+    ...r,
+    before: maskPii(r.before),
+    after: maskPii(r.after),
+    reason: r.reason ? maskPiiText(r.reason) : r.reason,
+    actorEmail: r.actorEmail ? maskEmailValue(r.actorEmail) : r.actorEmail,
+    masked: hasPii(r.before) || hasPii(r.after) || hasPii(r.reason ?? "") || hasPii(r.actorEmail ?? ""),
+  }));
+  return { total: tot?.n ?? 0, page, pageSize, canReveal, items };
+}
+
+/**
+ * "Xem đầy đủ" một dòng nhật ký — break-glass:
+ * bắt buộc lý do, chỉ vai trò có `audit:view_pii`, và mỗi lần xem ghi một bản ghi audit `PII_REVEAL`.
+ */
+export async function revealAuditEntry(ctx: ProtectedContext, input: { id: string; reason: string }) {
+  requirePermission(ctx, "audit:read");
+  if (!authorize(ctx.actor, "audit:view_pii", {}).allowed) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "Không có quyền xem đầy đủ dữ liệu cá nhân trong nhật ký" });
+  }
+  const err = validateRevealReason(input.reason);
+  if (err) throw new TRPCError({ code: "BAD_REQUEST", message: err });
+
+  return ctx.db.transaction(async (tx) => {
+    const db = tx as unknown as Db;
+    const [row] = await db
+      .select({ id: auditLog.id, action: auditLog.action, module: auditLog.module, entity: auditLog.entity, entityId: auditLog.entityId, before: auditLog.before, after: auditLog.after, reason: auditLog.reason, ip: auditLog.ip, createdAt: auditLog.createdAt, actorId: auditLog.actorId, actorName: users.fullName, actorEmail: users.email })
+      .from(auditLog).leftJoin(users, eq(users.id, auditLog.actorId)).where(eq(auditLog.id, input.id)).limit(1);
+    if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy dòng nhật ký" });
+    await writeAudit(db, {
+      actorId: ctx.user.id, action: "PII_REVEAL", module: "system", entity: "audit_log", entityId: row.id,
+      after: { xem: `${row.module}/${row.entity}`, banGhi: row.entityId, luc: row.createdAt.toISOString() },
+      reason: input.reason.trim(), ip: ctx.ip,
+    });
+    return { ...row, masked: false };
+  });
 }
 
 export async function auditFilterOptions(ctx: ProtectedContext) {

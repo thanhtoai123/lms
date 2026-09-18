@@ -13,6 +13,7 @@ import {
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { writeAudit } from "./audit";
+import { deliverNotifications } from "./notify";
 import { emit } from "./outbox";
 import { todayISO } from "./sessions";
 import { resolveAdmissionsPolicy } from "./admissionsAdmin";
@@ -61,10 +62,16 @@ async function teacherUserIds(db: Db, ids: (string | null)[]) {
   return [...new Set(rows.map((r) => r.userId).filter((x): x is string => !!x))];
 }
 
-async function notifyTeachers(db: Db, s: { teacherId: string | null; leadTeacherId: string | null; date: string; startTime: string; classCode: string; id: string }, title: string, body: string) {
+async function notifyTeachers(db: Db, s: { teacherId: string | null; leadTeacherId: string | null; date: string; startTime: string; classCode: string; id: string }, title: string, body: string, type = "trial.assigned") {
   const uids = await teacherUserIds(db, [s.teacherId ?? s.leadTeacherId]);
   if (!uids.length) return;
-  await db.insert(userNotifications).values(uids.map((userId) => ({ userId, title, body: `${body} — ${s.classCode}, ${s.date.split("-").reverse().join("/")} ${s.startTime.slice(0, 5)}`, link: `/teacher/sessions/${s.id}`, priority: 2 })));
+  await deliverNotifications(db, uids, {
+    title,
+    body: `${body} — ${s.classCode}, ${s.date.split("-").reverse().join("/")} ${s.startTime.slice(0, 5)}`,
+    link: `/teacher/sessions/${s.id}`,
+    priority: 2,
+    type,
+  });
 }
 
 async function loadLeadForWrite(ctx: ProtectedContext, leadId: string) {

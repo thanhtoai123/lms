@@ -79,7 +79,7 @@ export async function matchBankTx(db: Db, id: string, actorId: string | null): P
         .where(and(eq(bankTransactions.id, bt.id), sql`${bankTransactions.status} <> 'matched'`));
       if (d.kind === "needs_review" && bt.status !== "needs_review") {
         const cid = snap?.o.centerId ?? bt.centerId;
-        if (cid) await notify(tx, await accountantsOf(tx, cid), "Biến động số dư cần kiểm tra", `${formatVnd(bt.amount)} — ${d.note}`, "/bien-dong-so-du?status=needs_review", 1);
+        if (cid) await notify(tx, await accountantsOf(tx, cid), "Biến động số dư cần kiểm tra", `${formatVnd(bt.amount)} — ${d.note}`, "/bien-dong-so-du?status=needs_review", 1, "bank.needs_review");
       }
       return { status: d.kind, note: d.note, orderCode: snap?.o.code };
     }
@@ -111,7 +111,7 @@ export async function matchBankTx(db: Db, id: string, actorId: string | null): P
     // Mã QR đúng số tiền này coi như đã dùng — lần sau phải xuất mã mới
     await markQrUsed(tx, o.id, bt.amount, paymentId);
     await recomputeOrderStatus(tx, o.id, actorId, receiptNo);
-    await notify(tx, [o.createdBy, recorder], "Tiền đã về tài khoản", `${o.code} · ${formatVnd(bt.amount)} · ${receiptNo}`, `/orders/${o.id}`, 3);
+    await notify(tx, [o.createdBy, recorder], "Tiền đã về tài khoản", `${o.code} · ${formatVnd(bt.amount)} · ${receiptNo}`, `/orders/${o.id}`, 3, "bank.received");
     await writeAudit(tx, { actorId, action: "TRANSITION", module: "finance", entity: "bank_transactions", entityId: bt.id, before: { status: bt.status }, after: { status: "matched", orderId: o.id, paymentId, receiptNo, mode: d.kind } });
     return { status: "matched" as const, note: d.note, orderCode: o.code, receiptNo };
   });
@@ -281,7 +281,7 @@ export async function matchManually(ctx: ProtectedContext, input: { id: string; 
     if (!up.length) throw new TRPCError({ code: "CONFLICT", message: "Giao dịch vừa được xử lý" });
     await tx.insert(bankTxAllocations).values({ bankTxId: bt.id, paymentId, amount: bt.amount, createdBy: ctx.user.id }).onConflictDoNothing();
     await recomputeOrderStatus(tx, order.id, ctx.user.id, receiptNo);
-    await notify(tx, [order.createdBy], "Tiền đã về tài khoản", `${order.code} · ${formatVnd(bt.amount)} · ${receiptNo}`, `/orders/${order.id}`, 3);
+    await notify(tx, [order.createdBy], "Tiền đã về tài khoản", `${order.code} · ${formatVnd(bt.amount)} · ${receiptNo}`, `/orders/${order.id}`, 3, "bank.received");
     await writeAudit(tx, { actorId: ctx.user.id, action: "TRANSITION", module: "finance", entity: "bank_transactions", entityId: bt.id, before: { status: bt.status }, after: { status: "matched", orderId: order.id, paymentId, receiptNo, manual: true }, reason: note, ip: ctx.ip });
     return { receiptNo, orderCode: order.code };
   });
@@ -385,9 +385,9 @@ export async function allocateBankTx(ctx: ProtectedContext, input: { id: string;
     if (!up.length) throw new TRPCError({ code: "CONFLICT", message: "Giao dịch vừa được xử lý" });
     await recomputeOrderStatus(tx, order.id, ctx.user.id, created.map((x) => x.receiptNo).join(", "));
     if (plan.surplus > 0) {
-      await notify(tx, await accountantsOf(tx, order.centerId), "Tiền thừa chưa xử lý", `${order.code} · thừa ${formatVnd(plan.surplus)} — kế toán quyết cách xử lý`, "/bien-dong-so-du?status=matched", 1);
+      await notify(tx, await accountantsOf(tx, order.centerId), "Tiền thừa chưa xử lý", `${order.code} · thừa ${formatVnd(plan.surplus)} — kế toán quyết cách xử lý`, "/bien-dong-so-du?status=matched", 1, "bank.surplus");
     }
-    await notify(tx, [order.createdBy], "Tiền đã về tài khoản", `${order.code} · ${formatVnd(plan.allocated)} cho ${created.length} dòng`, `/orders/${order.id}`, 3);
+    await notify(tx, [order.createdBy], "Tiền đã về tài khoản", `${order.code} · ${formatVnd(plan.allocated)} cho ${created.length} dòng`, `/orders/${order.id}`, 3, "bank.received");
     await writeAudit(tx, { actorId: ctx.user.id, action: "TRANSITION", module: "finance", entity: "bank_transactions", entityId: bt.id, before: { status: bt.status }, after: { status: "matched", orderId: order.id, allocations: created, surplus: plan.surplus }, reason: note, ip: ctx.ip });
     return { orderCode: order.code, allocated: plan.allocated, surplus: plan.surplus, receipts: created.map((x) => x.receiptNo) };
   });
@@ -437,7 +437,7 @@ export async function unlinkBankTx(ctx: ProtectedContext, input: { id: string; r
         const { cancelAccruedForOrder } = await import("./commissions");
         await cancelAccruedForOrder(tx, orderId, ctx.user.id, `Gỡ gắn giao dịch: ${reason}`).catch(() => undefined);
       }
-      if (after) await notify(tx, await managersOf(tx, after.centerId), "Đã gỡ gắn giao dịch", `${after.code} · ${formatVnd(bt.amount)} — ${reason}`, `/orders/${after.id}`, 1);
+      if (after) await notify(tx, await managersOf(tx, after.centerId), "Đã gỡ gắn giao dịch", `${after.code} · ${formatVnd(bt.amount)} — ${reason}`, `/orders/${after.id}`, 1, "bank.unlinked");
     }
     await writeAudit(tx, { actorId: ctx.user.id, action: "TRANSITION", module: "finance", entity: "bank_transactions", entityId: bt.id, before: { status: "matched", orderId }, after: { status: "unmatched", voided, reverted }, reason, ip: ctx.ip });
     return { ok: true, voided, reverted };
@@ -1041,7 +1041,7 @@ export async function importLegacyTuition(ctx: ProtectedContext, input: {
     };
     await tx.update(importBatches).set({ okRows: ok.length, skippedRows: lines.length - ok.length, totalAmount: amount, summary }).where(eq(importBatches.id, batch!.id));
     for (const cid of touchedCenters) {
-      await notify(tx, await accountantsOf(tx, cid), "Học phí nhập từ file chờ xác nhận", `${ok.length} khoản · ${formatVnd(amount)} — xem thử rồi xác nhận cả lượt`, "/payments?status=recorded", 2);
+      await notify(tx, await accountantsOf(tx, cid), "Học phí nhập từ file chờ xác nhận", `${ok.length} khoản · ${formatVnd(amount)} — xem thử rồi xác nhận cả lượt`, "/payments?status=recorded", 2, "payment.pending");
     }
     await writeAudit(tx, { actorId: ctx.user.id, action: "CREATE", module: "finance", entity: "import_batches", entityId: batch!.id, after: { kind: "legacy_payments", amount, ...summary }, reason: note, ip: ctx.ip });
     return { batchId: batch!.id, amount, ...summary };

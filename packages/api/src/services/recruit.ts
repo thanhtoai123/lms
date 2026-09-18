@@ -192,7 +192,7 @@ export async function applyToJob(db: Database, input: { slug: string; fullName: 
   await d.insert(candidateEvents).values({ candidateId: c!.id, action: "applied", toStage: "applied", note: `Nộp qua ${input.source ?? "website"}` });
   const hrs = await d.select({ u: userRoles.userId }).from(userRoles)
     .where(or(eq(userRoles.role, "HO_HR"), and(eq(userRoles.role, "CENTER_HR"), j.centerId ? eq(userRoles.centerId, j.centerId) : sql`true`)));
-  await notify(d, hrs.map((h) => h.u), "Ứng viên mới", `${input.fullName.trim()} — ${j.title}`, `/jobs/${j.id}`, 3);
+  await notify(d, hrs.map((h) => h.u), "Ứng viên mới", `${input.fullName.trim()} — ${j.title}`, `/jobs/${j.id}`, 3, "recruit.candidate");
   return { ok: true as const, duplicated: false };
 }
 
@@ -306,7 +306,7 @@ export async function scheduleInterview(ctx: ProtectedContext, input: { candidat
     await ctx.db.insert(candidateEvents).values({ candidateId: c.id, action: "stage", fromStage: c.stage, toStage: "interview", note: "Xếp lịch phỏng vấn", userId: ctx.user.id });
   }
   await ctx.db.insert(candidateEvents).values({ candidateId: c.id, action: "interview", note: `Phỏng vấn ${at.toISOString()} với ${iv.fullName}`, userId: ctx.user.id });
-  await notify(ctx.db, [input.interviewerId], "Lịch phỏng vấn", `${c.fullName} — ${j.title}`, `/jobs/candidate/${c.id}`, 2);
+  await notify(ctx.db, [input.interviewerId], "Lịch phỏng vấn", `${c.fullName} — ${j.title}`, `/jobs/candidate/${c.id}`, 2, "recruit.candidate");
   return { id: r!.id };
 }
 
@@ -321,7 +321,7 @@ export async function scoreInterview(ctx: ProtectedContext, input: { id: string;
   await ctx.db.update(interviews).set({ score: input.score, result: input.result, feedback: input.feedback.trim(), scoredAt: new Date() }).where(eq(interviews.id, i.id));
   await ctx.db.insert(candidateEvents).values({ candidateId: i.candidateId, action: "score", note: `${input.score}/5 — ${INTERVIEW_RESULT_VI[input.result]}`, userId: ctx.user.id });
   const { c } = await loadCandidate(ctx, i.candidateId);
-  if (c.ownerId) await notify(ctx.db, [c.ownerId], "Đã chấm phỏng vấn", `${c.fullName}: ${input.score}/5 (${INTERVIEW_RESULT_VI[input.result]})`, `/jobs/candidate/${c.id}`, 3);
+  if (c.ownerId) await notify(ctx.db, [c.ownerId], "Đã chấm phỏng vấn", `${c.fullName}: ${input.score}/5 (${INTERVIEW_RESULT_VI[input.result]})`, `/jobs/candidate/${c.id}`, 3, "recruit.candidate");
   return { ok: true };
 }
 

@@ -224,7 +224,7 @@ export async function updateConversation(ctx: ProtectedContext, input: { id: str
     if (input.assignedTo) {
       const u = await ctx.db.query.users.findFirst({ where: eq(users.id, input.assignedTo) });
       if (!u?.isActive) throw bad("Người nhận không hợp lệ");
-      if (input.assignedTo !== ctx.user.id) await notify(ctx.db, [input.assignedTo], "Được giao hội thoại", c.lastPreview ?? "", `/tin-nhan?id=${c.id}`, 2);
+      if (input.assignedTo !== ctx.user.id) await notify(ctx.db, [input.assignedTo], "Được giao hội thoại", c.lastPreview ?? "", `/tin-nhan?id=${c.id}`, 2, "message.assigned");
     }
     patch.assignedTo = input.assignedTo;
   }
@@ -327,7 +327,7 @@ async function recordInbound(d: Db, c: typeof conversations.$inferSelect, body: 
     const mgrs = await d.select({ u: userRoles.userId }).from(userRoles).where(and(eq(userRoles.role, "CENTER_MANAGER"), eq(userRoles.centerId, c.centerId)));
     targets.push(...mgrs.map((m) => m.u));
   }
-  await notify(d, targets, flags.length ? `Tin nhắn cần chú ý: ${flags.map((f) => FLAG_VI[f]).join(", ")}` : "Tin nhắn mới", `${c.displayName ?? "Khách"}: ${preview(body)}`, `/tin-nhan?id=${c.id}`, flags.length ? 1 : 3);
+  await notify(d, targets, flags.length ? `Tin nhắn cần chú ý: ${flags.map((f) => FLAG_VI[f]).join(", ")}` : "Tin nhắn mới", `${c.displayName ?? "Khách"}: ${preview(body)}`, `/tin-nhan?id=${c.id}`, flags.length ? 1 : 3, "message.new");
   return { duplicate: false };
 }
 
@@ -635,7 +635,7 @@ export async function parentStart(database: Database, parentId: string, input: {
   await recordInbound(db, c!, input.body.trim(), null, now);
   if (c!.centerId) {
     const staff = await db.select({ u: userRoles.userId }).from(userRoles).where(and(inArray(userRoles.role, ["CENTER_SALES_CSM", "CENTER_MANAGER"]), eq(userRoles.centerId, c!.centerId)));
-    await notify(db, staff.map((s) => s.u), "Phụ huynh gửi câu hỏi mới", `${g.name}: ${preview(input.body)}`, `/tin-nhan?id=${c!.id}`, 2);
+    await notify(db, staff.map((s) => s.u), "Phụ huynh gửi câu hỏi mới", `${g.name}: ${preview(input.body)}`, `/tin-nhan?id=${c!.id}`, 2, "message.new");
   }
   return { ok: true as const, id: c!.id };
 }

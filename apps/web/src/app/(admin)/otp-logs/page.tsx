@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { hasPermission, OTP_STATUSES, OTP_STATUS_VI, OTP_PURPOSES, OTP_PURPOSE_VI, type Actor, type OtpStatus, type OtpPurpose } from "@satarobo/core";
 import { getServerCaller } from "@/lib/trpc/server";
 import { NoAccess, PageHeader, StatTabs, Pager } from "@/components/admin-ui";
@@ -19,11 +20,30 @@ export default async function OtpLogsPage({ searchParams }: { searchParams: Prom
   return (
     <div className="space-y-4">
       <PageHeader title="Nhật ký OTP" desc={`Mã chỉ lưu dạng băm, hết hạn sau ${p.ttlMinutes} phút, sai ${p.maxAttempts} lần là khoá. Giới hạn ${p.perPhoneMax} mã/${p.perPhoneWindowMin} phút mỗi SĐT, ${p.perIpMax} mã/giờ mỗi IP.${d.znsConfigured ? "" : " Zalo ZNS chưa cấu hình — mã đang ở trạng thái Chờ gửi."}`} />
+      {/* Thẻ số theo NGÀY LỊCH (giờ Việt Nam) như bản gốc */}
       <div className="grid gap-3 md:grid-cols-4">
-        <div className="card p-3"><div className="text-xs text-ink-400">24 giờ qua</div><b className="text-2xl">{d.counts?.last24h ?? 0}</b></div>
-        <div className="card p-3"><div className="text-xs text-ink-400">Đã xác minh (bộ lọc)</div><b className="text-2xl text-green-700">{d.counts?.verified ?? 0}</b></div>
-        <div className="card p-3"><div className="text-xs text-ink-400">Bị chặn 24h</div><b className="text-2xl text-red-700">{d.counts?.blocked24h ?? 0}</b></div>
-        <div className="card p-3"><div className="text-xs text-ink-400">Nhập sai quá lần 24h</div><b className="text-2xl text-amber-700">{d.counts?.failed24h ?? 0}</b></div>
+        <div className="card p-3"><div className="text-xs text-ink-400">Tin đã gửi hôm nay</div><b className="text-2xl">{d.daily.sent}</b><div className="text-[11px] text-ink-400">trong đó {d.daily.zns} tin ZNS</div></div>
+        <div className="card p-3">
+          <div className="text-xs text-ink-400">Ngưỡng tự ngắt</div>
+          <b className={`text-2xl ${d.daily.hit ? "text-red-700" : ""}`}>{d.daily.cutoff}</b>
+          <div className="text-[11px] text-ink-400">{d.daily.hit ? "Đã chạm ngưỡng — tạm ngừng gửi" : `Đang dùng ${d.daily.pct}% · suy từ ${p.perIpMax} mã/${p.perIpWindowMin} phút mỗi IP`}</div>
+        </div>
+        <div className="card p-3">
+          <div className="text-xs text-ink-400">Chi phí ZNS hôm nay (ước)</div>
+          <b className="text-2xl">{d.daily.estimatedCostVnd.toLocaleString("vi-VN")}đ</b>
+          <div className="text-[11px] text-ink-400">
+            {d.daily.unitCostVnd > 0
+              ? `${d.daily.zns} tin × ${d.daily.unitCostVnd.toLocaleString("vi-VN")}đ`
+              : <>Chưa khai đơn giá — đặt ở <Link href="/cau-hinh-van-hanh?tab=otp" className="text-brand-600">Cấu hình vận hành</Link></>}
+          </div>
+        </div>
+        <div className="card p-3"><div className="text-xs text-ink-400">ZNS lỗi người nhận hôm nay</div><b className="text-2xl text-red-700">{d.daily.znsRecipientErrors}</b></div>
+      </div>
+      <div className="grid gap-3 md:grid-cols-4">
+        <div className="card p-3"><div className="text-xs text-ink-400">24 giờ qua (trượt)</div><b className="text-xl">{d.counts?.last24h ?? 0}</b></div>
+        <div className="card p-3"><div className="text-xs text-ink-400">Đã xác minh (bộ lọc)</div><b className="text-xl text-green-700">{d.counts?.verified ?? 0}</b></div>
+        <div className="card p-3"><div className="text-xs text-ink-400">Bị chặn hôm nay</div><b className="text-xl text-red-700">{d.counts?.blockedToday ?? 0}</b><div className="text-[11px] text-ink-400">24h trượt: {d.counts?.blocked24h ?? 0}</div></div>
+        <div className="card p-3"><div className="text-xs text-ink-400">Nhập sai quá lần hôm nay</div><b className="text-xl text-amber-700">{d.counts?.failedToday ?? 0}</b><div className="text-[11px] text-ink-400">24h trượt: {d.counts?.failed24h ?? 0}</div></div>
       </div>
       <form className="flex flex-wrap gap-2" action="/otp-logs">
         {status && <input type="hidden" name="status" value={status} />}

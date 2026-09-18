@@ -56,7 +56,7 @@ export async function accrueCommissions(tx: Db, orderId: string): Promise<number
     }).onConflictDoNothing().returning({ id: commissions.id });
     if (ins.length) {
       n++;
-      if (who.userId) await notify(tx, [who.userId], "Hoa hồng tạm tính", `${o.code}: ${formatVnd(amount)} (${describeRule(rule)})`, "/crm/commission", 3);
+      if (who.userId) await notify(tx, [who.userId], "Hoa hồng tạm tính", `${o.code}: ${formatVnd(amount)} (${describeRule(rule)})`, "/crm/commission", 3, "commission.estimated");
     }
   }
   return n;
@@ -84,7 +84,7 @@ export async function adjustCommissionsForRefund(tx: Db, orderId: string, refund
     }
     if (adj.mode !== "none") {
       await writeAudit(tx, { actorId, action: "UPDATE", module: "finance", entity: "commissions", entityId: c.id, before: { amount: c.amount, status: c.status }, after: { mode: adj.mode, delta: adj.delta }, reason: `Hoàn tiền ${formatVnd(refundAmount)}` });
-      if (c.beneficiaryUserId) await notify(tx, [c.beneficiaryUserId], adj.mode === "clawback" ? "Thu hồi hoa hồng" : "Hoa hồng giảm", `${formatVnd(adj.delta)} do đơn hoàn tiền`, "/crm/commission", 2);
+      if (c.beneficiaryUserId) await notify(tx, [c.beneficiaryUserId], adj.mode === "clawback" ? "Thu hồi hoa hồng" : "Hoa hồng giảm", `${formatVnd(adj.delta)} do đơn hoàn tiền`, "/crm/commission", 2, "commission.adjusted");
     }
   }
 }
@@ -98,7 +98,7 @@ export async function cancelAccruedForOrder(tx: Db, orderId: string, actorId: st
   for (const c of rows) {
     await tx.update(commissions).set({ status: "cancelled", cancelReason: reason.slice(0, 300) }).where(and(eq(commissions.id, c.id), eq(commissions.status, "accrued")));
     await writeAudit(tx, { actorId, action: "TRANSITION", module: "finance", entity: "commissions", entityId: c.id, before: { status: "accrued" }, after: { status: "cancelled" }, reason });
-    if (c.beneficiaryUserId) await notify(tx, [c.beneficiaryUserId], "Hoa hồng tạm tính bị huỷ", `${formatVnd(c.amount)} — ${reason}`, "/crm/commission", 2);
+    if (c.beneficiaryUserId) await notify(tx, [c.beneficiaryUserId], "Hoa hồng tạm tính bị huỷ", `${formatVnd(c.amount)} — ${reason}`, "/crm/commission", 2, "commission.adjusted");
   }
   return rows.length;
 }
@@ -202,7 +202,7 @@ export async function decideCommissions(ctx: ProtectedContext, input: { ids: str
     const users_ = [...new Set(rows.map((r) => r.beneficiaryUserId).filter((x): x is string => !!x))];
     const total = rows.reduce((s, r) => s + r.amount, 0);
     const title = input.action === "approve" ? "Hoa hồng đã duyệt" : input.action === "pay" ? "Hoa hồng đã chi" : "Hoa hồng bị huỷ";
-    await notify(tx as unknown as Db, users_, title, `${rows.length} dòng · ${formatVnd(total)}${reason ? ` — ${reason}` : ""}`, "/crm/commission", 3);
+    await notify(tx as unknown as Db, users_, title, `${rows.length} dòng · ${formatVnd(total)}${reason ? ` — ${reason}` : ""}`, "/crm/commission", 3, "commission.estimated");
   });
   return { count: rows.length, total: rows.reduce((s, r) => s + r.amount, 0) };
 }

@@ -126,7 +126,7 @@ export async function assignPosition(ctx: ProtectedContext, input: { staffId: st
     if (input.kind === "primary" && input.effectiveFrom <= todayISO()) await tx.update(staff).set({ title, department: input.department, centerId: input.centerId }).where(eq(staff.id, s.id));
     await writeAudit(tx, { actorId: ctx.user.id, action: "CREATE", module: "hr", entity: "staff_positions", entityId: row!.id, after: { staff: s.code, position: def?.name ?? null, roles, decisionNo: input.decisionNo?.trim() || null, ...p }, ip: ctx.ip });
     if (s.userId && s.userId !== ctx.user.id) {
-      await notify(tx, [s.userId], "Cập nhật vị trí công việc", `${title} (${POSITION_KIND_VI[input.kind].toLowerCase()}) từ ${dmy(p.effectiveFrom)}${roles.length ? ` · ${roles.length} vai trò` : ""}`, `/nhan-su/${s.id}`, 3);
+      await notify(tx, [s.userId], "Cập nhật vị trí công việc", `${title} (${POSITION_KIND_VI[input.kind].toLowerCase()}) từ ${dmy(p.effectiveFrom)}${roles.length ? ` · ${roles.length} vai trò` : ""}`, `/nhan-su/${s.id}`, 3, "hr.position_changed");
     }
     return { id: row!.id, roles };
   });
@@ -174,7 +174,7 @@ export async function addDeployment(ctx: ProtectedContext, input: { staffId: str
     await writeAudit(tx, { actorId: ctx.user.id, action: "CREATE", module: "hr", entity: "staff_deployments", entityId: r[0]!.id, after: { staff: s.code, centerId: input.centerId, from: input.effectiveFrom, to: input.effectiveTo ?? null, decisionNo: input.decisionNo?.trim() || null }, reason, ip: ctx.ip });
     return r;
   });
-  if (s.userId) await notify(ctx.db, [s.userId], "Điều động tác nghiệp", `Làm việc tại cơ sở khác từ ${dmy(input.effectiveFrom)}${input.effectiveTo ? ` đến ${dmy(input.effectiveTo)}` : ""}`, "/cham-cong/lich-ca", 3);
+  if (s.userId) await notify(ctx.db, [s.userId], "Điều động tác nghiệp", `Làm việc tại cơ sở khác từ ${dmy(input.effectiveFrom)}${input.effectiveTo ? ` đến ${dmy(input.effectiveTo)}` : ""}`, "/cham-cong/lich-ca", 3, "hr.position_changed");
   return { id: row!.id };
 }
 

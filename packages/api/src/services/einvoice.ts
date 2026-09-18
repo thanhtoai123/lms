@@ -273,7 +273,7 @@ async function doIssue(db: Db, id: string, actorId: string | null): Promise<{ st
     const msg = (e as Error).message.slice(0, 500);
     await db.update(einvoices).set({ status: "failed", error: msg }).where(eq(einvoices.id, claim.id));
     await db.insert(einvoiceEvents).values({ invoiceId: claim.id, action: "failed", note: msg, userId: actorId });
-    await notify(db, await accountantsOf(db, claim.centerId), "Hoá đơn điện tử phát hành lỗi", msg, `/hoa-don?id=${claim.id}`, 1);
+    await notify(db, await accountantsOf(db, claim.centerId), "Hoá đơn điện tử phát hành lỗi", msg, `/hoa-don?id=${claim.id}`, 1, "einvoice.failed");
     return { status: "failed", error: msg };
   }
 }

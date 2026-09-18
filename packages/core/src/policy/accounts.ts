@@ -77,6 +77,56 @@ export const PERMISSION_RESOURCES: { key: string; label: string; group: string }
   { key: "audit", label: "Audit Log", group: "Hệ thống" },
 ];
 
+/* ------------------------------------------------------------------ */
+/* Quyền cấp theo nhóm người dùng                                      */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Hành động cấp được cho một **nhóm người dùng** ("cấp quyền cho một nhóm người mà không sửa vai trò").
+ * Cố ý hẹp hơn ma trận vai trò: nhóm chỉ nới quyền xem / tạo / sửa / duyệt, không cấp `*` và không cấp `system` / `audit`.
+ */
+export const GROUP_PERMISSION_ACTIONS = ["read", "create", "update", "approve", "export"] as const;
+export type GroupPermissionAction = (typeof GROUP_PERMISSION_ACTIONS)[number];
+export const GROUP_PERMISSION_ACTION_VI: Record<GroupPermissionAction, string> = {
+  read: "Xem",
+  create: "Tạo",
+  update: "Sửa",
+  approve: "Duyệt",
+  export: "Xuất dữ liệu",
+};
+
+/** Tài nguyên KHÔNG cấp qua nhóm (phải đi qua vai trò) */
+const GROUP_FORBIDDEN_RESOURCES = new Set(["system", "audit", "compliance"]);
+
+export const GROUP_PERMISSION_RESOURCES = PERMISSION_RESOURCES.filter((r) => !GROUP_FORBIDDEN_RESOURCES.has(r.key));
+
+/** Mọi quyền hợp lệ để hiện lên trang /user-groups, gom theo nhóm tài nguyên */
+export function groupPermissionCatalog(): { group: string; items: { key: string; label: string; permissions: Permission[] }[] }[] {
+  const byGroup = new Map<string, { key: string; label: string; permissions: Permission[] }[]>();
+  for (const r of GROUP_PERMISSION_RESOURCES) {
+    const list = byGroup.get(r.group) ?? [];
+    list.push({ key: r.key, label: r.label, permissions: GROUP_PERMISSION_ACTIONS.map((a) => `${r.key}:${a}` as Permission) });
+    byGroup.set(r.group, list);
+  }
+  return [...byGroup.entries()].map(([group, items]) => ({ group, items }));
+}
+
+export function isGroupGrantable(permission: string): boolean {
+  const [res, act] = permission.split(":") as [string, string];
+  if (!res || !act) return false;
+  if (GROUP_FORBIDDEN_RESOURCES.has(res)) return false;
+  if (!GROUP_PERMISSION_RESOURCES.some((r) => r.key === res)) return false;
+  return (GROUP_PERMISSION_ACTIONS as readonly string[]).includes(act);
+}
+
+/** Kiểm tra danh sách quyền gán cho một nhóm; trả về danh sách lỗi (rỗng = hợp lệ) */
+export function validateGroupPermissions(permissions: readonly string[]): string[] {
+  const errs: string[] = [];
+  if (permissions.length > 120) errs.push("Một nhóm tối đa 120 quyền");
+  for (const p of new Set(permissions)) if (!isGroupGrantable(p)) errs.push(`Quyền "${p}" không cấp được qua nhóm người dùng`);
+  return errs;
+}
+
 export type AccessLevel = "full" | "write" | "read" | "own" | "none";
 
 /** Mức truy cập của vai trò trên một tài nguyên (tóm tắt để hiển thị) */

@@ -66,6 +66,7 @@ export const createCaller = createCallerFactory(appRouter);
 export { createContext, type Context } from "./context";
 export { createLead } from "./services/leads";
 export { processOutbox, scanLeadSla } from "./services/engagement";
+export { buildActionRequiredAlerts, deliverNotifications, notifyTyped } from "./services/notify";
 export { leadInput } from "./routers/admissions";
 export { verifyActivationCode } from "./services/parentAccounts";
 export { putObject, getObject, signedMediaUrl, verifyMediaSignature, signedFileUrl, verifyScormSignature } from "./storage";

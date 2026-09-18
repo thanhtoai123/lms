@@ -61,9 +61,8 @@ export const vnStart = (d: string) => new Date(`${d}T00:00:00+07:00`);
 export const vnEnd = (d: string) => new Date(`${d}T23:59:59.999+07:00`);
 export const dmy = (d: string) => d.split("-").reverse().join("/");
 
-export async function notify(db: Db, ids: (string | null | undefined)[], title: string, body: string, link: string, priority = 2) {
-  const u = [...new Set(ids.filter((x): x is string => !!x))];
-  if (u.length) await db.insert(userNotifications).values(u.map((userId) => ({ userId, title, body, link, priority })));
+export async function notify(db: Db, ids: (string | null | undefined)[], title: string, body: string, link: string, priority = 2, type: string | null = null) {
+  await deliverNotifications(db, ids, { title, body, link, priority, type });
 }
 
 /** Người duyệt đơn của một cơ sở: quản lý / nhân sự cơ sở + nhân sự Hội sở */

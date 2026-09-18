@@ -8,6 +8,7 @@ import {
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { writeAudit } from "./audit";
+import { deliverNotifications } from "./notify";
 import { enforcePrerequisites } from "./catalog";
 import { previewTransfer, executeTransfer, loadEnrollment, classProgress } from "./enrollments";
 
@@ -21,9 +22,8 @@ function reasonOf(r: string | null | undefined) {
   }
 }
 
-async function notify(db: Db, userIds: (string | null | undefined)[], title: string, body: string, link = "/chuyen-lop") {
-  const ids = [...new Set(userIds.filter((x): x is string => !!x))];
-  if (ids.length) await db.insert(userNotifications).values(ids.map((userId) => ({ userId, title, body, link, priority: 2 })));
+async function notify(db: Db, userIds: (string | null | undefined)[], title: string, body: string, link = "/chuyen-lop", type: string | null = "class.transfer_decided") {
+  await deliverNotifications(db, userIds, { title, body, link, priority: 2, type });
 }
 
 async function managersOf(db: Db, centerIds: string[]) {

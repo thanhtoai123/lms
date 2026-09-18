@@ -7,6 +7,7 @@ import {
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { writeAudit } from "./audit";
+import { deliverNotifications } from "./notify";
 import { todayISO } from "./sessions";
 
 type Db = ProtectedContext["db"];
@@ -138,7 +139,7 @@ export async function addHoliday(ctx: ProtectedContext, input: { from: string; t
           const tIds = [...new Set([cls.leadTeacherId, cls.assistantTeacherId, ...changed.map((c) => c.from.teacherId)].filter((x): x is string => !!x))];
           if (tIds.length) {
             const us = (await tx.select({ u: teachers.userId }).from(teachers).where(inArray(teachers.id, tIds))).map((r) => r.u).filter((x): x is string => !!x);
-            if (us.length) await tx.insert(userNotifications).values([...new Set(us)].map((userId) => ({ userId, title: "Lịch lớp dời do ngày nghỉ", body: `${cls.code}: ${changed.length} buổi dời — ${name}`, link: "/teacher/classes", priority: 1 })));
+            await deliverNotifications(tx, us, { title: "Lịch lớp dời do ngày nghỉ", body: `${cls.code}: ${changed.length} buổi dời — ${name}`, link: "/teacher/classes", priority: 1, type: "class.holiday_shift" });
           }
         }
         if (failed.length) throw new TRPCError({ code: "PRECONDITION_FAILED", message: `Không dời được: ${failed.join(" | ")}` });

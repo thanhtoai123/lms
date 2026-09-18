@@ -22,6 +22,7 @@ import {
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { getOps, opsForCenters } from "./opsSettings";
 import { writeAudit } from "./audit";
+import { deliverNotifications } from "./notify";
 import { todayISO } from "./sessions";
 import { consumedSql } from "./students";
 import { accrueCommissions, adjustCommissionsForRefund } from "./commissions";
@@ -56,9 +57,9 @@ export function scope(ctx: ProtectedContext, col: SQL | typeof orders.centerId):
 
 export const can = (ctx: ProtectedContext, p: Permission, centerId: string | null) => authorize(ctx.actor, p, { centerId }).allowed;
 
-export async function notify(db: Db, userIds: (string | null | undefined)[], title: string, body: string, link: string, priority = 2) {
-  const ids = [...new Set(userIds.filter((x): x is string => !!x))];
-  if (ids.length) await db.insert(userNotifications).values(ids.map((userId) => ({ userId, title, body, link, priority })));
+/** Gửi qua cổng chung để danh mục loại thông báo quyết định mức ưu tiên + có đẩy hay không */
+export async function notify(db: Db, userIds: (string | null | undefined)[], title: string, body: string, link: string, priority = 2, type: string | null = null) {
+  await deliverNotifications(db, userIds, { title, body, link, priority, type });
 }
 
 export async function accountantsOf(db: Db, centerId: string) {
@@ -368,7 +369,7 @@ export async function insertLeadOrderTx(tx: Db, p: {
     }).returning({ id: payments.id });
     paymentId = pay!.id;
     await tx.insert(orderEvents).values({ orderId: o!.id, event: "payment_recorded", note: `${formatVnd(p.payment.amount)} · ghi lùi ngày ${p.payment.paidAt}`, actorId: p.actorId });
-    await notify(tx, await accountantsOf(tx, p.centerId), "Khoản thu chờ xác nhận", `${code} · ${formatVnd(p.payment.amount)} · ${p.customer.name} (nhập liệu ban đầu)`, "/payments?status=recorded");
+    await notify(tx, await accountantsOf(tx, p.centerId), "Khoản thu chờ xác nhận", `${code} · ${formatVnd(p.payment.amount)} · ${p.customer.name} (nhập liệu ban đầu)`, "/payments?status=recorded", 2, "payment.pending");
   }
   await writeAudit(tx, { actorId: p.actorId, action: "CREATE", module: "finance", entity: "orders", entityId: o!.id, after: { code, total, leadId: p.leadId, backfill: p.payment ?? null } });
   return { id: o!.id, code, total, paymentId };
@@ -1011,7 +1012,7 @@ export async function recordPayment(ctx: ProtectedContext, input: { orderId: str
       enrollmentId: target.enrollmentId, orderItemId: target.orderItemId, evidenceUrl: input.evidenceUrl?.trim() || null,
     }).returning({ id: payments.id });
     await tx.insert(orderEvents).values({ orderId: o.id, event: "payment_recorded", note: `${formatVnd(amount)} · ${method.name}`, actorId: ctx.user.id });
-    await notify(tx as unknown as Db, await accountantsOf(tx as unknown as Db, o.centerId), "Khoản thu chờ xác nhận", `${o.code} · ${formatVnd(amount)} · ${o.customerName}`, "/payments?status=recorded");
+    await notify(tx as unknown as Db, await accountantsOf(tx as unknown as Db, o.centerId), "Khoản thu chờ xác nhận", `${o.code} · ${formatVnd(amount)} · ${o.customerName}`, "/payments?status=recorded", 2, "payment.pending");
     await writeAudit(tx as unknown as Db, { actorId: ctx.user.id, action: "CREATE", module: "finance", entity: "payments", entityId: p!.id, after: { orderId: o.id, amount, method: method.code, paidAt: input.paidAt, orderItemId: target.orderItemId }, ip: ctx.ip });
     return p!.id;
   });
@@ -1097,7 +1098,7 @@ export async function adjustConfirmedPayment(ctx: ProtectedContext, input: { pay
     await tx.insert(financeLedger).values({ orderId: o.id, centerId: o.centerId, entryType: "adjustment", amount: -delta, refId: p.id, note: `Điều chỉnh ${p.receiptNo ?? ""} ${formatVnd(p.amount)} → ${formatVnd(newAmount)}: ${reason}`.trim(), actorId: ctx.user.id });
     await tx.insert(orderEvents).values({ orderId: o.id, event: "payment_adjusted", note: `${formatVnd(p.amount)} → ${formatVnd(newAmount)} (${delta > 0 ? "+" : ""}${formatVnd(delta)}): ${reason}`, actorId: ctx.user.id });
     await recomputeOrderStatus(tx, o.id, ctx.user.id, `Điều chỉnh khoản thu ${p.receiptNo ?? ""}`.trim());
-    await notify(tx, [p.recordedBy], "Khoản thu được điều chỉnh", `${o.code}: ${formatVnd(p.amount)} → ${formatVnd(newAmount)}`, `/orders/${o.id}`);
+    await notify(tx, [p.recordedBy], "Khoản thu được điều chỉnh", `${o.code}: ${formatVnd(p.amount)} → ${formatVnd(newAmount)}`, `/orders/${o.id}`, 2, "payment.decided");
     await writeAudit(tx, { actorId: ctx.user.id, action: "UPDATE", module: "finance", entity: "payments", entityId: p.id, before: { amount: p.amount, adjustCount: p.adjustCount }, after: { amount: newAmount, delta, adjustCount: p.adjustCount + 1 }, reason, ip: ctx.ip });
     return { ok: true, delta, version: p.version + 1, adjustCount: p.adjustCount + 1 };
   });
@@ -1134,7 +1135,7 @@ export async function decidePayment(ctx: ProtectedContext, input: { paymentId: s
       const up = await tx.update(payments).set({ status: "rejected", decidedBy: ctx.user.id, decidedAt: new Date(), decisionReason: input.reason!.trim() }).where(and(eq(payments.id, p.id), eq(payments.status, "recorded"))).returning({ id: payments.id });
       if (!up.length) throw new TRPCError({ code: "CONFLICT", message: "Khoản thu vừa được xử lý" });
       await tx.insert(orderEvents).values({ orderId: o.id, event: "payment_rejected", note: `${formatVnd(p.amount)}: ${input.reason!.trim()}`, actorId: ctx.user.id });
-      await notify(tx as unknown as Db, [p.recordedBy], "Khoản thu bị từ chối", `${o.code} · ${formatVnd(p.amount)} — ${input.reason!.trim()}`, `/orders/${o.id}`, 1);
+      await notify(tx as unknown as Db, [p.recordedBy], "Khoản thu bị từ chối", `${o.code} · ${formatVnd(p.amount)} — ${input.reason!.trim()}`, `/orders/${o.id}`, 1, "payment.decided");
       await writeAudit(tx as unknown as Db, { actorId: ctx.user.id, action: "TRANSITION", module: "finance", entity: "payments", entityId: p.id, before: { status: "recorded" }, after: { status: "rejected" }, reason: input.reason ?? null, ip: ctx.ip });
       return { status: "rejected" as PaymentStatus, receiptNo: null as string | null };
     }
@@ -1148,7 +1149,7 @@ export async function decidePayment(ctx: ProtectedContext, input: { paymentId: s
     await tx.insert(financeLedger).values({ orderId: o.id, centerId: o.centerId, entryType: "payment", amount: -amount, refId: p.id, note: `${receiptNo}${input.decision === "adjust" ? ` (điều chỉnh từ ${formatVnd(p.amount)})` : ""}`, actorId: ctx.user.id });
     await tx.insert(orderEvents).values({ orderId: o.id, event: input.decision === "adjust" ? "payment_adjusted" : "payment_confirmed", note: `${receiptNo} · ${formatVnd(amount)}${input.decision === "adjust" ? ` (ghi nhận ${formatVnd(p.amount)}: ${input.reason!.trim()})` : ""}`, actorId: ctx.user.id });
     await recomputeOrderStatus(tx as unknown as Db, o.id, ctx.user.id, receiptNo);
-    if (input.decision === "adjust") await notify(tx as unknown as Db, [p.recordedBy], "Khoản thu được điều chỉnh", `${o.code}: ${formatVnd(p.amount)} → ${formatVnd(amount)}`, `/orders/${o.id}`);
+    if (input.decision === "adjust") await notify(tx as unknown as Db, [p.recordedBy], "Khoản thu được điều chỉnh", `${o.code}: ${formatVnd(p.amount)} → ${formatVnd(amount)}`, `/orders/${o.id}`, 2, "payment.decided");
     await writeAudit(tx as unknown as Db, { actorId: ctx.user.id, action: "TRANSITION", module: "finance", entity: "payments", entityId: p.id, before: { status: "recorded", amount: p.amount }, after: { status: "confirmed", amount, receiptNo }, reason: input.reason ?? null, ip: ctx.ip });
     return { status: "confirmed" as PaymentStatus, receiptNo };
   });
@@ -1499,7 +1500,7 @@ export async function backfillTuition(ctx: ProtectedContext, input: {
       }).returning({ id: payments.id });
       paymentId = p!.id;
       await tx.insert(orderEvents).values({ orderId, event: "payment_recorded", note: `${formatVnd(paid)} · ghi lùi ngày ${paidAt} (nhập liệu ban đầu)`, actorId: ctx.user.id });
-      await notify(tx, await accountantsOf(tx, e.centerId), "Khoản thu chờ xác nhận", `${orderCodeStr} · ${formatVnd(paid)} · ${e.studentName} (nhập liệu ban đầu)`, "/payments?status=recorded");
+      await notify(tx, await accountantsOf(tx, e.centerId), "Khoản thu chờ xác nhận", `${orderCodeStr} · ${formatVnd(paid)} · ${e.studentName} (nhập liệu ban đầu)`, "/payments?status=recorded", 2, "payment.pending");
     }
     await writeAudit(tx, { actorId: ctx.user.id, action: existing ? "UPDATE" : "CREATE", module: "finance", entity: "orders", entityId: orderId, after: { code: orderCodeStr, total, paid, backfill: true, enrollmentId: e.id }, reason: input.note ?? null, ip: ctx.ip });
     return { orderId, code: orderCodeStr, paymentId, total };
@@ -1722,7 +1723,7 @@ export async function proposeRefundIfPaid(tx: Db, input: { enrollmentId: string;
     sessionsUsed: proposal.usedSessions, sessionsTotal: pkg, reason, trigger: input.trigger, auto: true, requestedBy: input.actorId,
   }).returning({ id: refunds.id });
   await tx.insert(orderEvents).values({ orderId, event: "refund_requested", note: `${formatVnd(proposal.refundable)} (tự đề xuất khi ${TRIGGER_VI[input.trigger].toLowerCase()}): ${input.reason}`.slice(0, 500), actorId: input.actorId });
-  await notify(tx, await managersOf(tx, e.centerId), "Đề xuất hoàn tiền chờ duyệt", `${e.studentName} · ${e.classCode} · ${formatVnd(proposal.refundable)} (${TRIGGER_VI[input.trigger]})`, "/hoan-tien?status=pending");
+  await notify(tx, await managersOf(tx, e.centerId), "Đề xuất hoàn tiền chờ duyệt", `${e.studentName} · ${e.classCode} · ${formatVnd(proposal.refundable)} (${TRIGGER_VI[input.trigger]})`, "/hoan-tien?status=pending", 2, "refund.pending");
   return { refundId: row!.id, amount: proposal.refundable };
 }
 
@@ -1826,7 +1827,7 @@ export async function requestRefund(ctx: ProtectedContext, input: { enrollmentId
       sessionsUsed: r.proposal!.usedSessions, sessionsTotal: r.enrollment.packageSessions, reason: input.reason.trim(), trigger: input.trigger ?? "manual", auto: false, requestedBy: ctx.user.id,
     }).returning({ id: refunds.id });
     await tx.insert(orderEvents).values({ orderId: r.order!.id, event: "refund_requested", note: `${formatVnd(amount)} (đề xuất ${formatVnd(r.proposal!.refundable)}): ${input.reason.trim()}`, actorId: ctx.user.id });
-    await notify(tx as unknown as Db, await managersOf(tx as unknown as Db, r.enrollment.centerId), "Yêu cầu hoàn tiền chờ duyệt", `${r.enrollment.studentName} · ${formatVnd(amount)}`, "/hoan-tien?status=pending");
+    await notify(tx as unknown as Db, await managersOf(tx as unknown as Db, r.enrollment.centerId), "Yêu cầu hoàn tiền chờ duyệt", `${r.enrollment.studentName} · ${formatVnd(amount)}`, "/hoan-tien?status=pending", 2, "refund.pending");
     await writeAudit(tx as unknown as Db, { actorId: ctx.user.id, action: "CREATE", module: "finance", entity: "refunds", entityId: ins[0]!.id, after: { orderId: r.order!.id, amount, proposed: r.proposal!.refundable }, reason: input.reason, ip: ctx.ip });
     return ins;
   });
@@ -1845,7 +1846,7 @@ export async function decideRefund(ctx: ProtectedContext, input: { id: string; a
     if (!up.length) throw new TRPCError({ code: "CONFLICT", message: "Yêu cầu vừa được xử lý" });
     await tx.insert(orderEvents).values({ orderId: r.orderId, event: input.action === "approve" ? "refund_approved" : "refund_rejected", note: `${formatVnd(r.amount)}${note ? `: ${note}` : ""}`, actorId: ctx.user.id });
     const targets = input.action === "approve" ? await accountantsOf(tx as unknown as Db, r.centerId) : [r.requestedBy];
-    await notify(tx as unknown as Db, targets, input.action === "approve" ? "Hoàn tiền đã duyệt — chờ chi" : "Yêu cầu hoàn tiền bị từ chối", `${formatVnd(r.amount)}${note ? ` — ${note}` : ""}`, "/hoan-tien");
+    await notify(tx as unknown as Db, targets, input.action === "approve" ? "Hoàn tiền đã duyệt — chờ chi" : "Yêu cầu hoàn tiền bị từ chối", `${formatVnd(r.amount)}${note ? ` — ${note}` : ""}`, "/hoan-tien", 2, "refund.decided");
     await writeAudit(tx as unknown as Db, { actorId: ctx.user.id, action: "TRANSITION", module: "finance", entity: "refunds", entityId: r.id, before: { status: r.status }, after: { status: to }, reason: note, ip: ctx.ip });
   });
   return { status: to };
@@ -1873,7 +1874,7 @@ export async function payRefund(ctx: ProtectedContext, input: { id: string; paym
     await tx.insert(orderEvents).values({ orderId: r.orderId, event: "refund_paid", fromStatus: o?.status, toStatus: fully ? "refunded" : o?.status, note: `${formatVnd(r.amount)} · ${method.name}`, actorId: ctx.user.id });
     if (fully && o) await tx.update(orders).set({ status: "refunded" }).where(eq(orders.id, o.id));
     await adjustCommissionsForRefund(tx as unknown as Db, r.orderId, r.amount, ctx.user.id);
-    await notify(tx as unknown as Db, [r.requestedBy], "Đã chi hoàn tiền", `${formatVnd(r.amount)} — nhớ cập nhật trạng thái đăng ký học nếu học viên nghỉ`, "/hoan-tien?status=paid");
+    await notify(tx as unknown as Db, [r.requestedBy], "Đã chi hoàn tiền", `${formatVnd(r.amount)} — nhớ cập nhật trạng thái đăng ký học nếu học viên nghỉ`, "/hoan-tien?status=paid", 2, "refund.decided");
     await writeAudit(tx as unknown as Db, { actorId: ctx.user.id, action: "TRANSITION", module: "finance", entity: "refunds", entityId: r.id, before: { status: r.status }, after: { status: to, method: method.code, payoutRef: input.payoutRef ?? null }, ip: ctx.ip });
   });
   return { status: to };

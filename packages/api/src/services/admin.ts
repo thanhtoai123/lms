@@ -2,7 +2,7 @@ import { createHash, randomInt } from "node:crypto";
 import { and, eq, inArray, sql, desc, asc, isNull, or, ilike, lte, gte, type SQL } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import {
-  emailTemplates, emailLogs, otpRequests, userGroups, userGroupMembers, regions, webhookEvents, appSettings,
+  emailTemplates, emailLogs, otpRequests, userGroups, userGroupMembers, userGroupPermissions, regions, webhookEvents, appSettings,
   users, userRoles, userNotifications, centers, staff, students, classes, bankTransactions, parentNotifications, outbox,
   type Database,
 } from "@satarobo/db";
@@ -10,6 +10,7 @@ import {
   EMAIL_EVENTS, EMAIL_EVENT_KEYS, fillTemplate, validateEmailTemplate, emailRetryDelayMs, isEmail,
   OTP_POLICY, otpPolicyFrom, otpRequestDecision, otpVerifyDecision, normalizeVnPhone,
   canReplay, safeHeaders, SETTINGS_DEFAULTS, validateSettings, validateCode, validateGroup, parseSepayPayload, hasRole, DEPARTMENT_VI,
+  groupPermissionCatalog, validateGroupPermissions, GROUP_PERMISSION_ACTION_VI, otpDailyCutoff, znsCostEstimate, otpCutoffState,
   type EmailEvent, type EmailStatus, type OtpPurpose, type OtpStatus, type WebhookSource, type WebhookStatus, type AppSettings, type Department,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
@@ -17,6 +18,7 @@ import { sendOtpMessage, deliverySettings, otpDeliveryReady } from "./delivery";
 import { pushOverview } from "./pilot";
 import { getOps } from "./opsSettings";
 import { writeAudit } from "./audit";
+import { deliverNotifications } from "./notify";
 import { ingestBankTx } from "./bank";
 import { createLead } from "./leads";
 import { leadInput } from "../routers/admissions";
@@ -232,16 +234,39 @@ export async function listOtp(ctx: ProtectedContext, input: { status?: OtpStatus
   const page = input.page ?? 1;
   const rows = await ctx.db.select({ id: otpRequests.id, phone: otpRequests.phone, purpose: otpRequests.purpose, channel: otpRequests.channel, status: otpRequests.status, attempts: otpRequests.attempts, ip: otpRequests.ip, note: otpRequests.note, expiresAt: otpRequests.expiresAt, verifiedAt: otpRequests.verifiedAt, createdAt: otpRequests.createdAt })
     .from(otpRequests).where(where).orderBy(desc(otpRequests.createdAt)).limit(PAGE).offset((page - 1) * PAGE);
+  // Đếm theo NGÀY LỊCH (giờ Việt Nam) như bản gốc; giữ thêm chỉ số 24 giờ trượt đang dùng
+  const VN_TODAY = sql`(${otpRequests.createdAt} at time zone 'Asia/Ho_Chi_Minh')::date = (now() at time zone 'Asia/Ho_Chi_Minh')::date`;
   const [c] = await ctx.db.select({
     total: sql<number>`count(*)::int`,
     verified: sql<number>`count(*) filter (where ${otpRequests.status} = 'verified')::int`,
     blocked24h: sql<number>`count(*) filter (where ${otpRequests.status} = 'blocked' and ${otpRequests.createdAt} > now() - interval '24 hours')::int`,
     failed24h: sql<number>`count(*) filter (where ${otpRequests.status} = 'failed' and ${otpRequests.createdAt} > now() - interval '24 hours')::int`,
     last24h: sql<number>`count(*) filter (where ${otpRequests.createdAt} > now() - interval '24 hours')::int`,
+    today: sql<number>`count(*) filter (where ${VN_TODAY})::int`,
+    sentToday: sql<number>`count(*) filter (where ${VN_TODAY} and ${otpRequests.status} in ('sent','verified','failed'))::int`,
+    znsToday: sql<number>`count(*) filter (where ${VN_TODAY} and ${otpRequests.channel} = 'zns' and ${otpRequests.status} in ('sent','verified','failed'))::int`,
+    znsRecipientErrorsToday: sql<number>`count(*) filter (where ${VN_TODAY} and ${otpRequests.channel} = 'zns' and ${otpRequests.status} in ('failed','blocked'))::int`,
+    blockedToday: sql<number>`count(*) filter (where ${VN_TODAY} and ${otpRequests.status} = 'blocked')::int`,
+    failedToday: sql<number>`count(*) filter (where ${VN_TODAY} and ${otpRequests.status} = 'failed')::int`,
   }).from(otpRequests).where(where);
+
+  const ops = await getOps(ctx.db);
+  const policy = otpPolicyFrom(ops);
+  const cutoff = otpDailyCutoff(policy);
+  const sentToday = c?.sentToday ?? 0;
   const now = Date.now();
   return {
-    page, pageSize: PAGE, counts: c, policy: otpPolicyFrom(await getOps(ctx.db)), znsConfigured: otpDeliveryReady(await deliverySettings(ctx.db)),
+    page, pageSize: PAGE, counts: c, policy, znsConfigured: otpDeliveryReady(await deliverySettings(ctx.db)),
+    /** Thẻ số của bản gốc: tin đã gửi hôm nay · ngưỡng tự ngắt · chi phí ZNS hôm nay (ước) · ZNS lỗi người nhận hôm nay */
+    daily: {
+      sent: sentToday,
+      zns: c?.znsToday ?? 0,
+      znsRecipientErrors: c?.znsRecipientErrorsToday ?? 0,
+      cutoff,
+      ...otpCutoffState(sentToday, cutoff),
+      unitCostVnd: ops.znsUnitCostVnd,
+      estimatedCostVnd: znsCostEstimate(c?.znsToday ?? 0, ops.znsUnitCostVnd),
+    },
     items: rows.map((r) => ({ ...r, phone: r.phone.replace(/^(\d{3})\d+(\d{3})$/, "$1••••$2"), status: (r.status === "sent" || r.status === "queued") && r.expiresAt.getTime() < now ? "expired" : r.status })),
   };
 }
@@ -252,9 +277,13 @@ export async function listOtp(ctx: ProtectedContext, input: { status?: OtpStatus
 
 export async function listGroups(ctx: ProtectedContext) {
   requirePermission(ctx, "system:read");
-  const rows = await ctx.db.select({ g: userGroups, centerCode: centers.code, members: sql<number>`(select count(*)::int from ${userGroupMembers} m where m.group_id = ${userGroups.id})` })
+  const rows = await ctx.db.select({
+    g: userGroups, centerCode: centers.code,
+    members: sql<number>`(select count(*)::int from ${userGroupMembers} m where m.group_id = ${userGroups.id})`,
+    permissions: sql<number>`(select count(*)::int from ${userGroupPermissions} p where p.group_id = ${userGroups.id})`,
+  })
     .from(userGroups).leftJoin(centers, eq(centers.id, userGroups.centerId)).orderBy(asc(userGroups.name));
-  return rows.map((r) => ({ ...r.g, centerCode: r.centerCode, members: r.members }));
+  return rows.map((r) => ({ ...r.g, centerCode: r.centerCode, members: r.members, permissions: r.permissions }));
 }
 
 export async function getGroup(ctx: ProtectedContext, id: string) {
@@ -264,7 +293,42 @@ export async function getGroup(ctx: ProtectedContext, id: string) {
   const members = await ctx.db.select({ userId: users.id, fullName: users.fullName, email: users.email, isActive: users.isActive, addedAt: userGroupMembers.addedAt,
     roles: sql<string>`(select string_agg(distinct r.role::text, ', ') from ${userRoles} r where r.user_id = ${users.id})` })
     .from(userGroupMembers).innerJoin(users, eq(users.id, userGroupMembers.userId)).where(eq(userGroupMembers.groupId, id)).orderBy(asc(users.fullName));
-  return { ...g, members };
+  const perms = await ctx.db.select({ permission: userGroupPermissions.permission, centerId: userGroupPermissions.centerId, grantedAt: userGroupPermissions.grantedAt, reason: userGroupPermissions.reason })
+    .from(userGroupPermissions).where(eq(userGroupPermissions.groupId, id)).orderBy(asc(userGroupPermissions.permission));
+  return { ...g, members, permissions: perms, catalog: groupPermissionCatalog(), actionLabels: GROUP_PERMISSION_ACTION_VI };
+}
+
+/**
+ * Đặt bộ quyền của một nhóm — "cấp quyền cho một nhóm người mà không sửa vai trò".
+ * Thay toàn bộ danh sách; đổi bắt buộc ghi lý do và ghi nhật ký trong cùng transaction.
+ */
+export async function setGroupPermissions(ctx: ProtectedContext, input: { groupId: string; permissions: string[]; reason: string }) {
+  requirePermission(ctx, "system:update");
+  if (!hasRole(ctx.actor, "SUPER_ADMIN")) throw new TRPCError({ code: "FORBIDDEN", message: "Chỉ Quản trị tối cao cấp quyền theo nhóm" });
+  const reason = input.reason.trim();
+  if (reason.length < 5) throw bad("Đổi quyền của nhóm phải ghi lý do (tối thiểu 5 ký tự)");
+  const wanted = [...new Set(input.permissions.map((p) => p.trim()))].filter(Boolean);
+  const errs = validateGroupPermissions(wanted);
+  if (errs.length) throw bad(errs);
+
+  return ctx.db.transaction(async (tx) => {
+    const db = tx as unknown as Db;
+    const g = await db.query.userGroups.findFirst({ where: eq(userGroups.id, input.groupId) });
+    if (!g) throw notFound("Không tìm thấy nhóm");
+    const before = (await db.select({ permission: userGroupPermissions.permission }).from(userGroupPermissions).where(eq(userGroupPermissions.groupId, g.id))).map((r) => r.permission).sort();
+    const after = [...wanted].sort();
+    if (before.join("|") === after.join("|")) return { changed: 0, permissions: after };
+
+    await db.delete(userGroupPermissions).where(eq(userGroupPermissions.groupId, g.id));
+    if (after.length) {
+      await db.insert(userGroupPermissions).values(after.map((permission) => ({ groupId: g.id, permission, centerId: g.centerId ?? null, grantedBy: ctx.user.id, reason })));
+    }
+    await writeAudit(db, {
+      actorId: ctx.user.id, action: "UPDATE", module: "system", entity: "user_group_permissions", entityId: g.id,
+      before: { permissions: before }, after: { permissions: after, scope: g.centerId ? "cơ sở" : "toàn hệ thống" }, reason, ip: ctx.ip,
+    });
+    return { changed: Math.abs(after.length - before.length) + after.filter((p) => !before.includes(p)).length, permissions: after };
+  });
 }
 
 export async function upsertGroup(ctx: ProtectedContext, input: { id?: string; name: string; description?: string | null; centerId?: string | null }) {
@@ -315,7 +379,7 @@ export async function announceToGroup(ctx: ProtectedContext, input: { groupId: s
   if (input.link && !/^\/[A-Za-z0-9/_?=&.-]*$/.test(input.link)) throw bad("Liên kết phải là đường dẫn nội bộ, bắt đầu bằng /");
   const mem = await ctx.db.select({ id: users.id }).from(userGroupMembers).innerJoin(users, eq(users.id, userGroupMembers.userId)).where(and(eq(userGroupMembers.groupId, input.groupId), eq(users.isActive, true)));
   if (!mem.length) throw pre("Nhóm chưa có thành viên đang hoạt động");
-  await ctx.db.insert(userNotifications).values(mem.map((m) => ({ userId: m.id, title: input.title.trim(), body: input.body.trim(), link: input.link || null, priority: input.priority })));
+  await deliverNotifications(ctx.db, mem.map((m) => m.id), { title: input.title.trim(), body: input.body.trim(), link: input.link || null, priority: input.priority, type: "announcement" });
   await writeAudit(ctx.db, { actorId: ctx.user.id, action: "CREATE", module: "system", entity: "user_notifications", entityId: input.groupId, after: { title: input.title, recipients: mem.length }, ip: ctx.ip });
   return { recipients: mem.length };
 }
@@ -503,7 +567,7 @@ export async function integrations(ctx: ProtectedContext) {
   const [otp] = await ctx.db.select({ n24: sql<number>`count(*) filter (where ${otpRequests.createdAt} > now() - interval '24 hours')::int` }).from(otpRequests);
   const ds = await deliverySettings(ctx.db);
   const pu = await pushOverview(ctx.db);
-  type Item = { key: string; name: string; purpose: string; status: "ok" | "warn" | "off"; details: string[]; env: string[]; href?: string };
+  type Item = { key: string; name: string; purpose: string; status: "ok" | "warn" | "off"; details: string[]; env: string[]; href?: string; test?: "email" | "zns" | "sms" | null };
   const items: Item[] = [
     { key: "sepay", name: "SePay", purpose: "Biến động số dư → tự khớp đơn", status: e.SEPAY_API_KEY ? (wh?.rejected24 ? "warn" : "ok") : "off", env: ["SEPAY_API_KEY"], href: "/bien-dong-so-du",
       details: [`Webhook: /api/webhooks/sepay`, `Lần nhận gần nhất: ${bank?.last ?? "chưa có"}`, `24h: ${bank?.n24 ?? 0} giao dịch · bị từ chối ${wh?.rejected24 ?? 0}`] },
@@ -528,7 +592,50 @@ export async function integrations(ctx: ProtectedContext) {
     { key: "forms", name: "Form công khai", purpose: "Đăng ký học thử từ website", status: e.PUBLIC_FORM_ORIGINS ? "ok" : "warn", env: ["PUBLIC_FORM_ORIGINS"], href: "/crm/webhook-replay",
       details: [`Nguồn cho phép: ${e.PUBLIC_FORM_ORIGINS ?? "mặc định (satarobo.vn, localhost)"}`, `Sự kiện lỗi chờ chạy lại: ${wh?.failed ?? 0}`] },
   ];
-  return { items };
+
+  // Rate limit — ghi rõ đang đếm ở đâu
+  const redis = e.UPSTASH_REDIS_REST_URL || e.REDIS_URL;
+  items.push({
+    key: "ratelimit", name: "Rate limit (chống spam / dò mật khẩu)", purpose: "Giới hạn lần gửi OTP, đăng nhập, form công khai, tin nhắn phụ huynh",
+    status: redis ? "ok" : "warn", env: ["UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN", "REDIS_URL"], href: "/cau-hinh-van-hanh?tab=otp",
+    details: [
+      redis ? "Kho đếm: Redis (Upstash) — dùng chung cho mọi phiên bản máy chủ" : "Kho đếm: Postgres cho OTP / đăng nhập (bảng otp_requests, login_events) + bộ nhớ tiến trình cho route công khai",
+      redis ? "" : "Chưa có Redis: chạy nhiều phiên bản thì hạn mức route công khai đếm riêng từng phiên bản",
+      `Hạn mức OTP hiện hành: ${OTP_POLICY.perPhoneMax} mã / ${OTP_POLICY.perPhoneWindowMin} phút mỗi SĐT · ${OTP_POLICY.perIpMax} mã / giờ mỗi IP`,
+    ].filter(Boolean),
+  });
+
+  // MISA AMIS (kế toán)
+  const misaReady = !!(e.MISA_CLIENT_ID && e.MISA_CLIENT_SECRET && e.MISA_API_URL);
+  items.push({
+    key: "misa", name: "MISA AMIS (kế toán)", purpose: "Đẩy phiếu thu / hoá đơn sang phần mềm kế toán",
+    status: misaReady ? "ok" : "off", env: ["MISA_CLIENT_ID", "MISA_CLIENT_SECRET", "MISA_API_URL"], href: "/hoa-don",
+    details: misaReady
+      ? [`Điểm cuối: ${e.MISA_API_URL}`, "Đồng bộ chạy theo lô cùng hàng đợi hoá đơn điện tử"]
+      : ["Chưa cấu hình — phiếu thu và hoá đơn hiện chỉ lưu trong hệ thống", "Thiếu credential thì dừng an toàn: không gọi ra ngoài, không mất dữ liệu"],
+  });
+
+  for (const it of items) {
+    if (it.key === "email") it.test = "email";
+    if (it.key === "zns") it.test = "zns";
+  }
+
+  // Bảng log lỗi nhà cung cấp gần nhất (email · ZNS/SMS · webhook)
+  const [emailErr, znsErr, whErr] = await Promise.all([
+    ctx.db.select({ at: emailLogs.createdAt, target: emailLogs.toEmail, ref: emailLogs.eventKey, error: emailLogs.error, provider: emailLogs.provider })
+      .from(emailLogs).where(and(eq(emailLogs.status, "failed"), sql`${emailLogs.error} is not null`)).orderBy(desc(emailLogs.createdAt)).limit(10),
+    ctx.db.select({ at: parentNotifications.createdAt, target: parentNotifications.template, ref: parentNotifications.channel, error: parentNotifications.error, providerRef: parentNotifications.providerRef })
+      .from(parentNotifications).where(and(eq(parentNotifications.status, "failed"), sql`${parentNotifications.error} is not null`)).orderBy(desc(parentNotifications.createdAt)).limit(10),
+    ctx.db.select({ at: webhookEvents.receivedAt, source: webhookEvents.source, status: webhookEvents.status, httpStatus: webhookEvents.httpStatus, error: webhookEvents.error })
+      .from(webhookEvents).where(inArray(webhookEvents.status, ["failed", "rejected"])).orderBy(desc(webhookEvents.receivedAt)).limit(10),
+  ]);
+  const providerErrors = [
+    ...emailErr.map((r) => ({ at: r.at, provider: r.provider ?? "email", target: r.target, code: r.ref, message: r.error ?? "" })),
+    ...znsErr.map((r) => ({ at: r.at, provider: r.ref, target: r.target, code: r.providerRef ?? "—", message: r.error ?? "" })),
+    ...whErr.map((r) => ({ at: r.at, provider: r.source, target: r.status, code: r.httpStatus ? String(r.httpStatus) : "—", message: r.error ?? "" })),
+  ].sort((a, b) => b.at.getTime() - a.at.getTime()).slice(0, 20);
+
+  return { items, providerErrors };
 }
 
 export async function getSettings(db: Db): Promise<AppSettings> {

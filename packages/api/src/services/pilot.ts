@@ -159,7 +159,7 @@ export async function createFeedback(ctx: ProtectedContext, input: { centerId: s
   const [r] = await ctx.db.insert(pilotFeedback).values({ centerId: input.centerId, category: input.category, severity: input.severity, title: input.title.trim().slice(0, 200), detail: input.detail?.trim().slice(0, 3000) || null, pageUrl, createdBy: ctx.user.id }).returning({ id: pilotFeedback.id });
   if (input.severity === "high") {
     const admins = await ctx.db.select({ id: users.id }).from(users).where(sql`exists (select 1 from user_roles r where r.user_id = ${users.id} and r.role = 'SUPER_ADMIN')`);
-    await notify(ctx.db, admins.map((a) => a.id), "Pilot: sự cố chặn công việc", input.title.trim().slice(0, 120), `/go-live?tab=phan-hoi`, 1);
+    await notify(ctx.db, admins.map((a) => a.id), "Pilot: sự cố chặn công việc", input.title.trim().slice(0, 120), `/go-live?tab=phan-hoi`, 1, "pilot.blocker");
   }
   return { id: r!.id };
 }
@@ -173,7 +173,7 @@ export async function updateFeedback(ctx: ProtectedContext, input: { id: string;
   const done = input.status === "resolved" || input.status === "wontfix";
   await ctx.db.update(pilotFeedback).set({ status: input.status, resolution: done ? input.resolution!.trim().slice(0, 2000) : f.resolution, handledBy: ctx.user.id, resolvedAt: done ? new Date() : null, updatedAt: new Date() }).where(eq(pilotFeedback.id, f.id));
   if (done && f.createdBy) {
-    await notify(ctx.db, [f.createdBy], `Phản hồi pilot: ${PILOT_FB_STATUS_VI[input.status]}`, `${f.title.slice(0, 80)} — ${input.resolution!.trim().slice(0, 120)}`, `/go-live?tab=phan-hoi`, 2);
+    await notify(ctx.db, [f.createdBy], `Phản hồi pilot: ${PILOT_FB_STATUS_VI[input.status]}`, `${f.title.slice(0, 80)} — ${input.resolution!.trim().slice(0, 120)}`, `/go-live?tab=phan-hoi`, 2, "pilot.feedback");
   }
   await writeAudit(ctx.db, { actorId: ctx.user.id, action: "TRANSITION", module: "migration", entity: "pilot_feedback", entityId: f.id, before: { status: f.status }, after: { status: input.status }, reason: input.resolution ?? null, ip: ctx.ip });
   return { ok: true };
