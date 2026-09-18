@@ -97,3 +97,5 @@ export { generateVapidKeys } from "./webpush";
 export { requestPasswordReset, supabaseAdmin, supabaseConfigured } from "./services/staffAuth";
 export { loginPrecheck, recordLogin, staffBlocked, setMfaEnabled, staffIdleMinutes, pruneLoginEvents } from "./services/loginSecurity";
 export { remindPauseEnding } from "./services/studentLifecycle";
+export { checkRateLimit, resetRateLimit, pruneRateLimits, assertRateLimit, rateKey, tooManyMessage, type RateDecision } from "./lib/rateLimit";
+export { logger, apiLogger } from "./lib/logger";

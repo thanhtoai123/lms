@@ -1,5 +1,8 @@
-import { createContext } from "@satarobo/api";
-import { devActorAllowed, DEV_ACTOR_HEADER, MemoryRateLimiter } from "@satarobo/core";
+import { createContext, checkRateLimit, rateKey, tooManyMessage } from "@satarobo/api";
+import { getDb } from "@satarobo/db";
+import { devActorAllowed, DEV_ACTOR_HEADER, MemoryRateLimiter, type RateLimitName } from "@satarobo/core";
+
+type RateKeyKind = Parameters<typeof rateKey>[1];
 
 const readCookie = (cookie: string, name: string) => {
   const raw = cookie.split("; ").find((c) => c.startsWith(`${name}=`))?.slice(name.length + 1);
@@ -43,12 +46,48 @@ export function crossSite(req: Request) {
 export const crossSiteResponse = () => Response.json({ ok: false, error: "Yêu cầu từ trang khác bị chặn" }, { status: 403 });
 
 const limiter = new MemoryRateLimiter();
+/**
+ * Trần trong BỘ NHỚ một tiến trình — chỉ là lớp chặn đầu tiên.
+ * Luồng nhạy cảm (đăng nhập, OTP, quên mật khẩu, webhook) phải dùng `sharedRateLimited`
+ * bên dưới để trần còn đúng khi chạy nhiều bản sao máy chủ.
+ */
 export function rateLimited(key: string, max: number, windowMs: number) {
   return !limiter.hit(key, Date.now(), max, windowMs).allowed;
 }
 /** Xoá bộ đếm sau khi xác thực thành công */
 export function clearRateLimit(key: string) {
   limiter.reset(key);
+}
+
+/**
+ * Trần DÙNG CHUNG giữa các bản sao (bảng `rate_limits` trong Postgres).
+ * Trả về `null` khi được phép, hoặc quyết định chặn khi đụng trần.
+ *
+ * CSDL lỗi thì **cho qua** (xem `checkRateLimit`): trần tần suất không bao giờ được
+ * biến thành lý do khiến không ai đăng nhập được.
+ */
+export async function sharedRateLimit(name: RateLimitName, kind: RateKeyKind, value: string | null | undefined, purpose?: string) {
+  const d = await checkRateLimit(getDb(), name, rateKey(purpose ?? name, kind, value));
+  return d.allowed ? null : d;
+}
+
+/** Bản rút gọn trả `true` khi bị chặn — thay thế trực tiếp cho `rateLimited` */
+export async function sharedRateLimited(name: RateLimitName, kind: RateKeyKind, value: string | null | undefined, purpose?: string) {
+  return (await sharedRateLimit(name, kind, value, purpose)) !== null;
+}
+
+/** Phản hồi 429 chuẩn, kèm `Retry-After` để máy khách biết chờ bao lâu */
+export function tooManyResponse(d: { retryAfterSec: number }, what = "thao tác") {
+  return Response.json(
+    { ok: false, error: tooManyMessage(d, what) },
+    { status: 429, headers: { "Retry-After": String(Math.max(1, d.retryAfterSec)) } },
+  );
+}
+
+/** Địa chỉ IP của người gọi (chuỗi rỗng → "unknown" để khoá đếm không bị tách) */
+export function clientIp(req: Request | Headers) {
+  const h = req instanceof Headers ? req : req.headers;
+  return h.get("x-forwarded-for")?.split(",")[0]?.trim() || h.get("x-real-ip")?.trim() || "unknown";
 }
 
 export function errorStatus(e: unknown) {

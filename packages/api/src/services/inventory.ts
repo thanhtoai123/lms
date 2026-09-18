@@ -375,9 +375,19 @@ export async function sellProducts(ctx: ProtectedContext, input: {
   } catch (e) {
     // Hết hàng giữa chừng (người khác vừa xuất): huỷ đơn vừa lập để không treo công nợ
     const [o] = await ctx.db.select({ total: orders.total, status: orders.status }).from(orders).where(eq(orders.id, order.id));
-    await ctx.db.update(orders).set({ status: "cancelled", cancelReason: "Không đủ tồn khi xuất hàng" }).where(eq(orders.id, order.id));
-    await ctx.db.insert(orderEvents).values({ orderId: order.id, event: "cancel", fromStatus: o?.status, toStatus: "cancelled", note: "Không đủ tồn khi xuất hàng", actorId: ctx.user.id });
-    if (o?.total) await ctx.db.insert(financeLedger).values({ orderId: order.id, centerId: center.id, entryType: "cancel", amount: -o.total, refId: order.id, note: "Huỷ đơn: không đủ tồn", actorId: ctx.user.id });
+    // Đường bù trừ này ĐỘNG VÀO TIỀN (huỷ đơn + bút toán âm) nên phải nguyên tử và có nhật ký:
+    // trước đây ba câu lệnh chạy rời nhau, hỏng giữa chừng là để lại đơn treo không dấu vết.
+    await ctx.db.transaction(async (txx) => {
+      const tx = txx as unknown as Db;
+      await tx.update(orders).set({ status: "cancelled", cancelReason: "Không đủ tồn khi xuất hàng" }).where(eq(orders.id, order.id));
+      await tx.insert(orderEvents).values({ orderId: order.id, event: "cancel", fromStatus: o?.status, toStatus: "cancelled", note: "Không đủ tồn khi xuất hàng", actorId: ctx.user.id });
+      if (o?.total) await tx.insert(financeLedger).values({ orderId: order.id, centerId: center.id, entryType: "cancel", amount: -o.total, refId: order.id, note: "Huỷ đơn: không đủ tồn", actorId: ctx.user.id });
+      await writeAudit(tx, {
+        actorId: ctx.user.id, action: "TRANSITION", module: "finance", entity: "orders", entityId: order.id,
+        before: { status: o?.status }, after: { status: "cancelled", reversedAmount: o?.total ?? 0 },
+        reason: "Không đủ tồn khi xuất hàng", ip: ctx.ip,
+      });
+    });
     throw e;
   }
   return order;

@@ -1,5 +1,6 @@
 import { staffSubmit } from "@satarobo/api";
 import { routeContext, errorStatus, crossSite, crossSiteResponse } from "@/lib/route-ctx";
+import { clientSafeMessage } from "@satarobo/core";
 
 /** Giáo viên / giáo vụ nộp hộ bài (multipart: submissionId, text, link, files[]) */
 export async function POST(req: Request) {
@@ -18,6 +19,6 @@ export async function POST(req: Request) {
     });
     return Response.json({ ok: true, ...r });
   } catch (e) {
-    return Response.json({ ok: false, error: (e as Error).message }, { status: errorStatus(e) });
+    return Response.json({ ok: false, error: clientSafeMessage(e) }, { status: errorStatus(e) });
   }
 }

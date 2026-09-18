@@ -1,5 +1,6 @@
 import { uploadSiteMedia, SITE_MEDIA_MAX } from "@satarobo/api";
 import { routeContext, errorStatus, crossSite, crossSiteResponse } from "@/lib/route-ctx";
+import { clientSafeMessage } from "@satarobo/core";
 
 /** Tải ảnh cho website (multipart: file, alt) */
 export async function POST(req: Request) {
@@ -14,6 +15,6 @@ export async function POST(req: Request) {
     const r = await uploadSiteMedia(ctx, { fileName: file.name, mime: file.type, bytes: new Uint8Array(await file.arrayBuffer()), alt: String(form?.get("alt") ?? "") || null });
     return Response.json({ ok: true, ...r });
   } catch (e) {
-    return Response.json({ ok: false, error: (e as Error).message }, { status: errorStatus(e) });
+    return Response.json({ ok: false, error: clientSafeMessage(e) }, { status: errorStatus(e) });
   }
 }

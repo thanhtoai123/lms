@@ -1,19 +1,33 @@
 import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import { ZodError } from "zod";
-import { ForbiddenError, SessionTransitionError, assertAuthorized, type Permission, type ResourceRef } from "@satarobo/core";
+import { ForbiddenError, SessionTransitionError, assertAuthorized, clientSafeMessage, type Permission, type ResourceRef } from "@satarobo/core";
 import type { Context } from "./context";
 
 const t = initTRPC.context<Context>().create({
   transformer: superjson,
   errorFormatter({ shape, error }) {
     const zod = error.cause instanceof ZodError ? error.cause : null;
+    /**
+     * Thông báo gửi về MÁY KHÁCH không được kèm câu SQL hay tên bảng / cột.
+     * `postgres-js` ném lỗi với `message` kiểu `column "parents"."citizen_id" does not exist`
+     * hoặc `duplicate key … (phone)=(0912345678)`; tRPC mặc định chuyển thẳng `message` ra ngoài,
+     * nên một lỗi lập trình là đủ để vẽ lại lược đồ CSDL hoặc lộ SĐT khách.
+     * `clientSafeMessage` giữ nguyên câu nghiệp vụ tiếng Việt và thay mọi thứ khác bằng câu chung.
+     * (Tiền lệ: `packages/db/src/health.ts` đã làm đúng như vậy cho lỗi mất kết nối.)
+     */
+    const message = zod
+      ? [...new Set(zod.issues.map((i) => i.message))].join("; ")
+      : error.code === "INTERNAL_SERVER_ERROR"
+        ? clientSafeMessage(error.cause ?? error)
+        : clientSafeMessage(error, shape.message);
     return {
       ...shape,
-      // Thông báo dễ đọc cho người dùng thay vì JSON thô của zod
-      message: zod ? [...new Set(zod.issues.map((i) => i.message))].join("; ") : shape.message,
+      message,
       data: {
         ...shape.data,
+        // `stack` mặc định chỉ có ở môi trường phát triển; ghi đè cho chắc, nó lộ đường dẫn máy chủ
+        stack: undefined,
         zodError: error.cause instanceof ZodError ? error.cause.flatten() : null,
       },
     };

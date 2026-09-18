@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@satarobo/db";
 import { createLead, mapPublicLeadBody, logWebhook, recordTrack } from "@satarobo/api";
+import { clientSafeMessage } from "@satarobo/core";
 
 /**
  * POST /api/public/leads — endpoint cho form "Đặt buổi học thử" trên website / landing page / Zalo Mini App.
@@ -65,7 +66,8 @@ export async function POST(req: Request) {
     await logWebhook(db, { source: "public_lead", status: r.duplicated ? "duplicate" : "processed", httpStatus: 200, payload: body, headers: hdrs, result: { leadId: r.lead.id, duplicated: r.duplicated }, ip });
     return NextResponse.json({ ok: true, duplicated: r.duplicated }, { headers });
   } catch (e) {
-    const msg = (e as Error).message;
+    // Chỉ trả nguyên văn khi là lỗi kiểm tra dữ liệu (BAD_REQUEST); lỗi khác về câu chung
+    const msg = clientSafeMessage(e);
     const bad = (e as { code?: string }).code === "BAD_REQUEST";
     await logWebhook(db, { source: "public_lead", status: bad ? "rejected" : "failed", httpStatus: bad ? 400 : 500, payload: body, headers: hdrs, error: msg, ip });
     return NextResponse.json({ ok: false, error: bad ? msg : "Hệ thống bận, vui lòng thử lại sau" }, { status: bad ? 400 : 500, headers });

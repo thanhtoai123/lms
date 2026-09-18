@@ -71,9 +71,15 @@ export async function upsertPositionDef(ctx: ProtectedContext, input: { id?: str
     });
     return { id: before.id };
   }
-  const [row] = await ctx.db.insert(positions).values({ ...v, createdBy: ctx.user.id }).returning({ id: positions.id });
-  await writeAudit(ctx.db, { actorId: ctx.user.id, action: "CREATE", module: "hr", entity: "positions", entityId: row!.id, after: v, ip: ctx.ip });
-  return { id: row!.id };
+  // Vị trí mang theo BỘ VAI TRÒ cấp cho người giữ vị trí → tạo vị trí là cấp quyền.
+  // Ghi nhật ký trong cùng transaction với bản ghi, không để hai câu lệnh rời nhau.
+  const id = await ctx.db.transaction(async (txx) => {
+    const tx = txx as unknown as Db;
+    const [row] = await tx.insert(positions).values({ ...v, createdBy: ctx.user.id }).returning({ id: positions.id });
+    await writeAudit(tx, { actorId: ctx.user.id, action: "CREATE", module: "hr", entity: "positions", entityId: row!.id, after: v, ip: ctx.ip });
+    return row!.id;
+  });
+  return { id };
 }
 
 /** Cấp lại vai trò theo vị trí cho mọi phân công còn hiệu lực */

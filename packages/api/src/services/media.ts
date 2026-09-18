@@ -315,13 +315,24 @@ export async function updateMediaTags(
     const inClass = await ctx.db.select({ id: enrollments.studentId }).from(enrollments).where(and(eq(enrollments.classId, m.classId), inArray(enrollments.studentId, tagged)));
     if (inClass.length !== tagged.length) throw new TRPCError({ code: "BAD_REQUEST", message: "Có học viên được gắn không thuộc lớp" });
   }
-  await ctx.db.update(sessionMedia).set({
-    ...(tagged ? { taggedStudentIds: tagged } : {}),
-    ...(input.caption !== undefined ? { caption: input.caption } : {}),
-    ...(input.takenAt !== undefined ? { takenAt: input.takenAt } : {}),
-    ...(input.isClassWide !== undefined ? { isClassWide: input.isClassWide } : {}),
-    updatedAt: new Date(),
-  }).where(eq(sessionMedia.id, input.id));
+  // Gắn thẻ học viên vào ảnh là tạo LIÊN KẾT "khuôn mặt trẻ ↔ hồ sơ": đổi ai được gắn trong ảnh
+  // là đổi dữ liệu cá nhân của trẻ, nên phải có nhật ký, ghi cùng transaction với thay đổi.
+  await ctx.db.transaction(async (txx) => {
+    const tx = txx as unknown as Db;
+    await tx.update(sessionMedia).set({
+      ...(tagged ? { taggedStudentIds: tagged } : {}),
+      ...(input.caption !== undefined ? { caption: input.caption } : {}),
+      ...(input.takenAt !== undefined ? { takenAt: input.takenAt } : {}),
+      ...(input.isClassWide !== undefined ? { isClassWide: input.isClassWide } : {}),
+      updatedAt: new Date(),
+    }).where(eq(sessionMedia.id, input.id));
+    await writeAudit(tx, {
+      actorId: ctx.user.id, action: "UPDATE", module: "media", entity: "session_media", entityId: input.id,
+      before: { taggedStudentIds: m.media.taggedStudentIds, isClassWide: m.media.isClassWide },
+      after: { ...(tagged ? { taggedStudentIds: tagged } : {}), ...(input.isClassWide !== undefined ? { isClassWide: input.isClassWide } : {}) },
+      ip: ctx.ip,
+    });
+  });
   return { ok: true };
 }
 

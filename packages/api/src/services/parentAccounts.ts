@@ -2,13 +2,14 @@ import { createHash, randomInt, timingSafeEqual } from "node:crypto";
 import { and, eq, inArray, sql, desc, ilike, or, isNull } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { parents, parentNotifications, studentGuardians, students, centers } from "@satarobo/db";
-import { isEmail, maskPhone, normalizeVnPhone, visibleCenterIds, MemoryRateLimiter, CODE_ATTEMPT_MAX, CODE_ATTEMPT_WINDOW_MS } from "@satarobo/core";
+import { isEmail, maskPhone, normalizeVnPhone, visibleCenterIds } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { tenantCond } from "./tenantScope";
 import { writeAudit } from "./audit";
 import { queueEmail } from "./admin";
 import { canSeeFullPhone } from "./students";
 import { otpPepper } from "../lib/secrets";
+import { checkRateLimit, rateKey, resetRateLimit } from "../lib/rateLimit";
 
 type Db = ProtectedContext["db"];
 /** Trang phụ huynh đăng nhập / kích hoạt tài khoản bằng mã từ trung tâm */
@@ -160,14 +161,18 @@ export async function setParentAccountLock(ctx: ProtectedContext, input: { paren
  * Trần số lần thử mã kích hoạt — đếm theo SỐ ĐIỆN THOẠI, không theo IP:
  * mã chỉ có 6 chữ số và sống 72 giờ, nếu chỉ chặn theo IP thì đổi IP là dò tiếp
  * cho tới khi chiếm được tài khoản phụ huynh (xem được hồ sơ con, học phí).
+ *
+ * Bộ đếm nằm trong bảng `rate_limits` nên dùng chung giữa mọi bản sao máy chủ và
+ * sống qua lần triển khai kế tiếp (trước đây đếm trong `Map` một tiến trình: chỉ cần
+ * đợi một lần deploy là đếm về 0). Số điện thoại được băm trước khi làm khoá.
  */
-const activationAttempts = new MemoryRateLimiter();
 
 /** Kích hoạt bằng SĐT + mã (dùng cho trang /kich-hoat công khai — chưa gắn Supabase user ở bước này) */
 export async function verifyActivationCode(db: Db, input: { phone: string; code: string }) {
   const phone = normalizeVnPhone(input.phone);
   if (!phone) return { ok: false as const, error: "Số điện thoại không hợp lệ" };
-  const gate = activationAttempts.hit(`activate|${phone}`, Date.now(), CODE_ATTEMPT_MAX, CODE_ATTEMPT_WINDOW_MS);
+  const gateKey = rateKey("activate", "phone", phone);
+  const gate = await checkRateLimit(db, "activationPhone", gateKey);
   if (!gate.allowed) {
     return { ok: false as const, error: `Nhập sai quá nhiều lần — thử lại sau ${Math.ceil(gate.retryAfterSec / 60)} phút hoặc liên hệ trung tâm` };
   }
@@ -178,6 +183,6 @@ export async function verifyActivationCode(db: Db, input: { phone: string; code:
   const want = Buffer.from(p.activationCodeHash);
   const got = Buffer.from(hashActivationCode(input.code.trim()));
   if (want.length !== got.length || !timingSafeEqual(want, got)) return { ok: false as const, error: "Mã không đúng" };
-  activationAttempts.reset(`activate|${phone}`);
+  await resetRateLimit(db, gateKey);
   return { ok: true as const, parentId: p.id };
 }

@@ -1,5 +1,5 @@
 import { registerUploadedMedia } from "@satarobo/api";
-import { MEDIA_UPLOAD_MAX_FILES } from "@satarobo/core";
+import { MEDIA_UPLOAD_MAX_FILES, clientSafeMessage } from "@satarobo/core";
 import { routeContext, crossSite, crossSiteResponse } from "@/lib/route-ctx";
 
 /**
@@ -30,7 +30,7 @@ export async function POST(req: Request) {
       const row = await registerUploadedMedia(pctx, { sessionId, mime: f.type, bytes: new Uint8Array(await f.arrayBuffer()), caption, taggedStudentIds: tagged, takenAt, isClassWide });
       results.push({ name: f.name, ok: true, id: row.id });
     } catch (e) {
-      results.push({ name: f.name, ok: false, error: (e as Error).message });
+      results.push({ name: f.name, ok: false, error: clientSafeMessage(e) });
     }
   }
   const ok = results.filter((r) => r.ok).length;

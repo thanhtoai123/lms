@@ -1,5 +1,6 @@
 import { getDb } from "@satarobo/db";
 import { ingestExternal, logWebhook, metaSignatureOk, parseMessengerPayload } from "@satarobo/api";
+import { clientIp, sharedRateLimit } from "@/lib/route-ctx";
 
 /**
  * Webhook Facebook Messenger (trang Sata Robo).
@@ -19,6 +20,9 @@ export async function POST(req: Request) {
   const db = getDb();
   const raw = await req.text();
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
+  // Trần rộng, chỉ chặn đợt bắn dồn; Meta tự gửi lại khi gặp 429 nên không mất tin
+  const gate = await sharedRateLimit("webhookIp", "ip", clientIp(req), "wh-messenger");
+  if (gate) return Response.json({ ok: false, error: "Quá nhiều yêu cầu" }, { status: 429, headers: { "Retry-After": String(Math.max(1, gate.retryAfterSec)) } });
   if (!process.env.META_APP_SECRET) return Response.json({ ok: false, error: "Chưa cấu hình META_APP_SECRET" }, { status: 503 });
   let body: unknown = null;
   try { body = JSON.parse(raw); } catch { body = null; }

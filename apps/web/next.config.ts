@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { API_CSP, securityHeaderOptions, securityHeaders } from "@satarobo/core";
 
 const nextConfig: NextConfig = {
   transpilePackages: ["@satarobo/api", "@satarobo/core", "@satarobo/db"],
@@ -27,35 +28,33 @@ const nextConfig: NextConfig = {
       { source: "/admin", destination: "/dashboard", permanent: false },
     ];
   },
+  /**
+   * HEADER BẢO MẬT — định nghĩa nằm ở MỘT NƠI DUY NHẤT:
+   * `packages/core/src/security/headers.ts` (có bộ kiểm thử `headers.test.ts`).
+   *
+   * Phản hồi TRANG lấy header từ `apps/web/src/proxy.ts`, vì CSP mang **nonce sinh theo
+   * từng yêu cầu** nên không đặt tĩnh ở đây được. Chỗ này chỉ lo phần proxy KHÔNG chạy:
+   * các route handler dưới `/api/*` (xem `matcher` trong proxy.ts) — chúng trả JSON hoặc tệp
+   * nên dùng CSP khoá hết (`API_CSP`) và không cần nonce.
+   *
+   * NGOẠI LỆ `/api/content/scorm/*`: gói SCORM là **tài liệu HTML + JS của bên thứ ba**,
+   * `default-src 'none'` sẽ làm bài giảng không chạy. Route đó tự đặt header riêng
+   * (`X-Content-Type-Options`, `X-Frame-Options`) — xem mục T8 trong docs/KIEM-DINH-BAO-MAT.md
+   * về việc nên tách gói SCORM sang một miền riêng.
+   */
   async headers() {
-    // CSP thật (không report-only), có nonce sẽ được thêm ở proxy.ts khi cần script bên thứ ba.
-    const csp = [
-      "default-src 'self'",
-      "base-uri 'self'",
-      "object-src 'none'",
-      "frame-ancestors 'self'",
-      `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""}`, // React dev cần eval; production không
-      "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob: https:",
-      "font-src 'self' data:",
-      `connect-src 'self' ${process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""} ${(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").replace("https://", "wss://")}`,
-      "worker-src 'self' blob:",
-      "frame-src 'self' https://www.youtube-nocookie.com https://drive.google.com",
-      "media-src 'self' blob:",
-    ].join("; ");
+    // Bỏ `Cross-Origin-Resource-Policy` ở đây: API công khai (`/api/public/*`) được website
+    // satarobo.vn gọi từ MIỀN KHÁC (xem `lib/public-cors.ts`), đặt `same-site` sẽ chặn nhầm.
+    // Phản hồi trang vẫn có CORP đầy đủ vì proxy gắn.
+    const base = securityHeaders(securityHeaderOptions(process.env))
+      .filter(([k]) => !k.startsWith("Content-Security-Policy") && k !== "Cross-Origin-Resource-Policy")
+      .map(([key, value]) => ({ key, value }));
+    // Route SCORM tự đặt `X-Content-Type-Options` và `X-Frame-Options`; gửi thêm bản thứ hai
+    // có thể khiến trình duyệt coi `X-Frame-Options` là xung đột và CHẶN iframe bài giảng.
+    const ownHeaders = new Set(["X-Content-Type-Options", "X-Frame-Options"]);
     return [
-      {
-        source: "/(.*)",
-        headers: [
-          { key: "Content-Security-Policy", value: csp },
-          { key: "X-Content-Type-Options", value: "nosniff" },
-          { key: "X-Frame-Options", value: "SAMEORIGIN" },
-          { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
-          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-          { key: "Permissions-Policy", value: "camera=(self), microphone=(), geolocation=(self), payment=(), usb=()" },
-          { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" },
-        ],
-      },
+      { source: "/api/:path((?!content/scorm/).*)", headers: [...base, { key: "Content-Security-Policy", value: API_CSP }] },
+      { source: "/api/content/scorm/:path*", headers: base.filter((h) => !ownHeaders.has(h.key)) },
     ];
   },
 };

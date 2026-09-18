@@ -2,6 +2,7 @@ import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { appRouter, createContext } from "@satarobo/api";
 import { idleExpired, devActorAllowed, DEV_ACTOR_HEADER } from "@satarobo/core";
 import { ACCESS_COOKIE, IDLE_COOKIE, REFRESH_COOKIE, SEEN_COOKIE, cookieOptions, needsRefresh, refreshSession, supabaseOn } from "@/lib/auth-session";
+import { webLogger } from "@/lib/logger";
 
 /** Chặn gọi API từ trang web khác (CSRF): trình duyệt luôn gửi Sec-Fetch-Site / Origin */
 function crossSite(req: Request) {
@@ -62,8 +63,12 @@ const handler = async (req: Request) => {
       for (const c of setCookies) headers.append("Set-Cookie", c);
       return { headers };
     },
-    onError({ error, path }) {
-      if (error.code === "INTERNAL_SERVER_ERROR") console.error(`[trpc] ${path}:`, error);
+    onError({ error, path, type }) {
+      // TUYỆT ĐỐI KHÔNG in nguyên `error` hay `input`: lỗi tầng CSDL mang theo câu SQL
+      // và GIÁ TRỊ THAM SỐ (SĐT, email, CCCD phụ huynh), còn `input` là chính dữ liệu người dùng gửi.
+      // `webLogger` lược SQL rồi che PII trước khi ghi (@satarobo/core → security/log.ts).
+      if (error.code !== "INTERNAL_SERVER_ERROR") return;
+      webLogger.child("trpc").error("lỗi không mong đợi", { path: path ?? "?", type, err: error.cause ?? error });
     },
   });
 };

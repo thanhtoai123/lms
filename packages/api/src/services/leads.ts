@@ -14,6 +14,7 @@ import {
 import { resolveAdmissionsPolicy, autoPickAssignee, recordAssignment, canSeeLeadPhone, type Db } from "./admissionsAdmin";
 import { canShareLead, leadReadCondition, leadReader, requireLeadRead, requireLeadsAccess } from "./leadAccess";
 import { assertTenant, redact, redactList } from "./tenantScope";
+import { assertRateLimit, rateKey } from "../lib/rateLimit";
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { writeAudit } from "./audit";
 import { emit } from "./outbox";
@@ -449,6 +450,8 @@ export const LEAD_EXPORT_HEADERS = [
 export async function exportLeads(ctx: ProtectedContext, input: LeadInboxInput) {
   // Xuất đúng những dòng người này được thấy trên màn hình (leadReadCondition lo phần lọc)
   requireLeadsAccess(ctx, input.centerId ?? null);
+  // Cùng trần với xuất học viên: chặn rút hàng loạt danh sách khách hàng (nới bằng RATE_LIMIT_EXPORT_USER_MAX)
+  await assertRateLimit(ctx.db, "exportUser", rateKey("export", "user", ctx.user.id), "xuất dữ liệu");
   const { rows: rawRows, total } = await leadRowsForExport(ctx, input);
   // Che PII của trung tâm nhượng quyền khác TRƯỚC khi đưa vào tệp xuất
   const rows = redactList(ctx, rawRows);

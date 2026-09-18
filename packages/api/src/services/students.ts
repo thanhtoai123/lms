@@ -13,6 +13,7 @@ import { writeAudit } from "./audit";
 import { encryptPii, decryptPii } from "./pii";
 import { getOps } from "./opsSettings";
 import { tenantCond, assertTenant, redact } from "./tenantScope";
+import { assertRateLimit, rateKey } from "../lib/rateLimit";
 
 type Db = ProtectedContext["db"];
 const STUDENT_ID = sql.raw('"students"."id"');
@@ -101,6 +102,9 @@ export const STUDENT_EXPORT_HEADERS = ["Mã HV", "Họ tên", "Ngày sinh", "Kh�
 
 export async function exportStudents(ctx: ProtectedContext, input: StudentListFilters) {
   requirePermission(ctx, "student:read", { centerId: input.centerId ?? null });
+  // Trần rút hàng loạt hồ sơ trẻ em: một nhân sự bình thường xuất vài lần/ngày, rút liên tục
+  // hàng chục nghìn dòng là dấu hiệu mang dữ liệu ra ngoài. Nới bằng RATE_LIMIT_EXPORT_USER_MAX.
+  await assertRateLimit(ctx.db, "exportUser", rateKey("export", "user", ctx.user.id), "xuất dữ liệu");
   const where = and(...studentFilterConds(ctx, input));
   const [rows, [count]] = await Promise.all([
     ctx.db

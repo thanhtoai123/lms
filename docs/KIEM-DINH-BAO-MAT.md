@@ -8,7 +8,7 @@ Hệ thống chứa **dữ liệu cá nhân của trẻ em** (họ tên, ngày s
 (đơn học phí, thanh toán, đối soát ngân hàng). Vì vậy mọi lỗi cho phép đọc chéo cơ sở
 hoặc mạo danh đều được xếp mức cao trở lên.
 
-Ngày kiểm định: 18/09/2026 · Nhánh: `worktree-agent-aa4334bd36a56d2f2`
+Ngày kiểm định: 18/09/2026 · Nhánh đợt 1: `worktree-agent-aa4334bd36a56d2f2` · Nhánh đợt 2: `worktree-agent-ae832b3e92a4dcdbe`
 
 ---
 
@@ -18,9 +18,12 @@ Ngày kiểm định: 18/09/2026 · Nhánh: `worktree-agent-aa4334bd36a56d2f2`
 |---|---|---|---|
 | Nghiêm trọng | 2 | 2 | 0 |
 | Cao | 6 | 6 | 0 |
-| Trung bình | 7 | 5 | 2 |
-| Thấp | 4 | 1 | 3 |
-| **Tổng** | **19** | **14** | **5** |
+| Trung bình | 8 | 7 | 1 |
+| Thấp | 4 | 3 | 1 |
+| **Tổng** | **20** | **18** | **2** |
+
+**Đợt 2 (18/09/2026, nhánh `worktree-agent-ae832b3e92a4dcdbe`)** đóng nốt T7, Th3, Th4 và thêm
+một phát hiện mới T8 (gói SCORM chạy cùng miền với khu quản trị). Chi tiết ở mục 9.
 
 Kết quả tốt cần ghi nhận: tầng service đã có kỷ luật phân quyền rất đều
 (`requirePermission` / `authorize` / `centersWith` / `visibleCenterIds`, các helper
@@ -63,7 +66,8 @@ thực tế nằm ở **hạ tầng xác thực, khoá bí mật và tệp tải
 | T4 | `packages/api/src/services/parentAccounts.ts:20` (trước vá) | `hashActivationCode` = `sha256(code)` **không muối**. Không gian mã chỉ 1.000.000; ai đọc được bảng `parents` dựng bảng tra trong vài giây là ra mã kích hoạt còn hiệu lực của mọi phụ huynh. | **Đã vá** — thêm muối bí mật (`OTP_PEPPER`). *Lưu ý vận hành: các mã kích hoạt đang chờ sẽ mất hiệu lực sau khi triển khai — cấp lại cho phụ huynh chưa kích hoạt.* |
 | T5 | `packages/api/src/services/pilot.ts:205` (trước vá) | `sql.raw(\`array[${weeks.map(x => \`'${x}'::date\`).join(",")}]\`)` — nối chuỗi vào SQL. Hiện `weeks` sinh từ `recentWeeks()` (ngày nội bộ, số tuần đã kẹp 1–26) nên **chưa khai thác được**, nhưng là bẫy chờ người sau đổi nguồn dữ liệu. | **Đã vá** — dùng tham số mảng `${weeks}::date[]`. |
 | T6 | `apps/web/src/app/api/public/otp/route.ts` | Không có trần theo IP ở cửa ngõ (chỉ có trần trong CSDL theo SĐT / mục đích). | **Đã vá** — thêm `rateLimited('otp|<ip>', 30, 1 giờ)`; `verifyOtp` so khớp băm timing-safe. |
-| T7 | `apps/web/next.config.ts:37` | CSP dùng `script-src 'self' 'unsafe-inline'`. `'unsafe-inline'` vô hiệu hoá phần lớn giá trị của CSP trước XSS. Next.js App Router cần nonce cho script nội tuyến; đổi sang nonce phải sửa `proxy.ts` để sinh và truyền nonce cho mọi trang. | **Còn lại** — cần một đợt riêng, có kiểm thử giao diện. Đã giảm rủi ro bằng C3/C4 (không còn đường đưa HTML/SVG vào miền quản trị). |
+| T7 | `apps/web/next.config.ts:37` (trước vá) | CSP dùng `script-src 'self' 'unsafe-inline'`. `'unsafe-inline'` vô hiệu hoá phần lớn giá trị của CSP trước XSS: chèn được một thẻ `<script>` vào trang quản trị là chạy được mã trong phiên của nhân sự. | **Đã vá** — mỗi yêu cầu sinh một nonce trong `apps/web/src/proxy.ts`; CSP dựng ở `packages/core/src/security/headers.ts`. `script-src` nay là `'self' 'nonce-…' 'strict-dynamic'`, **không còn `'unsafe-inline'`**. Xem mục 9.1. |
+| T8 | `apps/web/src/app/api/content/scorm/[exp]/[sig]/[docId]/[version]/[...path]/route.ts` | **Phát hiện mới.** Gói SCORM là HTML + JavaScript của **bên thứ ba** nhưng được phát trên **đúng miền của khu quản trị**. Một gói độc hại (hoặc gói hợp lệ bị sửa) chạy trong ngữ cảnh same-origin: cookie phiên là `httpOnly` nên không đọc trực tiếp được, nhưng mã trong gói vẫn `fetch('/api/trpc/...')` kèm cookie được — tức thao tác thay cho người đang mở bài giảng. | **Còn lại** — vá đúng là tách sang một miền riêng (`scorm.<domain>`) hoặc `sandbox` không kèm `allow-same-origin`; cả hai đều đổi cách phát bài giảng nên phải có kiểm thử nội dung. Trước mắt: chỉ tải gói SCORM từ nguồn tin cậy và duyệt trước khi xuất bản. Route này đã được **loại khỏi** CSP `default-src 'none'` của `/api/*` để không vỡ bài giảng. |
 
 ---
 
@@ -73,8 +77,8 @@ thực tế nằm ở **hạ tầng xác thực, khoá bí mật và tệp tải
 |---|---|---|---|
 | Th1 | `apps/web/src/app/login/page.tsx:26` (trước vá) | Cookie `x-dev-actor` đặt `httpOnly: false` — kịch bản trên trang đọc/đổi được danh tính phiên phát triển. | **Đã vá** — `httpOnly: true`, `secure` theo môi trường. |
 | Th2 | `packages/core/src/growth/rules.ts:392` | `anonymizedPhone(id)` chỉ dùng **7 ký tự hex đầu** của id → hai chủ thể trùng 7 ký tự đầu sinh cùng một "số điện thoại ẩn danh", có thể đụng ràng buộc duy nhất khi thực hiện yêu cầu xoá dữ liệu. | **Còn lại** — xác suất rất thấp (~1/268 triệu cho mỗi cặp) và cần đổi dữ liệu đã ẩn danh; ghi nhận để xử lý cùng đợt di trú. Có kiểm thử ghim hành vi hiện tại tại `packages/core/src/security/pii.test.ts`. |
-| Th3 | `packages/api/src/services/loginSecurity.ts`, `apps/web/src/lib/route-ctx.ts` | Mọi trần tần suất đều **trong bộ nhớ một tiến trình**. Chạy nhiều bản sao (Vercel, k8s) thì trần thực tế nhân lên theo số bản sao. | **Còn lại** — cần kho dùng chung (Redis/Upstash) hoặc bảng đếm trong Postgres; xem "Khuyến nghị vận hành". Lớp chặn theo CSDL cho đăng nhập nhân sự (`loginLockDecision`) và OTP vẫn đúng trên mọi bản sao. |
-| Th4 | `apps/web/src/app/api/trpc/[trpc]/route.ts:64` | `console.error` in nguyên đối tượng lỗi tRPC khi `INTERNAL_SERVER_ERROR`. Lỗi từ tầng CSDL có thể kèm giá trị tham số (SĐT, email) vào log máy chủ. | **Còn lại** — cần đi qua `maskPiiText()` trước khi ghi; chạm vào đường xử lý lỗi nên tách khỏi đợt này. Rà `console.*` toàn repo: **không có** chỗ nào chủ động in PII. |
+| Th3 | `packages/api/src/services/loginSecurity.ts`, `apps/web/src/lib/route-ctx.ts` (trước vá) | Mọi trần tần suất đều **trong bộ nhớ một tiến trình**. Chạy nhiều bản sao (Vercel, k8s) thì trần thực tế nhân lên theo số bản sao, và mỗi lần triển khai lại là đếm về 0 — kẻ dò mã kích hoạt phụ huynh chỉ cần đợi một lần deploy. | **Đã vá** — bảng `rate_limits` trong Postgres, tăng nguyên tử `insert … on conflict do update`; bộ nhớ vẫn chạy trước như lớp thứ nhất. Xem mục 9.2. |
+| Th4 | `apps/web/src/app/api/trpc/[trpc]/route.ts:64` (trước vá) | `console.error` in nguyên đối tượng lỗi tRPC khi `INTERNAL_SERVER_ERROR`. Lỗi `postgres-js` mang theo `query` (nguyên văn SQL), `parameters` (SĐT, email, CCCD phụ huynh) và `detail` (`Key (phone)=(0912345678)`). Log máy chủ thường đẩy thẳng sang dịch vụ bên thứ ba → đây là một đường rò PII trẻ em và phụ huynh ra ngoài. | **Đã vá** — bộ ghi log dùng chung `packages/core/src/security/log.ts`; mọi `console.*` trong `packages/api` và `apps/web` đã chuyển sang logger có che PII. Thông báo lỗi trả cho máy khách cũng đi qua `clientSafeMessage`. Xem mục 9.3. |
 
 ---
 
@@ -87,15 +91,19 @@ Ghi lại để lần kiểm định sau không phải rà lại từ đầu.
   `centerId` (`loadForWrite` ở `leads.ts:492`, `loadOpenTx`/`canHandle` ở `bank.ts`,
   `loadAssignment` ở `assignments.ts`, `parentScope` ở `parentAccounts.ts`, `editable` ở
   `evaluations.ts`, `isProcessor` ở `compliance.ts`…). **Không phát hiện lỗi đọc/ghi chéo cơ sở.**
-- **Nhật ký.** Các mutation nhạy cảm đều gọi `writeAudit`, và các luồng nhiều bước
-  (`eraseSubject`, `setConsent`, `matchManually`, `importLegacyTuition`…) gọi **bên trong cùng
-  transaction** với nghiệp vụ, đúng như thiết kế ở `services/audit.ts:16`.
+- **Nhật ký.** Phần lớn mutation nhạy cảm gọi `writeAudit` **bên trong cùng transaction** với
+  nghiệp vụ, đúng như thiết kế ở `services/audit.ts:16` (`eraseSubject`, `matchManually`,
+  `importLegacyTuition`…). Đợt 2 rà lại **toàn bộ 329 mutation** trong `packages/api/src/routers/**`
+  và bịt 12 chỗ còn thiếu hoặc ghi ngoài transaction — danh sách ở mục 9.4.
 - **Che PII theo vai trò.** `maskPhone` / `canSeeFullPhone` / `canSeeLeadPhone` áp dụng nhất quán
   cho danh sách, chi tiết và **cả bản xuất CSV**. Xem đầy đủ CCCD là thao tác break-glass có
   bắt buộc lý do và ghi `PII_REVEAL` (`students.revealPrivate`, `finance.revealCustomerPrivate`).
-- **Header bảo mật** (`apps/web/next.config.ts:46`): đủ CSP, HSTS (2 năm, includeSubDomains),
-  `X-Frame-Options`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Permissions-Policy`,
-  `Cross-Origin-Opener-Policy`. Chỉ vướng `'unsafe-inline'` (T7).
+- **Header bảo mật**: nay định nghĩa ở **một nơi duy nhất**
+  (`packages/core/src/security/headers.ts`, có `headers.test.ts` ghim danh sách bắt buộc).
+  Phản hồi trang lấy header từ `apps/web/src/proxy.ts` (vì CSP mang nonce theo từng yêu cầu),
+  route `/api/*` lấy từ `apps/web/next.config.ts`. Đủ: CSP (nonce, không `'unsafe-inline'` cho
+  script), `frame-ancestors`, HSTS, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`,
+  `Permissions-Policy`, `Cross-Origin-Opener-Policy`, `Cross-Origin-Resource-Policy`. Xem mục 9.1.
 - **SQL injection.** Toàn bộ `sql.raw` còn lại chỉ chứa **hằng chuỗi tên cột** (ví dụ
   `sql.raw('"students"."id"')`) cho truy vấn con tương quan — không có dữ liệu người dùng.
 - **XSS.** `renderMarkdown` (`packages/core/src/growth/rules.ts:74`) escape trước rồi mới dựng thẻ;
@@ -128,25 +136,45 @@ Ghi lại để lần kiểm định sau không phải rà lại từ đầu.
    Tạo khoá mới bằng `openssl rand -base64 48`, và **mã hoá lại** cột `parent_private` bằng khoá mới.
 2. **Đặt `NODE_ENV=production` tường minh** trên mọi môi trường không phải máy cá nhân
    (staging, demo, UAT). Nhiều lớp phòng thủ trong mã nguồn khoá theo biến này.
-3. **Trần tần suất dùng chung giữa các bản sao.** Chuyển `MemoryRateLimiter` sang Redis/Upstash
-   hoặc bảng đếm Postgres nếu chạy nhiều bản sao. Trước mắt, đặt WAF/CDN (Cloudflare) giới hạn
-   theo IP cho `/api/public/*`, `/api/ph/login`, `/login`, `/quen-mat-khau`.
-4. **WAF trước ứng dụng**: chặn dò `/api/ph/login` và `/api/public/otp`, chặn user-agent quét,
+3. **Chạy `pnpm db:apply-sql` (hoặc `db:push`) khi triển khai bản vá này** để tạo bảng
+   `rate_limits` (`packages/db/sql/0006_tran_tan_suat.sql`). Thiếu bảng thì trần tần suất **tự động
+   lùi về bộ đếm trong bộ nhớ** (fail-open, có ghi cảnh báo trong log) — hệ thống vẫn chạy nhưng
+   trần lại chỉ đúng trong một tiến trình. Kiểm tra bằng cách xem log có dòng
+   `không ghi được bộ đếm dùng chung` hay không.
+4. **Giám sát trần tần suất.** Trần mặc định (`RATE_LIMITS` trong
+   `packages/core/src/security/rateLimit.ts`) đặt RỘNG để không chặn nhầm người thật. Nếu nghiệp vụ
+   thật hoặc bộ kiểm thử tự động bị chặn, **nới bằng biến môi trường** `RATE_LIMIT_<TÊN>_MAX`
+   (danh sách đầy đủ ở `.env.example`) thay vì sửa mã. `RATE_LIMIT_DISABLED=1` tắt hẳn khi chạy
+   kiểm thử tải. Worker dọn dòng hết hạn mỗi 10 phút; không chạy worker thì bảng chỉ phình chứ
+   không sai kết quả.
+5. **Nếu bản vá CSP làm hỏng giao diện**, theo thứ tự: (a) đặt `CSP_REPORT_ONLY=1` để trang chạy
+   lại ngay và thu thập vi phạm; (b) nếu vẫn hỏng, `CSP_STRICT_DYNAMIC=0`; (c) cuối cùng mới
+   `CSP_ALLOW_UNSAFE_INLINE=1` — đây là ĐƯỜNG THOÁT KHẨN, trả CSP về mức gần như đợt 1, **phải gỡ
+   sau khi sửa xong**. Dấu hiệu nhận biết: trang trắng, console báo
+   `Refused to execute inline script because it violates the following Content Security Policy`.
+6. **WAF trước ứng dụng**: chặn dò `/api/ph/login` và `/api/public/otp`, chặn user-agent quét,
    giới hạn kích thước body cho các route multipart (hiện chỉ `/api/content/site-media` tự kiểm
-   `content-length`).
-5. **Sao lưu mã hoá + kiểm thử phục hồi.** `STORAGE_DIR` (ảnh lớp, tài liệu, bài nộp) phải nằm trong
+   `content-length`). Trần trong ứng dụng đã dùng chung giữa các bản sao, nhưng chặn ở tầng mạng
+   vẫn rẻ hơn nhiều (không tốn một truy vấn CSDL cho mỗi lượt bắn).
+7. **Sao lưu mã hoá + kiểm thử phục hồi.** `STORAGE_DIR` (ảnh lớp, tài liệu, bài nộp) phải nằm trong
    kế hoạch sao lưu cùng CSDL, mã hoá khi lưu trữ (at-rest), và **diễn tập phục hồi định kỳ** —
    sao lưu chưa bao giờ phục hồi thử thì coi như chưa có.
-6. **Quét vi-rút cho tệp tải lên.** Kiểm tra magic bytes chặn được tệp giả dạng ảnh, nhưng không
+8. **Quét vi-rút cho tệp tải lên.** Kiểm tra magic bytes chặn được tệp giả dạng ảnh, nhưng không
    phát hiện mã độc trong PDF/ZIP/SCORM. Nên đưa ClamAV (hoặc dịch vụ tương đương) vào đường tải lên.
-7. **Giám sát nhật ký `PII_REVEAL`.** Sau bản vá này, mọi lượt xuất CSV học viên / lead đều để lại
+9. **Giám sát nhật ký `PII_REVEAL`.** Sau bản vá này, mọi lượt xuất CSV học viên / lead đều để lại
    bản ghi. Đặt cảnh báo khi một tài khoản xuất quá N lần/ngày hoặc xuất ngoài giờ làm việc.
-8. **Rà soát định kỳ tài khoản.** Trang `/bao-mat` đã cảnh báo tài khoản "ngủ" quá 90 ngày và số
+10. **Rà soát định kỳ tài khoản.** Trang `/bao-mat` đã cảnh báo tài khoản "ngủ" quá 90 ngày và số
    lượng quản trị tối cao — nên đưa vào quy trình rà hằng quý, kèm thu hồi vai trò khi nhân sự nghỉ.
-9. **Mã hoá at-rest và hạn chế truy cập CSDL.** Cột `parent_private` đã mã hoá ở tầng ứng dụng,
+11. **Mã hoá at-rest và hạn chế truy cập CSDL.** Cột `parent_private` đã mã hoá ở tầng ứng dụng,
    nhưng họ tên trẻ em, ngày sinh, trường học thì chưa — dựa hoàn toàn vào kiểm soát truy cập Postgres.
    Bật mã hoá đĩa, giới hạn IP kết nối, tách tài khoản chỉ-đọc cho báo cáo.
-10. **Giữ RLS của Postgres là lớp phòng thủ cuối.** `packages/core/src/policy/policy.ts:3` nói rõ
+12. **Log máy chủ vẫn phải coi là dữ liệu nhạy cảm.** Bộ ghi log đã che SĐT / email / CCCD và
+    lược câu SQL, nhưng log vẫn chứa `path` của tRPC, mã lỗi và tên ràng buộc. Giới hạn quyền đọc
+    log, đặt thời hạn lưu (30–90 ngày) và **không** bật lại `console.log` trực tiếp ở bất kỳ đâu —
+    quy ước: mọi chỗ ghi log đi qua `createLogger` (`@satarobo/core`).
+13. **Gói SCORM (T8) chạy cùng miền với khu quản trị.** Cho tới khi tách miền riêng: chỉ nhận gói
+    từ nhà cung cấp tin cậy, có người duyệt trước khi xuất bản, và ghi nhận ai tải gói lên.
+14. **Giữ RLS của Postgres là lớp phòng thủ cuối.** `packages/core/src/policy/policy.ts:3` nói rõ
     nguồn sự thật về quyền nằm ở tầng service; hãy đảm bảo RLS thực sự được bật và đồng bộ với
     ma trận quyền, để một lỗi ở tầng ứng dụng không mở toang dữ liệu.
 
@@ -160,11 +188,13 @@ Logic bảo mật thuần được kiểm thử bằng `node:test` tại `packag
 |---|---|
 | `devActor.test.ts` | Tài khoản mẫu tắt tuyệt đối ở production; chuẩn hoá email; chặn chèn header |
 | `secrets.test.ts` | Thiếu khoá / khoá ngắn / khoá mẫu công khai đều bị chặn ở production |
-| `rateLimit.test.ts` | Cửa sổ trượt, chống sửa đồng hồ, trần số khoá, dọn khoá hết hạn |
+| `rateLimit.test.ts` | Cửa sổ trượt, chống sửa đồng hồ, trần số khoá, dọn khoá hết hạn · **(bổ sung)** cửa sổ cố định cho bộ đếm CSDL: mốc ô, chặn đúng ngưỡng, `retryAfterSec`, chuẩn hoá khoá, nới trần bằng biến môi trường |
 | `upload.test.ts` | Magic bytes, phát hiện SVG/HTML, tên tệp và khoá lưu trữ chống path traversal |
 | `scope.test.ts` | Phạm vi cơ sở: Hội sở / cơ sở / không có cơ sở / bản ghi không gắn cơ sở |
 | `webhook.test.ts` | Sinh & so khớp chữ ký Meta / Zalo, chống phát lại, khoá API SePay |
 | `pii.test.ts` | Che SĐT, email, CCCD, IP trên đúng hình dạng dữ liệu của hệ thống |
+| `headers.test.ts` | **(mới)** Sinh & kiểm nonce (tất định theo byte, không trùng, chặn nonce giả mạo), `script-src` không còn `'unsafe-inline'`, đủ bộ header bắt buộc, các đường thoát bằng biến môi trường |
+| `log.test.ts` | **(mới)** Lược câu SQL / tên cột / `Key (cột)=(giá trị)`, che PII trong bản ghi log và trong lỗi kèm theo, lỗi CSDL không lọt ra máy khách, chống vòng lặp tham chiếu |
 
 Chạy:
 
@@ -172,4 +202,192 @@ Chạy:
 node --experimental-transform-types --import /tmp/reg.mjs --test "packages/core/src/**/*.test.ts"
 ```
 
-Kết quả gần nhất: **367/367 đạt** (323 sẵn có + 44 mới), 0 lỗi.
+Kết quả gần nhất (đợt 2): **437/437 đạt**, 0 lỗi — 391 sẵn có + 46 mới cho nonce/CSP, bộ ghi log
+che PII và thuật toán cửa sổ của trần tần suất. `packages/api` chạy riêng: **5/5 đạt**.
+
+> Không có kiểm thử tự động cho việc *nonce có thực sự tới được thẻ `<script>` do Next sinh ra* hay
+> không — cái đó phải mở trình duyệt. Xem "Việc phải kiểm chứng bằng tay" ở mục 9.1.
+
+---
+
+## 9. Đợt 2 — chi tiết cách vá (18/09/2026)
+
+### 9.1. CSP: bỏ `'unsafe-inline'`, dùng nonce mỗi yêu cầu (T7)
+
+**Nơi định nghĩa duy nhất:** `packages/core/src/security/headers.ts` (hàm thuần, có
+`headers.test.ts`). `apps/web/src/proxy.ts` sinh nonce cho từng yêu cầu và gắn header cho phản hồi
+trang; `apps/web/next.config.ts` chỉ còn lo `/api/*` (proxy không chạy ở đó).
+
+Chính sách hiện tại cho trang:
+
+```
+script-src 'self' 'nonce-<ngẫu nhiên 128 bit>' 'strict-dynamic'
+script-src-attr 'none'
+style-src 'self' 'unsafe-inline'
+default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; frame-ancestors 'self'
+img-src 'self' data: blob: https:; font-src 'self' data:; worker-src 'self' blob:
+connect-src 'self' <Supabase https + wss>; frame-src 'self' youtube-nocookie drive.google
+media-src 'self' blob:; manifest-src 'self'; upgrade-insecure-requests
+```
+
+**Nonce tới được `<script>` bằng cách nào.** Next.js đọc nonce từ header
+`Content-Security-Policy` **trên YÊU CẦU** rồi tự gắn `nonce=` cho các thẻ `<script>` nó sinh ra.
+Vì vậy `proxy.ts` đặt header đó lên request (`NextResponse.next({ request: { headers } })`),
+không chỉ lên response, và đặt thêm `x-nonce` để React Server Component đọc lại khi cần
+(`apps/web/src/lib/nonce.ts`). Header cùng tên do máy khách tự gửi bị **xoá trước**, nếu không
+người gọi tự chọn nonce của chính mình.
+
+**Kiểm kê script nội tuyến của ứng dụng** (rà toàn bộ `apps/web/src`):
+
+| Nguồn | Có nonce? | Ghi chú |
+|---|---|---|
+| Mã của chúng ta | *không có script nội tuyến nào* | Không dùng `next/script`; không `dangerouslySetInnerHTML` nào chứa `<script>` |
+| `<style dangerouslySetInnerHTML>` (`components/column-chooser.tsx:87`) | không cần | Là `<style>`, thuộc `style-src` |
+| `renderMarkdown` (tin tức, tuyển dụng, trang giới thiệu) | không cần | Đã escape trước khi dựng thẻ (`growth/rules.ts:74`) |
+| SVG mã QR / thẻ học viên (`the-hoc-vien`, `cham-cong`, `ph/be/[id]`) | không cần | Máy chủ tự sinh, không chứa script |
+| Bootstrap + dữ liệu RSC (`self.__next_f.push(...)`) của **Next.js** | **có** — Next tự gắn | Cơ chế đọc nonce từ header yêu cầu ở trên |
+| Mảnh JS nạp động lúc chạy (webpack chunk) | **không chắc** | Đây là lý do phải có `'strict-dynamic'` |
+| Service worker `/ph/sw.js` | không cần | Thuộc `worker-src`; nội dung không có `importScripts` / `eval` |
+
+**Vì sao vẫn có `'strict-dynamic'`.** Next.js nạp các mảnh JS bằng cách tự tạo thẻ `<script>` lúc
+chạy; không phải phiên bản nào cũng gắn nonce cho những thẻ đó. Nếu chỉ có nonce mà không có
+`'strict-dynamic'`, những mảnh này bị chặn và **trang trắng**. `'strict-dynamic'` cho phép script
+đã được tin (mang nonce) nạp tiếp script con — đây đúng là khuyến nghị "strict CSP" phổ biến.
+Đánh đổi: các nguồn dạng host (`'self'`) trong `script-src` bị trình duyệt bỏ qua; ta không dựa
+vào chúng. Tắt được bằng `CSP_STRICT_DYNAMIC=0` nếu về sau xác nhận Next đã gắn nonce cho mọi thẻ.
+
+**Vì sao `style-src` VẪN giữ `'unsafe-inline'`.** Next.js + Tailwind v4 + `next/font` chèn `<style>`
+nội tuyến và thuộc tính `style=` ở rất nhiều chỗ, mà React **không** gắn nonce cho thuộc tính
+`style=`. Bỏ `'unsafe-inline'` ở đây sẽ vỡ giao diện mà không đổi được rủi ro chính: chiếm phiên
+đăng nhập cần chạy được *script*, và đường đó đã bị nonce chặn. Rủi ro còn lại của CSS nội tuyến là
+giả mạo giao diện (UI redressing) — đã chặn bằng `frame-ancestors 'self'` và `X-Frame-Options`.
+Bù lại, `script-src-attr 'none'` chặn hẳn `onclick="…"`, thứ mà nonce không bảo vệ được.
+
+**Việc phải kiểm chứng bằng tay** (không tự động hoá được ở tầng này): mở `/dashboard`, `/login`,
+`/ph`, `/teacher` trên trình duyệt; Console **không** được có dòng
+`Refused to execute inline script…`, và xem mã nguồn trang phải thấy `nonce="…"` trên các thẻ
+`<script>` do Next sinh. Nếu hỏng, dùng đường thoát theo thứ tự ở khuyến nghị vận hành số 5.
+
+**Lưu ý hiệu năng:** đặt header CSP lên yêu cầu khiến trang **render động** (mất tối ưu tĩnh).
+Với khu quản trị thì không đổi gì (vốn đã động); với trang công khai (`/tin-tuc`, `/gioi-thieu`)
+thì mất cache tĩnh — chấp nhận để đổi lấy nonce.
+
+### 9.2. Trần tần suất dùng chung trong CSDL (Th3)
+
+- **Bảng mới** `rate_limits` (`packages/db/src/schema/system.ts` +
+  `packages/db/sql/0006_tran_tan_suat.sql`): khoá chính `(key, window_start)`, cột `count`,
+  `expires_at`, index trên `expires_at`.
+- **Thuật toán thuần** ở `packages/core/src/security/rateLimit.ts`: `fixedWindowStart`,
+  `fixedWindowDecision`, `rateLimitKey`, bảng trần `RATE_LIMITS`, `rateLimitFor` (đọc biến môi
+  trường). Kiểm thử không cần CSDL.
+- **Phần chạm CSDL** ở `packages/api/src/lib/rateLimit.ts`: `checkRateLimit` tăng nguyên tử bằng
+  `insert … on conflict (key, window_start) do update set count = count + 1 returning count`.
+  `resetRateLimit` xoá đếm sau khi xác thực đúng. `pruneRateLimits` dọn dòng hết hạn (worker gọi
+  mỗi 10 phút).
+- **Vì sao cửa sổ CỐ ĐỊNH chứ không trượt.** Cửa sổ trượt phải giữ từng mốc thời gian nên không
+  tăng nguyên tử bằng một câu lệnh được. Đánh đổi đã biết: ngay ranh giới hai ô có thể lọt tối đa
+  `2 × max` lượt trong một khoảng bằng `windowMs`. Với mục đích chống dò mã / chống quét thì chấp
+  nhận được, và lớp `MemoryRateLimiter` (cửa sổ trượt) vẫn chạy trước như lớp thứ nhất.
+- **Khoá đếm không phải danh bạ:** số điện thoại và email được **băm có muối** (`OTP_PEPPER`)
+  trước khi ghép vào khoá; IP và `user_id` để nguyên vì cần cho vận hành.
+- **Fail-open có chủ đích:** CSDL lỗi hoặc chưa có bảng ⇒ **cho qua**, chỉ ghi cảnh báo. Trần tần
+  suất không bao giờ được là lý do khiến cả hệ thống không đăng nhập được.
+
+Áp dụng cho:
+
+| Luồng | Nơi gọi | Trần mặc định |
+|---|---|---|
+| Đăng nhập nhân sự | `apps/web/src/app/login/page.tsx` | 60 / 15 phút mỗi IP · 15 / 15 phút mỗi email |
+| Đăng nhập & OTP phụ huynh | `apps/web/src/app/api/ph/login/route.ts` | 40 / 15 phút mỗi IP |
+| OTP công khai | `apps/web/src/app/api/public/otp/route.ts` | 30 / giờ mỗi IP |
+| Quên mật khẩu | `apps/web/src/app/quen-mat-khau/page.tsx` | 10 / giờ mỗi IP · 5 / giờ mỗi email |
+| Mã kích hoạt phụ huynh | `services/parentAccounts.ts` → `verifyActivationCode` | 8 / 15 phút mỗi **SĐT** |
+| Xuất dữ liệu (CSV học viên / lead) | `services/students.ts`, `services/leads.ts` | 40 / giờ mỗi người dùng |
+| Tìm kiếm toàn cục | `services/search.ts` → `globalSearch` | 900 / 5 phút mỗi người dùng |
+| Webhook (SePay, Zalo, Messenger) | `apps/web/src/app/api/webhooks/*` | 1.200 / phút mỗi IP |
+
+Đăng nhập nhân sự và quên mật khẩu **trả đúng màn hình cũ** khi đụng trần (không lộ tài khoản nào
+có thật): đăng nhập về `/login?error=locked`, quên mật khẩu về `/quen-mat-khau?sent=1`.
+
+### 9.3. Không in dữ liệu cá nhân ra log (Th4)
+
+- **Bộ ghi log dùng chung:** `packages/core/src/security/log.ts` — `createLogger(scope, sink)`,
+  mỗi bản ghi là một dòng JSON, đi qua `scrubSql` (bỏ nguyên văn SQL, tên bảng / cột trong nháy
+  kép, tham số vị trí `$1`, mẫu `Key (cột)=(giá trị)`) rồi `maskPii` / `maskPiiText` (dùng lại bộ
+  che của nhật ký audit ở `system/pii.ts`). Có chống vòng lặp tham chiếu và giới hạn độ sâu, vì
+  một đối tượng tự trỏ vào chính nó đủ để **giết tiến trình máy chủ** khi ghi log.
+- **Điểm vào:** `packages/api/src/lib/logger.ts` (`apiLogger`) và `apps/web/src/lib/logger.ts`
+  (`webLogger`). Toàn bộ `console.*` cũ trong `packages/api` và `apps/web` đã chuyển sang đây
+  (`worker.ts`, `services/accounts.ts`, `admin.ts`, `loginSecurity.ts`, `staffAuth.ts`,
+  `einvoice.ts`, `finance.ts`, `api/webhooks/sepay`, `api/trpc`).
+- **Đường lỗi tRPC** (`apps/web/src/app/api/trpc/[trpc]/route.ts`): trước đây
+  `console.error(path, error)` in nguyên đối tượng lỗi — lỗi `postgres-js` mang theo `query`,
+  `parameters` (SĐT, email, CCCD) và `detail`. Nay chỉ ghi `path`, `type` và phần lỗi đã lược
+  (`redactErrorForLog`: giữ `name`, mã SQLSTATE, tên ràng buộc — đủ để điều tra, không còn dữ liệu
+  người thật).
+- **Thông báo trả cho máy khách:** `errorFormatter` trong `packages/api/src/trpc.ts` cho mọi thông
+  báo đi qua `clientSafeMessage` — câu nghiệp vụ tiếng Việt giữ nguyên, còn lỗi tầng CSDL (mã
+  SQLSTATE, câu SQL, `column "x" does not exist`, `duplicate key`) về câu chung; `stack` bị gỡ
+  khỏi `data`. Cùng cách đó áp cho các route handler còn trả `(e as Error).message`:
+  `/api/content/upload`, `/api/content/site-media`, `/api/content/submission`, `/api/media/upload`,
+  `/api/public/leads`, và `finance.bulkConfirmBackfill`. Tiền lệ: `packages/db/src/health.ts`.
+- **`logWebhook`** lược SQL + che PII trước khi lưu cột `error` vào bảng `webhook_events`.
+
+### 9.4. Mutation được bổ sung nhật ký (mục 4)
+
+Rà **toàn bộ 329 mutation** trong `packages/api/src/routers/**` bằng máy (dò hàm service có
+`insert` / `update` / `delete` mà không có `writeAudit`, và dò `writeAudit` nằm **ngoài**
+transaction mang thay đổi), rồi lọc tay theo tiêu chí "tiền, quyền, PII, trạng thái hợp đồng".
+
+| # | Hàm service | Vấn đề | Cách vá |
+|---|---|---|---|
+| 1 | `einvoice.updateDraft` | Sửa người mua trên hoá đơn (mã số thuế, địa chỉ, email) — **không có** audit, 2 câu lệnh rời nhau | Gói 1 transaction + `writeAudit` (before/after đầy đủ) |
+| 2 | `einvoice.cancelDraft` | Huỷ hoá đơn nháp — **không có** audit | Gói 1 transaction + `writeAudit` |
+| 3 | `einvoice.doIssue` | Phát hành hoá đơn: audit chỉ có ở `issueInvoice` (thao tác tay) và ghi **sau** transaction; hoá đơn do worker phát hành (`syncInvoiceDrafts`) **không để lại dấu vết nào** | `writeAudit` chuyển vào transaction chốt số, dùng cho cả hai đường; `issueInvoice` truyền IP xuống |
+| 4 | `finance.bulkConfirmBackfill` | Xác nhận hàng loạt khoản thu: chỉ có **một** bản ghi tổng kết ngoài transaction, không truy được khoản nào của đơn nào | Thêm `writeAudit` **từng khoản** trong đúng transaction của khoản đó (giữ bản tổng kết) |
+| 5 | `inventory.sellProducts` (đường bù trừ) | Hết hàng giữa chừng: huỷ đơn + bút toán âm chạy 3 câu lệnh rời, **không** audit | Gói 1 transaction + `writeAudit` |
+| 6 | `compliance.setConsent` | Đổi đồng ý (ảnh lớp của trẻ, marketing, hạn chế xử lý) — audit ghi **ngoài** transaction | Chuyển `writeAudit` vào trong transaction |
+| 7 | `compliance.linkSubject` | Gắn yêu cầu dữ liệu vào hồ sơ cụ thể (mở đường cho xuất / xoá dữ liệu) — **không có** audit | Gói 1 transaction + `writeAudit` |
+| 8 | `media.updateMediaTags` | Gắn thẻ học viên vào ảnh lớp = liên kết "khuôn mặt trẻ ↔ hồ sơ" — **không có** audit | Gói 1 transaction + `writeAudit` |
+| 9 | `recruit.hireCandidate` | Nhận việc → phát sinh quan hệ lao động; 4 câu lệnh rời, **không** audit | Gói 1 transaction + `writeAudit` |
+| 10 | `hrPositions.upsertPositionDef` (nhánh tạo mới) | Vị trí mang **bộ vai trò** cấp cho người giữ → tạo vị trí là cấp quyền; audit ghi ngoài transaction | Gói 1 transaction + `writeAudit` bên trong |
+| 11 | `messaging.saveMessagingSettings` và `messaging.savePilot` | Cấu hình kênh nhắn tin quyết định tin phụ huynh chảy về cơ sở nào (ai được đọc) — **không có** audit | Gói 1 transaction + `writeAudit` (có `before`) |
+| 12 | `assignments.assignmentAction` | Mỗi nhánh một transaction riêng, `writeAudit` chạy **sau** tất cả | Gộp về **một** transaction, audit bên trong |
+| 13 | `reportCards.setNextCourse` | Lộ trình khoá học (kéo theo báo giá khoá tiếp) — **không có** audit, lệch với phần còn lại của danh mục | Gói 1 transaction + `writeAudit` |
+
+**Xem xét rồi quyết định KHÔNG đổi** (ghi lại để lần sau khỏi rà lại):
+
+- `admissionsAdmin.upsertAssignee` / `removeAssignee` — đã có nhật ký chuyên biệt `logPool`
+  (kèm actor, before/after, lý do) **trong cùng transaction**. Đủ.
+- `leads.addActivity` / `completeTask` / `addLeadChild` / `updateLeadChild` / `removeLeadChild` —
+  `lead_activities` chính là sổ hoạt động của lead, có actor và nội dung.
+- `documents.openDocument` / `scormLaunch` / `scormCommit` — bảng được ghi *chính là* nhật ký
+  truy cập.
+- `hrCheckin.punch` — `attendance_punches` chính là sổ chấm công (chỉ thêm, không sửa).
+- `engagement.processOutbox` / `scanLeadSla`, `care.retryNotification` / `sendBirthdayGreeting`,
+  `catalog.moveLessonOrder`, `sessions.saveSessionNote` / `saveSessionChecklist`,
+  `cutover.logParallelDay`, `readiness.completeModule`, `pilot.createFeedback`,
+  `admin.retryEmail`, `engagement.markRead` — không thuộc nhóm tiền / quyền / PII / trạng thái
+  hợp đồng.
+- `provisionTenant.provision` — máy dò báo "audit ngoài transaction" nhưng đọc kỹ thì `db` trong
+  phạm vi đó **chính là** `tx`. Không phải lỗi.
+
+### 9.5. Thay đổi hành vi cần biết
+
+1. **`assignments.assignmentAction`, nhánh "giao bài".** Trước đây: cam kết trạng thái `published`
+   **rồi** mới ném lỗi "Lớp chưa có học viên đang học" — người dùng thấy báo lỗi nhưng bài **đã**
+   được giao. Nay lỗi đó cuộn ngược cả transaction, bài trở lại `draft`. Đây là sửa đúng, nhưng
+   nếu bộ kiểm thử tự động đang khẳng định hành vi cũ thì phải chỉnh lại kịch bản.
+2. **Trần tần suất mới cho `exportStudents` / `exportLeads` (40 lượt/giờ mỗi người) và
+   `globalSearch` (900 lượt / 5 phút mỗi người).** Kịch bản kiểm thử bắn liên tục có thể đụng trần
+   và nhận `TOO_MANY_REQUESTS`. Nới bằng `RATE_LIMIT_EXPORT_USER_MAX` /
+   `RATE_LIMIT_SEARCH_USER_MAX`, hoặc `RATE_LIMIT_DISABLED=1` cho môi trường kiểm thử.
+3. **Thông báo lỗi `INTERNAL_SERVER_ERROR` trả về máy khách nay là câu chung.** Kịch bản nào đang
+   khớp chuỗi lỗi nội bộ (ví dụ khẳng định thấy `duplicate key`) sẽ không khớp nữa. Lỗi nghiệp vụ
+   tiếng Việt giữ nguyên.
+4. **`Cross-Origin-Resource-Policy` KHÔNG đặt cho `/api/*`** (chỉ cho phản hồi trang), vì website
+   satarobo.vn gọi `/api/public/*` từ miền khác — đặt `same-site` sẽ chặn nhầm.
+5. **Header trên `/api/content/scorm/*`** không có CSP `default-src 'none'` (gói SCORM là tài liệu
+   HTML thật, đặt vào là bài giảng không chạy). Xem T8.
+6. **Log đổi định dạng**: mỗi dòng nay là JSON (`{"level","time","scope","msg","data"}`) thay vì
+   chuỗi tự do. Hệ thống gom log nào đang bóc theo định dạng cũ phải chỉnh lại.

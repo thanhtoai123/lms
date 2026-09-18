@@ -12,6 +12,7 @@ import {
   canReplay, safeHeaders, SETTINGS_DEFAULTS, validateSettings, validateCode, validateGroup, parseSepayPayload, hasRole, DEPARTMENT_VI,
   groupPermissionCatalog, validateGroupPermissions, GROUP_PERMISSION_ACTION_VI, otpDailyCutoff, znsCostEstimate, otpCutoffState,
   pickForTenant,
+  maskPiiText, scrubSql,
   type EmailEvent, type EmailStatus, type OtpPurpose, type OtpStatus, type WebhookSource, type WebhookStatus, type AppSettings, type Department,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
@@ -25,6 +26,7 @@ import { ingestBankTx } from "./bank";
 import { createLead } from "./leads";
 import { leadInput } from "../routers/admissions";
 import { otpPepper } from "../lib/secrets";
+import { logger } from "../lib/logger";
 
 type Db = ProtectedContext["db"];
 const bad = (m: string | string[]) => new TRPCError({ code: "BAD_REQUEST", message: Array.isArray(m) ? m.join("; ") : m });
@@ -491,10 +493,11 @@ export async function logWebhook(db: Database, x: { source: WebhookSource; statu
     const payload = x.payload && typeof x.payload === "object" ? x.payload : { raw: String(x.payload ?? "").slice(0, 2000) };
     await asDb(db).insert(webhookEvents).values({
       source: x.source, status: x.status, httpStatus: x.httpStatus, payload, headers: x.headers ? safeHeaders(x.headers) : null, externalId: x.externalId ?? null,
-      result: (x.result ?? null) as never, error: x.error?.slice(0, 1000) ?? null, ip: x.ip ?? null,
+      // Thông báo lỗi có thể là lỗi tầng CSDL (kèm câu SQL + giá trị tham số) → lược trước khi lưu
+      result: (x.result ?? null) as never, error: x.error ? maskPiiText(scrubSql(x.error)).slice(0, 1000) : null, ip: x.ip ?? null,
     });
   } catch (e) {
-    console.error("[webhook log]", e);
+    logger.child("webhook-log").error("không ghi được nhật ký webhook", { err: e, source: x.source });
   }
 }
 

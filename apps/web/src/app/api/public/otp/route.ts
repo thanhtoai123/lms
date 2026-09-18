@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getDb } from "@satarobo/db";
 import { requestOtp, verifyOtp } from "@satarobo/api";
 import { OTP_PURPOSES, type OtpPurpose } from "@satarobo/core";
-import { rateLimited } from "@/lib/route-ctx";
+import { clientIp, sharedRateLimit, tooManyResponse } from "@/lib/route-ctx";
 
 /**
  * POST /api/public/otp — { action: "request" | "verify", phone, purpose, code? }
@@ -18,10 +18,10 @@ export async function POST(req: Request) {
   const purpose = OTP_PURPOSES.includes(body.purpose as OtpPurpose) ? (body.purpose as OtpPurpose) : null;
   if (!purpose || typeof body.phone !== "string") return NextResponse.json({ ok: false, error: "Thiếu số điện thoại / mục đích" }, { status: 400 });
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
-  // Trần theo IP ngay ở cửa ngõ (lớp trong CSDL vẫn giữ trần theo SĐT / mục đích)
-  if (rateLimited(`otp|${ip ?? "unknown"}`, 30, 60 * 60_000)) {
-    return NextResponse.json({ ok: false, error: "Gửi quá nhiều lần, thử lại sau" }, { status: 429 });
-  }
+  // Trần theo IP ngay ở cửa ngõ — đếm trong bảng `rate_limits` nên đúng cả khi chạy nhiều bản sao
+  // (lớp trong CSDL vẫn giữ trần riêng theo SĐT / mục đích)
+  const gate = await sharedRateLimit("otpIp", "ip", clientIp(req), "otp");
+  if (gate) return tooManyResponse(gate, "xin mã OTP");
   const db = getDb();
   if (body.action === "request") {
     const r = await requestOtp(db, { phone: body.phone, purpose, ip, userAgent: req.headers.get("user-agent") });

@@ -65,7 +65,13 @@ export async function moveCriterion(ctx: ProtectedContext, input: { id: string; 
 export async function setNextCourse(ctx: ProtectedContext, input: { courseId: string; nextCourseId: string | null }) {
   requirePermission(ctx, "report_card:configure", {});
   if (input.nextCourseId === input.courseId) throw new TRPCError({ code: "BAD_REQUEST", message: "Khoá tiếp theo không thể là chính nó" });
-  await ctx.db.update(courses).set({ nextCourseId: input.nextCourseId, updatedAt: new Date() }).where(eq(courses.id, input.courseId));
+  const before = await ctx.db.query.courses.findFirst({ where: eq(courses.id, input.courseId), columns: { nextCourseId: true } });
+  await ctx.db.transaction(async (txx) => {
+    const tx = txx as unknown as Db;
+    await tx.update(courses).set({ nextCourseId: input.nextCourseId, updatedAt: new Date() }).where(eq(courses.id, input.courseId));
+    // Lộ trình khoá học quyết định học viên được đề xuất học tiếp gì (kéo theo báo giá) — ghi nhật ký như mọi thay đổi danh mục khác
+    await writeAudit(tx, { actorId: ctx.user.id, action: "UPDATE", module: "academics", entity: "courses", entityId: input.courseId, before: { nextCourseId: before?.nextCourseId ?? null }, after: { nextCourseId: input.nextCourseId }, ip: ctx.ip });
+  });
   return { ok: true };
 }
 

@@ -61,3 +61,5 @@ export * from "./security/rateLimit.js";
 export * from "./security/upload.js";
 export * from "./security/scope.js";
 export * from "./security/webhook.js";
+export * from "./security/headers.js";
+export * from "./security/log.js";

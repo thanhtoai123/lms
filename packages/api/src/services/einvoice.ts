@@ -17,6 +17,7 @@ import { todayISO } from "./sessions";
 import { queueEmail, getSettings } from "./admin";
 import { notify, accountantsOf } from "./finance";
 import { mediaSigningSecret } from "../lib/secrets";
+import { logger } from "../lib/logger";
 
 type Db = ProtectedContext["db"];
 const bad = (m: string | string[]) => new TRPCError({ code: "BAD_REQUEST", message: Array.isArray(m) ? m.join("; ") : m });
@@ -209,7 +210,7 @@ export async function syncInvoiceDrafts(db: Database, opts: { limit?: number } =
       }
     } catch (e) {
       failed++;
-      console.error("[einvoice draft]", (e as Error).message);
+      logger.child("einvoice").error("không phát hành được hoá đơn nháp", { err: e });
     }
   }
   return { drafted, issued, failed };
@@ -223,7 +224,7 @@ function buyerOf(i: typeof einvoices.$inferSelect) {
 /* Phát hành                                                            */
 /* ------------------------------------------------------------------ */
 
-async function doIssue(db: Db, id: string, actorId: string | null): Promise<{ status: InvoiceStatus; number?: number; error?: string }> {
+async function doIssue(db: Db, id: string, actorId: string | null, ip?: string): Promise<{ status: InvoiceStatus; number?: number; error?: string }> {
   const s = await einvoiceSettings(db);
   if (!s.enabled) throw pre("Chưa bật hoá đơn điện tử (Cấu hình)");
   const claim = await db.transaction(async (tx) => {
@@ -263,6 +264,13 @@ async function doIssue(db: Db, id: string, actorId: string | null): Promise<{ st
         await tx.update(einvoices).set({ status: to }).where(eq(einvoices.id, original.id));
         await tx.insert(einvoiceEvents).values({ invoiceId: original.id, action: to, note: `Bởi hoá đơn số ${res.number}`, userId: actorId });
       }
+      // Nhật ký ghi TRONG transaction chốt số hoá đơn. Trước đây chỉ `issueInvoice` (thao tác tay)
+      // mới ghi audit, và ghi SAU khi transaction đã cam kết; hoá đơn do worker phát hành
+      // (`syncInvoiceDrafts`) thì không để lại dấu vết nào.
+      await writeAudit(tx as unknown as Db, {
+        actorId, action: "TRANSITION", module: "finance", entity: "einvoices", entityId: claim.id,
+        before: { status: claim.status }, after: { status: "issued", number: res.number, serial: claim.serial, total: t.total }, ip,
+      });
     });
     if (claim.buyerEmail) {
       const st = await getSettings(db);
@@ -270,7 +278,7 @@ async function doIssue(db: Db, id: string, actorId: string | null): Promise<{ st
         to: claim.buyerEmail, event: "INVOICE_ISSUED",
         vars: { ten_ph: claim.buyerName ?? claim.buyerCompany ?? "Quý khách", so_hd: String(res.number), ky_hieu: `${claim.templateCode}${claim.serial}`, so_tien: formatVnd(t.total), ma_tra_cuu: res.lookupCode, link: `${st.website.replace(/\/$/, "")}${s.lookupUrl}?ma=${res.lookupCode}` },
         relatedType: "einvoice", relatedId: claim.id, createdBy: actorId, tenantId: claim.tenantId ?? null,
-      }).catch((e) => console.error("[invoice email]", e));
+      }).catch((e) => logger.child("einvoice").error("không xếp được email hoá đơn vào hàng đợi", { err: e, einvoiceId: claim.id }));
     }
     return { status: "issued", number: res.number };
   } catch (e) {
@@ -286,9 +294,9 @@ export async function issueInvoice(ctx: ProtectedContext, input: { id: string })
   const inv = await ctx.db.query.einvoices.findFirst({ where: eq(einvoices.id, input.id) });
   if (!inv) throw notFound("Không tìm thấy hoá đơn");
   if (!can(ctx, "finance:confirm", inv.centerId)) throw forbid("Chỉ kế toán phát hành hoá đơn");
-  const r = await doIssue(ctx.db, inv.id, ctx.user.id);
-  await writeAudit(ctx.db, { actorId: ctx.user.id, action: "TRANSITION", module: "finance", entity: "einvoices", entityId: inv.id, before: { status: inv.status }, after: r, ip: ctx.ip });
-  return r;
+  // `doIssue` tự ghi audit TRONG transaction chốt số (gọi ra nhà cung cấp nằm giữa hai transaction
+  // nên không gói chung được) — ở đây chỉ truyền IP xuống, không ghi lần thứ hai.
+  return doIssue(ctx.db, inv.id, ctx.user.id, ctx.ip);
 }
 
 export async function updateDraft(ctx: ProtectedContext, input: { id: string; buyerName?: string | null; buyerCompany?: string | null; buyerTaxCode?: string | null; buyerAddress?: string | null; buyerEmail?: string | null; noInvoiceRequested?: boolean }) {
@@ -307,8 +315,18 @@ export async function updateDraft(ctx: ProtectedContext, input: { id: string; bu
   };
   const errs = validateBuyer({ name: next.buyerName, company: next.buyerCompany, taxCode: next.buyerTaxCode, address: next.buyerAddress, email: next.buyerEmail, phone: inv.buyerPhone, noInvoiceRequested: next.noInvoiceRequested });
   if (errs.length) throw bad(errs);
-  await ctx.db.update(einvoices).set(next).where(eq(einvoices.id, inv.id));
-  await ctx.db.insert(einvoiceEvents).values({ invoiceId: inv.id, action: "edit", note: "Cập nhật thông tin người mua", userId: ctx.user.id });
+  // Sửa người mua trên hoá đơn = đổi dữ liệu thuế + PII khách hàng (mã số thuế, địa chỉ, email).
+  // Ba câu lệnh phải cùng một transaction, và nhật ký ghi ngay trong đó.
+  await ctx.db.transaction(async (txx) => {
+    const tx = txx as unknown as Db;
+    await tx.update(einvoices).set(next).where(eq(einvoices.id, inv.id));
+    await tx.insert(einvoiceEvents).values({ invoiceId: inv.id, action: "edit", note: "Cập nhật thông tin người mua", userId: ctx.user.id });
+    await writeAudit(tx, {
+      actorId: ctx.user.id, action: "UPDATE", module: "finance", entity: "einvoices", entityId: inv.id,
+      before: { buyerName: inv.buyerName, buyerCompany: inv.buyerCompany, buyerTaxCode: inv.buyerTaxCode, buyerAddress: inv.buyerAddress, buyerEmail: inv.buyerEmail, noInvoiceRequested: inv.noInvoiceRequested },
+      after: next, ip: ctx.ip,
+    });
+  });
   return { ok: true };
 }
 
@@ -318,8 +336,15 @@ export async function cancelDraft(ctx: ProtectedContext, input: { id: string; re
   if (!can(ctx, "finance:confirm", inv.centerId)) throw forbid("Chỉ kế toán");
   if (input.reason.trim().length < 5) throw bad("Ghi lý do huỷ nháp");
   const to = rule(() => invoiceTransition(inv.status as InvoiceStatus, "cancel"));
-  await ctx.db.update(einvoices).set({ status: to, reason: input.reason.trim() }).where(eq(einvoices.id, inv.id));
-  await ctx.db.insert(einvoiceEvents).values({ invoiceId: inv.id, action: "cancel", note: input.reason.trim(), userId: ctx.user.id });
+  await ctx.db.transaction(async (txx) => {
+    const tx = txx as unknown as Db;
+    await tx.update(einvoices).set({ status: to, reason: input.reason.trim() }).where(eq(einvoices.id, inv.id));
+    await tx.insert(einvoiceEvents).values({ invoiceId: inv.id, action: "cancel", note: input.reason.trim(), userId: ctx.user.id });
+    await writeAudit(tx, {
+      actorId: ctx.user.id, action: "TRANSITION", module: "finance", entity: "einvoices", entityId: inv.id,
+      before: { status: inv.status }, after: { status: to }, reason: input.reason.trim(), ip: ctx.ip,
+    });
+  });
   return { status: to };
 }
 

@@ -182,6 +182,37 @@ export const revenueTargets = pgTable(
   (t) => [uniqueIndex("revenue_targets_unique").on(t.centerId, t.period)],
 );
 
+/**
+ * Bộ đếm trần tần suất DÙNG CHUNG giữa mọi bản sao máy chủ.
+ *
+ * Trước đây trần tần suất chỉ đếm trong `Map` của một tiến trình: chạy nhiều bản sao
+ * (Vercel, k8s, PM2 cluster) thì trần thực tế nhân lên theo số bản sao, còn khởi động lại
+ * là mất sạch đếm — kẻ dò mã chỉ cần đợi một lần triển khai. Bảng này là kho đếm chung,
+ * tăng nguyên tử bằng `INSERT … ON CONFLICT DO UPDATE SET count = count + 1`.
+ *
+ * KHÔNG chứa dữ liệu cá nhân dạng đọc được: khoá là `<mục đích>|<loại>:<định danh>`,
+ * trong đó định danh nhạy cảm (SĐT, email) được băm trước khi ghép khoá.
+ * Dòng hết hạn được dọn định kỳ bởi worker (`pruneRateLimits`).
+ */
+export const rateLimits = pgTable(
+  "rate_limits",
+  {
+    /** `<mục đích>|<loại>:<định danh>` — ví dụ `login|ip:1.2.3.4`, `activate|phone:<băm>` */
+    key: text("key").notNull(),
+    /** Mốc đầu ô thời gian (cửa sổ cố định) */
+    windowStart: timestamp("window_start", { withTimezone: true }).notNull(),
+    /** Số lượt đã ghi nhận trong ô này */
+    count: integer("count").notNull().default(0),
+    /** Thời điểm ô hết hiệu lực — dùng để dọn dòng cũ */
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.key, t.windowStart] }),
+    index("rate_limits_expires_idx").on(t.expiresAt),
+  ],
+);
+
 /** Nhật ký đăng nhập nhân sự (không lưu email gốc khi không khớp tài khoản — chỉ mã băm + dạng che) */
 export const loginEvents = pgTable(
   "login_events",
