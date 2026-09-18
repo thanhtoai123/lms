@@ -227,3 +227,15 @@ test("danh mục quyền cấp theo nhóm: không cho hệ thống / audit / *",
   assert.ok(cat.every((g) => g.items.every((i) => i.permissions.length === GROUP_PERMISSION_ACTIONS.length)));
   assert.ok(!cat.some((g) => g.items.some((i) => i.key === "system")));
 });
+
+test("kế toán chốt được kỳ công (bản gốc: kế toán cơ sở hoặc kế toán Hội sở)", () => {
+  const ktCs: Actor = { userId: "kt1", assignments: [{ role: "CENTER_ACCOUNTANT", centerId: "cs1" }] };
+  const ktHo: Actor = { userId: "kt0", assignments: [{ role: "HO_ACCOUNTANT", centerId: null }] };
+  const gv: Actor = { userId: "gv", personId: "t1", assignments: [{ role: "TEACHER", centerId: "cs1" }] };
+  assert.equal(authorize(ktCs, "timesheet:lock", { centerId: "cs1" }).allowed, true);
+  assert.equal(authorize(ktCs, "timesheet:lock", { centerId: "cs2" }).allowed, false);
+  // Kế toán Hội sở chốt được mọi cơ sở → mở lại kỳ đã chốt cũng thuộc nhóm này
+  assert.equal(authorize(ktHo, "timesheet:lock", { centerId: "cs1" }).allowed, true);
+  assert.equal(centersWith(ktHo, "timesheet:lock"), null);
+  assert.equal(authorize(gv, "timesheet:lock", { centerId: "cs1" }).allowed, false);
+});

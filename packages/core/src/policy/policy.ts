@@ -89,7 +89,7 @@ export interface ResourceRef {
 
 const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   SUPER_ADMIN: ["*:*"],
-  HO_ACCOUNTANT: ["affiliate:read", "affiliate:pay", "finance:*", "inventory:*", "coin:read", "student:read", "enrollment:read", "class:read", "report:read", "course:read", "staff:read", "staff:salary", "timesheet:read"],
+  HO_ACCOUNTANT: ["affiliate:read", "affiliate:pay", "finance:*", "inventory:*", "coin:read", "student:read", "enrollment:read", "class:read", "report:read", "course:read", "staff:read", "staff:salary", "timesheet:read", "timesheet:lock"],
   HO_HR: ["staff:*", "teacher:*", "timesheet:*", "recruit:*", "report:read"],
   HO_MARKETING: ["lead:read", "lead:create", "marketing:*", "site:*", "report:read", "affiliate:*", "message:read", "message:create", "trials:view"],
   HO_SALE: ["lead:create", "lead:read_own", "lead:update_own", "trials:view"],
@@ -103,7 +103,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   ],
   CENTER_CLASS_MANAGER: ["class:read", "class:create", "class:update", "session:*", "attendance:*", "session_note:*", "media:*", "student:read", "student:update", "enrollment:read", "enrollment:update", "makeup:*", "teacher:read", "room:*", "center:read", "report_card:*", "completion:*", "holiday:read", "course:read", "curriculum:read", "inventory:read", "inventory:create", "coin:read", "coin:award", "coin:redeem", "document:read", "assignment:*", "message:read", "message:create", "trials:view", "trials:manage", "trials:attendance", "trials:assign-teacher"],
   CENTER_SALES_CSM: ["lead:*", "student:read", "student:create", "student:update", "enrollment:create", "enrollment:read", "enrollment:update", "class:read", "session:read", "makeup:*", "care:*", "parent_account:*", "center:read", "course:read", "finance:read", "finance:create", "inventory:read", "inventory:create", "coin:read", "coin:redeem", "assignment:read", "compliance:read", "compliance:create", "message:read", "message:create", "message:update", "affiliate:read", "affiliate:create", "trials:view", "trials:manage", "trials:attendance", "trials:assign-teacher"],
-  CENTER_ACCOUNTANT: ["affiliate:read", "affiliate:pay", "finance:*", "enrollment:read", "student:read", "class:read", "course:read", "center:read", "staff:read", "staff:salary", "timesheet:read", "report:read", "inventory:read", "coin:read"],
+  CENTER_ACCOUNTANT: ["affiliate:read", "affiliate:pay", "finance:*", "enrollment:read", "student:read", "class:read", "course:read", "center:read", "staff:read", "staff:salary", "timesheet:read", "timesheet:lock", "report:read", "inventory:read", "coin:read"],
   CENTER_HR: ["staff:*", "teacher:*", "timesheet:*", "recruit:*", "center:read"],
   TEACHER: ["course:read", "curriculum:read", "class:read_own", "session:read_own", "session:update_own", "attendance:write_own", "session_note:write_own", "media:write_own", "report_card:write_own", "report_card:read_own", "completion:propose_own", "completion:read_own", "student:read_own", "coin:award_own", "coin:read_own", "document:read_own", "assignment:read_own", "assignment:create_own", "assignment:update_own", "assignment:grade_own", "curriculum:propose", "message:read_own", "message:create_own", "recruit:interview_own", "trials:view_own", "trials:attendance_own"],
   ASSISTANT_TEACHER: ["course:read", "curriculum:read", "class:read_own", "session:read_own", "attendance:write_own", "media:write_own", "student:read_own", "document:read_own", "assignment:read_own", "assignment:grade_own"],
