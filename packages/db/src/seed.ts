@@ -3,7 +3,7 @@
  * 3 GV, 2 lớp có lịch, 16 học viên, buổi học sinh từ lịch, vài buổi đã điểm danh.
  * Chạy: pnpm db:seed
  */
-import "dotenv/config";
+import "./env";
 import { and, eq } from "drizzle-orm";
 import { createDb } from "./index";
 import {

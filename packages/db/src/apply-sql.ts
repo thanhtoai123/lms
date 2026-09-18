@@ -2,7 +2,7 @@
  * Áp dụng các file SQL trong ./sql theo thứ tự tên file.
  * Dùng: pnpm --filter @satarobo/db exec tsx src/apply-sql.ts
  */
-import "dotenv/config";
+import "./env";
 import { readdirSync, readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
