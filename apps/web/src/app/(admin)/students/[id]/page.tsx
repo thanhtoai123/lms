@@ -5,6 +5,7 @@ import { StudentStatusChip, GENDER_VI, RELATION_VI, ParentAccountChip, fmtDate }
 import { ATT_LABEL } from "@/components/ui";
 import { BLOOD_TYPE_VI, type BloodType } from "@satarobo/core";
 import { EnrollmentCard, AddGuardian, StudentLifecycle, RevealPrivate } from "./actions";
+import { ProfileDrawer, type ProfileExtras } from "./profile-drawer";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Hồ sơ học viên" };
@@ -21,6 +22,44 @@ export default async function StudentProfile({ params }: { params: Promise<{ id:
   const homework = actor && hasPermission(actor, "assignment:read") ? await caller.content.studentHomework({ studentId: id }).catch(() => null) : null;
   const rents = actor && hasPermission(actor, "inventory:read") ? await caller.inventory.rentals({ studentId: id, status: "out" }).catch(() => []) : [];
   const age = s.dateOfBirth ? Math.floor((Date.now() - new Date(s.dateOfBirth).getTime()) / (365.25 * 86_400_000)) : null;
+  const dt = (d: Date) => d.toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" });
+  const addr = s.address ? [s.address.address, s.address.ward, s.address.district, s.address.city].filter(Boolean).join(", ") : "";
+
+  // Phần tra cứu của hồ sơ — dựng sẵn chuỗi ở server rồi đưa vào panel trượt phải
+  const extras: ProfileExtras = {
+    health: [
+      { label: "Nhóm máu", value: s.bloodType ? BLOOD_TYPE_VI[s.bloodType as BloodType] : "—" },
+      { label: "Dị ứng", value: s.allergies?.length ? s.allergies.join(" · ") : "—" },
+      { label: "Lưu ý sức khoẻ", value: s.healthNotes || "—" },
+      { label: "Sở thích", value: s.interests || "—" },
+      { label: "Ghi chú", value: s.notes || "—" },
+      ...(s.canUpdate ? [{ label: "Địa chỉ", value: addr || "—" }] : []),
+    ],
+    pauses: s.pauses.map((p) => ({
+      id: p.id,
+      line: `Từ ${fmtDate(p.fromDate)} → ${p.expectedReturn ? `dự kiến trở lại ${fmtDate(p.expectedReturn)}` : "chưa hẹn ngày"}${p.endedAt ? ` · kết thúc ${fmtDate(p.endedAt)}${p.endKind === "withdraw" ? " (nghỉ học)" : ""}` : ""}`,
+      sub: `${p.classCodes.length ? `${p.classCodes.join(", ")} · ` : ""}${p.reason}${p.endNote ? ` — ${p.endNote}` : ""}`,
+      meta: `${p.createdByName ?? "hệ thống"} · ${dt(p.createdAt)}`,
+      open: !p.endedAt,
+    })),
+    coin: coins
+      ? { balance: coins.balance, tierLabel: coins.tier.label, note: `Tích luỹ ${coins.earned}${coins.held ? ` · đang giữ ${coins.held} cho đổi quà` : ""}`, href: `/satacoin?student=${id}` }
+      : null,
+    homework: homework && homework.items.length > 0
+      ? {
+        summary: `Đã nộp ${homework.stats.turnedIn}/${homework.stats.total} (${homework.stats.rate}%)${homework.stats.avg !== null ? ` · điểm TB ${homework.stats.avg}/10` : ""}${homework.stats.missing ? ` · ${homework.stats.missing} bài không nộp` : ""}`,
+        items: homework.items.slice(0, 8).map((h) => ({ id: h.assignmentId, title: h.title, right: h.status === "graded" ? `${h.score}/${h.maxScore}` : h.statusLabel, href: `/assignments/${h.assignmentId}` })),
+      }
+      : null,
+    kits: kitMoves && (kitMoves.items.length > 0 || rents.length > 0)
+      ? [
+        ...rents.map((r) => ({ overdue: r.overdueDays > 0, text: `Đang thuê ${r.itemName} × ${r.qty} — hạn ${r.dueDate.split("-").reverse().join("/")}${r.overdueDays ? ` (quá ${r.overdueDays} ngày)` : ""}` })),
+        ...kitMoves.items.slice(0, 8).map((m) => ({ overdue: false, text: `${m.typeLabel}: ${m.itemName} — ${-m.qty > 0 ? `nhận ${-m.qty}` : `trả ${m.qty}`}` })),
+      ]
+      : null,
+    care: s.care.map((c) => ({ id: c.id, title: c.title, status: c.status })),
+    events: s.events.map((ev) => ({ id: ev.id, when: dt(ev.createdAt), title: EVENT_VI[ev.type] ?? ev.type, reason: ev.reason })),
+  };
 
   return (
     <div className="space-y-4">
@@ -42,10 +81,11 @@ export default async function StudentProfile({ params }: { params: Promise<{ id:
         </div>
         <div className="flex flex-col items-end gap-2">
           <StudentStatusChip status={s.status} />
-          <div className="flex gap-2">
+          <div className="flex flex-wrap justify-end gap-2">
             <Link href={`/enrollments/new?studentId=${s.id}`} className="btn-primary !py-1.5 text-xs">+ Ghi danh</Link>
             <Link href={`/chuyen-lop?studentId=${s.id}`} className="btn-ghost !py-1.5 text-xs">Chuyển lớp</Link>
             <Link href={`/students/${s.id}/edit`} className="btn-ghost !py-1.5 text-xs">Sửa</Link>
+            <ProfileDrawer name={s.fullName} extras={extras} />
           </div>
         </div>
       </header>
@@ -99,81 +139,10 @@ export default async function StudentProfile({ params }: { params: Promise<{ id:
             <AddGuardian studentId={s.id} />
           </section>
 
-          <section className="card space-y-2 p-4 text-sm">
-            <h2 className="font-bold">Sức khoẻ & ghi chú</h2>
-            <div><div className="label">Nhóm máu</div><p>{s.bloodType ? BLOOD_TYPE_VI[s.bloodType as BloodType] : "—"}</p></div>
-            <div><div className="label">Dị ứng</div><p>{s.allergies?.length ? s.allergies.join(" · ") : "—"}</p></div>
-            <div><div className="label">Lưu ý sức khoẻ</div><p className="whitespace-pre-line">{s.healthNotes || "—"}</p></div>
-            <div><div className="label">Sở thích</div><p>{s.interests || "—"}</p></div>
-            <div><div className="label">Ghi chú</div><p className="whitespace-pre-line">{s.notes || "—"}</p></div>
-            {s.canUpdate && (
-              <div><div className="label">Địa chỉ</div><p>{s.address && [s.address.address, s.address.ward, s.address.district, s.address.city].filter(Boolean).length ? [s.address.address, s.address.ward, s.address.district, s.address.city].filter(Boolean).join(", ") : "—"}</p></div>
-            )}
-          </section>
-
-          <section className="card space-y-2 p-4 text-sm">
-            <h2 className="font-bold">Lịch sử bảo lưu</h2>
-            {s.pauses.length === 0 ? (
-              <p className="text-ink-400">Chưa có lần bảo lưu nào.</p>
-            ) : (
-              <ol className="space-y-2">
-                {s.pauses.map((p) => (
-                  <li key={p.id} className={`border-l-2 pl-3 ${p.endedAt ? "border-black/10" : "border-amber-400"}`}>
-                    <div>
-                      Từ <b>{fmtDate(p.fromDate)}</b> → {p.expectedReturn ? <>dự kiến trở lại <b>{fmtDate(p.expectedReturn)}</b></> : "chưa hẹn ngày"}
-                      {p.endedAt ? <span className="text-ink-600"> · kết thúc {fmtDate(p.endedAt)}{p.endKind === "withdraw" ? " (nghỉ học)" : ""}</span> : <span className="chip ml-1 bg-amber-100 text-amber-800">đang bảo lưu</span>}
-                    </div>
-                    <div className="text-xs text-ink-600">{p.classCodes.length ? `${p.classCodes.join(", ")} · ` : ""}{p.reason}{p.endNote ? ` — ${p.endNote}` : ""}</div>
-                    <div className="text-[11px] text-ink-400">{p.createdByName ?? "hệ thống"} · {p.createdAt.toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })}</div>
-                  </li>
-                ))}
-              </ol>
-            )}
-          </section>
-
-          {coins && (
-            <section className="card space-y-1 p-4 text-sm">
-              <div className="flex items-center justify-between"><h2 className="font-bold">SataCoin</h2><Link href={`/satacoin?student=${id}`} className="text-xs text-brand-600">Chi tiết →</Link></div>
-              <p><span className="text-2xl font-bold text-amber-600">{coins.balance}</span> xu · hạng {coins.tier.label}</p>
-              <p className="text-xs text-ink-400">Tích luỹ {coins.earned}{coins.held ? ` · đang giữ ${coins.held} cho đổi quà` : ""}</p>
-            </section>
-          )}
-
-          {homework && homework.items.length > 0 && (
-            <section className="card space-y-1 p-4 text-sm">
-              <h2 className="font-bold">Bài tập về nhà</h2>
-              <p className="text-xs text-ink-600">Đã nộp {homework.stats.turnedIn}/{homework.stats.total} ({homework.stats.rate}%){homework.stats.avg !== null ? ` · điểm TB ${homework.stats.avg}/10` : ""}{homework.stats.missing ? ` · ${homework.stats.missing} bài không nộp` : ""}</p>
-              {homework.items.slice(0, 6).map((h) => <div key={h.assignmentId} className="flex justify-between gap-2"><Link href={`/assignments/${h.assignmentId}`} className="truncate hover:underline">{h.title}</Link><span className="shrink-0 text-xs text-ink-600">{h.status === "graded" ? `${h.score}/${h.maxScore}` : h.statusLabel}</span></div>)}
-            </section>
-          )}
-
-          {kitMoves && (kitMoves.items.length > 0 || rents.length > 0) && (
-            <section className="card space-y-1 p-4 text-sm">
-              <h2 className="font-bold">Học cụ & đồ thuê</h2>
-              {rents.map((r) => <div key={r.id} className={r.overdueDays ? "text-red-700" : ""}>Đang thuê {r.itemName} × {r.qty} — hạn {r.dueDate.split("-").reverse().join("/")}{r.overdueDays ? ` (quá ${r.overdueDays} ngày)` : ""}</div>)}
-              {kitMoves.items.slice(0, 8).map((m) => <div key={m.id} className="flex justify-between gap-2"><span>{m.typeLabel}: {m.itemName}</span><span className={`tabular-nums ${m.qty < 0 ? "text-ink-600" : "text-green-700"}`}>{-m.qty > 0 ? `nhận ${-m.qty}` : `trả ${m.qty}`}</span></div>)}
-            </section>
-          )}
-
-          {s.care.length > 0 && (
-            <section className="card space-y-2 p-4 text-sm">
-              <h2 className="font-bold">Chăm sóc</h2>
-              {s.care.map((c) => <div key={c.id} className="flex justify-between gap-2"><span>{c.title}</span><span className="text-xs text-ink-400">{c.status}</span></div>)}
-            </section>
-          )}
-
-          <section className="card p-4">
-            <h2 className="mb-2 font-bold">Lịch sử ghi danh</h2>
-            <ol className="space-y-2 text-sm">
-              {s.events.map((ev) => (
-                <li key={ev.id} className="border-l-2 border-black/10 pl-3">
-                  <div className="text-[11px] text-ink-400">{ev.createdAt.toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })}</div>
-                  <div><span className="font-medium">{EVENT_VI[ev.type] ?? ev.type}</span>{ev.reason ? <span className="text-ink-600"> — {ev.reason}</span> : null}</div>
-                </li>
-              ))}
-              {s.events.length === 0 && <li className="text-ink-400">—</li>}
-            </ol>
-          </section>
+          <p className="px-1 text-xs text-muted-foreground">
+            Sức khoẻ, bảo lưu, xu thưởng, bài tập, học cụ, chăm sóc và lịch sử ghi danh nằm trong
+            {" "}<b>Hồ sơ đầy đủ</b> ở đầu trang.
+          </p>
         </aside>
       </div>
     </div>
