@@ -11,6 +11,22 @@ Chạy: `powershell -ExecutionPolicy Bypass -File scripts\kiem-thu\kich-ban-vai-
 > nhượng quyền và trải nghiệm một chạm rồi gom tất cả vào một báo cáo Markdown.
 
 Mỗi dòng in `PASS` / `FAIL` kèm thông báo lỗi thật của hệ thống, cuối cùng in tổng kết.
+Dòng `SKIP` là bước bỏ qua vì môi trường thiếu dữ liệu — không tính vào PASS/FAIL.
+
+## Chọn dữ liệu mẫu có kiểm tra tiền đề
+
+Hai nhóm dưới đây **không** lấy phần tử đầu danh sách, vì làm vậy dễ trúng dữ liệu không
+đủ điều kiện và báo lỗi oan:
+
+| Nhóm | Điều kiện chọn | Không thoả thì |
+|---|---|---|
+| F (điểm danh) | buổi `scheduled` **đã diễn ra** (`recordAttendance` chặn buổi tương lai) và thuộc lớp có `roster ≥ 1` (lớp rỗng → `enrollmentId` null → zod báo "Expected string, received null") | `SKIP F2–F6` |
+| G (ảnh lớp) | ảnh trong kho có `isClassWide = true` hoặc đã gắn học viên (`canSubmitMedia` từ chối ảnh chưa gắn ai và chưa đánh dấu ảnh chung) | `SKIP G2–G5` |
+
+`submitMedia` / `reviewMedia` / `restoreMedia` trả về `{ results, ok, failed }` — `ok` là **số
+dòng thành công của nghiệp vụ**. Kịch bản khẳng định `ok ≥ 1` chứ không chỉ khẳng định lời gọi
+thành công, và in `results[].message` khi hỏng; nếu không sẽ có chuỗi đạt giả rồi hỏng ở bước
+cuối. Các bước tạo bản ghi (B2, B4, C1, D1, D2, J2, L2, L4, O1) cũng chỉ báo đạt khi có id trả về.
 
 ## Nhóm kiểm thử
 
@@ -34,10 +50,21 @@ Mỗi dòng in `PASS` / `FAIL` kèm thông báo lỗi thật của hệ thống,
 | O | Học bù: tạo yêu cầu, danh sách buổi nhận bù, xếp bù |
 | P | Cổng phụ huynh: các trang trả về hợp lệ |
 
-## Kết quả lần chạy 18/09/2026
+## Lịch sử kết quả
 
-94 PASS / 3 FAIL — 3 mục còn lại là hạn chế của chính kịch bản (chọn ảnh trong kho chưa gắn thẻ
-học viên nên không gửi duyệt được; lớp lấy mẫu chưa có ghi danh), không phải lỗi nghiệp vụ.
+**18/09/2026 — lần đầu**: 94 PASS / 3 FAIL. Ba mục không đạt là hạn chế của chính kịch bản
+(chọn ảnh trong kho chưa gắn thẻ học viên nên không gửi duyệt được; lớp lấy mẫu chưa có ghi danh),
+không phải lỗi nghiệp vụ.
 
 **Lỗi thật đã tìm ra và sửa trong đợt này**: kế toán cơ sở / kế toán Hội sở không chốt được kỳ công
 (bản gốc ghi rõ người chốt là "Kế toán cơ sở hoặc Kế toán Hội sở") → đã thêm quyền `timesheet:lock`.
+
+**18/09/2026 — chạy trong bộ toàn diện**: 191 PASS / 6 FAIL / 6 SKIP trên 203 bước (bộ bảo mật
+41/41). Cả sáu mục không đạt đều là khiếm khuyết của kịch bản, **không có lỗi sản phẩm nào**:
+
+| Mục | Nguyên nhân | Đã sửa |
+|---|---|---|
+| F2, F3 | Buổi lấy mẫu thuộc lớp không còn học viên → `enrollmentId` null | Chọn buổi đã diễn ra của lớp còn học viên, không thoả thì `SKIP F2–F6` |
+| G5 | Ảnh đầu kho chưa đủ điều kiện gửi duyệt; G2 chỉ khẳng định lời gọi thành công nên đạt giả, hỏng dây chuyền tới G5 | Chọn ảnh đủ điều kiện + khẳng định `ok` nghiệp vụ ở cả ba lệnh ảnh |
+| C06 | Kịch bản toàn diện suy kỳ vọng từ tên tài khoản; `giaovu.cs1` thật ra là CENTER_CLASS_MANAGER nên 5 nhóm việc nó trả về là đúng quyền | Đối chiếu quyền đọc sống từ `system.roles` / `auth.me` / `admin.groups` |
+| B16 | Đếm thẳng đối tượng `{source, canWaive, items}` nên luôn ra 1 | Lấy `.items` và đối chiếu tenant của từng lớp |

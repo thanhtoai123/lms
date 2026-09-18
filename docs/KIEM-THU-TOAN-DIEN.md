@@ -100,7 +100,9 @@ Kiểm chứng bảng "ai thấy gì" ở `docs/NHUONG-QUYEN.md` mục 2.4:
 - Hội sở chuỗi **không tự bật được** công tắc quyền riêng tư của bên nhượng quyền
   (đây là điểm mấu chốt của cách ly — chỉ quản trị của chính trung tâm đó mới đổi được).
 - `allowCrossCenterTransfer = false` → chuyển lead sang cơ sở của trung tâm khác bị chặn
-  kèm thông báo tiếng Việt; danh sách lớp nhận chuyển lớp của trung tâm khác phải rỗng.
+  kèm thông báo tiếng Việt; danh sách lớp nhận chuyển lớp **không được lẫn lớp của trung tâm
+  khác** — kịch bản dựng bản đồ cơ sở → trung tâm từ `tenants.get` rồi đối chiếu tenant của
+  từng lớp với tenant của ghi danh, chứ không đếm số lựa chọn.
 - `assertSameTenant` → đọc bản ghi của trung tâm khác bị từ chối, thông báo không kèm PII.
 - Vòng tròn đổi tuỳ chọn: đổi → đọc lại đúng giá trị → **trả về trạng thái ban đầu**.
 - Nhân bản một chạm: `tenants.previewProvision` cho bảng kê > 0 dòng; `tenants.provision`
@@ -114,7 +116,25 @@ Kiểm chứng bảng "ai thấy gì" ở `docs/NHUONG-QUYEN.md` mục 2.4:
 
 - `inbox.today` cho **từng vai trò trong 7 vai trò**: khẳng định **không có nhóm việc nào
   nằm ngoài quyền**. (Không khẳng định chiều ngược lại — nhóm rỗng thì `inbox.today` bỏ đi,
-  nên "thiếu nhóm" có thể chỉ là chưa có việc, không phải lỗi phân quyền.)
+  nên "thiếu nhóm" có thể chỉ là chưa có việc, không phải lỗi phân quyền; kịch bản ghi
+  chú những nhóm như vậy ở mục 7 của báo cáo.)
+
+  Kỳ vọng **không** được suy từ tên tài khoản. Kịch bản đọc sống từ chính hệ thống:
+
+  | Nguồn | Dùng để |
+  |---|---|
+  | `auth.me` (gọi bằng chính tài khoản đó) | vai trò đang hiệu lực của tài khoản |
+  | `system.roles` | ma trận vai trò → danh sách quyền + nhãn tiếng Việt |
+  | `admin.groups` + `admin.group` | quyền cấp thêm theo nhóm người dùng (chỉ cộng thêm) |
+  | Bảng nhóm việc → quyền trong kịch bản | lấy đúng từ `canAnywhere(...)` ở `packages/api/src/services/inbox.ts` |
+
+  Rồi khớp theo đúng luật `matches()` của `packages/core/src/policy/policy.ts` (hiểu `*` và
+  `*_own`). Nhờ vậy đổi ma trận quyền trong mã nguồn thì kịch bản tự theo. Chỉ còn **một**
+  bảng phải cập nhật tay: nhóm việc → quyền, và chỉ khi `inbox.ts` thêm nhóm mới.
+
+  > Ví dụ vì sao không suy theo tên: `giaovu.cs1@example.test` là **CENTER_CLASS_MANAGER**
+  > (có `session:*`, `attendance:*`, `media:*`, `report_card:*`, `completion:*`), không phải
+  > vai trò Đào tạo. Nó thấy 5 nhóm việc học vụ là **đúng quyền**.
 - Mọi nhóm phải có khoá hợp lệ, `actionKind` là `mutate` hoặc `open`, nhãn nút không rỗng;
   mọi dòng phải đủ `id` / tiêu đề / liên kết "Mở chi tiết".
 - `inbox.act` trên 1 dòng hợp lệ → `done = 1`; trộn 1 dòng hợp lệ + 1 dòng ngoài phạm vi →
@@ -168,7 +188,7 @@ Thay vào đó, mọi bản ghi nó tạo ra đều được đánh dấu và li
 |---|---|---|
 | Trung tâm QA + cơ sở + phòng + danh mục được sao chép | mã trung tâm `QA<ddHHmmss>`, mã cơ sở `QAC<ddHHmmss>` | Xoá theo `tenant_id` của trung tâm đó (ghi trong báo cáo) |
 | Tài khoản quản trị của trung tâm QA | email `qa.provision.<dấu thời gian>@example.test` | Xoá dòng `users` + `user_roles` tương ứng |
-| Ảnh lớp QA | chú thích `QA-KIEM-THU-<dấu thời gian>` | Xoá dòng `session_media` (id ghi trong báo cáo) |
+| Ảnh lớp QA (đánh dấu **ảnh chung cả lớp** để không chặn luồng duyệt ảnh của kịch bản khác) | chú thích `QA-KIEM-THU-<dấu thời gian>` | Xoá dòng `session_media` (id ghi trong báo cáo) |
 | Nhật ký `PII_REVEAL` do lệnh xuất CSV của kịch bản sinh ra | thời điểm chạy | Giữ lại là đúng — đó là bằng chứng nhật ký hoạt động |
 | Yêu cầu OTP / nhật ký đăng nhập của số điện thoại giả | số bắt đầu bằng `0900` | Tự hết hạn; xoá được nếu muốn |
 | Hoạt động lead / việc chăm sóc do `inbox.act` ghi | ghi chú "Kiểm thử tự động" | Giữ lại được; việc chăm sóc đã được `inbox.undo` trả lại |
@@ -184,19 +204,56 @@ Kịch bản không bao giờ dừng vì thiếu dữ liệu — nó ghi `SKIP` 
 
 | Tình huống | Bị bỏ qua |
 |---|---|
-| Tài khoản quản trị của `FR_HUE` (`quantri@satarobo-hue.test`) ở trạng thái **chờ kích hoạt** trong dữ liệu mẫu | Toàn bộ chiều kiểm tra "người của `FR_HUE` không thấy dữ liệu của `SATA`", và vòng tròn bật / tắt `hoSeesPii` (B18–B22). Muốn chạy đủ: vào *Hệ thống → Tài khoản*, mở khoá tài khoản đó rồi chạy lại |
+| Không đăng nhập được bằng tài khoản nào của `FR_HUE` (`giamdoc@satarobo-hue.test` đang hoạt động, `quantri@satarobo-hue.test` chờ kích hoạt) | Toàn bộ chiều kiểm tra "người của `FR_HUE` không thấy dữ liệu của `SATA`", và vòng tròn bật / tắt `hoSeesPii` (B18–B22). Chạy lại `pnpm db:seed` để có tài khoản mẫu đang hoạt động |
 | Chưa chạy `pnpm db:apply-sql` nên chưa có bảng `tenants` | Gần như toàn bộ bộ B |
 | `FR_HUE` chưa có học viên / phiếu thu trong dữ liệu mẫu | Các kiểm tra che PII của danh sách học viên và chi tiết tài chính của bên nhượng quyền |
+| Không có trung tâm thứ hai nào **đang có lớp** để đối chiếu | B16 (lớp nhận chuyển lớp lẫn tenant khác) |
 | Cơ sở 2 chưa có lead / lớp / buổi / đơn hàng / ghi danh / nhân sự mẫu | Đúng kiểm tra IDOR tương ứng (mỗi loại bản ghi bỏ qua riêng) |
 | Không lấy được buổi học mẫu ở cơ sở 1 | Ba kiểm tra tải tệp |
+| Tài khoản giáo vụ không tải lên được ảnh ở buổi mẫu (HTTP 401/403) | A28 / A29 |
 | `CRON_SECRET` chưa đặt (máy phát triển cho gọi tay) | Kiểm tra cron — đặt `CRON_SECRET` rồi chạy lại để kiểm tra thật |
+| Không đọc được `system.roles` (ma trận vai trò) | Phần đối chiếu quyền của C01–C07 (vẫn kiểm tra hình dạng dữ liệu) |
+| Một tài khoản mẫu không đăng nhập được | Đúng dòng C của tài khoản đó |
 | Hộp "Việc hôm nay" của quản trị không có nhóm việc an toàn nào | `inbox.act` / `inbox.undo` (C11–C13) |
 | Không tìm thấy `kich-ban-vai-tro.ps1` hoặc nó không in dòng `PASS`/`FAIL` nào | Bộ D |
+
+Bộ D (`kich-ban-vai-tro.ps1`) tự bỏ qua thêm hai chỗ, in ra dòng `SKIP` (không tính vào
+PASS/FAIL của báo cáo gộp):
+
+| Tình huống | Bị bỏ qua |
+|---|---|
+| Không có buổi `scheduled` nào **đã diễn ra** thuộc lớp còn học viên | F2–F6 (điểm danh, chờ xếp bù, chốt buổi, xác nhận bài, nhận xét) |
+| Kho ảnh lớp không có ảnh nào đã gắn học viên hoặc đánh dấu ảnh chung | G2–G5 (gửi duyệt → loại → khôi phục) |
 
 Dòng `SKIP` **không làm kịch bản trả mã thoát 1**. Đọc mục 4 của báo cáo để biết phần nào
 chưa thật sự được kiểm chứng trong lần chạy đó.
 
-## 7. Lưu ý khi chạy lại nhiều lần
+## 7. Ba quy tắc khi thêm kiểm tra mới
+
+Rút ra từ đợt chạy thật đầu tiên — cả sáu mục không đạt đều là khiếm khuyết của **kịch bản**,
+không phải của sản phẩm.
+
+1. **Khẳng định `ok` của NGHIỆP VỤ, không phải `ok` của HTTP.**
+   Các thủ tục hàng loạt (`learning.submitMedia` / `reviewMedia` / `restoreMedia`,
+   `admissions.leads.bulkConvert`, các thủ tục học bạ hàng loạt) trả về
+   `{ results, ok, failed }` — `ok` là **số dòng thành công**. Lời gọi thành công mà `ok = 0`
+   vẫn là hỏng; phải đọc `results[].message` để biết lý do thật. Tương tự, `inbox.act` trả
+   `{ done, failed }` và `/api/media/upload` trả `{ ok, uploaded, results }`.
+
+2. **Đọc đúng trường mảng, đừng đếm thẳng đối tượng.**
+   `students.enrollments` trả `{ total, page, pageSize, counts, items }`,
+   `students.eligibleClasses` trả `{ source, canWaive, items }`, `finance.payments` và
+   `system.audit` trả `{ total, …, items }`. `@($doiTuong).Count` **luôn bằng 1** nên trông
+   như "có 1 kết quả". Dùng `Rows $r.data.items`, và với nhật ký thì so `total` chứ đừng đếm
+   số dòng của một trang.
+
+3. **Đừng suy kỳ vọng từ tên tài khoản; đọc quyền sống từ hệ thống.**
+   Tên `giaovu.cs1@…` không nói lên vai trò. Lấy vai trò bằng `auth.me`, ma trận quyền bằng
+   `system.roles`, quyền nhóm bằng `admin.groups`, rồi khớp theo luật `matches()`.
+   Và chọn dữ liệu mẫu **có kiểm tra tiền đề** (buổi học phải đã diễn ra và lớp còn học viên;
+   ảnh phải đủ điều kiện gửi duyệt), thay vì lấy phần tử đầu danh sách.
+
+## 8. Lưu ý khi chạy lại nhiều lần
 
 - Hai lần chạy cách nhau **dưới 1 giây** sẽ đụng mã trung tâm QA (mã sinh theo `ddHHmmss`).
   Thực tế không xảy ra vì một lần chạy mất vài chục giây.
@@ -204,4 +261,7 @@ chưa thật sự được kiểm chứng trong lần chạy đó.
   **1 giờ** cho OTP. Chạy lại ngay thì hai kiểm tra đó vẫn đạt (đang bị chặn sẵn), nhưng
   kiểm thử tay trên cùng máy sẽ bị chặn — chờ hết khoảng đó hoặc khởi động lại `pnpm dev`.
 - Mỗi lần chạy đủ bộ B tạo thêm **một trung tâm QA**. Xoá bớt định kỳ theo mục 6 của báo cáo.
+- Bộ A để lại một ảnh lớp QA trong kho của lớp. Ảnh này được đánh dấu *ảnh chung cả lớp* nên
+  đủ điều kiện gửi duyệt và **không** làm hỏng luồng kho → gửi duyệt → loại → khôi phục mà
+  bộ D kiểm thử; vẫn nên xoá bớt sau vài lần chạy.
 - Báo cáo mặc định ghi đè tệp cũ. Muốn giữ lịch sử thì truyền `-Out` kèm ngày.
