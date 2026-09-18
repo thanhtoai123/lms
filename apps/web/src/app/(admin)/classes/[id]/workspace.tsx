@@ -166,7 +166,7 @@ export function InfoPanel({ classId, ws }: { classId: string; ws: WS }) {
   const [f, setF] = useState({
     name: ws.info.name, description: ws.info.description ?? "", homeRoomId: ws.info.homeRoomId ?? "", leadTeacherId: ws.info.leadTeacherId ?? "",
     assistantTeacherId: ws.info.assistantTeacherId ?? "", capacity: ws.info.capacity, minCapacity: ws.info.minCapacity,
-    startDate: ws.info.startDate ?? "", plannedSessions: ws.info.plannedSessions ?? 0, applyTeacherToFuture: true,
+    startDate: ws.info.startDate ?? "", plannedSessions: ws.info.plannedSessions ?? 0, classGroupId: ws.info.classGroupId ?? "", applyTeacherToFuture: true,
   });
   const save = useMutation(trpc.academics.classes.updateInfo.mutationOptions({
     onSuccess: (r) => { m.ok(`Đã lưu thông tin lớp${r.movedSessions ? ` — ${r.movedSessions} buổi sắp tới chuyển cho GV mới` : ""}.`); setEdit(false); router.refresh(); },
@@ -174,6 +174,7 @@ export function InfoPanel({ classId, ws }: { classId: string; ws: WS }) {
   }));
   const teacherName = (id: string | null) => ws.teacherOptions.find((t) => t.id === id)?.fullName ?? "—";
   const roomName = (id: string | null) => ws.roomOptions.find((r) => r.id === id)?.code ?? "—";
+  const groupName = (id: string | null) => { const g = ws.groupOptions.find((x) => x.id === id); return g ? `${g.code} — ${g.name}` : "—"; };
   const leadChanged = f.leadTeacherId !== (ws.info.leadTeacherId ?? "");
   const closed = ws.status === "finished" || ws.status === "cancelled";
 
@@ -189,6 +190,7 @@ export function InfoPanel({ classId, ws }: { classId: string; ws: WS }) {
           <dt className="text-ink-400">GV chính</dt><dd>{teacherName(ws.info.leadTeacherId)}</dd>
           <dt className="text-ink-400">Trợ giảng</dt><dd>{teacherName(ws.info.assistantTeacherId)}</dd>
           <dt className="text-ink-400">Phòng mặc định</dt><dd>{roomName(ws.info.homeRoomId)}</dd>
+          <dt className="text-ink-400">Nhóm lớp</dt><dd>{groupName(ws.info.classGroupId)}</dd>
           <dt className="text-ink-400">Sĩ số</dt><dd>tối thiểu {ws.info.minCapacity} · tối đa {ws.info.capacity}</dd>
           <dt className="text-ink-400">Khai giảng</dt><dd>{fmt(ws.info.startDate)}</dd>
           <dt className="text-ink-400">Bế giảng dự kiến</dt><dd>{fmt(ws.info.expectedEndDate)}</dd>
@@ -217,6 +219,12 @@ export function InfoPanel({ classId, ws }: { classId: string; ws: WS }) {
                 {ws.roomOptions.map((r) => <option key={r.id} value={r.id}>{r.code} — {r.name} ({r.capacity})</option>)}
               </select>
             </label>
+            <label className="text-xs text-ink-600">Nhóm lớp
+              <select className="input mt-1" value={f.classGroupId} onChange={(e) => setF({ ...f, classGroupId: e.target.value })}>
+                <option value="">— Không thuộc nhóm —</option>
+                {ws.groupOptions.map((g) => <option key={g.id} value={g.id}>{g.code} — {g.name}</option>)}
+              </select>
+            </label>
             <label className="text-xs text-ink-600">Sĩ số tối thiểu<input type="number" min={1} max={30} className="input mt-1" value={f.minCapacity} onChange={(e) => setF({ ...f, minCapacity: Number(e.target.value) })} /></label>
             <label className="text-xs text-ink-600">Sĩ số tối đa<input type="number" min={1} max={30} className="input mt-1" value={f.capacity} onChange={(e) => setF({ ...f, capacity: Number(e.target.value) })} /></label>
             {ws.planning && (
@@ -236,7 +244,7 @@ export function InfoPanel({ classId, ws }: { classId: string; ws: WS }) {
           <div className="flex gap-2">
             <button className="btn-primary" disabled={save.isPending} onClick={() => save.mutate({
               id: classId, name: f.name, description: f.description || null, homeRoomId: f.homeRoomId || null, leadTeacherId: f.leadTeacherId || null,
-              assistantTeacherId: f.assistantTeacherId || null, capacity: f.capacity, minCapacity: f.minCapacity,
+              assistantTeacherId: f.assistantTeacherId || null, capacity: f.capacity, minCapacity: f.minCapacity, classGroupId: f.classGroupId || null,
               startDate: ws.planning ? f.startDate || null : undefined, plannedSessions: ws.planning ? f.plannedSessions || null : undefined,
               applyTeacherToFuture: leadChanged && f.applyTeacherToFuture,
             })}>{save.isPending ? "Đang lưu…" : "Lưu"}</button>

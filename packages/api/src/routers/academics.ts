@@ -5,6 +5,7 @@ import * as CO from "../services/classOps";
 import * as S from "../services/sessions";
 import * as SC from "../services/sessionChanges";
 import * as C from "../services/classes";
+import * as CG from "../services/classGroups";
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "YYYY-MM-DD");
 const hhmm = z.string().regex(/^\d{2}:\d{2}$/, "Giờ dạng HH:mm");
@@ -30,7 +31,14 @@ export const sessionsRouter = router({
       z.object({
         sessionId: uuid,
         records: z
-          .array(z.object({ enrollmentId: uuid, status: z.enum(ATTENDANCE_STATUSES), studentRemark: z.string().max(500).nullish(), makeupForSessionId: uuid.nullish(), rating: z.number().int().min(1).max(5).nullish() }))
+          .array(z.object({
+            enrollmentId: uuid, status: z.enum(ATTENDANCE_STATUSES), studentRemark: z.string().max(500).nullish(), makeupForSessionId: uuid.nullish(),
+            rating: z.number().int().min(1).max(5).nullish(),
+            /** Vắng / Phép: có cần xếp học bù không (null = chưa quyết) */
+            needsMakeup: z.boolean().nullish(),
+            /** Lý do phụ huynh xin vắng */
+            absenceReason: z.string().max(500).nullish(),
+          }))
           .min(1),
       }),
     )
@@ -70,8 +78,21 @@ export const sessionsRouter = router({
 
 export const classesRouter = router({
   list: protectedProcedure
-    .input(z.object({ centerId: uuid.optional(), status: z.enum(CLASS_STATUSES).optional(), q: z.string().max(100).optional(), teacherId: uuid.optional(), courseId: uuid.optional() }).default({}))
+    .input(z.object({ centerId: uuid.optional(), status: z.enum(CLASS_STATUSES).optional(), q: z.string().max(100).optional(), teacherId: uuid.optional(), courseId: uuid.optional(), classGroupId: uuid.optional() }).default({}))
     .query(({ ctx, input }) => C.listClasses(ctx, input)),
+
+  /** Nhóm lớp (nhãn tổ chức gom nhiều lớp) */
+  groups: protectedProcedure
+    .input(z.object({ centerId: uuid.optional(), includeInactive: z.boolean().optional() }).default({}))
+    .query(({ ctx, input }) => CG.listClassGroups(ctx, input)),
+  upsertGroup: protectedProcedure
+    .input(z.object({
+      id: uuid.optional(), code: z.string().trim().min(2, "Mã nhóm lớp tối thiểu 2 ký tự").max(30),
+      name: z.string().trim().min(3, "Tên nhóm lớp tối thiểu 3 ký tự").max(120),
+      centerId: uuid.nullish(), note: z.string().max(500).nullish(), isActive: z.boolean().optional(),
+    }))
+    .mutation(({ ctx, input }) => CG.upsertClassGroup(ctx, input)),
+  deleteGroup: protectedProcedure.input(z.object({ id: uuid, reason })).mutation(({ ctx, input }) => CG.deleteClassGroup(ctx, input)),
 
   get: protectedProcedure.input(z.object({ id: uuid })).query(({ ctx, input }) => C.getClass(ctx, input.id)),
 
@@ -110,7 +131,7 @@ export const classesRouter = router({
       id: uuid, name: z.string().trim().min(3, "Tên lớp tối thiểu 3 ký tự").max(120), description: z.string().max(1000).nullish(),
       homeRoomId: uuid.nullish(), leadTeacherId: uuid.nullish(), assistantTeacherId: uuid.nullish(),
       capacity: z.number().int().min(1).max(30), minCapacity: z.number().int().min(1).max(30),
-      startDate: isoDate.nullish(), plannedSessions: z.number().int().min(1).max(200).nullish(), applyTeacherToFuture: z.boolean().optional(),
+      startDate: isoDate.nullish(), plannedSessions: z.number().int().min(1).max(200).nullish(), classGroupId: uuid.nullish(), applyTeacherToFuture: z.boolean().optional(),
     }))
     .mutation(({ ctx, input }) => CO.updateClassInfo(ctx, input)),
   saveDraftSchedule: protectedProcedure.input(z.object({ classId: uuid, slots: z.array(fullSlot).min(1, "Cần ít nhất một ca học") })).mutation(({ ctx, input }) => CO.saveDraftSchedule(ctx, input)),

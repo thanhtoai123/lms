@@ -5,7 +5,7 @@
 export interface QueuedAttendance {
   id: string;
   sessionId: string;
-  records: { enrollmentId: string; status: string; studentRemark: string | null; rating: number | null }[];
+  records: { enrollmentId: string; status: string; studentRemark: string | null; rating: number | null; needsMakeup?: boolean | null; absenceReason?: string | null }[];
   submit: boolean;
   queuedAt: string;
   lastError?: string;

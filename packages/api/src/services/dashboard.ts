@@ -72,7 +72,7 @@ export async function adminOverview(ctx: ProtectedContext) {
   // 2) Ảnh chờ duyệt
   if (canMedia) {
     const rows = await db
-      .select({ n: sql<number>`count(*)::int`, old: sql<number>`count(*) filter (where ${sessionMedia.createdAt} < now() - interval '24 hours')::int` })
+      .select({ n: sql<number>`count(*)::int`, old: sql<number>`count(*) filter (where coalesce(${sessionMedia.submittedAt}, ${sessionMedia.createdAt}) < now() - interval '24 hours')::int` })
       .from(sessionMedia)
       .innerJoin(sessions, eq(sessions.id, sessionMedia.sessionId))
       .innerJoin(classes, eq(classes.id, sessions.classId))

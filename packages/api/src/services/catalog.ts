@@ -26,7 +26,7 @@ export async function completedCourseIds(db: Db, studentId: string): Promise<str
     .select({ courseId: classes.courseId })
     .from(enrollments)
     .innerJoin(classes, eq(classes.id, enrollments.classId))
-    .leftJoin(courseCompletions, and(eq(courseCompletions.enrollmentId, enrollments.id), isNull(courseCompletions.revokedAt)))
+    .leftJoin(courseCompletions, and(eq(courseCompletions.enrollmentId, enrollments.id), eq(courseCompletions.status, "approved"), isNull(courseCompletions.revokedAt)))
     .where(and(eq(enrollments.studentId, studentId), or(eq(enrollments.status, "completed"), sql`${courseCompletions.id} is not null`)!));
   return [...new Set(rows.map((r) => r.courseId))];
 }

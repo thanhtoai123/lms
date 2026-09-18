@@ -1,6 +1,6 @@
 import { and, eq, inArray, sql, asc, desc, ilike, or } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
-import { classes, classSchedules, sessions, enrollments, courses, centers, regions, rooms, teachers, students, attendance, trialBookings } from "@satarobo/db";
+import { classes, classGroups, classSchedules, sessions, enrollments, courses, centers, regions, rooms, teachers, students, attendance, trialBookings } from "@satarobo/db";
 import {
   visibleCenterIds, summarize, detectRisks, riskFrom, sessionLabel,
   type ClassStatus, type AttendanceRecord,
@@ -9,9 +9,10 @@ import { requirePermission, type ProtectedContext } from "../trpc";
 import { getOps } from "./opsSettings";
 import { createEnrollment } from "./enrollments";
 
-export async function listClasses(ctx: ProtectedContext, input: { centerId?: string; status?: ClassStatus; q?: string; teacherId?: string; courseId?: string }) {
+export async function listClasses(ctx: ProtectedContext, input: { centerId?: string; status?: ClassStatus; q?: string; teacherId?: string; courseId?: string; classGroupId?: string }) {
   const conds = [sql`${classes.deletedAt} is null`];
   if (input.courseId) conds.push(eq(classes.courseId, input.courseId));
+  if (input.classGroupId) conds.push(eq(classes.classGroupId, input.classGroupId));
   if (input.centerId) conds.push(eq(classes.centerId, input.centerId));
   if (input.status) conds.push(eq(classes.status, input.status));
   if (input.teacherId) conds.push(or(eq(classes.leadTeacherId, input.teacherId), eq(classes.assistantTeacherId, input.teacherId))!);
@@ -25,6 +26,8 @@ export async function listClasses(ctx: ProtectedContext, input: { centerId?: str
       startDate: classes.startDate, expectedEndDate: classes.expectedEndDate,
       courseCode: courses.code, courseName: courses.name, centerCode: centers.code, centerId: classes.centerId,
       roomCode: rooms.code, leadTeacherId: classes.leadTeacherId, leadTeacherName: teachers.fullName,
+      classGroupId: classes.classGroupId,
+      classGroupName: sql<string | null>`(select g.name from ${classGroups} g where g.id = ${classes.classGroupId})`,
       enrolled: sql<number>`(select count(*)::int from ${enrollments} e where e.class_id = ${classes.id} and e.status in ('active','trial'))`,
       sessionsDone: sql<number>`(select count(*)::int from ${sessions} s where s.class_id = ${classes.id} and s.status = 'completed' and s.kind = 'regular')`,
       sessionsTotal: sql<number>`(select count(*)::int from ${sessions} s where s.class_id = ${classes.id} and s.status not in ('cancelled','rescheduled') and s.kind = 'regular')`,
@@ -120,5 +123,10 @@ export async function referenceData(ctx: ProtectedContext) {
     rooms: ids.length ? await ctx.db.select().from(rooms).where(inArray(rooms.centerId, ids)).orderBy(asc(rooms.code)) : [],
     teachers: ids.length ? await ctx.db.select({ id: teachers.id, fullName: teachers.fullName, centerId: teachers.centerId }).from(teachers).where(and(eq(teachers.isActive, true), inArray(teachers.centerId, ids))).orderBy(asc(teachers.fullName)) : [],
     courses: await ctx.db.select().from(courses).where(eq(courses.isActive, true)).orderBy(asc(courses.code)),
+    classGroups: await ctx.db
+      .select({ id: classGroups.id, code: classGroups.code, name: classGroups.name, centerId: classGroups.centerId })
+      .from(classGroups)
+      .where(and(sql`${classGroups.deletedAt} is null`, eq(classGroups.isActive, true), visible === null ? sql`true` : ids.length ? sql`(${classGroups.centerId} is null or ${inArray(classGroups.centerId, ids)})` : sql`${classGroups.centerId} is null`))
+      .orderBy(asc(classGroups.code)),
   };
 }

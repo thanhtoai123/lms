@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getServerCaller } from "@/lib/trpc/server";
 import { PageHeader, fmtDate } from "@/components/admin-ui";
 import { Empty } from "@/components/ui";
-import { CompleteForm } from "./form";
+import { CompleteForm, ProposalQueue } from "./form";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Hoàn thành khoá" };
@@ -12,10 +12,23 @@ export default async function CompletionPage({ searchParams }: { searchParams: P
   const { caller } = await getServerCaller();
   const opts = (await caller.schedule.classOptions()).filter((c) => c.status === "running" || c.status === "finished");
   const classId = sp.class && opts.some((c) => c.id === sp.class) ? sp.class : undefined;
-  const [cand, list] = await Promise.all([classId ? caller.learning.completionCandidates({ classId }) : Promise.resolve(null), caller.learning.completions({})]);
+  const [cand, list, proposals] = await Promise.all([
+    classId ? caller.learning.completionCandidates({ classId }) : Promise.resolve(null),
+    caller.learning.completions({}),
+    caller.learning.pendingCompletions().catch(() => null),
+  ]);
   return (
     <div className="space-y-4">
-      <PageHeader title="Hoàn thành khoá & chứng chỉ" desc="Xếp loại gợi ý từ điểm học bạ đã duyệt. Hoàn thành → cấp số chứng chỉ, gợi ý khoá tiếp theo, tạo việc tư vấn tái tục." />
+      <PageHeader
+        title="Hoàn thành khoá & chứng chỉ"
+        desc="Giáo viên gửi đề xuất → người có quyền duyệt Duyệt / Từ chối (bắt buộc lý do). Chứng chỉ chỉ sinh khi đề xuất được duyệt; xếp loại gợi ý từ điểm học bạ đã duyệt, kèm gợi ý khoá tiếp theo và việc tư vấn tái tục."
+      />
+      {proposals && (
+        <section className="card space-y-3 p-4">
+          <h2 className="font-bold">Đề xuất chờ duyệt {proposals.length > 0 && <span className="chip ml-1 bg-amber-100 text-amber-800">{proposals.length}</span>}</h2>
+          <ProposalQueue items={proposals} />
+        </section>
+      )}
       <section className="card space-y-3 p-4">
         <h2 className="font-bold">Hoàn thành khoá hàng loạt theo lớp</h2>
         <form className="flex gap-2">
@@ -25,7 +38,17 @@ export default async function CompletionPage({ searchParams }: { searchParams: P
           </select>
           <button className="btn-ghost">Chọn</button>
         </form>
-        {cand && <CompleteForm items={cand.items.map((i) => ({ enrollmentId: i.enrollmentId, studentId: i.studentId, fullName: i.fullName, code: i.code, consumed: i.consumed, packageSessions: i.packageSessions, avg: i.avg, suggestedGrade: i.suggestedGrade, ok: i.ok && !i.completed, errors: i.completed ? ["Đã có chứng chỉ"] : i.errors, warnings: i.warnings }))} />}
+        {cand && (
+          <CompleteForm
+            canApprove={cand.canApprove}
+            canPropose={cand.canPropose}
+            items={cand.items.map((i) => ({
+              enrollmentId: i.enrollmentId, studentId: i.studentId, fullName: i.fullName, code: i.code, consumed: i.consumed, packageSessions: i.packageSessions,
+              avg: i.avg, suggestedGrade: i.suggestedGrade, proposed: i.proposed,
+              ok: i.ok && !i.completed, errors: i.completed ? ["Đã có chứng chỉ"] : i.errors, warnings: i.warnings,
+            }))}
+          />
+        )}
       </section>
       <section className="space-y-2">
         <h2 className="font-bold">Chứng chỉ đã cấp</h2>
@@ -41,7 +64,7 @@ export default async function CompletionPage({ searchParams }: { searchParams: P
                     <td className="p-3">{c.grade}{c.averageScore ? <div className="text-xs text-ink-400">TB {c.averageScore}</div> : null}</td>
                     <td className="p-3">{c.nextCourseCode ?? "—"}</td>
                     <td className="p-3 text-xs">{fmtDate(c.issuedAt)}</td>
-                    <td className="p-3"><Link href={`/hoan-thanh-khoa/chung-chi/${c.id}`} className="font-mono text-xs text-brand-600 underline">{c.certificateNo}</Link></td>
+                    <td className="p-3"><Link href={`/hoan-thanh-khoa/chung-chi/${c.id}`} className="font-mono text-xs text-brand-600 underline">{c.certificateNo ?? "—"}</Link></td>
                   </tr>
                 ))}
               </tbody>

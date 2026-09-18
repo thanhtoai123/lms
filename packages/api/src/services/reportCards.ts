@@ -6,7 +6,8 @@ import {
 } from "@satarobo/db";
 import {
   reportCardTransition, reportCardMilestones, milestoneLabel, validateReportCard, averageScore, gradeFromAverage, certificateNumber,
-  completionCheck, enrollmentTransition, visibleCenterIds, type ReportCardStatus,
+  completionCheck, completionTransition, validateCompletionInput, enrollmentTransition, visibleCenterIds, authorize,
+  type ReportCardStatus, type CompletionStatus,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { writeAudit } from "./audit";
@@ -283,7 +284,7 @@ export async function studentReportBook(ctx: ProtectedContext, studentId: string
   const completions = await ctx.db
     .select({ id: courseCompletions.id, grade: courseCompletions.grade, certificateNo: courseCompletions.certificateNo, issuedAt: courseCompletions.issuedAt, courseCode: courses.code, courseName: courses.name })
     .from(courseCompletions).innerJoin(enrollments, eq(enrollments.id, courseCompletions.enrollmentId)).innerJoin(courses, eq(courses.id, courseCompletions.courseId))
-    .where(and(eq(enrollments.studentId, studentId), isNull(courseCompletions.revokedAt)));
+    .where(and(eq(enrollments.studentId, studentId), eq(courseCompletions.status, "approved"), isNull(courseCompletions.revokedAt)));
   return {
     student: { id: st.id, fullName: st.fullName, code: st.code, grade: st.grade },
     cards: cards.map((c) => ({ ...c, label: milestoneLabel(c.seq), scores: scores.filter((s) => s.reportCardId === c.id) })),
@@ -295,21 +296,91 @@ export async function studentReportBook(ctx: ProtectedContext, studentId: string
 /* Hoàn thành khoá & chứng chỉ                                         */
 /* ------------------------------------------------------------------ */
 
+/** Ghi danh + khoá + cơ sở, dùng chung cho đề xuất và duyệt hoàn thành khoá */
+async function loadCompletionTarget(ctx: ProtectedContext, enrollmentId: string) {
+  const [e] = await ctx.db
+    .select({
+      id: enrollments.id, status: enrollments.status, packageSessions: enrollments.packageSessions, studentId: enrollments.studentId, consumed: consumedSql,
+      classId: classes.id, centerId: classes.centerId, courseId: classes.courseId, courseCode: courses.code, nextCourseId: courses.nextCourseId,
+      leadTeacherId: classes.leadTeacherId, assistantTeacherId: classes.assistantTeacherId,
+    })
+    .from(enrollments).innerJoin(classes, eq(classes.id, enrollments.classId)).innerJoin(courses, eq(courses.id, classes.courseId))
+    .where(eq(enrollments.id, enrollmentId)).limit(1);
+  if (!e) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy đăng ký" });
+  return { ...e, ownerIds: [e.leadTeacherId ?? "", e.assistantTeacherId ?? ""].filter(Boolean) };
+}
+
+/** Điểm trung bình tiêu chí từ các học bạ đã duyệt / đã gửi PH */
+async function completionAverage(ctx: ProtectedContext, enrollmentId: string): Promise<string | null> {
+  const rows = (await ctx.db.execute(sql`
+    select round(avg(s.score)::numeric, 1)::text as v from report_card_scores s join report_cards rc on rc.id = s.report_card_id
+    where rc.enrollment_id = ${enrollmentId} and rc.status in ('approved','published')`)) as unknown as { v: string | null }[];
+  return rows[0]?.v ?? null;
+}
+
+/**
+ * Cấp chứng chỉ (một giao dịch): sinh số chứng chỉ liên tục, đóng ghi danh,
+ * chuyển HV sang cựu HV nếu hết lớp, phát sự kiện tư vấn tái tục.
+ * `existingId` có giá trị = duyệt một đề xuất đang chờ; không có = hoàn thành trực tiếp.
+ */
+async function issueCompletion(
+  ctx: ProtectedContext,
+  e: Awaited<ReturnType<typeof loadCompletionTarget>>,
+  input: { grade: string; teacherEvaluation: string; existingId?: string; proposedBy?: string | null; proposedAt?: Date | null },
+) {
+  const avg = await completionAverage(ctx, e.id);
+  return ctx.db.transaction(async (tx) => {
+    const year = new Date().getFullYear();
+    const prefix = `SR-${e.courseCode.toUpperCase()}-${String(year).slice(-2)}-`;
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${prefix}))`);
+    const [mx] = await tx.select({ m: sql<string | null>`max(${courseCompletions.certificateNo})` }).from(courseCompletions).where(sql`${courseCompletions.certificateNo} like ${prefix + "%"}`);
+    const certNo = certificateNumber(e.courseCode, year, mx?.m ? Number(mx.m.slice(prefix.length)) + 1 : 1);
+    const now = new Date();
+    const to = enrollmentTransition(e.status, "complete");
+    await tx.update(enrollments).set({ status: to, endedAt: now, endReason: "Hoàn thành khoá", updatedAt: now }).where(eq(enrollments.id, e.id));
+    const values = {
+      status: "approved" as const, grade: input.grade.trim(), teacherEvaluation: input.teacherEvaluation.trim(), averageScore: avg,
+      certificateNo: certNo, nextCourseId: e.nextCourseId, decidedBy: ctx.user.id, decidedAt: now, rejectReason: null,
+      issuedAt: now, issuedBy: ctx.user.id, updatedAt: now,
+    };
+    if (input.existingId) {
+      await tx.update(courseCompletions).set(values).where(eq(courseCompletions.id, input.existingId));
+    } else {
+      await tx.insert(courseCompletions).values({
+        enrollmentId: e.id, courseId: e.courseId, ...values,
+        proposedBy: input.proposedBy ?? ctx.user.id, proposedAt: input.proposedAt ?? now,
+      });
+    }
+    const others = await tx.select({ s: enrollments.status }).from(enrollments).where(and(eq(enrollments.studentId, e.studentId), inArray(enrollments.status, ["active", "trial", "paused"])));
+    if (others.length === 0) await tx.update(students).set({ status: "alumni" }).where(eq(students.id, e.studentId));
+    await emit(tx as unknown as Db, { type: "course.completed", enrollmentId: e.id, studentId: e.studentId, courseId: e.courseId, nextCourseId: e.nextCourseId });
+    await writeAudit(tx as unknown as Db, { actorId: ctx.user.id, action: "TRANSITION", module: "enrollments", entity: "course_completions", entityId: input.existingId ?? e.id, before: input.existingId ? { status: "proposed" } : undefined, after: { status: "approved", certificateNo: certNo, grade: input.grade }, ip: ctx.ip });
+    return certNo;
+  });
+}
+
 export async function completionCandidates(ctx: ProtectedContext, classId: string) {
   const c = await loadClass(ctx, classId);
-  requirePermission(ctx, "enrollment:read", { centerId: c.centerId });
+  const ownerIds = [c.leadTeacherId ?? "", c.assistantTeacherId ?? ""].filter(Boolean);
+  // Giáo vụ / quản lý vào bằng enrollment:read; giáo viên vào lớp mình bằng completion:read_own
+  if (!authorize(ctx.actor, "enrollment:read", { centerId: c.centerId }).allowed) requirePermission(ctx, "completion:read", { centerId: c.centerId, ownerIds });
+  const canApprove = authorize(ctx.actor, "completion:approve", { centerId: c.centerId }).allowed;
+  const canPropose = canApprove || authorize(ctx.actor, "completion:propose", { centerId: c.centerId, ownerIds }).allowed;
   const rows = await ctx.db
     .select({
       enrollmentId: enrollments.id, status: enrollments.status, packageSessions: enrollments.packageSessions, consumed: consumedSql,
       studentId: students.id, fullName: students.fullName, code: students.code,
       avg: sql<string | null>`(select round(avg(s.score)::numeric, 1)::text from ${reportCardScores} s join ${reportCards} rc on rc.id = s.report_card_id where rc.enrollment_id = ${enrollments.id} and rc.status in ('approved','published'))`,
-      completed: sql<boolean>`exists (select 1 from ${courseCompletions} cc where cc.enrollment_id = ${enrollments.id} and cc.revoked_at is null)`,
+      completed: sql<boolean>`exists (select 1 from ${courseCompletions} cc where cc.enrollment_id = ${enrollments.id} and cc.status = 'approved' and cc.revoked_at is null)`,
+      proposed: sql<boolean>`exists (select 1 from ${courseCompletions} cc where cc.enrollment_id = ${enrollments.id} and cc.status = 'proposed')`,
     })
     .from(enrollments).innerJoin(students, eq(students.id, enrollments.studentId))
     .where(and(eq(enrollments.classId, classId), inArray(enrollments.status, ["active", "completed"])))
     .orderBy(asc(students.fullName));
   return {
     class: c,
+    canApprove,
+    canPropose,
     items: rows.map((r) => {
       const avg = r.avg === null ? null : Number(r.avg);
       const check = completionCheck(r);
@@ -318,38 +389,106 @@ export async function completionCandidates(ctx: ProtectedContext, classId: strin
   };
 }
 
+/** Kiểm tra chung cho cả đề xuất và hoàn thành trực tiếp */
+async function assertCompletable(ctx: ProtectedContext, e: Awaited<ReturnType<typeof loadCompletionTarget>>, it: { grade: string; teacherEvaluation: string }) {
+  const chk = completionCheck(e);
+  if (!chk.ok) throw new TRPCError({ code: "PRECONDITION_FAILED", message: chk.errors.join("; ") });
+  const errs = validateCompletionInput(it);
+  if (errs.length) throw new TRPCError({ code: "BAD_REQUEST", message: errs.join("; ") });
+  const existing = await ctx.db.query.courseCompletions.findFirst({ where: and(eq(courseCompletions.enrollmentId, e.id), sql`${courseCompletions.status} <> 'rejected'`) });
+  if (existing) throw new TRPCError({ code: "CONFLICT", message: existing.status === "proposed" ? "Đã có đề xuất chờ duyệt cho học viên này" : "Học viên đã có chứng chỉ" });
+  return chk;
+}
+
+/**
+ * Giáo viên tạo ĐỀ XUẤT hoàn thành khoá: chưa sinh chứng chỉ, ghi danh chưa đóng.
+ * Người có quyền duyệt dùng `completeCourse` để hoàn thành thẳng.
+ */
+export async function proposeCompletion(ctx: ProtectedContext, input: { items: { enrollmentId: string; grade: string; teacherEvaluation: string }[] }) {
+  const results: { enrollmentId: string; ok: boolean; message: string }[] = [];
+  for (const it of input.items) {
+    try {
+      const e = await loadCompletionTarget(ctx, it.enrollmentId);
+      requirePermission(ctx, "completion:propose", { centerId: e.centerId, ownerIds: e.ownerIds });
+      const chk = await assertCompletable(ctx, e, it);
+      const avg = await completionAverage(ctx, e.id);
+      await ctx.db.transaction(async (tx) => {
+        const [row] = await tx.insert(courseCompletions).values({
+          enrollmentId: e.id, courseId: e.courseId, status: "proposed", grade: it.grade.trim(), teacherEvaluation: it.teacherEvaluation.trim(),
+          averageScore: avg, nextCourseId: e.nextCourseId, proposedBy: ctx.user.id, proposedAt: new Date(),
+        }).returning();
+        await writeAudit(tx as unknown as Db, { actorId: ctx.user.id, action: "CREATE", module: "enrollments", entity: "course_completions", entityId: row!.id, after: { status: "proposed", grade: it.grade, enrollmentId: e.id }, ip: ctx.ip });
+      });
+      results.push({ enrollmentId: it.enrollmentId, ok: true, message: chk.warnings.length ? `Đã gửi đề xuất (${chk.warnings.join("; ")})` : "Đã gửi đề xuất chờ duyệt" });
+    } catch (err) {
+      results.push({ enrollmentId: it.enrollmentId, ok: false, message: (err as Error).message });
+    }
+  }
+  return { results, ok: results.filter((r) => r.ok).length, failed: results.filter((r) => !r.ok).length };
+}
+
+/** Đề xuất hoàn thành khoá đang chờ duyệt (trong phạm vi cơ sở của người dùng) */
+export async function pendingCompletions(ctx: ProtectedContext) {
+  requirePermission(ctx, "completion:approve", {});
+  const visible = visibleCenterIds(ctx.actor);
+  const rows = await ctx.db
+    .select({
+      id: courseCompletions.id, grade: courseCompletions.grade, teacherEvaluation: courseCompletions.teacherEvaluation, averageScore: courseCompletions.averageScore,
+      proposedAt: courseCompletions.proposedAt, proposedByName: users.fullName,
+      enrollmentId: enrollments.id, enrollmentStatus: enrollments.status, packageSessions: enrollments.packageSessions, consumed: consumedSql,
+      studentId: students.id, studentName: students.fullName, studentCode: students.code,
+      classId: classes.id, classCode: classes.code, className: classes.name, centerId: classes.centerId, centerCode: centers.code, courseCode: courses.code,
+    })
+    .from(courseCompletions)
+    .innerJoin(enrollments, eq(enrollments.id, courseCompletions.enrollmentId))
+    .innerJoin(students, eq(students.id, enrollments.studentId))
+    .innerJoin(classes, eq(classes.id, enrollments.classId))
+    .innerJoin(centers, eq(centers.id, classes.centerId))
+    .innerJoin(courses, eq(courses.id, courseCompletions.courseId))
+    .leftJoin(users, eq(users.id, courseCompletions.proposedBy))
+    .where(and(eq(courseCompletions.status, "proposed"), visible === null ? sql`true` : visible.length ? inArray(classes.centerId, visible) : sql`false`))
+    .orderBy(asc(courseCompletions.proposedAt));
+  return rows.filter((r) => authorize(ctx.actor, "completion:approve", { centerId: r.centerId }).allowed);
+}
+
+/** Duyệt (sinh chứng chỉ) hoặc Từ chối (bắt buộc lý do) một đề xuất hoàn thành khoá */
+export async function decideCompletion(ctx: ProtectedContext, input: { id: string; action: "approve" | "reject"; reason?: string }) {
+  const [row] = await ctx.db
+    .select({ c: courseCompletions, centerId: classes.centerId })
+    .from(courseCompletions).innerJoin(enrollments, eq(enrollments.id, courseCompletions.enrollmentId)).innerJoin(classes, eq(classes.id, enrollments.classId))
+    .where(eq(courseCompletions.id, input.id)).limit(1);
+  if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy đề xuất" });
+  requirePermission(ctx, "completion:approve", { centerId: row.centerId });
+  if (input.action === "reject" && !input.reason?.trim()) throw new TRPCError({ code: "BAD_REQUEST", message: "Cần nhập lý do từ chối" });
+  const to: CompletionStatus = completionTransition(row.c.status, input.action);
+
+  if (to === "rejected") {
+    await ctx.db.transaction(async (tx) => {
+      await tx.update(courseCompletions).set({ status: to, decidedBy: ctx.user.id, decidedAt: new Date(), rejectReason: input.reason!.trim(), updatedAt: new Date() }).where(eq(courseCompletions.id, row.c.id));
+      await writeAudit(tx as unknown as Db, { actorId: ctx.user.id, action: "TRANSITION", module: "enrollments", entity: "course_completions", entityId: row.c.id, before: { status: "proposed" }, after: { status: to }, reason: input.reason!.trim(), ip: ctx.ip });
+    });
+    return { status: to, certificateNo: null };
+  }
+
+  const e = await loadCompletionTarget(ctx, row.c.enrollmentId);
+  const chk = completionCheck(e);
+  if (!chk.ok) throw new TRPCError({ code: "PRECONDITION_FAILED", message: chk.errors.join("; ") });
+  const certNo = await issueCompletion(ctx, e, {
+    grade: row.c.grade, teacherEvaluation: row.c.teacherEvaluation, existingId: row.c.id,
+    proposedBy: row.c.proposedBy, proposedAt: row.c.proposedAt,
+  });
+  return { status: to, certificateNo: certNo };
+}
+
+/** Người có quyền duyệt hoàn thành khoá cho nhiều học viên một lần (cấp chứng chỉ ngay) */
 export async function completeCourse(ctx: ProtectedContext, input: { items: { enrollmentId: string; grade: string; teacherEvaluation: string }[] }) {
   const results: { enrollmentId: string; ok: boolean; message: string; certificateNo?: string }[] = [];
   for (const it of input.items) {
     try {
-      const [e] = await ctx.db
-        .select({ id: enrollments.id, status: enrollments.status, packageSessions: enrollments.packageSessions, studentId: enrollments.studentId, consumed: consumedSql, centerId: classes.centerId, courseId: classes.courseId, courseCode: courses.code, nextCourseId: courses.nextCourseId })
-        .from(enrollments).innerJoin(classes, eq(classes.id, enrollments.classId)).innerJoin(courses, eq(courses.id, classes.courseId))
-        .where(eq(enrollments.id, it.enrollmentId)).limit(1);
-      if (!e) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy đăng ký" });
-      requirePermission(ctx, "enrollment:update", { centerId: e.centerId });
-      const chk = completionCheck(e);
-      if (!chk.ok) throw new TRPCError({ code: "PRECONDITION_FAILED", message: chk.errors.join("; ") });
-      if (it.teacherEvaluation.trim().length < 20) throw new TRPCError({ code: "BAD_REQUEST", message: "Đánh giá cuối khoá tối thiểu 20 ký tự" });
-      const avgRows = (await ctx.db.execute(sql`
-        select round(avg(s.score)::numeric, 1)::text as v from report_card_scores s join report_cards rc on rc.id = s.report_card_id
-        where rc.enrollment_id = ${e.id} and rc.status in ('approved','published')`)) as unknown as { v: string | null }[];
-      const avg = avgRows[0]?.v ?? null;
-      const cert = await ctx.db.transaction(async (tx) => {
-        const year = new Date().getFullYear();
-        const prefix = `SR-${e.courseCode.toUpperCase()}-${String(year).slice(-2)}-`;
-        await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${prefix}))`);
-        const [mx] = await tx.select({ m: sql<string | null>`max(${courseCompletions.certificateNo})` }).from(courseCompletions).where(sql`${courseCompletions.certificateNo} like ${prefix + "%"}`);
-        const certNo = certificateNumber(e.courseCode, year, mx?.m ? Number(mx.m.slice(prefix.length)) + 1 : 1);
-        const to = enrollmentTransition(e.status, "complete");
-        await tx.update(enrollments).set({ status: to, endedAt: new Date(), endReason: "Hoàn thành khoá", updatedAt: new Date() }).where(eq(enrollments.id, e.id));
-        await tx.insert(courseCompletions).values({ enrollmentId: e.id, courseId: e.courseId, grade: it.grade.trim(), teacherEvaluation: it.teacherEvaluation.trim(), averageScore: avg, certificateNo: certNo, nextCourseId: e.nextCourseId, issuedBy: ctx.user.id });
-        const others = await tx.select({ s: enrollments.status }).from(enrollments).where(and(eq(enrollments.studentId, e.studentId), inArray(enrollments.status, ["active", "trial", "paused"])));
-        if (others.length === 0) await tx.update(students).set({ status: "alumni" }).where(eq(students.id, e.studentId));
-        await emit(tx as unknown as Db, { type: "course.completed", enrollmentId: e.id, studentId: e.studentId, courseId: e.courseId, nextCourseId: e.nextCourseId });
-        await writeAudit(tx as unknown as Db, { actorId: ctx.user.id, action: "TRANSITION", module: "enrollments", entity: "course_completions", entityId: e.id, after: { certificateNo: certNo, grade: it.grade }, ip: ctx.ip });
-        return certNo;
-      });
+      const e = await loadCompletionTarget(ctx, it.enrollmentId);
+      requirePermission(ctx, "completion:approve", { centerId: e.centerId });
+      const chk = await assertCompletable(ctx, e, it);
+      const cert = await issueCompletion(ctx, e, it);
       results.push({ enrollmentId: it.enrollmentId, ok: true, message: chk.warnings.length ? `Đã cấp (${chk.warnings.join("; ")})` : "Đã cấp chứng chỉ", certificateNo: cert });
     } catch (err) {
       results.push({ enrollmentId: it.enrollmentId, ok: false, message: (err as Error).message });
@@ -370,14 +509,14 @@ export async function listCompletions(ctx: ProtectedContext, input: { centerId?:
     .innerJoin(classes, eq(classes.id, enrollments.classId))
     .innerJoin(centers, eq(centers.id, classes.centerId))
     .innerJoin(courses, eq(courses.id, courseCompletions.courseId))
-    .where(and(isNull(courseCompletions.revokedAt), input.centerId ? eq(classes.centerId, input.centerId) : sql`true`, visible === null ? sql`true` : visible.length ? inArray(classes.centerId, visible) : sql`false`))
+    .where(and(eq(courseCompletions.status, "approved"), isNull(courseCompletions.revokedAt), input.centerId ? eq(classes.centerId, input.centerId) : sql`true`, visible === null ? sql`true` : visible.length ? inArray(classes.centerId, visible) : sql`false`))
     .orderBy(desc(courseCompletions.issuedAt))
     .limit(input.limit ?? 200);
 }
 
 export async function getCertificate(ctx: ProtectedContext, id: string) {
   const [r] = await ctx.db
-    .select({ id: courseCompletions.id, grade: courseCompletions.grade, certificateNo: courseCompletions.certificateNo, issuedAt: courseCompletions.issuedAt, teacherEvaluation: courseCompletions.teacherEvaluation, revokedAt: courseCompletions.revokedAt, studentName: students.fullName, studentCode: students.code, dateOfBirth: students.dateOfBirth, courseName: courses.name, courseCode: courses.code, totalSessions: courses.totalSessions, centerName: centers.name, centerId: centers.id })
+    .select({ id: courseCompletions.id, status: courseCompletions.status, grade: courseCompletions.grade, certificateNo: courseCompletions.certificateNo, issuedAt: courseCompletions.issuedAt, teacherEvaluation: courseCompletions.teacherEvaluation, revokedAt: courseCompletions.revokedAt, studentName: students.fullName, studentCode: students.code, dateOfBirth: students.dateOfBirth, courseName: courses.name, courseCode: courses.code, totalSessions: courses.totalSessions, centerName: centers.name, centerId: centers.id })
     .from(courseCompletions)
     .innerJoin(enrollments, eq(enrollments.id, courseCompletions.enrollmentId))
     .innerJoin(students, eq(students.id, enrollments.studentId))
@@ -387,5 +526,6 @@ export async function getCertificate(ctx: ProtectedContext, id: string) {
     .where(eq(courseCompletions.id, id)).limit(1);
   if (!r) throw new TRPCError({ code: "NOT_FOUND" });
   requirePermission(ctx, "enrollment:read", { centerId: r.centerId });
-  return r;
+  if (r.status !== "approved" || !r.certificateNo) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Đề xuất hoàn thành khoá chưa được duyệt — chưa có chứng chỉ" });
+  return { ...r, certificateNo: r.certificateNo };
 }

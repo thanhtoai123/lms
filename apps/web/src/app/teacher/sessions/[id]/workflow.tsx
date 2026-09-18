@@ -8,7 +8,9 @@ import { useTRPC } from "@/lib/trpc/client";
 import { ATTENDANCE_STATUSES, type AttendanceStatus } from "@satarobo/core";
 import { ATT_LABEL, ATT_STYLE, StatusChip, fmtDate, fmtTime } from "@/components/ui";
 
-type Draft = Record<string, { status: AttendanceStatus; remark: string; rating: number | null }>;
+type Draft = Record<string, { status: AttendanceStatus; remark: string; rating: number | null; needsMakeup: boolean | null; absenceReason: string }>;
+
+const isAbsent = (s: AttendanceStatus) => s === "absent_excused" || s === "absent_unexcused";
 
 /**
  * Một màn hình, ba bước, không rời ngữ cảnh:
@@ -61,7 +63,10 @@ export function SessionWorkflow({ sessionId }: { sessionId: string }) {
   const effective = useMemo(() => {
     const m: Draft = {};
     for (const r of roster) {
-      m[r.enrollmentId] = draft[r.enrollmentId] ?? { status: (r.attendanceStatus ?? "present") as AttendanceStatus, remark: r.studentRemark ?? "", rating: r.rating ?? null };
+      m[r.enrollmentId] = draft[r.enrollmentId] ?? {
+        status: (r.attendanceStatus ?? "present") as AttendanceStatus, remark: r.studentRemark ?? "", rating: r.rating ?? null,
+        needsMakeup: r.needsMakeup ?? null, absenceReason: r.absenceReason ?? "",
+      };
     }
     return m;
   }, [roster, draft]);
@@ -76,6 +81,8 @@ export function SessionWorkflow({ sessionId }: { sessionId: string }) {
     setDraft((d) => ({ ...d, [id]: { ...effective[id]!, status: next } }));
   };
   const setRemark = (id: string, remark: string) => setDraft((d) => ({ ...d, [id]: { ...effective[id]!, remark } }));
+  const setNeedsMakeup = (id: string, needsMakeup: boolean | null) => setDraft((d) => ({ ...d, [id]: { ...effective[id]!, needsMakeup } }));
+  const setAbsenceReason = (id: string, absenceReason: string) => setDraft((d) => ({ ...d, [id]: { ...effective[id]!, absenceReason } }));
   const setRating = (id: string, rating: number) => setDraft((d) => ({ ...d, [id]: { ...effective[id]!, rating: effective[id]!.rating === rating ? null : rating } }));
   const toggleCheck = (phase: "pre" | "post", key: string) => {
     const cur = s.checklist ?? {};
@@ -86,7 +93,14 @@ export function SessionWorkflow({ sessionId }: { sessionId: string }) {
   const markAll = (status: AttendanceStatus) => setDraft(Object.fromEntries(roster.map((r) => [r.enrollmentId, { ...effective[r.enrollmentId]!, status }])));
 
   const submitAttendance = async () => {
-    const records = roster.map((r) => ({ enrollmentId: r.enrollmentId, status: effective[r.enrollmentId]!.status, studentRemark: effective[r.enrollmentId]!.remark || null, rating: effective[r.enrollmentId]!.rating }));
+    const records = roster.map((r) => {
+      const v = effective[r.enrollmentId]!;
+      return {
+        enrollmentId: r.enrollmentId, status: v.status, studentRemark: v.remark || null, rating: v.rating,
+        needsMakeup: isAbsent(v.status) ? v.needsMakeup : null,
+        absenceReason: isAbsent(v.status) ? v.absenceReason.trim() || null : null,
+      };
+    });
     const submit = s.status === "scheduled" || s.status === "in_progress";
     const queue = () => { enqueueAttendance({ sessionId, records, submit }); setError(null); setOfflineSaved(true); };
     if (typeof navigator !== "undefined" && !navigator.onLine) return queue();
@@ -190,6 +204,24 @@ export function SessionWorkflow({ sessionId }: { sessionId: string }) {
                     onChange={(e) => setRemark(r.enrollmentId, e.target.value)}
                     disabled={s.status === "completed"}
                   />
+                  {isAbsent(v.status) && (
+                    <div className="mt-1 space-y-1 rounded-lg bg-black/[0.03] p-2">
+                      <div className="flex flex-wrap items-center gap-1 text-[11px]">
+                        <span className="text-ink-600">Học bù:</span>
+                        <button type="button" disabled={s.status === "completed"} onClick={() => setNeedsMakeup(r.enrollmentId, true)} className={`chip cursor-pointer px-2 py-0.5 ${v.needsMakeup === true ? "bg-violet-600 text-white" : "bg-black/5"}`}>Cần học bù</button>
+                        <button type="button" disabled={s.status === "completed"} onClick={() => setNeedsMakeup(r.enrollmentId, false)} className={`chip cursor-pointer px-2 py-0.5 ${v.needsMakeup === false ? "bg-ink-900 text-white" : "bg-black/5"}`}>Không bù</button>
+                        {v.needsMakeup === null && <span className="text-ink-400">chưa chọn — mặc định xếp vào &ldquo;Chờ xếp bù&rdquo;</span>}
+                      </div>
+                      <input
+                        className="w-full rounded-md border border-black/10 bg-white px-2 py-1 text-xs outline-none placeholder:text-ink-400"
+                        placeholder="Lý do phụ huynh xin vắng…"
+                        maxLength={500}
+                        value={v.absenceReason}
+                        onChange={(e) => setAbsenceReason(r.enrollmentId, e.target.value)}
+                        disabled={s.status === "completed"}
+                      />
+                    </div>
+                  )}
                 </div>
               </li>
             );

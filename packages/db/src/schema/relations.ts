@@ -2,7 +2,7 @@ import { relations } from "drizzle-orm";
 import { centers, rooms } from "./org";
 import { users, userRoles } from "./identity";
 import { teachers, students, parents, studentGuardians } from "./people";
-import { courses, curricula, lessons, classes, classSchedules, sessions, enrollments, attendance, sessionMedia } from "./academics";
+import { courses, curricula, lessons, classes, classGroups, classSchedules, sessions, enrollments, attendance, sessionMedia } from "./academics";
 
 export const centersRelations = relations(centers, ({ many }) => ({ rooms: many(rooms), classes: many(classes) }));
 export const roomsRelations = relations(rooms, ({ one }) => ({ center: one(centers, { fields: [rooms.centerId], references: [centers.id] }) }));
@@ -37,10 +37,16 @@ export const curriculaRelations = relations(curricula, ({ one, many }) => ({
 }));
 export const lessonsRelations = relations(lessons, ({ one }) => ({ curriculum: one(curricula, { fields: [lessons.curriculumId], references: [curricula.id] }) }));
 
+export const classGroupsRelations = relations(classGroups, ({ one, many }) => ({
+  center: one(centers, { fields: [classGroups.centerId], references: [centers.id] }),
+  classes: many(classes),
+}));
+
 export const classesRelations = relations(classes, ({ one, many }) => ({
   course: one(courses, { fields: [classes.courseId], references: [courses.id] }),
   curriculum: one(curricula, { fields: [classes.curriculumId], references: [curricula.id] }),
   center: one(centers, { fields: [classes.centerId], references: [centers.id] }),
+  classGroup: one(classGroups, { fields: [classes.classGroupId], references: [classGroups.id] }),
   homeRoom: one(rooms, { fields: [classes.homeRoomId], references: [rooms.id] }),
   leadTeacher: one(teachers, { fields: [classes.leadTeacherId], references: [teachers.id], relationName: "leadTeacher" }),
   assistantTeacher: one(teachers, { fields: [classes.assistantTeacherId], references: [teachers.id], relationName: "assistantTeacher" }),

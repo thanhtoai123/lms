@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   reportCardTransition, ReportCardTransitionError, reportCardMilestones, milestoneInfo, milestoneLabel, validateReportCard,
   averageScore, gradeFromAverage, certificateNumber, completionCheck,
+  completionTransition, CompletionTransitionError, certificateIssuable, validateCompletionInput, COMPLETION_STATUSES, COMPLETION_STATUS_VI,
 } from "./rules.js";
 import { consentCheck, isMediaOverdue, mediaObjectKey } from "../media/consent.js";
 
@@ -46,6 +47,24 @@ test("điểm trung bình, xếp loại, số chứng chỉ, điều kiện hoà
   assert.equal(early.ok, true);
   assert.equal(early.warnings.length, 1);
   assert.equal(completionCheck({ status: "paused", consumed: 1, packageSessions: 48 }).ok, false);
+});
+
+test("hoàn thành khoá theo luồng đề xuất: đề xuất → duyệt / từ chối", () => {
+  assert.equal(completionTransition("proposed", "approve"), "approved");
+  assert.equal(completionTransition("proposed", "reject"), "rejected");
+  assert.throws(() => completionTransition("approved", "approve"), CompletionTransitionError);
+  assert.throws(() => completionTransition("rejected", "approve"), CompletionTransitionError);
+  // chứng chỉ chỉ sinh khi được duyệt
+  assert.equal(certificateIssuable("approved"), true);
+  assert.equal(certificateIssuable("proposed"), false);
+  assert.equal(certificateIssuable("rejected"), false);
+  assert.equal(COMPLETION_STATUSES.every((s) => !!COMPLETION_STATUS_VI[s]), true);
+});
+
+test("nội dung đề xuất hoàn thành khoá: xếp loại + đánh giá GV tối thiểu 20 ký tự", () => {
+  assert.deepEqual(validateCompletionInput({ grade: "Giỏi", teacherEvaluation: "Con tiến bộ rõ rệt trong cả khoá học vừa qua." }), []);
+  assert.deepEqual(validateCompletionInput({ grade: "", teacherEvaluation: "ngắn" }).length, 2);
+  assert.match(validateCompletionInput({ grade: "Giỏi", teacherEvaluation: "ngắn quá" })[0]!, /tối thiểu 20 ký tự/);
 });
 
 test("ảnh lớp: chặn khi có HV chưa đồng ý đăng ảnh; quá hạn duyệt 24h; khoá lưu trữ", () => {

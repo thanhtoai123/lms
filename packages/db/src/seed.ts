@@ -8,7 +8,7 @@ import { and, eq } from "drizzle-orm";
 import { createDb } from "./index";
 import {
   centers, regions, rooms, users, userRoles, teachers, parents, students, studentGuardians,
-  courses, coursePackages, curricula, lessons, classes, classSchedules, sessions, enrollments, attendance, classEvents,
+  courses, coursePackages, curricula, lessons, classes, classGroups, classSchedules, sessions, enrollments, attendance, classEvents,
   enrollmentEvents, competencyCriteria, reportCards, reportCardScores, sessionMedia,
   leads, leadChildren, leadActivities, leadTasks, leadAssignees, admissionsSettings, trialBookings, auditLog,
   holidays, coursePrerequisites, teacherCourses, teacherEvaluations,
@@ -120,16 +120,27 @@ async function main() {
   const startA = addDays(today, -28); // đã học ~4 tuần
   const startB = addDays(today, 3);
 
+  // ---- Nhóm lớp mẫu (nhãn tổ chức gom nhiều lớp) ----
+  const [groupHe26, groupThu26] = await db
+    .insert(classGroups)
+    .values([
+      { code: "HE26-CS1", name: "Khối hè 2026 — Cơ sở 1", centerId: cs1!.id, note: "Các lớp khai giảng mùa hè 2026 tại CS1 (dữ liệu mẫu)" },
+      { code: "THU26", name: "Khối thu 2026 (toàn hệ thống)", centerId: null, note: "Dùng chung mọi cơ sở (dữ liệu mẫu)" },
+    ])
+    .returning();
+
   const [classA, classB] = await db
     .insert(classes)
     .values([
       {
         code: buildClassCode("CS1", "SATA4", 2026, 1), name: "Sata4 sáng CN CS1", courseId: sata4!.id, curriculumId: cur4!.id,
         centerId: cs1!.id, homeRoomId: roomRows[0]!.id, leadTeacherId: gv1!.id, capacity: 12, startDate: startA, status: "running",
+        classGroupId: groupHe26!.id,
       },
       {
         code: buildClassCode("CS2", "SATA6", 2026, 3), name: "Sata6 chiều T7 CS2", courseId: sata6!.id,
         centerId: cs2!.id, homeRoomId: roomRows[2]!.id, leadTeacherId: gv2!.id, capacity: 12, startDate: startB, status: "recruiting",
+        classGroupId: groupThu26!.id,
       },
     ])
     .returning();
@@ -190,11 +201,16 @@ async function main() {
   const toComplete = pastA.slice(0, Math.max(0, pastA.length - 1));
   for (const s of toComplete) {
     await db.insert(attendance).values(
-      enrollA.map((e, i) => ({
-        sessionId: s.id, enrollmentId: e.id,
-        status: (i === 2 && s.sequenceNo >= 3 ? "absent_unexcused" : i === 5 && s.sequenceNo % 2 === 0 ? "absent_excused" : "present") as "present" | "absent_unexcused" | "absent_excused",
-        recordedBy: t1U!.id,
-      })),
+      enrollA.map((e, i) => {
+        const status = (i === 2 && s.sequenceNo >= 3 ? "absent_unexcused" : i === 5 && s.sequenceNo % 2 === 0 ? "absent_excused" : "present") as "present" | "absent_unexcused" | "absent_excused";
+        const absent = status !== "present";
+        return {
+          sessionId: s.id, enrollmentId: e.id, status, recordedBy: t1U!.id,
+          // GV chốt ngay tại màn điểm danh: vắng có phép thì xếp học bù, vắng không phép buổi lẻ thì không bù
+          needsMakeup: absent ? status === "absent_excused" || s.sequenceNo % 2 === 0 : null,
+          absenceReason: status === "absent_excused" ? "PH báo con ốm, xin nghỉ buổi này (dữ liệu mẫu)" : null,
+        };
+      }),
     );
     await db.update(sessions).set({ status: "completed", sessionNote: "Lớp học tốt, các con hoàn thành mục tiêu buổi.", completedAt: new Date(), completedBy: t1U!.id, checklist: { pre: { kit: true, lesson: true }, post: { cleanup: true, handover: true } } }).where(eq(sessions.id, s.id));
   }
@@ -211,14 +227,35 @@ async function main() {
     await db.insert(reportCards).values({ enrollmentId: enrollA[1]!.id, milestoneSeq: 5, sessionId: m5.id, status: "draft", teacherComment: "Đang viết…", authorId: t1U!.id });
   }
 
-  // ---- Ảnh lớp mẫu (tệp giữ chỗ, chờ duyệt) ----
+  // ---- Ảnh lớp mẫu hai tầng: vài ảnh trong kho (PH chưa thấy) + ảnh đã gửi duyệt + một ảnh đã loại ----
   const pastWithMedia = sessionRows.filter((x) => x.classId === classA!.id && x.date < today).slice(-2);
   for (const [k, ss] of pastWithMedia.entries()) {
+    const at = new Date(Date.now() - (k === 0 ? 50 : 3) * 3600e3);
     await db.insert(sessionMedia).values([
-      { sessionId: ss.id, objectKey: `seed/lop-a-buoi-${ss.sequenceNo}-1.svg`, caption: "Các con lắp robot theo nhóm", status: "pending" as const, taggedStudentIds: [studentRows[1]!.id, studentRows[2]!.id], uploadedBy: t1U!.id, createdAt: new Date(Date.now() - (k === 0 ? 50 : 3) * 3600e3) },
-      { sessionId: ss.id, objectKey: `seed/lop-a-buoi-${ss.sequenceNo}-2.svg`, caption: "Thử nghiệm mô hình", status: "pending" as const, taggedStudentIds: [studentRows[0]!.id, studentRows[3]!.id], uploadedBy: t1U!.id, createdAt: new Date(Date.now() - (k === 0 ? 50 : 3) * 3600e3) },
+      { sessionId: ss.id, objectKey: `seed/lop-a-buoi-${ss.sequenceNo}-1.svg`, caption: "Các con lắp robot theo nhóm", status: "pending" as const, takenAt: ss.date, taggedStudentIds: [studentRows[1]!.id, studentRows[2]!.id], uploadedBy: t1U!.id, submittedAt: at, submittedBy: t1U!.id, createdAt: at },
+      { sessionId: ss.id, objectKey: `seed/lop-a-buoi-${ss.sequenceNo}-2.svg`, caption: "Thử nghiệm mô hình", status: "pending" as const, takenAt: ss.date, taggedStudentIds: [studentRows[0]!.id, studentRows[3]!.id], uploadedBy: t1U!.id, submittedAt: at, submittedBy: t1U!.id, createdAt: at },
+      // Trong kho: GV chưa gửi duyệt — phụ huynh chưa nhìn thấy
+      { sessionId: ss.id, objectKey: `seed/lop-a-buoi-${ss.sequenceNo}-3.svg`, caption: "Ảnh chung cả lớp cuối buổi", status: "library" as const, takenAt: ss.date, isClassWide: true, uploadedBy: t1U!.id, createdAt: at },
+      { sessionId: ss.id, objectKey: `seed/lop-a-buoi-${ss.sequenceNo}-4.svg`, caption: "Chờ giáo viên gắn thẻ học viên", status: "library" as const, takenAt: ss.date, uploadedBy: t1U!.id, createdAt: at },
     ]);
   }
+  // Một ảnh đã loại (còn khôi phục trong 7 ngày)
+  const rejectedSession = pastWithMedia[0];
+  if (rejectedSession) {
+    await db.insert(sessionMedia).values({
+      sessionId: rejectedSession.id, objectKey: `seed/lop-a-buoi-${rejectedSession.sequenceNo}-9.svg`, caption: "Ảnh mờ, chụp lại", status: "rejected" as const,
+      takenAt: rejectedSession.date, taggedStudentIds: [studentRows[4]!.id], uploadedBy: t1U!.id, submittedAt: new Date(Date.now() - 72 * 3600e3), submittedBy: t1U!.id,
+      reviewedBy: mgrU!.id, reviewedAt: new Date(Date.now() - 48 * 3600e3), rejectedAt: new Date(Date.now() - 48 * 3600e3), rejectReason: "Ảnh mờ, không thấy rõ hoạt động",
+      createdAt: new Date(Date.now() - 72 * 3600e3),
+    });
+  }
+
+  // ---- Đề xuất hoàn thành khoá chờ duyệt (GV đề xuất, chưa sinh chứng chỉ) ----
+  await db.insert(courseCompletions).values({
+    enrollmentId: enrollA[2]!.id, courseId: sata4!.id, status: "proposed",
+    grade: "Giỏi", teacherEvaluation: "Con nắm chắc kiến thức lập trình cơ bản, chủ động hỗ trợ bạn trong nhóm và hoàn thành tốt dự án cuối khoá (dữ liệu mẫu).",
+    averageScore: "4.2", nextCourseId: sata6!.id, proposedBy: t1U!.id, proposedAt: new Date(Date.now() - 6 * 3600e3),
+  });
 
   // ---- Một ca bảo lưu mẫu ----
   const pauseFrom = today;

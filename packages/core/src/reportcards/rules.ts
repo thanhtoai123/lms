@@ -112,3 +112,43 @@ export function completionCheck(e: { status: string; consumed: number; packageSe
   if (e.consumed < e.packageSessions) warnings.push(`Mới học ${e.consumed}/${e.packageSessions} buổi`);
   return { ok: errors.length === 0, errors, warnings };
 }
+
+/* ------------------------------------------------------------------ */
+/* Hoàn thành khoá theo luồng đề xuất (GV đề xuất → quản lý duyệt)      */
+/* ------------------------------------------------------------------ */
+
+export const COMPLETION_STATUSES = ["proposed", "approved", "rejected"] as const;
+export type CompletionStatus = (typeof COMPLETION_STATUSES)[number];
+export type CompletionEvent = "approve" | "reject";
+
+export const COMPLETION_STATUS_VI: Record<CompletionStatus, string> = {
+  proposed: "Chờ duyệt",
+  approved: "Đã duyệt",
+  rejected: "Từ chối",
+};
+
+export class CompletionTransitionError extends Error {
+  constructor(public readonly from: CompletionStatus, public readonly event: CompletionEvent) {
+    super(`Đề xuất hoàn thành khoá đang "${COMPLETION_STATUS_VI[from]}" — không thể ${event === "approve" ? "duyệt" : "từ chối"}`);
+    this.name = "CompletionTransitionError";
+  }
+}
+
+/** Chỉ đề xuất đang chờ mới duyệt / từ chối được; từ chối bắt buộc lý do */
+export function completionTransition(from: CompletionStatus, event: CompletionEvent): CompletionStatus {
+  if (from !== "proposed") throw new CompletionTransitionError(from, event);
+  return event === "approve" ? "approved" : "rejected";
+}
+
+/** Chứng chỉ chỉ sinh khi bản ghi hoàn thành khoá được duyệt */
+export function certificateIssuable(status: CompletionStatus): boolean {
+  return status === "approved";
+}
+
+/** Kiểm tra nội dung đề xuất trước khi ghi (dùng chung cho đề xuất và hoàn thành trực tiếp) */
+export function validateCompletionInput(input: { grade: string; teacherEvaluation: string }, minEvaluation = 20): string[] {
+  const errs: string[] = [];
+  if (input.grade.trim().length < 2) errs.push("Chọn xếp loại cuối khoá");
+  if (input.teacherEvaluation.trim().length < minEvaluation) errs.push(`Đánh giá cuối khoá tối thiểu ${minEvaluation} ký tự`);
+  return errs;
+}

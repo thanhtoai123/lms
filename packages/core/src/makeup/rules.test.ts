@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { makeupTransition, MakeupTransitionError, withinMakeupWindow, makeupCandidates, isRetroactiveEdit } from "./rules.js";
+import { makeupTransition, MakeupTransitionError, withinMakeupWindow, makeupCandidates, isRetroactiveEdit, needsMakeupFor } from "./rules.js";
 import { weekStart, weekDays, weekLabel, shiftOf } from "../calendar/week.js";
 
 test("vòng đời học bù", () => {
@@ -31,6 +31,20 @@ test("buổi học bù phù hợp: cùng khoá + cùng bài, lớp khác, chưa 
   assert.deepEqual(r.map((x) => x.id), ["c", "b"]);
   const noCross = makeupCandidates({ classId: "X", courseId: "S4", centerId: "CS1", sequenceNo: 5 }, list, "2026-09-20", { requestWindowDays: 30, allowCrossCenter: false });
   assert.deepEqual(noCross.map((x) => x.id), ["c"]);
+});
+
+test("nhu cầu học bù: theo quyết định của GV, chưa quyết thì suy diễn như cũ", () => {
+  // GV đã chốt tại màn điểm danh
+  assert.equal(needsMakeupFor("absent_excused", true), true);
+  assert.equal(needsMakeupFor("absent_excused", false), false);
+  assert.equal(needsMakeupFor("absent_unexcused", false), false);
+  // chưa quyết (dữ liệu cũ) → vắng là chờ xếp bù
+  assert.equal(needsMakeupFor("absent_excused", null), true);
+  assert.equal(needsMakeupFor("absent_unexcused", undefined), true);
+  // không vắng thì không bao giờ cần bù, kể cả bị đánh dấu nhầm
+  assert.equal(needsMakeupFor("present", true), false);
+  assert.equal(needsMakeupFor("late", null), false);
+  assert.equal(needsMakeupFor("makeup", true), false);
 });
 
 test("sửa điểm danh hồi tố", () => {
