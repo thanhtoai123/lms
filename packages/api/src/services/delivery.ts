@@ -135,6 +135,28 @@ export async function dispatchParentMessages(database: Database, opts: { limit?:
     .where(and(eq(parentNotifications.status, "queued"), inArray(parentNotifications.channel, channels), or(isNull(parentNotifications.nextAttemptAt), lte(parentNotifications.nextAttemptAt, now))))
     .orderBy(parentNotifications.createdAt).limit(opts.limit ?? 100);
   const dayStart = new Date(`${new Date(now.getTime() + 7 * 3600_000).toISOString().slice(0, 10)}T00:00:00+07:00`);
+  /*
+   * Số tin đã gửi hôm nay cho từng phụ huynh (trần chống làm phiền).
+   * Trước: 1 truy vấn `count(*)` CHO MỖI dòng trong lô — lô 100 tin là 100 truy vấn thừa mỗi
+   *        nhịp worker (10 giây/lần).
+   * Sau:  1 truy vấn `group by parent_id` cho cả lô, rồi cộng dồn tại chỗ khi gửi thành công —
+   *       giữ nguyên hành vi cũ: phụ huynh có 2 tin trong cùng lô vẫn bị chặn ở tin thứ hai.
+   */
+  const parentIds = [...new Set(rows.map((r) => r.n.parentId))];
+  const sentToday = new Map<string, number>();
+  if (parentIds.length) {
+    const counted = await db
+      .select({ parentId: parentNotifications.parentId, c: sql<number>`count(*)::int` })
+      .from(parentNotifications)
+      .where(and(
+        inArray(parentNotifications.parentId, parentIds),
+        inArray(parentNotifications.channel, ["zns", "sms"]),
+        eq(parentNotifications.status, "sent"),
+        gte(parentNotifications.sentAt, dayStart),
+      ))
+      .groupBy(parentNotifications.parentId);
+    for (const r of counted) sentToday.set(r.parentId, r.c);
+  }
   for (const { n, phone, parentName, restricted, studentName } of rows) {
     const ev = eventOf(n.template);
     if (restricted) {
@@ -147,9 +169,7 @@ export async function dispatchParentMessages(database: Database, opts: { limit?:
       res.deferred++;
       continue;
     }
-    const [cnt] = await db.select({ c: sql<number>`count(*)::int` }).from(parentNotifications)
-      .where(and(eq(parentNotifications.parentId, n.parentId), inArray(parentNotifications.channel, ["zns", "sms"]), eq(parentNotifications.status, "sent"), gte(parentNotifications.sentAt, dayStart)));
-    if ((cnt?.c ?? 0) >= s.maxPerParentPerDay) {
+    if ((sentToday.get(n.parentId) ?? 0) >= s.maxPerParentPerDay) {
       await db.update(parentNotifications).set({ nextAttemptAt: new Date(dayStart.getTime() + 86_400_000 + 7 * 3600_000) }).where(eq(parentNotifications.id, n.id));
       res.deferred++;
       continue;
@@ -172,6 +192,8 @@ export async function dispatchParentMessages(database: Database, opts: { limit?:
     }
     if (result.ok) {
       await db.update(parentNotifications).set({ status: "sent", sentAt: new Date(), providerRef: result.ref, error: null, attempts: n.attempts + 1, nextAttemptAt: null }).where(eq(parentNotifications.id, n.id));
+      // Cộng dồn tại chỗ để trần "mỗi phụ huynh mỗi ngày" vẫn đúng trong cùng một lô
+      sentToday.set(n.parentId, (sentToday.get(n.parentId) ?? 0) + 1);
       res.sent++;
       continue;
     }

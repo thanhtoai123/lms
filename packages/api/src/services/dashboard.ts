@@ -1,11 +1,12 @@
 import { and, eq, inArray, isNull, or, sql, desc, gte, type SQL } from "drizzle-orm";
 import { leads, students, sessions, classes, careTasks, sessionMedia } from "@satarobo/db";
-import { addDays as addDaysISO, OPEN_LEAD_STATUSES, computeSla, authorize, maskPhone, hasRole, visibleCenterIds, type LeadStatus, type Permission } from "@satarobo/core";
+import { OPEN_LEAD_STATUSES, authorize, maskPhone, hasRole, visibleCenterIds, type LeadStatus, type Permission } from "@satarobo/core";
 import type { ProtectedContext } from "../trpc";
 import { tenantCondViaCenter } from "./tenantScope";
 import { todayISO, overdueQueue } from "./sessions";
 import { resolveAdmissionsPolicy } from "./admissionsAdmin";
-import { dueReportCards } from "./reportCards";
+import { slaOverdueSql } from "./leadSlaSql";
+import { dueReportCards, countDueReportCards } from "./reportCards";
 import { pendingApprovals } from "./classOps";
 import { financeQueues } from "./finance";
 import { hrQueues } from "./hr";
@@ -49,10 +50,11 @@ export async function adminOverview(ctx: ProtectedContext) {
   const queues: QueueItem[] = [];
 
   // 0) Học bạ kỳ chưa viết (buổi 5 / buổi 12)
+  // Trước: tải 500 dòng chỉ để lấy `.length` và 3 dòng xem trước (số hiển thị bị cắt ở 500).
+  // Sau: 1 count(*) cho hai con số + 1 truy vấn lấy đúng 3 dòng xem trước.
   if (can("report_card:read")) {
-    const due = await dueReportCards(ctx, { limit: 500 });
-    const overdue = due.filter((d) => d.date < addDaysISO(today, -3));
-    queues.push({ key: "report_cards", title: "Học bạ kỳ chưa viết (buổi 5 / buổi 12)", count: due.length, overdue: overdue.length, href: "/report-cards", preview: due.slice(0, 3).map((d) => `${d.classCode} · ${d.studentName} · buổi ${d.seq}`) });
+    const [c, due] = await Promise.all([countDueReportCards(ctx), dueReportCards(ctx, { limit: 3 })]);
+    queues.push({ key: "report_cards", title: "Học bạ kỳ chưa viết (buổi 5 / buổi 12)", count: c.total, overdue: c.overdue, href: "/report-cards", preview: due.map((d) => `${d.classCode} · ${d.studentName} · buổi ${d.seq}`) });
   }
 
   // 0b) Lớp chờ duyệt mở
@@ -118,17 +120,28 @@ export async function adminOverview(ctx: ProtectedContext) {
   } = null;
   if (canLead) {
     const policy = await resolveAdmissionsPolicy(db, null);
-    const openRows = await db
-      .select({ id: leads.id, parentName: leads.parentName, status: leads.status, lastTouchAt: leads.lastTouchAt })
-      .from(leads)
-      .where(and(isNull(leads.deletedAt), inArray(leads.status, [...OPEN_LEAD_STATUSES]), scope(leads.centerId)))
-      .orderBy(leads.lastTouchAt);
-    const nowIso = now.toISOString();
-    const withSla = openRows.map((r) => ({ ...r, sla: computeSla(r.status, r.lastTouchAt.toISOString(), nowIso, policy.sla) }));
-    const stuck = withSla.filter((r) => (r.status === "trial_done" || r.status === "deciding") && now.getTime() - r.lastTouchAt.getTime() > 3 * 86_400_000);
-    queues.push({ key: "stuck", title: "Khách chờ chốt quá lâu", count: stuck.length, overdue: stuck.length, href: "/leads/bulk-convert", preview: stuck.slice(0, 3).map((r) => r.parentName) });
-    const overdueLeads = withSla.filter((r) => r.sla.level === "overdue");
-    queues.push({ key: "leads", title: "Lead cần xử lý", count: withSla.length, overdue: overdueLeads.length, href: "/leads", preview: overdueLeads.slice(0, 3).map((r) => r.parentName) });
+    /*
+     * Trước: tải TOÀN BỘ lead đang mở (KHÔNG `limit`) rồi gọi `computeSla` cho từng dòng trong
+     *        JavaScript chỉ để lấy ba con số đếm và sáu cái tên xem trước. Đây là truy vấn nặng
+     *        thứ hai của trang chủ sau hàng đợi buổi học.
+     * Sau:  1 truy vấn `count(*) filter (...)` cho mọi con số (phép so SLA dịch sang SQL ở
+     *       `leadSlaSql.ts`, cùng chính sách, cùng mốc `now`) + 2 truy vấn lấy 3 tên xem trước.
+     */
+    const openScope = and(isNull(leads.deletedAt), inArray(leads.status, [...OPEN_LEAD_STATUSES]), scope(leads.centerId));
+    const overdueCond = slaOverdueSql(policy.sla, leads.status, leads.lastTouchAt, now);
+    const stuckCond = sql`(${leads.status} in ('trial_done','deciding') and ${leads.lastTouchAt} < ${new Date(now.getTime() - 3 * 86_400_000).toISOString()}::timestamptz)`;
+    const [[leadCounts], stuckPreview, overduePreview] = await Promise.all([
+      db.select({
+        open: sql<number>`count(*)::int`,
+        overdue: sql<number>`count(*) filter (where ${overdueCond})::int`,
+        stuck: sql<number>`count(*) filter (where ${stuckCond})::int`,
+      }).from(leads).where(openScope),
+      db.select({ parentName: leads.parentName }).from(leads).where(and(openScope, stuckCond)).orderBy(leads.lastTouchAt).limit(3),
+      db.select({ parentName: leads.parentName }).from(leads).where(and(openScope, overdueCond)).orderBy(leads.lastTouchAt).limit(3),
+    ]);
+    const stuckCount = leadCounts?.stuck ?? 0;
+    queues.push({ key: "stuck", title: "Khách chờ chốt quá lâu", count: stuckCount, overdue: stuckCount, href: "/leads/bulk-convert", preview: stuckPreview.map((r) => r.parentName) });
+    queues.push({ key: "leads", title: "Lead cần xử lý", count: leadCounts?.open ?? 0, overdue: leadCounts?.overdue ?? 0, href: "/leads", preview: overduePreview.map((r) => r.parentName) });
 
     const scoped = and(isNull(leads.deletedAt), scope(leads.centerId));
     const [k] = await db

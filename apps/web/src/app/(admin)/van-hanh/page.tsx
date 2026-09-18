@@ -28,8 +28,8 @@ export default async function OpsPage() {
   const v = d.volume as Record<string, number | string> | null;
   return (
     <div className="space-y-4">
-      <PageHeader title="Vận hành & sao lưu" desc={`Môi trường: ${d.production ? "PRODUCTION" : "phát triển / thử nghiệm"} · phiên bản ${d.health.version}. Giám sát ngoài gọi /api/health (200 = sống, 503 = hỏng). Sao lưu chạy hằng đêm bằng scripts/ops/backup; thử khôi phục định kỳ.`}
-        actions={<div className="flex gap-2"><Link href="/tich-hop" className="btn-ghost">Tích hợp</Link><a href="/api/health" target="_blank" className="btn-ghost">/api/health ↗</a></div>} />
+      <PageHeader title="Vận hành & sao lưu" desc={`Môi trường: ${d.production ? "PRODUCTION" : "phát triển / thử nghiệm"} · phiên bản ${d.health.version}. Giám sát ngoài gọi /api/health (tiến trình còn sống — luôn 200 khi web còn chạy) và /api/ready (200 = nhận được lưu lượng, 503 = CSDL hỏng hoặc việc nền tồn đọng). Sao lưu chạy hằng đêm bằng scripts/ops/backup; thử khôi phục định kỳ.`}
+        actions={<div className="flex gap-2"><Link href="/tich-hop" className="btn-ghost">Tích hợp</Link><a href="/api/health" target="_blank" className="btn-ghost">/api/health ↗</a><a href="/api/ready" target="_blank" className="btn-ghost">/api/ready ↗</a></div>} />
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
         <Kpi label="Sẵn sàng go-live" value={`${d.readyScore}%`} tone={d.readyScore === 100 ? "good" : d.readyScore >= 75 ? "warn" : "bad"} />
         <Kpi label="CSDL / lưu trữ" value={d.health.ok ? "Hoạt động" : "LỖI"} tone={d.health.ok ? "good" : "bad"} hint={d.health.checks.filter((c) => c.ms !== undefined).map((c) => `${c.key} ${c.ms}ms`).join(" · ")} />
@@ -46,7 +46,7 @@ export default async function OpsPage() {
           <table className="w-full text-sm"><tbody className="divide-y divide-black/5">
             {[
               ["Outbox chờ xử lý", q.outbox_pending, q.outbox_oldest_min ? `cũ nhất ${q.outbox_oldest_min} phút` : ""],
-              ["Outbox kẹt (≥ 3 lần lỗi)", q.outbox_stuck, ""],
+              ["Outbox trong hàng đợi chết", q.outbox_stuck, "hỏng quá 5 lần — cần người xem lý do rồi chạy lại"],
               ["Email lỗi 24h", q.email_failed_24h, ""],
               ["Webhook lỗi / bị từ chối 24h", q.webhook_bad_24h, ""],
               ["Tin nhắn gửi lỗi 24h", q.msg_failed_24h, ""],

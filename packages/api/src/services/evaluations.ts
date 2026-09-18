@@ -303,22 +303,34 @@ export async function evalRoundDetail(ctx: ProtectedContext, id: string) {
       .where(eq(evalResponses.roundId, id))
       .orderBy(desc(evalResponses.createdAt))
       .limit(500),
+    /*
+     * Điểm theo tiêu chí + phân bố sao.
+     * Trước: `select … limit 20_000` — kéo tới hai mươi nghìn dòng trả lời về chỉ để tính trung
+     *        bình và đếm số sao; đầy đủ cột `evalAnswers` (kèm phần trả lời chữ) cho từng dòng.
+     * Sau:  gộp trong SQL theo (câu hỏi, số sao) — nhiều nhất là `số câu hỏi × 6` dòng
+     *       (khoảng 240 thay vì 20.000), rồi dựng lại danh sách phẳng trong bộ nhớ để
+     *       `averageByCriteria` của core chạy y hệt như cũ (KHÔNG chép lại luật tính điểm).
+     */
     ctx.db
-      .select({ a: evalAnswers, questionId: evalAnswers.questionId })
+      .select({ questionId: evalAnswers.questionId, rating: evalAnswers.rating, n: sql<number>`count(*)::int` })
       .from(evalAnswers)
       .innerJoin(evalResponses, eq(evalResponses.id, evalAnswers.responseId))
       .where(eq(evalResponses.roundId, id))
-      .limit(20_000),
+      .groupBy(evalAnswers.questionId, evalAnswers.rating)
+      .orderBy(asc(evalAnswers.questionId), asc(evalAnswers.rating)),
   ]);
   const byQ = new Map(qs.map((q) => [q.id, q] as const));
-  const criteria = averageByCriteria(
-    answers.map((x) => {
-      const q = byQ.get(x.questionId);
-      return { questionType: (q?.type ?? "text") as EvalQuestionType, criteriaGroup: q?.criteriaGroup ?? null, rating: x.a.rating };
-    }),
-  );
-  const ratings = answers.map((x) => x.a.rating).filter((r): r is number => r != null);
-  const distribution = Array.from({ length: EVAL_RATING_MAX }, (_, i) => ({ star: i + 1, n: ratings.filter((r) => r === i + 1).length }));
+  const flat: { questionType: EvalQuestionType; criteriaGroup: string | null; rating: number | null }[] = [];
+  const starCount = new Map<number, number>();
+  for (const row of answers) {
+    const q = byQ.get(row.questionId);
+    const value = { questionType: (q?.type ?? "text") as EvalQuestionType, criteriaGroup: q?.criteriaGroup ?? null, rating: row.rating };
+    for (let i = 0; i < row.n; i++) flat.push(value);
+    if (row.rating != null) starCount.set(row.rating, (starCount.get(row.rating) ?? 0) + row.n);
+  }
+  const criteria = averageByCriteria(flat);
+  const ratings = flat.map((x) => x.rating).filter((r): r is number => r != null);
+  const distribution = Array.from({ length: EVAL_RATING_MAX }, (_, i) => ({ star: i + 1, n: starCount.get(i + 1) ?? 0 }));
   const today = todayISO();
   return {
     ...round,

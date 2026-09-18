@@ -89,9 +89,12 @@ export async function opsStatus(ctx: ProtectedContext) {
     (select count(*) from audit_log)::int as audit,
     (select count(*) from messages)::int as messages`)) as unknown as Record<string, number>[];
   const [q] = (await ctx.db.execute(sql`select
-    (select count(*) from outbox where processed_at is null)::int as outbox_pending,
-    (select coalesce(extract(epoch from now() - min(created_at)) / 60, 0)::int from outbox where processed_at is null) as outbox_oldest_min,
-    (select count(*) from outbox where processed_at is null and attempts >= 3)::int as outbox_stuck,
+    -- Việc còn sống (đã loại hàng đợi chết) / việc chờ lâu nhất / việc đã bỏ cuộc.
+    -- Trước đợt 0006, "kẹt" chỉ là `attempts >= 3`; nay cột `dead_letter_at` nói thẳng
+    -- việc nào worker đã thôi đọc và cần người vào xử lý.
+    (select count(*) from outbox where processed_at is null and dead_letter_at is null)::int as outbox_pending,
+    (select coalesce(extract(epoch from now() - min(created_at)) / 60, 0)::int from outbox where processed_at is null and dead_letter_at is null) as outbox_oldest_min,
+    (select count(*) from outbox where processed_at is null and dead_letter_at is not null)::int as outbox_stuck,
     (select count(*) from email_logs where status = 'failed' and created_at > now() - interval '24 hours')::int as email_failed_24h,
     (select count(*) from webhook_events where status in ('failed','rejected') and received_at > now() - interval '24 hours')::int as webhook_bad_24h,
     (select count(*) from data_requests where status in ('received','verifying','in_progress') and due_at < now())::int as dsr_overdue,
@@ -108,7 +111,7 @@ export async function opsStatus(ctx: ProtectedContext) {
     { key: "worker", label: "Worker / cron chạy đều (nhịp ≤ 5 phút)", ok: hb === "ok" },
     { key: "backup", label: "Có bản sao lưu trong 26 giờ gần nhất", ok: bf === "ok" },
     { key: "restore", label: "Đã thử khôi phục bản sao lưu (ghi trong LATEST.json)", ok: !!(backups.latest as { restoreTestedAt?: string } | null)?.restoreTestedAt },
-    { key: "queue", label: "Không có sự kiện outbox kẹt (≥ 3 lần lỗi)", ok: (q?.outbox_stuck ?? 0) === 0 },
+    { key: "queue", label: "Không có sự kiện outbox trong hàng đợi chết (hỏng quá 5 lần)", ok: (q?.outbox_stuck ?? 0) === 0 },
     { key: "compliance", label: "Không có yêu cầu dữ liệu / sự cố quá hạn", ok: (q?.dsr_overdue ?? 0) === 0 && (q?.incident_overdue ?? 0) === 0 },
   ];
   return {

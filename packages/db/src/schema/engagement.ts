@@ -10,6 +10,14 @@ import { centers } from "./org";
 /**
  * OUTBOX: producer ghi event trong cùng transaction với nghiệp vụ; worker đọc theo lô,
  * chạy automation rules, đánh dấu processed. Không bao giờ mất sự kiện.
+ *
+ * Độ tin cậy (đợt tối ưu hiệu năng):
+ *  - `nextAttemptAt`: mốc được phép thử lại. Hỏng lần n thì lùi 30s·2^(n-1), trần 15 phút,
+ *    nên một nhà cung cấp đang sập không bị gọi dồn mỗi 10 giây.
+ *  - `deadLetterAt`: hỏng quá `MAX` lần thì đóng lại (hàng đợi chết) — worker thôi đọc,
+ *    trang Hệ thống vẫn xem và chạy lại tay được.
+ *  - Chống chạy trùng: worker nhận việc bằng `select … for update skip locked`, hai worker
+ *    (hoặc worker + cron) chạy song song không xử lý cùng một dòng.
  */
 export const outbox = pgTable(
   "outbox",
@@ -22,8 +30,19 @@ export const outbox = pgTable(
     processedAt: timestamp("processed_at", { withTimezone: true }),
     attempts: integer("attempts").notNull().default(0),
     lastError: text("last_error"),
+    /** Sớm nhất được thử lại; dòng mới = ngay lập tức */
+    nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }).notNull().defaultNow(),
+    /** Khác null = đã vào hàng đợi chết, worker không đọc nữa */
+    deadLetterAt: timestamp("dead_letter_at", { withTimezone: true }),
+    /** Lần chạy gần nhất (để xem dòng nào đang bị kẹt) */
+    lastAttemptAt: timestamp("last_attempt_at", { withTimezone: true }),
   },
-  (t) => [index("outbox_pending_idx").on(t.processedAt, t.createdAt)],
+  (t) => [
+    index("outbox_pending_idx").on(t.processedAt, t.createdAt),
+    // Đường đọc của worker: việc còn sống, tới hạn, cũ trước
+    index("outbox_ready_idx").on(t.nextAttemptAt, t.createdAt),
+    index("outbox_dead_idx").on(t.deadLetterAt),
+  ],
 );
 
 export const notificationChannelEnum = pgEnum("notification_channel", NOTIFICATION_CHANNELS);

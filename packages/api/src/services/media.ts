@@ -4,7 +4,7 @@ import { TRPCError } from "@trpc/server";
 import { sessionMedia, sessions, classes, enrollments, students, studentGuardians, parents, users, centers, parentNotifications } from "@satarobo/db";
 import {
   addDays, authorize, consentCheck, canRestoreRejected, canSubmitMedia, isMediaOverdue, mediaAudience, mediaObjectKey, restoreDeadline,
-  MEDIA_MAX_BYTES, MEDIA_MIME, MEDIA_RESTORE_DAYS, visibleCenterIds, checkImageUpload, type MediaMime, type MediaStatus,
+  MEDIA_MAX_BYTES, MEDIA_MIME, MEDIA_RESTORE_DAYS, visibleCenterIds, checkImageUpload, clampPageSize, type MediaMime, type MediaStatus,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { tenantCond } from "./tenantScope";
@@ -34,6 +34,28 @@ async function loadSession(ctx: ProtectedContext, sessionId: string) {
 async function classRoster(db: Db, classId: string): Promise<string[]> {
   const rows = await db.select({ id: enrollments.studentId }).from(enrollments).where(and(eq(enrollments.classId, classId), inArray(enrollments.status, ["active", "trial"])));
   return [...new Set(rows.map((r) => r.id))];
+}
+
+/**
+ * Sĩ số của NHIỀU lớp trong MỘT truy vấn.
+ * Trước: `listMedia` gọi `classRoster` trong vòng lặp — mỗi lớp một truy vấn (duyệt 120 ảnh
+ * của 40 lớp = 40 truy vấn). Sau: 1 truy vấn `inArray` rồi dựng Map.
+ */
+async function classRosters(db: Db, classIds: string[]): Promise<Map<string, string[]>> {
+  const out = new Map<string, string[]>();
+  if (classIds.length === 0) return out;
+  const rows = await db
+    .select({ classId: enrollments.classId, studentId: enrollments.studentId })
+    .from(enrollments)
+    .where(and(inArray(enrollments.classId, classIds), inArray(enrollments.status, ["active", "trial"])));
+  for (const r of rows) {
+    const list = out.get(r.classId);
+    if (list) list.push(r.studentId);
+    else out.set(r.classId, [r.studentId]);
+  }
+  // Bỏ trùng trong từng lớp (một HV có thể có nhiều ghi danh) và bảo đảm lớp rỗng vẫn có khoá
+  for (const cid of classIds) out.set(cid, [...new Set(out.get(cid) ?? [])]);
+  return out;
 }
 
 /**
@@ -77,12 +99,37 @@ async function consentMap(db: Db, studentIds: string[]) {
   return new Map(rows.map((r) => [r.studentId, !!r.consent]));
 }
 
-export async function listMedia(ctx: ProtectedContext, input: { classId?: string; sessionId?: string; status?: MediaStatus; limit?: number }) {
-  requirePermission(ctx, "media:read", {});
+/** Bộ lọc dùng chung cho danh sách ảnh và phép đếm */
+function mediaConds(ctx: ProtectedContext, input: { classId?: string; sessionId?: string; status?: MediaStatus }) {
   const conds = [scope(ctx), tenantCond(ctx, sessionMedia)];
   if (input.classId) conds.push(eq(sessions.classId, input.classId));
   if (input.sessionId) conds.push(eq(sessionMedia.sessionId, input.sessionId));
   if (input.status) conds.push(eq(sessionMedia.status, input.status));
+  return conds;
+}
+
+/**
+ * Đếm ảnh khớp bộ lọc bằng `count(*)`, kèm số đã quá hạn duyệt (24 giờ).
+ * Trước: hộp việc tải 120 ảnh (kèm sĩ số lớp + đồng ý hình ảnh của từng HV) chỉ để lấy `.length`.
+ * Sau:  1 truy vấn đếm, không tải dòng nào và không phải tra đồng ý hình ảnh.
+ */
+export async function countMedia(ctx: ProtectedContext, input: { classId?: string; sessionId?: string; status?: MediaStatus }) {
+  requirePermission(ctx, "media:read", {});
+  const [r] = await ctx.db
+    .select({
+      total: sql<number>`count(*)::int`,
+      overdue: sql<number>`count(*) filter (where ${sessionMedia.status} = 'pending' and coalesce(${sessionMedia.submittedAt}, ${sessionMedia.createdAt}) < now() - interval '24 hours')::int`,
+    })
+    .from(sessionMedia)
+    .innerJoin(sessions, eq(sessions.id, sessionMedia.sessionId))
+    .innerJoin(classes, eq(classes.id, sessions.classId))
+    .where(and(...mediaConds(ctx, input)));
+  return { total: r?.total ?? 0, overdue: r?.overdue ?? 0 };
+}
+
+export async function listMedia(ctx: ProtectedContext, input: { classId?: string; sessionId?: string; status?: MediaStatus; limit?: number }) {
+  requirePermission(ctx, "media:read", {});
+  const conds = mediaConds(ctx, input);
   const rows = await ctx.db
     .select({
       id: sessionMedia.id, objectKey: sessionMedia.objectKey, caption: sessionMedia.caption, status: sessionMedia.status, taggedStudentIds: sessionMedia.taggedStudentIds,
@@ -97,12 +144,12 @@ export async function listMedia(ctx: ProtectedContext, input: { classId?: string
     .leftJoin(users, eq(users.id, sessionMedia.uploadedBy))
     .where(and(...conds))
     .orderBy(desc(sessionMedia.createdAt))
-    .limit(input.limit ?? 120);
+    // Trần cứng 300: mỗi dòng còn kéo theo sĩ số lớp + đồng ý hình ảnh của từng HV
+    .limit(clampPageSize(input.limit, 120, 300));
 
-  // Ảnh chung cả lớp: người xuất hiện là toàn bộ HV đang học của lớp
+  // Ảnh chung cả lớp: người xuất hiện là toàn bộ HV đang học của lớp — 1 truy vấn cho mọi lớp
   const classIds = [...new Set(rows.filter((r) => r.isClassWide).map((r) => r.classId))];
-  const rosters = new Map<string, string[]>();
-  for (const cid of classIds) rosters.set(cid, await classRoster(ctx.db, cid));
+  const rosters = await classRosters(ctx.db, classIds);
   const audienceOf = (r: (typeof rows)[number]) => mediaAudience(r, rosters.get(r.classId) ?? []);
 
   const allIds = [...new Set(rows.flatMap((r) => audienceOf(r)))];

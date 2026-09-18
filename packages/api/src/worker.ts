@@ -22,7 +22,10 @@ import { buildActionRequiredAlerts } from "./services/notify";
 import { pruneRateLimits } from "./lib/rateLimit";
 import { apiLogger } from "./lib/logger";
 
-const db = createDb();
+// Worker có việc quét / ẩn danh hoá chạy lâu hơn một màn hình web, nên nới riêng
+// `statement_timeout` cho tiến trình này (60s) thay vì nới cho cả hệ.
+// Pool nhỏ: worker chạy tuần tự, 4 kết nối là đủ và để dành kết nối cho web.
+const db = createDb(undefined, { statementTimeoutMs: 60_000, max: 4 });
 const interval = Number(process.env.WORKER_INTERVAL_MS ?? 10_000);
 let running = true;
 let lastSurvey = 0;
@@ -76,6 +79,8 @@ async function tick() {
     }
     await recordHeartbeat(db, "worker", { processed: r.processed, failed: r.failed, sla });
     if (r.processed || r.failed || sla) log.info(`outbox processed=${r.processed} failed=${r.failed} actions=${r.actions} sla=${sla}`);
+    // Hàng đợi chết là việc KHÔNG tự lành: phải có người vào trang Vận hành xem `lastError`
+    if (r.deadLettered) log.error(`outbox dead-letter=${r.deadLettered} — vào /van-hanh để xem lý do rồi chạy lại (engagement.retryDeadLetter)`);
   } catch (e) {
     log.error("vòng lặp worker gặp lỗi", { err: e });
   }

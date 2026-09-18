@@ -6,7 +6,7 @@ import {
   centers, users, userRoles, userNotifications, enrollments, classes, courses, students, parents, studentGuardians, leads, leadChildren,
 } from "@satarobo/db";
 import {
-  authorize, hasRole, visibleCenterIds, addDays,
+  authorize, hasRole, visibleCenterIds, addDays, clampPageSize,
   priceLines, packagePrice, buildPlan, validateInstallmentPlan, replanInstallments, orderBalance, deriveOrderStatus, canCancelOrder,
   allocateInstallments, agingBucket, agingBucketBy, agingBucketLabels, dueSoon, validatePaymentDecision, receiptNumber, transferMemo, maskIdNumber,
   refundProposal, validateRefundRequest, refundTransition, vietQrImageUrl, requireReason, formatVnd, maskPhone, remainingSessions, isEmail,
@@ -1210,6 +1210,8 @@ export async function listPayments(ctx: ProtectedContext, input: { status?: Paym
   }).from(payments).innerJoin(orders, eq(orders.id, payments.orderId)).leftJoin(students, eq(students.id, orders.studentId)).where(where);
   const [counts] = await ctx.db.select({
     recorded: sql<number>`count(*) filter (where ${payments.status} = 'recorded')::int`,
+    /** Phiếu thu chờ kế toán quá 24 giờ — để hộp việc khỏi phải lọc mảng đã tải về */
+    recordedOverdue: sql<number>`count(*) filter (where ${payments.status} = 'recorded' and ${payments.recordedAt} < now() - interval '24 hours')::int`,
     confirmed: sql<number>`count(*) filter (where ${payments.status} = 'confirmed')::int`,
     rejected: sql<number>`count(*) filter (where ${payments.status} = 'rejected')::int`,
     voided: sql<number>`count(*) filter (where ${payments.status} = 'voided')::int`,
@@ -1351,9 +1353,17 @@ export async function debts(ctx: ProtectedContext, input: { centerId?: string; b
     .where(and(...conds)).orderBy(asc(orders.createdAt)).limit(5000);
   const ids = rows.map((r) => r.id);
   const plans = ids.length ? await ctx.db.select().from(orderInstallments).where(inArray(orderInstallments.orderId, ids)) : [];
+  // Trước: `plans.filter(...)` CHO MỖI đơn — 5.000 đơn × mọi kỳ hạn là hàng triệu phép so
+  // trong JavaScript. Sau: gom một lần thành Map, tra O(1) (mỗi đơn chỉ còn vài kỳ hạn).
+  const planByOrder = new Map<string, typeof plans>();
+  for (const p of plans) {
+    const list = planByOrder.get(p.orderId);
+    if (list) list.push(p);
+    else planByOrder.set(p.orderId, [p]);
+  }
   const items = rows.map((r) => {
     const confirmed = Number(r.confirmed);
-    const plan = plans.filter((p) => p.orderId === r.id).map((p) => ({ seq: p.seq, amount: p.amount, dueDate: p.dueDate }));
+    const plan = (planByOrder.get(r.id) ?? []).map((p) => ({ seq: p.seq, amount: p.amount, dueDate: p.dueDate }));
     const alloc = allocateInstallments(plan, confirmed, today);
     const maxOverdue = alloc.reduce((m, a) => Math.max(m, a.overdueDays), 0);
     const overdueAmount = alloc.filter((a) => a.overdueDays > 0).reduce((s, a) => s + a.remaining, 0);
@@ -1365,11 +1375,25 @@ export async function debts(ctx: ProtectedContext, input: { centerId?: string; b
       customerPhone: r.customerPhone.replace(/\d(?=\d{3})/g, "•"),
     };
   }).filter((r) => r.outstanding > 0);
-  const buckets = AGING_BUCKETS.map((b) => ({ bucket: b, count: items.filter((i) => i.bucket === b).length, amount: items.filter((i) => i.bucket === b).reduce((s, i) => s + (b === "current" ? i.outstanding : i.overdueAmount), 0) }));
-  const byCenter = [...new Map(items.map((i) => [i.centerId, i.centerCode])).entries()].map(([id, code]) => {
-    const xs = items.filter((i) => i.centerId === id);
-    return { centerId: id, centerCode: code, orders: xs.length, outstanding: xs.reduce((s, i) => s + i.outstanding, 0), overdue: xs.reduce((s, i) => s + i.overdueAmount, 0), pending: xs.reduce((s, i) => s + i.pending, 0) };
-  });
+  // Một lượt duyệt cho cả nhóm tuổi nợ và nhóm cơ sở, thay cho 10+ lượt `items.filter(...)`
+  const bucketAcc = new Map<string, { count: number; amount: number }>();
+  // Kiểu `centerCode` lấy thẳng từ hàng truy vấn để không nới rộng kiểu trả về cho client
+  const centerAcc = new Map<string, { centerCode: (typeof rows)[number]["centerCode"]; orders: number; outstanding: number; overdue: number; pending: number }>();
+  for (const i of items) {
+    const b = bucketAcc.get(i.bucket) ?? { count: 0, amount: 0 };
+    b.count += 1;
+    b.amount += i.bucket === "current" ? i.outstanding : i.overdueAmount;
+    bucketAcc.set(i.bucket, b);
+    // Giữ thứ tự cơ sở theo lần xuất hiện đầu tiên, đúng như bản cũ
+    const c = centerAcc.get(i.centerId) ?? { centerCode: i.centerCode, orders: 0, outstanding: 0, overdue: 0, pending: 0 };
+    c.orders += 1;
+    c.outstanding += i.outstanding;
+    c.overdue += i.overdueAmount;
+    c.pending += i.pending;
+    centerAcc.set(i.centerId, c);
+  }
+  const buckets = AGING_BUCKETS.map((b) => ({ bucket: b, count: bucketAcc.get(b)?.count ?? 0, amount: bucketAcc.get(b)?.amount ?? 0 }));
+  const byCenter = [...centerAcc.entries()].map(([centerId, c]) => ({ centerId, centerCode: c.centerCode, orders: c.orders, outstanding: c.outstanding, overdue: c.overdue, pending: c.pending }));
   const filtered = input.bucket ? items.filter((i) => i.bucket === input.bucket) : items;
   return {
     today,
@@ -1901,7 +1925,7 @@ export async function payRefund(ctx: ProtectedContext, input: { id: string; paym
   return { status: to };
 }
 
-export async function listRefunds(ctx: ProtectedContext, input: { status?: RefundStatus; centerId?: string }) {
+export async function listRefunds(ctx: ProtectedContext, input: { status?: RefundStatus; centerId?: string; limit?: number }) {
   requirePermission(ctx, "finance:read", { centerId: input.centerId ?? null });
   const conds: SQL[] = [scope(ctx, refunds.centerId as unknown as typeof orders.centerId)];
   if (input.status) conds.push(eq(refunds.status, input.status));
@@ -1914,9 +1938,11 @@ export async function listRefunds(ctx: ProtectedContext, input: { status?: Refun
     deciderName: sql<string | null>`(select full_name from ${users} u where u.id = ${refunds.decidedBy})`,
   }).from(refunds).innerJoin(orders, eq(orders.id, refunds.orderId)).innerJoin(centers, eq(centers.id, refunds.centerId))
     .leftJoin(enrollments, eq(enrollments.id, refunds.enrollmentId)).leftJoin(students, eq(students.id, enrollments.studentId)).leftJoin(classes, eq(classes.id, enrollments.classId))
-    .where(and(...conds)).orderBy(desc(refunds.createdAt)).limit(300);
+    .where(and(...conds)).orderBy(desc(refunds.createdAt)).limit(clampPageSize(input.limit, 300, 500));
   const [counts] = await ctx.db.select({
     pending: sql<number>`count(*) filter (where ${refunds.status} = 'pending')::int`,
+    /** Yêu cầu hoàn tiền chờ duyệt quá 48 giờ — để hộp việc khỏi phải lọc mảng đã tải về */
+    pendingOverdue: sql<number>`count(*) filter (where ${refunds.status} = 'pending' and ${refunds.createdAt} < now() - interval '48 hours')::int`,
     approved: sql<number>`count(*) filter (where ${refunds.status} = 'approved')::int`,
     rejected: sql<number>`count(*) filter (where ${refunds.status} = 'rejected')::int`,
     paid: sql<number>`count(*) filter (where ${refunds.status} = 'paid')::int`,

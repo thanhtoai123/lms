@@ -6,7 +6,7 @@ import {
   sessionMedia, assignments, classTransferRequests,
 } from "@satarobo/db";
 import {
-  generateSessions, expectedEndDate, findConflicts, buildClassCode, nextClassSeq, normalizeClassCode, authorize, addDays, visibleCenterIds,
+  generateSessions, expectedEndDate, findConflicts, buildClassCode, nextClassSeq, normalizeClassCode, authorize, addDays, clampPageSize, visibleCenterIds,
   classTransition, classEventsFor, classReadiness, canFinishClass, CLASS_APPROVAL_EVENTS, CLASS_REASON_EVENTS, CLASS_EVENT_VI,
   planScheduleChange, checkScheduleDrift, planReanchor, validateWeeklySlots, validatePhases, phasesToRules, nextExtraSequence, sessionLabel, requireReason, formatVnd,
   type ScheduleRule, type Weekday, type ClassEvent, type WeeklySlot, type ExistingSession, type SessionKind, type ClassStatus, type ScheduleProposalPhase, type DriftIssue,
@@ -130,9 +130,19 @@ export async function cancelTrialsFor(db: Db, sessionIds: string[], reason: stri
   const rows = await db.update(trialBookings).set({ status: "cancelled", reason })
     .where(and(inArray(trialBookings.sessionId, sessionIds), eq(trialBookings.status, "booked")))
     .returning({ id: trialBookings.id, leadId: trialBookings.leadId, childName: trialBookings.childName });
+  if (!rows.length) return 0;
+  // Trước: mỗi lượt học thử một truy vấn `findFirst` lấy lead (huỷ cả lớp 16 buổi ⇒ hàng chục truy vấn).
+  // Sau: 1 truy vấn `inArray` lấy hết lead liên quan, rồi tra Map; nhật ký lead ghi gộp một câu insert.
+  const leadIds = [...new Set(rows.map((t) => t.leadId))];
+  const leadRows = await db.select({ id: leads.id, assignedToId: leads.assignedToId, parentName: leads.parentName }).from(leads).where(inArray(leads.id, leadIds));
+  const leadById = new Map(leadRows.map((l) => [l.id, l]));
+  await db.insert(leadActivities).values(rows.map((t) => ({
+    leadId: t.leadId, type: "note" as const, actorId,
+    content: `Buổi học thử ${classCode} bị huỷ — ${reason}. Cần xếp lại buổi thử.`,
+    meta: { event: "trial_session_cancelled", trialBookingId: t.id },
+  })));
   for (const t of rows) {
-    await db.insert(leadActivities).values({ leadId: t.leadId, type: "note", actorId, content: `Buổi học thử ${classCode} bị huỷ — ${reason}. Cần xếp lại buổi thử.`, meta: { event: "trial_session_cancelled", trialBookingId: t.id } });
-    const lead = await db.query.leads.findFirst({ where: eq(leads.id, t.leadId), columns: { assignedToId: true, parentName: true } });
+    const lead = leadById.get(t.leadId);
     await notifyUsers(db, [lead?.assignedToId], "Buổi học thử bị huỷ", `${t.childName ?? lead?.parentName ?? "Khách"} (${classCode}): ${reason} — xếp lại buổi thử`, `/leads/${t.leadId}`, 1, "trial.cancelled");
   }
   return rows.length;
@@ -905,10 +915,12 @@ export async function classWorkspace(ctx: ProtectedContext, classId: string) {
 }
 
 /** Hàng đợi lớp chờ duyệt (dashboard + danh sách) */
-export async function pendingApprovals(ctx: ProtectedContext) {
+/** Lớp chờ duyệt mở — trần cứng 300 (trước đây không có `limit`) */
+export async function pendingApprovals(ctx: ProtectedContext, input: { limit?: number } = {}) {
   const rows = await ctx.db
     .select({ id: classes.id, code: classes.code, name: classes.name, centerId: classes.centerId, submittedAt: classes.submittedAt, startDate: classes.startDate })
-    .from(classes).where(and(eq(classes.status, "pending_approval"), isNull(classes.deletedAt))).orderBy(asc(classes.submittedAt));
+    .from(classes).where(and(eq(classes.status, "pending_approval"), isNull(classes.deletedAt))).orderBy(asc(classes.submittedAt))
+    .limit(clampPageSize(input.limit, 300, 500));
   return rows.filter((r) => authorize(ctx.actor, "class:approve", { centerId: r.centerId }).allowed);
 }
 
