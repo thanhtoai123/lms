@@ -162,7 +162,9 @@ export async function assertRateLimit(
 }
 
 /** Thông báo tiếng Việt chuẩn khi đụng trần */
-export function tooManyMessage(d: RateDecision, what = "thao tác"): string {
+// Chỉ cần `retryAfterSec` — nhận kiểu hẹp để các route handler dựng thông báo
+// mà không phải mang theo cả quyết định trần tần suất.
+export function tooManyMessage(d: Pick<RateDecision, "retryAfterSec">, what = "thao tác"): string {
   const min = Math.ceil(d.retryAfterSec / 60);
   return min > 1
     ? `Bạn đã ${what} quá nhiều lần. Vui lòng thử lại sau khoảng ${min} phút.`
