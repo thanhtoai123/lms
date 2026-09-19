@@ -210,6 +210,18 @@ che PII và thuật toán cửa sổ của trần tần suất. `packages/api` c
 
 ---
 
+
+### Bổ sung sau đợt chạy kiểm thử ngày 19/09
+
+**Trần tần suất đăng nhập cổng phụ huynh theo SỐ ĐIỆN THOẠI** (`parentLoginPhone`, 8 lần / 15 phút).
+
+Trước đó cổng phụ huynh chỉ có trần theo IP (40 lần / 15 phút). Mã đăng nhập của phụ huynh
+chỉ có 6 chữ số, nên kẻ dò chỉ cần đổi địa chỉ IP là bộ đếm về 0 và dò tiếp cùng một số điện
+thoại. Trần theo IP bảo vệ hệ thống khỏi quá tải; trần theo số điện thoại mới là thứ bảo vệ
+đúng MỘT tài khoản. Nay có cả hai: `apps/web/src/app/api/ph/login/route.ts`.
+
+Phát hiện này do chính bộ kiểm thử `kich-ban-toan-dien.ps1` (mục A32) bắt được khi chạy thật.
+
 ## 9. Đợt 2 — chi tiết cách vá (18/09/2026)
 
 ### 9.1. CSP: bỏ `'unsafe-inline'`, dùng nonce mỗi yêu cầu (T7)

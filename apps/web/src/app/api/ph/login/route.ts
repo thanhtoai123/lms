@@ -22,6 +22,9 @@ export async function POST(req: Request) {
   if (b.action === "login") {
     const gate = await sharedRateLimit("parentLoginIp", "ip", clientIp(req), "ph-login");
     if (gate) return tooManyResponse(gate, "đăng nhập");
+    // Chặn dò mã của MỘT phụ huynh cụ thể: đổi IP không reset được bộ đếm này
+    const gatePhone = await sharedRateLimit("parentLoginPhone", "phone", phone, "ph-login");
+    if (gatePhone) return tooManyResponse(gatePhone, "đăng nhập");
     const method = b.method === "code" ? "code" : "otp";
     const r = await ParentPortal.parentLogin(db, { phone, method, code: String(b.code ?? "").trim().slice(0, 10), ip, userAgent: req.headers.get("user-agent") });
     if (!r.ok) return NextResponse.json(r, { status: 401 });

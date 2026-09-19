@@ -147,8 +147,14 @@ export const RATE_LIMITS = {
   staffLoginIp: { max: 60, windowMs: 15 * 60_000 },
   /** Đăng nhập nhân sự theo email */
   staffLoginEmail: { max: 15, windowMs: 15 * 60_000 },
-  /** Cổng phụ huynh: xin OTP / đăng nhập */
+  /** Cổng phụ huynh: xin OTP / đăng nhập — theo IP (rộng, vì cả một cơ sở có thể chung một IP) */
   parentLoginIp: { max: 40, windowMs: 15 * 60_000 },
+  /**
+   * Cổng phụ huynh: đăng nhập SAI theo SỐ ĐIỆN THOẠI.
+   * Trần theo IP một mình không đủ: kẻ dò đổi IP là đếm lại từ đầu, trong khi mã đăng nhập
+   * chỉ có 6 chữ số. Trần theo số điện thoại mới là thứ bảo vệ đúng một tài khoản cụ thể.
+   */
+  parentLoginPhone: { max: 8, windowMs: 15 * 60_000 },
   /** Xin mã OTP công khai theo IP */
   otpIp: { max: 30, windowMs: 60 * 60_000 },
   /** Quên mật khẩu theo IP / theo email */
