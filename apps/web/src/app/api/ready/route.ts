@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { sql } from "drizzle-orm";
-import { getDb, outbox } from "@satarobo/db";
+import { getDb, readinessProbe } from "@satarobo/db";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -30,22 +29,13 @@ export async function GET() {
   try {
     const db = getDb();
     // Hẹn giờ riêng: CSDL treo thì endpoint này phải trả lời chứ không treo theo
-    const probe = (async () => {
-      const rows = (await db.execute(sql`
-        select
-          count(*) filter (where processed_at is null and dead_letter_at is null)::int as pending,
-          coalesce(extract(epoch from (now() - min(created_at) filter (where processed_at is null and dead_letter_at is null)))::int, 0) as oldest_sec
-        from ${outbox}
-      `)) as unknown as { pending: number; oldest_sec: number }[];
-      return rows[0] ?? { pending: 0, oldest_sec: 0 };
-    })();
     const r = await Promise.race([
-      probe,
+      readinessProbe(db),
       new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timeout")), 3_000)),
     ]);
     checks.database = "up";
-    pending = Number(r.pending ?? 0);
-    oldestSec = Number(r.oldest_sec ?? 0);
+    pending = r.pending;
+    oldestSec = r.oldestSec;
     checks.outbox = pending > BACKLOG_LIMIT || oldestSec > AGE_LIMIT_SEC ? "backlog" : "ok";
   } catch {
     // Nuốt lỗi gốc có chủ đích: thông điệp của Postgres kèm nguyên văn câu truy vấn và tên cột

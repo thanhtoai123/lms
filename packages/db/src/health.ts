@@ -6,6 +6,9 @@
  * bảng nếu lọt ra ngoài. Hàm này gói lại thành một câu nói rõ nguyên nhân và cách xử lý.
  */
 
+import { sql, type SQL } from "drizzle-orm";
+import { outbox } from "./schema/index";
+
 /** Mã lỗi của tầng mạng / driver khi không mở được kết nối tới Postgres */
 const CONNECTION_CODES = new Set([
   "ECONNREFUSED", "ECONNRESET", "ENOTFOUND", "EHOSTUNREACH", "ENETUNREACH", "EPIPE", "ETIMEDOUT",
@@ -49,4 +52,34 @@ export async function withDbErrors<T>(run: () => Promise<T>): Promise<T> {
     if (isDbUnreachable(e)) throw new DbUnreachableError();
     throw e;
   }
+}
+
+/* ------------------------------------------------------------------ */
+/* Thăm dò "sẵn sàng nhận lưu lượng" (readiness)                        */
+/* ------------------------------------------------------------------ */
+
+export interface ReadinessProbe {
+  /** Số việc nền còn chờ (chưa xử lý, chưa vào hàng đợi chết) */
+  pending: number;
+  /** Việc chờ lâu nhất, tính bằng giây */
+  oldestSec: number;
+}
+
+/**
+ * Một câu truy vấn nhẹ vừa xác nhận CSDL còn trả lời, vừa đo tồn đọng việc nền.
+ *
+ * Đặt ở gói `db` (chứ không ở route của web) để `drizzle-orm` không bị kéo vào
+ * danh sách phụ thuộc của ứng dụng web chỉ vì một endpoint kiểm tra sức khoẻ.
+ */
+export async function readinessProbe(db: {
+  execute: (q: SQL) => Promise<unknown>;
+}): Promise<ReadinessProbe> {
+  const rows = (await db.execute(sql`
+    select
+      count(*) filter (where processed_at is null and dead_letter_at is null)::int as pending,
+      coalesce(extract(epoch from (now() - min(created_at) filter (where processed_at is null and dead_letter_at is null)))::int, 0) as oldest_sec
+    from ${outbox}
+  `)) as unknown as { pending: number; oldest_sec: number }[];
+  const r = rows[0] ?? { pending: 0, oldest_sec: 0 };
+  return { pending: Number(r.pending ?? 0), oldestSec: Number(r.oldest_sec ?? 0) };
 }
