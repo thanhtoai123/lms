@@ -2,7 +2,9 @@
  * Worker vòng lặp cho self-host / dev: pnpm worker
  * Mỗi 10s: quét SLA lead → xử lý outbox → chạy automation rules.
  */
-import "dotenv/config";
+// Nạp .env ở gốc monorepo (pnpm --filter chạy trong packages/api nên dotenv/config không thấy)
+// — thiếu dòng này worker chết ngay vì DATABASE_URL trống và outbox không bao giờ được xử lý.
+import "@satarobo/db/env";
 import { createDb } from "@satarobo/db";
 import { processOutbox, scanLeadSla } from "./services/engagement";
 import { runSurveyTriggers } from "./services/care";

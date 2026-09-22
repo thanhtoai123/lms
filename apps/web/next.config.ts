@@ -3,6 +3,13 @@ import { API_CSP, nextRedirects, securityHeaderOptions, securityHeaders } from "
 
 const nextConfig: NextConfig = {
   transpilePackages: ["@satarobo/api", "@satarobo/core", "@satarobo/db"],
+  experimental: {
+    // Chế độ phát triển: hệ có ~120 trang quản trị. Mặc định ('auto') Turbopack giữ đồ thị biên dịch
+    // của mọi trang đã mở trong RAM — mở lần lượt cả menu (kiểm thử menu) đã đẩy tiến trình lên ~17 GB
+    // bộ nhớ cam kết trên máy 16 GB, Windows báo "Insufficient system resources" rồi máy chủ chết.
+    // 'full': sau mỗi lần ghi đệm đĩa thì nhả RAM tối đa — biên dịch lại chậm hơn chút, không ảnh hưởng bản build.
+    turbopackMemoryEviction: "full",
+  },
   // playwright-core: gói TUỲ CHỌN cho xuất PDF phía máy chủ (PDF_RENDERER=playwright) — không đóng gói, nạp động lúc chạy
   serverExternalPackages: ["postgres", "playwright-core"],
   // Đường dẫn cũ của bản thử nghiệm (/ops) → đường dẫn chuẩn giống admin.satarobo.vn
