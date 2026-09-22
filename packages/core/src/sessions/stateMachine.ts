@@ -115,10 +115,19 @@ export interface CompletionInput {
   checklistMissing: readonly string[];
   /** Có giao bài tập về nhà cho buổi (tuỳ chọn) */
   assignmentCount?: number;
+  /**
+   * Phiếu nhận xét buổi (hồ sơ học tập): câu chặn nêu tên HV có mặt còn thiếu phiếu đủ tiêu chí
+   * (từ `evaluationBlockerMessage`); null / bỏ trống = đủ. Chỉ chặn khi `requireEvaluations`.
+   */
+  evaluationsMissing?: string | null;
+  /** Số HV có mặt / số phiếu đủ điều kiện — hiển thị gợi ý */
+  evaluationsReady?: { ready: number; required: number };
+  /** Cấu hình: bắt buộc đủ phiếu nhận xét buổi mới hoàn tất (mặc định bật) */
+  requireEvaluations?: boolean;
 }
 
 export interface CompletionStep {
-  key: "attendance" | "lesson" | "note" | "remarks" | "media" | "checklist" | "homework";
+  key: "attendance" | "lesson" | "note" | "remarks" | "evaluations" | "media" | "checklist" | "homework";
   label: string;
   done: boolean;
   required: boolean;
@@ -132,6 +141,12 @@ export function completionChecklist(i: CompletionInput): CompletionStep[] {
     { key: "lesson", label: "Xác nhận bài đã dạy", required: true, done: i.lessonConfirmed },
     { key: "note", label: "Nhận xét chung của buổi", required: true, done: i.hasSessionNote },
     { key: "remarks", label: "Nhận xét từng học viên có mặt", required: i.requireRemarks, done: i.presentWithoutRemark === 0, hint: i.presentWithoutRemark ? `còn ${i.presentWithoutRemark} học viên chưa có nhận xét` : undefined },
+    ...(i.evaluationsReady || i.evaluationsMissing != null
+      ? [{
+        key: "evaluations" as const, label: "Phiếu nhận xét buổi học của từng học viên", required: i.requireEvaluations !== false, done: !i.evaluationsMissing,
+        hint: i.evaluationsReady ? `${i.evaluationsReady.ready}/${i.evaluationsReady.required} phiếu đủ tiêu chí — phát hành khi hoàn tất buổi` : undefined,
+      }]
+      : []),
     { key: "media", label: "Ảnh / video lớp trong kho", required: i.requireMedia, done: i.mediaCount > 0, hint: `${i.mediaCount} tệp` },
     { key: "checklist", label: "Checklist sau buổi (mục bắt buộc)", required: true, done: i.checklistMissing.length === 0, hint: i.checklistMissing.length ? `còn: ${i.checklistMissing.join(", ")}` : undefined },
     { key: "homework", label: "Giao bài tập", required: false, done: (i.assignmentCount ?? 0) > 0 },
@@ -142,7 +157,7 @@ export function completionChecklist(i: CompletionInput): CompletionStep[] {
 export function completionBlockers(i: CompletionInput): string[] {
   return completionChecklist(i)
     .filter((s) => s.required && !s.done)
-    .map((s) => (s.key === "attendance" ? `Chưa điểm danh đủ (${i.attendanceCount}/${i.enrolledCount})` : s.key === "remarks" ? `Chưa nhận xét ${i.presentWithoutRemark} học viên có mặt` : s.key === "media" ? "Chưa có ảnh / video của buổi trong kho" : s.key === "checklist" ? `Chưa hoàn thành checklist sau buổi: ${i.checklistMissing.join("; ")}` : s.key === "lesson" ? "Chưa xác nhận bài đã dạy" : "Chưa có nhận xét chung của buổi"));
+    .map((s) => (s.key === "evaluations" ? (i.evaluationsMissing ?? "Chưa đủ phiếu nhận xét buổi học") : s.key === "attendance" ? `Chưa điểm danh đủ (${i.attendanceCount}/${i.enrolledCount})` : s.key === "remarks" ? `Chưa nhận xét ${i.presentWithoutRemark} học viên có mặt` : s.key === "media" ? "Chưa có ảnh / video của buổi trong kho" : s.key === "checklist" ? `Chưa hoàn thành checklist sau buổi: ${i.checklistMissing.join("; ")}` : s.key === "lesson" ? "Chưa xác nhận bài đã dạy" : "Chưa có nhận xét chung của buổi"));
 }
 
 /* ------------------------------------------------------------------ */

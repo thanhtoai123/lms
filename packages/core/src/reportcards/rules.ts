@@ -72,7 +72,11 @@ export const SCORE_VI: Record<number, string> = { 1: "Cần cố gắng", 2: "Đ
 export interface ScoreInput { criterionId: string; score: number | null }
 
 /** Kiểm tra trước khi gửi duyệt: đủ điểm mọi tiêu chí đang dùng + nhận xét tối thiểu */
-export function validateReportCard(input: { scores: ScoreInput[]; activeCriteria: string[]; comment: string | null }, minComment = 20): string[] {
+/**
+ * `scale`: thang điểm của học bạ — 5 với học bạ cũ, 4 với học bạ mốc tổng hợp từ phiếu buổi (rubric 4 mức).
+ */
+export function validateReportCard(input: { scores: ScoreInput[]; activeCriteria: string[]; comment: string | null; scale?: number }, minComment = 20): string[] {
+  const max = input.scale ?? SCORE_MAX;
   const errs: string[] = [];
   const given = new Map(input.scores.map((s) => [s.criterionId, s.score]));
   const missing = input.activeCriteria.filter((c) => {
@@ -80,7 +84,7 @@ export function validateReportCard(input: { scores: ScoreInput[]; activeCriteria
     return v === null || v === undefined;
   });
   if (missing.length) errs.push(`Còn ${missing.length} tiêu chí chưa chấm`);
-  if (input.scores.some((s) => s.score !== null && (s.score < SCORE_MIN || s.score > SCORE_MAX || !Number.isInteger(s.score)))) errs.push("Điểm phải là số nguyên từ 1 đến 5");
+  if (input.scores.some((s) => s.score !== null && (s.score < SCORE_MIN || s.score > max || !Number.isInteger(s.score)))) errs.push(`Điểm phải là số nguyên từ 1 đến ${max}`);
   if ((input.comment ?? "").trim().length < minComment) errs.push(`Nhận xét tối thiểu ${minComment} ký tự`);
   return errs;
 }
