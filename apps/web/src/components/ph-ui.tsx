@@ -1,24 +1,108 @@
 import Link from "next/link";
+import { Bell, ChevronLeft, MessageCircle } from "lucide-react";
+import { getDb } from "@satarobo/db";
+import { parentUnread } from "@satarobo/api";
+import { childShortName } from "@satarobo/core";
+import { currentParent } from "@/lib/parent-session";
+import { PhNav } from "@/components/ph/nav";
 
-export function PhNav({ unread = 0 }: { unread?: number }) {
-  const items = [["/ph", "Trang chủ"], ["/ph/hoc-phi", "Học phí"], ["/ph/tin-nhan", "Tin nhắn"], ["/ph/thong-bao", `Thông báo${unread ? ` (${unread})` : ""}`], ["/ph/tai-khoan", "Tài khoản"]] as const;
+export { PhNav };
+
+/**
+ * Đầu trang cổng phụ huynh: logo (về "Hôm nay"), tiêu đề, Tin nhắn, Thông báo (số chưa đọc).
+ * Tự đọc phiên để hiện số chưa đọc — trang không phải truyền. Nút biểu tượng có aria-label tiếng Việt, vùng chạm 44px.
+ */
+export async function PhHeader({ title, back }: { title: string; name?: string; back?: { href: string; label: string } }) {
+  const p = await currentParent();
+  const unread = p ? await parentUnread(getDb(), p.id).catch(() => 0) : 0;
   return (
-    <nav className="fixed inset-x-0 bottom-0 border-t border-black/5 bg-white/95 backdrop-blur" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
-      <div className="mx-auto grid max-w-md grid-cols-5 text-center text-[11px] font-medium">{items.map(([h, l]) => <Link key={h} href={h} className="py-3 hover:text-brand-600">{l}</Link>)}</div>
+    <header className="sticky top-0 z-20 border-b border-black/5 bg-white/90 backdrop-blur print:hidden" style={{ paddingTop: "env(safe-area-inset-top)" }}>
+      <div className="flex h-14 items-center gap-1 px-2">
+        {back ? (
+          <Link href={back.href} aria-label={`Quay lại: ${back.label}`} className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-ink-600 hover:bg-muted">
+            <ChevronLeft className="h-6 w-6" aria-hidden />
+          </Link>
+        ) : (
+          <Link href="/ph" aria-label="Sata Robo — về trang Hôm nay" className="grid h-11 w-11 shrink-0 place-items-center rounded-xl hover:bg-muted">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/icon.svg" alt="" width={30} height={30} className="h-[30px] w-[30px] rounded-lg" />
+          </Link>
+        )}
+        <h1 className="min-w-0 flex-1 truncate px-1 text-[17px] font-bold">{title}</h1>
+        <Link href="/ph/tin-nhan" aria-label="Tin nhắn với trung tâm" className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-ink-600 hover:bg-muted">
+          <MessageCircle className="h-[22px] w-[22px]" aria-hidden />
+        </Link>
+        <Link
+          href="/ph/thong-bao"
+          aria-label={unread ? `Thông báo, ${unread} chưa đọc` : "Thông báo"}
+          className="relative grid h-11 w-11 shrink-0 place-items-center rounded-xl text-ink-600 hover:bg-muted"
+        >
+          <Bell className="h-[22px] w-[22px]" aria-hidden />
+          {unread > 0 && (
+            <span className="absolute right-1 top-1 min-w-5 rounded-full bg-accent-500 px-1 text-center text-[11px] font-bold leading-5 text-white" aria-hidden>
+              {unread > 99 ? "99+" : unread}
+            </span>
+          )}
+        </Link>
+      </div>
+    </header>
+  );
+}
+
+/** Chip chuyển nhanh giữa các con (ẩn khi chỉ có một con) */
+export function ChildChips({ kids, activeId, hrefFor }: { kids: { id: string; fullName: string; nickname?: string | null }[]; activeId: string | null; hrefFor: (id: string) => string }) {
+  if (kids.length < 2) return null;
+  return (
+    <nav aria-label="Chọn con" className="-mx-4 overflow-x-auto px-4">
+      <ul className="flex w-max gap-2">
+        {kids.map((k) => {
+          const on = k.id === activeId;
+          return (
+            <li key={k.id}>
+              <Link
+                href={hrefFor(k.id)}
+                aria-current={on ? "true" : undefined}
+                className={`inline-flex min-h-11 items-center gap-2 rounded-full border px-4 text-[15px] font-semibold transition ${on ? "border-primary bg-primary text-white shadow-md" : "border-border bg-white text-foreground hover:border-primary/40"}`}
+              >
+                <span className={`grid h-7 w-7 place-items-center rounded-full text-[13px] font-bold ${on ? "bg-white/20" : "bg-primary-soft text-primary"}`} aria-hidden>
+                  {childShortName(k).slice(0, 1).toUpperCase()}
+                </span>
+                {childShortName(k)}
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
     </nav>
   );
 }
 
-export function PhHeader({ title, name }: { title: string; name?: string }) {
+/** Khối có tiêu đề + liên kết "Xem tất cả" tuỳ chọn */
+export function PhSection({ title, action, children, id, className = "" }: { title: string; action?: { href: string; label: string }; children: React.ReactNode; id?: string; className?: string }) {
   return (
-    <header className="sticky top-0 z-10 flex items-center justify-between border-b border-black/5 bg-white/90 px-4 py-3 backdrop-blur">
-      <Link href="/ph" className="font-bold text-brand-600">Sata Robo</Link>
-      <div className="truncate text-sm font-semibold">{title}</div>
-      <div className="max-w-[110px] truncate text-xs text-ink-600">{name ?? ""}</div>
-    </header>
+    <section id={id} className={`scroll-mt-20 space-y-2 ${className}`} aria-label={title}>
+      <div className="flex items-end justify-between gap-2 px-1">
+        <h2 className="text-[16px] font-bold">{title}</h2>
+        {action && <Link href={action.href} className="inline-flex min-h-11 items-center text-[14px] font-semibold text-primary">{action.label}</Link>}
+      </div>
+      {children}
+    </section>
   );
 }
 
 export const vndPh = (n: number) => `${Math.round(n).toLocaleString("vi-VN")}đ`;
 export const datePh = (d: string | Date | null | undefined) => (d ? new Date(typeof d === "string" && d.length === 10 ? `${d}T00:00:00+07:00` : d).toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh", weekday: "short", day: "2-digit", month: "2-digit" }) : "—");
 export const dtPh = (d: string | Date | null | undefined) => (d ? new Date(d).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—");
+
+const WD = ["", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ nhật"];
+/** "Hôm nay" / "Ngày mai" / "Thứ Bảy 26/09" cho ngày ISO */
+export function dayPh(date: string, today: string): string {
+  if (date === today) return "Hôm nay";
+  const t = new Date(`${today}T00:00:00Z`);
+  t.setUTCDate(t.getUTCDate() + 1);
+  if (date === t.toISOString().slice(0, 10)) return "Ngày mai";
+  const js = new Date(`${date}T00:00:00Z`).getUTCDay();
+  return `${WD[js === 0 ? 7 : js]} ${date.slice(8, 10)}/${date.slice(5, 7)}`;
+}
+/** Ngày hôm nay theo giờ Việt Nam (YYYY-MM-DD) */
+export const todayPh = () => new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10);
