@@ -103,7 +103,7 @@ export { healthCheck, recordHeartbeat } from "./services/ops";
 export { syncInvoiceDrafts, publicInvoiceLookup } from "./services/einvoice";
 export * as ParentPortal from "./services/parentPortal";
 export {
-  familyChildren, hubHome, hubSchedule, hubRequests, parentSubmitRequest, parentCancelRequest, parentReact, hubCoins, hubJourney,
+  familyChildren, parentUnread, hubHome, hubSchedule, hubRequests, parentSubmitRequest, parentCancelRequest, parentReact, hubCoins, hubJourney,
   type ScheduleEntry, type HubResult, type ParentHubRequestInput,
 } from "./services/parentHub";
 export { parentConversations, parentThread, parentPost, parentStart } from "./services/messaging";

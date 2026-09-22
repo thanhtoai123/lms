@@ -81,6 +81,14 @@ async function childOf(db: Database, parentId: string, studentId: string): Promi
   return (await familyChildren(db, parentId)).find((k) => k.id === studentId) ?? null;
 }
 
+/** Số thông báo chưa đọc (chuông trên đầu trang) */
+export async function parentUnread(db: Database, parentId: string): Promise<number> {
+  const d = asDb(db);
+  const [r] = await d.select({ n: sql<number>`count(*)::int` }).from(parentNotifications)
+    .where(and(eq(parentNotifications.parentId, parentId), eq(parentNotifications.channel, "in_app"), isNull(parentNotifications.readAt), isNull(parentNotifications.hiddenAt)));
+  return r?.n ?? 0;
+}
+
 const teacherNameSql = sql<string | null>`coalesce((select t.full_name from ${teachers} t where t.id = ${sessions.teacherId}), (select t.full_name from ${teachers} t where t.id = ${classes.leadTeacherId}))`;
 
 async function careStaffOf(d: Db, centerId: string): Promise<string[]> {
