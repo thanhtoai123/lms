@@ -863,7 +863,8 @@ if ($Only -eq "tat-ca" -or $Only -eq "mot-cham") {
   $nhomQuyen["care_task"] = "care:update"
   $nhomQuyen["completion"] = "completion:approve"
   # Nhóm mở bằng MỘT TRONG NHIỀU quyền: viết "a|b|c" (khớp bất kỳ quyền nào là đủ)
-  $nhomQuyen["trial_report"] = "trials:manage|trials:attendance|lead:update"
+  # GV chỉ có quyền "của mình" (trials:attendance_own) vẫn thấy nhóm này, nhưng chỉ với HV lớp trải nghiệm mình đứng
+  $nhomQuyen["trial_report"] = "trials:manage|trials:attendance|lead:update|trials:attendance_own"
   $nhomQuyen["notification"] = ""
 
   $tatCaNhom = @($nhomQuyen.Keys | ForEach-Object { [string]$_ })
