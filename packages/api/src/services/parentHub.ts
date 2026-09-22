@@ -345,7 +345,8 @@ export async function hubSchedule(db: Database, parentId: string, studentId: str
 export async function hubRequests(db: Database, parentId: string) {
   const d = asDb(db);
   const kids = await familyChildren(db, parentId);
-  if (!kids.length) return { children: [], items: [] };
+  // Không có con thì lọc bằng id rỗng (không khớp dòng nào) — giữ một kiểu dữ liệu trả về
+  const kidIds = kids.length ? kids.map((k) => k.id) : ["00000000-0000-0000-0000-000000000000"];
   const rows = await d
     .select({
       id: parentRequests.id, code: parentRequests.code, type: parentRequests.type, status: parentRequests.status, channel: parentRequests.channel,
@@ -355,7 +356,7 @@ export async function hubRequests(db: Database, parentId: string) {
       missedDate: sql<string | null>`(select s.date::text from ${sessions} s where s.id = ${parentRequests.missedSessionId})`,
     })
     .from(parentRequests)
-    .where(inArray(parentRequests.studentId, kids.map((k) => k.id)))
+    .where(inArray(parentRequests.studentId, kidIds))
     .orderBy(desc(parentRequests.createdAt))
     .limit(60);
   // Chỉ mốc trạng thái — KHÔNG trả ghi chú sự kiện (có thể là ghi chú nội bộ của CSKH)
