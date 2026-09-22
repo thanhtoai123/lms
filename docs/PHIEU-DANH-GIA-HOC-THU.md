@@ -37,7 +37,7 @@ Chủ dự án đưa một mẫu phiếu của đơn vị khác làm tham khảo
 |---|---|---|
 | 1 | Thang "Tốt / Chưa tốt / Trung bình" — sai thứ tự, "Chưa tốt" nặng nề | 3 mức **tăng dần, ngôn từ tích cực**: "Cần hỗ trợ thêm / Khá / Tốt"; tốc độ "Cần thêm thời gian / Vừa / Nhanh"; yêu thích "Đang làm quen / Thích / Rất thích". Trên phiếu là **thanh 3 nấc tô màu**, mức đã chọn in đậm |
 | 2 | Chỉ có ô chọn, không có lời nhận xét | **Nhận xét của giáo viên** bằng lời (bắt buộc ít nhất một ô ≥ 20 ký tự): "Điểm nổi bật của bé", "Bé có thể phát triển thêm", "Sản phẩm bé làm được trong buổi" — đặt **ngay sau phần thông tin** |
-| 3 | "Pathway có / không" | **Khoá học đề xuất cụ thể** chọn từ danh mục khoá học, kèm cấp độ bắt đầu và lý do ngắn; giữ 2 cờ phụ "Định hướng Pathway chứng chỉ quốc tế" và "Tiềm năng đội tuyển thi đấu" |
+| 3 | "Pathway có / không" | **Khoá học đề xuất cụ thể** chọn từ danh mục khoá học, kèm cấp độ bắt đầu và lý do ngắn; giữ 2 cờ phụ "Định hướng lộ trình phát triển tư duy công nghệ dài hạn" và "Tiềm năng đội tuyển thi đấu" |
 | 4 | Kết quả "Đáp ứng / Chưa đáp ứng" | **3 mức hành động được**: "Sẵn sàng vào học chính thức" / "Nên học thêm một buổi trải nghiệm" / "Chưa phù hợp ở thời điểm này" |
 | 5 | Để trống "Ngày sinh", lọt chữ giữ chỗ kiểu "VD: #…" | **Ẩn trường không có dữ liệu**; mã học sinh chỉ hiện khi bé đã là học viên thật, chưa có thì hiện mã phiếu |
 | 6 | Phiếu tĩnh, phụ huynh đọc xong không làm gì tiếp | **Kêu gọi hành động** ngay trên link: "Đăng ký tư vấn lộ trình" (ghi vào lead, báo tư vấn) và "Gọi cho cơ sở" |

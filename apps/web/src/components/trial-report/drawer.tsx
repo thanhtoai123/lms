@@ -547,7 +547,7 @@ export function TrialReportDrawer({ source, reportId, onClose }: { source?: Tria
                 <input className="input mt-1" maxLength={TRIAL_REPORT_NOTE_MAX} value={form.recommendationNote} onChange={(e) => set({ recommendationNote: e.target.value })} placeholder="VD: Bé thao tác nhanh, hợp lộ trình lắp ráp + lập trình kéo thả" />
               </label>
               <div className="grid gap-2 sm:grid-cols-2">
-                <Toggle on={form.pathway} onChange={(v) => set({ pathway: v })} label="Định hướng Pathway chứng chỉ quốc tế" />
+                <Toggle on={form.pathway} onChange={(v) => set({ pathway: v })} label="Định hướng lộ trình phát triển tư duy công nghệ dài hạn" />
                 <Toggle on={form.competitionPotential} onChange={(v) => set({ competitionPotential: v })} label="Tiềm năng đội tuyển thi đấu" />
               </div>
             </section>

@@ -233,7 +233,7 @@ export function TrialReportSheet({
 
         {/* Đề xuất thêm */}
         <section className="pdg-block grid gap-2 sm:grid-cols-2 print:grid-cols-2" aria-label="Đề xuất thêm">
-          <Flag on={report.pathway} icon={Route} yes="Định hướng lộ trình Pathway lấy chứng chỉ quốc tế" no="Chưa cần định hướng lộ trình Pathway ở thời điểm này" />
+          <Flag on={report.pathway} icon={Route} yes="Định hướng lộ trình phát triển tư duy công nghệ dài hạn" no="Chưa cần định hướng lộ trình dài hạn ở thời điểm này" />
           <Flag on={report.competitionPotential} icon={Trophy} yes="Có tiềm năng tham gia đội tuyển thi đấu quốc tế" no="Chưa cần tham gia đội tuyển thi đấu ở thời điểm này" />
         </section>
 
