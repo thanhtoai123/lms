@@ -40,7 +40,7 @@ const PAGE = 50;
 /* ------------------------------------------------------------------ */
 
 const SAMPLE_VARS: Record<string, string> = {
-  ten: "Nguyễn Văn A", email: "nhanvien@example.test", link: "https://satarobo.vn/…", het_han: "30 phút", ten_ph: "chị Lan", ten_hv: "Minh An",
+  ten: "Nguyễn Văn A", email: "nhanvien@example.test", link: "https://satarobo.vn/…", het_han: "30 phút", ten_ph: "chị Lan", ten_hv: "Minh An", ten_be: "Minh An",
   so_phieu: "PT-CS1-26-000123", so_tien: "4.800.000đ", ma_don: "DH26-000045", co_so: "CS1", han: "25/09/2026", lop: "CS1.SATA4.26.001",
 };
 

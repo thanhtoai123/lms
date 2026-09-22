@@ -75,6 +75,12 @@ export const EMAIL_EVENTS = {
     subject: "Sata Robo mong nhận góp ý của anh/chị",
     body: "Kính gửi {ten_ph},\n\nAnh/chị dành 1 phút góp ý về việc học của bé {ten_hv} nhé:\n{link}\n\nCảm ơn anh/chị!",
   },
+  TRIAL_REPORT_PUBLISHED: {
+    label: "Gửi phiếu đánh giá buổi học thử",
+    vars: ["ten_ph", "ten_be", "link", "co_so"],
+    subject: "Kết quả buổi học thử của bé {ten_be} tại Sata Robo",
+    body: "Kính gửi {ten_ph},\n\nCảm ơn anh/chị đã cho bé {ten_be} tham gia buổi học thử tại Sata Robo {co_so}.\nThầy cô đã gửi nhận xét chi tiết và lộ trình đề xuất cho bé tại:\n{link}\n\nNếu muốn được tư vấn thêm, anh/chị bấm \"Đăng ký tư vấn lộ trình\" ngay trên phiếu.\n\nSata Robo",
+  },
   TEST: {
     label: "Email thử",
     vars: ["ten"],

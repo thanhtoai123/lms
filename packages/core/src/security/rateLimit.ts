@@ -168,6 +168,13 @@ export const RATE_LIMITS = {
   searchUser: { max: 900, windowMs: 5 * 60_000 },
   /** Webhook theo nguồn + IP — nhà cung cấp gửi lại nhiều lần khi lỗi, không được chặn nhầm */
   webhookIp: { max: 1_200, windowMs: 60_000 },
+  /**
+   * Trang phiếu đánh giá học thử công khai (/pdg/…) theo IP. Rất rộng: cả nhà mở đi mở lại link Zalo,
+   * nhiều phụ huynh chung một mạng wifi; chỉ để chặn máy quét dò token.
+   */
+  trialReportViewIp: { max: 300, windowMs: 15 * 60_000 },
+  /** Nút "Đăng ký tư vấn lộ trình" trên phiếu theo IP (mỗi link vẫn chỉ ghi nhận một lần) */
+  trialReportRespondIp: { max: 30, windowMs: 15 * 60_000 },
 } as const satisfies Record<string, { max: number; windowMs: number }>;
 
 export type RateLimitName = keyof typeof RATE_LIMITS;

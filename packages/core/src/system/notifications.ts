@@ -54,7 +54,7 @@ const SALES: readonly Role[] = ["CENTER_SALES_CSM", "HO_SALE"];
 const HRS: readonly Role[] = ["CENTER_HR", "HO_HR"];
 const TEACHERS: readonly Role[] = ["TEACHER", "ASSISTANT_TEACHER"];
 
-/** 54 loại — phủ hết các thông báo hệ đang gửi (bản gốc có 38 loại) */
+/** 55 loại — phủ hết các thông báo hệ đang gửi (bản gốc có 38 loại) */
 export const NOTIFICATION_TYPES: readonly NotificationTypeDef[] = [
   // — Khách hàng (lead)
   { prefix: "lead.moi", label: "Lead mới được phân công", groupKey: "lead", priority: "normal", recipients: SALES, pushEnabled: true },
@@ -68,6 +68,7 @@ export const NOTIFICATION_TYPES: readonly NotificationTypeDef[] = [
   { prefix: "trial.cancelled", label: "Buổi học thử bị huỷ", groupKey: "trial", priority: "urgent", recipients: SALES, pushEnabled: true },
   { prefix: "trial.rescheduled", label: "Buổi học thử đổi lịch", groupKey: "trial", priority: "urgent", recipients: SALES, pushEnabled: true },
   { prefix: "trial.evaluated", label: "Đã có kết quả buổi học thử", groupKey: "trial", priority: "info", recipients: SALES, pushEnabled: false },
+  { prefix: "trial.consult_requested", label: "Phụ huynh đăng ký tư vấn từ phiếu đánh giá học thử", groupKey: "trial", priority: "urgent", recipients: SALES, pushEnabled: true },
 
   // — Lớp & buổi học
   { prefix: "class.pending_approval", label: "Lớp mới chờ duyệt", groupKey: "class", priority: "normal", recipients: CENTER_OPS, pushEnabled: false },

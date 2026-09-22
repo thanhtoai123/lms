@@ -10,6 +10,7 @@ export * from "./admissions/leadMachine.js";
 export * from "./admissions/intake.js";
 export * from "./admissions/distribution.js";
 export * from "./admissions/sharing.js";
+export * from "./admissions/trialReport.js";
 export * from "./evaluations/rules.js";
 export * from "./engagement/events.js";
 export * from "./engagement/automation.js";
