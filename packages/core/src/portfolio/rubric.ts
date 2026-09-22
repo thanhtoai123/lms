@@ -103,10 +103,22 @@ const DESCRIPTOR_SETS: readonly { match: RegExp; hints: readonly [string, string
   },
 ];
 
-/** Mô tả 4 mức cho một tiêu chí (theo tên) — luôn đủ 4 mức, tăng dần */
-export function rubricLevelsFor(criterionName: string): RubricLevel[] {
-  const set = DESCRIPTOR_SETS.find((d) => d.match.test(criterionName));
-  return RUBRIC_LEVELS.map((l, i) => ({ value: l.value, label: l.label, hint: set ? set.hints[i]! : l.hint }));
+/** Mô tả mức khai riêng cho tiêu chí: đúng 4 chuỗi, không rỗng — sai hình dạng thì coi như chưa khai */
+function ownDescriptors(x: readonly unknown[] | null | undefined): string[] | null {
+  if (!Array.isArray(x) || x.length !== RUBRIC_SCALE) return null;
+  const out = x.map((v) => (typeof v === "string" ? v.trim() : ""));
+  return out.every((v) => v.length > 0) ? out : null;
+}
+
+/**
+ * Mô tả 4 mức cho một tiêu chí — luôn đủ 4 mức, tăng dần.
+ * Ưu tiên mô tả mức quản trị khai cho tiêu chí (`competency_criteria.level_descriptors`);
+ * chưa khai thì khớp theo từ khoá trong tên; không khớp thì dùng mô tả chung.
+ */
+export function rubricLevelsFor(criterionName: string, descriptors?: readonly unknown[] | null): RubricLevel[] {
+  const own = ownDescriptors(descriptors);
+  const set = own ? null : DESCRIPTOR_SETS.find((d) => d.match.test(criterionName));
+  return RUBRIC_LEVELS.map((l, i) => ({ value: l.value, label: l.label, hint: own ? own[i]! : set ? set.hints[i]! : l.hint }));
 }
 
 /** Tiêu chí mặc định khi khoá chưa cấu hình tiêu chí năng lực (hai nhóm Thiết kế & Lập trình + kỹ năng mềm) */
@@ -178,6 +190,10 @@ export interface SessionEvalCriterion {
   levels: RubricLevel[];
   /** Mức đã chấm (1–4); null = chưa chấm */
   value: number | null;
+  /** Nhóm tiêu chí (vd "Thiết kế & lắp ráp") — phiếu cũ không có */
+  group?: string | null;
+  /** Tiêu chí trọng tâm của bài (xếp lên đầu phiếu) — phiếu cũ không có */
+  focus?: boolean;
 }
 
 export interface SessionEvalContext {
@@ -216,6 +232,11 @@ export interface CriterionSource {
   key?: string;
   name: string;
   description?: string | null;
+  /** Mô tả hành vi quan sát được cho 4 mức (mức 1 → 4) — `competency_criteria.level_descriptors` */
+  levelDescriptors?: readonly unknown[] | null;
+  group?: string | null;
+  /** Tiêu chí trọng tâm của bài đang dạy */
+  focus?: boolean;
 }
 
 export type SessionScores = Record<string, number | null | undefined>;
@@ -242,8 +263,10 @@ export function buildSessionSnapshot(input: { criteria: readonly CriterionSource
         criterionId: c.id,
         label: c.name,
         description: c.description?.trim() || null,
-        levels: rubricLevelsFor(c.name),
+        levels: rubricLevelsFor(c.name, c.levelDescriptors),
         value: validLevel(raw) ? raw : null,
+        ...(c.group?.trim() ? { group: c.group.trim() } : {}),
+        ...(c.focus ? { focus: true } : {}),
       };
     }),
     context: { ...input.context },
@@ -307,6 +330,15 @@ export function isSessionEvalSnapshot(x: unknown): x is SessionEvalSnapshot {
 /* Kiểm tra trước khi lưu / phát hành                                   */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Điều kiện bắt buộc để phát hành phiếu — đọc từ "Chuẩn hồ sơ học tập" (cấu hình vận hành).
+ * Bỏ trống = mặc định như trước: bắt buộc kết quả mục tiêu bài, không bắt buộc ô "Sản phẩm".
+ */
+export interface EvalRequirement {
+  requireObjectiveResult?: boolean;
+  requireProductNote?: boolean;
+}
+
 export interface SessionEvalValidateInput {
   mode: "draft" | "publish";
   snapshot: SessionEvalSnapshot;
@@ -314,6 +346,8 @@ export interface SessionEvalValidateInput {
   productNote?: string | null;
   remark?: string | null;
   highlights?: readonly string[] | null;
+  /** Chuẩn hồ sơ đang áp dụng (theo cơ sở) */
+  requirement?: EvalRequirement | null;
 }
 
 const tlen = (s: string | null | undefined) => (s ?? "").trim().length;
@@ -328,7 +362,8 @@ export function validateSessionEvaluation(input: SessionEvalValidateInput): stri
   if (input.mode === "draft") return errs;
   const missing = missingSessionCriteria(input.snapshot);
   if (missing.length) errs.push(`chưa chấm ${missing.join(", ")}`);
-  if (!input.objectiveResult) errs.push("chưa chọn kết quả mục tiêu bài");
+  if (!input.objectiveResult && input.requirement?.requireObjectiveResult !== false) errs.push("chưa chọn kết quả mục tiêu bài");
+  if (input.requirement?.requireProductNote && !tlen(input.productNote)) errs.push("chưa ghi sản phẩm của buổi");
   return errs;
 }
 
@@ -340,7 +375,7 @@ export function isEvaluableAttendance(status: string | null | undefined): boolea
 export interface EvalReadinessRow {
   name: string;
   attendanceStatus: string | null | undefined;
-  evaluation: { status: SessionEvalStatus; snapshot: SessionEvalSnapshot | null; objectiveResult: ObjectiveResult | null } | null;
+  evaluation: { status: SessionEvalStatus; snapshot: SessionEvalSnapshot | null; objectiveResult: ObjectiveResult | null; productNote?: string | null } | null;
 }
 
 export interface EvalReadiness {
@@ -353,7 +388,7 @@ export interface EvalReadiness {
 }
 
 /** Điều kiện phát hành phiếu của cả buổi — dùng để chặn "Hoàn tất buổi" */
-export function sessionEvaluationReadiness(rows: readonly EvalReadinessRow[]): EvalReadiness {
+export function sessionEvaluationReadiness(rows: readonly EvalReadinessRow[], requirement?: EvalRequirement | null): EvalReadiness {
   const missing: { name: string; reason: string }[] = [];
   let required = 0;
   let ready = 0;
@@ -363,7 +398,7 @@ export function sessionEvaluationReadiness(rows: readonly EvalReadinessRow[]): E
     const e = r.evaluation;
     if (e?.status === "published") { ready += 1; continue; }
     if (!e || !e.snapshot) { missing.push({ name: r.name, reason: "chưa có phiếu" }); continue; }
-    const errs = validateSessionEvaluation({ mode: "publish", snapshot: e.snapshot, objectiveResult: e.objectiveResult });
+    const errs = validateSessionEvaluation({ mode: "publish", snapshot: e.snapshot, objectiveResult: e.objectiveResult, productNote: e.productNote, requirement });
     if (errs.length) missing.push({ name: r.name, reason: errs.join(", ") });
     else ready += 1;
   }

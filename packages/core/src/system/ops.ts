@@ -49,8 +49,21 @@ export const OPS_GROUPS = {
   lop: [
     { key: "scanLateGraceMin", label: "Quét thẻ sau giờ bắt đầu quá … thì ghi Đi muộn", type: "int", min: 0, max: 60, unit: "phút", def: 15, scope: "center", usedBy: "Điểm danh thẻ QR" },
     { key: "sessionRequireStudentRemarks", label: "Hoàn tất buổi phải có nhận xét từng học viên có mặt", type: "bool", def: true, scope: "center", usedBy: "Hoàn tất buổi học (app giáo viên)" },
-    { key: "sessionRequireEvaluations", label: "Hoàn tất buổi phải có phiếu nhận xét đủ tiêu chí cho từng học viên có mặt", type: "bool", def: true, scope: "center", usedBy: "Hoàn tất buổi học — phát hành phiếu nhận xét buổi (hồ sơ học tập)" },
     { key: "sessionRequireMedia", label: "Hoàn tất buổi phải có ảnh / video trong kho", type: "bool", def: false, scope: "center", usedBy: "Hoàn tất buổi học (app giáo viên)" },
+  ],
+  /**
+   * Chuẩn thông tin hồ sơ học tập (docs/HO-SO-HOC-TAP.md). `sessionRequireEvaluations` giữ nguyên khoá cũ
+   * (trước ở nhóm "Lớp & GV") để giá trị đã lưu vẫn còn hiệu lực — nay là "chặn hoàn tất khi thiếu phiếu".
+   */
+  "ho-so-hoc-tap": [
+    { key: "sessionRequireEvaluations", label: "Chặn hoàn tất buổi khi còn học viên có mặt thiếu phiếu nhận xét đủ điều kiện", type: "bool", def: true, scope: "center", usedBy: "Hoàn tất buổi học — phát hành phiếu nhận xét buổi (hồ sơ học tập)" },
+    { key: "requireObjectiveResult", label: "Phiếu phải có kết quả mục tiêu bài", type: "bool", def: true, scope: "center", usedBy: "Phát hành phiếu, chặn hoàn tất buổi, tỷ lệ phiếu đủ chuẩn" },
+    { key: "requireProductNote", label: "Phiếu phải ghi \"Sản phẩm\" của buổi", type: "bool", def: false, scope: "center", usedBy: "Phát hành phiếu, chặn hoàn tất buổi, tỷ lệ phiếu đủ chuẩn" },
+    { key: "remarkMinLength", label: "Nhận xét cho phụ huynh tối thiểu", type: "int", min: 0, max: 500, unit: "ký tự", def: 30, scope: "center", usedBy: "Tỷ lệ phiếu đủ chuẩn, danh mục \"Buổi này cần hoàn thiện\" (không chặn hoàn tất)" },
+    { key: "minEvidenceRatePct", label: "Tỷ lệ học viên có ảnh / sản phẩm mỗi buổi tối thiểu (0 = không bắt)", type: "int", min: 0, max: 100, unit: "%", def: 0, scope: "center", usedBy: "Quản lý hồ sơ học tập — vi phạm bằng chứng của buổi" },
+    { key: "sheetDeadlineHours", label: "Hạn hoàn thiện phiếu sau giờ kết thúc buổi", type: "int", min: 1, max: 168, unit: "giờ", def: 24, scope: "center", usedBy: "Tỷ lệ phiếu đúng hạn, Việc hôm nay, thẻ \"Phiếu cần hoàn thiện\" của GV" },
+    { key: "milestoneDeadlineDays", label: "Hạn viết học bạ mốc sau buổi mốc", type: "int", min: 1, max: 60, unit: "ngày", def: 7, scope: "center", usedBy: "Học bạ mốc quá hạn (Việc hôm nay, Quản lý hồ sơ học tập)" },
+    { key: "profileMinSheetPct", label: "Hồ sơ học viên đạt chuẩn khi phiếu đủ chuẩn từ", type: "int", min: 50, max: 100, unit: "%", def: 90, scope: "center", usedBy: "Quản lý hồ sơ học tập — thẻ \"Hồ sơ đạt chuẩn\", dải mức đạt chuẩn trên hồ sơ" },
   ],
   "cham-cong": [
     { key: "timesheetGraceMin", label: "Cho phép đến muộn / về sớm không tính", type: "int", min: 0, max: 30, unit: "phút", def: 5, scope: "center", usedBy: "Bảng công" },

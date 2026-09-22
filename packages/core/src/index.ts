@@ -19,6 +19,7 @@ export * from "./calendar/week.js";
 export * from "./makeup/rules.js";
 export * from "./reportcards/rules.js";
 export * from "./portfolio/rubric.js";
+export * from "./portfolio/standard.js";
 export * from "./portfolio/aggregate.js";
 export * from "./portfolio/share.js";
 export * from "./portfolio/chart.js";
