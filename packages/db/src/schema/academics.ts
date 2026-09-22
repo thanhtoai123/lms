@@ -4,7 +4,7 @@ import {
 import { sql } from "drizzle-orm";
 import { id, timestamps, softDelete } from "./_common";
 import { tenantCol } from "./tenant";
-import { SESSION_STATUSES, ATTENDANCE_STATUSES, ENROLLMENT_STATUSES, CLASS_STATUSES, SESSION_KINDS, TRANSFER_REQUEST_STATUSES, MEDIA_STATUSES, COMPLETION_STATUSES, type ChecklistState } from "@satarobo/core";
+import { SESSION_STATUSES, ATTENDANCE_STATUSES, ENROLLMENT_STATUSES, CLASS_STATUSES, SESSION_KINDS, TRANSFER_REQUEST_STATUSES, MEDIA_STATUSES, COMPLETION_STATUSES, type ChecklistState, type MilestoneAggregate } from "@satarobo/core";
 import { centers, rooms } from "./org";
 import { teachers, students, parents } from "./people";
 import { users } from "./identity";
@@ -520,6 +520,13 @@ export const reportCards = pgTable(
     strengths: text("strengths"),
     improvements: text("improvements"),
     averageScore: numeric("average_score", { precision: 3, scale: 1 }),
+    /**
+     * Thang điểm: 5 = học bạ cũ (chấm tay 1–5); 4 = học bạ mốc tổng hợp từ phiếu nhận xét buổi (rubric 4 mức).
+     * Học bạ tạo sau khi có hồ sơ học tập dùng thang 4; học bạ cũ giữ nguyên thang 5.
+     */
+    rubricScale: smallint("rubric_scale").notNull().default(5),
+    /** Bản chụp số liệu tổng hợp từ phiếu buổi của giai đoạn (trung bình, xu hướng, chuyên cần…) lúc lưu */
+    aggregate: jsonb("aggregate").$type<MilestoneAggregate>(),
     authorId: uuid("author_id").references(() => users.id),
     submittedAt: timestamp("submitted_at", { withTimezone: true }),
     reviewedBy: uuid("reviewed_by").references(() => users.id),
