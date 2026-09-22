@@ -1,5 +1,5 @@
 /**
- * Service worker của cổng phụ huynh (phạm vi /ph/):
+ * Service worker của cổng phụ huynh (phạm vi /ph — điều khiển cả trang /ph lẫn /ph/…):
  *  - nhận thông báo đẩy, bấm vào mở đúng trang /ph…;
  *  - mất mạng khi mở một trang /ph → hiện màn "mất kết nối" đã lưu sẵn (/ph/offline).
  * KHÔNG lưu đệm trang có dữ liệu của con (mọi trang khác luôn lấy từ mạng) — máy dùng chung không lộ dữ liệu cũ.
@@ -40,5 +40,5 @@ self.addEventListener("notificationclick", (e) => {
 `;
 
 export function GET() {
-  return new Response(SW, { headers: { "Content-Type": "application/javascript; charset=utf-8", "Cache-Control": "no-cache", "Service-Worker-Allowed": "/ph/" } });
+  return new Response(SW, { headers: { "Content-Type": "application/javascript; charset=utf-8", "Cache-Control": "no-cache", "Service-Worker-Allowed": "/ph" } });
 }

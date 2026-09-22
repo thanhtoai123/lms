@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { PH_SW_SCOPE } from "@/components/ph/sw-register";
 
 export function ConsentToggle({ purpose, granted, editable }: { purpose: string; granted: boolean; editable: boolean }) {
   const router = useRouter();
@@ -36,6 +37,20 @@ function keyBytes(b64: string) {
   return Uint8Array.from(raw, (c) => c.charCodeAt(0));
 }
 
+/**
+ * Đăng ký push của cổng PH trên máy này. Bản cũ đăng ký phạm vi "/ph/", bản mới "/ph" (để màn offline phủ cả trang "/ph") —
+ * tìm trên MỌI đăng ký của /ph để không tạo đăng ký trùng cho máy đã bật từ trước.
+ */
+async function phSubscription(): Promise<PushSubscription | null> {
+  const regs = await navigator.serviceWorker.getRegistrations();
+  for (const r of regs) {
+    if (!new URL(r.scope).pathname.startsWith("/ph")) continue;
+    const s = await r.pushManager.getSubscription();
+    if (s) return s;
+  }
+  return null;
+}
+
 /** Bật / tắt thông báo đẩy trên thiết bị này */
 export function PushToggle({ publicKey, devices }: { publicKey: string | null; devices: number }) {
   const router = useRouter();
@@ -45,7 +60,7 @@ export function PushToggle({ publicKey, devices }: { publicKey: string | null; d
   const supported = typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
   useEffect(() => {
     if (!supported) return;
-    void navigator.serviceWorker.getRegistration("/ph/").then((reg) => reg?.pushManager.getSubscription()).then((sub) => setOn(!!sub)).catch(() => setOn(false));
+    void phSubscription().then((sub) => setOn(!!sub)).catch(() => setOn(false));
   }, [supported]);
   if (!publicKey) return <p className="text-[13px] text-ink-600">Trung tâm chưa bật thông báo đẩy.</p>;
   if (!supported) return <p className="text-[13px] text-ink-600">Trình duyệt này chưa hỗ trợ. Trên iPhone: bấm Chia sẻ → “Thêm vào Màn hình chính”, mở Sata Robo từ màn hình chính rồi bật lại.</p>;
@@ -55,9 +70,9 @@ export function PushToggle({ publicKey, devices }: { publicKey: string | null; d
     try {
       const perm = await Notification.requestPermission();
       if (perm !== "granted") throw new Error("Bạn chưa cho phép thông báo — mở cài đặt trình duyệt để cho phép");
-      const reg = await navigator.serviceWorker.register("/ph/sw.js", { scope: "/ph/" });
+      const reg = await navigator.serviceWorker.register("/ph/sw.js", { scope: PH_SW_SCOPE });
       await navigator.serviceWorker.ready;
-      const sub = (await reg.pushManager.getSubscription()) ?? (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(publicKey) }));
+      const sub = (await phSubscription()) ?? (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(publicKey) }));
       const j = sub.toJSON();
       const r = await fetch("/api/ph/push", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "subscribe", subscription: { endpoint: j.endpoint, keys: j.keys } }) });
       const res = (await r.json()) as { ok: boolean; error?: string };
@@ -74,8 +89,7 @@ export function PushToggle({ publicKey, devices }: { publicKey: string | null; d
   };
   const disable = async () => {
     setState("busy");
-    const reg = await navigator.serviceWorker.getRegistration("/ph/");
-    const sub = await reg?.pushManager.getSubscription();
+    const sub = await phSubscription().catch(() => null);
     if (sub) {
       await fetch("/api/ph/push", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "unsubscribe", endpoint: sub.endpoint }) }).catch(() => null);
       await sub.unsubscribe();
