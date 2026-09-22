@@ -30,6 +30,7 @@ import { SHIFT_CATALOGUE, plannedMinutesOf, workSegments, COIN_RULE_DEFS, trialC
 import { generateSessions, buildClassCode, buildStudentCode, toISODate, addDays, orderCode, receiptNumber, packagePrice, buildInstallmentPlan, computeCommission, describeRule, periodOf, transferMemo, vietQrImageUrl, fmtMin, hhmm, weekdayOf, leaveDays, requestCode, slaDue, SETTINGS_DEFAULTS, CONSENT_TEXT_VERSION, dsrCode, dsrDue } from "@satarobo/core";
 import { courseCompletions } from "./schema/index";
 import { seedPortfolio } from "./seed-portfolio";
+import { seedCertificates } from "./seed-certificates";
 import {
   expectedEndDate as sessionsEndDate, detectRisks, staffCode, refundProposal, reportCardMilestones, averageScore, gradeFromAverage, certificateNumber,
   type Weekday, type AttendanceStatus, type Role, type ClassStatus, type LeadStatus,
@@ -1042,11 +1043,15 @@ async function main() {
 
   // ---- Hồ sơ học tập: phiếu nhận xét từng buổi đã phát hành, học bạ mốc tổng hợp, link chia sẻ mẫu ----
   const portfolio = await seedPortfolio(db, { today });
+  // ---- Lộ trình học & giấy chứng nhận: lộ trình mẫu, mẫu chứng nhận nền dựng sẵn, một giấy đã cấp ----
+  const certs = await seedCertificates(db);
 
   console.log(`✔ Seeded: 2 centers, 3 rooms, 7 users, 3 teachers, ${lessonRows.length} lessons, 2 classes, ${sessionRows.length} sessions, 16 students, ${leadRows.length} leads`);
   console.log(`  Phiếu đánh giá học thử mẫu (không cần đăng nhập): ${(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "")}/pdg/${DEMO_TRIAL_REPORT_TOKEN}`);
   console.log(`  Hồ sơ học tập: ${portfolio.evaluations} phiếu nhận xét buổi đã phát hành, ${portfolio.cards} học bạ mốc tổng hợp từ phiếu buổi`);
   if (portfolio.token) console.log(`  Hồ sơ học tập mẫu (không cần đăng nhập): ${(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "")}/hs/${portfolio.token}`);
+  console.log(`  Giấy chứng nhận: lộ trình mẫu LT-ROBO-NT, ${certs.courseCertificates} chứng nhận hoàn thành khoá vào sổ — quản trị tại /lo-trinh, mẫu tại /lo-trinh/mau-chung-nhan`);
+  if (certs.token) console.log(`  Xác thực giấy chứng nhận mẫu (không cần đăng nhập): ${(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "")}/cn/${certs.token}`);
   console.log("  Dev login (/login → tài khoản mẫu): superadmin@example.test | manager.cs1@example.test | sale1.cs1@example.test | ketoan.cs1@example.test | hr.cs1@example.test | daotao@example.test | marketing@example.test | teacher1@satarobo.vn");
 }
 
