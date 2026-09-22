@@ -12,6 +12,7 @@ import { getOps } from "./opsSettings";
 import { writeAudit } from "./audit";
 import { emit } from "./outbox";
 import { tenantCond, assertTenant } from "./tenantScope";
+import { sessionEvaluationStatus, publishSessionEvaluations, syncRemarksFromAttendance } from "./sessionEvaluations";
 
 export function todayISO() {
   // Múi giờ vận hành: Asia/Ho_Chi_Minh (UTC+7)
@@ -79,11 +80,13 @@ export async function getSessionDetail(ctx: ProtectedContext, sessionId: string)
     .where(and(eq(trialBookings.sessionId, sessionId), inArray(trialBookings.status, ["booked", "attended", "no_show"])))
     .orderBy(asc(trialBookings.createdAt));
 
-  const [[media], [hw], ops, [confirmer]] = await Promise.all([
+  const [[media], [hw], ops, [confirmer], evals] = await Promise.all([
     ctx.db.select({ n: sql<number>`count(*)::int` }).from(sessionMedia).where(and(eq(sessionMedia.sessionId, sessionId), sql`${sessionMedia.status} <> 'rejected'`)),
     ctx.db.select({ n: sql<number>`count(*)::int` }).from(assignments).where(and(eq(assignments.sessionId, sessionId), sql`${assignments.status} <> 'draft'`)),
     getOps(ctx.db, s.centerId),
     s.session.lessonConfirmedBy ? ctx.db.select({ name: users.fullName }).from(users).where(eq(users.id, s.session.lessonConfirmedBy)) : Promise.resolve([] as { name: string }[]),
+    // Phiếu nhận xét buổi (hồ sơ học tập): HV có mặt phải có phiếu đủ tiêu chí trước khi hoàn tất
+    sessionEvaluationStatus(ctx.db, sessionId),
   ]);
   const missing = missingRequiredChecklist(s.session.checklist);
   const completionInput = {
@@ -97,6 +100,10 @@ export async function getSessionDetail(ctx: ProtectedContext, sessionId: string)
     requireMedia: ops.sessionRequireMedia,
     checklistMissing: missing.map((m) => m.label),
     assignmentCount: hw?.n ?? 0,
+    // Buổi đã hoàn tất: phiếu đã phát hành cùng lúc hoàn tất; không nhắc lại ở danh sách bước
+    evaluationsMissing: s.session.status === "completed" ? null : evals.message,
+    evaluationsReady: { ready: evals.ready, required: evals.required },
+    requireEvaluations: ops.sessionRequireEvaluations,
   };
 
   const today = todayISO();
@@ -119,6 +126,7 @@ export async function getSessionDetail(ctx: ProtectedContext, sessionId: string)
     checklistMissing: missing.map((m) => m.key),
     completion: completionChecklist(completionInput),
     completionBlockers: completionBlockers(completionInput),
+    evaluations: { required: evals.required, ready: evals.ready, missing: evals.missing, message: evals.message, enforced: ops.sessionRequireEvaluations },
     lessonConfirmedByName: confirmer?.name ?? null,
     today,
   };
@@ -202,6 +210,8 @@ export async function recordAttendance(
       actorId: ctx.user.id, action: "UPDATE", module: "academics", entity: "attendance", entityId: input.sessionId,
       after: { count: input.records.length }, ip: ctx.ip,
     });
+    // Nhận xét nhanh ở màn điểm danh = ô nhận xét của phiếu nhận xét buổi (nháp) — không nhập hai lần
+    await syncRemarksFromAttendance(tx as unknown as typeof ctx.db, input.sessionId, input.records);
 
     // Phát hiện rủi ro cho từng HV từ toàn bộ lịch sử điểm danh trong lớp → event cho automation
     const enrollmentIds = input.records.map((r) => r.enrollmentId);
@@ -281,6 +291,8 @@ export async function transitionSession(ctx: ProtectedContext, input: { sessionI
       before: { status: detail.status }, after: { status: to, event: input.event }, reason: input.reason ?? null, ip: ctx.ip,
     });
     if (to === "completed") {
+      // Phát hành mọi phiếu nhận xét nháp đủ điều kiện của buổi — cùng transaction, có nhật ký
+      await publishSessionEvaluations(tx as unknown as typeof ctx.db, { sessionId: input.sessionId, actorId: ctx.user.id, ip: ctx.ip });
       await emit(tx as unknown as typeof ctx.db, { type: "session.completed", sessionId: input.sessionId, classId: detail.classId, date: detail.date, teacherId: detail.teacherId });
       if (detail.lesson?.isReportCardMilestone) {
         for (const r of detail.roster) await emit(tx as unknown as typeof ctx.db, { type: "report_card.due", enrollmentId: r.enrollmentId, sessionId: input.sessionId, sequenceNo: detail.sequenceNo });

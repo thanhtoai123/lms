@@ -95,3 +95,20 @@ export function portfolioShareMessage(studentName: string | null | undefined, li
   const name = (studentName ?? "").trim();
   return `Sata Robo gửi anh/chị hồ sơ học tập của ${name ? `bé ${name}` : "bé"} — xem và lưu PDF tại: ${link}`;
 }
+
+/** Chuỗi truy vấn chuẩn của một phạm vi (thứ tự cố định — dùng để ký HMAC trang in nội bộ) */
+export function portfolioScopeQuery(s: PortfolioScope): string {
+  const n = normalizePortfolioScope(s);
+  if (n.scope === "course") return `scope=course&enrollmentId=${encodeURIComponent(n.enrollmentId ?? "")}`;
+  if (n.scope === "range") return `scope=range&from=${n.from ?? ""}&to=${n.to ?? ""}`;
+  return "scope=all";
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Đọc phạm vi từ tham số URL; sai định dạng thì về "toàn bộ" */
+export function parsePortfolioScope(params: { scope?: string | null; enrollmentId?: string | null; from?: string | null; to?: string | null }): PortfolioScope {
+  if (params.scope === "course" && params.enrollmentId && UUID_RE.test(params.enrollmentId)) return { scope: "course", enrollmentId: params.enrollmentId, from: null, to: null };
+  if (params.scope === "range" && params.from && params.to && ISO.test(params.from) && ISO.test(params.to) && params.from <= params.to) return { scope: "range", enrollmentId: null, from: params.from, to: params.to };
+  return { scope: "all", enrollmentId: null, from: null, to: null };
+}

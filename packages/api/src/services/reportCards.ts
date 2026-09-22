@@ -1,14 +1,16 @@
-import { and, eq, inArray, sql, asc, desc, isNull, lte } from "drizzle-orm";
+import { and, eq, inArray, sql, asc, desc, isNull, lte, gt } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import {
   competencyCriteria, reportCards, reportCardScores, courseCompletions, courses, classes, enrollments, students, sessions, lessons,
-  studentGuardians, parentNotifications, centers, users,
+  studentGuardians, parentNotifications, centers, users, sessionEvaluations, attendance,
 } from "@satarobo/db";
 import {
   reportCardTransition, reportCardMilestones, milestoneLabel, validateReportCard, averageScore, gradeFromAverage, certificateNumber,
   completionCheck, completionTransition, validateCompletionInput, enrollmentTransition, visibleCenterIds, authorize,
   addDays as addDaysISO, clampPageSize,
-  type ReportCardStatus, type CompletionStatus,
+  milestonePeriod, aggregateMilestone, suggestMilestoneComment, snapshotScores, isSessionEvalSnapshot, isMilestoneAggregate, tallyAttendance,
+  RUBRIC_SCALE,
+  type ReportCardStatus, type CompletionStatus, type MilestoneAggregate, type EvalForAggregate,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { tenantCond } from "./tenantScope";
@@ -95,6 +97,64 @@ async function classMilestones(db: Db, c: { curriculumId: string | null; totalSe
     if (rows.length) return rows.map((r) => r.seq);
   }
   return reportCardMilestones(c.totalSessions);
+}
+
+/* ------------------------------------------------------------------ */
+/* Học bạ mốc tự tổng hợp từ phiếu nhận xét buổi (hồ sơ học tập)        */
+/* ------------------------------------------------------------------ */
+
+/** Điểm tiêu chí quy về thang 5 trong SQL — trộn học bạ cũ (thang 5) với học bạ mới (thang 4) */
+export const SCORE_TO5_SQL = sql.raw("(case when rc.rubric_scale = 4 then 1 + (s.score - 1) * 4.0 / 3 else s.score end)");
+
+/**
+ * Số liệu tổng hợp của một mốc học bạ từ các phiếu buổi ĐÃ PHÁT HÀNH trong giai đoạn
+ * (từ sau buổi mốc trước đến buổi mốc này, tính theo ngày buổi học để gồm cả buổi học bù)
+ * và của giai đoạn trước (để tính xu hướng). Hàm thuần `aggregateMilestone` ở packages/core.
+ */
+export async function milestoneAggregateFor(
+  db: Db,
+  input: { enrollmentId: string; classId: string; courseId: string; curriculumId: string | null; totalSessions: number; milestoneSeq: number },
+): Promise<MilestoneAggregate> {
+  const milestones = await classMilestones(db, { curriculumId: input.curriculumId, totalSessions: input.totalSessions });
+  const period = milestonePeriod(milestones, input.milestoneSeq);
+  const seqs = [period.fromSeq - 1, period.toSeq, period.previous ? period.previous.fromSeq - 1 : 0].filter((x) => x >= 1);
+  const [bounds, criteria] = await Promise.all([
+    seqs.length ? db.select({ seq: sessions.sequenceNo, date: sessions.date }).from(sessions).where(and(eq(sessions.classId, input.classId), inArray(sessions.sequenceNo, seqs))) : Promise.resolve([] as { seq: number; date: string }[]),
+    db.select({ id: competencyCriteria.id, name: competencyCriteria.name }).from(competencyCriteria)
+      .where(and(eq(competencyCriteria.courseId, input.courseId), eq(competencyCriteria.isActive, true)))
+      .orderBy(asc(competencyCriteria.sortOrder)),
+  ]);
+  const dateOf = (seq: number) => bounds.find((b) => b.seq === seq)?.date ?? null;
+  // Giai đoạn hiện tại: (ngày buổi mốc trước, ngày buổi mốc này]; giai đoạn trước: (ngày mốc trước nữa, ngày mốc trước]
+  const curFrom = period.fromSeq > 1 ? dateOf(period.fromSeq - 1) : null;
+  const curTo = dateOf(period.toSeq) ?? todayISO();
+  const prevFrom = period.previous && period.previous.fromSeq > 1 ? dateOf(period.previous.fromSeq - 1) : null;
+  const prevTo = curFrom;
+
+  const evalRows = await db
+    .select({ date: sessions.date, seq: sessions.sequenceNo, snapshot: sessionEvaluations.snapshot, objectiveResult: sessionEvaluations.objectiveResult, highlights: sessionEvaluations.highlights, remark: sessionEvaluations.remark, productNote: sessionEvaluations.productNote })
+    .from(sessionEvaluations)
+    .innerJoin(sessions, eq(sessions.id, sessionEvaluations.sessionId))
+    .where(and(eq(sessionEvaluations.enrollmentId, input.enrollmentId), eq(sessionEvaluations.status, "published"), lte(sessions.date, curTo), prevFrom ? gt(sessions.date, prevFrom) : sql`true`));
+  const toAgg = (r: (typeof evalRows)[number]): EvalForAggregate => ({
+    date: r.date, sequenceNo: r.seq, scores: snapshotScores(isSessionEvalSnapshot(r.snapshot) ? r.snapshot : null),
+    objectiveResult: r.objectiveResult, highlights: r.highlights ?? [], remark: r.remark, productNote: r.productNote,
+  });
+  const inCur = (d: string) => (!curFrom || d > curFrom) && d <= curTo;
+  const current = evalRows.filter((r) => inCur(r.date)).map(toAgg);
+  const previous = period.previous && prevTo ? evalRows.filter((r) => r.date <= prevTo && (!prevFrom || r.date > prevFrom)).map(toAgg) : [];
+
+  const att = await db
+    .select({ status: attendance.status })
+    .from(attendance).innerJoin(sessions, eq(sessions.id, attendance.sessionId))
+    .where(and(eq(attendance.enrollmentId, input.enrollmentId), lte(sessions.date, curTo), curFrom ? gt(sessions.date, curFrom) : sql`true`));
+  const t = tallyAttendance(att.map((a) => a.status));
+  return aggregateMilestone({
+    criteria: criteria.map((c) => ({ key: c.id, criterionId: c.id, label: c.name })),
+    current, previous,
+    attendance: { attended: t.present + t.late + t.makeup, total: t.total, absent: t.absent, excused: t.excused, makeup: t.makeup },
+    period: { fromSeq: period.fromSeq, toSeq: period.toSeq },
+  });
 }
 
 export async function classReportCards(ctx: ProtectedContext, classId: string) {
@@ -203,6 +263,11 @@ export async function getReportCard(ctx: ProtectedContext, input: { enrollmentId
     where a.enrollment_id = ${e.id} and s.sequence_no <= ${input.milestoneSeq}`)) as unknown as { total: number; attended: number }[];
   const att = attRows[0];
   const author = card?.authorId ? await ctx.db.query.users.findFirst({ where: eq(users.id, card.authorId), columns: { fullName: true } }) : null;
+  // Học bạ tạo sau khi có phiếu buổi chấm theo rubric 4 mức; học bạ cũ giữ thang 5
+  const scale = card ? card.rubricScale : RUBRIC_SCALE;
+  const aggregate = await milestoneAggregateFor(ctx.db, { enrollmentId: e.id, classId: c.id, courseId: c.courseId, curriculumId: c.curriculumId, totalSessions: c.totalSessions, milestoneSeq: input.milestoneSeq });
+  const prefill: Record<string, number> = {};
+  if (scale === RUBRIC_SCALE) for (const x of aggregate.criteria) if (x.suggested != null) prefill[x.key] = x.suggested;
   return {
     enrollment: e,
     class: c,
@@ -213,6 +278,14 @@ export async function getReportCard(ctx: ProtectedContext, input: { enrollmentId
     authorName: author?.fullName ?? null,
     scores,
     attendance: { total: att?.total ?? 0, attended: att?.attended ?? 0 },
+    scale,
+    /** Số liệu tổng hợp trực tiếp từ phiếu buổi đã phát hành (điền sẵn khi mở học bạ) */
+    aggregate,
+    /** Bản chụp số liệu lúc lưu học bạ gần nhất */
+    savedAggregate: card && isMilestoneAggregate(card.aggregate) ? card.aggregate : null,
+    /** Điểm gợi ý theo tiêu chí (chỉ khi thang 4 — cùng thang với phiếu buổi) */
+    prefill,
+    suggestedComment: aggregate.sessions > 0 ? suggestMilestoneComment(aggregate, e.studentName) : null,
   };
 }
 
@@ -227,12 +300,12 @@ export async function saveReportCard(ctx: ProtectedContext, input: SaveInput) {
   const active = d.criteria.filter((c) => c.isActive).map((c) => c.id);
   if (input.submit) {
     if (active.length === 0) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Khoá chưa cấu hình tiêu chí năng lực" });
-    const errs = validateReportCard({ scores: input.scores, activeCriteria: active, comment: input.teacherComment ?? null });
+    const errs = validateReportCard({ scores: input.scores, activeCriteria: active, comment: input.teacherComment ?? null, scale: d.scale });
     if (errs.length) throw new TRPCError({ code: "BAD_REQUEST", message: errs.join("; ") });
   }
   const valid = new Set(d.criteria.map((c) => c.id));
   const scores = input.scores.filter((s) => valid.has(s.criterionId));
-  if (scores.some((s) => s.score !== null && (s.score < 1 || s.score > 5))) throw new TRPCError({ code: "BAD_REQUEST", message: "Điểm từ 1 đến 5" });
+  if (scores.some((s) => s.score !== null && (s.score < 1 || s.score > d.scale))) throw new TRPCError({ code: "BAD_REQUEST", message: `Điểm từ 1 đến ${d.scale}` });
   const avg = averageScore(scores.map((s) => s.score));
   const sessionRow = await ctx.db.query.sessions.findFirst({ where: and(eq(sessions.classId, d.class.id), eq(sessions.sequenceNo, input.milestoneSeq)), columns: { id: true } });
 
@@ -240,14 +313,16 @@ export async function saveReportCard(ctx: ProtectedContext, input: SaveInput) {
     const values = {
       teacherComment: input.teacherComment ?? null, strengths: input.strengths ?? null, improvements: input.improvements ?? null,
       averageScore: avg === null ? null : String(avg), status: to, authorId: ctx.user.id,
+      // Chụp số liệu tổng hợp từ phiếu buổi cùng lần lưu — học bạ đã gửi PH không đổi khi phiếu buổi thay đổi
+      ...(d.scale === RUBRIC_SCALE ? { aggregate: d.aggregate } : {}),
       ...(input.submit ? { submittedAt: new Date(), returnReason: null } : {}), updatedAt: new Date(),
     };
     const [card] = d.card
       ? await tx.update(reportCards).set(values).where(eq(reportCards.id, d.card.id)).returning()
-      : await tx.insert(reportCards).values({ enrollmentId: input.enrollmentId, milestoneSeq: input.milestoneSeq, sessionId: sessionRow?.id ?? null, ...values }).returning();
+      : await tx.insert(reportCards).values({ enrollmentId: input.enrollmentId, milestoneSeq: input.milestoneSeq, sessionId: sessionRow?.id ?? null, rubricScale: d.scale, ...values }).returning();
     await tx.delete(reportCardScores).where(eq(reportCardScores.reportCardId, card!.id));
     if (scores.length) await tx.insert(reportCardScores).values(scores.map((s) => ({ reportCardId: card!.id, criterionId: s.criterionId, score: s.score, comment: s.comment ?? null })));
-    if (input.submit) await writeAudit(tx as unknown as Db, { actorId: ctx.user.id, action: "TRANSITION", module: "report_cards", entity: "report_cards", entityId: card!.id, before: { status: from }, after: { status: to, average: avg }, ip: ctx.ip });
+    if (input.submit) await writeAudit(tx as unknown as Db, { actorId: ctx.user.id, action: "TRANSITION", module: "report_cards", entity: "report_cards", entityId: card!.id, before: { status: from }, after: { status: to, average: avg, scale: d.scale }, ip: ctx.ip });
     return card!;
   });
 }
@@ -305,7 +380,7 @@ export async function studentReportBook(ctx: ProtectedContext, studentId: string
   if (!st) throw new TRPCError({ code: "NOT_FOUND" });
   requirePermission(ctx, "report_card:read", { centerId: st.homeCenterId });
   const cards = await ctx.db
-    .select({ id: reportCards.id, seq: reportCards.milestoneSeq, status: reportCards.status, averageScore: reportCards.averageScore, teacherComment: reportCards.teacherComment, strengths: reportCards.strengths, improvements: reportCards.improvements, publishedAt: reportCards.publishedAt, updatedAt: reportCards.updatedAt, enrollmentId: enrollments.id, classCode: classes.code, className: classes.name, courseCode: courses.code, authorName: users.fullName })
+    .select({ id: reportCards.id, seq: reportCards.milestoneSeq, status: reportCards.status, averageScore: reportCards.averageScore, rubricScale: reportCards.rubricScale, teacherComment: reportCards.teacherComment, strengths: reportCards.strengths, improvements: reportCards.improvements, publishedAt: reportCards.publishedAt, updatedAt: reportCards.updatedAt, enrollmentId: enrollments.id, classCode: classes.code, className: classes.name, courseCode: courses.code, authorName: users.fullName })
     .from(reportCards)
     .innerJoin(enrollments, eq(enrollments.id, reportCards.enrollmentId))
     .innerJoin(classes, eq(classes.id, enrollments.classId))
@@ -351,7 +426,7 @@ async function loadCompletionTarget(ctx: ProtectedContext, enrollmentId: string)
 /** Điểm trung bình tiêu chí từ các học bạ đã duyệt / đã gửi PH */
 async function completionAverage(ctx: ProtectedContext, enrollmentId: string): Promise<string | null> {
   const rows = (await ctx.db.execute(sql`
-    select round(avg(s.score)::numeric, 1)::text as v from report_card_scores s join report_cards rc on rc.id = s.report_card_id
+    select round(avg(${SCORE_TO5_SQL})::numeric, 1)::text as v from report_card_scores s join report_cards rc on rc.id = s.report_card_id
     where rc.enrollment_id = ${enrollmentId} and rc.status in ('approved','published')`)) as unknown as { v: string | null }[];
   return rows[0]?.v ?? null;
 }
@@ -408,7 +483,8 @@ export async function completionCandidates(ctx: ProtectedContext, classId: strin
     .select({
       enrollmentId: enrollments.id, status: enrollments.status, packageSessions: enrollments.packageSessions, consumed: consumedSql,
       studentId: students.id, fullName: students.fullName, code: students.code,
-      avg: sql<string | null>`(select round(avg(s.score)::numeric, 1)::text from ${reportCardScores} s join ${reportCards} rc on rc.id = s.report_card_id where rc.enrollment_id = ${enrollments.id} and rc.status in ('approved','published'))`,
+      // Thang 5 chung: học bạ mới (thang 4) được quy đổi trước khi lấy trung bình để xếp loại cuối khoá
+      avg: sql<string | null>`(select round(avg(${SCORE_TO5_SQL})::numeric, 1)::text from ${reportCardScores} s join ${reportCards} rc on rc.id = s.report_card_id where rc.enrollment_id = ${enrollments.id} and rc.status in ('approved','published'))`,
       completed: sql<boolean>`exists (select 1 from ${courseCompletions} cc where cc.enrollment_id = ${enrollments.id} and cc.status = 'approved' and cc.revoked_at is null)`,
       proposed: sql<boolean>`exists (select 1 from ${courseCompletions} cc where cc.enrollment_id = ${enrollments.id} and cc.status = 'proposed')`,
     })

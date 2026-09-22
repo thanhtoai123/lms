@@ -865,6 +865,8 @@ if ($Only -eq "tat-ca" -or $Only -eq "mot-cham") {
   # Nhóm mở bằng MỘT TRONG NHIỀU quyền: viết "a|b|c" (khớp bất kỳ quyền nào là đủ)
   # GV chỉ có quyền "của mình" (trials:attendance_own) vẫn thấy nhóm này, nhưng chỉ với HV lớp trải nghiệm mình đứng
   $nhomQuyen["trial_report"] = "trials:manage|trials:attendance|lead:update|trials:attendance_own"
+  # Phiếu nhận xét buổi (hồ sơ học tập): người chấm được phiếu — giáo vụ / quản lý (session_note:write) hoặc GV lớp mình (session_note:write_own)
+  $nhomQuyen["session_evaluation"] = "session_note:write|session_note:write_own"
   $nhomQuyen["notification"] = ""
 
   $tatCaNhom = @($nhomQuyen.Keys | ForEach-Object { [string]$_ })

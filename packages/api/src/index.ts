@@ -23,12 +23,15 @@ import { invoiceRouter, cardRouter } from "./routers/billing";
 import { migrationRouter, cutoverRouter, deliveryRouter, pilotRouter, readinessRouter, opsConfigRouter } from "./routers/golive";
 import { tenantsRouter } from "./routers/tenants";
 import { trialReportsRouter } from "./routers/trialReports";
+import { portfolioRouter, sessionEvaluationsRouter } from "./routers/portfolio";
 
 export const appRouter = router({
   auth: authRouter,
   academics: router({
     sessions: sessionsRouter,
     classes: classesRouter,
+    /** Phiếu nhận xét buổi học (hồ sơ học tập) */
+    evaluations: sessionEvaluationsRouter,
   }),
   teacher: teacherRouter,
   admissions: router({ leads: leadsRouter, trials: trialsRouter, trialReports: trialReportsRouter }),
@@ -64,6 +67,8 @@ export const appRouter = router({
   opsConfig: opsConfigRouter,
   card: cardRouter,
   tenants: tenantsRouter,
+  /** Hồ sơ học tập (portfolio) của học viên */
+  portfolio: portfolioRouter,
 });
 
 export type AppRouter = typeof appRouter;
@@ -80,6 +85,8 @@ export { registerUploadedMedia } from "./services/media";
 export { ingestBankTx } from "./services/bank";
 export { publicSurvey, submitPublicSurvey, runSurveyTriggers } from "./services/care";
 export { publicTrialReport, publicTrialReportRespond, CONSULT_RECEIVED_MESSAGE, type PublicTrialReportResult } from "./services/trialReports";
+export { publicPortfolio, portalPortfolio, portfolioForRender, type PublicPortfolioResult } from "./services/portfolio";
+export { verifyPortfolioRenderSignature } from "./storage";
 export { logWebhook, mapPublicLeadBody, requestOtp, verifyOtp, processEmailQueue } from "./services/admin";
 export { addDocumentVersion } from "./services/documents";
 export { publicHomework, submitPublicHomework, staffSubmit, remindDueHomework } from "./services/assignments";

@@ -14,6 +14,7 @@ import {
 import {
   validatePortfolioScope, normalizePortfolioScope, inPortfolioScope, portfolioScopeLabel, clampPortfolioShareDays, portfolioShareExpiresAt,
   portfolioShareState, portfolioPath, PORTFOLIO_TOKEN_RE, PORTFOLIO_SHARE_DAYS_DEFAULT, portfolioShareMessage,
+  portfolioScopeQuery, parsePortfolioScope,
 } from "./share.js";
 import { progressSeries, bucketSeries, lineChart, radarChart, polarPoint } from "./chart.js";
 import { tallyAttendance, sumAttendance, pairSheets } from "./view.js";
@@ -325,6 +326,17 @@ test("mạng nhện: đỉnh đầu tiên hướng lên, giá trị tối đa ch
   assert.deepEqual({ x: r.points[2]!.x, y: r.points[2]!.y }, { x: 100, y: 100 });
   assert.equal(r.rings.length, 4);
   assert.equal(r.axes[0]!.anchor, "middle");
+});
+
+test("chuỗi phạm vi chuẩn để ký trang in và đọc lại từ URL", () => {
+  assert.equal(portfolioScopeQuery({ scope: "all", from: "2026-01-01" }), "scope=all");
+  assert.equal(portfolioScopeQuery({ scope: "range", from: "2026-01-01", to: "2026-02-01" }), "scope=range&from=2026-01-01&to=2026-02-01");
+  const id = "0f0e0d0c-0b0a-4908-8706-050403020100";
+  assert.equal(portfolioScopeQuery({ scope: "course", enrollmentId: id }), "scope=course&enrollmentId=" + id);
+  assert.deepEqual(parsePortfolioScope({ scope: "course", enrollmentId: id }), { scope: "course", enrollmentId: id, from: null, to: null });
+  assert.equal(parsePortfolioScope({ scope: "course", enrollmentId: "x" }).scope, "all");
+  assert.equal(parsePortfolioScope({ scope: "range", from: "2026-03-01", to: "2026-02-01" }).scope, "all");
+  assert.equal(parsePortfolioScope({}).scope, "all");
 });
 
 test("chuyên cần hồ sơ và xếp 2 phiếu / trang", () => {

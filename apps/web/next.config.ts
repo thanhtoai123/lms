@@ -3,7 +3,8 @@ import { API_CSP, securityHeaderOptions, securityHeaders } from "@satarobo/core"
 
 const nextConfig: NextConfig = {
   transpilePackages: ["@satarobo/api", "@satarobo/core", "@satarobo/db"],
-  serverExternalPackages: ["postgres"],
+  // playwright-core: gói TUỲ CHỌN cho xuất PDF phía máy chủ (PDF_RENDERER=playwright) — không đóng gói, nạp động lúc chạy
+  serverExternalPackages: ["postgres", "playwright-core"],
   // Đường dẫn cũ của bản thử nghiệm (/ops) → đường dẫn chuẩn giống admin.satarobo.vn
   async redirects() {
     const map: [string, string][] = [

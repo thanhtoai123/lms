@@ -31,11 +31,12 @@ import * as CARE from "./care";
 import * as EN from "./engagement";
 import * as RC from "./reportCards";
 import * as TR from "./trialReports";
+import * as SE from "./sessionEvaluations";
 
 export const INBOX_GROUP_KEYS = [
   "lead_task", "lead_sla", "session_attendance", "session_note", "report_card", "makeup",
   "media", "payment", "refund", "staff_request", "parent_request", "care_task", "completion", "notification",
-  "trial_report",
+  "trial_report", "session_evaluation",
 ] as const;
 export type InboxGroupKey = (typeof INBOX_GROUP_KEYS)[number];
 
@@ -118,6 +119,7 @@ export async function inboxToday(ctx: ProtectedContext) {
       safe(() => trialReportGroup(ctx)),
       safe(() => sessionGroups(ctx, "attendance")),
       safe(() => sessionGroups(ctx, "note")),
+      safe(() => sessionEvaluationGroup(ctx)),
       safe(() => reportCardGroup(ctx)),
       safe(() => makeupGroup(ctx)),
       safe(() => mediaGroup(ctx)),
@@ -285,6 +287,31 @@ async function trialReportGroup(ctx: ProtectedContext): Promise<InboxGroup | nul
           : `/lop-trial/${r.trialClassId ?? ""}?pdg=${r.sourceId}`,
       };
     }),
+  };
+}
+
+/**
+ * Buổi chưa có phiếu nhận xét học viên (hồ sơ học tập): buổi đã diễn ra, có học viên có mặt nhưng
+ * chưa có phiếu phát hành. Tính từ mốc bật tính năng, trong 30 ngày gần nhất; GV chỉ thấy buổi mình dạy.
+ * Việc cần nhập liệu → "open" mở thẳng màn buổi học (khối phiếu nằm ngay dưới điểm danh).
+ */
+async function sessionEvaluationGroup(ctx: ProtectedContext): Promise<InboxGroup | null> {
+  const res = await SE.pendingEvaluationSessions(ctx, { limit: MAX_PER_GROUP });
+  if (!res) return null;
+  const today = todayISO();
+  return {
+    key: "session_evaluation", title: "Buổi chưa có phiếu nhận xét học viên", icon: "book-open-check",
+    actionLabel: "Chấm phiếu", actionKind: "open", undoable: false,
+    href: "/sessions", emptyHint: "Mọi học viên có mặt đều đã có phiếu nhận xét buổi học.",
+    total: res.total, overdue: res.overdue,
+    items: res.items.map((r) => ({
+      id: r.sessionId,
+      title: `${r.classCode} · ${r.label}`,
+      sub: [r.centerCode, r.teacherName ?? "Chưa gán GV", `${r.missing} học viên chưa có phiếu`].join(" · "),
+      meta: `${dmy(r.date)} ${r.startTime.slice(0, 5)}`,
+      overdue: r.date < addDays(today, -1),
+      href: `/teacher/sessions/${r.sessionId}#phieu-nhan-xet`,
+    })),
   };
 }
 

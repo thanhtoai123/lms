@@ -72,3 +72,18 @@ export function signedScormBase(documentId: string, version: number, ttlSeconds 
 export function verifyScormSignature(documentId: string, version: number, exp: number, sig: string) {
   return verifyMediaSignature(`scorm/${documentId}/v${version}`, exp, sig);
 }
+
+/**
+ * Đường dẫn trang in NỘI BỘ của hồ sơ học tập cho bộ kết xuất PDF phía máy chủ (Playwright).
+ * Trình duyệt không đầu không mang phiên đăng nhập → trang nhận chữ ký HMAC ngắn hạn (mặc định 5 phút)
+ * trên đúng (học viên, phạm vi); quyền đã được kiểm ở thủ tục xuất PDF trước khi ký.
+ */
+export function signedPortfolioRenderPath(studentId: string, scopeQuery: string, ttlSeconds = 300) {
+  const exp = Math.floor(Date.now() / 1000) + ttlSeconds;
+  const payload = `render-ho-so|${studentId}|${scopeQuery}`;
+  return `/in-ho-so/${studentId}?${scopeQuery}${scopeQuery ? "&" : ""}exp=${exp}&sig=${sign(payload, exp)}`;
+}
+
+export function verifyPortfolioRenderSignature(studentId: string, scopeQuery: string, exp: number, sig: string) {
+  return verifyMediaSignature(`render-ho-so|${studentId}|${scopeQuery}`, exp, sig);
+}
