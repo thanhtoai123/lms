@@ -327,6 +327,8 @@ export async function saveEvaluations(ctx: ProtectedContext, input: { sessionId:
         actorId: ctx.user.id, action: "UPDATE", module: "academics", entity: "session_evaluations", entityId: s.id,
         after: { sessionId: s.id, drafts: changed.length, ids: changed.slice(0, 50) }, ip: ctx.ip,
       });
+      // Buổi đã hoàn tất (cấu hình cho phép hoàn tất khi còn thiếu phiếu): phiếu điền đủ là phát hành ngay
+      if (s.status === "completed") await publishSessionEvaluations(tx, { sessionId: s.id, actorId: ctx.user.id, ip: ctx.ip });
     }
   });
   return { saved, skipped, board: await sessionEvaluationBoard(ctx, input.sessionId) };

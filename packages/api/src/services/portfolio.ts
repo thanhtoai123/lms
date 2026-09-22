@@ -401,6 +401,48 @@ export async function exportPortfolioPdf(ctx: ProtectedContext, input: { student
   return { id, sizeBytes: pdf.byteLength, url: signedFileUrl(key, `ho-so-hoc-tap-${(st.code ?? "hv").replace(/[^A-Za-z0-9_-]/g, "")}.pdf`, 900, true) };
 }
 
+/* ------------------------------------------------------------------ */
+/* Một học bạ mốc (in riêng)                                             */
+/* ------------------------------------------------------------------ */
+
+export async function getMilestoneCardView(ctx: ProtectedContext, reportCardId: string): Promise<MilestoneCardView & { status: string; studentId: string; enrollmentId: string; center: { name: string; address: string | null; phone: string | null } | null }> {
+  const [r] = await ctx.db
+    .select({
+      card: reportCards, studentId: students.id, studentName: students.fullName, studentTenantId: students.tenantId,
+      className: classes.name, centerId: classes.centerId, leadTeacherId: classes.leadTeacherId, assistantTeacherId: classes.assistantTeacherId,
+      courseName: courses.name, authorName: users.fullName, centerName: centers.name, centerAddress: centers.address, centerPhone: centers.phone,
+    })
+    .from(reportCards)
+    .innerJoin(enrollments, eq(enrollments.id, reportCards.enrollmentId))
+    .innerJoin(students, eq(students.id, enrollments.studentId))
+    .innerJoin(classes, eq(classes.id, enrollments.classId))
+    .innerJoin(courses, eq(courses.id, classes.courseId))
+    .innerJoin(centers, eq(centers.id, classes.centerId))
+    .leftJoin(users, eq(users.id, reportCards.authorId))
+    .where(eq(reportCards.id, reportCardId))
+    .limit(1);
+  if (!r) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy học bạ" });
+  assertTenant(ctx, { tenantId: r.studentTenantId }, "Học bạ");
+  requirePermission(ctx, "report_card:read", { centerId: r.centerId, ownerIds: [r.leadTeacherId ?? "", r.assistantTeacherId ?? ""].filter(Boolean) });
+  const scores = await ctx.db
+    .select({ criterionId: reportCardScores.criterionId, score: reportCardScores.score, comment: reportCardScores.comment, name: competencyCriteria.name })
+    .from(reportCardScores).innerJoin(competencyCriteria, eq(competencyCriteria.id, reportCardScores.criterionId))
+    .where(eq(reportCardScores.reportCardId, r.card.id)).orderBy(asc(competencyCriteria.sortOrder));
+  const agg = isMilestoneAggregate(r.card.aggregate) ? r.card.aggregate : null;
+  return {
+    id: r.card.id, status: r.card.status, studentId: r.studentId, enrollmentId: r.card.enrollmentId,
+    milestoneSeq: r.card.milestoneSeq, label: milestoneLabel(r.card.milestoneSeq), publishedAt: iso(r.card.publishedAt), scale: r.card.rubricScale,
+    scores: scores.map((x) => {
+      const a = agg?.criteria.find((k) => k.criterionId === x.criterionId) ?? null;
+      return { label: x.name, score: x.score, comment: x.comment, average: a?.average ?? null, trend: a?.trend ?? null };
+    }),
+    average: r.card.averageScore == null ? null : Number(r.card.averageScore),
+    teacherComment: r.card.teacherComment, strengths: r.card.strengths, improvements: r.card.improvements, aggregate: agg,
+    className: r.className, courseName: r.courseName, studentName: r.studentName, authorName: r.authorName ?? null,
+    center: { name: r.centerName, address: r.centerAddress, phone: r.centerPhone },
+  };
+}
+
 /** Trang in nội bộ cho bộ xuất PDF (đã xác thực bằng chữ ký HMAC ở trang) */
 export async function portfolioForRender(db: Database, studentId: string, scope: PortfolioScope): Promise<PortfolioView | null> {
   return buildPortfolio(asDb(db), studentId, scope);

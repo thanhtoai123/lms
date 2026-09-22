@@ -7,6 +7,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "@/lib/trpc/client";
 import { ATTENDANCE_STATUSES, type AttendanceStatus } from "@satarobo/core";
 import { ATT_LABEL, ATT_STYLE, StatusChip, fmtDate, fmtTime } from "@/components/ui";
+import { EvaluationPanel } from "@/components/portfolio/evaluation-panel";
 
 type Draft = Record<string, { status: AttendanceStatus; remark: string; rating: number | null; needsMakeup: boolean | null; absenceReason: string }>;
 
@@ -15,8 +16,8 @@ const isAbsent = (s: AttendanceStatus) => s === "absent_excused" || s === "absen
 /**
  * Một màn hình, ba bước, không rời ngữ cảnh:
  *   1. Điểm danh (chạm để xoay trạng thái, mặc định "có mặt")
- *   2. Nhận xét buổi (bắt buộc) + nhận xét nhanh từng HV (tuỳ chọn)
- *   3. Hoàn tất → trạng thái completed, PH nhận thông báo (worker)
+ *   2. Nhận xét buổi (bắt buộc) + PHIẾU NHẬN XÉT từng HV có mặt (rubric 4 mức, tự lưu nháp)
+ *   3. Hoàn tất → trạng thái completed, phiếu nhận xét được phát hành cùng lúc, PH nhận thông báo (worker)
  */
 export function SessionWorkflow({ sessionId }: { sessionId: string }) {
   const trpc = useTRPC();
@@ -46,6 +47,7 @@ export function SessionWorkflow({ sessionId }: { sessionId: string }) {
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: trpc.academics.sessions.get.queryKey({ id: sessionId }) });
     qc.invalidateQueries({ queryKey: trpc.teacher.today.queryKey() });
+    qc.invalidateQueries({ queryKey: trpc.academics.evaluations.board.queryKey({ sessionId }) });
   };
   const onErr = (e: unknown) => setError((e as Error).message);
 
@@ -55,6 +57,9 @@ export function SessionWorkflow({ sessionId }: { sessionId: string }) {
   const saveChecklist = useMutation(trpc.academics.sessions.saveChecklist.mutationOptions({ onSuccess: () => { setError(null); invalidate(); }, onError: onErr }));
   const confirmLesson = useMutation(trpc.academics.sessions.confirmLesson.mutationOptions({ onSuccess: () => { setError(null); invalidate(); }, onError: onErr }));
   const trialResult = useMutation(trpc.admissions.trials.result.mutationOptions({ onSuccess: () => { setError(null); invalidate(); }, onError: onErr }));
+  // Phiếu nhận xét buổi quản lý ô nhận xét của HV có mặt (không nhập hai lần) — dùng chung bộ nhớ đệm với khối phiếu
+  const evalBoard = useQuery({ ...trpc.academics.evaluations.board.queryOptions({ sessionId }), retry: false });
+  const evalManaged = !!evalBoard.data?.canWrite;
 
   const s = q.data ?? (q.isError && cached ? cached : undefined);
   const offlineView = !q.data && !!s;
@@ -95,8 +100,10 @@ export function SessionWorkflow({ sessionId }: { sessionId: string }) {
   const submitAttendance = async () => {
     const records = roster.map((r) => {
       const v = effective[r.enrollmentId]!;
+      // HV có mặt: nhận xét nằm ở phiếu nhận xét buổi → không gửi kèm để khỏi ghi đè bằng bản cũ
+      const remarkByPanel = evalManaged && !isAbsent(v.status);
       return {
-        enrollmentId: r.enrollmentId, status: v.status, studentRemark: v.remark || null, rating: v.rating,
+        enrollmentId: r.enrollmentId, status: v.status, studentRemark: remarkByPanel ? undefined : v.remark || null, rating: v.rating,
         needsMakeup: isAbsent(v.status) ? v.needsMakeup : null,
         absenceReason: isAbsent(v.status) ? v.absenceReason.trim() || null : null,
       };
@@ -197,13 +204,17 @@ export function SessionWorkflow({ sessionId }: { sessionId: string }) {
                       <button key={n} type="button" disabled={s.status === "completed"} onClick={() => setRating(r.enrollmentId, n)} className={`text-sm leading-none ${v.rating && n <= v.rating ? "text-amber-500" : "text-black/15"}`} aria-label={`${n} sao`}>★</button>
                     ))}
                   </div>
-                  <input
-                    className="mt-1 w-full bg-transparent text-xs text-ink-600 outline-none placeholder:text-ink-400"
-                    placeholder="Nhận xét nhanh (tuỳ chọn)…"
-                    value={v.remark}
-                    onChange={(e) => setRemark(r.enrollmentId, e.target.value)}
-                    disabled={s.status === "completed"}
-                  />
+                  {evalManaged && !isAbsent(v.status) ? (
+                    <a href="#phieu-nhan-xet" className="mt-1 block truncate text-xs text-ink-400 hover:text-brand-600">{r.studentRemark ? `Nhận xét: ${r.studentRemark}` : "Nhận xét ở phiếu nhận xét buổi bên dưới ↓"}</a>
+                  ) : (
+                    <input
+                      className="mt-1 w-full bg-transparent text-xs text-ink-600 outline-none placeholder:text-ink-400"
+                      placeholder="Nhận xét nhanh (tuỳ chọn)…"
+                      value={v.remark}
+                      onChange={(e) => setRemark(r.enrollmentId, e.target.value)}
+                      disabled={s.status === "completed"}
+                    />
+                  )}
                   {isAbsent(v.status) && (
                     <div className="mt-1 space-y-1 rounded-lg bg-black/[0.03] p-2">
                       <div className="flex flex-wrap items-center gap-1 text-[11px]">
@@ -233,6 +244,16 @@ export function SessionWorkflow({ sessionId }: { sessionId: string }) {
           </button>
         )}
       </section>
+
+      {/* Phiếu nhận xét buổi học — từng HV có mặt (hồ sơ học tập) */}
+      {!isFuture && s.status !== "cancelled" && s.status !== "rescheduled" && (
+        <EvaluationPanel
+          sessionId={sessionId}
+          attendance={Object.fromEntries(roster.map((r) => [r.enrollmentId, effective[r.enrollmentId]?.status]))}
+          sessionDone={s.status === "completed"}
+          disabled={offlineView}
+        />
+      )}
 
       {s.trialGuests.length > 0 && (
         <section className="card p-4 space-y-2">
@@ -313,7 +334,7 @@ export function SessionWorkflow({ sessionId }: { sessionId: string }) {
       {/* Bước 3: Hoàn tất */}
       <section className={`card p-4 space-y-3 ${step < 3 ? "opacity-60" : ""}`}>
         <h2 className="font-bold">Hoàn tất buổi học</h2>
-        <p className="text-sm text-ink-600">Sau khi hoàn tất, phụ huynh nhận thông báo điểm danh + nhận xét; buổi được tính vào gói học.</p>
+        <p className="text-sm text-ink-600">Sau khi hoàn tất, phiếu nhận xét của từng học viên được phát hành (lưu vào hồ sơ học tập, không sửa được nếu không ghi lý do), phụ huynh nhận thông báo điểm danh + nhận xét; buổi được tính vào gói học.</p>
         {s.status !== "completed" && (s.completionBlockers ?? []).length > 0 && (
           <ul className="rounded-xl bg-amber-50 p-2 text-xs text-amber-900">
             {(s.completionBlockers ?? []).map((b) => <li key={b}>• {b}</li>)}

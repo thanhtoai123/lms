@@ -70,6 +70,8 @@ export const portfolioRouter = router({
     .input(z.object({ studentId: uuid, enrollmentId: uuid.nullish(), from: isoDate.nullish(), to: isoDate.nullish() }))
     .query(({ ctx, input }) => P.getPortfolio(ctx, input)),
   options: protectedProcedure.input(z.object({ studentId: uuid })).query(({ ctx, input }) => P.portfolioOptions(ctx, input.studentId)),
+  /** Một học bạ mốc (trang in riêng) */
+  milestone: protectedProcedure.input(z.object({ id: uuid })).query(({ ctx, input }) => P.getMilestoneCardView(ctx, input.id)),
   shares: protectedProcedure.input(z.object({ studentId: uuid })).query(({ ctx, input }) => P.listShares(ctx, input.studentId)),
   createShare: protectedProcedure
     .input(z.object({

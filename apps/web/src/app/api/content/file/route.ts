@@ -7,7 +7,7 @@ export async function GET(req: Request) {
   const key = u.searchParams.get("key") ?? "";
   const exp = Number(u.searchParams.get("exp"));
   const sig = u.searchParams.get("sig") ?? "";
-  if (!/^(docs|homework)\//.test(key) || !verifyMediaSignature(key, exp, sig)) return new Response("Liên kết không hợp lệ hoặc đã hết hạn", { status: 403 });
+  if (!/^(docs|homework|portfolio)\//.test(key) || !verifyMediaSignature(key, exp, sig)) return new Response("Liên kết không hợp lệ hoặc đã hết hạn", { status: 403 });
   const body = await getObject(key);
   if (!body) return new Response("Không tìm thấy tệp", { status: 404 });
   const name = (u.searchParams.get("name") ?? key.split("/").pop() ?? "tai-lieu").replace(/[^A-Za-z0-9._-]/g, "_");

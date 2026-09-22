@@ -13,7 +13,8 @@ export default async function StudentBookPage({ searchParams }: { searchParams: 
   const book = sp.student && /^[0-9a-f-]{36}$/.test(sp.student) ? await caller.learning.studentReportBook({ studentId: sp.student }) : null;
   return (
     <div className="max-w-5xl space-y-4">
-      <PageHeader title="Học bạ học viên" desc="Toàn bộ học bạ theo mốc và chứng chỉ hoàn thành khoá của một học viên." />
+      <PageHeader title="Học bạ học viên" desc="Toàn bộ học bạ theo mốc và chứng chỉ hoàn thành khoá của một học viên. Học bạ mới tổng hợp từ phiếu nhận xét từng buổi (thang 4 mức); học bạ cũ giữ thang 5." />
+      {book && <p className="text-sm"><Link href={`/ho-so-hoc-tap/${book.student.id}`} className="font-semibold text-brand-600">Mở hồ sơ học tập đầy đủ (phiếu từng buổi, biểu đồ tiến bộ, in / chia sẻ) →</Link></p>}
       <StudentChooser current={book ? { id: book.student.id, fullName: book.student.fullName, code: book.student.code, grade: book.student.grade } : null} />
       {!book ? null : (
         <>
@@ -37,14 +38,15 @@ export default async function StudentBookPage({ searchParams }: { searchParams: 
                   <Link href={`/report-cards/${c.enrollmentId}/${c.seq}`} className="font-semibold text-brand-600">{c.label}</Link>
                   <div className="text-xs text-ink-400">{c.className} · {c.classCode} · {c.courseCode}{c.authorName ? ` · ${c.authorName}` : ""}{c.publishedAt ? ` · gửi PH ${fmtDate(c.publishedAt)}` : ""}</div>
                 </div>
-                <div className="flex items-center gap-2">{c.averageScore && <span className="text-sm font-bold text-brand-700">TB {c.averageScore}</span>}<ReportCardChip status={c.status} /></div>
+                <div className="flex items-center gap-2">{c.averageScore && <span className="text-sm font-bold text-brand-700">TB {c.averageScore}/{c.rubricScale}</span>}
+                  <Link href={`/hoc-ba-moc/${c.id}`} className="text-xs text-brand-600">In</Link><ReportCardChip status={c.status} /></div>
               </div>
               {c.scores.length > 0 && (
                 <div className="grid gap-1 sm:grid-cols-2">
                   {c.scores.map((s) => (
                     <div key={s.name} className="flex items-center justify-between gap-2 rounded-lg bg-black/[0.03] px-2 py-1 text-sm">
                       <span>{s.name}</span>
-                      <span className="flex gap-0.5">{[1, 2, 3, 4, 5].map((n) => <span key={n} className={`h-2 w-4 rounded-sm ${s.score && n <= s.score ? "bg-brand-600" : "bg-black/10"}`} />)}</span>
+                      <span className="flex gap-0.5" title={`${s.score ?? "—"}/${c.rubricScale}`}>{Array.from({ length: c.rubricScale }, (_, i) => i + 1).map((n) => <span key={n} className={`h-2 w-4 rounded-sm ${s.score && n <= s.score ? "bg-brand-600" : "bg-black/10"}`} />)}</span>
                     </div>
                   ))}
                 </div>

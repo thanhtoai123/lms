@@ -203,7 +203,8 @@ export async function recordAttendance(
         })
         .onConflictDoUpdate({
           target: [attendance.sessionId, attendance.enrollmentId],
-          set: { status: r.status, studentRemark: r.studentRemark ?? null, rating: r.rating ?? null, needsMakeup, absenceReason, makeupForSessionId: r.makeupForSessionId ?? null, recordedBy: ctx.user.id, recordedAt: new Date() },
+          // Nhận xét không gửi kèm (undefined) = giữ nguyên: ô nhận xét do phiếu nhận xét buổi quản lý
+          set: { status: r.status, ...(r.studentRemark !== undefined ? { studentRemark: r.studentRemark } : {}), rating: r.rating ?? null, needsMakeup, absenceReason, makeupForSessionId: r.makeupForSessionId ?? null, recordedBy: ctx.user.id, recordedAt: new Date() },
         });
     }
     await writeAudit(tx as unknown as typeof ctx.db, {

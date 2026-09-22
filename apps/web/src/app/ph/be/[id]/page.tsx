@@ -1,9 +1,11 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getDb } from "@satarobo/db";
 import { ParentPortal } from "@satarobo/api";
 import { requireParent } from "@/lib/parent-session";
 import { PhHeader, PhNav, datePh, dtPh } from "@/components/ph-ui";
 import { AskForm } from "../../tin-nhan/client";
+import { scoreLabel } from "@satarobo/core";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +31,13 @@ export default async function ChildPage({ params }: { params: Promise<{ id: stri
             <p className="text-center text-xs text-ink-600">Đưa thẻ (hoặc màn hình này) cho giáo viên quét khi đến lớp.</p>
           </details>
         )}
+        <Link href={`/ph/be/${c.id}/ho-so`} className="card flex items-center justify-between gap-3 bg-gradient-to-r from-brand-50 to-white p-4">
+          <span>
+            <span className="block font-semibold text-brand-700">Hồ sơ học tập của con</span>
+            <span className="block text-xs text-ink-600">Phiếu nhận xét sau mỗi buổi, học bạ, chứng chỉ, sản phẩm — xem và lưu PDF</span>
+          </span>
+          <span className="text-brand-600" aria-hidden>›</span>
+        </Link>
         <section className="card p-4">
           <h2 className="mb-2 font-semibold">Lịch sắp tới</h2>
           {c.upcoming.length === 0 ? <p className="text-sm text-ink-400">Chưa có.</p> : <ul className="divide-y divide-black/5 text-sm">{c.upcoming.map((s, i) => <li key={i} className="flex justify-between py-2"><span>{s.classCode} · buổi {s.seq}{s.room ? ` · ${s.room}` : ""}</span><span>{datePh(s.date)} {s.start.slice(0, 5)}</span></li>)}</ul>}
@@ -45,8 +54,8 @@ export default async function ChildPage({ params }: { params: Promise<{ id: stri
           <h2 className="mb-2 font-semibold">Học bạ</h2>
           {c.reportCards.length === 0 ? <p className="text-sm text-ink-400">Chưa có học bạ được phát hành.</p> : c.reportCards.map((r) => (
             <div key={r.id} className="mb-3 space-y-1 border-b border-black/5 pb-3 text-sm last:border-0">
-              <div className="font-semibold">{r.classCode} · mốc buổi {r.milestone}{r.avg ? ` · điểm TB ${r.avg}` : ""}</div>
-              <ul className="text-xs">{r.scores.map((s, i) => <li key={i}>{s.name}: <b>{s.score ?? "—"}</b>{s.comment ? ` — ${s.comment}` : ""}</li>)}</ul>
+              <div className="font-semibold">{r.classCode} · mốc buổi {r.milestone}{r.avg ? ` · điểm TB ${r.avg}/${r.scale}` : ""}</div>
+              <ul className="text-xs">{r.scores.map((s, i) => <li key={i}>{s.name}: <b>{s.score != null ? scoreLabel(s.score, r.scale) : "—"}</b>{s.comment ? ` — ${s.comment}` : ""}</li>)}</ul>
               {r.strengths && <div className="text-xs"><b>Điểm mạnh:</b> {r.strengths}</div>}
               {r.improvements && <div className="text-xs"><b>Cần cải thiện:</b> {r.improvements}</div>}
               {r.comment && <div className="text-xs"><b>Nhận xét:</b> {r.comment}</div>}

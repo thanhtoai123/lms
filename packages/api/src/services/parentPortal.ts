@@ -169,7 +169,7 @@ export async function portalChild(db: Database, parentId: string, studentId: str
   const hw = await d.select({ title: assignments.title, dueAt: assignments.dueAt, status: submissions.status, token: submissions.token, score: submissions.score, maxScore: assignments.maxScore, feedback: submissions.feedback })
     .from(submissions).innerJoin(assignments, eq(assignments.id, submissions.assignmentId))
     .where(and(eq(submissions.studentId, studentId), inArray(assignments.status, ["published", "closed"]))).orderBy(desc(assignments.dueAt)).limit(30);
-  const rcs = enrIds.length ? await d.select({ id: reportCards.id, milestone: reportCards.milestoneSeq, comment: reportCards.teacherComment, strengths: reportCards.strengths, improvements: reportCards.improvements, avg: reportCards.averageScore, publishedAt: reportCards.publishedAt, classCode: classes.code })
+  const rcs = enrIds.length ? await d.select({ id: reportCards.id, milestone: reportCards.milestoneSeq, comment: reportCards.teacherComment, strengths: reportCards.strengths, improvements: reportCards.improvements, avg: reportCards.averageScore, scale: reportCards.rubricScale, publishedAt: reportCards.publishedAt, classCode: classes.code })
     .from(reportCards).innerJoin(enrollments, eq(enrollments.id, reportCards.enrollmentId)).innerJoin(classes, eq(classes.id, enrollments.classId))
     .where(and(inArray(reportCards.enrollmentId, enrIds), eq(reportCards.status, "published"))).orderBy(desc(reportCards.publishedAt)) : [];
   const scores = rcs.length ? await d.select({ rc: reportCardScores.reportCardId, name: competencyCriteria.name, score: reportCardScores.score, comment: reportCardScores.comment })

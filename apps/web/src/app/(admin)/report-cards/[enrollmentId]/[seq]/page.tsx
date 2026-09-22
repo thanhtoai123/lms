@@ -22,9 +22,13 @@ export default async function ReportCardPage({ params }: { params: Promise<{ enr
         <div>
           <h1 className="text-xl font-bold">{d.enrollment.studentName}</h1>
           <div className="text-sm text-ink-600">{d.label} · {d.class.name} · {d.class.courseCode}</div>
-          <div className="text-xs text-ink-400">Chuyên cần đến mốc: {d.attendance.attended}/{d.attendance.total} buổi{d.authorName ? ` · Người viết: ${d.authorName}` : ""}</div>
+          <div className="text-xs text-ink-400">Chuyên cần đến mốc: {d.attendance.attended}/{d.attendance.total} buổi{d.authorName ? ` · Người viết: ${d.authorName}` : ""} · Thang {d.scale} mức</div>
         </div>
-        {d.card ? <ReportCardChip status={d.card.status} /> : <span className="chip bg-red-50 text-red-700">Chưa viết</span>}
+        <div className="flex flex-col items-end gap-1">
+          {d.card ? <ReportCardChip status={d.card.status} /> : <span className="chip bg-red-50 text-red-700">Chưa viết</span>}
+          {d.card && <Link href={`/hoc-ba-moc/${d.card.id}`} className="text-xs font-semibold text-brand-600">In học bạ</Link>}
+          <Link href={`/ho-so-hoc-tap/${d.enrollment.studentId}?enrollmentId=${d.enrollment.id}`} className="text-xs text-ink-600">Hồ sơ học tập khoá này</Link>
+        </div>
       </header>
       {d.card?.status === "returned" && d.card.returnReason && <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">Giáo vụ trả lại: {d.card.returnReason}</div>}
       <ReportCardEditor
@@ -37,8 +41,15 @@ export default async function ReportCardPage({ params }: { params: Promise<{ enr
           teacherComment: d.card?.teacherComment ?? "",
           strengths: d.card?.strengths ?? "",
           improvements: d.card?.improvements ?? "",
-          scores: Object.fromEntries(d.scores.map((s) => [s.criterionId, { score: s.score, comment: s.comment ?? "" }])),
+          // Học bạ mới chưa có điểm: điền sẵn trung bình các phiếu buổi của giai đoạn (GV chỉ xác nhận / chỉnh)
+          scores: d.scores.length
+            ? Object.fromEntries(d.scores.map((s) => [s.criterionId, { score: s.score, comment: s.comment ?? "" }]))
+            : Object.fromEntries(Object.entries(d.prefill).map(([k, v]) => [k, { score: v, comment: "" }])),
         }}
+        scale={d.scale}
+        aggregate={d.aggregate}
+        prefill={d.prefill}
+        suggestedComment={d.suggestedComment}
         canWrite={hasPermission(actor, "report_card:write")}
         canApprove={hasPermission(actor, "report_card:approve")}
       />

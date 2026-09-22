@@ -6,6 +6,7 @@ import { ATT_LABEL } from "@/components/ui";
 import { BLOOD_TYPE_VI, type BloodType } from "@satarobo/core";
 import { EnrollmentCard, AddGuardian, StudentLifecycle, RevealPrivate } from "./actions";
 import { ProfileDrawer, type ProfileExtras } from "./profile-drawer";
+import { PortfolioBlock } from "@/components/portfolio/portfolio-block";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Hồ sơ học viên" };
@@ -124,6 +125,9 @@ export default async function StudentProfile({ params }: { params: Promise<{ id:
         </div>
 
         <aside className="space-y-4">
+          {/* Hồ sơ học tập: phiếu nhận xét từng buổi, học bạ mốc, in / chia sẻ (drawer, không thêm tab) */}
+          <PortfolioBlock studentId={s.id} studentName={s.fullName} />
+
           <section className="card space-y-3 p-4">
             <h2 className="font-bold">Phụ huynh</h2>
             {s.guardians.map((g) => (
