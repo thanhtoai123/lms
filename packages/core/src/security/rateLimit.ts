@@ -182,6 +182,11 @@ export const RATE_LIMITS = {
    * (phụ huynh, trường học, ban tổ chức cuộc thi) mở vài lần; trần chỉ để chặn máy dò token.
    */
   certificateVerifyIp: { max: 120, windowMs: 15 * 60_000 },
+  /**
+   * Thao tác GHI của phụ huynh đã đăng nhập cổng /ph (xin nghỉ, xin học bù, huỷ yêu cầu, thả cảm xúc sau buổi)
+   * theo phụ huynh. Một gia đình vài con làm vài chục thao tác / giờ là nhiều; trần chỉ chặn máy bấm dồn.
+   */
+  parentActionUser: { max: 60, windowMs: 60 * 60_000 },
 } as const satisfies Record<string, { max: number; windowMs: number }>;
 
 export type RateLimitName = keyof typeof RATE_LIMITS;
