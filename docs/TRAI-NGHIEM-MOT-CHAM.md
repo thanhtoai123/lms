@@ -48,6 +48,7 @@ chỉ trong phạm vi cơ sở người đó được nhìn thấy.
 | Phiếu đánh giá học thử chưa gửi | `trialReports.pendingTrialReports` | Điền phiếu | mở drawer phiếu đúng buổi thử (docs/PHIEU-DANH-GIA-HOC-THU.md) |
 | Buổi học chưa điểm danh | `sessions.listSessions` | Điểm danh | mở lưới điểm danh đúng lớp |
 | Buổi chưa viết nhận xét | `sessions.listSessions` | Viết nhận xét | mở lớp |
+| Buổi chưa có phiếu nhận xét học viên | `sessionEvaluations.pendingEvaluationSessions` | Chấm phiếu | mở màn buổi học, cuộn tới khối phiếu (docs/HO-SO-HOC-TAP.md) |
 | Học bạ kỳ chưa viết | `reportCards.dueReportCards` | Viết học bạ | mở đúng học bạ |
 | Học bù chờ xếp buổi | `makeup.listMakeup` | Xếp buổi bù | mở bảng học bù |
 | Ảnh lớp chờ duyệt | `media.listMedia` | Duyệt ảnh | chạy ngay |
