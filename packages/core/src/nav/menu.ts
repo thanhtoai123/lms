@@ -28,6 +28,8 @@ export interface NavTab {
   desc?: string;
   /** true = quyền ở đây CHỈ để ẩn/hiện trên menu; trang tự kiểm quyền rộng hơn (hàng rào trang bỏ qua) */
   menuOnly?: boolean;
+  /** true = trang cần quyền ĐẦY ĐỦ, không chấp nhận biến thể `_own` (xem `strictCan`) */
+  strict?: boolean;
 }
 
 export interface NavItem {
@@ -50,6 +52,8 @@ export interface NavItem {
   keywords?: string;
   /** Xem NavTab.menuOnly */
   menuOnly?: boolean;
+  /** Xem NavTab.strict */
+  strict?: boolean;
 }
 
 export interface NavGroup {
@@ -146,7 +150,7 @@ export const ADMIN_MENU: NavGroup[] = [
         label: "Học thử", href: "/lop-trial", icon: "flask-conical", keywords: "trial trai nghiem",
         desc: "Lớp trải nghiệm nhiều buổi và học thử buổi lẻ trong lớp chính quy.",
         tabs: [
-          { label: "Lớp trải nghiệm", href: "/lop-trial", perm: "trials:view" },
+          { label: "Lớp trải nghiệm", href: "/lop-trial", perm: "trials:view", strict: true },
           { label: "Học thử buổi lẻ", href: "/lop-trial/buoi-le", perm: "lead:read" },
         ],
       },
@@ -162,10 +166,10 @@ export const ADMIN_MENU: NavGroup[] = [
         label: "Học viên", href: "/students", icon: "graduation-cap",
         desc: "Hồ sơ học viên, sắp hết khoá, tài khoản phụ huynh, thẻ QR.",
         tabs: [
-          { label: "Danh sách", href: "/students", perm: "student:read" },
+          { label: "Danh sách", href: "/students", perm: "student:read", strict: true },
           { label: "Sắp hết khoá", href: "/students/sap-het-khoa", perm: "enrollment:read" },
           { label: "Tài khoản phụ huynh", href: "/students/tai-khoan", perm: "parent_account:read" },
-          { label: "Thẻ học viên (QR)", href: "/the-hoc-vien", perm: "student:read", desc: "In thẻ QR để điểm danh bằng cách quét; cấp lại thẻ khi mất." },
+          { label: "Thẻ học viên (QR)", href: "/the-hoc-vien", perm: "student:read", strict: true, desc: "In thẻ QR để điểm danh bằng cách quét; cấp lại thẻ khi mất." },
         ],
       },
       {
@@ -181,7 +185,7 @@ export const ADMIN_MENU: NavGroup[] = [
         match: ["/report-cards", "/hoc-ba-moc", "/phieu-buoi"],
         tabs: [
           { label: "Tổng quan chuẩn hồ sơ", href: "/ho-so-hoc-tap", perm: "report_card:read", desc: "Tỷ lệ phiếu đúng hạn / đủ chuẩn, học bạ mốc quá hạn; bảng theo GV / lớp, nhắc GV một chạm." },
-          { label: "Học bạ mốc cần viết / duyệt", href: "/ho-so-hoc-tap?xem=hoc-ba-moc", perm: "report_card:read", desc: "Lưới học bạ mốc theo lớp, hàng đợi duyệt, gửi phụ huynh." },
+          { label: "Học bạ mốc cần viết / duyệt", href: "/ho-so-hoc-tap?xem=hoc-ba-moc", perm: "report_card:read", strict: true, desc: "Lưới học bạ mốc theo lớp, hàng đợi duyệt, gửi phụ huynh." },
           { label: "Tra cứu học viên", href: "/ho-so-hoc-tap?xem=tra-cuu", perm: "report_card:read", desc: "Chọn học viên → học bạ mọi trạng thái, chứng nhận, mở hồ sơ học tập." },
         ],
       },
@@ -198,15 +202,15 @@ export const ADMIN_MENU: NavGroup[] = [
         label: "Lớp học", href: "/classes", icon: "book-open",
         tabs: [
           { label: "Lớp học", href: "/classes", perm: "class:read" },
-          { label: "Nhóm lớp", href: "/class-groups", perm: "class:read", desc: "Gom lớp thành nhóm (khối) để lọc và báo cáo." },
-          { label: "Kiểm tra lịch buổi", href: "/classes/kiem-tra-lich", perm: "class:read", desc: "Đối chiếu dãy buổi với khai giảng + lịch học; xếp lại cả dãy." },
+          { label: "Nhóm lớp", href: "/class-groups", perm: "class:read", strict: true, desc: "Gom lớp thành nhóm (khối) để lọc và báo cáo." },
+          { label: "Kiểm tra lịch buổi", href: "/classes/kiem-tra-lich", perm: "class:read", strict: true, desc: "Đối chiếu dãy buổi với khai giảng + lịch học; xếp lại cả dãy." },
         ],
       },
       {
         label: "Lịch & buổi học", href: "/lich", icon: "calendar-days",
         tabs: [
-          { label: "Lịch tổng", href: "/lich", perm: "session:read" },
-          { label: "Buổi học", href: "/sessions", perm: "session:read" },
+          { label: "Lịch tổng", href: "/lich", perm: "session:read", strict: true },
+          { label: "Buổi học", href: "/sessions", perm: "session:read", strict: true },
         ],
       },
       { label: "Điểm danh", href: "/attendance", icon: "clipboard-check", perm: "attendance:read" },
@@ -222,7 +226,7 @@ export const ADMIN_MENU: NavGroup[] = [
         label: "Cơ sở & phòng học", href: "/centers", icon: "map-pin",
         tabs: [
           { label: "Cơ sở", href: "/centers", perm: "center:read" },
-          { label: "Phòng học", href: "/rooms", perm: "class:read" },
+          { label: "Phòng học", href: "/rooms", perm: "class:read", strict: true },
           { label: "Ngày nghỉ", href: "/centers/ngay-nghi", perm: "holiday:read" },
         ],
       },
@@ -515,17 +519,20 @@ export function navAllowed(perm: NavPerm | undefined, can: (p: Permission) => bo
 }
 
 /**
+ * `can` = có quyền (kể cả biến thể `_own` — vd giáo viên có `class:read_own` vẫn thấy "Lớp học", trang tự lọc lớp của mình).
+ * `strictCan` = có quyền ĐẦY ĐỦ ở ít nhất một phạm vi (không tính `_own`) — dùng cho mục `strict`: các trang
+ * danh sách / lịch tổng gọi service không kèm chủ sở hữu, người chỉ có `_own` mở vào sẽ bị từ chối (lỗi 500).
  * Lọc cây theo quyền. Mục trung tâm: giữ các chip được phép; không còn chip nào → bỏ mục;
  * href của mục = chip ĐẦU TIÊN người dùng được phép (vd người chỉ có teacher:read vào thẳng "Giáo viên").
  */
-export function filterMenu(menu: readonly NavGroup[], can: (p: Permission) => boolean): NavGroup[] {
+export function filterMenu(menu: readonly NavGroup[], can: (p: Permission) => boolean, strictCan: (p: Permission) => boolean = can): NavGroup[] {
   const out: NavGroup[] = [];
   for (const g of menu) {
     const items: NavItem[] = [];
     for (const i of g.items) {
-      if (!navAllowed(i.perm, can)) continue;
+      if (!navAllowed(i.perm, i.strict ? strictCan : can)) continue;
       if (i.tabs) {
-        const tabs = i.tabs.filter((t) => navAllowed(t.perm, can));
+        const tabs = i.tabs.filter((t) => navAllowed(t.perm, t.strict ? strictCan : can));
         const first = tabs[0];
         if (!first) continue;
         items.push({ ...i, href: first.href, tabs });
@@ -547,14 +554,14 @@ export function filterMenu(menu: readonly NavGroup[], can: (p: Permission) => bo
  *  - có → được vào nếu ÍT NHẤT MỘT mục/chip cùng đường dẫn được phép (chip: cần cả quyền của mục cha);
  *  - mục/chip `menuOnly` → coi như được phép (trang tự kiểm quyền rộng hơn một cách có chủ ý).
  */
-export function pageAllowed(menu: readonly NavGroup[], pathname: string, can: (p: Permission) => boolean): boolean | null {
+export function pageAllowed(menu: readonly NavGroup[], pathname: string, can: (p: Permission) => boolean, strictCan: (p: Permission) => boolean = can): boolean | null {
   let seen = false;
   for (const g of menu) {
     for (const i of g.items) {
-      const itemOk = i.menuOnly || navAllowed(i.perm, can);
+      const itemOk = i.menuOnly || navAllowed(i.perm, i.strict ? strictCan : can);
       const hrefs: { href: string; ok: boolean }[] = [];
       if (!i.tabs) hrefs.push({ href: i.href, ok: itemOk });
-      for (const t of i.tabs ?? []) hrefs.push({ href: t.href, ok: !!t.menuOnly || (itemOk && navAllowed(t.perm, can)) });
+      for (const t of i.tabs ?? []) hrefs.push({ href: t.href, ok: !!t.menuOnly || (itemOk && navAllowed(t.perm, t.strict ? strictCan : can)) });
       for (const h of hrefs) {
         if (pathOf(h.href) !== pathname) continue;
         if (h.ok) return true;

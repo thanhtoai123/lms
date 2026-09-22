@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { cookies, headers } from "next/headers";
 import { normalizeIdle } from "@satarobo/core";
 import { IDLE_COOKIE } from "@/lib/auth-session";
-import { filterMenu, pageAllowed, pagePermLabel, hasPermission, hasRole, ROLE_LABEL_VI, STAFF_ROLES, type Actor, type Role } from "@satarobo/core";
+import { centersWith, filterMenu, pageAllowed, pagePermLabel, hasPermission, hasRole, ROLE_LABEL_VI, STAFF_ROLES, type Actor, type Role } from "@satarobo/core";
 import { getServerCaller } from "@/lib/trpc/server";
 import { ADMIN_NAV } from "@/lib/admin-nav";
 import { AdminShell } from "@/components/admin-shell";
@@ -26,12 +26,14 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const idle = me.auth?.via === "supabase" ? normalizeIdle((await cookies()).get(IDLE_COOKIE)?.value ?? 60) : null;
   // Lọc theo quyền (hàng rào hiển thị; service vẫn kiểm tra chặt). Mục trung tâm giữ các chip được phép.
   const can = (p: Parameters<typeof hasPermission>[1]) => hasPermission(actor, p);
-  const nav = filterMenu(ADMIN_NAV, can);
+  // Quyền đầy đủ (không tính `_own`) ở ít nhất một cơ sở — cho các mục `strict` của menu
+  const strictCan = (p: Parameters<typeof hasPermission>[1]) => { const c = centersWith(actor, p); return c === null || c.length > 0; };
+  const nav = filterMenu(ADMIN_NAV, can, strictCan);
   // Hàng rào trang: mở thẳng URL của mục menu đã bị ẩn với vai trò này → báo "chưa có quyền"
   // thay vì chạy trang (trước đây: trang trống, hoặc lỗi 500 khi truy vấn của trang từ chối).
   // Chỉ khớp ĐÚNG đường dẫn của mục/chip; trang chi tiết và trang ngoài menu tự kiểm quyền như cũ.
   const path = (await headers()).get(PATH_REQUEST_HEADER) ?? "";
-  const blocked = path ? pageAllowed(ADMIN_NAV, path, can) === false : false;
+  const blocked = path ? pageAllowed(ADMIN_NAV, path, can, strictCan) === false : false;
   const main = PRIORITY.find((r) => roles.includes(r)) ?? roles[0]!;
   const initials = me.user.fullName.split(/\s+/).filter(Boolean).slice(-2).map((w) => w[0]!.toUpperCase()).join("") || "U";
 

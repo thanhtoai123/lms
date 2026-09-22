@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { hasPermission, type Actor } from "@satarobo/core";
+import { centersWith, hasPermission, type Actor } from "@satarobo/core";
 import { getServerCaller } from "@/lib/trpc/server";
 import { NoAccess, PageHeader } from "@/components/admin-ui";
 import { RememberFilters } from "@/components/remember-filters";
@@ -29,7 +29,12 @@ export default async function PortfolioCompliancePage({ searchParams }: { search
   const sp = await searchParams;
   const { caller, ctx } = await getServerCaller();
   if (!ctx.actor || !hasPermission(ctx.actor as Actor, "report_card:read")) return <NoAccess title="Học bạ & hồ sơ học tập" perm="report_card:read" />;
-  if (sp.xem === "hoc-ba-moc") return <MilestoneView classParam={sp.class} />;
+  if (sp.xem === "hoc-ba-moc") {
+    // Học bạ mốc cần report_card:read ĐẦY ĐỦ (giáo viên chỉ có bản _own → viết học bạ trong app giáo viên)
+    const full = centersWith(ctx.actor as Actor, "report_card:read");
+    if (full !== null && !full.length) return <NoAccess title="Học bạ mốc cần viết / duyệt" perm="report_card:read" />;
+    return <MilestoneView classParam={sp.class} />;
+  }
   if (sp.xem === "tra-cuu") return <LookupView student={sp.student} />;
   const id = (v?: string) => (v && UUID.test(v) ? v : null);
   const day = (v?: string) => (v && ISO.test(v) ? v : null);

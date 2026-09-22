@@ -6,7 +6,7 @@ import {
   ADMIN_MENU, LEGACY_REDIRECTS, MOVED_OUT_OF_SIDEBAR, REPORTS, activeNavItem, activeTab, allMenuHrefs, defaultOpenGroups,
   filterMenu, foldVi, menuManifest, navPrefixes, nextRedirects, pageAllowed, pagePermLabel, pathOf, queryOf, searchMenu,
 } from "./menu.js";
-import { hasPermission, ROLES, STAFF_ROLES, type Actor, type Role } from "../policy/policy.js";
+import { centersWith, hasPermission, ROLES, STAFF_ROLES, type Actor, type Role } from "../policy/policy.js";
 
 /** Ảnh chụp menu CŨ (120 mục, trước khi tái cấu trúc) — mọi đường dẫn phải còn chỗ đi tới */
 const OLD_MENU_HREFS = [
@@ -28,7 +28,8 @@ const OLD_MENU_HREFS = [
 ];
 
 const actorOf = (role: Role): Actor => ({ userId: "u", personId: "p", assignments: [{ role, centerId: role.startsWith("HO_") || role === "SUPER_ADMIN" || role === "TRAINING" || role === "AUDITOR" ? null : "c1" }] });
-const menuFor = (role: Role) => { const a = actorOf(role); return filterMenu(ADMIN_MENU, (p) => hasPermission(a, p)); };
+const strictOf = (a: Actor) => (p: Parameters<typeof hasPermission>[1]) => { const c = centersWith(a, p); return c === null || c.length > 0; };
+const menuFor = (role: Role) => { const a = actorOf(role); return filterMenu(ADMIN_MENU, (p) => hasPermission(a, p), strictOf(a)); };
 
 test("mọi href trong cây menu là duy nhất (mục + chip, trừ chip đầu trùng href mục)", () => {
   const seen = new Map<string, string>();
@@ -138,7 +139,7 @@ test("lọc theo quyền: chip không được phép bị bỏ, href mục = chi
   const teacher = menuFor("TEACHER");
   const all = allMenuHrefs(teacher);
   assert.ok(!all.includes("/users") && !all.includes("/chuyen-doi") && !all.includes("/hoi-thoai"));
-  assert.ok(all.includes("/teaching-materials") && all.includes("/ho-so-hoc-tap?xem=hoc-ba-moc"));
+  assert.ok(all.includes("/teaching-materials") && all.includes("/ho-so-hoc-tap?xem=tra-cuu") && !all.includes("/ho-so-hoc-tap?xem=hoc-ba-moc"));
   const sa = menuFor("SUPER_ADMIN");
   assert.equal(allMenuHrefs(sa).length, allMenuHrefs(ADMIN_MENU).length, "quản trị tối cao thấy mọi mục");
 });
@@ -186,7 +187,7 @@ test("hàng rào trang: URL của mục bị ẩn → không vào được; mụ
     const shown = new Set(allMenuHrefs(menuFor(role)).map(pathOf));
     for (const href of allMenuHrefs(ADMIN_MENU)) {
       const path = pathOf(href);
-      const ok = pageAllowed(ADMIN_MENU, path, can(role));
+      const ok = pageAllowed(ADMIN_MENU, path, can(role), strictOf(actorOf(role)));
       // Hiện trên menu ⇒ phải vào được (không bao giờ chặn nhầm thứ menu đưa tới)
       if (shown.has(path)) assert.equal(ok, true, `${role}: ${path} hiện trên menu nhưng hàng rào chặn`);
     }
@@ -198,4 +199,13 @@ test("hàng rào trang: URL của mục bị ẩn → không vào được; mụ
   // menuOnly: trang tự kiểm quyền rộng hơn một cách có chủ ý
   assert.equal(pageAllowed(ADMIN_MENU, "/bao-cao/sau-go-live", can("CENTER_ACCOUNTANT")), true);
   assert.ok(pagePermLabel(ADMIN_MENU, "/leads").length > 0);
+});
+
+test("mục strict: người chỉ có quyền _own (giáo viên) không thấy trang danh sách / lịch tổng gọi service không kèm chủ sở hữu", () => {
+  const hrefs = allMenuHrefs(menuFor("TEACHER"));
+  for (const h of ["/lich", "/sessions", "/students", "/lop-trial", "/rooms", "/class-groups", "/classes/kiem-tra-lich", "/ho-so-hoc-tap?xem=hoc-ba-moc"]) {
+    assert.ok(!hrefs.includes(h), `giáo viên không nên thấy ${h}`);
+  }
+  assert.ok(hrefs.includes("/classes"), "giáo viên vẫn thấy Lớp học (trang tự lọc lớp của mình)");
+  assert.ok(allMenuHrefs(menuFor("CENTER_MANAGER")).includes("/lich"));
 });
