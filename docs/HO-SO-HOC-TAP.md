@@ -346,7 +346,18 @@ nhóm "Học bạ kỳ chưa viết" (đã có — không thêm nhóm mới, nê
 
 ## 15. Quản lý hồ sơ học tập (`/ho-so-hoc-tap`)
 
-Menu *Học viên & Đăng ký học → Quản lý hồ sơ học tập* (icon `folder-check`, quyền `report_card:read`). Một màn hình, không tab:
+Menu *Học viên → **Học bạ & hồ sơ học tập*** (icon `folder-check`, quyền `report_card:read`) — **mục menu duy nhất cho học bạ**
+(docs/KIEN-TRUC-MENU.md §3). Ba chip chế độ xem:
+
+| Chip | Đường dẫn | Thay cho |
+|---|---|---|
+| Tổng quan chuẩn hồ sơ (màn dưới đây) | `/ho-so-hoc-tap` | "Quản lý hồ sơ học tập" |
+| Học bạ mốc cần viết / duyệt — lưới theo lớp + hàng đợi duyệt | `/ho-so-hoc-tap?xem=hoc-ba-moc&class=<lớp>` | `/report-cards` "Học bạ năng lực" (chuyển hướng 308) |
+| Tra cứu học viên — học bạ mọi trạng thái, chứng nhận, mở hồ sơ | `/ho-so-hoc-tap?xem=tra-cuu&student=<HV>` | `/hoc-ba` "Học bạ" (chuyển hướng 308) |
+
+Viết / duyệt một học bạ vẫn ở `/report-cards/<ghi danh>/<buổi mốc>`, tiêu chí ở `/report-cards/criteria`.
+
+Chip *Tổng quan chuẩn hồ sơ* — một màn hình:
 
 | Chỉ số | Cách tính | Cách đọc |
 |---|---|---|
