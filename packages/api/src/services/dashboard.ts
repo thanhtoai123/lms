@@ -54,7 +54,7 @@ export async function adminOverview(ctx: ProtectedContext) {
   // Sau: 1 count(*) cho hai con số + 1 truy vấn lấy đúng 3 dòng xem trước.
   if (can("report_card:read")) {
     const [c, due] = await Promise.all([countDueReportCards(ctx), dueReportCards(ctx, { limit: 3 })]);
-    queues.push({ key: "report_cards", title: "Học bạ kỳ chưa viết (buổi 5 / buổi 12)", count: c.total, overdue: c.overdue, href: "/report-cards", preview: due.map((d) => `${d.classCode} · ${d.studentName} · buổi ${d.seq}`) });
+    queues.push({ key: "report_cards", title: "Học bạ kỳ chưa viết (buổi 5 / buổi 12)", count: c.total, overdue: c.overdue, href: "/ho-so-hoc-tap?xem=hoc-ba-moc", preview: due.map((d) => `${d.classCode} · ${d.studentName} · buổi ${d.seq}`) });
   }
 
   // 0b) Lớp chờ duyệt mở

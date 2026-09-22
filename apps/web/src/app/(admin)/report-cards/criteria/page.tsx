@@ -13,7 +13,7 @@ export default async function CriteriaPage() {
   const canEdit = hasPermission(ctx.actor as Actor, "report_card:configure");
   return (
     <div className="space-y-4">
-      <PageHeader title="Cấu hình tiêu chí năng lực" desc="Mỗi khoá một bộ tiêu chí chấm 1–5 cho học bạ. Tắt tiêu chí thay vì xoá để giữ lịch sử điểm." actions={<Link href="/report-cards" className="btn-ghost">← Học bạ năng lực</Link>} />
+      <PageHeader title="Cấu hình tiêu chí năng lực" desc="Mỗi khoá một bộ tiêu chí chấm 1–5 cho học bạ. Tắt tiêu chí thay vì xoá để giữ lịch sử điểm." actions={<Link href="/ho-so-hoc-tap?xem=hoc-ba-moc" className="btn-ghost">← Học bạ mốc</Link>} />
       <div className="grid gap-4 lg:grid-cols-2">
         {courses.map((c) => (
           <CourseCriteria key={c.id} canEdit={canEdit} course={{ id: c.id, code: c.code, name: c.name, nextCourseId: c.nextCourseId, milestones: c.milestones }} criteria={c.criteria.map((x) => ({ id: x.id, name: x.name, description: x.description, isActive: x.isActive }))} allCourses={courses.map((x) => ({ id: x.id, code: x.code, name: x.name }))} />

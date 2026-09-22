@@ -1,21 +1,22 @@
 import Link from "next/link";
-import { hasPermission, type Actor, REPORT_CARD_STATUS_VI, type ReportCardStatus } from "@satarobo/core";
+import { hasPermission, type Actor, REPORT_CARD_STATUS_VI } from "@satarobo/core";
 import { getServerCaller } from "@/lib/trpc/server";
 import { PageHeader, RC_CHIP } from "@/components/admin-ui";
 import { Empty } from "@/components/ui";
-import { ReviewQueue } from "./queue";
+import { ReviewQueue } from "./review-queue";
 
-export const dynamic = "force-dynamic";
-export const metadata = { title: "Học bạ năng lực" };
-
-
-export default async function ReportCardsPage({ searchParams }: { searchParams: Promise<{ class?: string }> }) {
-  const sp = await searchParams;
+/**
+ * Chip "Học bạ mốc cần viết / duyệt" của trang Học bạ & hồ sơ học tập (trước đây là trang /report-cards
+ * "Học bạ năng lực" — đường cũ chuyển hướng 308 về đây, giữ nguyên ?class=).
+ * Lưới học bạ mốc theo lớp + hàng đợi duyệt (Chờ duyệt → Đã duyệt, chờ gửi PH). Viết / duyệt từng học bạ
+ * ở trang chi tiết /report-cards/<ghi danh>/<buổi mốc>.
+ */
+export async function MilestoneView({ classParam }: { classParam?: string }) {
   const { caller, ctx } = await getServerCaller();
   const actor = ctx.actor as Actor;
   const canApprove = hasPermission(actor, "report_card:approve");
   const opts = (await caller.schedule.classOptions()).filter((c) => c.status === "running" || c.status === "finished" || c.status === "recruiting");
-  const classId = sp.class && opts.some((c) => c.id === sp.class) ? sp.class : undefined;
+  const classId = classParam && opts.some((c) => c.id === classParam) ? classParam : undefined;
   const [data, queue, due] = await Promise.all([
     classId ? caller.learning.classReportCards({ classId }) : Promise.resolve(null),
     canApprove ? caller.learning.reviewQueue() : Promise.resolve([]),
@@ -23,20 +24,25 @@ export default async function ReportCardsPage({ searchParams }: { searchParams: 
   ]);
   const dueByClass = new Map<string, { code: string; n: number }>();
   for (const d of due) dueByClass.set(d.classId, { code: d.classCode, n: (dueByClass.get(d.classId)?.n ?? 0) + 1 });
+  const classHref = (id: string) => `/ho-so-hoc-tap?xem=hoc-ba-moc&class=${id}`;
 
   return (
     <div className="space-y-4">
       <PageHeader
-        title="Học bạ năng lực"
-        desc="Mỗi kỳ 12 buổi có học bạ giữa kỳ (buổi 5) và cuối kỳ (buổi 12). Giáo viên chấm theo tiêu chí của khoá → giáo vụ duyệt → gửi phụ huynh."
+        title="Học bạ mốc cần viết / duyệt"
+        desc="Mỗi kỳ 12 buổi có học bạ giữa kỳ (buổi 5) và cuối kỳ (buổi 12). Học bạ tự điền sẵn trung bình các phiếu buổi của giai đoạn — giáo viên xác nhận và viết nhận xét → giáo vụ duyệt → gửi phụ huynh."
         actions={<Link href="/report-cards/criteria" className="btn-ghost">Tiêu chí học bạ</Link>}
       />
       <div className="grid gap-4 xl:grid-cols-[1fr_340px]">
         <div className="space-y-3">
-          <form className="flex gap-2">
-            <select name="class" defaultValue={classId ?? ""} className="input max-w-lg">
+          <form className="flex gap-2" action="/ho-so-hoc-tap">
+            <input type="hidden" name="xem" value="hoc-ba-moc" />
+            <select name="class" defaultValue={classId ?? ""} className="input max-w-lg" aria-label="Lớp">
               <option value="">— Chọn lớp —</option>
-              {opts.map((c) => <option key={c.id} value={c.id}>{c.centerCode} · {c.code} — {c.name}{dueByClass.get(c.id) ? ` (${dueByClass.get(c.id)!.n} chưa viết)` : ""}</option>)}
+              {opts.map((c) => {
+                const n = dueByClass.get(c.id)?.n;
+                return <option key={c.id} value={c.id}>{c.centerCode} · {c.code} — {c.name}{n ? ` (${n} chưa viết)` : ""}</option>;
+              })}
             </select>
             <button className="btn-primary">Xem học viên</button>
           </form>
@@ -44,7 +50,7 @@ export default async function ReportCardsPage({ searchParams }: { searchParams: 
             <div className="card p-4">
               <h2 className="mb-2 font-bold">Lớp có học bạ chưa viết</h2>
               {dueByClass.size === 0 ? <p className="text-sm text-ink-400">Không có học bạ quá mốc chưa viết.</p> : (
-                <div className="flex flex-wrap gap-2">{[...dueByClass.entries()].map(([id, v]) => <Link key={id} href={`/report-cards?class=${id}`} className="chip bg-red-50 px-3 py-1.5 text-red-700">{v.code} · {v.n}</Link>)}</div>
+                <div className="flex flex-wrap gap-2">{[...dueByClass.entries()].map(([id, v]) => <Link key={id} href={classHref(id)} className="chip bg-red-50 px-3 py-1.5 text-red-700">{v.code} · {v.n}</Link>)}</div>
               )}
             </div>
           ) : (
@@ -62,7 +68,10 @@ export default async function ReportCardsPage({ searchParams }: { searchParams: 
                     <tbody className="divide-y divide-black/5">
                       {data.rows.map((r) => (
                         <tr key={r.enrollmentId}>
-                          <td className="p-3"><Link href={`/hoc-ba?student=${r.studentId}`} className="font-medium hover:text-brand-600">{r.fullName}</Link><div className="font-mono text-[10px] text-ink-400">{r.code}</div></td>
+                          <td className="p-3">
+                            <Link href={`/ho-so-hoc-tap/${r.studentId}?enrollmentId=${r.enrollmentId}`} className="font-medium hover:text-brand-600" title="Mở hồ sơ học tập khoá này">{r.fullName}</Link>
+                            <div className="font-mono text-[10px] text-ink-400">{r.code}</div>
+                          </td>
                           {r.cells.map((c) => (
                             <td key={c.seq} className="p-1 text-center">
                               {!c.applicable ? <span className="text-[10px] text-ink-400">—</span> : !c.reached && !c.cardId ? <span className="text-[10px] text-ink-400">chưa tới</span> : (

@@ -327,7 +327,7 @@ async function reportCardGroup(ctx: ProtectedContext): Promise<InboxGroup | null
   return {
     key: "report_card", title: "Học bạ kỳ chưa viết", icon: "scroll-text",
     actionLabel: "Viết học bạ", actionKind: "open", undoable: false,
-    href: "/report-cards", emptyHint: "Học bạ các mốc đã viết đủ.",
+    href: "/ho-so-hoc-tap?xem=hoc-ba-moc", emptyHint: "Học bạ các mốc đã viết đủ.",
     total: c.total, overdue: c.overdue,
     items: rows.map((r) => ({
       id: `${r.enrollmentId}:${r.seq}`,

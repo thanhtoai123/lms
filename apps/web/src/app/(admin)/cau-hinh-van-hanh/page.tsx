@@ -29,7 +29,7 @@ const TABS: Tab[] = [
   { key: "otp", label: "Đăng nhập/OTP", kind: "ops", group: "otp", desc: "Áp cho toàn hệ thống: đăng nhập nhân sự (tự đăng xuất, khoá tạm khi sai mật khẩu), đăng nhập cổng phụ huynh và kích hoạt tài khoản." },
   { key: "hoc-vien", label: "Học viên", kind: "ops", group: "hoc-vien", desc: "Ngưỡng sắp hết khoá, bảo lưu tối đa, hạn học bù, cảnh báo chuyên cần." },
   { key: "lop", label: "Lớp & GV", kind: "ops", group: "lop", desc: "Quy tắc điểm danh bằng thẻ QR." },
-  { key: "ho-so-hoc-tap", label: "Hồ sơ học tập", kind: "ops", group: "ho-so-hoc-tap", desc: "Chuẩn thông tin hồ sơ học tập: điều kiện phát hành phiếu (mục tiêu bài, sản phẩm), chặn hoàn tất buổi khi thiếu phiếu, độ dài nhận xét tối thiểu, tỷ lệ bằng chứng, hạn hoàn thiện phiếu và học bạ mốc, ngưỡng hồ sơ đạt chuẩn. Theo dõi ở Quản lý hồ sơ học tập." },
+  { key: "ho-so-hoc-tap", label: "Hồ sơ học tập", kind: "ops", group: "ho-so-hoc-tap", desc: "Chuẩn thông tin hồ sơ học tập: điều kiện phát hành phiếu (mục tiêu bài, sản phẩm), chặn hoàn tất buổi khi thiếu phiếu, độ dài nhận xét tối thiểu, tỷ lệ bằng chứng, hạn hoàn thiện phiếu và học bạ mốc, ngưỡng hồ sơ đạt chuẩn. Theo dõi ở Học bạ & hồ sơ học tập." },
   { key: "cham-cong", label: "Chấm công", kind: "ops", group: "cham-cong", desc: "Dung sai tính đi muộn / về sớm. Bán kính chấm công đặt theo từng cơ sở ở trang Cơ sở." },
   { key: "lead", label: "Khách hàng (lead)", kind: "lead" },
   { key: "thanh-toan", label: "Thanh toán", kind: "ops", group: "thanh-toan", desc: "Mặc định nhắc đợt thanh toán cho đơn mới (sửa được trên từng đơn), trần giảm giá dòng, tuổi nợ, hạn dùng mã QR chuyển khoản và dạng mã đơn hàng." },

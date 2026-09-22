@@ -17,7 +17,7 @@ export default async function ReportCardPage({ params }: { params: Promise<{ enr
   const actor = ctx.actor as Actor;
   return (
     <div className="max-w-4xl space-y-4">
-      <Link href={`/report-cards?class=${d.class.id}`} className="text-sm text-ink-600">← Học bạ lớp {d.class.code}</Link>
+      <Link href={`/ho-so-hoc-tap?xem=hoc-ba-moc&class=${d.class.id}`} className="text-sm text-ink-600">← Học bạ mốc lớp {d.class.code}</Link>
       <header className="card flex flex-wrap items-start justify-between gap-3 p-5">
         <div>
           <h1 className="text-xl font-bold">{d.enrollment.studentName}</h1>
