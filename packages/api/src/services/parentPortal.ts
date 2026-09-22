@@ -108,7 +108,8 @@ async function childIds(d: Db, parentId: string) {
   return (await d.select({ id: studentGuardians.studentId }).from(studentGuardians).where(eq(studentGuardians.parentId, parentId))).map((r) => r.id);
 }
 
-async function balances(d: Db, parentId: string) {
+/** Đơn học phí của gia đình (đơn đứng tên PH hoặc của các con) kèm số đã đóng / còn lại */
+export async function balances(d: Db, parentId: string) {
   const os = await d.select({ id: orders.id, code: orders.code, total: orders.total, status: orders.status, centerId: orders.centerId, createdAt: orders.createdAt, student: students.fullName,
     paid: sql<number>`(select coalesce(sum(p.amount), 0)::float from ${payments} p where p.order_id = ${orders.id} and p.status = 'confirmed')` })
     .from(orders).leftJoin(students, eq(students.id, orders.studentId))

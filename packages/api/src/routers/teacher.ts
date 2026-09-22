@@ -6,6 +6,9 @@ import { addDays, hasRole } from "@satarobo/core";
 import { router, protectedProcedure } from "../trpc";
 import { listSessions, todayISO } from "../services/sessions";
 import { listClasses } from "../services/classes";
+import { teacherFeedbackFeed, sessionExtras, sessionPrep, classInsights } from "../services/teacherHub";
+
+const uuid = z.string().uuid();
 
 async function myTeacherId(ctx: { db: import("@satarobo/db").Database; user: { id: string }; actor: import("@satarobo/core").Actor }) {
   const t = await ctx.db.query.teachers.findFirst({ where: eq(teachers.userId, ctx.user.id), columns: { id: true, fullName: true, centerId: true } });
@@ -38,4 +41,22 @@ export const teacherRouter = router({
   }),
 
   isTeacher: protectedProcedure.query(({ ctx }) => hasRole(ctx.actor, "TEACHER", "ASSISTANT_TEACHER")),
+
+  /** Phản hồi mới của phụ huynh (cảm xúc sau buổi) cho buổi mình dạy — docs/PHIA-NGUOI-DUNG.md */
+  feedback: protectedProcedure.input(z.object({ days: z.number().int().min(1).max(60).optional(), limit: z.number().int().min(1).max(50).optional() }).default({})).query(async ({ ctx, input }) => {
+    const t = await myTeacherId(ctx);
+    return teacherFeedbackFeed(ctx, t.id, input);
+  }),
+
+  /** Màn "Chuẩn bị buổi dạy": bài, mục tiêu, học cụ, tiêu chí + mô tả mức, tài liệu, học viên cần lưu ý */
+  prep: protectedProcedure.input(z.object({ sessionId: uuid })).query(({ ctx, input }) => sessionPrep(ctx, input.sessionId)),
+
+  /** Bổ sung màn buổi dạy: phản hồi PH của buổi + sĩ số kèm đồng ý đăng ảnh (chụp & gắn ảnh nhanh) */
+  sessionExtras: protectedProcedure.input(z.object({ sessionId: uuid })).query(({ ctx, input }) => sessionExtras(ctx, input.sessionId)),
+
+  /** Lớp của tôi: tiến độ, học viên có nguy cơ, học bạ mốc sắp đến hạn */
+  classInsights: protectedProcedure.query(async ({ ctx }) => {
+    const t = await myTeacherId(ctx);
+    return classInsights(ctx, t.id);
+  }),
 });

@@ -90,7 +90,7 @@ export { publicSurvey, submitPublicSurvey, runSurveyTriggers } from "./services/
 export { publicTrialReport, publicTrialReportRespond, CONSULT_RECEIVED_MESSAGE, type PublicTrialReportResult } from "./services/trialReports";
 export { publicPortfolio, portalPortfolio, portfolioForRender, type PublicPortfolioResult } from "./services/portfolio";
 export { verifyPortfolioRenderSignature } from "./storage";
-export { publicCertificate, uploadTemplateBackground, type PublicCertificateResult, type PublicCertificateView, type PrintableCertificate } from "./services/certificates";
+export { publicCertificate, portalCertificate, uploadTemplateBackground, type PublicCertificateResult, type PublicCertificateView, type PrintableCertificate } from "./services/certificates";
 export { logWebhook, mapPublicLeadBody, requestOtp, verifyOtp, processEmailQueue } from "./services/admin";
 export { addDocumentVersion } from "./services/documents";
 export { publicHomework, submitPublicHomework, staffSubmit, remindDueHomework } from "./services/assignments";
@@ -102,6 +102,10 @@ export { syncAffiliateRewards } from "./services/affiliates";
 export { healthCheck, recordHeartbeat } from "./services/ops";
 export { syncInvoiceDrafts, publicInvoiceLookup } from "./services/einvoice";
 export * as ParentPortal from "./services/parentPortal";
+export {
+  familyChildren, hubHome, hubSchedule, hubRequests, parentSubmitRequest, parentCancelRequest, parentReact, hubCoins, hubJourney,
+  type ScheduleEntry, type HubResult, type ParentHubRequestInput,
+} from "./services/parentHub";
 export { parentConversations, parentThread, parentPost, parentStart } from "./services/messaging";
 export { dispatchParentMessages } from "./services/delivery";
 export { parallelReminders } from "./services/cutover";
