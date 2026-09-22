@@ -24,6 +24,7 @@ $script:Started = Get-Date
 $script:Tmp = Join-Path $env:TEMP ("ktmenu-" + $script:Started.ToString("yyyyMMddHHmmss") + "-" + (Get-Random -Minimum 1000 -Maximum 9999))
 New-Item -ItemType Directory -Path $script:Tmp -Force | Out-Null
 
+$script:dead = 0
 $script:results = New-Object System.Collections.ArrayList
 $script:summary = New-Object System.Collections.ArrayList
 
@@ -75,6 +76,14 @@ function Fetch([string]$path, [string]$who) {
   $code = $parts[0]
   $loc = ""
   if ($parts.Length -gt 1) { $loc = $parts[1] }
+  # Máy chủ web chết giữa chừng: curl trả 000 liên tục -> dừng ngay, khỏi chạy hàng trăm yêu cầu vô ích
+  if ($code -eq "000") { $script:dead++ } else { $script:dead = 0 }
+  if ($script:dead -ge 5) {
+    Write-Host ""
+    Write-Host ("MAY CHU WEB KHONG TRA LOI (5 yeu cau lien tiep that bai, lan cuoi: " + $path + "). Xem logs\web.log. Dung kiem tra.") -ForegroundColor Red
+    Write-Host "KET LUAN: KHONG DAT — may chu web ngung giua chung"
+    exit 3
+  }
   $html = ""
   if (Test-Path $f) { $html = [System.IO.File]::ReadAllText($f, [System.Text.Encoding]::UTF8); Remove-Item $f -Force -ErrorAction SilentlyContinue }
   return @{ code = $code; loc = $loc; html = $html; ms = [int]$sw.ElapsedMilliseconds }

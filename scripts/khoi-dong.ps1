@@ -17,6 +17,44 @@ Set-Location $R
 
 function Noi($m, $mau = "Gray") { Write-Host $m -ForegroundColor $mau }
 
+# Nhat ky cua may chu web / worker ghi ra logs\*.log (van hien trong cua so) — de khi tien trinh
+# chet giua chung van doc lai duoc nguyen nhan, khong phu thuoc cua so con mo hay khong.
+$LogDir = Join-Path $R "logs"
+New-Item -ItemType Directory -Path $LogDir -Force | Out-Null
+
+function DongCuaSoCu([string]$tieuDe) {
+  # Cac cua so do chinh script nay mo o lan truoc: nhan dien qua dong lenh co tieu de rieng.
+  foreach ($p in @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
+      ($_.Name -eq "cmd.exe" -or $_.Name -eq "powershell.exe") -and $_.CommandLine -like ("*" + $tieuDe + "*") -and $_.ProcessId -ne $PID })) {
+    & taskkill.exe /PID $p.ProcessId /T /F 2>&1 | Out-Null
+  }
+  # Cua so do phien ban moi cua script mo: PID luu trong logs\<ten>.pid
+  $pf = Join-Path $LogDir (($tieuDe -replace '[^A-Za-z]', '') + ".pid")
+  if (Test-Path $pf) {
+    $old = (Get-Content $pf -ErrorAction SilentlyContinue | Select-Object -First 1)
+    if ($old -match '^\d+$') { & taskkill.exe /PID $old /T /F 2>&1 | Out-Null }
+    Remove-Item $pf -Force -ErrorAction SilentlyContinue
+  }
+}
+
+function MoCuaSoGhiLog([string]$tieuDe, [string]$lenh, [string]$tepLog) {
+  $f = Join-Path $LogDir $tepLog
+  if (Test-Path $f) { Move-Item $f ($f + ".cu") -Force -ErrorAction SilentlyContinue }
+  $ps = @"
+`$host.UI.RawUI.WindowTitle = '$tieuDe'
+`$env:ALLOW_DEV_ACTOR = '1'
+`$env:FORCE_COLOR = '0'
+Set-Location '$R'
+Add-Content -Path '$f' -Value ('=== ' + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + ' $lenh') -Encoding UTF8
+cmd /c '$lenh 2>&1' | ForEach-Object { Write-Host `$_; Add-Content -Path '$f' -Value `$_ -Encoding UTF8 }
+Add-Content -Path '$f' -Value ('=== ' + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + ' tien trinh da thoat, ma ' + `$LASTEXITCODE) -Encoding UTF8
+Write-Host 'Tien trinh da dung. Xem $f' -ForegroundColor Red
+"@
+  $enc = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($ps))
+  $pr = Start-Process -FilePath "powershell.exe" -ArgumentList "-NoExit","-NoProfile","-ExecutionPolicy","Bypass","-EncodedCommand",$enc -WorkingDirectory $R -WindowStyle Minimized -PassThru
+  Set-Content -Path (Join-Path $LogDir (($tieuDe -replace '[^A-Za-z]', '') + ".pid")) -Value $pr.Id -Encoding ASCII
+}
+
 Noi "== Khoi dong he thong Sata Robo ==" "Cyan"
 Noi ("Thu muc: " + $R)
 
@@ -68,15 +106,16 @@ if ($dangChay) {
   Noi "May chu web: da chay san" "Green"
 } else {
   Noi "Dang khoi dong may chu web..." "Yellow"
-  $env:ALLOW_DEV_ACTOR = "1"
-  Start-Process -FilePath "cmd.exe" -ArgumentList "/k","title Sata Robo dev server && set ALLOW_DEV_ACTOR=1 && pnpm dev" -WorkingDirectory $R -WindowStyle Minimized
+  # Cua so cu cua lan truoc (tien trinh node da chet nhung cua so cmd con mo) -> dong di cho gon
+  DongCuaSoCu "Sata Robo dev server"
+  MoCuaSoGhiLog "Sata Robo dev server" "pnpm --filter @satarobo/web dev" "web.log"
   for ($i = 0; $i -lt 48; $i++) {
     Start-Sleep -Seconds 5
     try { $x = Invoke-WebRequest ($BaseUrl + "/login") -UseBasicParsing -TimeoutSec 8; if ($x.StatusCode -eq 200) { $dangChay = $true; break } } catch { }
     Write-Host "." -NoNewline
   }
   Write-Host ""
-  if (-not $dangChay) { Noi "May chu web khong len. Xem cua so 'Sata Robo dev server'." "Red"; exit 1 }
+  if (-not $dangChay) { Noi "May chu web khong len. Xem logs\web.log" "Red"; exit 1 }
   Noi "May chu web: san sang" "Green"
 }
 
@@ -87,9 +126,13 @@ $coWorker = @(Get-CimInstance Win32_Process -Filter "Name='node.exe'" -ErrorActi
 if ($coWorker) {
   Noi "Worker viec nen: da chay san" "Green"
 } else {
-  $env:ALLOW_DEV_ACTOR = "1"
-  Start-Process -FilePath "cmd.exe" -ArgumentList "/k","title Sata Robo worker && pnpm worker" -WorkingDirectory $R -WindowStyle Minimized
-  Noi "Worker viec nen: da khoi dong (cua so 'Sata Robo worker')" "Green"
+  DongCuaSoCu "Sata Robo worker"
+  MoCuaSoGhiLog "Sata Robo worker" "pnpm worker" "worker.log"
+  # Worker chet ngay khi vua len (thieu bien moi truong, loi ket noi...) thi bao luon, dung de im lang
+  Start-Sleep -Seconds 12
+  $conSong = @(Get-CimInstance Win32_Process -Filter "Name='node.exe'" -ErrorAction SilentlyContinue | Where-Object { $_.CommandLine -like "*worker.ts*" }).Count -gt 0
+  if ($conSong) { Noi "Worker viec nen: da khoi dong (cua so 'Sata Robo worker', nhat ky logs\worker.log)" "Green" }
+  else { Noi "Worker viec nen KHONG chay duoc — xem logs\worker.log" "Red" }
 }
 
 Noi ""
