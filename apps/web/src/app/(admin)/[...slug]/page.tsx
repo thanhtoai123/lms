@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { hasPermission, type Actor } from "@satarobo/core";
+import { hasPermission, navAllowed, type Actor } from "@satarobo/core";
 import { getServerCaller } from "@/lib/trpc/server";
 import { ALL_NAV_ITEMS } from "@/lib/admin-nav";
 
@@ -21,7 +21,8 @@ export default async function PlannedScreen({ params }: { params: Promise<{ slug
   const item = ALL_NAV_ITEMS.find((i) => i.href === path);
   if (!item || item.ready !== false) notFound();
   const { ctx } = await getServerCaller();
-  if (item.perm && ctx.actor && !hasPermission(ctx.actor as Actor, item.perm)) {
+  // `perm` có thể là một quyền hoặc danh sách "một trong các quyền" — dùng đúng luật của menu
+  if (item.perm && ctx.actor && !navAllowed(item.perm, (p) => hasPermission(ctx.actor as Actor, p))) {
     return <div className="card p-6 text-sm">Bạn không có quyền xem <b>{item.label}</b>.</div>;
   }
   const siblings = ALL_NAV_ITEMS.filter((i) => i.group === item.group && i.href !== item.href);
