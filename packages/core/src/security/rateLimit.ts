@@ -177,6 +177,11 @@ export const RATE_LIMITS = {
   trialReportRespondIp: { max: 30, windowMs: 15 * 60_000 },
   /** Trang hồ sơ học tập chia sẻ công khai (/hs/…) theo IP — rộng như phiếu học thử, chỉ chặn máy dò token */
   portfolioViewIp: { max: 300, windowMs: 15 * 60_000 },
+  /**
+   * Trang xác thực giấy chứng nhận công khai (/cn/…) theo IP — người quét QR trên giấy in
+   * (phụ huynh, trường học, ban tổ chức cuộc thi) mở vài lần; trần chỉ để chặn máy dò token.
+   */
+  certificateVerifyIp: { max: 120, windowMs: 15 * 60_000 },
 } as const satisfies Record<string, { max: number; windowMs: number }>;
 
 export type RateLimitName = keyof typeof RATE_LIMITS;

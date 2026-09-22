@@ -2,7 +2,7 @@ import { and, eq, inArray, sql, asc, desc, isNull, lte, gt } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import {
   competencyCriteria, reportCards, reportCardScores, courseCompletions, courses, classes, enrollments, students, sessions, lessons,
-  studentGuardians, parentNotifications, centers, users, sessionEvaluations, attendance,
+  studentGuardians, parentNotifications, centers, users, sessionEvaluations, attendance, certificates,
 } from "@satarobo/db";
 import {
   reportCardTransition, reportCardMilestones, milestoneLabel, validateReportCard, averageScore, gradeFromAverage, certificateNumber,
@@ -18,6 +18,7 @@ import { writeAudit } from "./audit";
 import { emit } from "./outbox";
 import { consumedSql } from "./students";
 import { todayISO } from "./sessions";
+import { createCourseCertificate } from "./certificates";
 
 type Db = ProtectedContext["db"];
 
@@ -456,14 +457,18 @@ async function issueCompletion(
       certificateNo: certNo, nextCourseId: e.nextCourseId, decidedBy: ctx.user.id, decidedAt: now, rejectReason: null,
       issuedAt: now, issuedBy: ctx.user.id, updatedAt: now,
     };
+    let completionId: string | null = input.existingId ?? null;
     if (input.existingId) {
       await tx.update(courseCompletions).set(values).where(eq(courseCompletions.id, input.existingId));
     } else {
-      await tx.insert(courseCompletions).values({
+      const [ins] = await tx.insert(courseCompletions).values({
         enrollmentId: e.id, courseId: e.courseId, ...values,
         proposedBy: input.proposedBy ?? ctx.user.id, proposedAt: input.proposedAt ?? now,
-      });
+      }).returning({ id: courseCompletions.id });
+      completionId = ins?.id ?? null;
     }
+    // Sổ chứng nhận: mỗi hoàn thành khoá đã duyệt có một giấy chứng nhận (giữ số SR-…) kèm mã QR xác thực /cn/<token>
+    if (completionId) await createCourseCertificate(tx as unknown as Db, { completionId, number: certNo, issuedAt: now, issuedBy: ctx.user.id });
     const others = await tx.select({ s: enrollments.status }).from(enrollments).where(and(eq(enrollments.studentId, e.studentId), inArray(enrollments.status, ["active", "trial", "paused"])));
     if (others.length === 0) await tx.update(students).set({ status: "alumni" }).where(eq(students.id, e.studentId));
     await emit(tx as unknown as Db, { type: "course.completed", enrollmentId: e.id, studentId: e.studentId, courseId: e.courseId, nextCourseId: e.nextCourseId });
@@ -635,7 +640,8 @@ export async function listCompletions(ctx: ProtectedContext, input: { centerId?:
 
 export async function getCertificate(ctx: ProtectedContext, id: string) {
   const [r] = await ctx.db
-    .select({ id: courseCompletions.id, status: courseCompletions.status, grade: courseCompletions.grade, certificateNo: courseCompletions.certificateNo, issuedAt: courseCompletions.issuedAt, teacherEvaluation: courseCompletions.teacherEvaluation, revokedAt: courseCompletions.revokedAt, studentName: students.fullName, studentCode: students.code, dateOfBirth: students.dateOfBirth, courseName: courses.name, courseCode: courses.code, totalSessions: courses.totalSessions, centerName: centers.name, centerId: centers.id })
+    .select({ id: courseCompletions.id, status: courseCompletions.status, grade: courseCompletions.grade, certificateNo: courseCompletions.certificateNo, issuedAt: courseCompletions.issuedAt, teacherEvaluation: courseCompletions.teacherEvaluation, revokedAt: courseCompletions.revokedAt, studentName: students.fullName, studentCode: students.code, dateOfBirth: students.dateOfBirth, courseName: courses.name, courseCode: courses.code, totalSessions: courses.totalSessions, centerName: centers.name, centerId: centers.id,
+      certificateId: sql<string | null>`(select x.id from ${certificates} x where x.course_completion_id = ${courseCompletions.id} and x.status = 'valid' limit 1)` })
     .from(courseCompletions)
     .innerJoin(enrollments, eq(enrollments.id, courseCompletions.enrollmentId))
     .innerJoin(students, eq(students.id, enrollments.studentId))

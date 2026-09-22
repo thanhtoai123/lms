@@ -19,7 +19,7 @@ import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import {
   students, enrollments, classes, courses, centers, sessions, attendance, sessionEvaluations, reportCards, reportCardScores,
-  competencyCriteria, courseCompletions, portfolioShares, portfolioExports, studentGuardians, users, type Database,
+  competencyCriteria, courseCompletions, portfolioShares, portfolioExports, studentGuardians, users, certificates as certificateBook, type Database,
 } from "@satarobo/db";
 import {
   isSessionEvalSnapshot, sessionAverage, snapshotScores, progressSeries, tallyAttendance, sumAttendance, mean, milestoneLabel,
@@ -28,6 +28,7 @@ import {
   PORTFOLIO_TOKEN_RE, PORTFOLIO_SHARE_SCOPE_VI, PORTFOLIO_SHARE_STATE_VI, ENROLLMENT_STATUS_VI,
   type PortfolioScope, type PortfolioView, type PortfolioCourseView, type SessionSheetView, type MilestoneCardView,
   type PortfolioCertificate, type EnrollmentStatus, type PortfolioShareState,
+  certificateVerifyPath, isCertificateSnapshot,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { assertTenant, redact, tenantCond } from "./tenantScope";
@@ -94,10 +95,17 @@ export async function buildPortfolio(db: Db, studentId: string, scopeIn: Portfol
         .from(reportCards).leftJoin(users, eq(users.id, reportCards.authorId))
         .where(and(inArray(reportCards.enrollmentId, ids), eq(reportCards.status, "published")))
         .orderBy(asc(reportCards.milestoneSeq)),
-      db.select({ enrollmentId: courseCompletions.enrollmentId, certificateNo: courseCompletions.certificateNo, grade: courseCompletions.grade, issuedAt: courseCompletions.issuedAt, courseName: courses.name })
+      db.select({ id: courseCompletions.id, enrollmentId: courseCompletions.enrollmentId, certificateNo: courseCompletions.certificateNo, grade: courseCompletions.grade, issuedAt: courseCompletions.issuedAt, courseName: courses.name })
         .from(courseCompletions).innerJoin(courses, eq(courses.id, courseCompletions.courseId))
         .where(and(inArray(courseCompletions.enrollmentId, ids), eq(courseCompletions.status, "approved"), isNull(courseCompletions.revokedAt))),
   ]);
+
+  // Sổ chứng nhận (còn hiệu lực): mã QR xác thực của chứng nhận khoá + giấy chứng nhận hoàn thành lộ trình
+  const certBook = await db
+    .select({ kind: certificateBook.kind, courseCompletionId: certificateBook.courseCompletionId, number: certificateBook.number, issuedAt: certificateBook.issuedAt, verifyToken: certificateBook.verifyToken, snapshot: certificateBook.snapshot })
+    .from(certificateBook)
+    .where(and(eq(certificateBook.studentId, studentId), eq(certificateBook.status, "valid")))
+    .orderBy(asc(certificateBook.issuedAt));
 
   const cardIds = cardRows.map((c) => c.id);
   const scoreRows = cardIds.length
@@ -154,7 +162,10 @@ export async function buildPortfolio(db: Db, studentId: string, scopeIn: Portfol
 
     const cert = certRows.find((c) => c.enrollmentId === e.id && c.certificateNo);
     const certificate: PortfolioCertificate | null = cert && cert.certificateNo && inRange(e.id, dayOf(cert.issuedAt))
-      ? { certificateNo: cert.certificateNo, grade: cert.grade, issuedAt: iso(cert.issuedAt), courseName: cert.courseName }
+      ? {
+          certificateNo: cert.certificateNo, grade: cert.grade, issuedAt: iso(cert.issuedAt), courseName: cert.courseName, kind: "course",
+          verifyPath: (() => { const b = certBook.find((x) => x.courseCompletionId === cert.id); return b ? certificateVerifyPath(b.verifyToken) : null; })(),
+        }
       : null;
     if (certificate) certificates.push(certificate);
 
@@ -181,6 +192,16 @@ export async function buildPortfolio(db: Db, studentId: string, scopeIn: Portfol
       from: dayOf(e.enrolledAt), to: dayOf(e.endedAt),
       attendance: att, sheets, milestones, certificate, radar, average: mean(sheets.map((s) => s.average)),
     });
+  }
+
+  // Giấy chứng nhận hoàn thành LỘ TRÌNH: không gắn một khoá nào → không hiện khi hồ sơ chỉ lọc một khoá
+  if (scope.scope !== "course") {
+    for (const b of certBook) {
+      if (b.kind !== "path" || !isCertificateSnapshot(b.snapshot)) continue;
+      const day = b.snapshot.issuedDate;
+      if (scope.scope === "range" && ((scope.from && day < scope.from) || (scope.to && day > scope.to))) continue;
+      certificates.push({ certificateNo: b.number, grade: b.snapshot.grade ?? "", issuedAt: iso(b.issuedAt), courseName: b.snapshot.pathName, kind: "path", verifyPath: certificateVerifyPath(b.verifyToken) });
+    }
   }
 
   const allDates = courseViews.flatMap((c) => [...c.sheets.map((s) => s.snapshot.context.date), c.from ?? "", c.to ?? ""]).filter(Boolean).sort();

@@ -100,6 +100,7 @@ export const ADMIN_NAV: NavGroup[] = [
       { label: "Khoá học", href: "/courses", icon: "boxes", perm: "course:read", ready: true, desc: "Khoá dạy: mã, độ tuổi, số buổi, học phí niêm yết." },
       { label: "Gói khoá học", href: "/course-packages", icon: "package-open", perm: "course:read", ready: true, desc: "Gói bán cho khách: số buổi, giá niêm yết / ưu đãi, gói nổi bật — gợi ý khi tạo đơn và chốt lead." },
       { label: "Khoá tiên quyết", href: "/course-prerequisites", icon: "workflow", perm: "course:read", ready: true, desc: "Khoá phải học trước; chặn ghi danh khi chưa đạt." },
+      { label: "Lộ trình học & chứng nhận", href: "/lo-trinh", icon: "route", perm: "course:read", ready: true, desc: "Chuỗi khoá có thứ tự; học viên hoàn thành đủ khoá bắt buộc được cấp giấy chứng nhận (in theo mẫu Canva, có QR xác thực)." },
       { label: "Tài liệu giảng dạy", href: "/documents", icon: "file-text", perm: "document:read", ready: true, desc: "Kho tài liệu theo khoá / bài, phiên bản, nhật ký mở / tải." },
       { label: "Bài tập về nhà", href: "/assignments", icon: "notebook-pen", perm: "assignment:read", ready: true, desc: "Giao bài, phụ huynh nộp qua link, chấm, trả lại, thưởng xu; mẫu bài tập." },
       { label: "Tài liệu lớp tôi", href: "/teaching-materials", icon: "presentation", perm: "class:read", ready: true, desc: "Tài liệu của các lớp GV đang dạy." },

@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2970 2100" width="3508" height="2480" preserveAspectRatio="none">
+  <!-- Nền giấy chứng nhận mặc định Sata Robo (A4 ngang). Chừa trống: tên học viên, tên lộ trình, điều kiện đạt,
+       ngày cấp, người ký, số chứng nhận, mã QR — các ô đó do mẫu chứng nhận đặt lên theo % khung. -->
+  <defs>
+    <linearGradient id="band" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#610b8a"/>
+      <stop offset="1" stop-color="#3b1a5e"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ff8f2d"/>
+      <stop offset="1" stop-color="#f8b26a"/>
+    </linearGradient>
+    <pattern id="dots" width="60" height="60" patternUnits="userSpaceOnUse">
+      <circle cx="30" cy="30" r="2.2" fill="#610b8a" opacity=".07"/>
+    </pattern>
+  </defs>
+
+  <rect width="2970" height="2100" fill="#fffdf9"/>
+  <rect x="90" y="90" width="2790" height="1920" fill="url(#dots)"/>
+
+  <!-- Khung: dải tím ngoài + chỉ cam trong -->
+  <rect x="36" y="36" width="2898" height="2028" fill="none" stroke="url(#band)" stroke-width="44"/>
+  <rect x="96" y="96" width="2778" height="1908" fill="none" stroke="url(#gold)" stroke-width="6"/>
+  <rect x="120" y="120" width="2730" height="1860" fill="none" stroke="#610b8a" stroke-opacity=".25" stroke-width="2"/>
+
+  <!-- Hoạ tiết mạch điện ở bốn góc -->
+  <g fill="none" stroke="#610b8a" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" opacity=".55">
+    <path d="M140 420 V200 H360"/><path d="M180 520 V260 H300 L340 220 H520"/><path d="M220 300 H260"/>
+    <path d="M2830 420 V200 H2610"/><path d="M2790 520 V260 H2670 L2630 220 H2450"/><path d="M2750 300 H2710"/>
+    <path d="M140 1680 V1900 H360"/><path d="M180 1580 V1840 H300 L340 1880 H520"/>
+    <path d="M2830 1680 V1900 H2610"/><path d="M2790 1580 V1840 H2670 L2630 1880 H2450"/>
+  </g>
+  <g fill="#ff8f2d">
+    <circle cx="140" cy="420" r="12"/><circle cx="180" cy="520" r="12"/><circle cx="520" cy="220" r="12"/><circle cx="360" cy="200" r="10"/>
+    <circle cx="2830" cy="420" r="12"/><circle cx="2790" cy="520" r="12"/><circle cx="2450" cy="220" r="12"/><circle cx="2610" cy="200" r="10"/>
+    <circle cx="140" cy="1680" r="12"/><circle cx="180" cy="1580" r="12"/><circle cx="520" cy="1880" r="12"/><circle cx="360" cy="1900" r="10"/>
+    <circle cx="2830" cy="1680" r="12"/><circle cx="2790" cy="1580" r="12"/><circle cx="2450" cy="1880" r="12"/><circle cx="2610" cy="1900" r="10"/>
+  </g>
+
+  <!-- Biểu trưng robot (theo icon dự án) -->
+  <g transform="translate(1405 170) scale(1.25)">
+    <rect width="128" height="128" rx="28" fill="#ff8f2d"/>
+    <rect x="28" y="40" width="72" height="56" rx="14" fill="#fff"/>
+    <circle cx="50" cy="66" r="8" fill="#610b8a"/><circle cx="78" cy="66" r="8" fill="#610b8a"/>
+    <rect x="58" y="22" width="12" height="18" rx="6" fill="#fff"/><rect x="44" y="82" width="40" height="6" rx="3" fill="#ff8f2d"/>
+  </g>
+
+  <g font-family="'Be Vietnam Pro', 'Segoe UI', Arial, Helvetica, sans-serif" text-anchor="middle">
+    <text x="1485" y="400" font-size="40" font-weight="700" letter-spacing="14" fill="#610b8a">SATA ROBO · STEM &amp; ROBOTICS</text>
+    <text x="1485" y="560" font-size="150" font-weight="800" letter-spacing="6" fill="#610b8a">GIẤY CHỨNG NHẬN</text>
+    <rect x="1235" y="605" width="500" height="8" rx="4" fill="url(#gold)"/>
+    <text x="1485" y="720" font-size="46" font-style="italic" fill="#4b4453">Trân trọng chứng nhận</text>
+    <text x="1485" y="1062" font-size="42" font-style="italic" fill="#4b4453">đã hoàn thành chương trình</text>
+    <text x="400" y="1790" font-size="28" fill="#6c6474">Quét mã để xác thực</text>
+  </g>
+
+  <!-- Đường kẻ dưới tên học viên và chỗ ký -->
+  <line x1="620" y1="1010" x2="2350" y2="1010" stroke="#610b8a" stroke-opacity=".35" stroke-width="3"/>
+  <line x1="1780" y1="1880" x2="2560" y2="1880" stroke="#610b8a" stroke-opacity=".25" stroke-width="2" stroke-dasharray="10 10"/>
+</svg>

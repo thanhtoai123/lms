@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getServerCaller } from "@/lib/trpc/server";
 import { PrintButton } from "./print";
 
@@ -11,7 +12,14 @@ export default async function CertificatePage({ params }: { params: Promise<{ id
   const issued = (c.issuedAt ?? new Date()).toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh", day: "2-digit", month: "2-digit", year: "numeric" });
   return (
     <div className="space-y-3">
-      <div className="flex justify-end print:hidden"><PrintButton /></div>
+      <div className="flex flex-wrap justify-end gap-2 print:hidden">
+        {c.certificateId && (
+          <Link href={`/lo-trinh/in-chung-nhan?ids=${c.certificateId}&back=${encodeURIComponent(`/hoan-thanh-khoa/chung-nhan/${c.id}`)}`} className="btn-ghost">
+            In theo mẫu giấy chứng nhận (có mã QR)
+          </Link>
+        )}
+        <PrintButton />
+      </div>
       <article className="mx-auto aspect-[1.414/1] max-w-4xl rounded-2xl border-8 border-double border-brand-600 bg-white p-10 text-center shadow-sm print:shadow-none">
         <div className="text-sm font-bold tracking-[0.3em] text-brand-600">SATA ROBO</div>
         <h1 className="mt-6 text-4xl font-extrabold text-brand-700">CHỨNG NHẬN HOÀN THÀNH KHOÁ HỌC</h1>

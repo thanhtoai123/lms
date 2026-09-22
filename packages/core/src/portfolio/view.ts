@@ -53,7 +53,12 @@ export interface PortfolioCertificate {
   certificateNo: string;
   grade: string;
   issuedAt: string | null;
+  /** Tên khoá — hoặc tên lộ trình với giấy chứng nhận hoàn thành lộ trình */
   courseName: string;
+  /** "course" (mặc định) = hoàn thành khoá; "path" = hoàn thành lộ trình */
+  kind?: "course" | "path";
+  /** Đường dẫn trang xác thực công khai /cn/<token> (khi đã có sổ chứng nhận) */
+  verifyPath?: string | null;
 }
 
 export interface PortfolioAttendance {

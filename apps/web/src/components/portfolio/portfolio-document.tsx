@@ -91,15 +91,19 @@ export function PortfolioDocument({ view, actions }: { view: PortfolioView; acti
             <AttendanceBar a={view.attendance} />
           </div>
           <div className="hs-avoid">
-            <SectionTitle icon={Award} title="Chứng nhận" />
+            <SectionTitle icon={Award} title="Giấy chứng nhận" />
             {view.certificates.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Chưa có chứng nhận trong giai đoạn này.</p>
+              <p className="text-sm text-muted-foreground">Chưa có giấy chứng nhận trong giai đoạn này.</p>
             ) : (
               <ul className="space-y-1.5">
                 {view.certificates.map((c) => (
-                  <li key={c.certificateNo} className="rounded-lg border border-accent-200 bg-accent-50 px-3 py-2 text-sm">
+                  <li key={c.certificateNo} className={`rounded-lg border px-3 py-2 text-sm ${c.kind === "path" ? "border-primary/30 bg-primary-soft" : "border-accent-200 bg-accent-50"}`}>
+                    <div className="text-[11px] font-semibold uppercase tracking-wide text-foreground/70">{c.kind === "path" ? "Hoàn thành lộ trình" : "Hoàn thành khoá học"}</div>
                     <div className="font-bold">{c.courseName}</div>
-                    <div className="text-xs text-foreground/80">{c.grade} · số {c.certificateNo}{c.issuedAt ? ` · ${fmtDay(c.issuedAt)}` : ""}</div>
+                    <div className="text-xs text-foreground/80">
+                      {[c.grade || null, `số ${c.certificateNo}`, c.issuedAt ? fmtDay(c.issuedAt) : null].filter(Boolean).join(" · ")}
+                      {c.verifyPath && <> · <a href={c.verifyPath} className="font-semibold text-primary underline">Xác thực</a></>}
+                    </div>
                   </li>
                 ))}
               </ul>

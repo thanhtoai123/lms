@@ -22,6 +22,8 @@ export default async function StudentProfile({ params }: { params: Promise<{ id:
   const kitMoves = actor && hasPermission(actor, "inventory:read") ? await caller.inventory.movements({ studentId: id }).catch(() => null) : null;
   const homework = actor && hasPermission(actor, "assignment:read") ? await caller.content.studentHomework({ studentId: id }).catch(() => null) : null;
   const rents = actor && hasPermission(actor, "inventory:read") ? await caller.inventory.rentals({ studentId: id, status: "out" }).catch(() => []) : [];
+  const certs = actor && (hasPermission(actor, "enrollment:read") || hasPermission(actor, "completion:read")) ? await caller.certificates.listForStudent({ studentId: id }).catch(() => []) : [];
+  const validCertIds = certs.filter((c) => c.status === "valid").map((c) => c.id);
   const age = s.dateOfBirth ? Math.floor((Date.now() - new Date(s.dateOfBirth).getTime()) / (365.25 * 86_400_000)) : null;
   const dt = (d: Date) => d.toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" });
   const addr = s.address ? [s.address.address, s.address.ward, s.address.district, s.address.city].filter(Boolean).join(", ") : "";
@@ -127,6 +129,31 @@ export default async function StudentProfile({ params }: { params: Promise<{ id:
         <aside className="space-y-4">
           {/* Hồ sơ học tập: phiếu nhận xét từng buổi, học bạ mốc, in / chia sẻ (drawer, không thêm tab) */}
           <PortfolioBlock studentId={s.id} studentName={s.fullName} />
+
+          {/* Giấy chứng nhận (hoàn thành khoá / lộ trình): in theo mẫu, mã QR xác thực */}
+          {certs.length > 0 && (
+            <section className="card space-y-2 p-4">
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="font-bold">Giấy chứng nhận</h2>
+                {validCertIds.length > 1 && (
+                  <Link href={`/lo-trinh/in-chung-nhan?ids=${validCertIds.join(",")}&back=${encodeURIComponent(`/students/${s.id}`)}`} className="text-xs font-semibold text-brand-600 underline">In tất cả ({validCertIds.length})</Link>
+                )}
+              </div>
+              <ul className="space-y-1.5">
+                {certs.map((c) => (
+                  <li key={c.id} className={`rounded-xl border p-2.5 text-sm ${c.status === "valid" ? "border-black/5" : "border-red-200 bg-red-50/50"}`}>
+                    <div className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">{c.kindLabel}{c.status !== "valid" ? ` · ${c.statusLabel}` : ""}</div>
+                    <div className="font-semibold">{c.title}</div>
+                    <div className="text-xs text-ink-600">
+                      <span className="font-mono">{c.number}</span>{c.issuedAt ? ` · ${fmtDate(c.issuedAt)}` : ""}
+                      {" · "}<Link href={`/lo-trinh/in-chung-nhan?ids=${c.id}&back=${encodeURIComponent(`/students/${s.id}`)}`} className="text-brand-600 underline">In</Link>
+                      {" · "}<a href={c.verifyPath} target="_blank" rel="noopener noreferrer" className="text-brand-600 underline">Xác thực</a>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
 
           <section className="card space-y-3 p-4">
             <h2 className="font-bold">Phụ huynh</h2>

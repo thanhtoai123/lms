@@ -24,6 +24,7 @@ import { migrationRouter, cutoverRouter, deliveryRouter, pilotRouter, readinessR
 import { tenantsRouter } from "./routers/tenants";
 import { trialReportsRouter } from "./routers/trialReports";
 import { portfolioRouter, sessionEvaluationsRouter } from "./routers/portfolio";
+import { certificatesRouter } from "./routers/certificates";
 
 export const appRouter = router({
   auth: authRouter,
@@ -69,6 +70,8 @@ export const appRouter = router({
   tenants: tenantsRouter,
   /** Hồ sơ học tập (portfolio) của học viên */
   portfolio: portfolioRouter,
+  /** Giấy chứng nhận, lộ trình học, mẫu chứng nhận */
+  certificates: certificatesRouter,
 });
 
 export type AppRouter = typeof appRouter;
@@ -87,6 +90,7 @@ export { publicSurvey, submitPublicSurvey, runSurveyTriggers } from "./services/
 export { publicTrialReport, publicTrialReportRespond, CONSULT_RECEIVED_MESSAGE, type PublicTrialReportResult } from "./services/trialReports";
 export { publicPortfolio, portalPortfolio, portfolioForRender, type PublicPortfolioResult } from "./services/portfolio";
 export { verifyPortfolioRenderSignature } from "./storage";
+export { publicCertificate, uploadTemplateBackground, type PublicCertificateResult, type PublicCertificateView, type PrintableCertificate } from "./services/certificates";
 export { logWebhook, mapPublicLeadBody, requestOtp, verifyOtp, processEmailQueue } from "./services/admin";
 export { addDocumentVersion } from "./services/documents";
 export { publicHomework, submitPublicHomework, staffSubmit, remindDueHomework } from "./services/assignments";
