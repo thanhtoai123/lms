@@ -282,7 +282,7 @@ export async function complianceOptions(ctx: ProtectedContext) {
     ctx.db.select({ id: centers.id, code: centers.code, name: centers.name }).from(centers).where(and(tenantCond(ctx, centers), inScope(centers.id))).orderBy(centers.code),
     ctx.db.select({ id: courses.id, code: courses.code, name: courses.name }).from(courses).where(tenantCond(ctx, courses)).orderBy(courses.code),
     ctx.db.select({ id: classes.id, code: classes.code, name: classes.name }).from(classes)
-      .where(and(tenantCond(ctx, classes), inScope(classes.centerId), sql`${classes.deletedAt} is null`, sql`${classes.status} in ('recruiting','running','completed')`))
+      .where(and(tenantCond(ctx, classes), inScope(classes.centerId), sql`${classes.deletedAt} is null`, sql`${classes.status} in ('recruiting','running','finished')`))
       .orderBy(classes.code).limit(500),
     ctx.db.select({ id: teachers.id, name: teachers.fullName }).from(teachers).where(tenantCond(ctx, teachers)).orderBy(teachers.fullName).limit(500),
   ]);
