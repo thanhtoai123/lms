@@ -211,13 +211,14 @@ export async function classInsights(ctx: ProtectedContext, teacherId: string) {
   const all = await listClasses(ctx, { teacherId });
   const cls = all.filter((c) => c.status === "running" || c.status === "recruiting");
   const ids = cls.map((c) => c.id);
-  if (!ids.length) return { classes: [], others: all.filter((c) => !ids.includes(c.id)).map((c) => ({ id: c.id, code: c.code, name: c.name, status: c.status })) };
+  // Không có lớp đang chạy thì truy vấn bằng id rỗng (không khớp dòng nào) — giữ một kiểu dữ liệu trả về
+  const idsQ = ids.length ? ids : ["00000000-0000-0000-0000-000000000000"];
   const today = todayISO();
   const [meta, enrs] = await Promise.all([
-    ctx.db.select({ id: classes.id, planned: classes.plannedSessions, total: courses.totalSessions }).from(classes).innerJoin(courses, eq(courses.id, classes.courseId)).where(inArray(classes.id, ids)),
+    ctx.db.select({ id: classes.id, planned: classes.plannedSessions, total: courses.totalSessions }).from(classes).innerJoin(courses, eq(courses.id, classes.courseId)).where(inArray(classes.id, idsQ)),
     ctx.db.select({ id: enrollments.id, classId: enrollments.classId, studentId: students.id, fullName: students.fullName, status: enrollments.status })
       .from(enrollments).innerJoin(students, eq(students.id, enrollments.studentId))
-      .where(and(inArray(enrollments.classId, ids), inArray(enrollments.status, ["active", "trial"])))
+      .where(and(inArray(enrollments.classId, idsQ), inArray(enrollments.status, ["active", "trial"])))
       .orderBy(asc(students.fullName)),
   ]);
   const enrIds = enrs.map((e) => e.id);

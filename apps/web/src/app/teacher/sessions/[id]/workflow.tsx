@@ -9,6 +9,7 @@ import { ATTENDANCE_STATUSES, type AttendanceStatus } from "@satarobo/core";
 import { ATT_LABEL, ATT_STYLE, StatusChip, fmtDate, fmtTime } from "@/components/ui";
 import { EvaluationPanel, type Form as EvalForm } from "@/components/portfolio/evaluation-panel";
 import { SessionTodo } from "@/components/portfolio/session-todo";
+import { SessionExtras } from "@/components/teacher/session-extras";
 
 type Draft = Record<string, { status: AttendanceStatus; remark: string; rating: number | null; needsMakeup: boolean | null; absenceReason: string }>;
 
@@ -145,7 +146,10 @@ export function SessionWorkflow({ sessionId }: { sessionId: string }) {
 
   return (
     <div className="space-y-4">
-      <Link href="/teacher" className="text-sm text-ink-600">← Hôm nay</Link>
+      <div className="flex items-center justify-between gap-2">
+        <Link href="/teacher" className="inline-flex min-h-11 items-center text-sm text-ink-600">← Hôm nay</Link>
+        <Link href={`/teacher/sessions/${sessionId}/chuan-bi`} className="inline-flex min-h-11 items-center text-sm font-semibold text-brand-600">Chuẩn bị buổi dạy →</Link>
+      </div>
 
       <header className="card p-4">
         <div className="flex items-start justify-between gap-3">
@@ -277,6 +281,9 @@ export function SessionWorkflow({ sessionId }: { sessionId: string }) {
           jump={jump}
         />
       )}
+
+      {/* Bổ sung (không đổi luồng trên): chụp & gắn ảnh nhanh, phản hồi của phụ huynh sau buổi */}
+      {s.status !== "cancelled" && s.status !== "rescheduled" && !offlineView && <SessionExtras sessionId={sessionId} isFuture={isFuture} sessionDate={s.date} />}
 
       {s.trialGuests.length > 0 && (
         <section className="card p-4 space-y-2">
