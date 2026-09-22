@@ -273,3 +273,44 @@ không phải của sản phẩm.
   đủ điều kiện gửi duyệt và **không** làm hỏng luồng kho → gửi duyệt → loại → khôi phục mà
   bộ D kiểm thử; vẫn nên xoá bớt sau vài lần chạy.
 - Báo cáo mặc định ghi đè tệp cũ. Muốn giữ lịch sử thì truyền `-Out` kèm ngày.
+
+
+## 9. Kiểm tra menu quản trị (`kiem-tra-menu.ps1`)
+
+Kịch bản riêng, chỉ đọc (không tạo dữ liệu), kiểm tra cây menu mới (docs/KIEN-TRUC-MENU.md) trên máy chủ thật với **7 tài khoản mẫu**
+(cookie `x-dev-actor`, cần `ALLOW_DEV_ACTOR=1` như các bộ khác). Cây menu đọc từ `scripts/kiem-thu/menu-manifest.json`
+— tệp sinh từ `packages/core/src/nav/menu.ts`, bộ test core báo lỗi nếu tệp cũ.
+
+```powershell
+# Trước lần chạy đầu sau khi đổi menu: build lại core (apps/web đọc @satarobo/core từ dist/)
+pnpm --filter @satarobo/core build
+
+# Chạy cả 7 tài khoản, báo cáo ghi cạnh kịch bản (scripts\kiem-thu\bao-cao-kiem-tra-menu.md)
+powershell -ExecutionPolicy Bypass -File scripts\kiem-thu\kiem-tra-menu.ps1
+
+# Một tài khoản, máy chủ khác, nơi ghi báo cáo khác
+powershell -ExecutionPolicy Bypass -File scripts\kiem-thu\kiem-tra-menu.ps1 -Only teacher1 `
+  -BaseUrl http://localhost:3001 -Out D:\bao-cao\menu-2026-09-22.md
+```
+
+| Tham số | Mặc định | Ý nghĩa |
+|---|---|---|
+| `-BaseUrl` | `http://localhost:3000` | Gốc địa chỉ máy chủ |
+| `-Out` | `scripts\kiem-thu\bao-cao-kiem-tra-menu.md` | Báo cáo Markdown |
+| `-Manifest` | `scripts\kiem-thu\menu-manifest.json` | Bản kê cây menu |
+| `-Only` | *(trống = cả 7)* | Tên ngắn (`teacher1`, `ketoan.cs1`…) hoặc email của một tài khoản |
+
+Với mỗi tài khoản:
+
+1. Mở `/viec-hom-nay`, đọc các `data-nav-href` trong sidebar = **mục menu người đó được thấy** (layout đã lọc quyền; nhóm thu gọn vẫn có trong HTML).
+2. Mở **mọi mục** → phải `200`, HTML không có dấu hiệu lỗi (`__next_error__`, `Application error`, lỗi máy chủ `data-dgst`), và **không** báo
+   "không có quyền" (menu hiện mà trang từ chối = lệch quyền). Đọc dải chip (`data-nav-tab`) của trang trung tâm và mở **mọi chip** theo cùng tiêu chí.
+3. Mọi đường dẫn của cây menu mà người đó **không** thấy → phải bị từ chối: `401/403/404`, chuyển về `/login`, trang *"chưa có quyền xem mục này"*,
+   *"Không có quyền truy cập"* hoặc lỗi `FORBIDDEN` từ service. Trang ẩn mà vẫn mở ra bình thường = **FAIL (có thể lộ dữ liệu)**.
+   Ngoại lệ có chủ đích (chỉ ẩn khỏi menu): `/bao-cao/sau-go-live`, `/bao-cao/chat-pilot` → SKIP.
+4. Mọi đường cũ trong bảng chuyển hướng (`/hoc-ba`, `/report-cards`) → `307/308` đúng đích; thử thêm `?student=` / `?class=` phải được giữ nguyên
+   trên đích; đích mở được (hoặc từ chối đúng với người không có quyền học bạ).
+5. Trang rời sidebar nhưng vẫn dùng (`/bao-mat`) → `200`.
+
+Báo cáo gồm bảng theo tài khoản (mục thấy, chip, trang ẩn đã thử, PASS / FAIL), danh sách FAIL, SKIP và toàn bộ kết quả. Mã thoát `1` khi có FAIL.
+Lần chạy đầu trên `pnpm dev` chậm vì Next biên dịch từng trang (mỗi trang tối đa 180 giây).
