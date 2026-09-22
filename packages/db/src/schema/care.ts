@@ -80,6 +80,11 @@ export const parentFeedback = pgTable(
     teacherRating: smallint("teacher_rating"),
     tags: jsonb("tags").$type<string[]>().notNull().default([]),
     comment: text("comment"),
+    /**
+     * Cảm xúc phụ huynh thả trên phiếu buổi ở cổng /ph (happy | ok | concern) — sql/0014.
+     * Null với đánh giá CSKH ghi hộ bằng sao. "concern" luôn kèm việc chăm sóc (care_task_id).
+     */
+    reaction: text("reaction").$type<"happy" | "ok" | "concern">(),
     channel: contactChannelEnum("channel").notNull(),
     status: feedbackStatusEnum("status").notNull().default("new"),
     response: text("response"),

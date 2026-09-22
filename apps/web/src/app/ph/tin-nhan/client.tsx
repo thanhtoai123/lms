@@ -31,13 +31,13 @@ export function Thread({ id, initial }: { id: string; initial: Msg[] }) {
       <div className="card max-h-[60dvh] space-y-2 overflow-y-auto p-3">
         {msgs.map((m, i) => (
           <div key={i} className={`flex ${m.mine ? "justify-end" : "justify-start"}`}>
-            <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${m.mine ? "bg-brand-500 text-white" : "bg-black/5"}`}><div className="whitespace-pre-wrap">{m.body}</div><div className={`text-[10px] ${m.mine ? "text-white/70" : "text-ink-400"}`}>{m.by} · {new Date(m.at).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</div></div>
+            <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-[15px] ${m.mine ? "bg-brand-500 text-white" : "bg-black/5"}`}><div className="whitespace-pre-wrap">{m.body}</div><div className={`text-[12px] ${m.mine ? "text-white/70" : "text-ink-600"}`}>{m.by} · {new Date(m.at).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</div></div>
           </div>
         ))}
         <div ref={end} />
       </div>
       <form onSubmit={send} className="flex gap-2"><textarea className="input flex-1" rows={2} maxLength={2000} value={text} onChange={(e) => setText(e.target.value)} placeholder="Nhập tin nhắn…" /><button className="btn-primary" disabled={!text.trim()}>Gửi</button></form>
-      {err && <p className="text-sm text-red-700">{err}</p>}
+      {err && <p className="text-[15px] text-red-700">{err}</p>}
     </div>
   );
 }
@@ -58,7 +58,7 @@ export function AskForm({ studentId }: { studentId: string }) {
     else setErr(j.error ?? "Không gửi được");
   };
   return (
-    <form onSubmit={send} className="space-y-2 text-sm">
+    <form onSubmit={send} className="space-y-2 text-[15px]">
       <input className="input" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Chủ đề (xin nghỉ, hỏi lịch học…)" required minLength={3} />
       <textarea className="input" rows={3} value={body} onChange={(e) => setBody(e.target.value)} maxLength={2000} required placeholder="Nội dung" />
       {err && <p className="text-red-700">{err}</p>}

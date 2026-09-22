@@ -34,14 +34,14 @@ export function LoginForm() {
   };
   return (
     <form onSubmit={login} className="card space-y-3 p-5">
-      <label className="block text-sm">Số điện thoại<input className="input mt-1" inputMode="tel" autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} required /></label>
-      <div className="flex gap-3 text-xs">
+      <label className="block text-[15px]">Số điện thoại<input className="input mt-1" inputMode="tel" autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} required /></label>
+      <div className="flex gap-3 text-[13px]">
         <label className="flex items-center gap-1"><input type="radio" checked={method === "otp"} onChange={() => setMethod("otp")} /> Mã qua Zalo</label>
         <label className="flex items-center gap-1"><input type="radio" checked={method === "code"} onChange={() => setMethod("code")} /> Mã kích hoạt từ trung tâm</label>
       </div>
       {method === "otp" && <button type="button" className="btn-ghost w-full" disabled={busy || phone.replace(/\D/g, "").length < 10} onClick={sendOtp}>{sent ? "Gửi lại mã" : "Gửi mã đăng nhập"}</button>}
-      {(method === "code" || sent) && <label className="block text-sm">Mã 6 số<input className="input mt-1 text-center font-mono text-lg tracking-widest" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} required /></label>}
-      {msg && <p className="text-sm text-ink-600">{msg}</p>}
+      {(method === "code" || sent) && <label className="block text-[15px]">Mã 6 số<input className="input mt-1 text-center font-mono text-lg tracking-widest" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} required /></label>}
+      {msg && <p className="text-[15px] text-ink-600">{msg}</p>}
       <button className="btn-primary w-full" disabled={busy || code.length !== 6}>Đăng nhập</button>
     </form>
   );

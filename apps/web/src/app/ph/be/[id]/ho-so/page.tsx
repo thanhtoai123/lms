@@ -24,7 +24,7 @@ export default async function ChildPortfolioPage({ params }: { params: Promise<{
   return (
     <>
       <div className="print:hidden"><PhHeader title="Hồ sơ học tập" name={p.fullName} /></div>
-      <main className="flex-1 space-y-3 px-3 py-4 pb-24 print:p-0">
+      <main className="flex-1 space-y-3 px-3 py-4 pb-28 print:p-0">
         <PortfolioPrintStyle />
         <Link href={`/ph/be/${id}`} className="text-sm text-ink-600 print:hidden">← {view.student.fullName}</Link>
         <PortfolioDocument

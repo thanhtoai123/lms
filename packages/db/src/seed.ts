@@ -31,6 +31,7 @@ import { generateSessions, buildClassCode, buildStudentCode, toISODate, addDays,
 import { courseCompletions } from "./schema/index";
 import { seedPortfolio } from "./seed-portfolio";
 import { seedCertificates } from "./seed-certificates";
+import { seedPhiaNguoiDung } from "./seed-phia-nguoi-dung";
 import {
   expectedEndDate as sessionsEndDate, detectRisks, staffCode, refundProposal, reportCardMilestones, averageScore, gradeFromAverage, certificateNumber,
   type Weekday, type AttendanceStatus, type Role, type ClassStatus, type LeadStatus,
@@ -1045,6 +1046,8 @@ async function main() {
   const portfolio = await seedPortfolio(db, { today });
   // ---- Lộ trình học & giấy chứng nhận: lộ trình mẫu, mẫu chứng nhận nền dựng sẵn, một giấy đã cấp ----
   const certs = await seedCertificates(db);
+  // ---- Phía người dùng: một phụ huynh ba con, yêu cầu qua app, phản hồi sau buổi, tài liệu chuẩn bị buổi dạy ----
+  const nd = await seedPhiaNguoiDung(db, { today });
 
   console.log(`✔ Seeded: 2 centers, 3 rooms, 7 users, 3 teachers, ${lessonRows.length} lessons, 2 classes, ${sessionRows.length} sessions, 16 students, ${leadRows.length} leads`);
   console.log(`  Phiếu đánh giá học thử mẫu (không cần đăng nhập): ${(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "")}/pdg/${DEMO_TRIAL_REPORT_TOKEN}`);
@@ -1052,6 +1055,14 @@ async function main() {
   if (portfolio.token) console.log(`  Hồ sơ học tập mẫu (không cần đăng nhập): ${(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "")}/hs/${portfolio.token}`);
   console.log(`  Giấy chứng nhận: lộ trình mẫu LT-ROBO-NT, ${certs.courseCertificates} chứng nhận hoàn thành khoá vào sổ — quản trị tại /lo-trinh, mẫu tại /lo-trinh/mau-chung-nhan`);
   if (certs.token) console.log(`  Xác thực giấy chứng nhận mẫu (không cần đăng nhập): ${(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "")}/cn/${certs.token}`);
+  if (nd.parentPhone) {
+    const local = nd.parentPhone.startsWith("84") ? `0${nd.parentPhone.slice(2)}` : nd.parentPhone;
+    const base = (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
+    console.log(`  Cổng phụ huynh mẫu: ${base}/ph/dang-nhap → SĐT ${local} ("Phụ huynh mẫu 1", ${nd.children} con) → "Gửi mã đăng nhập".`);
+    console.log("    Chế độ phát triển (ALLOW_DEV_ACTOR=1, không phải production): mã OTP thử hiện ngay dưới ô nhập, dạng \"(mã thử: 123456)\" — không gửi Zalo, không có mật khẩu.");
+    console.log(`    Dữ liệu: ${nd.requests} yêu cầu nghỉ qua app, ${nd.reactions} phản hồi sau buổi cho GV mẫu, ${nd.documents} tài liệu chuẩn bị buổi dạy. Xin học bù: đăng nhập SĐT 0911000006 (Học viên mẫu 6 vắng có phép).`);
+    console.log("  App giáo viên mẫu: /login → teacher1@satarobo.vn → /teacher (Phản hồi của phụ huynh, Chuẩn bị buổi dạy, Lớp của tôi)");
+  }
   console.log("  Dev login (/login → tài khoản mẫu): superadmin@example.test | manager.cs1@example.test | sale1.cs1@example.test | ketoan.cs1@example.test | hr.cs1@example.test | daotao@example.test | marketing@example.test | teacher1@satarobo.vn");
 }
 

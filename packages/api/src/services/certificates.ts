@@ -17,7 +17,7 @@ import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import {
   certificates, certificateTemplates, learningPaths, learningPathCourses, courses, courseCompletions, enrollments, classes,
-  students, centers, tenants, portfolioShares, users, type Database,
+  students, centers, tenants, portfolioShares, users, studentGuardians, parents, type Database,
 } from "@satarobo/db";
 import {
   authorize, centersWith, visibleCenterIds, qrSvg, gradeFromAverage,
@@ -630,7 +630,7 @@ export interface PrintableCertificate {
   template: CertificateTemplateView;
 }
 
-async function toPrintable(ctx: ProtectedContext, rows: CertRow[]): Promise<PrintableCertificate[]> {
+async function toPrintable(ctx: { db: Db }, rows: CertRow[]): Promise<PrintableCertificate[]> {
   const pathIds = [...new Set(rows.map((r) => r.learningPathId).filter((x): x is string => !!x))];
   const paths = pathIds.length ? await ctx.db.select({ id: learningPaths.id, templateId: learningPaths.certificateTemplateId }).from(learningPaths).where(inArray(learningPaths.id, pathIds)) : [];
   const tplIds = [...new Set([...rows.map((r) => r.templateId), ...paths.map((p) => p.templateId)].filter((x): x is string => !!x))];
@@ -672,6 +672,30 @@ export async function printCertificates(ctx: ProtectedContext, ids: string[]) {
   const order = new Map(uniq.map((id, i) => [id, i]));
   allowed.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
   return toPrintable(ctx, allowed);
+}
+
+/**
+ * Cổng phụ huynh: giấy chứng nhận CÒN HIỆU LỰC của con để in / lưu PDF (docs/PHIA-NGUOI-DUNG.md).
+ * Phạm vi theo phiên phụ huynh: học viên phải là con (student_guardians) và cùng tenant với phụ huynh.
+ * Chứng nhận đã thu hồi không trả (phụ huynh không in lại được giấy đã thu hồi).
+ */
+export async function portalCertificate(db: Database, parentId: string, certificateId: string): Promise<PrintableCertificate | null> {
+  if (!/^[0-9a-f-]{36}$/i.test(certificateId)) return null;
+  const d = asDb(db);
+  const [c] = await d.select().from(certificates).where(and(eq(certificates.id, certificateId), eq(certificates.status, "valid"))).limit(1);
+  if (!c) return null;
+  const [g] = await d
+    .select({ studentTenant: students.tenantId, parentTenant: parents.tenantId })
+    .from(studentGuardians)
+    .innerJoin(students, eq(students.id, studentGuardians.studentId))
+    .innerJoin(parents, eq(parents.id, studentGuardians.parentId))
+    .where(and(eq(studentGuardians.parentId, parentId), eq(studentGuardians.studentId, c.studentId), isNull(students.deletedAt)))
+    .limit(1);
+  if (!g) return null;
+  if (g.studentTenant && g.parentTenant && g.studentTenant !== g.parentTenant) return null;
+  if (c.tenantId && g.parentTenant && c.tenantId !== g.parentTenant) return null;
+  const [p] = await toPrintable({ db: d }, [c]);
+  return p ?? null;
 }
 
 export async function listForStudent(ctx: ProtectedContext, studentId: string) {
