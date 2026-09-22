@@ -11,6 +11,7 @@ import {
 } from "@satarobo/core";
 import { ErrorBox, OkBox, fmtDate } from "@/components/admin-ui";
 import { TrialClassChip } from "../classes";
+import { TrialReportButton } from "@/components/trial-report/drawer";
 
 const SESSION_CHIP: Record<TrialSessionStatus, string> = {
   scheduled: "bg-sky-100 text-sky-800",
@@ -27,7 +28,7 @@ type CandidateRow = { key: string; childId: string | null; name: string; inClass
 type Mark = { status: TrialAttendanceStatus | ""; note: string };
 const EMPTY_MARK: Mark = { status: "", note: "" };
 
-export function TrialClassDetail({ id }: { id: string }) {
+export function TrialClassDetail({ id, openReport }: { id: string; /** Mở sẵn phiếu đánh giá của học viên này (link từ "Việc hôm nay") */ openReport?: string }) {
   const trpc = useTRPC();
   const router = useRouter();
   const qc = useQueryClient();
@@ -136,6 +137,9 @@ export function TrialClassDetail({ id }: { id: string }) {
   };
 
   const unmarked = active.filter((e) => !marks[e.id] || marks[e.id]!.status === "").length;
+  // Phiếu đánh giá: lập được khi lớp đã có ít nhất một buổi diễn ra
+  const hasPastSession = d.sessions.some((s) => s.status !== "cancelled" && s.date <= d.today);
+  const canReport = hasPastSession && (perms.attendance || perms.manage);
 
   return (
     <div className="space-y-4">
@@ -404,6 +408,10 @@ export function TrialClassDetail({ id }: { id: string }) {
                       </div>
                       {e.withdrawReason && <div className="text-[11px] text-red-700">Lý do rút: {e.withdrawReason}</div>}
                     </div>
+                    {/* GV chỉ có quyền "của mình" không thấy nút chung, nhưng mở từ "Việc hôm nay" vẫn điền được (máy chủ kiểm quyền) */}
+                    {(canReport || openReport === e.id) && e.status === "enrolled" && (
+                      <TrialReportButton source={{ trialClassEnrollmentId: e.id }} autoOpen={openReport === e.id} />
+                    )}
                     {perms.manage && e.status === "enrolled" && (
                       withdrawing === e.id ? (
                         <div className="flex flex-col items-end gap-1">

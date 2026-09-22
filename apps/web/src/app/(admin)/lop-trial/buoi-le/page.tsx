@@ -9,7 +9,7 @@ import { BookTrial } from "../book";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Học thử buổi lẻ" };
 
-type SP = { from?: string; to?: string; center?: string; status?: string; q?: string; mine?: string; lead?: string };
+type SP = { from?: string; to?: string; center?: string; status?: string; q?: string; mine?: string; lead?: string; pdg?: string };
 
 export default async function TrialBookingPage({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
@@ -56,7 +56,7 @@ export default async function TrialBookingPage({ searchParams }: { searchParams:
         active={status ?? ""}
         tabs={[{ key: "", label: "Tất cả" }, ...TRIAL_STATUSES.map((k) => ({ key: k, label: TRIAL_STATUS_VI[k] }))]}
       />
-      <TrialBoard items={data.items} today={data.today} centers={ref.centers} />
+      <TrialBoard items={data.items} today={data.today} centers={ref.centers} openReport={sp.pdg} />
     </div>
   );
 }

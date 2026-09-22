@@ -11,6 +11,7 @@ import { LeadStatusSelect, LeadDeleteButton } from "@/components/lead-status";
 import { OrderChip, vnd } from "@/components/finance-ui";
 import { LeadChildrenBlock } from "./children";
 import { LeadTrialClassesBlock } from "./trial-classes";
+import { LeadTrialReportsBlock } from "@/components/trial-report/lead-block";
 
 type Center = { id: string; code: string; name: string };
 type Assignee = { id: string; fullName: string; centerId: string | null };
@@ -241,6 +242,7 @@ export function LeadDetail({ id, assignees, centers, courses }: { id: string; as
 
           <LeadChildrenBlock leadId={id} legacyChildName={l.childName} legacyGrade={l.childGrade} items={l.children} courses={courses} centers={centers} canEdit={l.perms.update && l.status !== "lost"} onChanged={refresh} />
           {isOpen && <LeadTrialClassesBlock leadId={id} legacyChildName={l.childName} onChanged={refresh} />}
+          <LeadTrialReportsBlock leadId={id} kids={l.children.map((c) => ({ id: c.id, fullName: c.fullName }))} canCreate={l.perms.update && l.status !== "lost"} />
           {isOpen && <p className="px-1 text-xs text-ink-600">Muốn xếp bé vào một buổi học lẻ của lớp chính quy (có kiểm tra chỗ trống, báo GV)? <Link href={`/lop-trial/buoi-le?lead=${id}`} className="font-semibold text-brand-600 hover:underline">Xếp học thử buổi lẻ →</Link></p>}
 
           {/* Ghi nhanh hoạt động */}

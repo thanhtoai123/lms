@@ -674,7 +674,8 @@ export async function pendingTrialReports(ctx: ProtectedContext, input: { limit?
   let own: SQL = sql`true`;
   if (!broad) {
     if (hasPermission(ctx.actor, "lead:update")) own = sql`src.assigned_to_id = ${ctx.user.id}`;
-    else if (hasPermission(ctx.actor, "trials:attendance") && ctx.actor.personId) own = sql`src.teacher_id = ${ctx.actor.personId}`;
+    // GV chỉ có quyền "của mình": chỉ buổi lớp trải nghiệm mình đứng (trang học thử buổi lẻ cần quyền xem lead)
+    else if (hasPermission(ctx.actor, "trials:attendance") && ctx.actor.personId) own = sql`src.teacher_id = ${ctx.actor.personId} and src.kind = 'enrollment'`;
     else return null;
   }
   const visible = visibleCenterIds(ctx.actor);

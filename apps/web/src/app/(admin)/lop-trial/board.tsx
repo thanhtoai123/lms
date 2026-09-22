@@ -8,6 +8,7 @@ import { useTRPC } from "@/lib/trpc/client";
 import { TRIAL_STATUS_VI, LEAD_STATUS_VI, type TrialStatus, type LeadStatus } from "@satarobo/core";
 import { Empty } from "@/components/ui";
 import { SlotPicker, fmtDay } from "./book";
+import { TrialReportButton } from "@/components/trial-report/drawer";
 
 type Item = {
   id: string; status: TrialStatus; childName: string | null; note: string | null; reason: string | null; resultNote: string | null; rescheduledFromId: string | null;
@@ -27,7 +28,7 @@ const CHIP: Record<TrialStatus, string> = {
 
 type Mode = { id: string; kind: "reschedule" | "cancel" | "result" | "undo" } | null;
 
-export function TrialBoard({ items, today }: { items: Item[]; today: string; centers: { id: string; code: string }[] }) {
+export function TrialBoard({ items, today, openReport }: { items: Item[]; today: string; centers: { id: string; code: string }[]; /** Mở sẵn phiếu đánh giá của lượt thử này (link từ "Việc hôm nay") */ openReport?: string }) {
   const trpc = useTRPC();
   const router = useRouter();
   const [mode, setMode] = useState<Mode>(null);
@@ -83,6 +84,7 @@ export function TrialBoard({ items, today }: { items: Item[]; today: string; cen
                     {t.status === "booked" && t.canRecord && <button className="btn-primary !px-2 !py-1 text-xs" disabled={busy} onClick={() => open(t.id, "result")}>Ghi kết quả</button>}
                     {t.status === "booked" && <button className="btn-ghost !px-2 !py-1 text-xs" disabled={busy} onClick={() => open(t.id, "reschedule")}>Đổi lịch</button>}
                     {t.status === "booked" && <button className="btn-ghost !px-2 !py-1 text-xs text-red-700" disabled={busy} onClick={() => open(t.id, "cancel")}>Huỷ</button>}
+                    {t.status === "attended" && <TrialReportButton source={{ trialBookingId: t.id }} autoOpen={openReport === t.id} onChanged={() => router.refresh()} />}
                     {(t.status === "attended" || t.status === "no_show") && <button className="btn-ghost !px-2 !py-1 text-xs" disabled={busy} onClick={() => open(t.id, "undo")}>Hoàn tác</button>}
                   </div>
                 </div>

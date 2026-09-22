@@ -21,13 +21,17 @@ export function Drawer({
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
+  // Giữ onClose mới nhất trong ref: nơi gọi thường truyền hàm nội tuyến (đổi mỗi lần render),
+  // nếu để trong deps thì mỗi phím gõ trong ô nhập sẽ chạy lại effect và kéo tiêu điểm về nút Đóng.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     if (!open) return;
     const prev = document.activeElement as HTMLElement | null;
     closeRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") { e.preventDefault(); onClose(); return; }
+      if (e.key === "Escape") { e.preventDefault(); onCloseRef.current(); return; }
       if (e.key !== "Tab" || !panelRef.current) return;
       // Giữ tiêu điểm bàn phím trong panel
       const nodes = panelRef.current.querySelectorAll<HTMLElement>('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])');
@@ -39,7 +43,7 @@ export function Drawer({
     };
     window.addEventListener("keydown", onKey);
     return () => { window.removeEventListener("keydown", onKey); prev?.focus?.(); };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
   const w = width === "sm" ? "w-[24rem]" : width === "lg" ? "w-[44rem]" : "w-[32rem]";
