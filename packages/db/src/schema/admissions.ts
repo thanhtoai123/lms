@@ -5,6 +5,8 @@ import { tenantCol } from "./tenant";
 import {
   LEAD_STATUSES, DISTRIBUTION_MODES, TRIAL_STATUSES, ASSIGNMENT_SOURCES, POOL_ACTIONS,
   TRIAL_CLASS_STATUSES, TRIAL_SESSION_STATUSES, TRIAL_ENROLLMENT_STATUSES, TRIAL_ATTENDANCE_STATUSES,
+  TRIAL_REPORT_STATUSES, TRIAL_READINESS, TRIAL_PARENT_RESPONSES,
+  type TrialReportAnswers,
 } from "@satarobo/core";
 import { centers, rooms } from "./org";
 import { users } from "./identity";
@@ -402,5 +404,73 @@ export const trialAttendance = pgTable(
   (t) => [
     uniqueIndex("trial_attendance_unique").on(t.trialSessionId, t.enrollmentId),
     index("trial_attendance_enrollment_idx").on(t.enrollmentId),
+  ],
+);
+
+/**
+ * PHIẾU ĐÁNH GIÁ BUỔI HỌC THỬ — giáo viên / tư vấn điền sau buổi thử, phát hành thành link riêng
+ * gửi phụ huynh (trang công khai `/pdg/<token>`, không cần đăng nhập) và in / lưu PDF khổ A4.
+ *
+ * `answers` là BẢN CHỤP cả mẫu tiêu chí lẫn giá trị (xem `snapshotAnswers` ở packages/core):
+ * đổi mẫu về sau không làm đổi nội dung phiếu đã gửi. Ràng buộc CHECK nằm ở
+ * packages/db/sql/0010_phieu_danh_gia_hoc_thu.sql.
+ */
+export const trialReports = pgTable(
+  "trial_reports",
+  {
+    id: id(),
+    tenantId: tenantCol(),
+    centerId: uuid("center_id").notNull().references(() => centers.id),
+    leadId: uuid("lead_id").notNull().references(() => leads.id, { onDelete: "cascade" }),
+    childId: uuid("child_id").references(() => leadChildren.id, { onDelete: "set null" }),
+    /** Nguồn: một buổi thử lẻ ở lớp chính quy HOẶC một ghi danh lớp trải nghiệm (có thể cả hai đều trống) */
+    trialBookingId: uuid("trial_booking_id").references(() => trialBookings.id, { onDelete: "set null" }),
+    trialClassEnrollmentId: uuid("trial_class_enrollment_id").references(() => trialClassEnrollments.id, { onDelete: "set null" }),
+    /** Khoá trải nghiệm (bộ môn bé học thử) */
+    courseId: uuid("course_id").references(() => courses.id),
+    teacherId: uuid("teacher_id").references(() => teachers.id),
+    /** `PDG-<mã cơ sở>-<yy>-<6 số>` */
+    code: text("code").notNull().unique(),
+    status: text("status", { enum: TRIAL_REPORT_STATUSES }).notNull().default("draft"),
+    /** Tên bé chụp lúc tạo phiếu (tên trên lead có thể đổi sau) */
+    childName: text("child_name").notNull(),
+    /** Thời điểm buổi học thử */
+    sessionAt: timestamp("session_at", { withTimezone: true }),
+    answers: jsonb("answers").$type<TrialReportAnswers>().notNull(),
+    /** Nhận xét bằng lời của giáo viên — phần phụ huynh đọc nhiều nhất */
+    strengths: text("strengths"),
+    growth: text("growth"),
+    productNote: text("product_note"),
+    readiness: text("readiness", { enum: TRIAL_READINESS }),
+    recommendedCourseId: uuid("recommended_course_id").references(() => courses.id),
+    recommendedLevel: text("recommended_level"),
+    recommendationNote: text("recommendation_note"),
+    pathway: boolean("pathway").notNull().default(false),
+    competitionPotential: boolean("competition_potential").notNull().default(false),
+    /* --- Chia sẻ --- */
+    /** Ngẫu nhiên ≥ 32 byte, base64url — chính là quyền xem phiếu */
+    shareToken: text("share_token"),
+    shareExpiresAt: timestamp("share_expires_at", { withTimezone: true }),
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    publishedBy: uuid("published_by").references(() => users.id),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    revokedBy: uuid("revoked_by").references(() => users.id),
+    revokeReason: text("revoke_reason"),
+    /* --- Theo dõi phụ huynh --- */
+    viewCount: integer("view_count").notNull().default(0),
+    firstViewedAt: timestamp("first_viewed_at", { withTimezone: true }),
+    lastViewedAt: timestamp("last_viewed_at", { withTimezone: true }),
+    parentResponse: text("parent_response", { enum: TRIAL_PARENT_RESPONSES }),
+    parentRespondedAt: timestamp("parent_responded_at", { withTimezone: true }),
+    createdBy: uuid("created_by").references(() => users.id),
+    updatedBy: uuid("updated_by").references(() => users.id),
+    ...timestamps,
+  },
+  (t) => [
+    index("trial_reports_lead_idx").on(t.leadId),
+    index("trial_reports_center_status_idx").on(t.centerId, t.status, t.createdAt),
+    uniqueIndex("trial_reports_share_token_uq").on(t.shareToken),
+    index("trial_reports_booking_idx").on(t.trialBookingId),
+    index("trial_reports_enrollment_idx").on(t.trialClassEnrollmentId),
   ],
 );
