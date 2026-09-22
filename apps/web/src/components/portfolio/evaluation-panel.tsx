@@ -8,11 +8,14 @@
  * ô "Sản phẩm", ô nhận xét cho phụ huynh (chính là nhận xét của buổi — không nhập hai lần), ảnh đã duyệt.
  * Lưu nháp TỰ ĐỘNG sau mỗi thay đổi; khi hoàn tất buổi, phiếu đủ tiêu chí được phát hành cùng lúc.
  * Phiếu đã phát hành chỉ sửa được bằng "Sửa phiếu" kèm lý do.
+ * Tiêu chí trọng tâm của bài xếp trước (có dấu sao); chạm một mức là hiện mô tả hành vi của mức đó ngay dưới.
+ * Báo nội dung phiếu đang hiển thị lên màn cha (`onFormsChange`) để khối "Buổi này cần hoàn thiện" tự tính;
+ * nhận yêu cầu mở + cuộn tới một học viên (`jump`).
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, ChevronDown, ChevronUp, Copy, Printer, Sparkles, Target } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, Copy, Printer, Sparkles, Star, Target } from "lucide-react";
 import {
   OBJECTIVE_RESULTS, OBJECTIVE_RESULT_SHORT, OBJECTIVE_RESULT_VI, isEvaluableAttendance, type ObjectiveResult, type AttendanceStatus,
 } from "@satarobo/core";
@@ -22,7 +25,7 @@ import type { RouterOutputs } from "@/lib/trpc/types";
 type Board = RouterOutputs["academics"]["evaluations"]["board"];
 type Item = Board["items"][number];
 
-interface Form {
+export interface Form {
   scores: Record<string, number | null>;
   objectiveResult: ObjectiveResult | null;
   highlights: string[];
@@ -49,7 +52,7 @@ const OBJ_ON: Record<ObjectiveResult, string> = {
 };
 
 export function EvaluationPanel({
-  sessionId, attendance, sessionDone, disabled = false,
+  sessionId, attendance, sessionDone, disabled = false, onFormsChange, jump = null,
 }: {
   sessionId: string;
   /** Trạng thái điểm danh đang hiển thị trên màn (kể cả chưa lưu) — HV vắng không có phiếu */
@@ -57,6 +60,10 @@ export function EvaluationPanel({
   /** Buổi đã hoàn tất: phiếu chỉ còn xem / sửa có lý do */
   sessionDone: boolean;
   disabled?: boolean;
+  /** Báo nội dung phiếu đang hiển thị (kể cả chưa lưu) theo ghi danh */
+  onFormsChange?: (forms: Record<string, Form>) => void;
+  /** Yêu cầu mở + cuộn tới phiếu của một học viên (`n` đổi mỗi lần bấm) */
+  jump?: { id: string; n: number } | null;
 }) {
   const trpc = useTRPC();
   const qc = useQueryClient();
@@ -67,6 +74,18 @@ export function EvaluationPanel({
   const [open, setOpen] = useState<string | null>(null);
   const [status, setStatus] = useState<{ tone: "ok" | "err" | "info"; text: string } | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onFormsChangeRef = useRef(onFormsChange);
+  onFormsChangeRef.current = onFormsChange;
+  useEffect(() => { onFormsChangeRef.current?.(forms); }, [forms]);
+  useEffect(() => {
+    if (!jump) return;
+    setOpen(jump.id);
+    // Chờ khối mở ra rồi mới cuộn
+    const t = setTimeout(() => {
+      try { document.getElementById(`hv-${jump.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" }); } catch { /* trình duyệt cũ */ }
+    }, 60);
+    return () => clearTimeout(t);
+  }, [jump]);
 
   // Nạp form từ máy chủ cho em chưa sửa dở (giữ nguyên em đang gõ)
   useEffect(() => {
@@ -144,11 +163,14 @@ export function EvaluationPanel({
   if (q.isLoading) return <section className="card p-4 text-sm text-ink-400">Đang tải phiếu nhận xét…</section>;
   if (!board) return <section className="card p-4 text-sm text-red-700">{q.error?.message ?? "Không tải được phiếu nhận xét buổi học"}</section>;
 
+  // Đủ điều kiện phát hành theo chuẩn của cơ sở (mục tiêu bài / sản phẩm bắt buộc hay không)
   const done = (it: Item) => {
     const f = forms[it.enrollmentId];
     if (it.evaluation?.status === "published") return true;
     if (!f) return false;
-    return board.criteria.every((c) => f.scores[c.key] != null) && !!f.objectiveResult;
+    return board.criteria.every((c) => f.scores[c.key] != null)
+      && (!board.standard.requireObjectiveResult || !!f.objectiveResult)
+      && (!board.standard.requireProductNote || !!f.productNote.trim());
   };
   const readyCount = present.filter(done).length;
   const canEdit = board.canWrite && !disabled;
@@ -182,7 +204,7 @@ export function EvaluationPanel({
           // Buổi đã hoàn tất mà còn phiếu nháp (cấu hình cho phép hoàn tất khi thiếu): điền xong là phát hành ngay
           const editable = canEdit && !published;
           return (
-            <li key={it.enrollmentId} className="py-2">
+            <li key={it.enrollmentId} id={`hv-${it.enrollmentId}`} className="scroll-mt-20 py-2">
               <button type="button" className="flex w-full items-center gap-2 text-left" onClick={() => setOpen(isOpen ? null : it.enrollmentId)} aria-expanded={isOpen}>
                 <span className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${ok ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}>{ok ? <Check className="h-3.5 w-3.5" aria-hidden /> : "!"}</span>
                 <span className="min-w-0 flex-1">
@@ -262,7 +284,10 @@ function EvaluationForm({
           const chosen = c.levels.find((l) => l.value === v);
           return (
             <div key={c.key}>
-              <div className="text-sm font-semibold">{c.label}{c.description && <span className="ml-1 text-xs font-normal text-ink-400">— {c.description}</span>}</div>
+              <div className="text-sm font-semibold">
+                {c.focus && <span className="chip mr-1 bg-accent-500 px-1.5 py-0 text-[10px] text-white"><Star className="mr-0.5 inline h-2.5 w-2.5" aria-hidden />Trọng tâm</span>}
+                {c.label}{c.description && <span className="ml-1 text-xs font-normal text-ink-400">— {c.description}</span>}
+              </div>
               <div className="mt-1 grid grid-cols-4 gap-1" role="radiogroup" aria-label={c.label}>
                 {c.levels.map((l, i) => (
                   <button
@@ -279,7 +304,7 @@ function EvaluationForm({
                   </button>
                 ))}
               </div>
-              {chosen && <p className="mt-0.5 text-[11px] italic text-ink-600">{chosen.hint}</p>}
+              {chosen && <p className="mt-0.5 rounded-md bg-brand-50/70 px-2 py-1 text-[11px] text-ink-600"><b>{chosen.value}. {chosen.label}:</b> {chosen.hint}</p>}
             </div>
           );
         })}
@@ -315,12 +340,19 @@ function EvaluationForm({
       </div>
 
       <label className="block">
-        <span className="text-xs font-semibold text-ink-600">Sản phẩm — bé làm được gì trong buổi</span>
+        <span className="text-xs font-semibold text-ink-600">Sản phẩm — bé làm được gì trong buổi{board.standard.requireProductNote && <span className="text-red-600"> *</span>}</span>
         <input className="input mt-1 text-sm" maxLength={1000} disabled={!editable} value={form.productNote} placeholder="Xe robot dò line chạy trọn sa bàn…"
           onChange={(e) => onChange({ productNote: e.target.value })} onBlur={onBlur} />
       </label>
       <label className="block">
-        <span className="text-xs font-semibold text-ink-600">Nhận xét cho phụ huynh</span>
+        <span className="flex items-center justify-between text-xs font-semibold text-ink-600">
+          <span>Nhận xét cho phụ huynh</span>
+          {board.standard.remarkMinLength > 0 && (
+            <span className={`font-normal tabular-nums ${form.remark.trim().length >= board.standard.remarkMinLength ? "text-green-700" : "text-amber-700"}`}>
+              {form.remark.trim().length}/{board.standard.remarkMinLength} ký tự
+            </span>
+          )}
+        </span>
         <textarea className="input mt-1 min-h-16 text-sm" maxLength={1000} disabled={!editable} value={form.remark} placeholder="Hôm nay con tự sửa được lỗi chương trình…"
           onChange={(e) => onChange({ remark: e.target.value })} onBlur={onBlur} />
       </label>

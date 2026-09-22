@@ -245,6 +245,8 @@ test("danh mục việc cần xong: x/y, tên học viên còn thiếu, vắng k
   assert.equal(by.product, undefined, "không bắt sản phẩm thì không hiện mục");
   assert.equal(by.note!.ok, false);
   assert.equal(by.note!.target, "note");
+  const t3 = sessionTodoList({ students: [{ id: "9", name: "Giang", ...base, attendance: "present", attendanceSaved: false }], criteriaKeys: ["a"], hasSessionNote: true, standard: std });
+  assert.deepEqual(t3.find((x) => x.key === "attendance")!.missing.map((m) => m.name), ["Giang"], "điểm danh chưa lưu thì chưa tính là xong");
   const t2 = sessionTodoList({ students, criteriaKeys: ["a"], hasSessionNote: true, standard: { ...std, requireObjectiveResult: false, remarkMinLength: 0, requireProductNote: true } });
   assert.equal(t2.find((x) => x.key === "objective"), undefined);
   assert.equal(t2.find((x) => x.key === "remark"), undefined);

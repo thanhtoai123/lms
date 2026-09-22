@@ -442,6 +442,8 @@ export interface TodoStudent {
   name: string;
   /** Trạng thái điểm danh đang hiển thị (kể cả chưa lưu); null = chưa điểm danh */
   attendance: string | null;
+  /** Điểm danh đã LƯU chưa (bỏ trống = suy từ `attendance`) — mục "Điểm danh xong" chỉ tính bản đã lưu */
+  attendanceSaved?: boolean;
   published: boolean;
   scores: Record<string, number | null | undefined>;
   objectiveResult: ObjectiveResult | null;
@@ -485,7 +487,7 @@ export function sessionTodoList(input: {
     return { key, label, done: pool.length - miss.length, total: pool.length, ok: miss.length === 0, required, missing: miss.map((s) => ({ id: s.id, name: s.name })), target, hint };
   };
   const out: TodoItem[] = [
-    item("attendance", "Điểm danh xong", all, (s) => s.attendance != null, true, "attendance"),
+    item("attendance", "Điểm danh xong", all, (s) => s.attendanceSaved ?? s.attendance != null, true, "attendance"),
     item("criteria", "Đủ tiêu chí cho mỗi học viên có mặt", present, (s) => s.published || input.criteriaKeys.every((k) => s.scores[k] != null), true, "sheet"),
   ];
   if (st.requireObjectiveResult) {
