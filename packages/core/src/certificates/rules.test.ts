@@ -4,12 +4,13 @@ import {
   pathProgress, validatePathCourses, normalizePathCode, PATH_CODE_RE,
   pathCertificateNumber, certificatePrefix, certificateCenterCode, nextCertificateSeq, PATH_CERTIFICATE_NO_RE, CERTIFICATE_NO_RE,
   CERTIFICATE_TOKEN_RE, certificateVerifyPath, validateRevokeReason,
-  formatIssuedDate, vnDateOf,
+  formatIssuedDate,
   defaultTemplateFields, validateTemplateField, validateTemplateFields, normalizeTemplateFields, fontSizeCqw,
   buildCertificateSnapshot, isCertificateSnapshot, sampleCertificateSnapshot, certificateFieldText,
   readImageSize, backgroundWarnings, CERTIFICATE_BG_KEY_RE, builtinBackgroundPath, CERTIFICATE_FIELD_KEYS,
   type TemplateField,
 } from "./rules.js";
+import { vnDateOf } from "../portfolio/standard.js";
 import { certificateNumber } from "../reportcards/rules.js";
 
 const PATH = [

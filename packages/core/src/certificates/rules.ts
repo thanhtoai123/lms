@@ -13,6 +13,9 @@
  * File này không dùng kiểu DOM — chạy được ở máy chủ, trình duyệt và bộ kiểm thử.
  */
 
+// `vnDateOf` (ngày YYYY-MM-DD theo giờ Việt Nam) dùng chung với chuẩn hồ sơ học tập — một nguồn duy nhất
+import { vnDateOf } from "../portfolio/standard.js";
+
 /* ------------------------------------------------------------------ */
 /* Lộ trình học                                                         */
 /* ------------------------------------------------------------------ */
@@ -185,10 +188,6 @@ export function formatIssuedDate(iso: string, format: IssuedDateFormat = "dmy", 
   return p ? `${p}, ${text}` : text;
 }
 
-/** Ngày (YYYY-MM-DD) theo giờ Việt Nam của một thời điểm */
-export function vnDateOf(d: Date): string {
-  return new Date(d.getTime() + 7 * 3600e3).toISOString().slice(0, 10);
-}
 
 /* ------------------------------------------------------------------ */
 /* Mẫu chứng nhận: ô trường đặt trên ảnh nền                            */
