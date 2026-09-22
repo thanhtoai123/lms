@@ -30,6 +30,10 @@ const QUICK_ACTIONS: { title: string; sub: string; href: string; needs: string; 
   { title: "Tạo lớp mới", sub: "Mở lớp và xếp lịch", href: "/classes/new", needs: "/classes", words: "tao lop moi mo lop" },
   { title: "Duyệt ảnh lớp", sub: "Ảnh chờ duyệt theo buổi", href: "/duyet-media", needs: "/duyet-media", words: "duyet anh lop media" },
   { title: "Duyệt đơn từ", sub: "Đơn nghỉ / đơn công chờ duyệt", href: "/don-tu?status=pending", needs: "/don-tu", words: "duyet don tu nghi phep cong" },
+  { title: "Học bạ cần viết / duyệt", sub: "Lưới học bạ mốc theo lớp và hàng đợi duyệt", href: "/ho-so-hoc-tap?xem=hoc-ba-moc", needs: "/ho-so-hoc-tap?xem=hoc-ba-moc", words: "hoc ba moc viet duyet report card" },
+  { title: "Tra cứu hồ sơ học tập", sub: "Chọn học viên → học bạ, chứng nhận, in PDF", href: "/ho-so-hoc-tap?xem=tra-cuu", needs: "/ho-so-hoc-tap?xem=tra-cuu", words: "tra cuu hoc ba ho so hoc tap hoc vien" },
+  { title: "Xem báo cáo", sub: "Chỉ mục mọi báo cáo nghiệp vụ", href: "/bao-cao", needs: "/bao-cao", words: "bao cao thong ke doanh thu lead" },
+  { title: "Bảo mật tài khoản", sub: "Xác thực 2 lớp bằng ứng dụng OTP", href: "/bao-mat", needs: "/viec-hom-nay", words: "bao mat tai khoan 2 lop otp mat khau" },
   { title: "Làm đơn của tôi", sub: "Xin nghỉ, bổ sung công, đổi ca", href: "/cham-cong/lich-ca", needs: "/cham-cong/lich-ca", words: "lam don xin nghi cong ca cua toi" },
 ];
 
@@ -86,7 +90,11 @@ export function CommandPalette({ nav, open, onOpenChange }: { nav: NavGroup[]; o
 
   const items = useMemo<Item[]>(() => {
     const f = fold(q.trim());
-    const pages = nav.flatMap((g) => g.items.map((i) => ({ g: g.label, i })));
+    // Trang = mục menu + chip của trang trung tâm (vd "Học bạ & hồ sơ học tập › Tra cứu học viên")
+    const pages = nav.flatMap((g) => g.items.flatMap((it) => [
+      { g: g.label, i: { label: it.label, href: it.href, desc: it.desc, keywords: it.keywords } },
+      ...(it.tabs ?? []).filter((t) => t.href !== it.href).map((t) => ({ g: g.label, i: { label: `${it.label} › ${t.label}`, href: t.href, desc: t.desc, keywords: it.keywords } })),
+    ]));
     const navHrefs = new Set(pages.map(({ i }) => i.href));
     const actions = QUICK_ACTIONS.filter((a) => navHrefs.has(a.needs));
     const out: Item[] = [];
@@ -103,7 +111,7 @@ export function CommandPalette({ nav, open, onOpenChange }: { nav: NavGroup[]; o
       .forEach((a) => out.push({ key: `a:${a.href}`, group: "Hành động nhanh", title: a.title, sub: a.sub, href: a.href }));
     pages
       .map(({ g, i }) => {
-        const hay = fold(`${i.label} ${g} ${i.desc ?? ""}`);
+        const hay = fold(`${i.label} ${g} ${i.desc ?? ""} ${i.keywords ?? ""}`);
         const title = fold(i.label);
         if (!words.every((w) => hay.includes(w))) return null;
         return { score: title.startsWith(f) ? 0 : title.includes(f) ? 1 : 2, g, i };
