@@ -294,6 +294,7 @@ export async function complianceOptions(ctx: ProtectedContext) {
 /* ------------------------------------------------------------------ */
 
 export async function remindTeachers(ctx: ProtectedContext, input: { sessionIds: string[]; note?: string | null }) {
+  requirePermission(ctx, "report_card:approve");
   const ids = [...new Set(input.sessionIds)].filter((x) => UUID_RE.test(x)).slice(0, 200);
   if (!ids.length) throw new TRPCError({ code: "BAD_REQUEST", message: "Chọn ít nhất một buổi cần nhắc" });
   const [stds, list] = await Promise.all([
@@ -308,6 +309,7 @@ export async function remindTeachers(ctx: ProtectedContext, input: { sessionIds:
            and not exists (select 1 from session_evaluations se where se.session_id = a.session_id and se.enrollment_id = a.enrollment_id and se.status = 'published'))`,
     }).from(sessions).innerJoin(classes, eq(classes.id, sessions.classId)).where(and(inArray(sessions.id, ids), tenantCond(ctx, sessions))),
   ]);
+  if (!list.length) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy buổi học cần nhắc" });
   for (const s of list) {
     assertTenant(ctx, s, "Buổi học");
     requirePermission(ctx, "report_card:approve", { centerId: s.centerId });
