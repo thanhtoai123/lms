@@ -99,7 +99,7 @@ function CriteriaDrawer({ courseId, courseLabel, curriculumId, onClose }: { cour
             <ol className="space-y-2">
               {d.criteria.map((c, i) => (
                 <li key={c.id} className={`rounded-xl border border-black/10 p-3 ${c.isActive ? "" : "opacity-60"}`}>
-                  {edit?.id === c.id ? (
+                  {edit && edit.id === c.id ? (
                     <CriterionEditor draft={edit} setDraft={setEdit} errs={errs} pending={save.isPending} onSave={() => save.mutate({ courseId, id: edit.id, name: edit.name, groupName: edit.groupName || null, description: edit.description || null, levelDescriptors: edit.levels, isActive: edit.isActive })} onCancel={() => setEdit(null)} />
                   ) : (
                     <>
