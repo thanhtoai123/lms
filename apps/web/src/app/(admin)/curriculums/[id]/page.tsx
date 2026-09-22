@@ -5,6 +5,7 @@ import { getServerCaller } from "@/lib/trpc/server";
 import { NoAccess, PageHeader } from "@/components/admin-ui";
 import { CurriculumEditor } from "../editor";
 import { CUR_CHIP } from "../chips";
+import { CriteriaButton } from "@/components/portfolio/criteria-drawer";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Giáo trình" };
@@ -21,7 +22,7 @@ export default async function CurriculumPage({ params }: { params: Promise<{ id:
       <PageHeader
         title={c.name}
         desc={`${c.course?.code ?? ""} — ${c.course?.name ?? ""} · phiên bản ${c.version}${c.description ? ` · ${c.description}` : ""}`}
-        actions={<span className={`chip ${CUR_CHIP[c.status] ?? "bg-black/5"}`}>{c.statusLabel}</span>}
+        actions={<><CriteriaButton variant="button" courseId={c.courseId} courseLabel={`${c.course?.code ?? ""} — ${c.course?.name ?? ""}`} curriculumId={c.id} /><span className={`chip ${CUR_CHIP[c.status] ?? "bg-black/5"}`}>{c.statusLabel}</span></>}
       />
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">

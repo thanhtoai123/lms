@@ -1,10 +1,13 @@
 import { z } from "zod";
 import {
   OBJECTIVE_RESULTS, PORTFOLIO_SHARE_SCOPES, PORTFOLIO_SHARE_DAYS_MIN, PORTFOLIO_SHARE_DAYS_MAX, SESSION_EVAL_TEXT_MAX, HIGHLIGHT_MAX,
+  CRITERION_NAME_MAX, CRITERION_GROUP_MAX, LEVEL_DESCRIPTOR_MAX,
 } from "@satarobo/core";
 import { router, protectedProcedure } from "../trpc";
 import * as E from "../services/sessionEvaluations";
 import * as P from "../services/portfolio";
+import * as C from "../services/criteria";
+import * as S from "../services/portfolioStandard";
 
 const uuid = z.string().uuid();
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Ngày dạng YYYY-MM-DD");
@@ -55,6 +58,49 @@ export const sessionEvaluationsRouter = router({
     .mutation(({ ctx, input }) => E.amendEvaluation(ctx, input)),
   /** Một phiếu (in riêng khổ A5) */
   sheet: protectedProcedure.input(z.object({ id: uuid })).query(({ ctx, input }) => E.getSessionSheet(ctx, input.id)),
+  /** App GV: "Phiếu cần hoàn thiện" — buổi mình dạy còn học viên có mặt chưa có phiếu phát hành, kèm hạn */
+  pending: protectedProcedure
+    .input(z.object({ limit: z.number().int().min(1).max(50).optional() }).optional())
+    .query(async ({ ctx, input }) => (await E.pendingEvaluationSessions(ctx, { limit: input?.limit ?? 10, mine: true })) ?? { total: 0, overdue: 0, items: [] }),
+});
+
+const filterInput = z.object({
+  centerId: uuid.nullish(),
+  courseId: uuid.nullish(),
+  classId: uuid.nullish(),
+  teacherId: uuid.nullish(),
+  from: isoDate.nullish(),
+  to: isoDate.nullish(),
+});
+
+/** Tiêu chí đánh giá (rubric 4 mức có mô tả) + tiêu chí trọng tâm theo bài — drawer ở trang Khoá học / Giáo trình */
+const criteriaRouter = router({
+  board: protectedProcedure.input(z.object({ courseId: uuid, curriculumId: uuid.nullish() })).query(({ ctx, input }) => C.courseCriteriaBoard(ctx, input)),
+  save: protectedProcedure
+    .input(z.object({
+      id: uuid.optional(),
+      courseId: uuid,
+      name: z.string().trim().min(3, "Tên tiêu chí tối thiểu 3 ký tự").max(CRITERION_NAME_MAX),
+      groupName: z.string().max(CRITERION_GROUP_MAX).nullish(),
+      description: z.string().max(500).nullish(),
+      levelDescriptors: z.array(z.string().max(LEVEL_DESCRIPTOR_MAX)).length(4, "Cần đúng 4 mô tả mức").nullish(),
+      isActive: z.boolean().optional(),
+    }))
+    .mutation(({ ctx, input }) => C.saveCriterion(ctx, input)),
+  reorder: protectedProcedure.input(z.object({ courseId: uuid, ids: z.array(uuid).min(1).max(50) })).mutation(({ ctx, input }) => C.reorderCriteria(ctx, input)),
+  applyTemplate: protectedProcedure.input(z.object({ courseId: uuid })).mutation(({ ctx, input }) => C.applyCriteriaTemplate(ctx, input)),
+  setFocus: protectedProcedure.input(z.object({ lessonId: uuid, criterionIds: z.array(uuid).max(4, "Chọn tối đa 4 tiêu chí trọng tâm") })).mutation(({ ctx, input }) => C.setLessonFocus(ctx, input)),
+});
+
+/** Quản lý hồ sơ học tập theo chuẩn thông tin (trang /ho-so-hoc-tap) */
+const standardRouter = router({
+  board: protectedProcedure.input(filterInput).query(({ ctx, input }) => S.complianceBoard(ctx, input)),
+  options: protectedProcedure.query(({ ctx }) => S.complianceOptions(ctx)),
+  remind: protectedProcedure
+    .input(z.object({ sessionIds: z.array(uuid).min(1).max(200), note: z.string().max(300).nullish() }))
+    .mutation(({ ctx, input }) => S.remindTeachers(ctx, input)),
+  /** Dải "Mức đạt chuẩn hồ sơ" trên hồ sơ một học viên — chỉ nhân sự, không in cho phụ huynh */
+  student: protectedProcedure.input(z.object({ studentId: uuid })).query(({ ctx, input }) => S.studentCompliance(ctx, input.studentId)),
 });
 
 const scopeInput = {
@@ -66,6 +112,8 @@ const scopeInput = {
 
 /** Hồ sơ học tập của học viên: xem, chia sẻ link, thu hồi, xuất PDF lưu trữ (tuỳ chọn) */
 export const portfolioRouter = router({
+  criteria: criteriaRouter,
+  standard: standardRouter,
   get: protectedProcedure
     .input(z.object({ studentId: uuid, enrollmentId: uuid.nullish(), from: isoDate.nullish(), to: isoDate.nullish() }))
     .query(({ ctx, input }) => P.getPortfolio(ctx, input)),

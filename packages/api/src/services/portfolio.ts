@@ -230,7 +230,7 @@ export async function buildPortfolio(db: Db, studentId: string, scopeIn: Portfol
 /* Nhân sự                                                              */
 /* ------------------------------------------------------------------ */
 
-async function loadStudentForStaff(ctx: ProtectedContext, studentId: string) {
+export async function loadStudentForStaff(ctx: ProtectedContext, studentId: string) {
   const st = await ctx.db.query.students.findFirst({ where: and(eq(students.id, studentId), isNull(students.deletedAt)) });
   if (!st) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy học viên" });
   assertTenant(ctx, st, "Học viên");

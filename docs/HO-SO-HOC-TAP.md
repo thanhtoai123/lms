@@ -252,10 +252,129 @@ Biến môi trường: `PDF_RENDERER=playwright`, `PDF_CHROME_CHANNEL` (mặc đ
   phạm vi chia sẻ, hạn / thu hồi / định dạng token, chuỗi phạm vi ký HMAC, dữ liệu biểu đồ đường / mạng nhện, chuyên cần, xếp 2 phiếu / trang.
 - Chạy: `node --experimental-transform-types --import /tmp/reg.mjs --test "packages/core/src/**/*.test.ts"`.
 - Kịch bản toàn diện (`scripts/kiem-thu/kich-ban-toan-dien.ps1`): nhóm việc mới `session_evaluation` mở bằng `session_note:write|session_note:write_own`.
+- Chuẩn hồ sơ: `packages/core/src/portfolio/standard.test.ts` — chuẩn mặc định = hành vi cũ, đọc từ cấu hình vận hành (khoá cũ `sessionRequireEvaluations`),
+  tính hạn theo giờ Việt Nam (qua nửa đêm / qua tháng), trạng thái hạn, vi phạm từng phiếu (mã + câu tiếng Việt), bằng chứng theo ngưỡng, điểm đạt chuẩn hồ sơ,
+  kiểm tra 4 mô tả mức, bộ mẫu robotics, mô tả mức riêng thắng mô tả theo tên, sắp xếp tiêu chí trọng tâm, điều kiện phát hành theo chuẩn, danh mục "Buổi này cần hoàn thiện".
 
 ## 11. Hướng mở rộng
 
 - Gửi thông báo cho phụ huynh khi phiếu buổi được phát hành (gộp vào thông báo "buổi học đã hoàn tất" hiện có).
-- Cấu hình rubric / mô tả mức theo từng khoá (bảng cấu hình + bản chụp như hiện nay).
+- ~~Cấu hình rubric / mô tả mức theo từng khoá~~ — đã làm (mục 13).
 - Học sinh tự đánh giá (self-assessment) trên cùng rubric để so với đánh giá của giáo viên.
 - Đính kèm tệp dự án (mã nguồn, video ngắn) làm bằng chứng, không chỉ ảnh.
+- Đưa vi phạm "tỷ lệ bằng chứng của buổi" thành dòng riêng trong danh sách vi phạm (hiện ghi chú theo buổi) và tự nhắc GV khi phiếu sắp tới hạn.
+
+---
+
+## 12. Chuẩn thông tin hồ sơ học tập
+
+Yêu cầu của chủ dự án: *"Ở quản trị tôi cần đảm bảo quản lý được việc hồ sơ học tập theo đúng chuẩn thông tin"*.
+Chuẩn = **một tập quy tắc đo được**; quản trị theo dõi bằng **tỷ lệ đạt chuẩn** chứ không đọc từng phiếu.
+
+| Quy tắc | Đo thế nào | Cấu hình (khoá) | Mặc định | Chặn hoàn tất buổi? |
+|---|---|---|---|---|
+| Phiếu đủ tiêu chí | mọi tiêu chí của phiếu đã chấm | — (luôn bắt buộc) | — | Có (khi bật chặn) |
+| Kết quả mục tiêu bài | `objective_result` có giá trị | `requireObjectiveResult` | BẬT | Có (khi bật chặn) |
+| Ghi "Sản phẩm" | `product_note` không rỗng | `requireProductNote` | TẮT | Có (khi bật chặn) |
+| Nhận xét cho phụ huynh đủ dài | `length(trim(remark)) ≥ N` | `remarkMinLength` | 30 ký tự | **Không** — chỉ tính vào tỷ lệ đủ chuẩn |
+| Bằng chứng mỗi buổi | tỷ lệ HV có ảnh đã chọn hoặc có "Sản phẩm" ≥ N% | `minEvidenceRatePct` | 0 (không bắt) | Không |
+| Phiếu đúng hạn | phát hành trước *giờ kết thúc buổi + N giờ* (giờ Việt Nam) | `sheetDeadlineHours` | 24 giờ | Không |
+| Học bạ mốc đúng lịch | nộp học bạ trước *cuối ngày buổi mốc + N ngày* | `milestoneDeadlineDays` | 7 ngày | Không |
+| Hồ sơ HV đạt chuẩn | % phiếu (đã tới hạn) đủ chuẩn ≥ N% | `profileMinSheetPct` | 90% | Không |
+| Chặn hoàn tất buổi khi thiếu phiếu | — | `sessionRequireEvaluations` (**giữ khoá cũ**) | BẬT | — |
+
+**Cấu hình**: *Cấu hình vận hành → tab "Hồ sơ học tập"* (`/cau-hinh-van-hanh?tab=ho-so-hoc-tap`, nhóm `ho-so-hoc-tap` trong `OPS_GROUPS`).
+Đặt *Mặc định toàn hệ thống* (quyền `system:configure`) rồi **ghi đè theo cơ sở** (quyền `automation:update` tại cơ sở) — cơ sở không ghi đè thì kế thừa.
+Khoá `sessionRequireEvaluations` trước nằm ở tab *Lớp & GV*, nay chuyển sang tab này **giữ nguyên tên khoá** nên giá trị đã lưu vẫn hiệu lực.
+Mặc định giữ đúng hành vi trước đây (chặn khi thiếu tiêu chí / mục tiêu bài; không bắt sản phẩm, không bắt ảnh).
+
+**Định nghĩa dùng chung** (hàm thuần `packages/core/src/portfolio/standard.ts`, SQL tương ứng ở `packages/api/src/services/portfolioStandard.ts`):
+
+- *Phiếu kỳ vọng*: mỗi học viên **có mặt / đi muộn / học bù** ở mỗi buổi đã diễn ra, tính từ mốc bật tính năng (`app_settings.ho_so_hoc_tap.since`).
+- *Tới hạn*: đã phát hành, hoặc đã qua hạn hoàn thiện. Phiếu còn trong hạn **chưa tính** vào tỷ lệ (không phạt GV khi buổi vừa xong).
+- *Đủ chuẩn*: đã phát hành + mục tiêu bài (nếu bắt buộc) + nhận xét ≥ `remarkMinLength` + sản phẩm (nếu bắt buộc).
+- *Đúng hạn*: `published_at ≤ hạn`. Hạn = `(ngày + giờ kết thúc buổi) at time zone 'Asia/Ho_Chi_Minh' + sheetDeadlineHours giờ`.
+- `evaluateSheetCompliance(phiếu, chuẩn)` → danh sách vi phạm có **mã** (`no_sheet`, `criteria_missing`, `objective_missing`, `remark_short`, `product_missing`,
+  `not_published`, `late`, `overdue`) + câu tiếng Việt, cờ `contentOk` / `onTime` / `due`. `portfolioComplianceScore(...)` → % phiếu đủ chuẩn, % đúng hạn,
+  % bằng chứng, % học bạ đúng hạn, điểm tổng 0–100 (trọng số 50 · 20 · 15 · 15, bỏ phần không có dữ liệu), `meetsStandard`, `milestoneLate`.
+- Điều kiện phát hành phiếu / chặn hoàn tất (`validateSessionEvaluation`, `sessionEvaluationReadiness`) nhận thêm `requirement` đọc từ chuẩn của cơ sở.
+  CSDL (0013) bỏ ràng buộc cứng "đã phát hành phải có kết quả mục tiêu bài" để cơ sở tắt được quy tắc này; dịch vụ vẫn chặn khi bật (mặc định).
+
+## 13. Rubric có mô tả mức & tiêu chí trọng tâm
+
+Cơ sở nghiên cứu: **rubric phân tích** chỉ cho kết quả tin cậy giữa các người chấm khi **mỗi mức có mô tả hành vi quan sát được**
+(nghiên cứu rubric robotics, Frontiers in Education 2024 — độ tin cậy cao nhờ mô tả mức rõ + buổi hiệu chuẩn người chấm). Thiếu mô tả thì mỗi GV chấm một kiểu.
+
+- **Dữ liệu** (`packages/db/sql/0013_chuan_ho_so.sql`, idempotent):
+  - `competency_criteria.group_name` (nhóm, ≤ 60 ký tự) và `level_descriptors` JSONB — **mảng đúng 4 chuỗi** (mức 1 → 4), CHECK hình dạng; NULL = dùng mô tả mặc định theo tên.
+  - Bảng mới `lesson_focus_criteria (lesson_id, criterion_id, created_by, created_at)`, unique (bài, tiêu chí), trigger chặn gắn tiêu chí khác khoá của bài.
+    Phạm vi trung tâm đi theo khoá học (`courses.tenant_id`). Nhân bản giáo trình chép cả tiêu chí trọng tâm theo số thứ tự bài.
+- **Trong phiếu**: tiêu chí trọng tâm của bài được **đánh dấu sao và xếp lên đầu** (`orderCriteriaWithFocus`); bài không khai thì dùng toàn bộ tiêu chí của khoá như cũ.
+  Mô tả mức khai riêng **thắng** mô tả theo từ khoá tên (`rubricLevelsFor(tên, mô tả)`). Bản chụp phiếu ghi thêm `group`, `focus` — phiếu cũ không đổi.
+- **Quản trị** — nút **"Tiêu chí đánh giá"** (drawer, không thêm tab) ở *Khoá học* (mỗi dòng khoá) và *Giáo trình* (đầu trang):
+  - theo khoá: sửa tên, nhóm (gợi ý: Thiết kế & lắp ráp · Lập trình & tư duy · Kiến thức & kỹ năng · Thái độ & kỹ năng mềm), mô tả, **4 ô mô tả mức**,
+    sắp thứ tự ↑↓, ngưng dùng (không xoá — học bạ cũ còn tham chiếu). Kiểm tra: đủ 4, mỗi ô ≥ 5 ký tự, không trùng nhau, ngôn từ tích cực.
+  - khoá chưa có tiêu chí → **"Áp dụng bộ mẫu"** robotics / lập trình: 8 tiêu chí, 3 nhóm — *Lắp ráp mô hình, Thiết kế & cải tiến* (Thiết kế & lắp ráp);
+    *Tư duy lập trình, Gỡ lỗi & giải quyết vấn đề, Cảm biến & điều khiển* (Lập trình & tư duy); *Hợp tác nhóm, Trình bày sản phẩm, Tập trung & kiên trì*
+    (Thái độ & kỹ năng mềm), mỗi tiêu chí 4 mô tả hành vi viết sẵn (`CRITERIA_TEMPLATE_ROBOTICS`).
+  - theo bài của giáo trình (chọn phiên bản): sửa **mục tiêu bài**, chọn **tối đa 4 tiêu chí trọng tâm** (chạm chip).
+- Quyền: xem `course:read`; sửa tiêu chí `course:update`; mục tiêu bài / trọng tâm `curriculum:update`. Mọi thao tác ghi có nhật ký trong transaction.
+- API: `portfolio.criteria.{board, save, reorder, applyTemplate, setFocus}` (service `packages/api/src/services/criteria.ts`).
+- Seed: điền mô tả 4 mức + nhóm cho tiêu chí mẫu (Tư duy lập trình, Lắp ráp & cơ khí, Giải quyết vấn đề, Làm việc nhóm, Thuyết trình — theo bộ mẫu),
+  tiêu chí trọng tâm cho 7 bài Sata4 (Cảm biến siêu âm, Vòng lặp & rẽ nhánh, Robot tránh vật cản, Lắp ráp khung gầm, Dự án nhóm, Gỡ lỗi, Thử thách sa hình);
+  ~10% phiếu mẫu phát hành trễ 2 ngày để màn quản lý có số liệu trễ hạn.
+
+## 14. Màn GV: "Buổi này cần hoàn thiện"
+
+Yêu cầu: *"giáo viên cũng nhìn thấy các tiêu chí, nội dung để hoàn thiện sau mỗi buổi dạy"*. Đầu màn buổi dạy `/teacher/sessions/<id>`
+(cũng là màn nhân sự mở từ *Buổi học*) có khối gọn, **thu gọn / mở được** (nhớ trên máy, `localStorage` bọc try/catch):
+
+1. **Bài học**: "Bài N: tên bài", **mục tiêu bài**, **học cụ**; **hạn hoàn thiện phiếu** (giờ + "còn x giờ / quá hạn") theo chuẩn của cơ sở.
+2. **Danh mục việc cần xong** — tự tính, cập nhật ngay khi GV chạm (đọc cả phần chưa lưu): điểm danh xong · mỗi HV có mặt đủ tiêu chí ·
+   đã chọn kết quả mục tiêu bài · nhận xét ≥ N ký tự · (sản phẩm, nếu bắt buộc) · tỷ lệ HV có ảnh / sản phẩm ≥ ngưỡng · nhận xét chung của buổi.
+   Mỗi dòng hiện **x/y** và **tên học viên còn thiếu**; bấm tên → mở đúng phiếu của em đó và cuộn tới (điểm danh → cuộn tới dòng điểm danh; nhận xét chung → ô nhận xét).
+   Dòng "chỉ tính vào tỷ lệ đạt chuẩn" ghi rõ — không chặn hoàn tất.
+3. **Tiêu chí đánh giá của buổi** (trọng tâm trước, có sao) — mở ra là **bảng rubric nhỏ**: tiêu chí × 4 mức với mô tả hành vi.
+4. Trong phiếu từng HV: tiêu chí trọng tâm có nhãn "Trọng tâm"; **chạm một mức là hiện mô tả mức đó ngay dưới** (và khi rê chuột); ô nhận xét có bộ đếm "x/30 ký tự";
+   ô Sản phẩm có dấu * khi cơ sở bắt buộc.
+
+Chỉ hiển thị / điều hướng — điều kiện phát hành và chặn hoàn tất vẫn ở máy chủ (`sessionEvaluations.ts`), nay đọc theo chuẩn của cơ sở.
+Trang chủ app GV (`/teacher`) có thẻ **"Phiếu cần hoàn thiện"**: buổi mình đã dạy còn học viên có mặt chưa có phiếu phát hành, kèm hạn / "Quá hạn"
+(`academics.evaluations.pending`). *Việc hôm nay*: nhóm "Buổi chưa có phiếu nhận xét học viên" đánh dấu quá hạn theo `sheetDeadlineHours` và hiện hạn;
+nhóm "Học bạ kỳ chưa viết" (đã có — không thêm nhóm mới, nên kịch bản kiểm thử không đổi) hiện hạn và đánh dấu quá hạn theo `milestoneDeadlineDays`
+(trước: cố định 3 ngày; nay mặc định 7 ngày theo chuẩn).
+
+## 15. Quản lý hồ sơ học tập (`/ho-so-hoc-tap`)
+
+Menu *Học viên & Đăng ký học → Quản lý hồ sơ học tập* (icon `folder-check`, quyền `report_card:read`). Một màn hình, không tab:
+
+| Chỉ số | Cách tính | Cách đọc |
+|---|---|---|
+| **Tỷ lệ phiếu đúng hạn** | phiếu phát hành trước hạn / phiếu đã tới hạn | GV có hoàn thiện phiếu kịp trong N giờ sau buổi không |
+| **Tỷ lệ phiếu đủ chuẩn** | phiếu đủ chuẩn / phiếu đã tới hạn | Chất lượng thông tin trong hồ sơ (thiếu phiếu, nhận xét quá ngắn, thiếu mục tiêu / sản phẩm) |
+| **Học bạ mốc quá hạn** | học bạ của buổi mốc trong khoảng lọc đã qua hạn mà chưa nộp | Số việc tồn cần xử lý ngay |
+| **Hồ sơ đạt chuẩn** | HV có ≥ `profileMinSheetPct`% phiếu (tới hạn) đủ chuẩn / HV có phiếu tới hạn | Bao nhiêu hồ sơ đủ tốt để gửi phụ huynh / in |
+
+- **Bộ lọc**: cơ sở, khoá, lớp, GV, khoảng ngày (mặc định 30 ngày gần nhất) — nhớ bằng `RememberFilters`.
+- **Bảng theo giáo viên / theo lớp** (chuyển bằng chip): số buổi dạy, phiếu đủ chuẩn / tới hạn, trễ hạn, tỷ lệ — **dòng dưới 90% tô cảnh báo**, sắp tỷ lệ thấp lên đầu.
+  Mỗi dòng: nút chính **"Nhắc GV"** (gửi thông báo loại `portfolio.remind` qua cổng `notify`, liệt kê tối đa 8 buổi thiếu kèm hạn; mỗi GV một lần / ngày cho cùng danh sách buổi)
+  và liên kết **Chi tiết** (lọc danh sách vi phạm theo GV / lớp đó).
+- **Vi phạm cụ thể**: buổi – học viên – vi phạm (chip + câu cụ thể) – hạn; chọn nhiều + **"Nhắc hàng loạt"** (gom theo GV đứng buổi). Buổi chưa đạt tỷ lệ bằng chứng ghi chú "Cả buổi: …".
+- Truy vấn tổng hợp hoàn toàn bằng SQL (CTE `flag`, `count(*) filter (...)`, `group by`), `tenantSql` trên buổi, phạm vi cơ sở theo quyền `report_card:read`
+  (không tính quyền `_own`). Nhắc GV cần `report_card:approve` tại cơ sở của buổi; ghi nhật ký `portfolio_reminders` trong transaction.
+- **Hồ sơ từng HV** (`/ho-so-hoc-tap/<id>`): dải **"Mức đạt chuẩn hồ sơ"** — x/y buổi đủ phiếu, đúng hạn, có ảnh / sản phẩm, học bạ mốc đúng hạn, điểm tổng hợp.
+  **Chỉ nhân sự** (`print:hidden`; không có ở cổng phụ huynh, link chia sẻ hay bản in / PDF).
+- API: `portfolio.standard.{board, options, remind, student}`.
+
+## 16. Quy trình hiệu chuẩn người chấm (gợi ý mỗi quý)
+
+Mô tả mức chỉ giúp chấm nhất quán khi mọi GV **hiểu mô tả giống nhau**. Đào tạo tổ chức một buổi hiệu chuẩn ~60 phút mỗi quý (và khi có GV mới):
+
+1. **Chuẩn bị**: chọn **3 sản phẩm mẫu** của học viên (ảnh / video ngắn + chương trình) ở 3 trình độ khác nhau, cùng một bài có tiêu chí trọng tâm.
+2. **Chấm độc lập**: mỗi GV chấm riêng cả 3 sản phẩm theo rubric (phiếu giấy in bảng rubric của drawer *Tiêu chí đánh giá*), không trao đổi.
+3. **So lệch**: tổng hợp bảng tiêu chí × GV; đánh dấu ô lệch ≥ 2 mức, hoặc tiêu chí có < 70% GV cho cùng mức.
+4. **Thảo luận**: với từng ô lệch, mỗi GV nêu **hành vi quan sát được** khiến mình chọn mức đó; đối chiếu câu mô tả mức.
+5. **Thống nhất**: sửa câu mô tả mức mơ hồ trong drawer *Tiêu chí đánh giá* (ghi rõ hành vi, bỏ từ cảm tính); lưu 3 sản phẩm mẫu + mức đã thống nhất làm **ví dụ neo**.
+6. **Theo dõi**: quý sau so tỷ lệ đồng thuận; kết hợp bảng *Quản lý hồ sơ học tập* theo GV để phát hiện GV luôn chấm lệch cao / thấp so với lớp cùng khoá.
+
+Phiếu đã phát hành giữ bản chụp mô tả mức cũ — thay đổi sau hiệu chuẩn chỉ áp cho phiếu mới.

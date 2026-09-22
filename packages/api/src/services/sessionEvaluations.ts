@@ -8,6 +8,10 @@
  * TRONG CÙNG transaction chuyển trạng thái buổi; phiếu thiếu tiêu chí thì chặn hoàn tất
  * (trừ khi cấu hình vận hành `sessionRequireEvaluations` tắt).
  *
+ * Điều kiện phát hành / chặn hoàn tất đọc theo "Chuẩn hồ sơ học tập" (cấu hình vận hành nhóm "Hồ sơ học tập",
+ * theo cơ sở): bắt buộc mục tiêu bài, bắt buộc sản phẩm, công tắc chặn (`sessionRequireEvaluations`).
+ * Mặc định giữ nguyên hành vi cũ. Tiêu chí có mô tả 4 mức riêng + tiêu chí trọng tâm của bài (xếp lên đầu).
+ *
  * Quyền: xem = `session:read` (GV: buổi mình dạy); điền / sửa = `session_note:write` (GV: `_own`).
  * Mọi truy vấn danh sách có `tenantCond`; nạp theo id có `assertTenant`; mọi thao tác ghi có
  * `writeAudit` TRONG transaction.
@@ -16,12 +20,13 @@ import { and, asc, desc, eq, inArray, sql, type SQL } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import {
   sessionEvaluations, sessions, classes, courses, centers, lessons, teachers, enrollments, students, attendance, competencyCriteria,
-  sessionMedia, studentGuardians, parents, appSettings,
+  sessionMedia, studentGuardians, parents, appSettings, lessonFocusCriteria,
 } from "@satarobo/db";
 import {
   buildSessionSnapshot, applySessionScores, rebaseSnapshot, snapshotScores, isSessionEvalSnapshot, validateSessionEvaluation,
   sessionEvaluationReadiness, evaluationBlockerMessage, isEvaluableAttendance, sanitizeHighlights, highlightOptions, sessionAverage,
   sessionLabel, authorize, hasPermission, visibleCenterIds, toISODate, addDays, RUBRIC_LEVELS, SESSION_EVAL_TEXT_MAX,
+  orderCriteriaWithFocus, sheetDeadline, describeStandard,
   type SessionEvalSnapshot, type SessionEvalContext, type CriterionSource, type ObjectiveResult, type SessionScores, type EvalReadiness,
   type SessionSheetView, type Permission,
 } from "@satarobo/core";
@@ -29,6 +34,7 @@ import { requirePermission, type ProtectedContext } from "../trpc";
 import { assertTenant, tenantCond } from "./tenantScope";
 import { writeAudit } from "./audit";
 import { signedMediaUrl } from "../storage";
+import { standardFor, loadStandards, standardOf, sheetDeadlineSql } from "./portfolioStandardConfig";
 
 type Db = ProtectedContext["db"];
 const asDb = (d: unknown) => d as Db;
@@ -65,7 +71,7 @@ async function loadSessionRow(db: Db, sessionId: string) {
   const [r] = await db
     .select({
       id: sessions.id, tenantId: sessions.tenantId, classId: sessions.classId, lessonId: sessions.lessonId, sequenceNo: sessions.sequenceNo,
-      kind: sessions.kind, date: sessions.date, startTime: sessions.startTime, status: sessions.status, teacherId: sessions.teacherId,
+      kind: sessions.kind, date: sessions.date, startTime: sessions.startTime, endTime: sessions.endTime, status: sessions.status, teacherId: sessions.teacherId,
       topic: sessions.topic, originalSequenceNo: sessions.originalSequenceNo,
       centerId: classes.centerId, courseId: classes.courseId, classCode: classes.code, className: classes.name,
       leadTeacherId: classes.leadTeacherId, assistantTeacherId: classes.assistantTeacherId,
@@ -83,16 +89,27 @@ async function loadSessionRow(db: Db, sessionId: string) {
 type SessionRow = Awaited<ReturnType<typeof loadSessionRow>>;
 
 async function sessionContextBase(db: Db, s: SessionRow) {
-  const [lesson] = s.lessonId ? await db.select({ title: lessons.title, objectives: lessons.objectives }).from(lessons).where(eq(lessons.id, s.lessonId)).limit(1) : [];
+  const [lesson] = s.lessonId
+    ? await db.select({ title: lessons.title, objectives: lessons.objectives, materials: lessons.materials, sequenceNo: lessons.sequenceNo }).from(lessons).where(eq(lessons.id, s.lessonId)).limit(1)
+    : [];
   const tid = s.teacherId ?? s.leadTeacherId;
   const [teacher] = tid ? await db.select({ fullName: teachers.fullName }).from(teachers).where(eq(teachers.id, tid)).limit(1) : [];
   const criteria = await db
-    .select({ id: competencyCriteria.id, name: competencyCriteria.name, description: competencyCriteria.description })
+    .select({
+      id: competencyCriteria.id, name: competencyCriteria.name, description: competencyCriteria.description,
+      group: competencyCriteria.groupName, levelDescriptors: competencyCriteria.levelDescriptors,
+    })
     .from(competencyCriteria)
     .where(and(eq(competencyCriteria.courseId, s.courseId), eq(competencyCriteria.isActive, true)))
     .orderBy(asc(competencyCriteria.sortOrder), asc(competencyCriteria.createdAt));
+  // Tiêu chí trọng tâm của bài (tuỳ chọn): đánh dấu + xếp lên đầu phiếu; bài không khai thì giữ nguyên thứ tự khoá
+  const focus = s.lessonId
+    ? await db.select({ criterionId: lessonFocusCriteria.criterionId }).from(lessonFocusCriteria).where(eq(lessonFocusCriteria.lessonId, s.lessonId))
+    : [];
+  const ordered: CriterionSource[] = orderCriteriaWithFocus(criteria, focus.map((f) => f.criterionId));
   return {
-    criteria: criteria as CriterionSource[],
+    criteria: ordered,
+    lesson: lesson ? { sequenceNo: lesson.sequenceNo, materials: lesson.materials ?? null } : null,
     teacherId: tid ?? null,
     base: {
       date: s.date,
@@ -137,14 +154,14 @@ async function rosterWithEvaluations(db: Db, s: SessionRow) {
 /** Điều kiện phát hành phiếu của cả buổi (dùng cho "Hoàn tất buổi" và cho khối nhập liệu) */
 export async function sessionEvaluationStatus(db: Db, sessionId: string): Promise<EvalReadiness & { message: string | null }> {
   const s = await loadSessionRow(db, sessionId);
-  const roster = await rosterWithEvaluations(db, s);
+  const [roster, std] = await Promise.all([rosterWithEvaluations(db, s), standardFor(db, s.centerId)]);
   const r = sessionEvaluationReadiness(roster.map((x) => ({
     name: x.fullName,
     attendanceStatus: x.attendanceStatus,
     evaluation: x.evaluation
-      ? { status: x.evaluation.status, snapshot: isSessionEvalSnapshot(x.evaluation.snapshot) ? x.evaluation.snapshot : null, objectiveResult: x.evaluation.objectiveResult }
+      ? { status: x.evaluation.status, snapshot: isSessionEvalSnapshot(x.evaluation.snapshot) ? x.evaluation.snapshot : null, objectiveResult: x.evaluation.objectiveResult, productNote: x.evaluation.productNote }
       : null,
-  })));
+  })), std);
   return { ...r, message: evaluationBlockerMessage(r) };
 }
 
@@ -197,20 +214,29 @@ export async function sessionEvaluationBoard(ctx: ProtectedContext, sessionId: s
   assertTenant(ctx, s, "Buổi học");
   requirePermission(ctx, "session:read", { centerId: s.centerId, ownerIds: s.ownerIds });
   const canWrite = authorize(ctx.actor, "session_note:write", { centerId: s.centerId, ownerIds: s.ownerIds }).allowed;
-  const [roster, cfg, cb] = await Promise.all([rosterWithEvaluations(ctx.db, s), portfolioSettings(ctx.db), sessionContextBase(ctx.db, s)]);
+  const [roster, cfg, cb, std] = await Promise.all([rosterWithEvaluations(ctx.db, s), portfolioSettings(ctx.db), sessionContextBase(ctx.db, s), standardFor(ctx.db, s.centerId)]);
   const media = await evidenceMedia(ctx.db, [s.id], roster.map((r) => r.studentId));
   const fresh = buildSessionSnapshot({ criteria: cb.criteria, context: contextFor(cb.base, s, { fullName: "", code: null }, null) });
   const readiness = sessionEvaluationReadiness(roster.map((x) => ({
     name: x.fullName,
     attendanceStatus: x.attendanceStatus,
-    evaluation: x.evaluation ? { status: x.evaluation.status, snapshot: isSessionEvalSnapshot(x.evaluation.snapshot) ? x.evaluation.snapshot : null, objectiveResult: x.evaluation.objectiveResult } : null,
-  })));
+    evaluation: x.evaluation ? { status: x.evaluation.status, snapshot: isSessionEvalSnapshot(x.evaluation.snapshot) ? x.evaluation.snapshot : null, objectiveResult: x.evaluation.objectiveResult, productNote: x.evaluation.productNote } : null,
+  })), std);
+  const deadline = sheetDeadline(s.date, s.endTime ?? null, std.sheetDeadlineHours);
   return {
     sessionId: s.id,
     sessionStatus: s.status,
-    lesson: { title: cb.base.lessonTitle, objectives: cb.base.lessonObjectives },
-    /** Tiêu chí hiện hành của khoá (phiếu nháp mới dùng bộ này; phiếu đã phát hành giữ bản chụp riêng) */
-    criteria: fresh.criteria.map((c) => ({ key: c.key, label: c.label, description: c.description, levels: c.levels })),
+    lesson: {
+      title: cb.base.lessonTitle, objectives: cb.base.lessonObjectives,
+      sequenceNo: cb.lesson?.sequenceNo ?? null, materials: cb.lesson?.materials ?? null,
+    },
+    /** Tiêu chí hiện hành của khoá (phiếu nháp mới dùng bộ này; phiếu đã phát hành giữ bản chụp riêng) — trọng tâm của bài xếp trước */
+    criteria: fresh.criteria.map((c) => ({ key: c.key, label: c.label, description: c.description, levels: c.levels, group: c.group ?? null, focus: !!c.focus })),
+    /** Chuẩn hồ sơ đang áp dụng ở cơ sở (màn GV hiện danh mục việc cần xong theo chuẩn này) */
+    standard: std,
+    standardLines: describeStandard(std),
+    /** Hạn hoàn thiện phiếu (ISO) */
+    deadline: deadline.toISOString(),
     levels: RUBRIC_LEVELS.map((l) => ({ ...l })),
     highlightOptions: cfg.highlights,
     canWrite,
@@ -367,7 +393,7 @@ export async function syncRemarksFromAttendance(tx: Db, sessionId: string, recor
  */
 export async function publishSessionEvaluations(tx: Db, input: { sessionId: string; actorId: string; ip?: string }) {
   const s = await loadSessionRow(tx, input.sessionId);
-  const [roster, cb] = await Promise.all([rosterWithEvaluations(tx, s), sessionContextBase(tx, s)]);
+  const [roster, cb, std] = await Promise.all([rosterWithEvaluations(tx, s), sessionContextBase(tx, s), standardFor(tx, s.centerId)]);
   const now = new Date();
   const published: string[] = [];
   const removed: string[] = [];
@@ -382,7 +408,7 @@ export async function publishSessionEvaluations(tx: Db, input: { sessionId: stri
     }
     const fresh = buildSessionSnapshot({ criteria: cb.criteria, context: contextFor(cb.base, s, r, r.attendanceStatus), now });
     const snapshot = rebaseSnapshot(isSessionEvalSnapshot(e.snapshot) ? e.snapshot : null, fresh);
-    const errs = validateSessionEvaluation({ mode: "publish", snapshot, objectiveResult: e.objectiveResult, productNote: e.productNote, remark: e.remark, highlights: e.highlights });
+    const errs = validateSessionEvaluation({ mode: "publish", snapshot, objectiveResult: e.objectiveResult, productNote: e.productNote, remark: e.remark, highlights: e.highlights, requirement: std });
     if (errs.length) { pending.push(r.fullName); continue; }
     await tx.update(sessionEvaluations)
       .set({ status: "published", revision: 1, snapshot, lessonId: s.lessonId, teacherId: cb.teacherId, publishedAt: now, publishedBy: input.actorId, remark: e.remark ?? r.studentRemark ?? null, updatedBy: input.actorId })
@@ -420,7 +446,7 @@ export async function amendEvaluation(ctx: ProtectedContext, input: {
   requirePermission(ctx, "session_note:write", { centerId: s.centerId, ownerIds: s.ownerIds });
   if (e.status !== "published") throw pre("Phiếu còn là bản nháp — sửa trực tiếp ở màn buổi học");
   if (!isSessionEvalSnapshot(e.snapshot)) throw pre("Phiếu hỏng dữ liệu — liên hệ quản trị");
-  const cfg = await portfolioSettings(ctx.db);
+  const [cfg, std] = await Promise.all([portfolioSettings(ctx.db), standardFor(ctx.db, s.centerId)]);
   const snapshot = input.scores ? applySessionScores(e.snapshot, input.scores) : e.snapshot;
   const next = {
     snapshot,
@@ -429,7 +455,7 @@ export async function amendEvaluation(ctx: ProtectedContext, input: {
     productNote: input.productNote === undefined ? e.productNote : clean(input.productNote),
     remark: input.remark === undefined ? e.remark : clean(input.remark),
   };
-  const errs = validateSessionEvaluation({ mode: "publish", ...next });
+  const errs = validateSessionEvaluation({ mode: "publish", ...next, requirement: std });
   if (errs.length) throw pre(`Phiếu đã phát hành phải giữ đủ nội dung: ${errs.join("; ")}`);
   const before = { scores: snapshotScores(e.snapshot), objectiveResult: e.objectiveResult, highlights: e.highlights, productNote: e.productNote, remark: e.remark, revision: e.revision };
   const after = { scores: snapshotScores(snapshot), objectiveResult: next.objectiveResult, highlights: next.highlights, productNote: next.productNote, remark: next.remark, revision: e.revision + 1 };
@@ -488,12 +514,17 @@ export interface PendingEvaluationSession {
   sessionId: string;
   classId: string;
   classCode: string;
+  className: string;
   label: string;
   date: string;
   startTime: string;
+  endTime: string;
   centerCode: string;
   teacherName: string | null;
   missing: number;
+  /** Hạn hoàn thiện phiếu (ISO) = giờ kết thúc buổi + `sheetDeadlineHours` của cơ sở */
+  deadline: string;
+  overdue: boolean;
 }
 
 function anywhere(ctx: ProtectedContext, perm: Permission) {
@@ -502,19 +533,21 @@ function anywhere(ctx: ProtectedContext, perm: Permission) {
 }
 
 /**
- * `null` = người dùng không có quyền với nhóm việc này. GV chỉ có quyền `_own` thấy buổi mình dạy.
+ * `null` = người dùng không có quyền với nhóm việc này. GV chỉ có quyền `_own` thấy buổi mình dạy;
+ * `mine: true` (thẻ "Phiếu cần hoàn thiện" ở app GV) luôn chỉ lấy buổi người đăng nhập dạy.
  * Chỉ tính buổi từ mốc bật tính năng (app_settings "ho_so_hoc_tap".since) và trong 30 ngày gần nhất.
+ * Quá hạn = đã qua hạn hoàn thiện phiếu theo chuẩn của cơ sở (`sheetDeadlineHours` sau giờ kết thúc buổi).
  */
-export async function pendingEvaluationSessions(ctx: ProtectedContext, input: { limit?: number } = {}): Promise<{ total: number; overdue: number; items: PendingEvaluationSession[] } | null> {
+export async function pendingEvaluationSessions(ctx: ProtectedContext, input: { limit?: number; mine?: boolean } = {}): Promise<{ total: number; overdue: number; items: PendingEvaluationSession[] } | null> {
   if (!hasPermission(ctx.actor, "session_note:write")) return null;
-  const broad = anywhere(ctx, "session_note:write");
+  const broad = !input.mine && anywhere(ctx, "session_note:write");
   const own: SQL = broad
     ? sql`true`
     : ctx.actor.personId
       ? sql`(${sessions.teacherId} = ${ctx.actor.personId} or ${classes.leadTeacherId} = ${ctx.actor.personId} or ${classes.assistantTeacherId} = ${ctx.actor.personId})`
       : sql`false`;
   const today = todayLocal();
-  const cfg = await portfolioSettings(ctx.db);
+  const [cfg, stds] = await Promise.all([portfolioSettings(ctx.db), loadStandards(ctx.db)]);
   const windowFrom = addDays(today, -PENDING_WINDOW_DAYS);
   const from = cfg.since && cfg.since > windowFrom ? cfg.since : windowFrom;
   const visible = visibleCenterIds(ctx.actor);
@@ -531,17 +564,18 @@ export async function pendingEvaluationSessions(ctx: ProtectedContext, input: { 
      where a.session_id = ${sessions.id} and a.status in ('present','late','makeup')
        and not exists (select 1 from ${sessionEvaluations} se where se.session_id = a.session_id and se.enrollment_id = a.enrollment_id and se.status = 'published'))`;
   const where = and(...conds, sql`${missingExpr} > 0`);
-  const yesterday = addDays(today, -1);
+  const deadlineExpr = sheetDeadlineSql(sessions.date, sessions.endTime, classes.centerId, stds);
   const [counts] = await ctx.db
-    .select({ total: sql<number>`count(*)::int`, overdue: sql<number>`count(*) filter (where ${sessions.date} < ${yesterday})::int` })
+    .select({ total: sql<number>`count(*)::int`, overdue: sql<number>`count(*) filter (where now() > ${deadlineExpr})::int` })
     .from(sessions).innerJoin(classes, eq(classes.id, sessions.classId))
     .where(where);
   const total = counts?.total ?? 0;
   if (!total) return { total: 0, overdue: 0, items: [] };
   const rows = await ctx.db
     .select({
-      sessionId: sessions.id, classId: classes.id, classCode: classes.code, seq: sessions.sequenceNo, kind: sessions.kind, originalSequenceNo: sessions.originalSequenceNo,
-      date: sessions.date, startTime: sessions.startTime, centerCode: centers.code, teacherName: teachers.fullName, missing: missingExpr,
+      sessionId: sessions.id, classId: classes.id, classCode: classes.code, className: classes.name, centerId: classes.centerId,
+      seq: sessions.sequenceNo, kind: sessions.kind, originalSequenceNo: sessions.originalSequenceNo,
+      date: sessions.date, startTime: sessions.startTime, endTime: sessions.endTime, centerCode: centers.code, teacherName: teachers.fullName, missing: missingExpr,
     })
     .from(sessions)
     .innerJoin(classes, eq(classes.id, sessions.classId))
@@ -550,13 +584,18 @@ export async function pendingEvaluationSessions(ctx: ProtectedContext, input: { 
     .where(where)
     .orderBy(asc(sessions.date), asc(sessions.startTime))
     .limit(Math.min(100, Math.max(1, input.limit ?? 25)));
+  const now = Date.now();
   return {
     total,
     overdue: counts?.overdue ?? 0,
-    items: rows.map((r) => ({
-      sessionId: r.sessionId, classId: r.classId, classCode: r.classCode, label: sessionLabel(r.seq, r.kind, r.originalSequenceNo), date: r.date, startTime: r.startTime,
-      centerCode: r.centerCode, teacherName: r.teacherName ?? null, missing: r.missing,
-    })),
+    items: rows.map((r) => {
+      const dl = sheetDeadline(r.date, r.endTime, standardOf(stds, r.centerId).sheetDeadlineHours);
+      return {
+        sessionId: r.sessionId, classId: r.classId, classCode: r.classCode, className: r.className, label: sessionLabel(r.seq, r.kind, r.originalSequenceNo),
+        date: r.date, startTime: r.startTime, endTime: r.endTime, centerCode: r.centerCode, teacherName: r.teacherName ?? null, missing: r.missing,
+        deadline: dl.toISOString(), overdue: now > dl.getTime(),
+      };
+    }),
   };
 }
 

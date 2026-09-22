@@ -7,14 +7,16 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "@/lib/trpc/client";
 import { ATTENDANCE_STATUSES, type AttendanceStatus } from "@satarobo/core";
 import { ATT_LABEL, ATT_STYLE, StatusChip, fmtDate, fmtTime } from "@/components/ui";
-import { EvaluationPanel } from "@/components/portfolio/evaluation-panel";
+import { EvaluationPanel, type Form as EvalForm } from "@/components/portfolio/evaluation-panel";
+import { SessionTodo } from "@/components/portfolio/session-todo";
 
 type Draft = Record<string, { status: AttendanceStatus; remark: string; rating: number | null; needsMakeup: boolean | null; absenceReason: string }>;
 
 const isAbsent = (s: AttendanceStatus) => s === "absent_excused" || s === "absent_unexcused";
 
 /**
- * Một màn hình, ba bước, không rời ngữ cảnh:
+ * Một màn hình, ba bước, không rời ngữ cảnh (đầu trang: khối "Buổi này cần hoàn thiện" — bài học, tiêu chí + mô tả 4 mức,
+ * danh mục việc cần xong theo chuẩn hồ sơ học tập; bấm một dòng để cuộn tới đúng học viên):
  *   1. Điểm danh (chạm để xoay trạng thái, mặc định "có mặt")
  *   2. Nhận xét buổi (bắt buộc) + PHIẾU NHẬN XÉT từng HV có mặt (rubric 4 mức, tự lưu nháp)
  *   3. Hoàn tất → trạng thái completed, phiếu nhận xét được phát hành cùng lúc, PH nhận thông báo (worker)
@@ -60,6 +62,14 @@ export function SessionWorkflow({ sessionId }: { sessionId: string }) {
   // Phiếu nhận xét buổi quản lý ô nhận xét của HV có mặt (không nhập hai lần) — dùng chung bộ nhớ đệm với khối phiếu
   const evalBoard = useQuery({ ...trpc.academics.evaluations.board.queryOptions({ sessionId }), retry: false });
   const evalManaged = !!evalBoard.data?.canWrite;
+  // Nội dung phiếu đang hiển thị (kể cả chưa lưu) — khối "Buổi này cần hoàn thiện" tự tính theo đó
+  const [liveForms, setLiveForms] = useState<Record<string, EvalForm>>({});
+  const [jump, setJump] = useState<{ id: string; n: number } | null>(null);
+  const onJump = (target: "attendance" | "sheet" | "note", id: string | null) => {
+    if (target === "sheet" && id) { setJump({ id, n: Date.now() }); return; }
+    const elId = target === "attendance" ? (id ? `dd-${id}` : "diem-danh") : target === "note" ? "nhan-xet-buoi" : "phieu-nhan-xet";
+    try { document.getElementById(elId)?.scrollIntoView({ behavior: "smooth", block: "center" }); } catch { /* trình duyệt cũ */ }
+  };
 
   const s = q.data ?? (q.isError && cached ? cached : undefined);
   const offlineView = !q.data && !!s;
@@ -160,6 +170,17 @@ export function SessionWorkflow({ sessionId }: { sessionId: string }) {
       {offlineSaved && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Điểm danh buổi này đã lưu trên máy, chờ gửi lên hệ thống.</div>}
       {error && <div className="rounded-xl bg-red-50 border border-red-200 p-3 text-sm text-red-700">{error}</div>}
 
+      {/* Buổi này cần hoàn thiện: bài học, tiêu chí + mô tả 4 mức, danh mục việc cần xong (chuẩn hồ sơ học tập) */}
+      {!isFuture && s.status !== "cancelled" && s.status !== "rescheduled" && evalBoard.data && (
+        <SessionTodo
+          board={evalBoard.data}
+          sheets={liveForms}
+          roster={roster.map((r) => ({ enrollmentId: r.enrollmentId, name: r.fullName, status: effective[r.enrollmentId]?.status ?? null, saved: !!r.attendanceStatus }))}
+          hasSessionNote={!!s.sessionNote?.trim()}
+          onJump={onJump}
+        />
+      )}
+
       {/* Chuẩn bị trước buổi */}
       <section className="card p-4 space-y-2">
         <div className="flex items-center justify-between">
@@ -175,7 +196,7 @@ export function SessionWorkflow({ sessionId }: { sessionId: string }) {
       </section>
 
       {/* Bước 1: Điểm danh */}
-      <section className="card p-4 space-y-3">
+      <section id="diem-danh" className="card scroll-mt-20 p-4 space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="font-bold">Điểm danh <span className="text-ink-400 font-normal text-sm">({present}/{roster.length} có mặt)</span></h2>
           {s.date === s.today && <Link href={`/teacher/sessions/${sessionId}/quet`} className="text-xs font-semibold text-brand-600 underline">Quét thẻ QR</Link>}
@@ -187,7 +208,7 @@ export function SessionWorkflow({ sessionId }: { sessionId: string }) {
           {roster.map((r) => {
             const v = effective[r.enrollmentId]!;
             return (
-              <li key={r.enrollmentId} className="py-2 flex items-center gap-3">
+              <li key={r.enrollmentId} id={`dd-${r.enrollmentId}`} className="scroll-mt-20 py-2 flex items-center gap-3">
                 <button
                   type="button"
                   onClick={() => cycle(r.enrollmentId)}
@@ -252,6 +273,8 @@ export function SessionWorkflow({ sessionId }: { sessionId: string }) {
           attendance={Object.fromEntries(roster.map((r) => [r.enrollmentId, effective[r.enrollmentId]?.status]))}
           sessionDone={s.status === "completed"}
           disabled={offlineView}
+          onFormsChange={setLiveForms}
+          jump={jump}
         />
       )}
 
@@ -281,7 +304,7 @@ export function SessionWorkflow({ sessionId }: { sessionId: string }) {
       )}
 
       {/* Bước 2: Nhận xét buổi */}
-      <section className={`card p-4 space-y-3 ${step < 2 ? "opacity-60" : ""}`}>
+      <section id="nhan-xet-buoi" className={`card scroll-mt-20 p-4 space-y-3 ${step < 2 ? "opacity-60" : ""}`}>
         <h2 className="font-bold">Nhận xét buổi học <span className="text-xs text-ink-400 font-normal">(bắt buộc, PH sẽ đọc)</span></h2>
         <textarea
           className="input min-h-28"

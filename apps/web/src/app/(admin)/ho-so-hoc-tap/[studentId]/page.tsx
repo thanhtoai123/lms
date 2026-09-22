@@ -32,7 +32,11 @@ export default async function StudentPortfolioPage({ params, searchParams }: { p
     if (r.missing) notFound();
     return <div className="card p-6 text-sm">{r.error} <Link href={`/students/${studentId}`} className="underline">Quay lại</Link></div>;
   }
-  const opts = await caller.portfolio.options({ studentId }).catch(() => null);
+  // Dải "Mức đạt chuẩn hồ sơ" — chỉ nhân sự, ẩn khi in (không lên bản cho phụ huynh)
+  const [opts, comp] = await Promise.all([
+    caller.portfolio.options({ studentId }).catch(() => null),
+    caller.portfolio.standard.student({ studentId }).catch(() => null),
+  ]);
   const enrollments: { id: string; label: string }[] = opts?.enrollments ?? r.enrollments;
   return (
     <div className="space-y-4">
@@ -52,6 +56,19 @@ export default async function StudentPortfolioPage({ params, searchParams }: { p
           autoPrint={sp.in === "1"}
         />
       </div>
+      {comp && (
+        <section className="card flex flex-wrap items-center gap-x-5 gap-y-2 p-3 text-sm print:hidden" aria-label="Mức đạt chuẩn hồ sơ">
+          <span className="font-semibold">Mức đạt chuẩn hồ sơ</span>
+          <span className={`chip ${comp.score.meetsStandard ? "bg-green-100 text-green-800" : comp.sheetsDue ? "bg-amber-100 text-amber-900" : "bg-black/5 text-ink-600"}`}>
+            {comp.sheetsDue ? (comp.score.meetsStandard ? "Đạt chuẩn" : `Chưa đạt (cần ≥ ${comp.threshold}%)`) : "Chưa có phiếu tới hạn"}
+          </span>
+          <span className="tabular-nums"><b>{comp.sheetsContentOk}/{comp.sheetsDue}</b> buổi đủ phiếu{comp.score.sheetPct != null ? ` (${comp.score.sheetPct}%)` : ""}</span>
+          <span className="tabular-nums"><b>{comp.sheetsOnTime}/{comp.sheetsDue}</b> đúng hạn</span>
+          <span className="tabular-nums"><b>{comp.sessionsEvidenceOk}/{comp.sheetsDue}</b> buổi có ảnh / sản phẩm</span>
+          <span className={`tabular-nums ${comp.milestonesOverdue ? "text-amber-800" : ""}`}><b>{comp.milestonesOnTime}/{comp.milestonesDue}</b> học bạ mốc đúng hạn{comp.milestonesOverdue ? ` · ${comp.milestonesOverdue} quá hạn` : ""}</span>
+          {comp.score.score != null && <span className="text-xs text-ink-400">Điểm tổng hợp {comp.score.score}/100</span>}
+        </section>
+      )}
       <form className="flex flex-wrap items-end gap-2 print:hidden" aria-label="Lọc hồ sơ">
         <label className="text-xs">Khoá học
           <select name="enrollmentId" defaultValue={enrollmentId ?? ""} className="input mt-1 max-w-[280px]">

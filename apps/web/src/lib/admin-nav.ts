@@ -71,6 +71,7 @@ export const ADMIN_NAV: NavGroup[] = [
       { label: "Hoàn thành khoá & chứng nhận", href: "/hoan-thanh-khoa", icon: "award", perm: "enrollment:read", ready: true },
       { label: "Học bạ", href: "/hoc-ba", icon: "scroll-text", perm: "report_card:read", ready: true },
       { label: "Học bạ năng lực", href: "/report-cards", icon: "notebook-pen", perm: "report_card:read", ready: true },
+      { label: "Quản lý hồ sơ học tập", href: "/ho-so-hoc-tap", icon: "folder-check", perm: "report_card:read", ready: true, desc: "Hồ sơ theo chuẩn thông tin: tỷ lệ phiếu đúng hạn / đủ chuẩn, học bạ mốc quá hạn, hồ sơ đạt chuẩn; bảng theo GV / lớp, nhắc GV một chạm." },
       { label: "SataCoin", href: "/satacoin", icon: "coins", perm: "coin:read", ready: true, desc: "Sổ xu thưởng chỉ thêm: thưởng theo hạn mức, thu hồi có lý do, đổi quà qua duyệt." },
     ],
   },

@@ -116,6 +116,7 @@ export const NOTIFICATION_TYPES: readonly NotificationTypeDef[] = [
   { prefix: "care.rui-ro", label: "Học viên cần chăm sóc (cảnh báo rủi ro)", groupKey: "care", priority: "normal", recipients: [...SALES, "CENTER_MANAGER"], pushEnabled: false },
   { prefix: "care.tai-tuc", label: "Học viên hoàn thành khoá — tư vấn tái tục", groupKey: "care", priority: "normal", recipients: SALES, pushEnabled: false },
   { prefix: "report_card.due", label: "Đến hạn viết học bạ năng lực", groupKey: "content", priority: "normal", recipients: TEACHERS, pushEnabled: false },
+  { prefix: "portfolio.remind", label: "Nhắc hoàn thiện phiếu nhận xét buổi học (chuẩn hồ sơ học tập)", groupKey: "content", priority: "normal", recipients: TEACHERS, pushEnabled: true },
 
   // — Học liệu & giáo án
   { prefix: "lesson_proposal.submitted", label: "Đề xuất sửa giáo án chờ xem xét", groupKey: "content", priority: "info", recipients: ["TRAINING"], pushEnabled: false },
