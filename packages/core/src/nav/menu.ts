@@ -26,6 +26,8 @@ export interface NavTab {
   href: string;
   perm?: NavPerm;
   desc?: string;
+  /** true = quyền ở đây CHỈ để ẩn/hiện trên menu; trang tự kiểm quyền rộng hơn (hàng rào trang bỏ qua) */
+  menuOnly?: boolean;
 }
 
 export interface NavItem {
@@ -46,6 +48,8 @@ export interface NavItem {
   match?: string[];
   /** Từ khoá thêm cho ô tìm menu / Ctrl+K (không dấu) */
   keywords?: string;
+  /** Xem NavTab.menuOnly */
+  menuOnly?: boolean;
 }
 
 export interface NavGroup {
@@ -445,8 +449,8 @@ export const ADMIN_MENU: NavGroup[] = [
         label: "Go-live", href: "/go-live", icon: "rocket", keywords: "pilot",
         tabs: [
           { label: "Go-live cơ sở", href: "/go-live", perm: "cutover:read" },
-          { label: "Sau go-live", href: "/bao-cao/sau-go-live", perm: ["report:read", "cutover:read"] },
-          { label: "Đo pilot chat", href: "/bao-cao/chat-pilot", perm: ["report:read", "cutover:read"] },
+          { label: "Sau go-live", href: "/bao-cao/sau-go-live", perm: ["report:read", "cutover:read"], menuOnly: true },
+          { label: "Đo pilot chat", href: "/bao-cao/chat-pilot", perm: ["report:read", "cutover:read"], menuOnly: true },
         ],
       },
     ],
@@ -530,6 +534,44 @@ export function filterMenu(menu: readonly NavGroup[], can: (p: Permission) => bo
     if (items.length) out.push({ ...g, items });
   }
   return out;
+}
+
+/**
+ * Hàng rào TRANG theo cây menu: mở thẳng URL của một mục/chip mà menu đã ẩn với người này
+ * thì trả `false` để khung quản trị hiện "chưa có quyền" thay vì chạy trang.
+ *
+ * Trước đây một số trang chỉ tải khung rồi để từng truy vấn tự từ chối (người dùng thấy trang trống
+ * hoặc "Có lỗi khi tải trang" — mã 500), số khác vẫn hiện được nút / bộ lọc của nghiệp vụ không thuộc
+ * vai trò. Quy tắc (khớp ĐÚNG đường dẫn, không khớp tiền tố — trang chi tiết như /leads/<id> tự kiểm):
+ *  - không mục/chip nào có đường dẫn này → `null` (không áp hàng rào);
+ *  - có → được vào nếu ÍT NHẤT MỘT mục/chip cùng đường dẫn được phép (chip: cần cả quyền của mục cha);
+ *  - mục/chip `menuOnly` → coi như được phép (trang tự kiểm quyền rộng hơn một cách có chủ ý).
+ */
+export function pageAllowed(menu: readonly NavGroup[], pathname: string, can: (p: Permission) => boolean): boolean | null {
+  let seen = false;
+  for (const g of menu) {
+    for (const i of g.items) {
+      const itemOk = i.menuOnly || navAllowed(i.perm, can);
+      const hrefs: { href: string; ok: boolean }[] = [];
+      if (!i.tabs) hrefs.push({ href: i.href, ok: itemOk });
+      for (const t of i.tabs ?? []) hrefs.push({ href: t.href, ok: !!t.menuOnly || (itemOk && navAllowed(t.perm, can)) });
+      for (const h of hrefs) {
+        if (pathOf(h.href) !== pathname) continue;
+        if (h.ok) return true;
+        seen = true;
+      }
+    }
+  }
+  return seen ? false : null;
+}
+
+/** Quyền (dạng chữ) của mục/chip đầu tiên có đường dẫn này — để hiện trong thông báo "chưa có quyền" */
+export function pagePermLabel(menu: readonly NavGroup[], pathname: string): string {
+  for (const g of menu) for (const i of g.items) {
+    const all = i.tabs ? i.tabs.map((t) => ({ href: t.href, perm: t.perm ?? i.perm })) : [{ href: i.href, perm: i.perm }];
+    for (const h of all) if (pathOf(h.href) === pathname && h.perm) return typeof h.perm === "string" ? h.perm : h.perm.join(" + ");
+  }
+  return "";
 }
 
 /** Mọi tiền tố đường dẫn thuộc về một mục (href, các chip, match) */

@@ -4,7 +4,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import {
   ADMIN_MENU, LEGACY_REDIRECTS, MOVED_OUT_OF_SIDEBAR, REPORTS, activeNavItem, activeTab, allMenuHrefs, defaultOpenGroups,
-  filterMenu, foldVi, menuManifest, navPrefixes, nextRedirects, pathOf, queryOf, searchMenu,
+  filterMenu, foldVi, menuManifest, navPrefixes, nextRedirects, pageAllowed, pagePermLabel, pathOf, queryOf, searchMenu,
 } from "./menu.js";
 import { hasPermission, ROLES, STAFF_ROLES, type Actor, type Role } from "../policy/policy.js";
 
@@ -178,4 +178,24 @@ test("bản kê cho kiểm thử PowerShell khớp cây menu (CAP_NHAT_MENU=1 đ
   if (process.env.CAP_NHAT_MENU === "1") writeFileSync(file, want, "utf8");
   assert.ok(existsSync(file), "chưa có scripts/kiem-thu/menu-manifest.json — chạy test với CAP_NHAT_MENU=1");
   assert.equal(readFileSync(file, "utf8").replace(/\r\n/g, "\n"), want, "menu-manifest.json cũ — chạy test với CAP_NHAT_MENU=1");
+});
+
+test("hàng rào trang: URL của mục bị ẩn → không vào được; mục hiện → vào được; trang ngoài menu → không áp", () => {
+  const can = (role: Role) => { const a = actorOf(role); return (p: Parameters<typeof hasPermission>[1]) => hasPermission(a, p); };
+  for (const role of STAFF_ROLES) {
+    const shown = new Set(allMenuHrefs(menuFor(role)).map(pathOf));
+    for (const href of allMenuHrefs(ADMIN_MENU)) {
+      const path = pathOf(href);
+      const ok = pageAllowed(ADMIN_MENU, path, can(role));
+      // Hiện trên menu ⇒ phải vào được (không bao giờ chặn nhầm thứ menu đưa tới)
+      if (shown.has(path)) assert.equal(ok, true, `${role}: ${path} hiện trên menu nhưng hàng rào chặn`);
+    }
+  }
+  assert.equal(pageAllowed(ADMIN_MENU, "/leads", can("CENTER_ACCOUNTANT")), false);
+  assert.equal(pageAllowed(ADMIN_MENU, "/leads", can("SUPER_ADMIN")), true);
+  assert.equal(pageAllowed(ADMIN_MENU, "/leads/00000000-0000-0000-0000-000000000000", can("CENTER_ACCOUNTANT")), null, "trang chi tiết tự kiểm quyền");
+  assert.equal(pageAllowed(ADMIN_MENU, "/khong-co-trong-menu", can("TEACHER")), null);
+  // menuOnly: trang tự kiểm quyền rộng hơn một cách có chủ ý
+  assert.equal(pageAllowed(ADMIN_MENU, "/bao-cao/sau-go-live", can("CENTER_ACCOUNTANT")), true);
+  assert.ok(pagePermLabel(ADMIN_MENU, "/leads").length > 0);
 });

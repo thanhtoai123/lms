@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { PATH_REQUEST_HEADER } from "@/lib/path-header";
 import {
   idleExpired,
   devActorAllowed,
@@ -83,6 +84,9 @@ export async function proxy(req: NextRequest) {
     h.delete("content-security-policy");
     h.delete("content-security-policy-report-only");
     h.set(NONCE_REQUEST_HEADER, nonce);
+    // Đường dẫn đang mở — khung quản trị dùng để áp hàng rào trang theo menu (pageAllowed).
+    // Luôn GHI ĐÈ giá trị máy khách gửi lên để không ai tự khai đường dẫn khác.
+    h.set(PATH_REQUEST_HEADER, pathname);
     h.set(opts.reportOnly ? "content-security-policy-report-only" : NEXT_NONCE_REQUEST_HEADER, cspValue);
     return h;
   };

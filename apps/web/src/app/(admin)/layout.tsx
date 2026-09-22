@@ -1,11 +1,13 @@
 import { redirect } from "next/navigation";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { normalizeIdle } from "@satarobo/core";
 import { IDLE_COOKIE } from "@/lib/auth-session";
-import { filterMenu, hasPermission, hasRole, ROLE_LABEL_VI, STAFF_ROLES, type Actor, type Role } from "@satarobo/core";
+import { filterMenu, pageAllowed, pagePermLabel, hasPermission, hasRole, ROLE_LABEL_VI, STAFF_ROLES, type Actor, type Role } from "@satarobo/core";
 import { getServerCaller } from "@/lib/trpc/server";
 import { ADMIN_NAV } from "@/lib/admin-nav";
 import { AdminShell } from "@/components/admin-shell";
+import { NoAccess } from "@/components/admin-ui";
+import { PATH_REQUEST_HEADER } from "@/lib/path-header";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +25,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   const idle = me.auth?.via === "supabase" ? normalizeIdle((await cookies()).get(IDLE_COOKIE)?.value ?? 60) : null;
   // Lọc theo quyền (hàng rào hiển thị; service vẫn kiểm tra chặt). Mục trung tâm giữ các chip được phép.
-  const nav = filterMenu(ADMIN_NAV, (p) => hasPermission(actor, p));
+  const can = (p: Parameters<typeof hasPermission>[1]) => hasPermission(actor, p);
+  const nav = filterMenu(ADMIN_NAV, can);
+  // Hàng rào trang: mở thẳng URL của mục menu đã bị ẩn với vai trò này → báo "chưa có quyền"
+  // thay vì chạy trang (trước đây: trang trống, hoặc lỗi 500 khi truy vấn của trang từ chối).
+  // Chỉ khớp ĐÚNG đường dẫn của mục/chip; trang chi tiết và trang ngoài menu tự kiểm quyền như cũ.
+  const path = (await headers()).get(PATH_REQUEST_HEADER) ?? "";
+  const blocked = path ? pageAllowed(ADMIN_NAV, path, can) === false : false;
   const main = PRIORITY.find((r) => roles.includes(r)) ?? roles[0]!;
   const initials = me.user.fullName.split(/\s+/).filter(Boolean).slice(-2).map((w) => w[0]!.toUpperCase()).join("") || "U";
 
@@ -39,7 +47,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         canRunWorker={hasRole(actor, "SUPER_ADMIN", "CENTER_MANAGER")}
         idleMinutes={idle}
       >
-        {children}
+        {blocked ? <NoAccess title="Chưa có quyền" perm={pagePermLabel(ADMIN_NAV, path)} /> : children}
       </AdminShell>
     </div>
   );
