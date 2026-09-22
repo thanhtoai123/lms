@@ -498,11 +498,38 @@ export const competencyCriteria = pgTable(
     courseId: uuid("course_id").notNull().references(() => courses.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     description: text("description"),
+    /** Nhóm tiêu chí (vd "Thiết kế & lắp ráp", "Thái độ & kỹ năng mềm") — docs/HO-SO-HOC-TAP.md */
+    groupName: text("group_name"),
+    /**
+     * Mô tả HÀNH VI QUAN SÁT ĐƯỢC cho 4 mức (mảng 4 chuỗi, mức 1 → 4). Null = dùng mô tả mặc định theo tên.
+     * Chụp vào phiếu buổi lúc phát hành — sửa sau không đổi phiếu cũ.
+     */
+    levelDescriptors: jsonb("level_descriptors").$type<string[]>(),
     sortOrder: integer("sort_order").notNull().default(0),
     isActive: boolean("is_active").notNull().default(true),
     ...timestamps,
   },
   (t) => [index("criteria_course_idx").on(t.courseId, t.sortOrder)],
+);
+
+/**
+ * Tiêu chí TRỌNG TÂM của từng bài học (không bắt buộc): trong phiếu buổi, tiêu chí trọng tâm được đánh dấu
+ * và xếp lên đầu. Bài không khai thì dùng toàn bộ tiêu chí của khoá như cũ. Ràng buộc ở sql/0013_chuan_ho_so.sql.
+ * Không có cột tenant: phạm vi trung tâm đi theo khoá học (courses.tenant_id) của bài / tiêu chí.
+ */
+export const lessonFocusCriteria = pgTable(
+  "lesson_focus_criteria",
+  {
+    id: id(),
+    lessonId: uuid("lesson_id").notNull().references(() => lessons.id, { onDelete: "cascade" }),
+    criterionId: uuid("criterion_id").notNull().references(() => competencyCriteria.id, { onDelete: "cascade" }),
+    createdBy: uuid("created_by").references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("lesson_focus_criteria_uq").on(t.lessonId, t.criterionId),
+    index("lesson_focus_criteria_criterion_idx").on(t.criterionId),
+  ],
 );
 
 export const reportCardStatusEnum = pgEnum("report_card_status", ["draft", "submitted", "returned", "approved", "published"]);

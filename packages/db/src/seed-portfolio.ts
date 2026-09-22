@@ -7,16 +7,18 @@
  *    kèm bản chụp số liệu tổng hợp (xu hướng, chuyên cần, tỷ lệ đạt mục tiêu bài, thẻ nổi bật).
  *  - Hai ảnh lớp đã duyệt gắn một học viên mẫu (phụ huynh đồng ý đăng ảnh) làm minh chứng trên phiếu.
  *  - MỘT link chia sẻ hồ sơ cố định để xem thử: /hs/<DEMO_PORTFOLIO_TOKEN>.
+ *  - Chuẩn hồ sơ (sql/0013): mô tả 4 mức + nhóm cho tiêu chí các khoá mẫu (theo bộ mẫu robotics),
+ *    tiêu chí trọng tâm cho vài bài Sata4; ~10% phiếu phát hành trễ hạn để màn "Quản lý hồ sơ học tập" có số liệu.
  * PRNG cố định → chạy lại ra cùng dữ liệu.
  */
 import { and, eq, inArray, sql } from "drizzle-orm";
 import {
   sessions, classes, courses, centers, lessons, teachers, attendance, enrollments, students, competencyCriteria, sessionEvaluations,
-  reportCards, reportCardScores, portfolioShares, sessionMedia, appSettings, users, userRoles, studentGuardians, parents,
+  reportCards, reportCardScores, portfolioShares, sessionMedia, appSettings, users, userRoles, studentGuardians, parents, lessonFocusCriteria,
 } from "./schema/index";
 import {
   buildSessionSnapshot, sessionLabel, aggregateMilestone, milestonePeriod, reportCardMilestones, tallyAttendance, snapshotScores,
-  DEFAULT_HIGHLIGHTS, addDays, toISODate,
+  DEFAULT_HIGHLIGHTS, addDays, toISODate, orderCriteriaWithFocus, CRITERIA_TEMPLATE_ROBOTICS,
   type ObjectiveResult, type EvalForAggregate, type CriterionSource, type AttendanceStatus,
 } from "@satarobo/core";
 import type { Database } from "./index";
@@ -58,8 +60,54 @@ const REMARK = [
   "Con có nhiều ý tưởng sáng tạo khi trang trí và cải tiến mô hình.",
 ];
 
+/** Tên tiêu chí trong seed → tiêu chí của bộ mẫu robotics (mô tả 4 mức + nhóm) */
+const SEED_CRITERIA_TEMPLATE: Record<string, string> = {
+  "Tư duy lập trình": "Tư duy lập trình",
+  "Lắp ráp & cơ khí": "Lắp ráp mô hình",
+  "Giải quyết vấn đề": "Gỡ lỗi & giải quyết vấn đề",
+  "Làm việc nhóm": "Hợp tác nhóm",
+  "Thuyết trình": "Trình bày sản phẩm",
+};
+/** Tiêu chí trọng tâm của vài bài Sata4 (tên bài, tên tiêu chí) */
+const SEED_FOCUS: [string, string][] = [
+  ["Cảm biến siêu âm & đo khoảng cách", "Tư duy lập trình"],
+  ["Vòng lặp & rẽ nhánh", "Tư duy lập trình"],
+  ["Robot tránh vật cản", "Giải quyết vấn đề"],
+  ["Lắp ráp khung gầm nâng cao", "Lắp ráp & cơ khí"],
+  ["Dự án nhóm: robot phân loại", "Làm việc nhóm"],
+  ["Dự án nhóm: robot phân loại", "Giải quyết vấn đề"],
+  ["Gỡ lỗi & tối ưu", "Giải quyết vấn đề"],
+  ["Thử thách sa hình & thuyết trình", "Thuyết trình"],
+];
+
+/** Chuẩn hồ sơ: mô tả 4 mức + nhóm cho tiêu chí mẫu, tiêu chí trọng tâm theo bài. Chạy lại không nhân đôi */
+export async function seedCriteriaStandard(db: Database) {
+  let described = 0;
+  for (const [name, tplName] of Object.entries(SEED_CRITERIA_TEMPLATE)) {
+    const tpl = CRITERIA_TEMPLATE_ROBOTICS.find((t) => t.name === tplName);
+    if (!tpl) continue;
+    const rows = await db.update(competencyCriteria)
+      .set({ groupName: tpl.groupName, levelDescriptors: [...tpl.levelDescriptors], description: tpl.description })
+      .where(and(eq(competencyCriteria.name, name), sql`${competencyCriteria.levelDescriptors} is null`))
+      .returning({ id: competencyCriteria.id });
+    described += rows.length;
+  }
+  const pairs = sql.join(SEED_FOCUS.map(([l, c]) => sql`(${l}::text, ${c}::text)`), sql`, `);
+  const focus = await db.execute(sql`
+    insert into ${lessonFocusCriteria} (lesson_id, criterion_id)
+    select l.id, cc.id
+      from ${lessons} l
+      join curricula cu on cu.id = l.curriculum_id
+      join ${competencyCriteria} cc on cc.course_id = cu.course_id and cc.is_active
+     where (l.title, cc.name) in (${pairs})
+    on conflict (lesson_id, criterion_id) do nothing
+    returning id`);
+  return { described, focus: (focus as unknown as unknown[]).length };
+}
+
 export async function seedPortfolio(db: Database, opts: { today?: string } = {}) {
   const today = opts.today ?? toISODate(new Date(Date.now() + 7 * 3600e3));
+  await seedCriteriaStandard(db);
   const sess = await db
     .select({
       id: sessions.id, tenantId: sessions.tenantId, classId: sessions.classId, lessonId: sessions.lessonId, seq: sessions.sequenceNo, kind: sessions.kind,
@@ -79,15 +127,21 @@ export async function seedPortfolio(db: Database, opts: { today?: string } = {})
   const [lessonRows, teacherRows, critRows] = await Promise.all([
     db.select({ id: lessons.id, title: lessons.title, objectives: lessons.objectives }).from(lessons),
     db.select({ id: teachers.id, fullName: teachers.fullName }).from(teachers),
-    db.select({ id: competencyCriteria.id, courseId: competencyCriteria.courseId, name: competencyCriteria.name, description: competencyCriteria.description, sortOrder: competencyCriteria.sortOrder })
+    db.select({
+      id: competencyCriteria.id, courseId: competencyCriteria.courseId, name: competencyCriteria.name, description: competencyCriteria.description, sortOrder: competencyCriteria.sortOrder,
+      groupName: competencyCriteria.groupName, levelDescriptors: competencyCriteria.levelDescriptors,
+    })
       .from(competencyCriteria).where(eq(competencyCriteria.isActive, true)),
   ]);
+  const focusRows = await db.select({ lessonId: lessonFocusCriteria.lessonId, criterionId: lessonFocusCriteria.criterionId }).from(lessonFocusCriteria);
+  const focusByLesson = new Map<string, string[]>();
+  for (const f of focusRows) focusByLesson.set(f.lessonId, [...(focusByLesson.get(f.lessonId) ?? []), f.criterionId]);
   const lessonById = new Map(lessonRows.map((l) => [l.id, l]));
   const teacherById = new Map(teacherRows.map((t) => [t.id, t.fullName]));
   const critByCourse = new Map<string, CriterionSource[]>();
   for (const c of [...critRows].sort((a, b) => a.sortOrder - b.sortOrder)) {
     const list = critByCourse.get(c.courseId) ?? [];
-    list.push({ id: c.id, name: c.name, description: c.description });
+    list.push({ id: c.id, name: c.name, description: c.description, group: c.groupName, levelDescriptors: c.levelDescriptors });
     critByCourse.set(c.courseId, list);
   }
 
@@ -130,7 +184,7 @@ export async function seedPortfolio(db: Database, opts: { today?: string } = {})
     const idx = (orderByEnr.get(a.enrollmentId) ?? []).indexOf(a.sessionId);
     const growth = Math.min(1.1, Math.max(0, idx) * 0.07); // tiến bộ dần theo số buổi
     const lesson = s.lessonId ? lessonById.get(s.lessonId) : undefined;
-    const criteria = critByCourse.get(s.courseId) ?? [];
+    const criteria = orderCriteriaWithFocus(critByCourse.get(s.courseId) ?? [], s.lessonId ? focusByLesson.get(s.lessonId) ?? [] : []);
     const snapshotBase = buildSessionSnapshot({
       criteria,
       context: {
@@ -157,7 +211,9 @@ export async function seedPortfolio(db: Database, opts: { today?: string } = {})
     const highlights = DEFAULT_HIGHLIGHTS.filter(() => r() < 0.16).slice(0, 2);
     const remark = a.remark ?? REMARK[Math.floor(r() * REMARK.length)]!;
     const productNote = r() < 0.7 ? PRODUCT[Math.floor(r() * PRODUCT.length)]! : null;
-    const publishedAt = s.completedAt ?? new Date(`${s.date}T21:00:00+07:00`);
+    // Phần lớn phát hành tối ngày học (đúng hạn 24 giờ); ~10% trễ 2 ngày để màn quản lý có số liệu trễ hạn
+    const onTimeAt = new Date(`${s.date}T21:00:00+07:00`);
+    const publishedAt = hash(`${a.enrollmentId}|${s.id}|tre-han`) % 10 === 0 ? new Date(onTimeAt.getTime() + 2 * 86400e3) : onTimeAt;
     evIns.push({
       tenantId: s.tenantId, centerId: s.centerId, sessionId: s.id, enrollmentId: a.enrollmentId, studentId: a.studentId, classId: s.classId,
       courseId: s.courseId, lessonId: s.lessonId, teacherId: s.teacherId ?? s.leadTeacherId, status: "published", revision: 1, snapshot,
