@@ -12,7 +12,7 @@ import {
   courses, coursePackages, curricula, lessons, classes, classGroups, classSchedules, sessions, enrollments, attendance, classEvents,
   enrollmentEvents, competencyCriteria, reportCards, reportCardScores, sessionMedia,
   leads, leadChildren, leadActivities, leadTasks, leadAssignees, admissionsSettings, trialBookings, auditLog,
-  trialClasses, trialClassSessions, trialClassEnrollments, trialAttendance,
+  trialClasses, trialClassSessions, trialClassEnrollments, trialAttendance, trialReports,
   holidays, coursePrerequisites, teacherCourses, teacherEvaluations,
   paymentMethods, orders, orderItems, orderInstallments, orderEvents, payments, refunds, financeLedger,
   commissionRules, commissions, commissionPolicies, commissionPolicyShares, commissionPolicyTiers, paymentQrCodes, bankTransactions,
@@ -25,6 +25,7 @@ import {
   posts, siteBlocks, campaigns, campaignSpends, trackEvents, consentRecords, dataRequests, dataRequestEvents,
   jobPostings, candidates, candidateEvents, conversations, messages, affiliates,
 } from "./schema/index";
+import { TRIAL_REPORT_TEMPLATE, snapshotAnswers, trialReportCode, shareExpiresAt } from "@satarobo/core";
 import { SHIFT_CATALOGUE, plannedMinutesOf, workSegments, COIN_RULE_DEFS, trialClassCode, trialClassName, attendanceModeOf, isLeaveShift, nominalMinutesOf, type PayMode, NOTIFICATION_TYPES, NOTIFICATION_GROUPS, buildPath, defaultTenantSettings } from "@satarobo/core";
 import { generateSessions, buildClassCode, buildStudentCode, toISODate, addDays, orderCode, receiptNumber, packagePrice, buildInstallmentPlan, computeCommission, describeRule, periodOf, transferMemo, vietQrImageUrl, fmtMin, hhmm, weekdayOf, leaveDays, requestCode, slaDue, SETTINGS_DEFAULTS, CONSENT_TEXT_VERSION, dsrCode, dsrDue } from "@satarobo/core";
 import { courseCompletions } from "./schema/index";
@@ -34,6 +35,9 @@ import {
 } from "@satarobo/core";
 
 const db = createDb();
+
+/** Token CỐ ĐỊNH, dễ nhớ của phiếu đánh giá học thử mẫu — xem thử tại /pdg/<token> (chỉ dữ liệu mẫu) */
+const DEMO_TRIAL_REPORT_TOKEN = "xem-thu-phieu-danh-gia-sata-robo-mau";
 
 async function main() {
   console.log("Seeding…");
@@ -888,6 +892,46 @@ async function main() {
     trialRows.push({ leadId: leadRows[8]!.id, sessionId: toComplete[0]!.id, centerId: cs1!.id, status: "attended", childName: leadRows[8]!.childName, resultBy: t1U!.id, resultAt: h(520), bookedBy: sale1U!.id });
   }
   if (trialRows.length) await db.insert(trialBookings).values(trialRows);
+
+  // ---- Phiếu đánh giá buổi học thử mẫu (tên giả trong seed) ----
+  // Chân phiếu lấy tên / địa chỉ / SĐT từ bảng centers → gắn SĐT mẫu cho hai cơ sở
+  await db.update(centers).set({ phone: "0900000100" }).where(eq(centers.id, cs1!.id));
+  await db.update(centers).set({ phone: "0900000200" }).where(eq(centers.id, cs2!.id));
+  const [bkGiang] = await db.select({ id: trialBookings.id, sessionId: trialBookings.sessionId }).from(trialBookings)
+    .where(and(eq(trialBookings.leadId, leadRows[5]!.id), eq(trialBookings.status, "attended"))).limit(1);
+  const kidGiang = await db.query.leadChildren.findFirst({ where: eq(leadChildren.leadId, leadRows[5]!.id) });
+  const kidHa = await db.query.leadChildren.findFirst({ where: and(eq(leadChildren.leadId, leadRows[6]!.id), eq(leadChildren.fullName, "Bé Hà")) });
+  const sGiang = bkGiang ? sessionRows.find((x) => x.id === bkGiang.sessionId) : undefined;
+  const reportYear = Number(today.slice(0, 4));
+  if (bkGiang) {
+    const [rp] = await db.insert(trialReports).values({
+      tenantId: tSata.id, centerId: cs1!.id, leadId: leadRows[5]!.id, childId: kidGiang?.id ?? null, trialBookingId: bkGiang.id,
+      courseId: sata4!.id, teacherId: gv1!.id, code: trialReportCode("CS1", reportYear, 1), status: "published", childName: "Bé Giang",
+      sessionAt: sGiang ? new Date(`${sGiang.date}T${sGiang.startTime.slice(0, 5)}:00+07:00`) : h(30),
+      answers: snapshotAnswers(TRIAL_REPORT_TEMPLATE, { grasp: 3, speed: 2, computer: 3, focus: 3, communication: 2, presentation: 3, interest: 3 }),
+      strengths: "Bé tự lắp xong xe robot theo hình hướng dẫn, rất tò mò hỏi vì sao bánh răng lớn làm xe chạy chậm mà khoẻ hơn.",
+      growth: "Bé cần luyện thêm thao tác kéo thả chuột và mạnh dạn chia sẻ ý tưởng trước lớp.",
+      productNote: "Xe robot né vật cản chạy trọn một vòng sa bàn (dữ liệu mẫu).",
+      readiness: "ready", recommendedCourseId: sata4!.id, recommendedLevel: "Cấp 1 — Làm quen",
+      recommendationNote: "Bé thao tác nhanh và thích lắp ráp — hợp lộ trình lắp ráp kết hợp lập trình kéo thả.",
+      pathway: true, competitionPotential: false,
+      shareToken: DEMO_TRIAL_REPORT_TOKEN, shareExpiresAt: shareExpiresAt(new Date()), publishedAt: h(20), publishedBy: sale1U!.id,
+      viewCount: 3, firstViewedAt: h(18), lastViewedAt: h(2), createdBy: t1U!.id, updatedBy: sale1U!.id,
+    }).returning({ id: trialReports.id, code: trialReports.code });
+    await db.insert(leadActivities).values({
+      leadId: leadRows[5]!.id, type: "note", actorId: sale1U!.id, createdAt: h(20),
+      content: `Đã gửi phiếu đánh giá học thử ${rp!.code} của Bé Giang (dữ liệu mẫu)`,
+      meta: { event: "trial_report_published", trialReportId: rp!.id, code: rp!.code },
+    });
+  }
+  // Bản nháp chấm dở — lập từ trang lead (bé học thử ngoài hệ thống)
+  await db.insert(trialReports).values({
+    tenantId: tSata.id, centerId: cs1!.id, leadId: leadRows[6]!.id, childId: kidHa?.id ?? null, courseId: sata4!.id, teacherId: gv3!.id,
+    code: trialReportCode("CS1", reportYear, 2), status: "draft", childName: "Bé Hà", sessionAt: h(50),
+    answers: snapshotAnswers(TRIAL_REPORT_TEMPLATE, { grasp: 2, speed: 2, focus: 1 }),
+    growth: "Bé cần thêm thời gian làm quen với bàn phím (bản nháp mẫu).",
+    createdBy: t3U!.id, updatedBy: t3U!.id,
+  });
   await db.insert(leadActivities).values([
     { leadId: leadRows[9]!.id, type: "status_change" as const, content: "Mất lead", meta: { from: "consulting", to: "lost", event: "lose" }, createdAt: h(650) },
     { leadId: leadRows[8]!.id, type: "status_change" as const, content: "Đăng ký", meta: { from: "trial_done", to: "enrolled", event: "enroll" }, createdAt: h(500) },
@@ -996,6 +1040,7 @@ async function main() {
   }
 
   console.log(`✔ Seeded: 2 centers, 3 rooms, 7 users, 3 teachers, ${lessonRows.length} lessons, 2 classes, ${sessionRows.length} sessions, 16 students, ${leadRows.length} leads`);
+  console.log(`  Phiếu đánh giá học thử mẫu (không cần đăng nhập): ${(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "")}/pdg/${DEMO_TRIAL_REPORT_TOKEN}`);
   console.log("  Dev login (/login → tài khoản mẫu): superadmin@example.test | manager.cs1@example.test | sale1.cs1@example.test | ketoan.cs1@example.test | hr.cs1@example.test | daotao@example.test | marketing@example.test | teacher1@satarobo.vn");
 }
 

@@ -27,7 +27,7 @@ Hội sở của chuỗi thấy số liệu tổng hợp để quản trị thư
 
 Mọi bảng hay được truy vấn trực tiếp đều có cột `tenant_id` riêng để lọc rẻ (một cột, một index), thay vì phải bắc cầu qua bản ghi cha:
 
-`regions`, `centers`, `rooms`, `legal_entities`, `org_units`, `users`, `audit_log`, `students`, `teachers`, `parents`, `courses`, `course_packages`, `curricula`, `class_groups`, `classes`, `sessions`, `enrollments`, `attendance`, `session_media`, `leads`, `trial_classes`, `payment_methods`, `orders`, `payments`, `finance_ledger`, `commission_policies`, `commission_rules`, `einvoices`, `positions`, `staff`, `work_shifts`, `timesheet_periods`, `attendance_punches`, `parent_requests`, `notification_broadcasts`, `parent_notifications`, `user_notifications`, `care_tasks`, `outbox`, `notification_types`, `email_templates`, `user_groups`.
+`regions`, `centers`, `rooms`, `legal_entities`, `org_units`, `users`, `audit_log`, `students`, `teachers`, `parents`, `courses`, `course_packages`, `curricula`, `class_groups`, `classes`, `sessions`, `enrollments`, `attendance`, `session_media`, `leads`, `trial_classes`, `trial_reports`, `payment_methods`, `orders`, `payments`, `finance_ledger`, `commission_policies`, `commission_rules`, `einvoices`, `positions`, `staff`, `work_shifts`, `timesheet_periods`, `attendance_punches`, `parent_requests`, `notification_broadcasts`, `parent_notifications`, `user_notifications`, `care_tasks`, `outbox`, `notification_types`, `email_templates`, `user_groups`.
 
 Bảng phụ thuộc bản ghi cha (vd `lessons` thuộc `curricula`, `order_items` thuộc `orders`, `commission_policy_shares` thuộc `commission_policies`) **suy ra tenant qua cha** — không nhân thêm cột.
 
