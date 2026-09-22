@@ -80,12 +80,24 @@ if ($dangChay) {
   Noi "May chu web: san sang" "Green"
 }
 
+# --- 5. Tien trinh viec nen (worker) -----------------------------------------
+# `pnpm dev` chi chay web. Thieu worker thi thong bao / email / ZNS cho phu huynh nam cho mai
+# trong hang doi va /api/ready se bao 503 — nen khoi dong luon o day.
+$coWorker = @(Get-CimInstance Win32_Process -Filter "Name='node.exe'" -ErrorAction SilentlyContinue | Where-Object { $_.CommandLine -like "*src/worker.ts*" -or $_.CommandLine -like "*src\worker.ts*" }).Count -gt 0
+if ($coWorker) {
+  Noi "Worker viec nen: da chay san" "Green"
+} else {
+  $env:ALLOW_DEV_ACTOR = "1"
+  Start-Process -FilePath "cmd.exe" -ArgumentList "/k","title Sata Robo worker && pnpm worker" -WorkingDirectory $R -WindowStyle Minimized
+  Noi "Worker viec nen: da khoi dong (cua so 'Sata Robo worker')" "Green"
+}
+
 Noi ""
 Noi ("He thong da san sang: " + $BaseUrl + "/login") "Cyan"
 Noi "Tai khoan mau (khong can mat khau, chi o che do phat trien):" "Gray"
 Noi "  superadmin@example.test      Quan tri toi cao" "Gray"
 Noi "  manager.cs1@example.test     Quan ly co so 1" "Gray"
 Noi "  giamdoc@satarobo-hue.test    Giam doc trung tam nhuong quyen" "Gray"
-Noi "Tat he thong: dong cua so 'Sata Robo dev server', va 'docker compose stop' neu muon tat CSDL." "Gray"
+Noi "Tat he thong: dong 2 cua so 'Sata Robo dev server' va 'Sata Robo worker'; 'docker compose stop' neu muon tat CSDL." "Gray"
 
 if (-not $KhongMoTrinhDuyet) { Start-Process ($BaseUrl + "/login") }
