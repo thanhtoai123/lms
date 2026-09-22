@@ -228,6 +228,14 @@ function KhopQuyen([string]$capCho, [string]$muon) {
   return $false
 }
 
+# Khớp khi tài khoản có ÍT NHẤT MỘT quyền trong danh sách "a|b|c"
+function KhopMotTrong($danhSachQuyen, [string]$canMot) {
+  foreach ($muon in $canMot.Split("|")) {
+    foreach ($p in $danhSachQuyen) { if (KhopQuyen ([string]$p) $muon.Trim()) { return $true } }
+  }
+  return $false
+}
+
 # Gói JSON con thành chuỗi để soi bằng biểu thức chính quy
 function Js($obj) {
   if ($null -eq $obj) { return "" }
@@ -854,6 +862,8 @@ if ($Only -eq "tat-ca" -or $Only -eq "mot-cham") {
   $nhomQuyen["parent_request"] = "care:update"
   $nhomQuyen["care_task"] = "care:update"
   $nhomQuyen["completion"] = "completion:approve"
+  # Nhóm mở bằng MỘT TRONG NHIỀU quyền: viết "a|b|c" (khớp bất kỳ quyền nào là đủ)
+  $nhomQuyen["trial_report"] = "trials:manage|trials:attendance|lead:update"
   $nhomQuyen["notification"] = ""
 
   $tatCaNhom = @($nhomQuyen.Keys | ForEach-Object { [string]$_ })
@@ -928,8 +938,7 @@ if ($Only -eq "tat-ca" -or $Only -eq "mot-cham") {
       if (-not $nhomQuyen.Contains($k)) { [void]$viPham.Add($k + " (khoa nhom la)"); continue }
       $can = [string]$nhomQuyen[$k]
       if ([string]::IsNullOrEmpty($can)) { continue }
-      $co = $false
-      foreach ($p in $quyen) { if (KhopQuyen $p $can) { $co = $true; break } }
+      $co = KhopMotTrong $quyen $can
       if (-not $co) { [void]$viPham.Add($k + " (thieu quyen " + $can + ")") }
     }
     # Nhóm CÓ quyền mà không thấy trả về: chỉ ghi chú, KHÔNG tính là lỗi —
@@ -939,7 +948,7 @@ if ($Only -eq "tat-ca" -or $Only -eq "mot-cham") {
       if ($keys -contains $k) { continue }
       $can = [string]$nhomQuyen[$k]
       if ([string]::IsNullOrEmpty($can)) { continue }
-      foreach ($p in $quyen) { if (KhopQuyen $p $can) { [void]$vangMat.Add($k); break } }
+      if (KhopMotTrong $quyen $can) { [void]$vangMat.Add($k) }
     }
     T "C" ($nhan + ": khong co nhom ngoai quyen") ($viPham.Count -eq 0) "moi nhom tra ve deu duoc mot quyen cua tai khoan giai thich" ("vai tro=" + $nhanVai + " | nhom ngoai quyen: " + ($viPham -join ", ") + " | nhom tra ve: " + ($keys -join ", "))
     if ($vangMat.Count -gt 0) {
