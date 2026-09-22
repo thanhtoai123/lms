@@ -292,7 +292,7 @@ export const ADMIN_MENU: NavGroup[] = [
   {
     key: "hr",
     label: "Nhân sự",
-    roles: ["HO_HR", "CENTER_HR", ...MANAGERS],
+    roles: ["HO_HR", "CENTER_HR"],
     items: [
       {
         label: "Nhân sự & giáo viên", href: "/nhan-su", icon: "id-card",
@@ -346,7 +346,7 @@ export const ADMIN_MENU: NavGroup[] = [
   {
     key: "inventory",
     label: "Kho & sản phẩm",
-    roles: ["HO_ACCOUNTANT", "CENTER_ACCOUNTANT", ...MANAGERS],
+    roles: ["HO_ACCOUNTANT", "CENTER_ACCOUNTANT"],
     items: [
       { label: "Học cụ (Kits)", href: "/kits", icon: "package", perm: "inventory:read" },
       { label: "Sản phẩm bán / thuê", href: "/products", icon: "package-2", perm: "inventory:read" },

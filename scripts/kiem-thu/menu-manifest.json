@@ -733,8 +733,7 @@
       "label": "Nhân sự",
       "roles": [
         "HO_HR",
-        "CENTER_HR",
-        "CENTER_MANAGER"
+        "CENTER_HR"
       ],
       "tech": false,
       "items": [
@@ -931,8 +930,7 @@
       "label": "Kho & sản phẩm",
       "roles": [
         "HO_ACCOUNTANT",
-        "CENTER_ACCOUNTANT",
-        "CENTER_MANAGER"
+        "CENTER_ACCOUNTANT"
       ],
       "tech": false,
       "items": [
