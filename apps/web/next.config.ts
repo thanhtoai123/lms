@@ -1,5 +1,5 @@
 import type { NextConfig } from "next";
-import { API_CSP, securityHeaderOptions, securityHeaders } from "@satarobo/core";
+import { API_CSP, nextRedirects, securityHeaderOptions, securityHeaders } from "@satarobo/core";
 
 const nextConfig: NextConfig = {
   transpilePackages: ["@satarobo/api", "@satarobo/core", "@satarobo/db"],
@@ -27,6 +27,9 @@ const nextConfig: NextConfig = {
       { source: "/ops/leads/:id", destination: "/leads/:id", permanent: false },
       { source: "/ops/classes/:path*", destination: "/classes/:path*", permanent: false },
       { source: "/admin", destination: "/dashboard", permanent: false },
+      // Trang cũ đã gộp vào trang trung tâm (docs/KIEN-TRUC-MENU.md §5) — 308, truy vấn gốc được giữ
+      // nguyên (vd /hoc-ba?student=<id> → /ho-so-hoc-tap?xem=tra-cuu&student=<id>). Bảng ở packages/core/src/nav/menu.ts.
+      ...nextRedirects(),
     ];
   },
   /**
