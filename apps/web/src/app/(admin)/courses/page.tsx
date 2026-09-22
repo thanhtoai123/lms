@@ -4,6 +4,7 @@ import { getServerCaller } from "@/lib/trpc/server";
 import { NoAccess, PageHeader } from "@/components/admin-ui";
 import { Empty } from "@/components/ui";
 import { CourseEditor } from "./editor";
+import { CriteriaButton } from "@/components/portfolio/criteria-drawer";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Khoá học" };
@@ -46,7 +47,7 @@ export default async function CoursesPage({ searchParams }: { searchParams: Prom
                   <td className="p-3 text-xs">{c.activeCurriculum ? <Link href={`/curriculums?course=${c.id}`} className="hover:underline">{c.activeCurriculum}</Link> : <span className="text-amber-700">chưa có</span>}<div className="text-ink-400">{c.curricula} phiên bản</div></td>
                   <td className="p-3 text-xs">{c.prerequisites.length ? <>Cần: {c.prerequisites.join(", ")}</> : "—"}{c.nextCourseCode && <div className="text-ink-400">→ {c.nextCourseCode}</div>}</td>
                   <td className="p-3 tabular-nums text-xs"><Link href={`/classes?q=${c.code}`} className="hover:underline">{c.classes} lớp</Link> · <Link href={`/teachers?course=${c.id}`} className="hover:underline">{c.teachers} GV</Link></td>
-                  <td className="p-3">{canEdit && <CourseEditor options={options} course={{ id: c.id, code: c.code, name: c.name, gradeFrom: c.gradeFrom, gradeTo: c.gradeTo, totalSessions: c.totalSessions, sessionMinutes: c.sessionMinutes, listPrice: c.listPrice, nextCourseId: c.nextCourseId, description: c.description, level: c.level, isActive: c.isActive }} />}</td>
+                  <td className="p-3"><div className="flex flex-col items-start gap-1"><CriteriaButton courseId={c.id} courseLabel={`${c.code} — ${c.name}`} />{canEdit && <CourseEditor options={options} course={{ id: c.id, code: c.code, name: c.name, gradeFrom: c.gradeFrom, gradeTo: c.gradeTo, totalSessions: c.totalSessions, sessionMinutes: c.sessionMinutes, listPrice: c.listPrice, nextCourseId: c.nextCourseId, description: c.description, level: c.level, isActive: c.isActive }} />}</div></td>
                 </tr>
               ))}
             </tbody>
