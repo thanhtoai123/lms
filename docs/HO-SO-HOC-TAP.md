@@ -9,7 +9,7 @@ Tính năng xây lại học bạ thành một **Hồ sơ học tập (portfolio
    phát hành cùng lúc khi giáo viên hoàn tất buổi; đã phát hành thì bất biến.
 2. **Học bạ mốc tự tổng hợp** — mở học bạ buổi 5 / 12 … là thấy sẵn điểm trung bình các phiếu buổi của giai đoạn,
    xu hướng, chuyên cần, tỷ lệ đạt mục tiêu bài, thẻ nổi bật, gợi ý nhận xét. Giáo viên chỉ xác nhận / chỉnh và viết nhận xét tổng.
-3. **Hồ sơ học tập** — gom lộ trình các khoá, phiếu buổi, học bạ, chứng chỉ, sản phẩm, biểu đồ tiến bộ; xem trên trang quản trị,
+3. **Hồ sơ học tập** — gom lộ trình các khoá, phiếu buổi, học bạ, chứng nhận, sản phẩm, biểu đồ tiến bộ; xem trên trang quản trị,
    cổng phụ huynh, hoặc link chia sẻ riêng `/hs/<token>`; **in / lưu PDF nhiều trang khổ A4**.
 
 ---
@@ -148,7 +148,7 @@ Một hàm dựng dữ liệu duy nhất `buildPortfolio(db, studentId, phạm v
 | Bộ xuất PDF máy chủ | `/in-ho-so/<id>?…&exp&sig` | chữ ký HMAC 5 phút, ký sau khi đã kiểm quyền |
 
 Nội dung hồ sơ: thông tin bé (tên, mã HV, lớp phổ thông); **lộ trình** các khoá theo thời gian (khoá, cấp độ, lớp, cơ sở, thời gian, trạng thái); từng khoá: phiếu buổi đã phát hành,
-học bạ mốc đã gửi phụ huynh, chứng chỉ đã duyệt, **mạng nhện năng lực** trung bình; **biểu đồ đường tiến bộ** (điểm trung bình tiêu chí theo buổi);
+học bạ mốc đã gửi phụ huynh, chứng nhận đã duyệt, **mạng nhện năng lực** trung bình; **biểu đồ đường tiến bộ** (điểm trung bình tiêu chí theo buổi);
 **chuyên cần** (có mặt / muộn / bù / phép / vắng); **bộ sưu tập sản phẩm** (ảnh **đã duyệt** có gắn bé hoặc ảnh chung cả lớp, **chỉ khi phụ huynh đang đồng ý đăng ảnh** —
 kiểm lại mỗi lần hiển thị, rút đồng ý là ảnh ẩn ngay; ảnh phát qua URL ký có hạn).
 
@@ -173,8 +173,8 @@ Bộ component dùng chung `apps/web/src/components/portfolio/`:
 | `PortfolioPrintStyle` | CSS in |
 
 **Bố cục PDF A4** (`@page A4`, lề 12 mm, `print-color-adjust: exact`, `break-inside: avoid`):
-trang bìa (logo `/icon.svg`, "Hồ sơ học tập", tên bé, mã HV, giai đoạn, cơ sở, số khoá / phiếu / chứng chỉ) →
-trang tóm tắt (lộ trình dạng dòng thời gian, biểu đồ tiến bộ, chuyên cần, chứng chỉ) →
+trang bìa (logo `/icon.svg`, "Hồ sơ học tập", tên bé, mã HV, giai đoạn, cơ sở, số khoá / phiếu / chứng nhận) →
+trang tóm tắt (lộ trình dạng dòng thời gian, biểu đồ tiến bộ, chuyên cần, chứng nhận) →
 **mỗi khoá sang trang mới** (tổng quan + mạng nhện, học bạ mốc, rồi **2 phiếu buổi / trang**) → trang sản phẩm.
 Chân trang đánh số "Trang x / y" bằng ô lề trang CSS (`@bottom-right`, Chrome 131+; trình duyệt khác bỏ qua). Nút **"In / Lưu PDF"** gọi `window.print()`
 → chọn máy in "Lưu dưới dạng PDF" (Chrome / Edge) hoặc "Lưu thành PDF" (Safari); nên bật "Đồ hoạ nền".
@@ -226,7 +226,7 @@ Biến môi trường: `PDF_RENDERER=playwright`, `PDF_CHROME_CHANNEL` (mặc đ
 | Tính bất biến | Học bạ đã gửi PH không sửa; nhận xét buổi sửa được không dấu vết | Phiếu buổi **bất biến sau phát hành** (trigger CSDL), sửa phải có lý do + nhật ký + số lần sửa; học bạ chụp số liệu |
 | Khi hoàn tất buổi | Không kiểm đánh giá từng HV (chỉ nhận xét chữ, tuỳ cấu hình) | **Chặn hoàn tất** nếu HV có mặt thiếu phiếu đủ tiêu chí (nêu tên), cấu hình được; phát hành cùng transaction |
 | Theo dõi việc còn thiếu | Không có | "Việc hôm nay" → **Buổi chưa có phiếu nhận xét học viên** |
-| Phạm vi | Từng mốc của một lớp | **Xuyên suốt các khoá**: lộ trình, biểu đồ tiến bộ, mạng nhện năng lực, chứng chỉ, sản phẩm |
+| Phạm vi | Từng mốc của một lớp | **Xuyên suốt các khoá**: lộ trình, biểu đồ tiến bộ, mạng nhện năng lực, chứng nhận, sản phẩm |
 | Phụ huynh xem | Danh sách điểm số dạng chữ trong cổng | Cổng `/ph` có "Hồ sơ học tập của con" + link chia sẻ cho ông bà (có hạn, thu hồi được, đếm lượt xem) |
 | In / lưu trữ | Không có bản in | **PDF nhiều trang A4** (bìa, tóm tắt, từng khoá, 2 phiếu / trang, sản phẩm), in riêng một phiếu (A5) / một học bạ; xuất PDF lưu trữ phía máy chủ tuỳ chọn |
 | Bằng chứng | Không gắn ảnh | Ảnh đã duyệt có gắn bé, chỉ khi phụ huynh đồng ý đăng ảnh |

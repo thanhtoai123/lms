@@ -411,16 +411,16 @@ Bản mới có lọc cơ sở, trạng thái hồ sơ (6 giá trị khác), kh�
 
 **Hạng mục**: Nghiệp vụ gốc còn thiếu
 
-**Mô tả**. Bản gốc: "`/hoc-ba` — Học bạ (chọn học viên → xem quá trình học tổng hợp + **xuất PDF**)". Bản mới có trang xem đầy đủ nhưng không có nút in/xuất. Chứng chỉ hoàn thành khoá thì có (`window.print()`), học bạ thì không — nên phụ huynh xin bản in học bạ hiện không có đường đáp ứng.
+**Mô tả**. Bản gốc: "`/hoc-ba` — Học bạ (chọn học viên → xem quá trình học tổng hợp + **xuất PDF**)". Bản mới có trang xem đầy đủ nhưng không có nút in/xuất. Chứng nhận hoàn thành khoá thì có (`window.print()`), học bạ thì không — nên phụ huynh xin bản in học bạ hiện không có đường đáp ứng.
 
 **Bằng chứng**
 - `docs/KHAO-SAT-GOC-2.md:182` — bản gốc có xuất PDF.
 - `apps/web/src/app/(admin)/hoc-ba/page.tsx:1-8` — không import thành phần in nào.
-- Đối chiếu có sẵn: `apps/web/src/app/(admin)/hoan-thanh-khoa/chung-chi/[id]/print.tsx:4`.
+- Đối chiếu có sẵn: `apps/web/src/app/(admin)/hoan-thanh-khoa/chung-nhan/[id]/print.tsx:4`.
 
 **Mức ảnh hưởng**: Trung bình · **Công sức**: S
 
-**Cách làm gọn nhất**. Chép nguyên `print.tsx` của chứng chỉ, thêm một tệp CSS `@media print` cho trang học bạ (ẩn menu, bỏ nền, ngắt trang giữa các học bạ). Không cần thư viện PDF — trình duyệt in ra PDF là đủ, đúng cách chứng chỉ đang làm.
+**Cách làm gọn nhất**. Chép nguyên `print.tsx` của chứng nhận, thêm một tệp CSS `@media print` cho trang học bạ (ẩn menu, bỏ nền, ngắt trang giữa các học bạ). Không cần thư viện PDF — trình duyệt in ra PDF là đủ, đúng cách chứng nhận đang làm.
 
 ## KT-17 — Không nhập được Excel cho Học viên, Lớp, Nhân sự
 
@@ -598,9 +598,9 @@ Ngoài ra bản gốc có bảng ưu đãi theo khoá (`course_discounts`) tách
 
 **Hạng mục**: Nghiệp vụ gốc còn thiếu
 
-**Mô tả**. Bản gốc có một hệ đào tạo nội bộ khá đầy đủ với 18 quyền `elearning:*`: cổng học, chương trình đào tạo, soạn và xuất bản nội dung, giao bài và gia hạn, yêu cầu bắt buộc, theo dõi tiến độ ba cấp (của mình / của nhóm / toàn bộ), phân tích video, chấm thi, mở khoá thi, cấp và thu hồi chứng chỉ, xuất báo cáo.
+**Mô tả**. Bản gốc có một hệ đào tạo nội bộ khá đầy đủ với 18 quyền `elearning:*`: cổng học, chương trình đào tạo, soạn và xuất bản nội dung, giao bài và gia hạn, yêu cầu bắt buộc, theo dõi tiến độ ba cấp (của mình / của nhóm / toàn bộ), phân tích video, chấm thi, mở khoá thi, cấp và thu hồi chứng nhận, xuất báo cáo.
 
-Bản mới có: `/huong-dan` (6 bài theo vai trò kèm câu hỏi kiểm tra, có ghi `training_completions`) và `/scorm` (chạy gói SCORM 1.2/2004, ghi `scorm_attempts`). Thiếu: chương trình đào tạo bắt buộc theo vai trò, tiến độ theo nhóm, chứng chỉ nội bộ, xuất báo cáo đào tạo.
+Bản mới có: `/huong-dan` (6 bài theo vai trò kèm câu hỏi kiểm tra, có ghi `training_completions`) và `/scorm` (chạy gói SCORM 1.2/2004, ghi `scorm_attempts`). Thiếu: chương trình đào tạo bắt buộc theo vai trò, tiến độ theo nhóm, chứng nhận nội bộ, xuất báo cáo đào tạo.
 
 **Bằng chứng**
 - `docs/KHAO-SAT-GOC-2.md:25-28` — 18 quyền của bản gốc.

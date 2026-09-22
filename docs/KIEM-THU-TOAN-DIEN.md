@@ -145,7 +145,7 @@ Kiểm chứng bảng "ai thấy gì" ở `docs/NHUONG-QUYEN.md` mục 2.4:
 
 > Bộ C chỉ chạy hành động thật trên **nhóm an toàn**: *Việc chăm sóc học viên* (hoàn tác được),
 > *Lead quá hạn liên hệ*, *Việc hẹn với khách*. Kịch bản **không tự duyệt phiếu thu, hoàn tiền,
-> đơn từ hay chứng chỉ** — đó là quyết định có ghi sổ.
+> đơn từ hay chứng nhận** — đó là quyết định có ghi sổ.
 
 ### Bộ D — Nghiệp vụ theo vai trò
 

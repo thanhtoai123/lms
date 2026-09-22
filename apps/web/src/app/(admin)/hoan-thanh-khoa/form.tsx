@@ -14,7 +14,7 @@ const GRADES = ["Xuất sắc", "Giỏi", "Khá", "Hoàn thành"];
 
 /**
  * Hoàn thành khoá cho nhiều học viên một lần.
- * Người có quyền duyệt: cấp chứng chỉ ngay. Giáo viên: chỉ gửi ĐỀ XUẤT chờ duyệt.
+ * Người có quyền duyệt: cấp chứng nhận ngay. Giáo viên: chỉ gửi ĐỀ XUẤT chờ duyệt.
  */
 export function CompleteForm({ items, canApprove, canPropose }: { items: Item[]; canApprove: boolean; canPropose: boolean }) {
   const trpc = useTRPC();
@@ -39,7 +39,7 @@ export function CompleteForm({ items, canApprove, canPropose }: { items: Item[];
   if (!canPropose) return <p className="text-sm text-ink-400">Bạn chỉ xem được danh sách — không có quyền đề xuất hoặc duyệt hoàn thành khoá.</p>;
   return (
     <div className="space-y-3">
-      {!canApprove && <div className="rounded-xl bg-amber-50 p-2 text-xs text-amber-900">Bạn chỉ gửi được đề xuất; quản lý duyệt xong mới cấp chứng chỉ.</div>}
+      {!canApprove && <div className="rounded-xl bg-amber-50 p-2 text-xs text-amber-900">Bạn chỉ gửi được đề xuất; quản lý duyệt xong mới cấp chứng nhận.</div>}
       <div className="space-y-2">
         {items.map((i) => {
           const r = rows[i.enrollmentId]!;
@@ -68,7 +68,7 @@ export function CompleteForm({ items, canApprove, canPropose }: { items: Item[];
       {Object.values(results).some((x) => x.ok) && (
         <OkBox>
           {canApprove
-            ? `Đã cấp ${Object.values(results).filter((x) => x.ok).length} chứng chỉ; việc tư vấn tái tục được tạo cho tư vấn viên.`
+            ? `Đã cấp ${Object.values(results).filter((x) => x.ok).length} chứng nhận; việc tư vấn tái tục được tạo cho tư vấn viên.`
             : `Đã gửi ${Object.values(results).filter((x) => x.ok).length} đề xuất — chờ quản lý duyệt.`}
         </OkBox>
       )}
@@ -89,7 +89,7 @@ type Proposal = {
   consumed: number; packageSessions: number;
 };
 
-/** Khối "Đề xuất chờ duyệt": Duyệt (sinh chứng chỉ) / Từ chối (bắt buộc lý do) */
+/** Khối "Đề xuất chờ duyệt": Duyệt (sinh chứng nhận) / Từ chối (bắt buộc lý do) */
 export function ProposalQueue({ items }: { items: Proposal[] }) {
   const trpc = useTRPC();
   const router = useRouter();
@@ -97,7 +97,7 @@ export function ProposalQueue({ items }: { items: Proposal[] }) {
   const [msg, setMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const m = useMutation(trpc.learning.decideCompletion.mutationOptions({
-    onSuccess: (r) => { setMsg(r.status === "approved" ? `Đã duyệt — cấp chứng chỉ ${r.certificateNo}.` : "Đã từ chối đề xuất."); setError(null); router.refresh(); },
+    onSuccess: (r) => { setMsg(r.status === "approved" ? `Đã duyệt — cấp chứng nhận ${r.certificateNo}.` : "Đã từ chối đề xuất."); setError(null); router.refresh(); },
     onError: (e) => setError(e.message),
   }));
   if (items.length === 0) return <p className="text-sm text-ink-400">Không có đề xuất nào chờ duyệt.</p>;
@@ -119,7 +119,7 @@ export function ProposalQueue({ items }: { items: Proposal[] }) {
           </div>
           <p className="whitespace-pre-wrap rounded-lg bg-black/[0.03] p-2 text-sm text-ink-600">{p.teacherEvaluation}</p>
           <div className="flex flex-wrap items-center gap-2">
-            <button className="btn-primary !py-1 text-xs" disabled={m.isPending} onClick={() => m.mutate({ id: p.id, action: "approve" })}>Duyệt & cấp chứng chỉ</button>
+            <button className="btn-primary !py-1 text-xs" disabled={m.isPending} onClick={() => m.mutate({ id: p.id, action: "approve" })}>Duyệt & cấp chứng nhận</button>
             <input className="input !w-64 !py-1 text-xs" placeholder="Lý do từ chối *" value={reason[p.id] ?? ""} onChange={(e) => setReason((r) => ({ ...r, [p.id]: e.target.value }))} />
             <button className="btn-ghost !py-1 text-xs text-red-700" disabled={m.isPending || !(reason[p.id] ?? "").trim()} onClick={() => m.mutate({ id: p.id, action: "reject", reason: reason[p.id] })}>Từ chối</button>
           </div>

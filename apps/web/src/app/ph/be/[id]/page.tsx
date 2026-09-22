@@ -34,7 +34,7 @@ export default async function ChildPage({ params }: { params: Promise<{ id: stri
         <Link href={`/ph/be/${c.id}/ho-so`} className="card flex items-center justify-between gap-3 bg-gradient-to-r from-brand-50 to-white p-4">
           <span>
             <span className="block font-semibold text-brand-700">Hồ sơ học tập của con</span>
-            <span className="block text-xs text-ink-600">Phiếu nhận xét sau mỗi buổi, học bạ, chứng chỉ, sản phẩm — xem và lưu PDF</span>
+            <span className="block text-xs text-ink-600">Phiếu nhận xét sau mỗi buổi, học bạ, chứng nhận, sản phẩm — xem và lưu PDF</span>
           </span>
           <span className="text-brand-600" aria-hidden>›</span>
         </Link>

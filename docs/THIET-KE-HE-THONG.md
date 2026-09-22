@@ -165,7 +165,7 @@ erDiagram
     enrollments ||--o{ report_cards : "học bạ năng lực"
     report_cards ||--o{ report_card_scores : ""
     courses ||--o{ competency_criteria : "tiêu chí học bạ"
-    enrollments ||--o{ course_completions : "hoàn thành khoá + chứng chỉ"
+    enrollments ||--o{ course_completions : "hoàn thành khoá + chứng nhận"
     students ||--o{ student_guardians : ""
     parents ||--o{ student_guardians : ""
     students ||--o| student_private : "CCCD/địa chỉ mã hoá"
@@ -558,7 +558,7 @@ stateDiagram-v2
     }
     state "Hoàn thành khoá" as C {
         [*] --> proposed : GV đề xuất (completion:propose_own)
-        proposed --> approved2 : quản lý duyệt ⇒ sinh chứng chỉ
+        proposed --> approved2 : quản lý duyệt ⇒ sinh chứng nhận
         proposed --> rejected2 : từ chối kèm lý do
         [*] --> approved2 : người có completion:approve làm thẳng (nhiều HV một lần)
     }
@@ -919,7 +919,7 @@ sequenceDiagram
 | Khôi phục | Giáo vụ | `learning.restoreMedia` (`media.ts:220`) | `session_media` | `audit_log` |
 | "Buổi này không có ảnh" | Giáo vụ | `learning.markNoMedia` | `sessions.no_media_at/by` | `audit_log` |
 
-### 6.6. Cấp chứng chỉ hoàn thành khoá
+### 6.6. Cấp chứng nhận hoàn thành khoá
 
 ```mermaid
 sequenceDiagram
@@ -936,14 +936,14 @@ sequenceDiagram
     API->>DB: course_completions(status=approved, certificate_no, issued_at)
     API->>DB: enrollments.status = completed (enrollmentTransition "complete")
     QL->>API: (tuỳ chọn) hoàn thành NHIỀU học viên một lần
-    Note over QL: In chứng chỉ ở /hoan-thanh-khoa/chung-chi/[id] → window.print()
+    Note over QL: In chứng nhận ở /hoan-thanh-khoa/chung-nhan/[id] → window.print()
 ```
 
 | Bước | Ai làm | Procedure | Bảng bị ghi | Nhật ký |
 |---|---|---|---|---|
 | Đề xuất | GV (`completion:propose_own`) | `learning.proposeCompletion` | `course_completions` | `audit_log` |
 | Duyệt / từ chối | `completion:approve` | `learning.decideCompletion` | `course_completions`, `enrollments` | `audit_log` (TRANSITION) |
-| In chứng chỉ | Ai xem được | trang `/hoan-thanh-khoa/chung-chi/[id]` (`apps/web/src/app/(admin)/hoan-thanh-khoa/chung-chi/[id]/print.tsx:4`) | — | — |
+| In chứng nhận | Ai xem được | trang `/hoan-thanh-khoa/chung-nhan/[id]` (`apps/web/src/app/(admin)/hoan-thanh-khoa/chung-nhan/[id]/print.tsx:4`) | — | — |
 
 ### 6.7. Mở một trung tâm nhượng quyền
 

@@ -22,7 +22,7 @@ Những điểm yếu khác trong báo cáo đầu vẫn đúng: mọi trang ren
 |---|---|---|
 | 1 | Tổng quan | Dashboard, CRM Dashboard |
 | 2 | CRM & Tuyển sinh | Leads (bảng/kanban), Nhập khách hàng, Nhập lead Excel, Chốt hàng loạt, Quản lý chia lead, Bàn giao lead, Lead lâu ngày chưa chăm, Chuyển lead liên CS, Nguồn giới thiệu, Messenger CRM, Lớp Trial, Chi tiết lead |
-| 3 | Học viên & Đăng ký học | Học viên (+new/import/edit), Tài khoản phụ huynh, Đăng ký học (+new/edit), Chuyển lớp/cơ sở, Sắp hết khoá, Hoàn thành khoá & chứng chỉ, Học bạ, Học bạ năng lực (+tiêu chí), SataCoin |
+| 3 | Học viên & Đăng ký học | Học viên (+new/import/edit), Tài khoản phụ huynh, Đăng ký học (+new/edit), Chuyển lớp/cơ sở, Sắp hết khoá, Hoàn thành khoá & chứng nhận, Học bạ, Học bạ năng lực (+tiêu chí), SataCoin |
 | 4 | Lớp học & Lịch | Lớp học (+new/import/kiểm tra lịch/chi tiết 7 tab), Buổi học (+new/chi tiết), Lịch tổng, Điểm danh, Ảnh lớp, Duyệt ảnh, Học bù, Cơ sở, Phòng học |
 | 5 | LMS / Học liệu | Giáo trình (+new), Đề xuất sửa giáo án, Khoá dạy, Gói khoá học (bán), Khoá tiên quyết, Tài liệu (+new), Bài tập (+new/templates), Tài liệu lớp tôi, SCORM |
 | 6 | CSKH & Phụ huynh | Tin nhắn, Quản trị hội thoại (+đối soát), Yêu cầu PH, Đánh giá PH, Khảo sát/NPS, Thông báo PH, Cảnh báo rủi ro, Chăm sóc HV, Sinh nhật |
@@ -89,7 +89,7 @@ Trạng thái lead (10): Mới, Đã liên hệ, Đang tư vấn, Đã hẹn h�
 
 **Sắp hết khoá** — Danh sách HV còn ≤ N buổi (N cấu hình) → gọi tái tục.
 
-**Hoàn thành khoá & chứng chỉ** — Theo HV (3 bước: HV → khoá đang học → lớp) hoặc hàng loạt theo lớp; nhập xếp loại cuối khoá + đánh giá của GV (bắt buộc) → **sinh chứng chỉ, gợi ý khoá tiếp theo, tạo việc chăm sóc tái tục, đẩy email chúc mừng**. Bảng: HV, khoá, xếp loại, khoá tiếp theo, ngày, chứng chỉ.
+**Hoàn thành khoá & chứng nhận** — Theo HV (3 bước: HV → khoá đang học → lớp) hoặc hàng loạt theo lớp; nhập xếp loại cuối khoá + đánh giá của GV (bắt buộc) → **sinh chứng nhận, gợi ý khoá tiếp theo, tạo việc chăm sóc tái tục, đẩy email chúc mừng**. Bảng: HV, khoá, xếp loại, khoá tiếp theo, ngày, chứng nhận.
 
 **Học bạ** — Chọn HV → xem học bạ. **Học bạ năng lực** — chọn lớp → xem HV; *Cấu hình tiêu chí năng lực* theo từng khoá (thêm tiêu chí).
 
@@ -233,7 +233,7 @@ Lead (phễu "đã từng tới bước", tỷ lệ chuyển từng bước, t�
 | Lịch lớp dạng dữ liệu, sinh buổi, chặn trùng phòng/GV | Nhiều giai đoạn lịch; "áp lịch mới cho buổi đã sinh" (xem trước dời, giữ tổng buổi, không đụng buổi đã diễn ra); kiểm tra lệch lịch; phê duyệt lớp (Chờ duyệt → ACTIVE tự sinh); phân loại buổi (chính thức/coach/bù/vượt); trợ giảng; sĩ số min |
 | State machine buổi học, Teacher app 3 bước | Checklist chuẩn bị/sau buổi; nhận xét + điểm từng HS; "Bắt đầu buổi"; phiếu đánh giá buổi; mốc học bạ 5/12 → học bạ năng lực theo tiêu chí từng khoá; ảnh lớp có duyệt + consent + signed URL hết hạn |
 | Lead 9 trạng thái, SLA, phân bổ theo tải, timeline, chuyển đổi | Thêm trạng thái "Đang học thử"; LeadChild (nhiều con/lead); 3 chế độ chia (luân phiên / theo tỷ lệ chốt / giao tay) + pool + sổ chia + đặt lại lượt; bàn giao hàng loạt có lý do; chuyển lead liên cơ sở; import Excel + template; chốt hàng loạt (+ tạo tài khoản PH chờ kích hoạt OTP Zalo); Lớp Trial (buổi lẻ, đổi lịch phải ghi lý do → GV); affiliate & hoa hồng; SLA bộ tham số theo phút như 13.1 |
-| Outbox + rule engine + care task + notify | Catalog 36 loại thông báo nội bộ theo vai trò/ngữ cảnh; ZNS thật với chặn bão tin; email templates + logs; OTP; yêu cầu PH 7 loại có duyệt; khảo sát NPS theo mốc; sinh nhật; sắp hết khoá → tái tục; hoàn thành khoá → chứng chỉ + gợi ý khoá tiếp |
+| Outbox + rule engine + care task + notify | Catalog 36 loại thông báo nội bộ theo vai trò/ngữ cảnh; ZNS thật với chặn bão tin; email templates + logs; OTP; yêu cầu PH 7 loại có duyệt; khảo sát NPS theo mốc; sinh nhật; sắp hết khoá → tái tục; hoàn thành khoá → chứng nhận + gợi ý khoá tiếp |
 | Students/parents/enrollments cơ bản | Form HV đầy đủ 5 khối + PH 2 + sức khoẻ; lifecycle bảo lưu/nghỉ (tối đa N tháng); chuyển lớp/cơ sở wizard; enrollment 7 trạng thái + mốc thời gian; khoá tiên quyết chặn ghi danh; SataCoin (sổ cái bất biến); tài khoản PH (kích hoạt OTP, cấp mã tại quầy) |
 | RBAC 15 role × cơ sở | Vị trí công việc (Chính/Kiêm nhiệm/Uỷ quyền, hiệu lực); cây tổ chức tự thêm cơ sở; nhóm người dùng; tài khoản nhiều vai trò + vai trò chính; PII reveal có lý do + audit; audit theo cơ sở |
 | — | Toàn bộ Tài chính (đơn, kế hoạch trả góp, QR, SePay đối khớp, sale ghi nhận/kế toán xác nhận, công nợ 2 phạm vi, hoàn tiền theo buổi, phương thức theo cơ sở, hoa hồng, MISA) |

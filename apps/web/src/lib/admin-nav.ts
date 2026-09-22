@@ -68,7 +68,7 @@ export const ADMIN_NAV: NavGroup[] = [
       { label: "Đăng ký học", href: "/enrollments", icon: "clipboard-list", perm: "enrollment:read", ready: true },
       { label: "Chuyển lớp / cơ sở", href: "/chuyen-lop", icon: "arrow-left-right", perm: "enrollment:update", ready: true },
       { label: "Sắp hết khoá", href: "/students/sap-het-khoa", icon: "graduation-cap", perm: "enrollment:read", ready: true },
-      { label: "Hoàn thành khoá & chứng chỉ", href: "/hoan-thanh-khoa", icon: "award", perm: "enrollment:read", ready: true },
+      { label: "Hoàn thành khoá & chứng nhận", href: "/hoan-thanh-khoa", icon: "award", perm: "enrollment:read", ready: true },
       { label: "Học bạ", href: "/hoc-ba", icon: "scroll-text", perm: "report_card:read", ready: true },
       { label: "Học bạ năng lực", href: "/report-cards", icon: "notebook-pen", perm: "report_card:read", ready: true },
       { label: "SataCoin", href: "/satacoin", icon: "coins", perm: "coin:read", ready: true, desc: "Sổ xu thưởng chỉ thêm: thưởng theo hạn mức, thu hồi có lý do, đổi quà qua duyệt." },

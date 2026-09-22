@@ -34,7 +34,7 @@ test("kiểm tra học bạ trước khi gửi duyệt", () => {
   assert.equal(bad.length, 3);
 });
 
-test("điểm trung bình, xếp loại, số chứng chỉ, điều kiện hoàn thành", () => {
+test("điểm trung bình, xếp loại, số chứng nhận, điều kiện hoàn thành", () => {
   assert.equal(averageScore([4, 5, null, 5]), 4.7);
   assert.equal(averageScore([null]), null);
   assert.equal(gradeFromAverage(4.7), "Xuất sắc");
@@ -54,7 +54,7 @@ test("hoàn thành khoá theo luồng đề xuất: đề xuất → duyệt / t
   assert.equal(completionTransition("proposed", "reject"), "rejected");
   assert.throws(() => completionTransition("approved", "approve"), CompletionTransitionError);
   assert.throws(() => completionTransition("rejected", "approve"), CompletionTransitionError);
-  // chứng chỉ chỉ sinh khi được duyệt
+  // chứng nhận chỉ sinh khi được duyệt
   assert.equal(certificateIssuable("approved"), true);
   assert.equal(certificateIssuable("proposed"), false);
   assert.equal(certificateIssuable("rejected"), false);

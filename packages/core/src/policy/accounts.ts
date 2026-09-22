@@ -72,7 +72,7 @@ export const PERMISSION_RESOURCES: { key: string; label: string; group: string }
   { key: "message", label: "Tin nhắn / hội thoại", group: "CSKH" },
   { key: "affiliate", label: "Nguồn giới thiệu", group: "Tuyển sinh" },
   { key: "trials", label: "Lớp trải nghiệm", group: "Tuyển sinh" },
-  { key: "completion", label: "Hoàn thành khoá & chứng chỉ", group: "Học vụ" },
+  { key: "completion", label: "Hoàn thành khoá & chứng nhận", group: "Học vụ" },
   { key: "system", label: "Hệ thống / tài khoản", group: "Hệ thống" },
   { key: "audit", label: "Audit Log", group: "Hệ thống" },
   { key: "tenant", label: "Trung tâm nhượng quyền", group: "Hệ thống" },

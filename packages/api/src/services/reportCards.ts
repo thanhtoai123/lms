@@ -374,7 +374,7 @@ export async function reviewQueue(ctx: ProtectedContext) {
     .orderBy(asc(reportCards.submittedAt));
 }
 
-/** Màn "Học bạ": toàn bộ học bạ + chứng chỉ của một học viên */
+/** Màn "Học bạ": toàn bộ học bạ + chứng nhận của một học viên */
 export async function studentReportBook(ctx: ProtectedContext, studentId: string) {
   const st = await ctx.db.query.students.findFirst({ where: eq(students.id, studentId) });
   if (!st) throw new TRPCError({ code: "NOT_FOUND" });
@@ -406,7 +406,7 @@ export async function studentReportBook(ctx: ProtectedContext, studentId: string
 }
 
 /* ------------------------------------------------------------------ */
-/* Hoàn thành khoá & chứng chỉ                                         */
+/* Hoàn thành khoá & chứng nhận                                         */
 /* ------------------------------------------------------------------ */
 
 /** Ghi danh + khoá + cơ sở, dùng chung cho đề xuất và duyệt hoàn thành khoá */
@@ -432,7 +432,7 @@ async function completionAverage(ctx: ProtectedContext, enrollmentId: string): P
 }
 
 /**
- * Cấp chứng chỉ (một giao dịch): sinh số chứng chỉ liên tục, đóng ghi danh,
+ * Cấp chứng nhận (một giao dịch): sinh số chứng nhận liên tục, đóng ghi danh,
  * chuyển HV sang cựu HV nếu hết lớp, phát sự kiện tư vấn tái tục.
  * `existingId` có giá trị = duyệt một đề xuất đang chờ; không có = hoàn thành trực tiếp.
  */
@@ -510,12 +510,12 @@ async function assertCompletable(ctx: ProtectedContext, e: Awaited<ReturnType<ty
   const errs = validateCompletionInput(it);
   if (errs.length) throw new TRPCError({ code: "BAD_REQUEST", message: errs.join("; ") });
   const existing = await ctx.db.query.courseCompletions.findFirst({ where: and(eq(courseCompletions.enrollmentId, e.id), sql`${courseCompletions.status} <> 'rejected'`) });
-  if (existing) throw new TRPCError({ code: "CONFLICT", message: existing.status === "proposed" ? "Đã có đề xuất chờ duyệt cho học viên này" : "Học viên đã có chứng chỉ" });
+  if (existing) throw new TRPCError({ code: "CONFLICT", message: existing.status === "proposed" ? "Đã có đề xuất chờ duyệt cho học viên này" : "Học viên đã có chứng nhận" });
   return chk;
 }
 
 /**
- * Giáo viên tạo ĐỀ XUẤT hoàn thành khoá: chưa sinh chứng chỉ, ghi danh chưa đóng.
+ * Giáo viên tạo ĐỀ XUẤT hoàn thành khoá: chưa sinh chứng nhận, ghi danh chưa đóng.
  * Người có quyền duyệt dùng `completeCourse` để hoàn thành thẳng.
  */
 export async function proposeCompletion(ctx: ProtectedContext, input: { items: { enrollmentId: string; grade: string; teacherEvaluation: string }[] }) {
@@ -570,7 +570,7 @@ export async function pendingCompletions(ctx: ProtectedContext, input: { limit?:
   return rows.filter((r) => authorize(ctx.actor, "completion:approve", { centerId: r.centerId }).allowed);
 }
 
-/** Duyệt (sinh chứng chỉ) hoặc Từ chối (bắt buộc lý do) một đề xuất hoàn thành khoá */
+/** Duyệt (sinh chứng nhận) hoặc Từ chối (bắt buộc lý do) một đề xuất hoàn thành khoá */
 export async function decideCompletion(ctx: ProtectedContext, input: { id: string; action: "approve" | "reject"; reason?: string }) {
   const [row] = await ctx.db
     .select({ c: courseCompletions, centerId: classes.centerId })
@@ -599,7 +599,7 @@ export async function decideCompletion(ctx: ProtectedContext, input: { id: strin
   return { status: to, certificateNo: certNo };
 }
 
-/** Người có quyền duyệt hoàn thành khoá cho nhiều học viên một lần (cấp chứng chỉ ngay) */
+/** Người có quyền duyệt hoàn thành khoá cho nhiều học viên một lần (cấp chứng nhận ngay) */
 export async function completeCourse(ctx: ProtectedContext, input: { items: { enrollmentId: string; grade: string; teacherEvaluation: string }[] }) {
   const results: { enrollmentId: string; ok: boolean; message: string; certificateNo?: string }[] = [];
   for (const it of input.items) {
@@ -608,7 +608,7 @@ export async function completeCourse(ctx: ProtectedContext, input: { items: { en
       requirePermission(ctx, "completion:approve", { centerId: e.centerId });
       const chk = await assertCompletable(ctx, e, it);
       const cert = await issueCompletion(ctx, e, it);
-      results.push({ enrollmentId: it.enrollmentId, ok: true, message: chk.warnings.length ? `Đã cấp (${chk.warnings.join("; ")})` : "Đã cấp chứng chỉ", certificateNo: cert });
+      results.push({ enrollmentId: it.enrollmentId, ok: true, message: chk.warnings.length ? `Đã cấp (${chk.warnings.join("; ")})` : "Đã cấp chứng nhận", certificateNo: cert });
     } catch (err) {
       results.push({ enrollmentId: it.enrollmentId, ok: false, message: (err as Error).message });
     }
@@ -645,6 +645,6 @@ export async function getCertificate(ctx: ProtectedContext, id: string) {
     .where(eq(courseCompletions.id, id)).limit(1);
   if (!r) throw new TRPCError({ code: "NOT_FOUND" });
   requirePermission(ctx, "enrollment:read", { centerId: r.centerId });
-  if (r.status !== "approved" || !r.certificateNo) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Đề xuất hoàn thành khoá chưa được duyệt — chưa có chứng chỉ" });
+  if (r.status !== "approved" || !r.certificateNo) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Đề xuất hoàn thành khoá chưa được duyệt — chưa có chứng nhận" });
   return { ...r, certificateNo: r.certificateNo };
 }

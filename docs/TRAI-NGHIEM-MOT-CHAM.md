@@ -22,7 +22,7 @@ Phạm vi: chỉ đổi **cách trình bày và số bước**. Không đổi m�
    nên nút chính của những nhóm này đưa thẳng tới màn hình nhập đúng lớp / đúng buổi
    (vẫn là một cú nhấp) thay vì giả vờ "làm ngay" rồi ghi sai.
 5. **Hành động đảo ngược được thì phải có "Hoàn tác"** ngay trong thông báo.
-   Quyết định đã ghi sổ (duyệt tiền, duyệt đơn, cấp chứng chỉ) **không** có Hoàn tác —
+   Quyết định đã ghi sổ (duyệt tiền, duyệt đơn, cấp chứng nhận) **không** có Hoàn tác —
    muốn đảo phải đi đúng luồng nghiệp vụ, vì đó là yêu cầu kiểm toán chứ không phải giới hạn UI.
 6. **Nhớ giúp người dùng.** Bộ lọc gần nhất của từng trang được lưu trên máy
    (`localStorage`, mọi truy cập bọc `try/catch`); trình duyệt chặn lưu trữ thì trang vẫn chạy bình thường.
@@ -57,7 +57,7 @@ chỉ trong phạm vi cơ sở người đó được nhìn thấy.
 | Đơn nghỉ / đơn công chờ duyệt | `hrRequests.listRequests` | Duyệt | chạy ngay |
 | Yêu cầu phụ huynh chưa xử lý | `care.listParentRequests` | Duyệt | chạy ngay |
 | Việc chăm sóc học viên tới hạn | `engagement.listCareTasks` | Đã xử lý | chạy ngay **+ Hoàn tác** |
-| Chứng chỉ chờ cấp | `reportCards.pendingCompletions` | Duyệt cấp | chạy ngay |
+| Chứng nhận chờ cấp | `reportCards.pendingCompletions` | Duyệt cấp | chạy ngay |
 | Thông báo cần xác nhận | `engagement.myNotifications` | Đã xem | chạy ngay |
 
 Bố cục đúng 3 khối: **4 thẻ số liệu** → **hàng chip lọc theo nhóm** (thay cho tab) →
@@ -90,7 +90,7 @@ Mỗi nhóm được bọc `try/catch`: một nhóm lỗi hoặc thiếu quyền
 | 5 | Duyệt toàn bộ ảnh chờ duyệt của một buổi | 4 | 2 | **−2** |
 | 6 | Duyệt một yêu cầu của phụ huynh | 4 | 1 | **−3** |
 | 7 | Đóng một việc chăm sóc học viên quá hạn | 5 | 1 | **−4** |
-| 8 | Duyệt cấp chứng chỉ hoàn thành khoá | 3 | 1 | **−2** |
+| 8 | Duyệt cấp chứng nhận hoàn thành khoá | 3 | 1 | **−2** |
 | 9 | Mở lưới điểm danh của lớp còn buổi chưa chốt | 4 | 1 | **−3** |
 | 10 | Quay lại một danh sách với đúng bộ lọc lần trước | 4 | 0 | **−4** |
 
@@ -107,7 +107,7 @@ Chi tiết cách đếm:
 6. **Yêu cầu phụ huynh** — trước: menu → tab *Chưa xử lý* → mở yêu cầu → *Duyệt*.
 7. **Việc chăm sóc** — trước: menu *Chăm sóc HV* → tìm việc → chọn trạng thái → nhập kết quả → *Lưu*.
    Sau: nút *Đã xử lý*, có **Hoàn tác** trong thông báo nếu bấm nhầm.
-8. **Chứng chỉ** — trước: menu *Hoàn thành khoá & chứng chỉ* → tìm đề xuất → *Duyệt*.
+8. **Chứng nhận** — trước: menu *Hoàn thành khoá & chứng nhận* → tìm đề xuất → *Duyệt*.
 9. **Điểm danh** — trước: menu *Điểm danh* → chọn cơ sở → *Lọc* → bấm lớp.
    Sau: nút *Điểm danh* trên dòng buổi, mở thẳng lưới đúng lớp.
 10. **Bộ lọc cũ** — trước: chọn lại 3–4 ô lọc rồi bấm *Lọc*. Sau: trang tự khôi phục chuỗi lọc đã lưu.

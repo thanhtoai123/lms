@@ -316,7 +316,7 @@ async function main() {
     });
   }
 
-  // ---- Đề xuất hoàn thành khoá chờ duyệt (GV đề xuất, chưa sinh chứng chỉ) ----
+  // ---- Đề xuất hoàn thành khoá chờ duyệt (GV đề xuất, chưa sinh chứng nhận) ----
   await db.insert(courseCompletions).values({
     enrollmentId: enrollA[2]!.id, courseId: sata4!.id, status: "proposed",
     grade: "Giỏi", teacherEvaluation: "Con nắm chắc kiến thức lập trình cơ bản, chủ động hỗ trợ bạn trong nhóm và hoàn thành tốt dự án cuối khoá (dữ liệu mẫu).",

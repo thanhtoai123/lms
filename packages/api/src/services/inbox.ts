@@ -486,7 +486,7 @@ async function completionGroup(ctx: ProtectedContext): Promise<InboxGroup | null
   // `pendingCompletions` nay có trần cứng; hộp việc chỉ cần đủ dòng cho danh sách rút gọn.
   const rows = await RC.pendingCompletions(ctx, { limit: 100 });
   return {
-    key: "completion", title: "Chứng chỉ chờ cấp", icon: "award",
+    key: "completion", title: "Chứng nhận chờ cấp", icon: "award",
     actionLabel: "Duyệt cấp", actionKind: "mutate", undoable: false,
     href: "/hoan-thanh-khoa", emptyHint: "Không có đề xuất hoàn thành khoá nào đang chờ.",
     total: rows.length,
@@ -601,7 +601,7 @@ export async function inboxAct(ctx: ProtectedContext, input: InboxActInput) {
 /**
  * Hoàn tác — chỉ mở cho hành động thật sự đảo ngược được.
  * Hiện chỉ có "Việc chăm sóc học viên": đưa việc đã đóng về lại "đang xử lý".
- * Các nhóm khác (duyệt tiền, duyệt đơn, cấp chứng chỉ) là quyết định có ghi sổ,
+ * Các nhóm khác (duyệt tiền, duyệt đơn, cấp chứng nhận) là quyết định có ghi sổ,
  * muốn đảo phải đi đúng luồng nghiệp vụ của màn hình gốc.
  */
 export async function inboxUndo(ctx: ProtectedContext, input: { group: InboxGroupKey; ids: string[] }) {

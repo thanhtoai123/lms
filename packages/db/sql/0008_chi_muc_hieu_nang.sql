@@ -126,7 +126,7 @@ CREATE INDEX IF NOT EXISTS session_media_pending_idx
   WHERE status = 'pending';
 
 -- ============================================================================
--- 6) HỌC BẠ VÀ CHỨNG CHỈ
+-- 6) HỌC BẠ VÀ CHỨNG NHẬN
 -- ============================================================================
 
 -- Hàng đợi duyệt học bạ (reportCards.ts — reviewQueue: status IN ('submitted','approved')

@@ -49,7 +49,7 @@ export function normalizePortfolioScope(s: PortfolioScope): PortfolioScope {
   return { scope: "all", enrollmentId: null, from: null, to: null };
 }
 
-/** Một mục (phiếu buổi / học bạ / ảnh / chứng chỉ) có nằm trong phạm vi không */
+/** Một mục (phiếu buổi / học bạ / ảnh / chứng nhận) có nằm trong phạm vi không */
 export function inPortfolioScope(item: { enrollmentId: string; date: string | null }, s: PortfolioScope): boolean {
   if (s.scope === "course") return item.enrollmentId === s.enrollmentId;
   if (s.scope === "range") {

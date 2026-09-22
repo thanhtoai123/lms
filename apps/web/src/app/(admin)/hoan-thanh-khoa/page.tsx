@@ -20,8 +20,8 @@ export default async function CompletionPage({ searchParams }: { searchParams: P
   return (
     <div className="space-y-4">
       <PageHeader
-        title="Hoàn thành khoá & chứng chỉ"
-        desc="Giáo viên gửi đề xuất → người có quyền duyệt Duyệt / Từ chối (bắt buộc lý do). Chứng chỉ chỉ sinh khi đề xuất được duyệt; xếp loại gợi ý từ điểm học bạ đã duyệt, kèm gợi ý khoá tiếp theo và việc tư vấn tái tục."
+        title="Hoàn thành khoá & chứng nhận"
+        desc="Giáo viên gửi đề xuất → người có quyền duyệt Duyệt / Từ chối (bắt buộc lý do). Chứng nhận chỉ sinh khi đề xuất được duyệt; xếp loại gợi ý từ điểm học bạ đã duyệt, kèm gợi ý khoá tiếp theo và việc tư vấn tái tục."
       />
       {proposals && (
         <section className="card space-y-3 p-4">
@@ -45,17 +45,17 @@ export default async function CompletionPage({ searchParams }: { searchParams: P
             items={cand.items.map((i) => ({
               enrollmentId: i.enrollmentId, studentId: i.studentId, fullName: i.fullName, code: i.code, consumed: i.consumed, packageSessions: i.packageSessions,
               avg: i.avg, suggestedGrade: i.suggestedGrade, proposed: i.proposed,
-              ok: i.ok && !i.completed, errors: i.completed ? ["Đã có chứng chỉ"] : i.errors, warnings: i.warnings,
+              ok: i.ok && !i.completed, errors: i.completed ? ["Đã có chứng nhận"] : i.errors, warnings: i.warnings,
             }))}
           />
         )}
       </section>
       <section className="space-y-2">
-        <h2 className="font-bold">Chứng chỉ đã cấp</h2>
-        {list.length === 0 ? <Empty>Chưa cấp chứng chỉ nào.</Empty> : (
+        <h2 className="font-bold">Chứng nhận đã cấp</h2>
+        {list.length === 0 ? <Empty>Chưa cấp chứng nhận nào.</Empty> : (
           <div className="card overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="text-left text-xs uppercase text-ink-400"><tr><th className="p-3">Học viên</th><th className="p-3">Khoá · lớp</th><th className="p-3">Xếp loại</th><th className="p-3">Khoá tiếp theo</th><th className="p-3">Ngày</th><th className="p-3">Chứng chỉ</th></tr></thead>
+              <thead className="text-left text-xs uppercase text-ink-400"><tr><th className="p-3">Học viên</th><th className="p-3">Khoá · lớp</th><th className="p-3">Xếp loại</th><th className="p-3">Khoá tiếp theo</th><th className="p-3">Ngày</th><th className="p-3">Chứng nhận</th></tr></thead>
               <tbody className="divide-y divide-black/5">
                 {list.map((c) => (
                   <tr key={c.id}>
@@ -64,7 +64,7 @@ export default async function CompletionPage({ searchParams }: { searchParams: P
                     <td className="p-3">{c.grade}{c.averageScore ? <div className="text-xs text-ink-400">TB {c.averageScore}</div> : null}</td>
                     <td className="p-3">{c.nextCourseCode ?? "—"}</td>
                     <td className="p-3 text-xs">{fmtDate(c.issuedAt)}</td>
-                    <td className="p-3"><Link href={`/hoan-thanh-khoa/chung-chi/${c.id}`} className="font-mono text-xs text-brand-600 underline">{c.certificateNo ?? "—"}</Link></td>
+                    <td className="p-3"><Link href={`/hoan-thanh-khoa/chung-nhan/${c.id}`} className="font-mono text-xs text-brand-600 underline">{c.certificateNo ?? "—"}</Link></td>
                   </tr>
                 ))}
               </tbody>

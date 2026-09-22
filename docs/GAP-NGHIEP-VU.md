@@ -106,7 +106,7 @@ Lỗi thực thi phát hiện khi rà (ghi thêm ở bảng):
 | Trang chi tiết ghi danh (`/enrollments/:id/edit`: mốc thời gian, audit, đổi trạng thái, chuyển lớp) | Có | Nằm trong hồ sơ HV (`web/students/[id]/actions.tsx#EnrollmentCard`) | PARTIAL | S | Trang riêng dùng lại `EnrollmentCard` + `enrollment_events` |
 | Chuyển lớp: **cùng khoá**, **không vượt tiến độ**, hết chỗ → **waitlist**, **yêu cầu → quản lý duyệt/từ chối** | Có | `transferEnrollment` chuyển **ngay**; khác khoá chỉ cảnh báo; không kiểm tra tiến độ; lớp đầy → lỗi; không có yêu cầu/duyệt; mang sang số buổi còn lại (tốt hơn) | PARTIAL | M | Đợt 3 – mục 21 |
 | Sắp hết khoá (≤5 buổi) | Có | `nearingEnd` (ngưỡng cấu hình, mặc định 4; có cờ đã tái tục) | OK | – | – |
-| Hoàn thành khoá & chứng chỉ (đề xuất GV, hàng loạt theo lớp) | Có | `db/academics.ts#courseCompletions`, `api/s/reportCards.ts` | OK | – | – |
+| Hoàn thành khoá & chứng nhận (đề xuất GV, hàng loạt theo lớp) | Có | `db/academics.ts#courseCompletions`, `api/s/reportCards.ts` | OK | – | – |
 | Học bạ năng lực (tiêu chí theo khoá, nộp duyệt, phát hành) | Có | `reportCards` / `competencyCriteria` | OK | – | – |
 | Trạng thái lớp | PLANNED, RECRUITING, PENDING_APPROVAL, ACTIVE, COMPLETED, CANCELLED | `draft → pending_approval → recruiting → running → finished / cancelled` (`core/classes/lifecycle.ts`) | DIFF (thêm bước “bắt đầu” có kiểm tra sĩ số tối thiểu) | – | – |
 | Duyệt lớp → **tự sinh buổi** (bỏ ngày nghỉ, số buổi chuẩn của khoá) | Có | `transitionClass` approve → `generateSessionsFor` (kiểm tra trùng phòng/GV, readiness) | OK | – | – |

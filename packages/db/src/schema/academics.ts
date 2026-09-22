@@ -552,8 +552,8 @@ export const reportCardScores = pgTable(
 export const completionStatusEnum = pgEnum("course_completion_status", COMPLETION_STATUSES);
 
 /**
- * Hoàn thành khoá & chứng chỉ theo luồng đề xuất:
- * GV tạo ĐỀ XUẤT (`proposed`) → người có quyền duyệt Duyệt (`approved`, mới sinh số chứng chỉ)
+ * Hoàn thành khoá & chứng nhận theo luồng đề xuất:
+ * GV tạo ĐỀ XUẤT (`proposed`) → người có quyền duyệt Duyệt (`approved`, mới sinh số chứng nhận)
  * hoặc Từ chối (`rejected`, bắt buộc lý do). Người có quyền duyệt tạo thẳng bản `approved`.
  */
 export const courseCompletions = pgTable(

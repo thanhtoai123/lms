@@ -114,7 +114,7 @@ test("hoàn thành khoá: GV chỉ đề xuất lớp mình, quản lý mới du
   assert.equal(authorize(gvu, "completion:approve", { centerId: "c2" }).allowed, false);
   assert.equal(authorize(qc, "completion:approve", { centerId: "c1" }).allowed, true);
   assert.equal(authorize(dt, "completion:approve", {}).allowed, true);
-  // tư vấn / CSKH sửa được ghi danh nhưng không cấp chứng chỉ
+  // tư vấn / CSKH sửa được ghi danh nhưng không cấp chứng nhận
   assert.equal(authorize(csm, "enrollment:update", { centerId: "c1" }).allowed, true);
   assert.equal(authorize(csm, "completion:approve", { centerId: "c1" }).allowed, false);
   assert.equal(hasPermission(gv, "completion:propose"), true);

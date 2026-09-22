@@ -103,7 +103,7 @@ export function gradeFromAverage(avg: number | null): string {
   return "Hoàn thành";
 }
 
-/** Số chứng chỉ: SR-SATA4-26-000123 */
+/** Số chứng nhận: SR-SATA4-26-000123 */
 export function certificateNumber(courseCode: string, year: number, seq: number): string {
   return `SR-${courseCode.toUpperCase()}-${String(year).slice(-2)}-${String(seq).padStart(6, "0")}`;
 }
@@ -144,7 +144,7 @@ export function completionTransition(from: CompletionStatus, event: CompletionEv
   return event === "approve" ? "approved" : "rejected";
 }
 
-/** Chứng chỉ chỉ sinh khi bản ghi hoàn thành khoá được duyệt */
+/** Chứng nhận chỉ sinh khi bản ghi hoàn thành khoá được duyệt */
 export function certificateIssuable(status: CompletionStatus): boolean {
   return status === "approved";
 }

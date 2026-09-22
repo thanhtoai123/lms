@@ -4,7 +4,7 @@
  *
  * Bố cục in A4 (xem `PortfolioPrintStyle`):
  *   1. Trang bìa: logo + "Hồ sơ học tập", tên bé, mã HV, giai đoạn, cơ sở.
- *   2. Trang tóm tắt: lộ trình các khoá (dòng thời gian), biểu đồ tiến bộ, chuyên cần, chứng chỉ.
+ *   2. Trang tóm tắt: lộ trình các khoá (dòng thời gian), biểu đồ tiến bộ, chuyên cần, chứng nhận.
  *   3. Mỗi khoá (sang trang mới): tổng quan khoá + mạng nhện năng lực, học bạ mốc, rồi phiếu buổi 2 phiếu / trang.
  *   4. Trang sản phẩm: ảnh đã duyệt (phụ huynh đồng ý đăng ảnh).
  * Không hook, không mã chỉ-máy-chủ → render được ở cả hai phía.
@@ -48,7 +48,7 @@ export function PortfolioDocument({ view, actions }: { view: PortfolioView; acti
         <div className="relative mt-8 grid grid-cols-3 gap-2 text-center print:mt-24">
           <CoverStat value={String(view.totals.courses)} label="khoá học" />
           <CoverStat value={String(view.totals.sheets)} label="phiếu nhận xét buổi" />
-          <CoverStat value={String(view.certificates.length)} label="chứng chỉ" />
+          <CoverStat value={String(view.certificates.length)} label="chứng nhận" />
         </div>
         {actions && <div className="relative mt-6 print:hidden">{actions}</div>}
       </section>
@@ -75,7 +75,7 @@ export function PortfolioDocument({ view, actions }: { view: PortfolioView; acti
               </div>
               <div className="mt-0.5 text-xs text-foreground/80">
                 {c.sheets.length} phiếu buổi · {c.milestones.length} học bạ · chuyên cần {pct(c.attendance.rate)}{c.average != null ? ` · điểm TB ${num1(c.average)}/4` : ""}
-                {c.certificate && <> · <b className="text-accent-700">Chứng chỉ {c.certificate.certificateNo}</b></>}
+                {c.certificate && <> · <b className="text-accent-700">Chứng nhận {c.certificate.certificateNo}</b></>}
               </div>
             </li>
           ))}
@@ -91,9 +91,9 @@ export function PortfolioDocument({ view, actions }: { view: PortfolioView; acti
             <AttendanceBar a={view.attendance} />
           </div>
           <div className="hs-avoid">
-            <SectionTitle icon={Award} title="Chứng chỉ" />
+            <SectionTitle icon={Award} title="Chứng nhận" />
             {view.certificates.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Chưa có chứng chỉ trong giai đoạn này.</p>
+              <p className="text-sm text-muted-foreground">Chưa có chứng nhận trong giai đoạn này.</p>
             ) : (
               <ul className="space-y-1.5">
                 {view.certificates.map((c) => (

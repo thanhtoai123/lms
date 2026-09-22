@@ -33,7 +33,7 @@ Cột "truy vấn" đếm số lượt chạm CSDL; cột "dòng kéo về" mớ
 | Đơn nghỉ / đơn công | `services/inbox.ts` — `staffRequestGroup` | `.length` của danh sách bị cắt ở 500 | `counts.pending` / `counts.overdue` |
 | Yêu cầu phụ huynh | `services/inbox.ts` — `parentRequestGroup` | `.length` của danh sách bị cắt ở 300 | `counts.open` / `counts.overdue` |
 | Học bù chờ xếp buổi | `services/inbox.ts` — `makeupGroup` | `.length` của danh sách bị cắt ở 300 | `counts.requested` / `counts.requestedOverdue` |
-| Chứng chỉ chờ cấp | `services/inbox.ts` — `completionGroup` | `pendingCompletions` **KHÔNG có `limit`** — nối 6 bảng, kéo mọi đề xuất đang chờ | trần cứng 300; hộp việc chỉ xin 100 |
+| Chứng nhận chờ cấp | `services/inbox.ts` — `completionGroup` | `pendingCompletions` **KHÔNG có `limit`** — nối 6 bảng, kéo mọi đề xuất đang chờ | trần cứng 300; hộp việc chỉ xin 100 |
 
 > **Lưu ý về con số hiển thị.** Bảy nhóm ở trên trước đây trả `total` bị CẮT ở trần của danh sách
 > (30 / 60 / 120 / 200 / 300 / 400 / 500). Nay `total` là `count(*)` thật. Với dữ liệu mẫu hiện

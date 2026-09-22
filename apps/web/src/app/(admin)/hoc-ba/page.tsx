@@ -13,17 +13,17 @@ export default async function StudentBookPage({ searchParams }: { searchParams: 
   const book = sp.student && /^[0-9a-f-]{36}$/.test(sp.student) ? await caller.learning.studentReportBook({ studentId: sp.student }) : null;
   return (
     <div className="max-w-5xl space-y-4">
-      <PageHeader title="Học bạ học viên" desc="Toàn bộ học bạ theo mốc và chứng chỉ hoàn thành khoá của một học viên. Học bạ mới tổng hợp từ phiếu nhận xét từng buổi (thang 4 mức); học bạ cũ giữ thang 5." />
+      <PageHeader title="Học bạ học viên" desc="Toàn bộ học bạ theo mốc và chứng nhận hoàn thành khoá của một học viên. Học bạ mới tổng hợp từ phiếu nhận xét từng buổi (thang 4 mức); học bạ cũ giữ thang 5." />
       {book && <p className="text-sm"><Link href={`/ho-so-hoc-tap/${book.student.id}`} className="font-semibold text-brand-600">Mở hồ sơ học tập đầy đủ (phiếu từng buổi, biểu đồ tiến bộ, in / chia sẻ) →</Link></p>}
       <StudentChooser current={book ? { id: book.student.id, fullName: book.student.fullName, code: book.student.code, grade: book.student.grade } : null} />
       {!book ? null : (
         <>
           {book.completions.length > 0 && (
             <section className="card p-4">
-              <h2 className="mb-2 font-bold">Chứng chỉ</h2>
+              <h2 className="mb-2 font-bold">Chứng nhận</h2>
               <div className="flex flex-wrap gap-2">
                 {book.completions.map((c) => (
-                  <Link key={c.id} href={`/hoan-thanh-khoa/chung-chi/${c.id}`} className="rounded-xl border border-brand-600/30 bg-brand-50 px-3 py-2 text-sm">
+                  <Link key={c.id} href={`/hoan-thanh-khoa/chung-nhan/${c.id}`} className="rounded-xl border border-brand-600/30 bg-brand-50 px-3 py-2 text-sm">
                     <div className="font-semibold">{c.courseName}</div>
                     <div className="text-xs text-ink-600">{c.grade} · {c.certificateNo} · {fmtDate(c.issuedAt)}</div>
                   </Link>

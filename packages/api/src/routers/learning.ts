@@ -37,7 +37,7 @@ export const learningRouter = router({
   reviewQueue: protectedProcedure.query(({ ctx }) => RC.reviewQueue(ctx)),
   studentReportBook: protectedProcedure.input(z.object({ studentId: uuid })).query(({ ctx, input }) => RC.studentReportBook(ctx, input.studentId)),
 
-  // Hoàn thành khoá (GV đề xuất → quản lý duyệt / từ chối; chứng chỉ chỉ sinh khi được duyệt)
+  // Hoàn thành khoá (GV đề xuất → quản lý duyệt / từ chối; chứng nhận chỉ sinh khi được duyệt)
   completionCandidates: protectedProcedure.input(z.object({ classId: uuid })).query(({ ctx, input }) => RC.completionCandidates(ctx, input.classId)),
   completeCourse: protectedProcedure
     .input(z.object({ items: z.array(completionItem).min(1).max(60) }))

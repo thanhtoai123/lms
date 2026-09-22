@@ -2,7 +2,7 @@
  * HỒ SƠ HỌC TẬP (portfolio) của học viên — docs/HO-SO-HOC-TAP.md.
  *
  * Gom xuyên suốt các khoá: lộ trình (khoá / lớp / cơ sở / thời gian / trạng thái), phiếu nhận xét buổi
- * đã phát hành, học bạ mốc đã gửi phụ huynh, chứng chỉ đã duyệt, bộ sưu tập sản phẩm (ảnh đã duyệt +
+ * đã phát hành, học bạ mốc đã gửi phụ huynh, chứng nhận đã duyệt, bộ sưu tập sản phẩm (ảnh đã duyệt +
  * phụ huynh đồng ý đăng ảnh), biểu đồ tiến bộ, chuyên cần.
  *
  * Bốn cửa vào, cùng MỘT hàm dựng dữ liệu (`buildPortfolio`) và cùng MỘT bộ component hiển thị:
