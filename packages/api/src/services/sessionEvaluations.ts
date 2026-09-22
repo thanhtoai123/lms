@@ -340,7 +340,16 @@ export async function saveEvaluations(ctx: ProtectedContext, input: { sessionId:
  */
 export async function syncRemarksFromAttendance(tx: Db, sessionId: string, records: { enrollmentId: string; status: string; studentRemark?: string | null }[]) {
   for (const r of records) {
-    if (r.studentRemark === undefined) continue;
+    if (r.studentRemark === undefined) {
+      // Nhận xét do phiếu quản lý (không gửi kèm điểm danh): dòng điểm danh mới tạo lấy nhận xét từ phiếu
+      await tx.execute(sql`
+        update attendance a set student_remark = se.remark
+          from session_evaluations se
+         where a.session_id = ${sessionId} and a.enrollment_id = ${r.enrollmentId}
+           and se.session_id = a.session_id and se.enrollment_id = a.enrollment_id
+           and a.student_remark is null and se.remark is not null`);
+      continue;
+    }
     await tx.update(sessionEvaluations)
       .set({ remark: clean(r.studentRemark) })
       .where(and(eq(sessionEvaluations.sessionId, sessionId), eq(sessionEvaluations.enrollmentId, r.enrollmentId), eq(sessionEvaluations.status, "draft")));
