@@ -1,0 +1,1266 @@
+{
+  "note": "Sinh tu packages/core/src/nav/menu.ts — KHONG sua tay. Cap nhat: CAP_NHAT_MENU=1 khi chay test core (xem docs/KIEN-TRUC-MENU.md).",
+  "groups": [
+    {
+      "key": "overview",
+      "label": "Tổng quan",
+      "roles": [
+        "SUPER_ADMIN",
+        "HO_ACCOUNTANT",
+        "HO_HR",
+        "HO_MARKETING",
+        "HO_SALE",
+        "TRAINING",
+        "AUDITOR",
+        "CENTER_MANAGER",
+        "CENTER_CLASS_MANAGER",
+        "CENTER_SALES_CSM",
+        "CENTER_ACCOUNTANT",
+        "CENTER_HR",
+        "TEACHER",
+        "ASSISTANT_TEACHER"
+      ],
+      "tech": false,
+      "items": [
+        {
+          "label": "Việc hôm nay",
+          "href": "/viec-hom-nay",
+          "perm": [],
+          "tabs": []
+        },
+        {
+          "label": "Dashboard",
+          "href": "/dashboard",
+          "perm": [],
+          "tabs": []
+        },
+        {
+          "label": "Báo cáo",
+          "href": "/bao-cao",
+          "perm": [
+            "report:read"
+          ],
+          "tabs": [
+            {
+              "label": "Tất cả báo cáo",
+              "href": "/bao-cao",
+              "perm": [
+                "report:read"
+              ]
+            },
+            {
+              "label": "Báo cáo Lead",
+              "href": "/bao-cao/lead",
+              "perm": [
+                "report:read"
+              ]
+            },
+            {
+              "label": "Báo cáo trải nghiệm",
+              "href": "/bao-cao/trial",
+              "perm": [
+                "report:read"
+              ]
+            },
+            {
+              "label": "Báo cáo đào tạo",
+              "href": "/bao-cao/dao-tao",
+              "perm": [
+                "report:read"
+              ]
+            },
+            {
+              "label": "Hiệu suất giáo viên",
+              "href": "/bao-cao/hieu-suat-gv",
+              "perm": [
+                "report:read"
+              ]
+            },
+            {
+              "label": "Cohort tiến độ",
+              "href": "/bao-cao/cohort",
+              "perm": [
+                "report:read"
+              ]
+            },
+            {
+              "label": "Churn / rời bỏ",
+              "href": "/bao-cao/churn",
+              "perm": [
+                "report:read"
+              ]
+            },
+            {
+              "label": "Báo cáo trung tâm",
+              "href": "/bao-cao/trung-tam",
+              "perm": [
+                "report:read"
+              ]
+            },
+            {
+              "label": "Doanh thu vs mục tiêu",
+              "href": "/bao-cao/doanh-thu",
+              "perm": [
+                "report:read"
+              ]
+            }
+          ]
+        },
+        {
+          "label": "Thông báo của tôi",
+          "href": "/thong-bao",
+          "perm": [],
+          "tabs": []
+        },
+        {
+          "label": "Ca & công của tôi",
+          "href": "/cham-cong/lich-ca",
+          "perm": [],
+          "tabs": []
+        },
+        {
+          "label": "Hướng dẫn & đào tạo",
+          "href": "/huong-dan",
+          "perm": [],
+          "tabs": []
+        }
+      ]
+    },
+    {
+      "key": "crm",
+      "label": "Tuyển sinh (CRM)",
+      "roles": [
+        "HO_SALE",
+        "HO_MARKETING",
+        "CENTER_SALES_CSM",
+        "CENTER_MANAGER"
+      ],
+      "tech": false,
+      "items": [
+        {
+          "label": "Lead",
+          "href": "/leads",
+          "perm": [],
+          "tabs": [
+            {
+              "label": "Danh sách lead",
+              "href": "/leads",
+              "perm": [
+                "lead:read"
+              ]
+            },
+            {
+              "label": "Tổng quan CRM",
+              "href": "/crm",
+              "perm": [
+                "lead:read"
+              ]
+            },
+            {
+              "label": "Lâu ngày chưa chăm",
+              "href": "/lead-nguoi",
+              "perm": [
+                "lead:read"
+              ]
+            },
+            {
+              "label": "Chuyển liên cơ sở",
+              "href": "/leads/bao-cao-chuyen",
+              "perm": [
+                "lead:read"
+              ]
+            }
+          ]
+        },
+        {
+          "label": "Nhập khách hàng",
+          "href": "/nhap-khach-hang",
+          "perm": [],
+          "tabs": [
+            {
+              "label": "Nhập tay",
+              "href": "/nhap-khach-hang",
+              "perm": [
+                "lead:create"
+              ]
+            },
+            {
+              "label": "Từ file",
+              "href": "/leads/import",
+              "perm": [
+                "lead:create"
+              ]
+            },
+            {
+              "label": "Khách đã đăng ký",
+              "href": "/leads/import/registered",
+              "perm": [
+                "lead:create"
+              ]
+            }
+          ]
+        },
+        {
+          "label": "Chốt hàng loạt",
+          "href": "/leads/bulk-convert",
+          "perm": [
+            "enrollment:create"
+          ],
+          "tabs": []
+        },
+        {
+          "label": "Chia & bàn giao lead",
+          "href": "/quan-ly-chia-lead",
+          "perm": [],
+          "tabs": [
+            {
+              "label": "Chia lead",
+              "href": "/quan-ly-chia-lead",
+              "perm": [
+                "lead:update"
+              ]
+            },
+            {
+              "label": "Lịch sử thay đổi pool",
+              "href": "/quan-ly-chia-lead/lich-su",
+              "perm": [
+                "lead:read"
+              ]
+            },
+            {
+              "label": "Bàn giao lead",
+              "href": "/ban-giao-lead",
+              "perm": [
+                "lead:update"
+              ]
+            }
+          ]
+        },
+        {
+          "label": "Học thử",
+          "href": "/lop-trial",
+          "perm": [],
+          "tabs": [
+            {
+              "label": "Lớp trải nghiệm",
+              "href": "/lop-trial",
+              "perm": [
+                "trials:view"
+              ]
+            },
+            {
+              "label": "Học thử buổi lẻ",
+              "href": "/lop-trial/buoi-le",
+              "perm": [
+                "lead:read"
+              ]
+            }
+          ]
+        },
+        {
+          "label": "Nguồn giới thiệu",
+          "href": "/affiliates",
+          "perm": [
+            "affiliate:read"
+          ],
+          "tabs": []
+        }
+      ]
+    },
+    {
+      "key": "students",
+      "label": "Học viên",
+      "roles": [
+        "CENTER_CLASS_MANAGER",
+        "CENTER_SALES_CSM",
+        "TRAINING",
+        "CENTER_MANAGER"
+      ],
+      "tech": false,
+      "items": [
+        {
+          "label": "Học viên",
+          "href": "/students",
+          "perm": [],
+          "tabs": [
+            {
+              "label": "Danh sách",
+              "href": "/students",
+              "perm": [
+                "student:read"
+              ]
+            },
+            {
+              "label": "Sắp hết khoá",
+              "href": "/students/sap-het-khoa",
+              "perm": [
+                "enrollment:read"
+              ]
+            },
+            {
+              "label": "Tài khoản phụ huynh",
+              "href": "/students/tai-khoan",
+              "perm": [
+                "parent_account:read"
+              ]
+            },
+            {
+              "label": "Thẻ học viên (QR)",
+              "href": "/the-hoc-vien",
+              "perm": [
+                "student:read"
+              ]
+            }
+          ]
+        },
+        {
+          "label": "Đăng ký học",
+          "href": "/enrollments",
+          "perm": [],
+          "tabs": [
+            {
+              "label": "Đăng ký học",
+              "href": "/enrollments",
+              "perm": [
+                "enrollment:read"
+              ]
+            },
+            {
+              "label": "Chuyển lớp / cơ sở",
+              "href": "/chuyen-lop",
+              "perm": [
+                "enrollment:update"
+              ]
+            }
+          ]
+        },
+        {
+          "label": "Học bạ & hồ sơ học tập",
+          "href": "/ho-so-hoc-tap",
+          "perm": [],
+          "tabs": [
+            {
+              "label": "Tổng quan chuẩn hồ sơ",
+              "href": "/ho-so-hoc-tap",
+              "perm": [
+                "report_card:read"
+              ]
+            },
+            {
+              "label": "Học bạ mốc cần viết / duyệt",
+              "href": "/ho-so-hoc-tap?xem=hoc-ba-moc",
+              "perm": [
+                "report_card:read"
+              ]
+            },
+            {
+              "label": "Tra cứu học viên",
+              "href": "/ho-so-hoc-tap?xem=tra-cuu",
+              "perm": [
+                "report_card:read"
+              ]
+            }
+          ]
+        },
+        {
+          "label": "Hoàn thành khoá & chứng nhận",
+          "href": "/hoan-thanh-khoa",
+          "perm": [
+            "enrollment:read"
+          ],
+          "tabs": []
+        },
+        {
+          "label": "SataCoin",
+          "href": "/satacoin",
+          "perm": [
+            "coin:read"
+          ],
+          "tabs": []
+        }
+      ]
+    },
+    {
+      "key": "classes",
+      "label": "Lớp & lịch học",
+      "roles": [
+        "CENTER_CLASS_MANAGER",
+        "TEACHER",
+        "ASSISTANT_TEACHER",
+        "TRAINING",
+        "CENTER_MANAGER"
+      ],
+      "tech": false,
+      "items": [
+        {
+          "label": "Lớp học",
+          "href": "/classes",
+          "perm": [],
+          "tabs": [
+            {
+              "label": "Lớp học",
+              "href": "/classes",
+              "perm": [
+                "class:read"
+              ]
+            },
+            {
+              "label": "Nhóm lớp",
+              "href": "/class-groups",
+              "perm": [
+                "class:read"
+              ]
+            },
+            {
+              "label": "Kiểm tra lịch buổi",
+              "href": "/classes/kiem-tra-lich",
+              "perm": [
+                "class:read"
+              ]
+            }
+          ]
+        },
+        {
+          "label": "Lịch & buổi học",
+          "href": "/lich",
+          "perm": [],
+          "tabs": [
+            {
+              "label": "Lịch tổng",
+              "href": "/lich",
+              "perm": [
+                "session:read"
+              ]
+            },
+            {
+              "label": "Buổi học",
+              "href": "/sessions",
+              "perm": [
+                "session:read"
+              ]
+            }
+          ]
+        },
+        {
+          "label": "Điểm danh",
+          "href": "/attendance",
+          "perm": [
+            "attendance:read"
+          ],
+          "tabs": []
+        },
+        {
+          "label": "Học bù",
+          "href": "/hoc-bu",
+          "perm": [
+            "makeup:read"
+          ],
+          "tabs": []
+        },
+        {
+          "label": "Ảnh lớp học",
+          "href": "/media",
+          "perm": [],
+          "tabs": [
+            {
+              "label": "Kho ảnh",
+              "href": "/media",
+              "perm": [
+                "media:read"
+              ]
+            },
+            {
+              "label": "Duyệt ảnh",
+              "href": "/duyet-media",
+              "perm": [
+                "media:update"
+              ]
+            }
+          ]
+        },
+        {
+          "label": "Cơ sở & phòng học",
+          "href": "/centers",
+          "perm": [],
+          "tabs": [
+            {
+              "label": "Cơ sở",
+              "href": "/centers",
+              "perm": [
+                "center:read"
+              ]
+            },
+            {
+              "label": "Phòng học",
+              "href": "/rooms",
+              "perm": [
+                "class:read"
+              ]
+            },
+            {
+              "label": "Ngày nghỉ",
+              "href": "/centers/ngay-nghi",
+              "perm": [
+                "holiday:read"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "lms",
+      "label": "Chương trình & học liệu",
+      "roles": [
+        "TRAINING",
+        "TEACHER",
+        "ASSISTANT_TEACHER",
+        "CENTER_CLASS_MANAGER"
+      ],
+      "tech": false,
+      "items": [
+        {
+          "label": "Chương trình học",
+          "href": "/curriculums",
+          "perm": [],
+          "tabs": [
+            {
+              "label": "Chương trình học",
+              "href": "/curriculums",
+              "perm": [
+                "curriculum:read"
+              ]
+            },
+            {
+              "label": "Đề xuất sửa giáo án",
+              "href": "/de-xuat-giao-an",
+              "perm": [
+                "curriculum:read"
+              ]
+            }
+          ]
+        },
+        {
+          "label": "Khoá học",
+          "href": "/courses",
+          "perm": [],
+          "tabs": [
+            {
+              "label": "Khoá học",
+              "href": "/courses",
+              "perm": [
+                "course:read"
+              ]
+            },
+            {
+              "label": "Gói khoá học",
+              "href": "/course-packages",
+              "perm": [
+                "course:read"
+              ]
+            },
+            {
+              "label": "Khoá tiên quyết",
+              "href": "/course-prerequisites",
+              "perm": [
+                "course:read"
+              ]
+            }
+          ]
+        },
+        {
+          "label": "Lộ trình & chứng nhận",
+          "href": "/lo-trinh",
+          "perm": [
+            "course:read"
+          ],
+          "tabs": []
+        },
+        {
+          "label": "Kho tài liệu",
+          "href": "/documents",
+          "perm": [],
+          "tabs": [
+            {
+              "label": "Tài liệu giảng dạy",
+              "href": "/documents",
+              "perm": [
+                "document:read"
+              ]
+            },
+            {
+              "label": "SCORM / bài giảng tương tác",
+              "href": "/scorm",
+              "perm": [
+                "document:read"
+              ]
+            }
+          ]
+        },
+        {
+          "label": "Tài liệu lớp tôi",
+          "href": "/teaching-materials",
+          "perm": [
+            "class:read"
+          ],
+          "tabs": []
+        },
+        {
+          "label": "Bài tập về nhà",
+          "href": "/assignments",
+          "perm": [
+            "assignment:read"
+          ],
+          "tabs": []
+        }
+      ]
+    },
+    {
+      "key": "care",
+      "label": "Chăm sóc & phụ huynh",
+      "roles": [
+        "CENTER_SALES_CSM",
+        "CENTER_CLASS_MANAGER",
+        "CENTER_MANAGER"
+      ],
+      "tech": false,
+      "items": [
+        {
+          "label": "Tin nhắn",
+          "href": "/tin-nhan",
+          "perm": [],
+          "tabs": [
+            {
+              "label": "Hộp thư",
+              "href": "/tin-nhan",
+              "perm": [
+                "message:read"
+              ]
+            },
+            {
+              "label": "Messenger CRM",
+              "href": "/crm/messenger",
+              "perm": [
+                "message:read",
+                "lead:read"
+              ]
+            },
+            {
+              "label": "Giám sát hội thoại",
+              "href": "/hoi-thoai",
+              "perm": [
+                "message:audit"
+              ]
+            }
+          ]
+        },
+        {
+          "label": "Yêu cầu phụ huynh",
+          "href": "/parent-requests",
+          "perm": [
+            "care:read"
+          ],
+          "tabs": []
+        },
+        {
+          "label": "Chăm sóc học viên",
+          "href": "/cham-soc-hv",
+          "perm": [],
+          "tabs": [
+            {
+              "label": "Việc chăm sóc",
+              "href": "/cham-soc-hv",
+              "perm": [
+                "care:read"
+              ]
+            },
+            {
+              "label": "Cảnh báo rủi ro",
+              "href": "/canh-bao-rui-ro",
+              "perm": [
+                "care:read"
+              ]
+            },
+            {
+              "label": "Sinh nhật",
+              "href": "/sinh-nhat",
+              "perm": [
+                "care:read"
+              ]
+            }
+          ]
+        },
+        {
+          "label": "Đánh giá & khảo sát",
+          "href": "/evaluations",
+          "perm": [],
+          "tabs": [
+            {
+              "label": "Phiếu & đợt khảo sát",
+              "href": "/evaluations",
+              "perm": [
+                "care:read"
+              ]
+            },
+            {
+              "label": "Khảo sát NPS (bản cũ)",
+              "href": "/khao-sat",
+              "perm": [
+                "care:read"
+              ]
+            },
+            {
+              "label": "Đánh giá buổi học từ PH",
+              "href": "/parent-feedback",
+              "perm": [
+                "care:read"
+              ]
+            }
+          ]
+        },
+        {
+          "label": "Gửi thông báo phụ huynh",
+          "href": "/notifications",
+          "perm": [
+            "care:read"
+          ],
+          "tabs": []
+        }
+      ]
+    },
+    {
+      "key": "hr",
+      "label": "Nhân sự",
+      "roles": [
+        "HO_HR",
+        "CENTER_HR",
+        "CENTER_MANAGER"
+      ],
+      "tech": false,
+      "items": [
+        {
+          "label": "Nhân sự & giáo viên",
+          "href": "/nhan-su",
+          "perm": [],
+          "tabs": [
+            {
+              "label": "Hồ sơ nhân sự",
+              "href": "/nhan-su",
+              "perm": [
+                "staff:read"
+              ]
+            },
+            {
+              "label": "Giáo viên",
+              "href": "/teachers",
+              "perm": [
+                "teacher:read"
+              ]
+            },
+            {
+              "label": "Vị trí công việc",
+              "href": "/nhan-su/vi-tri",
+              "perm": [
+                "staff:read"
+              ]
+            }
+          ]
+        },
+        {
+          "label": "Chấm công",
+          "href": "/cham-cong",
+          "perm": [],
+          "tabs": [
+            {
+              "label": "Bảng công",
+              "href": "/cham-cong",
+              "perm": [
+                "timesheet:read"
+              ]
+            },
+            {
+              "label": "Lưới phân ca",
+              "href": "/cham-cong/phan-ca",
+              "perm": [
+                "timesheet:read"
+              ]
+            },
+            {
+              "label": "Kỳ công & chốt",
+              "href": "/cham-cong/ky-cong",
+              "perm": [
+                "timesheet:read"
+              ]
+            },
+            {
+              "label": "Mã ca",
+              "href": "/cham-cong/danh-muc-ca",
+              "perm": [
+                "timesheet:read"
+              ]
+            },
+            {
+              "label": "Điểm chấm công",
+              "href": "/cham-cong/diem-cham",
+              "perm": [
+                "timesheet:read"
+              ]
+            },
+            {
+              "label": "Màn hình QR",
+              "href": "/cham-cong/man-hinh",
+              "perm": [
+                "timesheet:read"
+              ]
+            }
+          ]
+        },
+        {
+          "label": "Duyệt đơn từ",
+          "href": "/don-tu",
+          "perm": [
+            "timesheet:read"
+          ],
+          "tabs": []
+        },
+        {
+          "label": "Tuyển dụng",
+          "href": "/jobs",
+          "perm": [
+            "recruit:read"
+          ],
+          "tabs": []
+        }
+      ]
+    },
+    {
+      "key": "finance",
+      "label": "Tài chính",
+      "roles": [
+        "HO_ACCOUNTANT",
+        "CENTER_ACCOUNTANT",
+        "CENTER_MANAGER"
+      ],
+      "tech": false,
+      "items": [
+        {
+          "label": "Đơn hàng",
+          "href": "/orders",
+          "perm": [
+            "finance:read"
+          ],
+          "tabs": []
+        },
+        {
+          "label": "Thu tiền",
+          "href": "/payments",
+          "perm": [],
+          "tabs": [
+            {
+              "label": "Phiếu thu",
+              "href": "/payments",
+              "perm": [
+                "finance:read"
+              ]
+            },
+            {
+              "label": "Biến động số dư",
+              "href": "/bien-dong-so-du",
+              "perm": [
+                "finance:approve"
+              ]
+            },
+            {
+              "label": "Phương thức thanh toán",
+              "href": "/payment-methods",
+              "perm": [
+                "finance:read"
+              ]
+            }
+          ]
+        },
+        {
+          "label": "Công nợ",
+          "href": "/cong-no",
+          "perm": [],
+          "tabs": [
+            {
+              "label": "Công nợ",
+              "href": "/cong-no",
+              "perm": [
+                "finance:read"
+              ]
+            },
+            {
+              "label": "Thiếu học phí",
+              "href": "/thieu-hoc-phi",
+              "perm": [
+                "finance:read"
+              ]
+            }
+          ]
+        },
+        {
+          "label": "Hoàn tiền",
+          "href": "/hoan-tien",
+          "perm": [
+            "finance:read"
+          ],
+          "tabs": []
+        },
+        {
+          "label": "Hoá đơn điện tử",
+          "href": "/hoa-don",
+          "perm": [
+            "finance:read"
+          ],
+          "tabs": []
+        },
+        {
+          "label": "Hoa hồng",
+          "href": "/crm/commission",
+          "perm": [
+            "finance:read"
+          ],
+          "tabs": []
+        }
+      ]
+    },
+    {
+      "key": "inventory",
+      "label": "Kho & sản phẩm",
+      "roles": [
+        "HO_ACCOUNTANT",
+        "CENTER_ACCOUNTANT",
+        "CENTER_MANAGER"
+      ],
+      "tech": false,
+      "items": [
+        {
+          "label": "Học cụ (Kits)",
+          "href": "/kits",
+          "perm": [
+            "inventory:read"
+          ],
+          "tabs": []
+        },
+        {
+          "label": "Sản phẩm bán / thuê",
+          "href": "/products",
+          "perm": [
+            "inventory:read"
+          ],
+          "tabs": []
+        },
+        {
+          "label": "Tồn kho",
+          "href": "/inventory/dashboard",
+          "perm": [],
+          "tabs": [
+            {
+              "label": "Tồn kho",
+              "href": "/inventory/dashboard",
+              "perm": [
+                "inventory:read"
+              ]
+            },
+            {
+              "label": "Kiểm kê kho",
+              "href": "/inventory/audit",
+              "perm": [
+                "inventory:read"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "web",
+      "label": "Website & marketing",
+      "roles": [
+        "HO_MARKETING"
+      ],
+      "tech": false,
+      "items": [
+        {
+          "label": "Website",
+          "href": "/news",
+          "perm": [],
+          "tabs": [
+            {
+              "label": "Tin tức",
+              "href": "/news",
+              "perm": [
+                "site:read"
+              ]
+            },
+            {
+              "label": "Nội dung trang",
+              "href": "/site-content",
+              "perm": [
+                "site:read"
+              ]
+            }
+          ]
+        },
+        {
+          "label": "Marketing",
+          "href": "/marketing",
+          "perm": [],
+          "tabs": [
+            {
+              "label": "Tracking",
+              "href": "/marketing",
+              "perm": [
+                "marketing:read"
+              ]
+            },
+            {
+              "label": "Funnel",
+              "href": "/marketing/funnel",
+              "perm": [
+                "marketing:read"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "system",
+      "label": "Hệ thống",
+      "roles": [
+        "SUPER_ADMIN",
+        "AUDITOR"
+      ],
+      "tech": false,
+      "items": [
+        {
+          "label": "Tài khoản & phân quyền",
+          "href": "/users",
+          "perm": [],
+          "tabs": [
+            {
+              "label": "Tài khoản",
+              "href": "/users",
+              "perm": [
+                "system:read"
+              ]
+            },
+            {
+              "label": "Nhóm người dùng",
+              "href": "/user-groups",
+              "perm": [
+                "system:read"
+              ]
+            },
+            {
+              "label": "Vai trò & quyền",
+              "href": "/roles",
+              "perm": [
+                "system:read"
+              ]
+            }
+          ]
+        },
+        {
+          "label": "Tổ chức & nhượng quyền",
+          "href": "/to-chuc",
+          "perm": [],
+          "tabs": [
+            {
+              "label": "Cây tổ chức",
+              "href": "/to-chuc",
+              "perm": [
+                "system:read"
+              ]
+            },
+            {
+              "label": "Nhượng quyền",
+              "href": "/nhuong-quyen",
+              "perm": [
+                "tenant:read"
+              ]
+            }
+          ]
+        },
+        {
+          "label": "Bảo mật & tuân thủ",
+          "href": "/bao-mat-he-thong",
+          "perm": [],
+          "tabs": [
+            {
+              "label": "Bảo mật hệ thống",
+              "href": "/bao-mat-he-thong",
+              "perm": [
+                "system:read"
+              ]
+            },
+            {
+              "label": "Nhật ký thao tác",
+              "href": "/audit-log",
+              "perm": [
+                "audit:read"
+              ]
+            },
+            {
+              "label": "Tuân thủ dữ liệu",
+              "href": "/compliance",
+              "perm": [
+                "compliance:read"
+              ]
+            }
+          ]
+        },
+        {
+          "label": "Cấu hình",
+          "href": "/cau-hinh-van-hanh",
+          "perm": [],
+          "tabs": [
+            {
+              "label": "Cấu hình vận hành",
+              "href": "/cau-hinh-van-hanh",
+              "perm": [
+                "automation:read"
+              ]
+            },
+            {
+              "label": "Cài đặt chung",
+              "href": "/settings",
+              "perm": [
+                "system:read"
+              ]
+            },
+            {
+              "label": "Mẫu email",
+              "href": "/email-templates",
+              "perm": [
+                "system:read"
+              ]
+            }
+          ]
+        },
+        {
+          "label": "Tích hợp",
+          "href": "/tich-hop",
+          "perm": [
+            "system:read"
+          ],
+          "tabs": []
+        },
+        {
+          "label": "Vận hành & sao lưu",
+          "href": "/van-hanh",
+          "perm": [
+            "system:read"
+          ],
+          "tabs": []
+        }
+      ]
+    },
+    {
+      "key": "tools",
+      "label": "Công cụ kỹ thuật",
+      "roles": [
+        "SUPER_ADMIN"
+      ],
+      "tech": true,
+      "items": [
+        {
+          "label": "Nhật ký gửi",
+          "href": "/email-logs",
+          "perm": [],
+          "tabs": [
+            {
+              "label": "Email",
+              "href": "/email-logs",
+              "perm": [
+                "system:read"
+              ]
+            },
+            {
+              "label": "OTP",
+              "href": "/otp-logs",
+              "perm": [
+                "system:read"
+              ]
+            }
+          ]
+        },
+        {
+          "label": "Chạy lại webhook",
+          "href": "/crm/webhook-replay",
+          "perm": [
+            "system:read"
+          ],
+          "tabs": []
+        },
+        {
+          "label": "Nhập dữ liệu hệ cũ",
+          "href": "/chuyen-doi",
+          "perm": [],
+          "tabs": [
+            {
+              "label": "Chuyển đổi dữ liệu",
+              "href": "/chuyen-doi",
+              "perm": [
+                "migration:read"
+              ]
+            },
+            {
+              "label": "Nhập giao dịch cũ",
+              "href": "/nhap-giao-dich-cu",
+              "perm": [
+                "finance:confirm"
+              ]
+            }
+          ]
+        },
+        {
+          "label": "Go-live",
+          "href": "/go-live",
+          "perm": [],
+          "tabs": [
+            {
+              "label": "Go-live cơ sở",
+              "href": "/go-live",
+              "perm": [
+                "cutover:read"
+              ]
+            },
+            {
+              "label": "Sau go-live",
+              "href": "/bao-cao/sau-go-live",
+              "perm": [
+                "report:read",
+                "cutover:read"
+              ]
+            },
+            {
+              "label": "Đo pilot chat",
+              "href": "/bao-cao/chat-pilot",
+              "perm": [
+                "report:read",
+                "cutover:read"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "redirects": [
+    {
+      "from": "/hoc-ba",
+      "to": "/ho-so-hoc-tap?xem=tra-cuu"
+    },
+    {
+      "from": "/report-cards",
+      "to": "/ho-so-hoc-tap?xem=hoc-ba-moc"
+    }
+  ],
+  "extraPages": [
+    "/bao-mat"
+  ]
+}

@@ -19,7 +19,7 @@ export default async function PlannedScreen({ params }: { params: Promise<{ slug
   const { slug } = await params;
   const path = "/" + slug.join("/");
   const item = ALL_NAV_ITEMS.find((i) => i.href === path);
-  if (!item || item.ready) notFound();
+  if (!item || item.ready !== false) notFound();
   const { ctx } = await getServerCaller();
   if (item.perm && ctx.actor && !hasPermission(ctx.actor as Actor, item.perm)) {
     return <div className="card p-6 text-sm">Bạn không có quyền xem <b>{item.label}</b>.</div>;
@@ -37,11 +37,11 @@ export default async function PlannedScreen({ params }: { params: Promise<{ slug
         {item.desc && <p className="text-sm text-ink-600">{item.desc}</p>}
         <p className="text-xs text-ink-400">Màn hình này giữ đúng đường dẫn <code className="font-mono">{item.href}</code> như admin.satarobo.vn. Phạm vi chi tiết xem docs/ADMIN-SPEC.md.</p>
       </div>
-      {siblings.some((s) => s.ready) && (
+      {siblings.some((s) => s.ready !== false) && (
         <div className="card p-5">
           <div className="label">Đã dùng được trong nhóm này</div>
           <div className="flex flex-wrap gap-2">
-            {siblings.filter((s) => s.ready).map((s) => <Link key={s.href} href={s.href} className="btn-ghost text-xs">{s.label}</Link>)}
+            {siblings.filter((s) => s.ready !== false).map((s) => <Link key={s.href} href={s.href} className="btn-ghost text-xs">{s.label}</Link>)}
           </div>
         </div>
       )}
