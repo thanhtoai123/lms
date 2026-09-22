@@ -45,6 +45,7 @@ chỉ trong phạm vi cơ sở người đó được nhìn thấy.
 |---|---|---|---|
 | Việc hẹn với khách hôm nay | `leads.myLeadTasks` | Hoàn tất | chạy ngay |
 | Lead quá hạn liên hệ | `leads` + `computeSla` | Đã liên hệ | chạy ngay |
+| Phiếu đánh giá học thử chưa gửi | `trialReports.pendingTrialReports` | Điền phiếu | mở drawer phiếu đúng buổi thử (docs/PHIEU-DANH-GIA-HOC-THU.md) |
 | Buổi học chưa điểm danh | `sessions.listSessions` | Điểm danh | mở lưới điểm danh đúng lớp |
 | Buổi chưa viết nhận xét | `sessions.listSessions` | Viết nhận xét | mở lớp |
 | Học bạ kỳ chưa viết | `reportCards.dueReportCards` | Viết học bạ | mở đúng học bạ |
