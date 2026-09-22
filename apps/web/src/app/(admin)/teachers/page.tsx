@@ -20,7 +20,9 @@ export default async function TeachersPage({ searchParams }: { searchParams: Pro
   const status = TEACHER_STATUSES.includes(sp.status as TeacherStatus) ? (sp.status as TeacherStatus) : undefined;
   const [ref, courses, rows] = await Promise.all([
     caller.academics.classes.referenceData(),
-    caller.catalog.courseOptions(),
+    // Bộ lọc "khoá dạy" chỉ là tiện ích: nhân sự (HR) có teacher:read nhưng không có course:read
+    // → bỏ bộ lọc thay vì làm hỏng cả trang (trước đây lỗi 500).
+    hasPermission(ctx.actor as Actor, "course:read") ? caller.catalog.courseOptions() : Promise.resolve([]),
     caller.catalog.teachers({ q: sp.q || undefined, centerId: sp.center || undefined, grade, status, courseId: sp.course || undefined }),
   ]);
   return (
@@ -41,10 +43,12 @@ export default async function TeachersPage({ searchParams }: { searchParams: Pro
           <option value="">Mọi ngạch</option>
           {TEACHER_GRADES.map((g) => <option key={g} value={g}>{TEACHER_GRADE_VI[g]}</option>)}
         </select>
-        <select name="course" defaultValue={sp.course ?? ""} className="input max-w-[160px]">
-          <option value="">Mọi khoá</option>
-          {courses.map((c) => <option key={c.id} value={c.id}>{c.code}</option>)}
-        </select>
+        {courses.length > 0 && (
+          <select name="course" defaultValue={sp.course ?? ""} className="input max-w-[160px]">
+            <option value="">Mọi khoá</option>
+            {courses.map((c) => <option key={c.id} value={c.id}>{c.code}</option>)}
+          </select>
+        )}
         {status && <input type="hidden" name="status" value={status} />}
         <button className="btn-ghost">Lọc</button>
       </form>
