@@ -40,7 +40,7 @@ const dmy = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}`;
 const ATTENDED = ["present", "late", "makeup"];
 const ABSENT = ["absent_excused", "absent_unexcused"];
 
-export type HubResult<T = Record<string, never>> = ({ ok: true } & T) | { ok: false; error: string };
+export type HubResult<T = Record<never, never>> = ({ ok: true } & T) | { ok: false; error: string };
 const fail = (error: string) => ({ ok: false as const, error });
 
 /* ------------------------------------------------------------------ */
@@ -617,7 +617,8 @@ export async function hubJourney(db: Database, parentId: string, studentId: stri
     d.select({ courseId: classes.courseId, status: enrollments.status }).from(enrollments).innerJoin(classes, eq(classes.id, enrollments.classId)).where(eq(enrollments.studentId, child.id)),
   ]);
   const certId = new Map(certRows.map((c) => [c.number, c.id]));
-  const courses: JourneyCourseInput[] = view.courses.map((c) => ({
+  // Đặt tên khác `courses` để không che mất bảng `courses` của Drizzle dùng ở truy vấn lộ trình bên dưới
+  const journeyCourses: JourneyCourseInput[] = view.courses.map((c) => ({
     enrollmentId: c.enrollmentId, courseName: c.courseName, courseCode: c.courseCode, className: c.className, status: c.status, statusLabel: c.statusLabel,
     from: c.from, to: c.to,
     sessionsDone: c.attendance.present + c.attendance.late + c.attendance.makeup,
@@ -658,7 +659,7 @@ export async function hubJourney(db: Database, parentId: string, studentId: stri
   return {
     child: { id: child.id, fullName: child.fullName, nickname: child.nickname },
     view,
-    journey: buildJourney(courses, pathCerts),
+    journey: buildJourney(journeyCourses, pathCerts),
     paths,
     certificates: certRows.map((c) => ({
       id: c.id, number: c.number, kind: c.kind, title: isCertificateSnapshot(c.snapshot) ? c.snapshot.pathName : c.number,
