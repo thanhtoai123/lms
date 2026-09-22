@@ -140,7 +140,10 @@ test("điểm đạt chuẩn hồ sơ: trọng số, ngưỡng, bỏ phần khô
   const low = portfolioComplianceScore({ sheetsDue: 10, sheetsContentOk: 8, sheetsOnTime: 10, sessions: 5, sessionsEvidenceOk: 5, milestonesDue: 0, milestonesOnTime: 0 }, std);
   assert.equal(low.meetsStandard, false, "80% < ngưỡng 90%");
   const lateMs = portfolioComplianceScore({ sheetsDue: 10, sheetsContentOk: 10, sheetsOnTime: 10, sessions: 0, sessionsEvidenceOk: 0, milestonesDue: 2, milestonesOnTime: 1 }, std);
-  assert.equal(lateMs.meetsStandard, false, "còn học bạ mốc quá hạn");
+  assert.equal(lateMs.meetsStandard, true, "đạt chuẩn tính theo phiếu buổi");
+  assert.equal(lateMs.milestoneLate, true, "còn học bạ mốc chưa viết đúng hạn");
+  assert.equal(lateMs.milestonePct, 50);
+  assert.equal(full.milestoneLate, false);
   const empty = portfolioComplianceScore({ sheetsDue: 0, sheetsContentOk: 0, sheetsOnTime: 0, sessions: 0, sessionsEvidenceOk: 0, milestonesDue: 0, milestonesOnTime: 0 }, std);
   assert.equal(empty.score, null);
   assert.equal(empty.meetsStandard, false);

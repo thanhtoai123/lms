@@ -7,7 +7,7 @@ import {
 import {
   reportCardTransition, reportCardMilestones, milestoneLabel, validateReportCard, averageScore, gradeFromAverage, certificateNumber,
   completionCheck, completionTransition, validateCompletionInput, enrollmentTransition, visibleCenterIds, authorize,
-  addDays as addDaysISO, clampPageSize,
+  clampPageSize,
   milestonePeriod, aggregateMilestone, suggestMilestoneComment, snapshotScores, isSessionEvalSnapshot, isMilestoneAggregate, tallyAttendance,
   RUBRIC_SCALE,
   type ReportCardStatus, type CompletionStatus, type MilestoneAggregate, type EvalForAggregate,
@@ -18,6 +18,7 @@ import { writeAudit } from "./audit";
 import { emit } from "./outbox";
 import { consumedSql } from "./students";
 import { todayISO } from "./sessions";
+import { loadStandards, milestoneDueDateSql } from "./portfolioStandardConfig";
 
 type Db = ProtectedContext["db"];
 
@@ -197,6 +198,7 @@ export async function classReportCards(ctx: ProtectedContext, classId: string) {
 function dueReportCardConds(ctx: ProtectedContext, today: string) {
   const visible = visibleCenterIds(ctx.actor);
   return and(
+    tenantCond(ctx, sessions),
     lte(sessions.date, today),
     sql`${sessions.status} not in ('cancelled','rescheduled')`,
     visible === null ? sql`true` : visible.length ? inArray(classes.centerId, visible) : sql`false`,
@@ -208,8 +210,13 @@ function dueReportCardConds(ctx: ProtectedContext, today: string) {
 export async function dueReportCards(ctx: ProtectedContext, input: { limit?: number } = {}) {
   requirePermission(ctx, "report_card:read", {});
   const today = todayISO();
+  const stds = await loadStandards(ctx.db);
   const rows = await ctx.db
-    .select({ enrollmentId: enrollments.id, studentName: students.fullName, classId: classes.id, classCode: classes.code, seq: sessions.sequenceNo, date: sessions.date })
+    .select({
+      enrollmentId: enrollments.id, studentName: students.fullName, classId: classes.id, classCode: classes.code, seq: sessions.sequenceNo, date: sessions.date,
+      /** Hạn viết học bạ mốc (YYYY-MM-DD) = ngày buổi mốc + `milestoneDeadlineDays` của cơ sở (chuẩn hồ sơ học tập) */
+      dueDate: sql<string>`(${milestoneDueDateSql(sessions.date, classes.centerId, stds)})::text`,
+    })
     .from(sessions)
     .innerJoin(classes, eq(classes.id, sessions.classId))
     .innerJoin(lessons, and(eq(lessons.id, sessions.lessonId), eq(lessons.isReportCardMilestone, true)))
@@ -231,11 +238,12 @@ export async function dueReportCards(ctx: ProtectedContext, input: { limit?: num
 export async function countDueReportCards(ctx: ProtectedContext): Promise<{ total: number; overdue: number }> {
   requirePermission(ctx, "report_card:read", {});
   const today = todayISO();
-  const cutoff = addDaysISO(today, -3);
+  // Quá hạn theo chuẩn hồ sơ học tập: qua `milestoneDeadlineDays` (mặc định 7 ngày, theo cơ sở) sau buổi mốc
+  const stds = await loadStandards(ctx.db);
   const [r] = await ctx.db
     .select({
       total: sql<number>`count(*)::int`,
-      overdue: sql<number>`count(*) filter (where ${sessions.date} < ${cutoff})::int`,
+      overdue: sql<number>`count(*) filter (where ${milestoneDueDateSql(sessions.date, classes.centerId, stds)} < ${today}::date)::int`,
     })
     .from(sessions)
     .innerJoin(classes, eq(classes.id, sessions.classId))

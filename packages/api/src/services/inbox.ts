@@ -14,7 +14,7 @@
 import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { leads } from "@satarobo/db";
 import {
-  OPEN_LEAD_STATUSES, addDays, authorize, maskPhone, visibleCenterIds,
+  OPEN_LEAD_STATUSES, addDays, authorize, maskPhone, visibleCenterIds, fmtDeadlineVi,
   REQUEST_KIND_VI, PARENT_REQUEST_TYPE_VI, type Permission,
 } from "@satarobo/core";
 import type { ProtectedContext } from "../trpc";
@@ -293,12 +293,12 @@ async function trialReportGroup(ctx: ProtectedContext): Promise<InboxGroup | nul
 /**
  * Buổi chưa có phiếu nhận xét học viên (hồ sơ học tập): buổi đã diễn ra, có học viên có mặt nhưng
  * chưa có phiếu phát hành. Tính từ mốc bật tính năng, trong 30 ngày gần nhất; GV chỉ thấy buổi mình dạy.
+ * Quá hạn = qua hạn hoàn thiện phiếu của chuẩn hồ sơ (`sheetDeadlineHours` sau giờ kết thúc buổi, theo cơ sở).
  * Việc cần nhập liệu → "open" mở thẳng màn buổi học (khối phiếu nằm ngay dưới điểm danh).
  */
 async function sessionEvaluationGroup(ctx: ProtectedContext): Promise<InboxGroup | null> {
   const res = await SE.pendingEvaluationSessions(ctx, { limit: MAX_PER_GROUP });
   if (!res) return null;
-  const today = todayISO();
   return {
     key: "session_evaluation", title: "Buổi chưa có phiếu nhận xét học viên", icon: "book-open-check",
     actionLabel: "Chấm phiếu", actionKind: "open", undoable: false,
@@ -308,8 +308,8 @@ async function sessionEvaluationGroup(ctx: ProtectedContext): Promise<InboxGroup
       id: r.sessionId,
       title: `${r.classCode} · ${r.label}`,
       sub: [r.centerCode, r.teacherName ?? "Chưa gán GV", `${r.missing} học viên chưa có phiếu`].join(" · "),
-      meta: `${dmy(r.date)} ${r.startTime.slice(0, 5)}`,
-      overdue: r.date < addDays(today, -1),
+      meta: `${dmy(r.date)} ${r.startTime.slice(0, 5)} · hạn ${fmtDeadlineVi(new Date(r.deadline))}`,
+      overdue: r.overdue,
       href: `/teacher/sessions/${r.sessionId}#phieu-nhan-xet`,
     })),
   };
@@ -331,8 +331,9 @@ async function reportCardGroup(ctx: ProtectedContext): Promise<InboxGroup | null
     total: c.total, overdue: c.overdue,
     items: rows.map((r) => ({
       id: `${r.enrollmentId}:${r.seq}`,
-      title: r.studentName, sub: `${r.classCode} · buổi ${r.seq}`, meta: dmy(r.date),
-      overdue: r.date < addDays(today, -3),
+      // Hạn học bạ mốc theo chuẩn hồ sơ của cơ sở (`milestoneDeadlineDays` sau buổi mốc)
+      title: r.studentName, sub: `${r.classCode} · buổi ${r.seq}`, meta: `${dmy(r.date)} · hạn ${dmy(r.dueDate)}`,
+      overdue: r.dueDate < today,
       href: `/report-cards/${r.enrollmentId}/${r.seq}`,
     })),
   };

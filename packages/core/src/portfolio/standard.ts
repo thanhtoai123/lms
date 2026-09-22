@@ -262,8 +262,10 @@ export interface ComplianceScore {
   milestonePct: number | null;
   /** Điểm tổng 0–100: trung bình có trọng số các phần có dữ liệu (phiếu 50 · đúng hạn 20 · bằng chứng 15 · học bạ 15) */
   score: number | null;
-  /** Hồ sơ đạt chuẩn: % phiếu đủ chuẩn ≥ ngưỡng và không có học bạ mốc quá hạn */
+  /** Hồ sơ đạt chuẩn: % phiếu đủ chuẩn (đã tới hạn) ≥ ngưỡng `profileMinSheetPct` */
   meetsStandard: boolean;
+  /** Còn học bạ mốc chưa viết đúng hạn */
+  milestoneLate: boolean;
 }
 
 const pct = (a: number, b: number) => (b > 0 ? Math.round((a / b) * 1000) / 10 : null);
@@ -277,8 +279,8 @@ export function portfolioComplianceScore(c: ComplianceCounts, standard: Portfoli
   const used = parts.filter((p): p is [number, number] => p[0] != null);
   const w = used.reduce((a, p) => a + p[1], 0);
   const score = w ? Math.round(used.reduce((a, p) => a + p[0] * p[1], 0) / w) : null;
-  const meetsStandard = sheetPct != null && sheetPct >= standard.profileMinSheetPct && c.milestonesOnTime >= c.milestonesDue;
-  return { sheetPct, onTimePct, evidencePct, milestonePct, score, meetsStandard };
+  const meetsStandard = sheetPct != null && sheetPct >= standard.profileMinSheetPct;
+  return { sheetPct, onTimePct, evidencePct, milestonePct, score, meetsStandard, milestoneLate: c.milestonesOnTime < c.milestonesDue };
 }
 
 /** Ngưỡng cảnh báo trên bảng quản lý (dòng dưới 90% tô cảnh báo) */

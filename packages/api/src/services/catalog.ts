@@ -11,6 +11,7 @@ import {
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { writeAudit } from "./audit";
 import { tenantCond, assertTenant } from "./tenantScope";
+import { cloneLessonFocus } from "./criteria";
 
 type Db = ProtectedContext["db"];
 
@@ -399,6 +400,8 @@ export async function cloneCurriculum(ctx: ProtectedContext, input: { id: string
     const [row] = await tx.insert(curricula).values({ courseId: c.courseId, name: input.name?.trim() || `${c.name.replace(/\s*\(.*\)$/, "").replace(/\s+v\d+$/i, "")} v${version}`, description: c.description, version, status: "draft", isActive: false, createdBy: ctx.user.id }).returning({ id: curricula.id });
     const ls = await tx.select().from(lessons).where(eq(lessons.curriculumId, c.id));
     if (ls.length) await tx.insert(lessons).values(ls.map((l) => ({ curriculumId: row!.id, sequenceNo: l.sequenceNo, title: l.title, objectives: l.objectives, materials: l.materials, isReportCardMilestone: l.isReportCardMilestone })));
+    // Tiêu chí trọng tâm của từng bài đi theo bài (khớp theo số thứ tự)
+    if (ls.length) await cloneLessonFocus(tx as unknown as Db, c.id, row!.id);
     await writeAudit(tx as unknown as Db, { actorId: ctx.user.id, action: "CREATE", module: "academics", entity: "curricula", entityId: row!.id, after: { clonedFrom: c.id, version, lessons: ls.length }, ip: ctx.ip });
     return { id: row!.id };
   });
