@@ -22,6 +22,7 @@ import { recruitRouter, messagingRouter, affiliateRouter } from "./routers/outre
 import { invoiceRouter, cardRouter } from "./routers/billing";
 import { migrationRouter, cutoverRouter, deliveryRouter, pilotRouter, readinessRouter, opsConfigRouter } from "./routers/golive";
 import { tenantsRouter } from "./routers/tenants";
+import { trialReportsRouter } from "./routers/trialReports";
 
 export const appRouter = router({
   auth: authRouter,
@@ -30,7 +31,7 @@ export const appRouter = router({
     classes: classesRouter,
   }),
   teacher: teacherRouter,
-  admissions: router({ leads: leadsRouter, trials: trialsRouter }),
+  admissions: router({ leads: leadsRouter, trials: trialsRouter, trialReports: trialReportsRouter }),
   engagement: engagementRouter,
   dashboard: dashboardRouter,
   inbox: inboxRouter,
@@ -78,6 +79,7 @@ export { putObject, getObject, signedMediaUrl, verifyMediaSignature, signedFileU
 export { registerUploadedMedia } from "./services/media";
 export { ingestBankTx } from "./services/bank";
 export { publicSurvey, submitPublicSurvey, runSurveyTriggers } from "./services/care";
+export { publicTrialReport, publicTrialReportRespond, CONSULT_RECEIVED_MESSAGE, type PublicTrialReportResult } from "./services/trialReports";
 export { logWebhook, mapPublicLeadBody, requestOtp, verifyOtp, processEmailQueue } from "./services/admin";
 export { addDocumentVersion } from "./services/documents";
 export { publicHomework, submitPublicHomework, staffSubmit, remindDueHomework } from "./services/assignments";

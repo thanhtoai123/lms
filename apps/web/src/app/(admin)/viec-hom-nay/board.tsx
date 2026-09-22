@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  AlarmClock, Award, BellRing, CheckCheck, ClipboardCheck, ClipboardList, CreditCard, ExternalLink,
+  AlarmClock, Award, BellRing, CheckCheck, ClipboardCheck, ClipboardList, CreditCard, ExternalLink, FlaskConical,
   HeartHandshake, MessageSquarePlus, NotebookPen, RefreshCw, ScrollText, Undo2, Users, type LucideIcon,
 } from "lucide-react";
 import { useTRPC } from "@/lib/trpc/client";
@@ -24,7 +24,7 @@ const ICON: Record<string, LucideIcon> = {
   "alarm-clock": AlarmClock, users: Users, "clipboard-check": ClipboardCheck, "notebook-pen": NotebookPen,
   "scroll-text": ScrollText, "refresh-cw": RefreshCw, "check-check": CheckCheck, "credit-card": CreditCard,
   "undo-2": Undo2, "clipboard-list": ClipboardList, "message-square-plus": MessageSquarePlus,
-  "heart-handshake": HeartHandshake, award: Award, "bell-ring": BellRing,
+  "heart-handshake": HeartHandshake, award: Award, "bell-ring": BellRing, "flask-conical": FlaskConical,
 };
 
 const FILTER_KEY = "sr-inbox-group";

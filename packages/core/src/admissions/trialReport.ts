@@ -218,6 +218,41 @@ export function isTrialReportAnswers(x: unknown): x is TrialReportAnswers {
 }
 
 /* ------------------------------------------------------------------ */
+/* Dữ liệu hiển thị (dùng chung: trang phụ huynh, xem trước, trang in)  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Đúng những gì phiếu in ra — KHÔNG có SĐT / email phụ huynh, không có id nội bộ.
+ * Ngày giờ là chuỗi ISO để truyền an toàn giữa máy chủ và trình duyệt.
+ */
+export interface TrialReportView {
+  code: string;
+  status: TrialReportStatus;
+  /** Ngày phát hành (hoặc ngày cập nhật khi còn nháp) — ISO */
+  issuedAt: string | null;
+  childName: string;
+  /** YYYY-MM-DD; null thì ẩn dòng */
+  dateOfBirth: string | null;
+  /** Mã học sinh thật (khi bé đã là học viên); null thì phiếu hiện mã phiếu thay thế */
+  studentCode: string | null;
+  courseName: string | null;
+  /** Thời điểm buổi học thử — ISO */
+  sessionAt: string | null;
+  teacherName: string | null;
+  answers: TrialReportAnswers;
+  strengths: string | null;
+  growth: string | null;
+  productNote: string | null;
+  readiness: TrialReadiness | null;
+  recommendedCourseName: string | null;
+  recommendedLevel: string | null;
+  recommendationNote: string | null;
+  pathway: boolean;
+  competitionPotential: boolean;
+  center: { name: string; address: string | null; phone: string | null };
+}
+
+/* ------------------------------------------------------------------ */
 /* Tóm tắt                                                             */
 /* ------------------------------------------------------------------ */
 

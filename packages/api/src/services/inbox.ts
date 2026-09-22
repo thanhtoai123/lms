@@ -30,10 +30,12 @@ import * as HRR from "./hrRequests";
 import * as CARE from "./care";
 import * as EN from "./engagement";
 import * as RC from "./reportCards";
+import * as TR from "./trialReports";
 
 export const INBOX_GROUP_KEYS = [
   "lead_task", "lead_sla", "session_attendance", "session_note", "report_card", "makeup",
   "media", "payment", "refund", "staff_request", "parent_request", "care_task", "completion", "notification",
+  "trial_report",
 ] as const;
 export type InboxGroupKey = (typeof INBOX_GROUP_KEYS)[number];
 
@@ -113,6 +115,7 @@ export async function inboxToday(ctx: ProtectedContext) {
     await Promise.all([
       safe(() => leadTaskGroup(ctx)),
       safe(() => leadSlaGroup(ctx)),
+      safe(() => trialReportGroup(ctx)),
       safe(() => sessionGroups(ctx, "attendance")),
       safe(() => sessionGroups(ctx, "note")),
       safe(() => reportCardGroup(ctx)),
@@ -254,6 +257,35 @@ async function sessionGroups(ctx: ProtectedContext, mode: "attendance" | "note")
       href: "/sessions", emptyHint: "Không còn buổi nào chờ nhận xét.",
       total, overdue: overdueCount, items,
     };
+}
+
+/**
+ * Phiếu đánh giá học thử chưa gửi: buổi thử đã diễn ra quá 24 giờ (đã ghi "đến học" / đã có mặt)
+ * mà chưa có phiếu phát hành. Việc cần nhập liệu → "open" mở thẳng drawer điền phiếu.
+ * Tổng lấy bằng `count(*)`, chỉ tải 25 dòng (xem `pendingTrialReports`).
+ */
+async function trialReportGroup(ctx: ProtectedContext): Promise<InboxGroup | null> {
+  const res = await TR.pendingTrialReports(ctx, { limit: MAX_PER_GROUP });
+  if (!res) return null;
+  return {
+    key: "trial_report", title: "Phiếu đánh giá học thử chưa gửi", icon: "flask-conical",
+    actionLabel: "Điền phiếu", actionKind: "open", undoable: false,
+    href: "/lop-trial", emptyHint: "Mọi buổi học thử đã có phiếu đánh giá gửi phụ huynh.",
+    total: res.total, overdue: res.overdue,
+    items: res.items.map((r) => {
+      const day = r.sessionAt.toLocaleDateString("sv-SE", { timeZone: "Asia/Ho_Chi_Minh" });
+      return {
+        id: `${r.kind}:${r.sourceId}`,
+        title: r.childName,
+        sub: [r.classLabel, r.centerCode, r.hasDraft ? "có bản nháp" : null].filter(Boolean).join(" · "),
+        meta: hoursAgo(r.sessionAt),
+        overdue: Date.now() - r.sessionAt.getTime() > 48 * 3600e3,
+        href: r.kind === "booking"
+          ? `/lop-trial/buoi-le?from=${day}&to=${day}&pdg=${r.sourceId}`
+          : `/lop-trial/${r.trialClassId ?? ""}?pdg=${r.sourceId}`,
+      };
+    }),
+  };
 }
 
 async function reportCardGroup(ctx: ProtectedContext): Promise<InboxGroup | null> {
