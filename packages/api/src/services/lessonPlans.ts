@@ -253,11 +253,11 @@ export async function uploadPlan(ctx: ProtectedContext, input: { lessonId: strin
 
   const sha = createHash("sha256").update(input.bytes).digest("hex");
   // Số phiên bản kế tiếp tính cả các lần tải đang dở, để hai người đẩy cùng lúc không trùng số
-  const [lastRow] = await ctx.db.select({ v: sql<number>`coalesce(max(v), 0)::int` }).from(
-    sql`(select max(version) as v from ${documentVersions} where document_id = ${doc.id}
-         union all select max(version) as v from ${documentUploadJobs} where document_id = ${doc.id}) t`.as("t"),
-  );
-  const version = (lastRow?.v ?? 0) + 1;
+  const [maxReady] = await ctx.db.select({ v: sql<number>`coalesce(max(${documentVersions.version}), 0)::int` })
+    .from(documentVersions).where(eq(documentVersions.documentId, doc.id));
+  const [maxJob] = await ctx.db.select({ v: sql<number>`coalesce(max(${documentUploadJobs.version}), 0)::int` })
+    .from(documentUploadJobs).where(eq(documentUploadJobs.documentId, doc.id));
+  const version = Math.max(maxReady?.v ?? 0, maxJob?.v ?? 0) + 1;
   const name = `buoi-${lesson.sequenceNo}-v${version}.${kind === "scorm" ? "zip" : "pdf"}`;
   const key = `docs/${doc.id}/v${version}/${name}`;
 
