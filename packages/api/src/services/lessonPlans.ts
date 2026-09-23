@@ -21,6 +21,7 @@ import {
   SCORM_MAX_FILES, PLAN_STUCK_MINUTES, PLAN_FILE_KIND_VI, type PlanFileKind,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
+import { tenantCond } from "./tenantScope";
 import { writeAudit } from "./audit";
 import { putObject, deleteObject, deletePrefix, signedFileUrl } from "../storage";
 import { listZip, readZipEntry } from "../zip";
@@ -48,9 +49,9 @@ function canEdit(ctx: ProtectedContext) {
 /** Khoá học có khung chương trình (để chọn ở ô đầu tiên) */
 export async function planCourses(ctx: ProtectedContext) {
   requirePermission(ctx, "document:read");
-  const rows = await ctx.db.select({ id: courses.id, code: courses.code, name: courses.name })
-    .from(courses).where(eq(courses.status, "active")).orderBy(asc(courses.code));
-  return rows;
+  // Cách ly nhượng quyền: chỉ khoá của trung tâm mình (tenantCond) — xem services/tenantScope.ts
+  return ctx.db.select({ id: courses.id, code: courses.code, name: courses.name })
+    .from(courses).where(and(eq(courses.isActive, true), tenantCond(ctx, courses))).orderBy(asc(courses.code));
 }
 
 /**
@@ -70,7 +71,8 @@ export async function planLessons(ctx: ProtectedContext, input: { courseId: stri
     .from(lessons)
     .innerJoin(curricula, eq(curricula.id, lessons.curriculumId))
     .leftJoin(documents, and(eq(documents.lessonId, lessons.id), eq(documents.category, PLAN_CATEGORY), ne(documents.status, "archived")))
-    .where(and(eq(curricula.courseId, input.courseId), eq(curricula.status, "active")))
+    .innerJoin(courses, eq(courses.id, curricula.courseId))
+    .where(and(eq(curricula.courseId, input.courseId), eq(curricula.status, "active"), tenantCond(ctx, courses)))
     .orderBy(asc(lessons.sequenceNo));
   const items = rows.map((r) => ({
     id: r.id,
@@ -96,7 +98,10 @@ async function loadLesson(ctx: ProtectedContext, lessonId: string) {
   const [l] = await ctx.db.select({
     id: lessons.id, sequenceNo: lessons.sequenceNo, title: lessons.title,
     curriculumId: curricula.id, curriculumName: curricula.name, courseId: curricula.courseId,
-  }).from(lessons).innerJoin(curricula, eq(curricula.id, lessons.curriculumId)).where(eq(lessons.id, lessonId));
+  }).from(lessons)
+    .innerJoin(curricula, eq(curricula.id, lessons.curriculumId))
+    .innerJoin(courses, eq(courses.id, curricula.courseId))
+    .where(and(eq(lessons.id, lessonId), tenantCond(ctx, courses)));
   if (!l) throw notFound("Không tìm thấy buổi học");
   return l;
 }
