@@ -25,6 +25,7 @@ $script:Tmp = Join-Path $env:TEMP ("ktmenu-" + $script:Started.ToString("yyyyMMd
 New-Item -ItemType Directory -Path $script:Tmp -Force | Out-Null
 
 $script:dead = 0
+$script:restarts = 0
 $script:results = New-Object System.Collections.ArrayList
 $script:summary = New-Object System.Collections.ArrayList
 
@@ -76,13 +77,24 @@ function Fetch([string]$path, [string]$who) {
   $code = $parts[0]
   $loc = ""
   if ($parts.Length -gt 1) { $loc = $parts[1] }
-  # Máy chủ web chết giữa chừng: curl trả 000 liên tục -> dừng ngay, khỏi chạy hàng trăm yêu cầu vô ích
+  # Máy chủ web chết giữa chừng (thường do hết bộ nhớ khi biên dịch ~120 trang trên máy 16GB):
+  # tự bật lại rồi CHẠY TIẾP, vì mất cả lượt kiểm tra chỉ vì một lần chết là quá phí.
   if ($code -eq "000") { $script:dead++ } else { $script:dead = 0 }
   if ($script:dead -ge 5) {
+    $script:dead = 0
+    if ($script:restarts -ge 3) {
+      Write-Host ""
+      Write-Host ("MAY CHU WEB KHONG TRA LOI va da bat lai " + $script:restarts + " lan (lan cuoi: " + $path + "). Xem logs\web.log.") -ForegroundColor Red
+      Write-Host "KET LUAN: KHONG DAT — may chu web ngung giua chung"
+      exit 3
+    }
+    $script:restarts++
     Write-Host ""
-    Write-Host ("MAY CHU WEB KHONG TRA LOI (5 yeu cau lien tiep that bai, lan cuoi: " + $path + "). Xem logs\web.log. Dung kiem tra.") -ForegroundColor Red
-    Write-Host "KET LUAN: KHONG DAT — may chu web ngung giua chung"
-    exit 3
+    Write-Host ("May chu web khong tra loi — dang bat lai (lan " + $script:restarts + ")...") -ForegroundColor Yellow
+    $kd = Join-Path (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) "scripts\khoi-dong.ps1"
+    & powershell -ExecutionPolicy Bypass -File $kd -KhongMoTrinhDuyet *> $null
+    Start-Sleep -Seconds 5
+    return (Fetch $path $who)
   }
   $html = ""
   if (Test-Path $f) { $html = [System.IO.File]::ReadAllText($f, [System.Text.Encoding]::UTF8); Remove-Item $f -Force -ErrorAction SilentlyContinue }

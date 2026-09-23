@@ -37,13 +37,17 @@ function DongCuaSoCu([string]$tieuDe) {
   }
 }
 
-function MoCuaSoGhiLog([string]$tieuDe, [string]$lenh, [string]$tepLog) {
+function MoCuaSoGhiLog([string]$tieuDe, [string]$lenh, [string]$tepLog, [string]$nodeOpts = "") {
+  # Ghì bộ nhớ đống của Node lại: máy 16GB chạy cả Docker + trình duyệt, Turbopack (phần Rust) cần
+  # bộ nhớ hệ thống để biên dịch ~120 trang — Node ôm hết thì Windows báo "memory allocation failed"
+  # và máy chủ phát triển chết giữa chừng.
   $f = Join-Path $LogDir $tepLog
   if (Test-Path $f) { Move-Item $f ($f + ".cu") -Force -ErrorAction SilentlyContinue }
   $ps = @"
 `$host.UI.RawUI.WindowTitle = '$tieuDe'
 `$env:ALLOW_DEV_ACTOR = '1'
 `$env:FORCE_COLOR = '0'
+`$env:NODE_OPTIONS = '$nodeOpts'
 Set-Location '$R'
 Add-Content -Path '$f' -Value ('=== ' + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + ' $lenh') -Encoding UTF8
 cmd /c '$lenh 2>&1' | ForEach-Object { Write-Host `$_; Add-Content -Path '$f' -Value `$_ -Encoding UTF8 }
@@ -108,7 +112,7 @@ if ($dangChay) {
   Noi "Dang khoi dong may chu web..." "Yellow"
   # Cua so cu cua lan truoc (tien trinh node da chet nhung cua so cmd con mo) -> dong di cho gon
   DongCuaSoCu "Sata Robo dev server"
-  MoCuaSoGhiLog "Sata Robo dev server" "pnpm --filter @satarobo/web dev" "web.log"
+  MoCuaSoGhiLog "Sata Robo dev server" "pnpm --filter @satarobo/web dev" "web.log" "--max-old-space-size=3072"
   for ($i = 0; $i -lt 48; $i++) {
     Start-Sleep -Seconds 5
     try { $x = Invoke-WebRequest ($BaseUrl + "/login") -UseBasicParsing -TimeoutSec 8; if ($x.StatusCode -eq 200) { $dangChay = $true; break } } catch { }
@@ -127,7 +131,7 @@ if ($coWorker) {
   Noi "Worker viec nen: da chay san" "Green"
 } else {
   DongCuaSoCu "Sata Robo worker"
-  MoCuaSoGhiLog "Sata Robo worker" "pnpm worker" "worker.log"
+  MoCuaSoGhiLog "Sata Robo worker" "pnpm worker" "worker.log" "--max-old-space-size=768"
   # Worker chet ngay khi vua len (thieu bien moi truong, loi ket noi...) thi bao luon, dung de im lang
   Start-Sleep -Seconds 12
   $conSong = @(Get-CimInstance Win32_Process -Filter "Name='node.exe'" -ErrorAction SilentlyContinue | Where-Object { $_.CommandLine -like "*worker.ts*" }).Count -gt 0
