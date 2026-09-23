@@ -116,6 +116,12 @@ export default async function PrepPage({ params }: { params: Promise<{ id: strin
       {/* Tài liệu */}
       <section className="card p-4" aria-label="Tài liệu giảng dạy">
         <h2 className="mb-2 flex items-center gap-2 font-bold"><FileText className="h-5 w-5 text-brand-600" aria-hidden />Tài liệu giảng dạy</h2>
+        {/* Giáo án của buổi: mở thẳng khung chiếu, không phải tìm trong danh sách */}
+        {d.lessonPlan && (
+          <Link href={d.lessonPlan.href} className="btn-primary mb-3 flex min-h-11 items-center justify-center">
+            Mở giáo án buổi này ({d.lessonPlan.kindLabel})
+          </Link>
+        )}
         {d.documents.length === 0 ? <p className="text-ink-600">Chưa có tài liệu đã phát hành cho bài này.</p> : (
           <ul className="divide-y divide-black/5">
             {d.documents.map((x) => (

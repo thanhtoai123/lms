@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { mkdir, readFile, writeFile, unlink } from "node:fs/promises";
+import { mkdir, readFile, writeFile, unlink, rm } from "node:fs/promises";
 import path from "node:path";
 import { isSafeObjectKey } from "@satarobo/core";
 import { mediaSigningSecret } from "./lib/secrets";
@@ -37,6 +37,14 @@ export async function getObject(key: string): Promise<Buffer | null> {
 
 export async function deleteObject(key: string) {
   try { await unlink(/* turbopackIgnore: true */ safePath(key)); } catch { /* đã xoá */ }
+}
+
+/**
+ * Xoá cả một thư mục theo tiền tố khoá (vd `scorm/<id>/v3`) — dùng khi dọn bản giáo án lỗi
+ * hoặc thay bản mới: gói SCORM là hàng trăm tệp, xoá từng tệp thì phải liệt kê lại cả gói.
+ */
+export async function deletePrefix(prefix: string) {
+  try { await rm(/* turbopackIgnore: true */ safePath(prefix), { recursive: true, force: true }); } catch { /* đã xoá */ }
 }
 
 function sign(key: string, exp: number) {

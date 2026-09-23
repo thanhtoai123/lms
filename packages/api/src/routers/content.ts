@@ -5,6 +5,7 @@ import {
 import { router, protectedProcedure } from "../trpc";
 import * as D from "../services/documents";
 import * as H from "../services/assignments";
+import * as P from "../services/lessonPlans";
 
 const uuid = z.string().uuid();
 const s = (n: number) => z.string().max(n);
@@ -29,6 +30,16 @@ export const contentRouter = router({
     .input(z.object({ id: uuid, version: z.number().int().min(1), cmi: z.record(z.string(), z.string().max(64_000)), terminate: z.boolean() }))
     .mutation(({ ctx, input }) => D.scormCommit(ctx, input)),
   scormReport: protectedProcedure.input(z.object({ id: uuid })).query(({ ctx, input }) => D.scormReport(ctx, input)),
+  // Giáo án của từng buổi học (trang /scorm) — xem services/lessonPlans.ts
+  planCourses: protectedProcedure.query(({ ctx }) => P.planCourses(ctx)),
+  planLessons: protectedProcedure.input(z.object({ courseId: uuid })).query(({ ctx, input }) => P.planLessons(ctx, input)),
+  plan: protectedProcedure.input(z.object({ lessonId: uuid })).query(({ ctx, input }) => P.getPlan(ctx, input)),
+  planCleanFailed: protectedProcedure.input(z.object({ lessonId: uuid })).mutation(({ ctx, input }) => P.cleanFailedPlan(ctx, input)),
+  planRemove: protectedProcedure.input(z.object({ lessonId: uuid })).mutation(({ ctx, input }) => P.removePlan(ctx, input)),
+  planRestore: protectedProcedure.input(z.object({ lessonId: uuid, version: z.number().int().min(1) })).mutation(({ ctx, input }) => P.restorePlanVersion(ctx, input)),
+  planOpen: protectedProcedure.input(z.object({ lessonId: uuid })).mutation(({ ctx, input }) => P.openPlan(ctx, input)),
+  plansNeedingAttention: protectedProcedure.input(z.object({ courseId: uuid.optional() }).default({})).query(({ ctx, input }) => P.plansNeedingAttention(ctx, input)),
+
   myMaterials: protectedProcedure.input(z.object({ classId: uuid.optional() }).default({})).query(({ ctx, input }) => D.myMaterials(ctx, input)),
 
   proposalLessons: protectedProcedure.query(({ ctx }) => D.proposalLessonOptions(ctx)),

@@ -21,6 +21,7 @@ import { dispatchPush } from "./services/pilot";
 import { pruneLoginEvents } from "./services/loginSecurity";
 import { remindPauseEnding } from "./services/studentLifecycle";
 import { buildActionRequiredAlerts } from "./services/notify";
+import { sweepStuckPlanVersions } from "./services/lessonPlans";
 import { pruneRateLimits } from "./lib/rateLimit";
 import { apiLogger } from "./lib/logger";
 
@@ -61,6 +62,10 @@ async function tick() {
       if (n) log.info(`survey invites=${n}`);
       const act = await buildActionRequiredAlerts(db);
       if (act.created) log.info(`action required alerts=${act.created}`);
+      // Gói giáo án kẹt "đang xử lý" (máy chủ dừng giữa chừng) -> đánh dấu hỏng để màn hình
+      // /scorm hiện nút "Dọn bản lỗi" thay vì quay mãi. Xem services/lessonPlans.ts.
+      const gk = await sweepStuckPlanVersions(db as never);
+      if (gk) log.info(`giao an ket -> danh dau hong=${gk}`);
     }
     if (Date.now() - lastRetention > 24 * 3600_000) {
       const le = await pruneLoginEvents(db);

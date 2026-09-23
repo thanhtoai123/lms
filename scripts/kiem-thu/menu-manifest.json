@@ -589,7 +589,7 @@
               ]
             },
             {
-              "label": "SCORM / bài giảng tương tác",
+              "label": "SCORM / giáo án buổi học",
               "href": "/scorm",
               "perm": [
                 "document:read"

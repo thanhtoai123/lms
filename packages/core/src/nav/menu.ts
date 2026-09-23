@@ -257,7 +257,7 @@ export const ADMIN_MENU: NavGroup[] = [
         label: "Kho tài liệu", href: "/documents", icon: "file-text", keywords: "tai lieu giang day scorm",
         tabs: [
           { label: "Tài liệu giảng dạy", href: "/documents", perm: "document:read", desc: "Kho tài liệu theo khoá / bài, phiên bản, nhật ký mở / tải." },
-          { label: "SCORM / bài giảng tương tác", href: "/scorm", perm: "document:read" },
+          { label: "SCORM / giáo án buổi học", href: "/scorm", perm: "document:read", desc: "Giáo án từng buổi: một buổi giữ đúng một bản (slide PDF hoặc gói SCORM), đẩy bản mới tự thay." },
         ],
       },
       { label: "Tài liệu lớp tôi", href: "/teaching-materials", icon: "presentation", perm: "class:read", desc: "Dành cho giáo viên: tài liệu của các lớp đang dạy, buổi sắp tới cần chuẩn bị gì." },

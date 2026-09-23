@@ -1,7 +1,7 @@
 import { pgTable, text, uuid, integer, bigint, boolean, timestamp, pgEnum, jsonb, index, uniqueIndex, numeric } from "drizzle-orm/pg-core";
 import {
   DOC_KINDS, DOC_AUDIENCES, DOC_STATUSES, DOC_CATEGORIES, SCORM_STATUSES, SUBMISSION_TYPES, ASSIGNMENT_STATUSES, SUBMISSION_STATUSES,
-  PROPOSAL_TYPES, PROPOSAL_STATUSES,
+  PROPOSAL_TYPES, PROPOSAL_STATUSES, PLAN_VERSION_STATUSES,
 } from "@satarobo/core";
 import { id, timestamps } from "./_common";
 import { users } from "./identity";
@@ -11,6 +11,7 @@ import { courses, curricula, lessons, classes, sessions } from "./academics";
 export const docKindEnum = pgEnum("doc_kind", DOC_KINDS);
 export const docAudienceEnum = pgEnum("doc_audience", DOC_AUDIENCES);
 export const docStatusEnum = pgEnum("doc_status", DOC_STATUSES);
+export const docVersionStatusEnum = pgEnum("doc_version_status", PLAN_VERSION_STATUSES);
 export const docCategoryEnum = pgEnum("doc_category", DOC_CATEGORIES);
 export const scormStatusEnum = pgEnum("scorm_status", SCORM_STATUSES);
 export const submissionTypeEnum = pgEnum("submission_type", SUBMISSION_TYPES);
@@ -54,6 +55,14 @@ export const documentVersions = pgTable("document_versions", {
   scormVersion: text("scorm_version"),
   launchPath: text("launch_path"),
   fileCount: integer("file_count"),
+  /**
+   * Vòng đời một bản tải lên: processing (đang giải nén / ghi tệp) → ready, hoặc failed.
+   * Có trạng thái thì bản chết giữa chừng không "biến mất" âm thầm: màn hình giáo án hiện
+   * "kẹt xử lý" kèm nút dọn (xem core/content/lessonPlan.ts).
+   */
+  status: docVersionStatusEnum("status").notNull().default("ready"),
+  errorText: text("error_text"),
+  processedAt: timestamp("processed_at", { withTimezone: true }),
   uploadedBy: uuid("uploaded_by").references(() => users.id),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [uniqueIndex("document_versions_uq").on(t.documentId, t.version)]);

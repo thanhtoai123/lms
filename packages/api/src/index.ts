@@ -93,6 +93,7 @@ export { verifyPortfolioRenderSignature } from "./storage";
 export { publicCertificate, portalCertificate, uploadTemplateBackground, type PublicCertificateResult, type PublicCertificateView, type PrintableCertificate } from "./services/certificates";
 export { logWebhook, mapPublicLeadBody, requestOtp, verifyOtp, processEmailQueue } from "./services/admin";
 export { addDocumentVersion } from "./services/documents";
+export { uploadPlan, sweepStuckPlanVersions } from "./services/lessonPlans";
 export { publicHomework, submitPublicHomework, staffSubmit, remindDueHomework } from "./services/assignments";
 export { publicPosts, publicPost, publicSite, publicTrackingConfig, recordTrack, uploadSiteMedia, publishDuePosts, SITE_MEDIA_MAX } from "./services/growth";
 export { retentionSweep } from "./services/compliance";

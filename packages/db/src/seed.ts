@@ -4,6 +4,9 @@
  * Chạy: pnpm db:seed
  */
 import "./env";
+import { createHash } from "node:crypto";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 import { and, eq } from "drizzle-orm";
 import { createDb } from "./index";
 import {
@@ -21,7 +24,7 @@ import {
   evalForms, evalQuestions, evalRounds, evalResponses, evalAnswers,
   emailLogs, otpRequests, userGroups, userGroupMembers, userGroupPermissions, notificationTypes, orgUnits, legalEntities, webhookEvents, appSettings, revenueTargets,
   inventoryItems, kitComponents, stockLevels, stockMovements, stockCounters, rentals, rewardItems, coinRules, coinTransactions, redemptions,
-  documents, assignmentTemplates, assignments, submissions, lessonProposals,
+  documents, documentVersions, assignmentTemplates, assignments, submissions, lessonProposals,
   posts, siteBlocks, campaigns, campaignSpends, trackEvents, consentRecords, dataRequests, dataRequestEvents,
   jobPostings, candidates, candidateEvents, conversations, messages, affiliates,
 } from "./schema/index";
@@ -31,13 +34,58 @@ import { generateSessions, buildClassCode, buildStudentCode, toISODate, addDays,
 import { courseCompletions } from "./schema/index";
 import { seedPortfolio } from "./seed-portfolio";
 import { seedCertificates } from "./seed-certificates";
+
 import { seedPhiaNguoiDung } from "./seed-phia-nguoi-dung";
+
+
 import {
   expectedEndDate as sessionsEndDate, detectRisks, staffCode, refundProposal, reportCardMilestones, averageScore, gradeFromAverage, certificateNumber,
   type Weekday, type AttendanceStatus, type Role, type ClassStatus, type LeadStatus,
 } from "@satarobo/core";
 
 const db = createDb();
+
+/* ------------------------------------------------------------------ */
+/* Tệp mẫu cho giáo án buổi học                                        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Nơi máy chủ web đọc tệp đã tải lên: STORAGE_DIR, hoặc mặc định `<apps/web>/.data/uploads`
+ * (vì `pnpm dev` chạy Next với thư mục hiện tại là apps/web). Seed ghi thẳng vào đó để
+ * giáo án mẫu mở được ngay, không cần thao tác tải tệp bằng tay.
+ */
+function seedStorageRoot(): string {
+  return process.env.STORAGE_DIR || resolve(process.cwd(), "../../apps/web/.data/uploads");
+}
+
+function writeSeedFile(key: string, data: Buffer) {
+  const p = join(seedStorageRoot(), key);
+  mkdirSync(dirname(p), { recursive: true });
+  writeFileSync(p, data);
+}
+
+/** PDF một trang tối giản, đủ chuẩn để trình duyệt mở — dùng làm slide giáo án mẫu */
+function samplePdf(lines: string[]): Buffer {
+  const content = lines.map((l, i) => `BT /F1 ${i === 0 ? 22 : 13} Tf 60 ${720 - i * 34} Td (${l.replace(/[()\\]/g, "")}) Tj ET`).join("\n");
+  const objs = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>",
+    `<< /Length ${content.length} >>\nstream\n${content}\nendstream`,
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+  ];
+  let out = "%PDF-1.4\n";
+  const offsets: number[] = [];
+  objs.forEach((o, i) => {
+    offsets.push(out.length);
+    out += `${i + 1} 0 obj\n${o}\nendobj\n`;
+  });
+  const xref = out.length;
+  out += `xref\n0 ${objs.length + 1}\n0000000000 65535 f \n`;
+  for (const o of offsets) out += `${String(o).padStart(10, "0")} 00000 n \n`;
+  out += `trailer\n<< /Size ${objs.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+  return Buffer.from(out, "latin1");
+}
 
 /** Token CỐ ĐỊNH, dễ nhớ của phiếu đánh giá học thử mẫu — xem thử tại /pdg/<token> (chỉ dữ liệu mẫu) */
 const DEMO_TRIAL_REPORT_TOKEN = "xem-thu-phieu-danh-gia-sata-robo-mau";
@@ -862,6 +910,35 @@ async function main() {
     { title: "Hướng dẫn lập trình cảm biến (GV)", kind: "link", category: "guide", audience: "teacher", status: "published", courseId: sata4!.id, lessonId: lessonRows[1]!.id, url: "https://docs.google.com/document/d/mau", tags: ["cảm biến"], createdBy: dtU!.id, publishedAt: new Date() },
     { title: "Giáo án bài 2 (đang soạn)", kind: "file", category: "lesson_plan", audience: "teacher", status: "draft", courseId: sata4!.id, lessonId: lessonRows[1]!.id, createdBy: dtU!.id },
   ]);
+  // ---- Giáo án buổi học (mẫu): buổi 1 có slide PDF đang dùng + một bản hỏng để thấy khung "Dọn bản lỗi" ----
+  const lp = lessonRows[0]!;
+  const [plan1] = await db.insert(documents).values({
+    title: `Buổi ${lp.sequenceNo} — ${lp.title}`, kind: "file", category: "lesson_plan", audience: "teacher", status: "published",
+    courseId: sata4!.id, lessonId: lp.id, currentVersion: 1, createdBy: dtU!.id, updatedBy: dtU!.id, publishedAt: new Date(),
+  }).returning();
+  const planPdf = samplePdf([
+    `Buoi ${lp.sequenceNo}: ${lp.title}`,
+    "Giao an mau cua he thong Sata Robo (du lieu thu nghiem)",
+    "1. On dinh lop va kiem tra hoc cu",
+    "2. Gioi thieu bai - dat van de",
+    "3. Lap mo hinh theo nhom",
+    "4. Lap trinh va thu nghiem",
+    "5. Trinh bay san pham - nhan xet",
+  ]);
+  const planKey = `docs/${plan1!.id}/v1/buoi-${lp.sequenceNo}-v1.pdf`;
+  writeSeedFile(planKey, planPdf);
+  await db.insert(documentVersions).values([
+    {
+      documentId: plan1!.id, version: 1, objectKey: planKey, fileName: `buoi-${lp.sequenceNo}-v1.pdf`, mimeType: "application/pdf",
+      sizeBytes: planPdf.length, sha256: createHash("sha256").update(planPdf).digest("hex"), uploadedBy: dtU!.id, status: "ready", processedAt: new Date(),
+    },
+    {
+      documentId: plan1!.id, version: 2, objectKey: `docs/${plan1!.id}/v2/buoi-${lp.sequenceNo}-v2.zip`, fileName: `buoi-${lp.sequenceNo}-v2.zip`,
+      mimeType: "application/zip", sizeBytes: 12_582_912, sha256: "0".repeat(64), uploadedBy: dtU!.id, status: "failed",
+      errorText: "Không phải gói SCORM: thiếu imsmanifest.xml", processedAt: new Date(Date.now() - 3600e3), createdAt: new Date(Date.now() - 3600e3),
+    },
+  ]);
+
   const [tpl1] = await db.insert(assignmentTemplates).values({ courseId: sata4!.id, lessonId: lessonRows[0]!.id, title: "Lắp xe robot cơ bản", instructions: "Con lắp xe theo hình hướng dẫn trang 3 và chụp ảnh xe đã lắp xong gửi thầy cô.", submissionType: "file", maxScore: 10, createdBy: dtU!.id }).returning();
   const hwActive = enrollA.filter((e, i) => i !== 9);
   const [hw1] = await db.insert(assignments).values({ classId: classA!.id, templateId: tpl1!.id, title: "Lắp xe robot cơ bản", instructions: "Con lắp xe theo hình hướng dẫn trang 3 và chụp ảnh xe đã lắp xong gửi thầy cô.", submissionType: "file", maxScore: 10, dueAt: new Date(Date.now() + 3 * 86400e3), coinReward: 5, status: "published", publishedAt: new Date(Date.now() - 86400e3), createdBy: t1U!.id }).returning();

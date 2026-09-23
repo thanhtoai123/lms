@@ -196,6 +196,11 @@ export async function sessionPrep(ctx: ProtectedContext, sessionId: string) {
       id: x.id, title: x.title, kindLabel: DOC_KIND_VI[x.kind as DocKind] ?? x.kind, category: DOC_CATEGORY_VI[x.category as DocCategory] ?? x.category,
       forLesson: !!x.lessonId, href: x.kind === "scorm" ? `/scorm/${x.id}` : `/documents/${x.id}`,
     })),
+    // Giáo án CHÍNH của buổi (slide PDF hoặc gói SCORM) — mở thẳng khung chiếu, một chạm trước giờ dạy
+    lessonPlan: (() => {
+      const p = docs.find((x) => x.category === "lesson_plan" && x.lessonId && x.lessonId === s.session.lessonId);
+      return p ? { href: `/scorm/buoi/${s.session.lessonId}`, title: p.title, kindLabel: p.kind === "scorm" ? "SCORM" : "Slide PDF" } : null;
+    })(),
     previous: prev ? { date: prev.date, label: sessionLabel(prev.seq, prev.kind as SessionKind, prev.originalSeq), note: prev.sessionNote, absent: prevAtt.filter((a) => ABSENT.includes(a.status)).length } : null,
     students: [...flagged, ...students_.filter((x) => !flagged.includes(x))],
     counts: { total: students_.length, flagged: flagged.length, trial: roster.filter((r) => r.enrollmentStatus === "trial").length },

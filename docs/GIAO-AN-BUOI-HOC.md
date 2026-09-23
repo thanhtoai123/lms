@@ -1,0 +1,62 @@
+# Giáo án của từng buổi học (trang `/scorm`)
+
+Trang này trả lời đúng một câu hỏi của người vận hành: **buổi học này chiếu cái gì?**
+
+## 1. Quy tắc nghiệp vụ
+
+- Mỗi **buổi học** (lesson của khung chương trình) giữ **đúng một giáo án đang dùng**.
+- Giáo án là **slide `.pdf`** (tối đa 100MB) hoặc **gói SCORM `.zip`** (tối đa 200MB, có `imsmanifest.xml`,
+  SCORM 1.2 / 2004). Cả hai chiếu trong **cùng một khung xem**, nên giáo viên chỉ phải quen một màn hình.
+- Đẩy bản mới **thay bản cũ SAU KHI xử lý xong**. Không bao giờ có khoảnh khắc buổi dạy trống giáo án
+  vì một gói hỏng.
+- Bản liền trước **vẫn được giữ** để "Dùng lại bản cũ" một chạm; các bản cũ hơn bị xoá cho đỡ tốn ổ đĩa.
+
+## 2. Vòng đời một bản tải lên
+
+| Trạng thái | Nghĩa | Màn hình hiện gì |
+|---|---|---|
+| `processing` | Đang ghi tệp / giải nén gói | "Đang xử lý — mở lại trang sau ít phút" |
+| `processing` quá **15 phút** | Tiến trình đã chết (máy chủ khởi động lại, hết bộ nhớ) | "Kẹt xử lý" + nút **Dọn bản lỗi** |
+| `failed` | Gói sai chuẩn / chứa tệp cấm / thiếu trang khởi chạy | Câu lỗi cụ thể + nút **Dọn bản lỗi** |
+| `ready` | Đang dùng | Thẻ xanh "Đang dùng" + **Xem thử** |
+
+Ngưỡng 15 phút nằm ở `packages/core/src/content/lessonPlan.ts` (`PLAN_STUCK_MINUTES`) và được
+`worker` quét định kỳ (`sweepStuckPlanVersions`), nên trạng thái đúng kể cả khi không ai mở trang.
+
+## 3. Luồng dữ liệu
+
+```
+/scorm (chọn khoá → buổi)
+  → content.planCourses / planLessons / plan        (đọc)
+  → POST /api/content/giao-an  (multipart, tệp tới 200MB)  → uploadPlan
+  → content.planCleanFailed / planRemove / planRestore     (một chạm)
+/scorm/buoi/<lessonId>  → khung xem (SCORM: trình chạy; PDF: iframe) + chữ mờ tên người xem
+```
+
+Giáo án lưu như một `documents` có `category = lesson_plan` + `lessonId`, nên dùng chung kho tài liệu,
+phiên bản, nhật ký mở/tải và trình chạy SCORM sẵn có (`packages/api/src/services/lessonPlans.ts`).
+
+## 4. Khác gì bản gốc `admin.satarobo.vn/scorm`
+
+Giữ nguyên cách làm việc (chọn khoá → buổi, một giáo án mỗi buổi, đẩy bản mới tự thay, dọn bản kẹt),
+thêm bốn điểm:
+
+1. **Độ phủ cả khoá**: "đã có giáo án 12/48 buổi (25%)" + nút **Tới buổi chưa có giáo án** — không phải
+   mở từng buổi để biết còn thiếu chỗ nào.
+2. **Dùng lại bản trước** một chạm khi bản mới sai nội dung.
+3. **Thanh phần trăm khi tải**: gói vài chục MB không còn làm người dùng tưởng máy treo rồi bấm lại
+   (mỗi lần bấm lại là một bản kẹt).
+4. **Chọn nằm trên URL** (`/scorm?khoa=…&buoi=…`): dán link cho đồng nghiệp là mở đúng buổi đó.
+
+Giữ như bản gốc: chữ mờ (tên người xem + giờ) đè lên khung chiếu để truy nguồn ảnh chụp màn hình.
+
+## 5. Phía giáo viên
+
+Trang **Chuẩn bị buổi dạy** (`/teacher/sessions/<id>/chuan-bi`) có nút **Mở giáo án buổi này**, đi thẳng
+tới khung chiếu — giáo viên không phải tìm trong kho tài liệu. Mọi lượt mở đều ghi `document_access_logs`.
+
+## 6. Quyền
+
+- Xem: `document:read`.
+- Đẩy / gỡ / dọn / dùng lại: `document:update`.
+- Trang tự kiểm quyền; menu cũng ẩn mục với vai trò không có `document:read` (xem `docs/KIEN-TRUC-MENU.md`).
