@@ -66,21 +66,32 @@ function T([string]$who, [string]$ten, $ok, [string]$chiTiet) {
 
 # GET một trang, KHÔNG tự đi theo chuyển hướng. Trả về code, loc (Location tuyệt đối), html, ms.
 function Fetch([string]$path, [string]$who) {
-  $f = Join-Path $script:Tmp ("p" + (Get-Random -Minimum 100000 -Maximum 999999) + ".html")
-  $cargs = @("-s", "-o", $f, "-w", "%{http_code}|%{redirect_url}", "--max-time", "180")
-  if ($who) { $cargs += @("-b", "x-dev-actor=$who") }
-  $cargs += ($script:BaseUrl + $path)
-  $sw = [System.Diagnostics.Stopwatch]::StartNew()
-  $raw = (& curl.exe @cargs) -join ""
-  $sw.Stop()
-  $parts = $raw.Split("|", 2)
-  $code = $parts[0]
-  $loc = ""
-  if ($parts.Length -gt 1) { $loc = $parts[1] }
-  # Máy chủ web chết giữa chừng (thường do hết bộ nhớ khi biên dịch ~120 trang trên máy 16GB):
-  # tự bật lại rồi CHẠY TIẾP, vì mất cả lượt kiểm tra chỉ vì một lần chết là quá phí.
-  if ($code -eq "000") { $script:dead++ } else { $script:dead = 0 }
-  if ($script:dead -ge 5) {
+  # Thử tối đa 3 vòng: máy chủ phát triển có thể chết giữa chừng (hết bộ nhớ khi biên dịch ~120 trang
+  # trên máy 16GB) — bật lại rồi CHẠY TIẾP, chứ mất cả lượt kiểm tra vì một lần chết thì quá phí.
+  # Dùng VÒNG LẶP, không gọi đệ quy: đệ quy trong PowerShell dễ tràn ngăn xếp khi máy chủ không lên lại.
+  for ($lan = 0; $lan -lt 3; $lan++) {
+    $f = Join-Path $script:Tmp ("p" + (Get-Random -Minimum 100000 -Maximum 999999) + ".html")
+    $cargs = @("-s", "-o", $f, "-w", "%{http_code}|%{redirect_url}", "--max-time", "180")
+    if ($who) { $cargs += @("-b", "x-dev-actor=$who") }
+    $cargs += ($script:BaseUrl + $path)
+    $sw = [System.Diagnostics.Stopwatch]::StartNew()
+    $raw = (& curl.exe @cargs) -join ""
+    $sw.Stop()
+    $parts = $raw.Split("|", 2)
+    $code = $parts[0]
+    $loc = ""
+    if ($parts.Length -gt 1) { $loc = $parts[1] }
+
+    if ($code -ne "000") {
+      $script:dead = 0
+      $html = ""
+      if (Test-Path $f) { $html = [System.IO.File]::ReadAllText($f, [System.Text.Encoding]::UTF8); Remove-Item $f -Force -ErrorAction SilentlyContinue }
+      return @{ code = $code; loc = $loc; html = $html; ms = [int]$sw.ElapsedMilliseconds }
+    }
+
+    Remove-Item $f -Force -ErrorAction SilentlyContinue
+    $script:dead++
+    if ($script:dead -lt 5) { return @{ code = "000"; loc = ""; html = ""; ms = [int]$sw.ElapsedMilliseconds } }
     $script:dead = 0
     if ($script:restarts -ge 3) {
       Write-Host ""
@@ -91,15 +102,23 @@ function Fetch([string]$path, [string]$who) {
     $script:restarts++
     Write-Host ""
     Write-Host ("May chu web khong tra loi — dang bat lai (lan " + $script:restarts + ")...") -ForegroundColor Yellow
-    $kd = Join-Path (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) "scripts\khoi-dong.ps1"
-    & powershell -ExecutionPolicy Bypass -File $kd -KhongMoTrinhDuyet *> $null
-    Start-Sleep -Seconds 5
-    return (Fetch $path $who)
+    BatLaiMayChu
   }
-  $html = ""
-  if (Test-Path $f) { $html = [System.IO.File]::ReadAllText($f, [System.Text.Encoding]::UTF8); Remove-Item $f -Force -ErrorAction SilentlyContinue }
-  return @{ code = $code; loc = $loc; html = $html; ms = [int]$sw.ElapsedMilliseconds }
+  return @{ code = "000"; loc = ""; html = ""; ms = 0 }
 }
+
+# Bật lại máy chủ web rồi chờ tới khi /login trả lời (tối đa ~2 phút)
+function BatLaiMayChu() {
+  $goc = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+  & powershell -ExecutionPolicy Bypass -File (Join-Path $goc "scripts\khoi-dong.ps1") -KhongMoTrinhDuyet *> $null
+  for ($i = 0; $i -lt 24; $i++) {
+    Start-Sleep -Seconds 5
+    $c = (& curl.exe -s -o NUL -w "%{http_code}" --max-time 10 ($script:BaseUrl + "/login")) -join ""
+    if ($c -eq "200") { return $true }
+  }
+  return $false
+}
+
 
 # Dấu hiệu trang lỗi: lỗi gốc của Next, lỗi phía máy chủ khi stream (data-dgst không phải redirect / 404), error.tsx chung
 function HasError([string]$html) {
@@ -149,9 +168,19 @@ Write-Host ("Cay menu: " + @($m.groups).Count + " nhom, " + $AllHrefs.Count + " 
 # --------------------------------------------------------------------------- #
 #  Chạy cho từng tài khoản                                                    #
 # --------------------------------------------------------------------------- #
+$dauTien = $true
 foreach ($acc in $Accounts) {
   $who = $acc.email
   $ten = $acc.ten
+  # Mỗi tài khoản duyệt lại cả cây menu -> máy chủ phát triển phình bộ nhớ dần. Bật lại trước mỗi
+  # tài khoản (trừ tài khoản đầu) để mỗi lượt chạy trong một tiến trình sạch; đệm biên dịch vẫn còn
+  # trên đĩa nên chỉ mất ~20 giây.
+  if (-not $dauTien -and $Accounts.Count -gt 1) {
+    Write-Host ""
+    Write-Host ("Bat lai may chu web truoc khi kiem tra " + $ten + "...") -ForegroundColor DarkGray
+    [void](BatLaiMayChu)
+  }
+  $dauTien = $false
   Write-Host ""
   Write-Host ("===== " + $ten + " =====") -ForegroundColor Cyan
   $pass0 = @($script:results | Where-Object { $_.status -eq "PASS" }).Count
