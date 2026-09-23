@@ -13,7 +13,7 @@
  * kho tài liệu, nhật ký truy cập và trình chạy SCORM sẵn có.
  */
 import { createHash } from "node:crypto";
-import { and, asc, desc, eq, inArray, ne, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, lt, lte, ne, or, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { documents, documentVersions, documentUploadJobs, documentAccessLogs, courses, curricula, lessons, users } from "@satarobo/db";
 import {
@@ -308,7 +308,7 @@ export async function uploadPlan(ctx: ProtectedContext, input: { lessonId: strin
   // Thay xong mới dọn: giữ bản liền trước để dùng lại, xoá các bản cũ hơn cho đỡ tốn ổ đĩa
   const stale = await ctx.db.select({ version: documentVersions.version, objectKey: documentVersions.objectKey })
     .from(documentVersions)
-    .where(and(eq(documentVersions.documentId, doc.id), sql`${documentVersions.version} < ${previousVersion}`));
+    .where(and(eq(documentVersions.documentId, doc.id), lt(documentVersions.version, previousVersion)));
   for (const st of stale) {
     await dropVersionFiles(doc.id, st.version, st.objectKey);
     await ctx.db.delete(documentVersions).where(and(eq(documentVersions.documentId, doc.id), eq(documentVersions.version, st.version)));
@@ -326,9 +326,11 @@ export async function cleanFailedPlan(ctx: ProtectedContext, input: { lessonId: 
   const doc = await planDoc(ctx, input.lessonId);
   if (!doc) throw notFound("Buổi này chưa có giáo án");
   const stuckBefore = new Date(Date.now() - PLAN_STUCK_MINUTES * 60_000);
+  // Dùng toán tử có kiểu của drizzle (không ghép chuỗi SQL): Date nhét thẳng vào sql`` bị Postgres
+  // coi là chuỗi chưa rõ kiểu và so sánh với timestamptz sẽ lỗi.
   const rows = await ctx.db.select().from(documentUploadJobs).where(and(
     eq(documentUploadJobs.documentId, doc.id),
-    sql`(${documentUploadJobs.status} = 'failed' or (${documentUploadJobs.status} = 'processing' and ${documentUploadJobs.createdAt} <= ${stuckBefore}))`,
+    or(eq(documentUploadJobs.status, "failed"), and(eq(documentUploadJobs.status, "processing"), lte(documentUploadJobs.createdAt, stuckBefore))),
   ));
   for (const r of rows) {
     await dropVersionFiles(doc.id, r.version, `docs/${doc.id}/v${r.version}/${r.fileName}`);
@@ -391,7 +393,7 @@ export async function sweepStuckPlanVersions(db: ProtectedContext["db"], now: Da
   const cutoff = new Date(now.getTime() - PLAN_STUCK_MINUTES * 60_000);
   const rows = await db.update(documentUploadJobs)
     .set({ status: "failed", errorText: `Kẹt xử lý quá ${PLAN_STUCK_MINUTES} phút — máy chủ dừng giữa chừng. Dọn bản này rồi đẩy lại tệp.`, processedAt: now })
-    .where(and(eq(documentUploadJobs.status, "processing"), sql`${documentUploadJobs.createdAt} <= ${cutoff}`))
+    .where(and(eq(documentUploadJobs.status, "processing"), lte(documentUploadJobs.createdAt, cutoff)))
     .returning({ id: documentUploadJobs.id });
   return rows.length;
 }
