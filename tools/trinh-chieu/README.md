@@ -55,6 +55,19 @@ npm run dong-goi      # ra dist\SataRobo-TrinhChieu <phiên bản>.exe (portable
 
 Chép tệp `.exe` kèm `cau-hinh.json` đã sửa `baseUrl` sang các máy dạy.
 
+## Đã kiểm chứng trên máy thật
+
+Đo trên máy dạy (Windows, màn 1536×960) bằng chính API mà phần mềm chụp dùng
+(`Graphics.CopyFromScreen`) và đọc cờ cửa sổ bằng `GetWindowDisplayAffinity`:
+
+| Lần đo | Cờ cửa sổ | Ảnh chụp thu được |
+|---|---|---|
+| Bật content protection **một lần** lúc tạo cửa sổ | `0x0` — **không được bảo vệ** | chụp ra nội dung bình thường |
+| Bật lại ở mọi mốc (`show`, `focus`, `restore`, đổi fullscreen, `move`, `resize`) + soát lại mỗi 3 giây | `0x11` = `WDA_EXCLUDEFROMCAPTURE` | **cửa sổ biến mất khỏi ảnh chụp** |
+
+Đây là lý do `main.cjs` gọi `setContentProtection(true)` nhiều lần chứ không gọi một lần: cờ này
+gắn vào HWND, mà Electron dựng lại HWND khi đổi trạng thái cửa sổ.
+
 ## Kiểm chứng đã bật đúng
 
 Mở ứng dụng, chiếu một giáo án, rồi bấm `Win+Shift+S` hoặc bật OBS/Teams chia sẻ màn hình: vùng cửa sổ ứng dụng phải **đen hoàn toàn**. Nếu vẫn thấy nội dung thì máy đang chạy Windows cũ hơn 10 phiên bản 2004 — nâng Windows hoặc chấp nhận chỉ còn lớp chữ mờ + nhật ký.

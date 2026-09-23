@@ -95,6 +95,11 @@ Cài trên máy dạy: `cd tools\trinh-chieu` → `npm install` → `npm start` 
 thư mục này nằm NGOÀI workspace pnpm nên `pnpm install` của dự án không tải Electron). Sửa `baseUrl`
 trong `cau-hinh.json` khi chạy trên máy chủ thật; đóng gói `.exe` portable bằng `npm run dong-goi`.
 
+Đã đo trên máy dạy: bật `setContentProtection` **một lần** lúc tạo cửa sổ thì
+`GetWindowDisplayAffinity` vẫn trả `0x0` (không bảo vệ gì cả); phải bật lại ở mọi mốc đổi trạng thái
+cửa sổ mới ra `0x11` = `WDA_EXCLUDEFROMCAPTURE`, và lúc đó ảnh chụp bằng `Graphics.CopyFromScreen`
+(đúng API phần mềm chụp dùng) **không còn thấy cửa sổ**. Chi tiết trong `tools/trinh-chieu/README.md`.
+
 Khung xem tự nhận biết đang chạy trong ứng dụng (User-Agent có `SataRoboTrinhChieu`) và hiện đúng một câu:
 xanh = "phần mềm quay chỉ thu được màn đen", vàng = "đang trên trình duyệt, quay/chụp KHÔNG bị chặn".
 Không hứa điều không làm được là một phần của bảo mật: giáo viên biết khi nào mình thật sự được bảo vệ.

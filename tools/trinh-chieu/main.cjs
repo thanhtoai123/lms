@@ -95,7 +95,20 @@ function taoCuaSo() {
   });
 
   // ĐÂY LÀ LỚP BẢO VỆ THẬT: cửa sổ bị loại khỏi mọi lệnh chụp/quay của hệ điều hành.
-  win.setContentProtection(true);
+  //
+  // PHẢI BẬT LẠI NHIỀU LẦN, không phải bật một lần là xong: trên Windows, cờ
+  // SetWindowDisplayAffinity gắn vào HWND, mà Electron dựng lại HWND khi đổi fullscreen /
+  // thu nhỏ rồi mở lại. Đo thực tế trên máy dạy: bật một lần trước khi hiện cửa sổ thì
+  // GetWindowDisplayAffinity vẫn đọc ra 0x0 (KHÔNG được bảo vệ). Vì vậy bật lại ở mọi mốc.
+  const batBaoVe = () => { try { win.setContentProtection(true); } catch { /* cửa sổ đã đóng */ } };
+  batBaoVe();
+  for (const su of ["show", "focus", "restore", "maximize", "enter-full-screen", "leave-full-screen", "move", "resize"]) {
+    win.on(su, batBaoVe);
+  }
+  win.webContents.on("did-finish-load", batBaoVe);
+  // Lưới an toàn: soát lại mỗi 3 giây, rẻ và chắc chắn hơn tin vào danh sách sự kiện
+  const nhip = setInterval(batBaoVe, 3000);
+  win.on("closed", () => clearInterval(nhip));
 
   Menu.setApplicationMenu(null);
 
@@ -122,9 +135,13 @@ function taoCuaSo() {
   });
 
   win.once("ready-to-show", () => {
+    // restore() vì nếu ứng dụng được gọi từ một cửa sổ dòng lệnh đang thu nhỏ, Windows
+    // truyền trạng thái "minimized" sang tiến trình con và cửa sổ hiện ra bị thu nhỏ sẵn.
+    win.restore();
     win.show();
     win.setFullScreen(true);
     win.focus();
+    batBaoVe();
   });
 
   win.webContents.on("did-fail-load", (_e, code, mota, url) => {
