@@ -195,3 +195,22 @@ body {
 .sr-prose blockquote { border-left: 3px solid #c4a0d8; padding-left: .9em; color: #555; margin: .8em 0; }
 .sr-prose a { color: var(--primary); text-decoration: underline; }
 .sr-prose img { border-radius: .75rem; margin: 1em 0; max-width: 100%; }
+
+/* ------------------------------------------------------------------ */
+/*  Bảo vệ học liệu khi in                                             */
+/*  Khung chiếu giáo án (.bao-ve-hoc-lieu) không ra giấy và không ra    */
+/*  "Print to PDF": in ra chỉ còn một dòng nhắc. Đây là rào cho đường   */
+/*  sao chép dễ nhất; quay màn hình thì không trình duyệt nào chặn được */
+/*  — xem packages/core/src/content/protect.ts.                        */
+/* ------------------------------------------------------------------ */
+@media print {
+  .bao-ve-hoc-lieu { display: none !important; }
+  body.dang-xem-hoc-lieu > * { display: none !important; }
+  body.dang-xem-hoc-lieu::after {
+    content: "Học liệu có bản quyền của trung tâm — không in. Lượt in này đã được ghi nhật ký.";
+    display: block;
+    padding: 24px;
+    font-size: 14pt;
+    font-weight: 700;
+  }
+}

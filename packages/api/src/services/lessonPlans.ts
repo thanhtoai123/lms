@@ -13,18 +13,19 @@
  * kho tài liệu, nhật ký truy cập và trình chạy SCORM sẵn có.
  */
 import { createHash } from "node:crypto";
-import { and, asc, desc, eq, inArray, lt, lte, ne, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, lt, lte, ne, or, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { documents, documentVersions, documentUploadJobs, documentAccessLogs, courses, curricula, lessons, users } from "@satarobo/db";
 import {
   parseScormManifest, normalizeZipPath, planFileKind, validatePlanFile, planVersionState, planCoverage, humanSize,
-  SCORM_MAX_FILES, PLAN_STUCK_MINUTES, PLAN_FILE_KIND_VI, type PlanFileKind,
+  captureAction, parseCaptureAction, captureRisk, watermarkText, CAPTURE_KIND_VI,
+  SCORM_MAX_FILES, PLAN_STUCK_MINUTES, PLAN_FILE_KIND_VI, type PlanFileKind, type CaptureKind,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { tenantCond } from "./tenantScope";
 import { readableCourseIds } from "./documents";
 import { writeAudit } from "./audit";
-import { putObject, deleteObject, deletePrefix, signedFileUrl } from "../storage";
+import { putObject, getObject, deleteObject, deletePrefix } from "../storage";
 import { listZip, readZipEntry } from "../zip";
 
 const bad = (m: string) => new TRPCError({ code: "BAD_REQUEST", message: m });
@@ -158,8 +159,11 @@ export async function getPlan(ctx: ProtectedContext, input: { lessonId: string }
       fileName: cur.v.fileName,
       uploadedAt: cur.v.createdAt,
       byName: cur.byName,
-      /** Xem thử: SCORM chạy trong trình chạy, PDF mở thẳng tệp có chữ ký */
-      fileUrl: kind === "pdf" ? signedFileUrl(cur.v.objectKey, cur.v.fileName, 4 * 3600, true) : null,
+      /**
+       * KHÔNG phát link tệp gốc nữa. Slide đi qua `/api/content/giao-an/<lessonId>/tep` — đường dẫn
+       * gắn phiên đăng nhập, hết phiên là hết xem, gửi cho người ngoài cũng vô dụng.
+       */
+      streamPath: kind === "pdf" ? `/api/content/giao-an/${input.lessonId}/tep` : null,
     }
     : null;
 
@@ -424,4 +428,95 @@ export async function plansNeedingAttention(ctx: ProtectedContext, input: { cour
   return rows
     .map((r) => ({ ...r, ...planVersionState({ status: r.status, createdAt: r.createdAt, errorText: r.errorText }, now) }))
     .filter((r) => r.state !== "processing");
+}
+
+/* ------------------------------------------------------------------ */
+/* Phát tệp slide theo PHIÊN (không có link tải)                        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Trả về nội dung slide của buổi để phát cho đúng người đang đăng nhập.
+ * Không dùng URL ký sẵn: URL ký là "vé mang theo được" — ai có link là xem được, kể cả người ngoài.
+ * Ở đây mỗi yêu cầu đều kiểm tra lại phiên và quyền, rồi ghi nhật ký.
+ */
+export async function planFileStream(ctx: ProtectedContext, input: { lessonId: string }) {
+  const lesson = await loadLesson(ctx, input.lessonId);
+  await assertCourseReadable(ctx, lesson.courseId);
+  const doc = await planDoc(ctx, input.lessonId);
+  if (!doc || !doc.currentVersion) throw pre("Buổi này chưa có giáo án");
+  if (doc.kind === "scorm") throw pre("Giáo án dạng SCORM chạy trong trình chiếu, không phát tệp");
+  const v = await ctx.db.query.documentVersions.findFirst({
+    where: and(eq(documentVersions.documentId, doc.id), eq(documentVersions.version, doc.currentVersion)),
+  });
+  if (!v) throw notFound("Không tìm thấy tệp giáo án");
+  const body = await getObject(v.objectKey);
+  if (!body) throw notFound("Tệp giáo án không còn trên kho lưu trữ");
+  await ctx.db.insert(documentAccessLogs).values({ documentId: doc.id, version: v.version, userId: ctx.user.id, action: "view" });
+  return { bytes: body, mimeType: v.mimeType, fileName: v.fileName, version: v.version };
+}
+
+/* ------------------------------------------------------------------ */
+/* Thao tác nghi vấn sao chép                                           */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Ghi lại việc người xem bấm In / PrintScreen / chuột phải / mở DevTools…
+ * Trình duyệt KHÔNG chặn được quay màn hình, nên lớp bảo vệ thật là: ai làm gì đều có dấu vết,
+ * và quản trị nhìn thấy danh sách này (xem `planAccessReport`).
+ */
+export async function logCaptureAttempt(ctx: ProtectedContext, input: { lessonId: string; kind: CaptureKind }) {
+  const lesson = await loadLesson(ctx, input.lessonId);
+  await assertCourseReadable(ctx, lesson.courseId);
+  const doc = await planDoc(ctx, input.lessonId);
+  if (!doc) return { ok: true };
+  // Chống dội nhật ký: cùng người, cùng loại thao tác thì mỗi phút ghi tối đa một dòng
+  const since = new Date(Date.now() - 60_000);
+  const [recent] = await ctx.db.select({ n: sql<number>`count(*)::int` }).from(documentAccessLogs)
+    .where(and(
+      eq(documentAccessLogs.documentId, doc.id),
+      eq(documentAccessLogs.userId, ctx.user.id),
+      eq(documentAccessLogs.action, captureAction(input.kind)),
+      gte(documentAccessLogs.createdAt, since),
+    ));
+  if ((recent?.n ?? 0) > 0) return { ok: true };
+  await ctx.db.insert(documentAccessLogs).values({
+    documentId: doc.id, version: doc.currentVersion || null, userId: ctx.user.id, action: captureAction(input.kind),
+  });
+  return { ok: true };
+}
+
+/** Nhật ký mở + thao tác nghi vấn của một buổi (chỉ người sửa học liệu mới xem) */
+export async function planAccessReport(ctx: ProtectedContext, input: { lessonId: string; days?: number }) {
+  requirePermission(ctx, "document:update");
+  const doc = await planDoc(ctx, input.lessonId);
+  if (!doc) return { opens: [], attempts: [], byUser: [] };
+  const since = new Date(Date.now() - Math.min(Math.max(input.days ?? 30, 1), 180) * 86_400_000);
+  const rows = await ctx.db.select({
+    action: documentAccessLogs.action, createdAt: documentAccessLogs.createdAt,
+    userId: documentAccessLogs.userId, name: users.fullName,
+  })
+    .from(documentAccessLogs).leftJoin(users, eq(users.id, documentAccessLogs.userId))
+    .where(and(eq(documentAccessLogs.documentId, doc.id), gte(documentAccessLogs.createdAt, since)))
+    .orderBy(desc(documentAccessLogs.createdAt)).limit(200);
+
+  const opens = rows.filter((r) => !parseCaptureAction(r.action)).slice(0, 30)
+    .map((r) => ({ at: r.createdAt, name: r.name ?? "—", action: r.action }));
+  const attempts = rows.map((r) => ({ r, k: parseCaptureAction(r.action) })).filter((x) => x.k)
+    .map((x) => ({ at: x.r.createdAt, name: x.r.name ?? "—", userId: x.r.userId, kind: x.k!, kindLabel: CAPTURE_KIND_VI[x.k!] }));
+
+  const count = new Map<string, { name: string; n: number }>();
+  for (const a of attempts) {
+    const key = a.userId ?? a.name;
+    const cur = count.get(key) ?? { name: a.name, n: 0 };
+    cur.n += 1;
+    count.set(key, cur);
+  }
+  const byUser = [...count.values()].sort((x, y) => y.n - x.n)
+    .map((x) => ({ name: x.name, count: x.n, ...captureRisk(x.n) }));
+  return { opens, attempts: attempts.slice(0, 30), byUser };
+}
+
+/** Chuỗi chữ mờ cho khung chiếu (tên + liên hệ đã che + giờ) */
+export function planWatermark(who: { name: string; contact?: string | null }): string {
+  return watermarkText(who);
 }

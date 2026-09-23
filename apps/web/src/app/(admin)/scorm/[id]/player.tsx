@@ -12,7 +12,7 @@ type W = Window & { API?: unknown; API_1484_11?: unknown };
  * Trình chạy SCORM: cung cấp đối tượng API (1.2) / API_1484_11 (2004) cho gói trong iframe cùng nguồn,
  * lưu dữ liệu CMI định kỳ (30 giây), khi Commit và khi Terminate.
  */
-export function ScormPlayer({ id }: { id: string }) {
+export function ScormPlayer({ id, fill = false }: { id: string; fill?: boolean }) {
   const trpc = useTRPC();
   const [launch, setLaunch] = useState<Launch | null>(null);
   const [status, setStatus] = useState<string>("");
@@ -73,16 +73,24 @@ export function ScormPlayer({ id }: { id: string }) {
   }, [launch, id]);
 
   if (start.error) return <p className="card p-4 text-red-700">{start.error.message}</p>;
-  if (!launch) return <p className="card p-4 text-ink-400">Đang mở bài giảng…</p>;
+  if (!launch) return <p className={fill ? "p-4 text-sm text-white" : "card p-4 text-ink-400"}>Đang mở bài giảng…</p>;
+  // `fill`: dùng trong khung trình chiếu — gói SCORM chiếm trọn khung, dòng trạng thái thu nhỏ lại
   return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap items-center gap-3 text-xs text-ink-600">
+    <div className={fill ? "flex h-full w-full flex-col bg-black" : "space-y-2"}>
+      <div className={`flex flex-wrap items-center gap-3 text-xs ${fill ? "px-3 py-1 text-white/70" : "text-ink-600"}`}>
         <span>SCORM {launch.scormVersion}</span>
         <span>Trạng thái: <b>{SCORM_STATUS_VI[status as keyof typeof SCORM_STATUS_VI] ?? status}</b></span>
         {saved && <span>Đã lưu lúc {saved.toLocaleTimeString("vi-VN")}</span>}
         {commit.error && <span className="text-red-700">Lưu tiến độ lỗi: {commit.error.message}</span>}
       </div>
-      {ready && <iframe src={launch.launchUrl} title={launch.title} className="h-[75vh] w-full rounded-xl border border-black/10 bg-white" allow="fullscreen; autoplay" />}
+      {ready && (
+        <iframe
+          src={launch.launchUrl}
+          title={launch.title}
+          className={fill ? "h-full w-full flex-1 border-0 bg-white" : "h-[75vh] w-full rounded-xl border border-black/10 bg-white"}
+          allow="fullscreen; autoplay"
+        />
+      )}
     </div>
   );
 }

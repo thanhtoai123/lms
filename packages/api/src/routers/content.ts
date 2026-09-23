@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   DOC_KINDS, DOC_AUDIENCES, DOC_STATUSES, DOC_CATEGORIES, SUBMISSION_TYPES, ASSIGNMENT_STATUSES, PROPOSAL_TYPES, PROPOSAL_STATUSES,
+  CAPTURE_KINDS,
 } from "@satarobo/core";
 import { router, protectedProcedure } from "../trpc";
 import * as D from "../services/documents";
@@ -38,6 +39,8 @@ export const contentRouter = router({
   planRemove: protectedProcedure.input(z.object({ lessonId: uuid })).mutation(({ ctx, input }) => P.removePlan(ctx, input)),
   planRestore: protectedProcedure.input(z.object({ lessonId: uuid, version: z.number().int().min(1) })).mutation(({ ctx, input }) => P.restorePlanVersion(ctx, input)),
   planOpen: protectedProcedure.input(z.object({ lessonId: uuid })).mutation(({ ctx, input }) => P.openPlan(ctx, input)),
+  planAccessReport: protectedProcedure.input(z.object({ lessonId: uuid, days: z.number().int().min(1).max(180).optional() })).query(({ ctx, input }) => P.planAccessReport(ctx, input)),
+  planCaptureAttempt: protectedProcedure.input(z.object({ lessonId: uuid, kind: z.enum(CAPTURE_KINDS) })).mutation(({ ctx, input }) => P.logCaptureAttempt(ctx, input)),
   plansNeedingAttention: protectedProcedure.input(z.object({ courseId: uuid.optional() }).default({})).query(({ ctx, input }) => P.plansNeedingAttention(ctx, input)),
 
   myMaterials: protectedProcedure.input(z.object({ classId: uuid.optional() }).default({})).query(({ ctx, input }) => D.myMaterials(ctx, input)),

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { hasPermission, type Actor } from "@satarobo/core";
+import { hasPermission, watermarkText, type Actor } from "@satarobo/core";
 import { getServerCaller } from "@/lib/trpc/server";
 import { NoAccess } from "@/components/admin-ui";
 import { PlanViewer } from "./viewer";
@@ -42,8 +42,10 @@ export default async function PlanViewPage({ params }: { params: Promise<{ lesso
       <PlanViewer
         kind={d.plan.kind}
         documentId={d.plan.documentId}
-        fileUrl={d.plan.fileUrl}
-        watermark={me?.user.fullName ?? "Sata Robo"}
+        lessonId={lessonId}
+        streamPath={d.plan.streamPath}
+        watermark={watermarkText({ name: me?.user.fullName ?? "Sata Robo", contact: me?.user.email ?? null })}
+        canReport
       />
     </div>
   );

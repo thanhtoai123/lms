@@ -25,6 +25,8 @@ export default async function LessonPlanPage({ searchParams }: { searchParams: P
   const courses = await caller.content.planCourses();
   const lessons = courseId ? await caller.content.planLessons({ courseId }) : null;
   const plan = lessonId ? await caller.content.plan({ lessonId }) : null;
+  // Nhật ký mở + thao tác nghi vấn sao chép (chỉ người được sửa học liệu mới xem được)
+  const report = lessonId && plan?.canEdit ? await caller.content.planAccessReport({ lessonId }) : null;
   const q = (over: SP) => {
     const p = new URLSearchParams();
     const k = over.khoa ?? courseId;
@@ -140,6 +142,46 @@ export default async function LessonPlanPage({ searchParams }: { searchParams: P
           )}
 
           {plan.canEdit && <PlanUpload lessonId={lessonId} hasPlan={!!plan.plan} />}
+
+          {plan.canEdit && report && (
+            <details className="rounded-lg border border-black/10 p-3 text-sm">
+              <summary className="flex min-h-11 cursor-pointer items-center font-semibold">
+                Nhật ký xem & nghi vấn sao chép (30 ngày)
+                {report.attempts.length > 0 && <span className="chip ml-2 bg-red-600/10 text-red-700">{report.attempts.length} thao tác nghi vấn</span>}
+              </summary>
+              <div className="grid gap-4 pt-3 sm:grid-cols-2">
+                <div>
+                  <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink-600">Lượt mở gần nhất</h3>
+                  {report.opens.length === 0 ? <p className="text-ink-600">Chưa có ai mở.</p> : (
+                    <ul className="space-y-1 text-xs text-ink-600">
+                      {report.opens.slice(0, 8).map((o, i) => (
+                        <li key={i}>{new Date(o.at).toLocaleString("vi-VN")} — {o.name}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+                <div>
+                  <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink-600">Thao tác nghi vấn</h3>
+                  {report.attempts.length === 0 ? <p className="text-ink-600">Không có.</p> : (
+                    <>
+                      <ul className="space-y-1 text-xs text-red-700">
+                        {report.attempts.slice(0, 8).map((a, i) => (
+                          <li key={i}>{new Date(a.at).toLocaleString("vi-VN")} — {a.name}: {a.kindLabel}</li>
+                        ))}
+                      </ul>
+                      <ul className="mt-2 space-y-0.5 text-xs text-ink-600">
+                        {report.byUser.map((u, i) => <li key={i}>{u.name}: {u.count} lần — {u.label}</li>)}
+                      </ul>
+                    </>
+                  )}
+                </div>
+              </div>
+              <p className="pt-2 text-xs text-ink-600">
+                Trình duyệt không chặn được quay màn hình hay chụp bằng điện thoại. Hệ thống chặn các đường sao chép dễ,
+                dán chữ mờ tên người xem lên khung chiếu và ghi lại mọi thao tác nghi vấn ở đây để xử lý theo quy định nội bộ.
+              </p>
+            </details>
+          )}
         </div>
       )}
     </div>

@@ -50,12 +50,35 @@ thêm bốn điểm:
 
 Giữ như bản gốc: chữ mờ (tên người xem + giờ) đè lên khung chiếu để truy nguồn ảnh chụp màn hình.
 
-## 5. Phía giáo viên
+## 5. Bảo vệ học liệu (nói thẳng làm được gì, không làm được gì)
+
+**Không trình duyệt nào chặn được quay màn hình hay chụp bằng điện thoại.** Mọi hệ thống, kể cả DRM
+của các nền tảng phim, chỉ nâng chi phí sao chép. Vì vậy hệ thống làm bốn lớp, lớp cuối mới là lớp thật:
+
+| Lớp | Làm gì | Chặn được gì |
+|---|---|---|
+| Không giao tệp gốc | Slide phát qua `/api/content/giao-an/<buổi>/tep`, gắn **phiên đăng nhập**, `no-store`, không có nút tải | Gửi link cho người ngoài → mở không được; không còn bản sao nằm trong máy sau khi đóng phiên |
+| Rào thao tác dễ | Tắt chuột phải, kéo–thả, chọn–chép, `Ctrl+P` / `Ctrl+S`, in ra giấy / "Print to PDF" (CSS `@media print`), cắm rào tương tự vào **từng trang HTML trong gói SCORM** | Cách sao chép mà 9/10 người sẽ thử đầu tiên |
+| Truy nguồn | Chữ mờ rải 8 vị trí, mang **tên + liên hệ đã che + giờ chạy theo giây** của chính người đang xem; nội dung **mờ đi khi cửa sổ mất tiêu điểm** | Ảnh/clip lọt ra ngoài là biết của ai, lúc nào; công cụ chụp nền chỉ chụp được màn mờ |
+| Ghi nhật ký | Mỗi lượt mở và mỗi thao tác nghi vấn (in, PrintScreen, chuột phải, DevTools, Ctrl+S) vào `document_access_logs`; trang `/scorm` có mục **"Nhật ký xem & nghi vấn sao chép (30 ngày)"** kèm mức cảnh báo theo người | Đây là lớp bảo vệ THẬT: người dùng biết mình để lại dấu vết, quản trị có bằng chứng để xử lý theo quy định nội bộ |
+
+Ngưỡng cảnh báo: ≥ 3 lần/30 ngày = "nên để ý", ≥ 10 lần = "bất thường, cần hỏi lại người dùng"
+(`captureRisk` trong `packages/core/src/content/protect.ts`).
+
+Điều hệ thống **không** hứa: chặn điện thoại quay màn hình, chặn phần mềm quay (OBS…), chặn máy ảnh
+chụp màn chiếu. Ai cần mức cao hơn phải dùng thiết bị quản lý tập trung (MDM) — không giải quyết bằng web.
+
+## 6. Trình chiếu
+
+Nút **Trình chiếu toàn màn hình** (hoặc phím `F`) đưa khung vào fullscreen thật; ở chế độ thường khung
+đã cao gần hết cửa sổ. Gói SCORM và slide PDF dùng chung khung này, nên giáo viên chỉ quen một màn hình.
+
+## 7. Phía giáo viên
 
 Trang **Chuẩn bị buổi dạy** (`/teacher/sessions/<id>/chuan-bi`) có nút **Mở giáo án buổi này**, đi thẳng
 tới khung chiếu — giáo viên không phải tìm trong kho tài liệu. Mọi lượt mở đều ghi `document_access_logs`.
 
-## 6. Quyền
+## 8. Quyền
 
 - Xem: `document:read`.
 - Đẩy / gỡ / dọn / dùng lại: `document:update`.
