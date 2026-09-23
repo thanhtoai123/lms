@@ -26,7 +26,11 @@ const FIELDS: { key: keyof RawLeadImportRow; label: string; registeredOnly?: boo
 ];
 
 /** Nhập lead từ file: đọc ngay trên trình duyệt (CSV / dán từ Excel), xem 3 nhóm Mới / Trùng / Lỗi rồi mới ghi */
-export function LeadImporter({ mode }: { mode: Mode }) {
+export function LeadImporter({ mode, canOverwrite = false }: {
+  mode: Mode;
+  /** Có quyền lead:overwrite không — không có thì ẩn hẳn ô "Đè", máy chủ cũng từ chối */
+  canOverwrite?: boolean;
+}) {
   const trpc = useTRPC();
   const [rows, setRows] = useState<RawLeadImportRow[]>([]);
   const [fileName, setFileName] = useState<string | null>(null);
@@ -127,7 +131,7 @@ export function LeadImporter({ mode }: { mode: Mode }) {
               {([["all", `Tất cả ${preview.total}`], ["new", `Mới ${preview.counts.new}`], ["dup", `Trùng ${preview.counts.dup}`], ["error", `Lỗi ${preview.counts.error}`]] as const).map(([k, label]) => (
                 <button key={k} type="button" className={`chip cursor-pointer ${filter === k ? "bg-brand-500 text-white" : "bg-black/5"}`} onClick={() => setFilter(k)}>{label}</button>
               ))}
-              {dupLines.length > 0 && (
+              {dupLines.length > 0 && canOverwrite && (
                 <label className="ml-auto flex items-center gap-1 text-xs">
                   <input type="checkbox" checked={allDupOverwritten} onChange={(e) => setOverwrite(e.target.checked ? new Set(dupLines) : new Set())} />
                   Đè cả nhóm trùng (lấy dữ liệu file thay dữ liệu cũ; giá trị cũ ghi vào ghi chú)
@@ -137,6 +141,7 @@ export function LeadImporter({ mode }: { mode: Mode }) {
             <p className="text-xs text-ink-400">
               Dòng <b>Lỗi</b> sẽ KHÔNG được ghi (bấm Sửa để chữa ngay tại đây). Dòng <b>Trùng</b> mặc định <b>không ghi đè</b> — chỉ điền ô đang trống, thêm con mới, giá trị khác ghi vào ghi chú kèm ngày.
               Ô trống trong file không bao giờ xoá dữ liệu. Trạng thái phễu giữ nguyên.
+              {!canOverwrite && <> Bạn <b>không có quyền đè</b> dữ liệu cũ (<code className="font-mono">lead:overwrite</code>) — mọi dòng trùng sẽ được gộp, không mất số liệu.</>}
             </p>
           </section>
 
@@ -183,7 +188,7 @@ export function LeadImporter({ mode }: { mode: Mode }) {
                         {res && <div className={res.ok ? "text-green-700" : "text-red-700"}>{res.message}</div>}
                       </td>
                       <td className="p-2 text-center">
-                        {p?.group === "dup" && (
+                        {p?.group === "dup" && canOverwrite && (
                           <input type="checkbox" checked={overwrite.has(r.line)} title="Lấy dữ liệu file thay dữ liệu cũ" onChange={(e) => setOverwrite((s) => { const n = new Set(s); if (e.target.checked) n.add(r.line); else n.delete(r.line); return n; })} />
                         )}
                       </td>

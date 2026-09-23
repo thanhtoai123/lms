@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  discountPercentOf, discountNeedsApproval, initialDiscountApproval, paymentBlockedBy,
   priceOrder, packagePrice, buildInstallmentPlan, validateInstallmentPlan, orderBalance, deriveOrderStatus, canCancelOrder,
   allocateInstallments, agingBucket, dueSoon, validatePaymentDecision, receiptNumber, orderCode, transferMemo, extractOrderRef,
   maskIdNumber, refundProposal, validateRefundRequest, refundTransition, FinanceRuleError, vietQrImageUrl,
@@ -205,4 +206,29 @@ test("phương thức thanh toán: loại đầy đủ và 5 cờ phạm vi", ()
   assert.equal(f.canBuyCourse, true);
   assert.equal(f.canBuyExam, true);
   assert.equal(f.canBuyProduct, false);
+});
+
+test("duyệt giảm giá: ngưỡng, chặn thu tiền, tắt bằng 100%", () => {
+  // 10 triệu, giảm 1 triệu = 10% → dưới ngưỡng 20% mặc định
+  assert.equal(discountPercentOf(10_000_000, 1_000_000), 10);
+  assert.equal(discountNeedsApproval({ gross: 10_000_000, discountAmount: 1_000_000 }), false);
+  assert.equal(initialDiscountApproval({ gross: 10_000_000, discountAmount: 1_000_000 }), "none");
+
+  // Đúng ngưỡng cũng phải duyệt (">=", không phải ">")
+  assert.equal(discountNeedsApproval({ gross: 10_000_000, discountAmount: 2_000_000 }), true);
+  assert.equal(initialDiscountApproval({ gross: 10_000_000, discountAmount: 2_000_000 }), "pending");
+
+  // Ngưỡng riêng của cơ sở
+  assert.equal(discountNeedsApproval({ gross: 10_000_000, discountAmount: 1_500_000, thresholdPct: 10 }), true);
+  assert.equal(discountNeedsApproval({ gross: 10_000_000, discountAmount: 1_500_000, thresholdPct: 30 }), false);
+  // Đặt 100 = tắt tính năng, kể cả khi giảm sạch
+  assert.equal(discountNeedsApproval({ gross: 10_000_000, discountAmount: 10_000_000, thresholdPct: 100 }), false);
+  // Đơn 0 đồng / giảm 0 không sinh hàng chờ vô nghĩa
+  assert.equal(discountNeedsApproval({ gross: 0, discountAmount: 0 }), false);
+
+  // Chốt chặn tiền
+  assert.equal(paymentBlockedBy("none"), null);
+  assert.equal(paymentBlockedBy("approved"), null);
+  assert.ok(paymentBlockedBy("pending")?.includes("chờ duyệt"));
+  assert.ok(paymentBlockedBy("rejected")?.includes("từ chối"));
 });

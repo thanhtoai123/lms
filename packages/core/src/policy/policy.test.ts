@@ -239,3 +239,32 @@ test("kế toán chốt được kỳ công (bản gốc: kế toán cơ sở ho
   assert.equal(centersWith(ktHo, "timesheet:lock"), null);
   assert.equal(authorize(gv, "timesheet:lock", { centerId: "cs1" }).allowed, false);
 });
+
+test("ba quyền tinh vi: đổi mã học viên / đè lead khi nhập / xuất danh sách", () => {
+  const quanLy: Actor = { userId: "ql", assignments: [{ role: "CENTER_MANAGER", centerId: "cs1" }] };
+  const quanLyLop: Actor = { userId: "qll", assignments: [{ role: "CENTER_CLASS_MANAGER", centerId: "cs1" }] };
+  const csm: Actor = { userId: "csm", assignments: [{ role: "CENTER_SALES_CSM", centerId: "cs1" }] };
+  const kiemToan: Actor = { userId: "kt", assignments: [{ role: "AUDITOR", centerId: null }] };
+  const saleHoiSo: Actor = { userId: "sh", assignments: [{ role: "HO_SALE", centerId: null }] };
+
+  // Sửa hồ sơ được, đổi MÃ thì không: quản lý lớp và CSM chỉ có student:update
+  for (const a of [quanLyLop, csm]) {
+    assert.equal(authorize(a, "student:update", { centerId: "cs1" }).allowed, true);
+    assert.equal(authorize(a, "student:change_code", { centerId: "cs1" }).allowed, false);
+  }
+  assert.equal(authorize(quanLy, "student:change_code", { centerId: "cs1" }).allowed, true);
+
+  // Đè dữ liệu cũ khi nhập file: CSM (lead:*) được, sale Hội sở (lead:update_own) không
+  assert.equal(authorize(csm, "lead:overwrite", { centerId: "cs1" }).allowed, true);
+  assert.equal(authorize(saleHoiSo, "lead:overwrite").allowed, false);
+  assert.equal(authorize(saleHoiSo, "lead:create").allowed, true);
+
+  // Xuất hàng loạt: kiểm toán xem được tất cả nhưng KHÔNG mang dữ liệu ra ngoài được
+  assert.equal(authorize(kiemToan, "student:read", { centerId: "cs1" }).allowed, true);
+  assert.equal(authorize(kiemToan, "student:export", { centerId: "cs1" }).allowed, false);
+  assert.equal(authorize(kiemToan, "lead:export", { centerId: "cs1" }).allowed, false);
+  // CSM xuất được danh sách lead mình đang chăm, nhưng không xuất được danh sách học viên
+  assert.equal(authorize(csm, "lead:export", { centerId: "cs1" }).allowed, true);
+  assert.equal(authorize(csm, "student:export", { centerId: "cs1" }).allowed, false);
+  assert.equal(authorize(quanLy, "student:export", { centerId: "cs1" }).allowed, true);
+});

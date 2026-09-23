@@ -152,6 +152,9 @@ export async function previewLeadImport(ctx: ProtectedContext, input: { rows: Ra
  */
 export async function commitLeadImport(ctx: ProtectedContext, input: { rows: RawLeadImportRow[]; overwriteLines: number[]; note: string; mode: LeadImportMode; fileName?: string | null; batchId?: string | null }) {
   requirePermission(ctx, "lead:create");
+  // "Đè" = lấy dữ liệu file thay dữ liệu đang có (mất số liệu cũ) — nặng hơn nhập thường,
+  // nên cần quyền riêng; nhập không đè chỉ điền ô trống và ghi chênh lệch vào ghi chú.
+  if (input.overwriteLines.length) requirePermission(ctx, "lead:overwrite");
   const note = input.note.trim();
   if (note.length < 3) throw bad("Nhập ghi chú cho lượt nhập (tối thiểu 3 ký tự)");
   const rows = await analyse(ctx, input.rows, input.mode);

@@ -67,6 +67,36 @@ export function DecidePayment({ paymentId, amount, compact }: { paymentId: strin
   );
 }
 
+/**
+ * Duyệt / từ chối mức giảm giá vượt ngưỡng. Chừng nào chưa duyệt, đơn KHÔNG ghi nhận thu được —
+ * nên khối này nằm ngay đầu trang đơn, không giấu trong tab phụ.
+ */
+export function DecideDiscount({ orderId, percent, thresholdPct, discountAmount }: {
+  orderId: string;
+  percent: number;
+  thresholdPct: number;
+  discountAmount: number;
+}) {
+  const trpc = useTRPC();
+  const router = useRouter();
+  const [note, setNote] = useState("");
+  const [err, setErr] = useState<string | null>(null);
+  const dec = useMutation(trpc.finance.decideDiscount.mutationOptions({ onSuccess: () => { setNote(""); setErr(null); router.refresh(); }, onError: (e) => setErr(e.message) }));
+  return (
+    <div className="space-y-2">
+      <p className="text-sm">
+        Đơn giảm <b>{percent}%</b> ({new Intl.NumberFormat("vi-VN").format(discountAmount)} ₫), từ ngưỡng <b>{thresholdPct}%</b> trở lên phải được duyệt.
+      </p>
+      <input className="input !py-1 text-sm" placeholder="Ghi chú (bắt buộc khi từ chối)" value={note} onChange={(e) => setNote(e.target.value)} />
+      <Err text={err} />
+      <div className="flex flex-wrap gap-2">
+        <button className="btn-primary !py-1" disabled={dec.isPending} onClick={() => dec.mutate({ orderId, decision: "approve", note: note.trim() || undefined })}>Duyệt mức giảm</button>
+        <button className="btn-ghost !py-1 text-red-700" disabled={dec.isPending || note.trim().length < 3} onClick={() => dec.mutate({ orderId, decision: "reject", note: note.trim() })}>Từ chối</button>
+      </div>
+    </div>
+  );
+}
+
 export function CancelOrder({ orderId }: { orderId: string }) {
   const trpc = useTRPC();
   const router = useRouter();

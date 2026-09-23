@@ -2,11 +2,12 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useTRPC } from "@/lib/trpc/client";
 import {
   priceLines, buildPlan, validateInstallmentPlan, formatUnitPrice, COACH_MULTIPLIER, CLASS_FORMATS, CLASS_FORMAT_VI, MAX_INSTALLMENTS,
   ORDER_TYPES, ORDER_TYPE_VI, DISCOUNT_POLICIES, DISCOUNT_POLICY_VI, DISCOUNT_POLICY_KIND,
+  discountPercentOf, discountNeedsApproval, DEFAULT_DISCOUNT_APPROVAL_PCT,
   type OrderType, type ClassFormat, type InstallmentKind, type DiscountPolicy,
 } from "@satarobo/core";
 import { vnd } from "@/components/finance-ui";
@@ -57,12 +58,21 @@ export function OrderForm({ centers, methods, courses, packages = [], today, dra
   const [notes, setNotes] = useState({ customerNote: "", internalNote: "", remindDays: 3 });
   const [err, setErr] = useState<string | null>(null);
 
+  // Ngưỡng duyệt của cơ sở đang chọn — báo TRƯỚC khi bấm tạo, để sale biết đơn sẽ phải chờ duyệt
+  const opsQ = useQuery(trpc.finance.orderDiscountSettings.queryOptions({ centerId: centerId || null }));
+  const approvalPct = opsQ.data?.discountApprovalPercent ?? DEFAULT_DISCOUNT_APPROVAL_PCT;
+  // Trần giảm lấy theo ĐÚNG cơ sở đang chọn (trước đây form luôn dùng 50% mặc định, lệch với cấu hình cơ sở)
+  const maxPct = opsQ.data?.maxLineDiscountPercent ?? maxLineDiscountPercent;
+
   const priced = useMemo(
-    () => priceLines(items.map((i) => ({ unitPrice: i.unitPrice, quantity: i.quantity, discounts: i.discounts, maxPercent: maxLineDiscountPercent, format: i.format, sessions: i.packageSessions === "" ? null : i.packageSessions }))),
-    [items, maxLineDiscountPercent],
+    () => priceLines(items.map((i) => ({ unitPrice: i.unitPrice, quantity: i.quantity, discounts: i.discounts, maxPercent: maxPct, format: i.format, sessions: i.packageSessions === "" ? null : i.packageSessions }))),
+    [items, maxPct],
   );
   const orderDiscount = discount.value > 0 ? (discount.type === "percent" ? Math.round((priced.total * Math.min(100, discount.value)) / 100) : Math.min(Math.round(discount.value), priced.total)) : 0;
   const total = priced.total - orderDiscount;
+  const discountAmount = priced.discountAmount + orderDiscount;
+  const discountPct = discountPercentOf(priced.total, discountAmount);
+  const canDuyet = discountNeedsApproval({ gross: priced.total, discountAmount, thresholdPct: approvalPct });
   const autoPlan = useMemo(() => {
     try { return buildPlan(total, inst.count, inst.firstDueDate, { intervalDays: inst.intervalDays, monthly: inst.monthly, deposit: inst.deposit || null }); } catch { return []; }
   }, [total, inst]);
@@ -207,7 +217,7 @@ export function OrderForm({ centers, methods, courses, packages = [], today, dra
                 </div>
               ))}
               {it.discounts.length < 5 && <button className="text-xs font-semibold text-brand-600" onClick={() => setItem(i, { discounts: [...it.discounts, { kind: "percent", policy: "percent", value: 5, reason: "" }] })}>+ Thêm khoản giảm</button>}
-              <span className="ml-2 text-[11px] text-ink-400">Trần giảm theo % (gồm học bổng): {maxLineDiscountPercent}%. Nhiều khoản cộng dồn, không vượt thành tiền.</span>
+              <span className="ml-2 text-[11px] text-ink-400">Trần giảm theo % (gồm học bổng): {maxPct}%; giảm từ {approvalPct}% phải được duyệt. Nhiều khoản cộng dồn, không vượt thành tiền.</span>
             </div>
           </div>
         ))}
@@ -232,7 +242,13 @@ export function OrderForm({ centers, methods, courses, packages = [], today, dra
           <h2 className="font-semibold">Kế hoạch thanh toán</h2>
           <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={!!custom} onChange={(e) => setCustom(e.target.checked ? plan.map((p) => ({ ...p })) : null)} /> Tự nhập từng đợt</label>
         </div>
-        <div className="text-sm">Tổng đơn sau giảm giá: <b>{vnd(total)}</b></div>
+        <div className="text-sm">Tổng đơn sau giảm giá: <b>{vnd(total)}</b>{discountAmount > 0 && <span className="text-ink-400"> · đã giảm {vnd(discountAmount)} ({discountPct}%)</span>}</div>
+        {canDuyet && (
+          <div className="rounded-lg border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900">
+            Giảm <b>{discountPct}%</b> ≥ ngưỡng <b>{approvalPct}%</b> của cơ sở: đơn vẫn tạo được nhưng sẽ vào <b>“Chờ duyệt giảm giá”</b> và
+            <b> chưa ghi nhận thu được</b> cho tới khi người có quyền duyệt tài chính duyệt.
+          </div>
+        )}
         {!custom && (
           <div className="flex flex-wrap items-end gap-2">
             <label className="flex items-center gap-2 pb-2 text-xs text-ink-600">

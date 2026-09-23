@@ -4,13 +4,14 @@ import { hasPermission, ORDER_TYPE_VI, DISCOUNT_POLICY_VI, type Actor, type Disc
 import { getServerCaller } from "@/lib/trpc/server";
 import { NoAccess, PageHeader } from "@/components/admin-ui";
 import { OrderChip, OrderDisplayChip, PaymentChip, RefundChip, FormatChip, vnd, fmtD } from "@/components/finance-ui";
-import { RecordPayment, DecidePayment, CancelOrder, NotesEditor, RevealCustomer, PlanEditor, ChildInstallment, CancelInstallment, EditPendingPayment, AdjustConfirmedPayment, SendOrderEmail, OrderQr } from "./actions";
+import { RecordPayment, DecidePayment, DecideDiscount, CancelOrder, NotesEditor, RevealCustomer, PlanEditor, ChildInstallment, CancelInstallment, EditPendingPayment, AdjustConfirmedPayment, SendOrderEmail, OrderQr } from "./actions";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Chi tiết đơn" };
 
 const EVENT_VI: Record<string, string> = {
   create: "Tạo đơn", status: "Đổi trạng thái", cancel: "Huỷ đơn", payment_recorded: "Ghi nhận thu", payment_confirmed: "Kế toán xác nhận", payment_adjusted: "Kế toán điều chỉnh",
+  discount_approval_requested: "Chờ duyệt giảm giá", discount_approved: "Duyệt giảm giá", discount_rejected: "Từ chối giảm giá",
   payment_rejected: "Kế toán từ chối", payment_updated: "Sửa khoản đang chờ", payment_unlinked: "Gỡ gắn giao dịch",
   plan_changed: "Sửa kế hoạch thanh toán", installment_added: "Thêm đợt cho con", installment_cancelled: "Huỷ đợt", fee_changed: "Sửa học phí hợp đồng", qr_issued: "Xuất mã QR",
   refund_requested: "Đề xuất hoàn", refund_approved: "Duyệt hoàn", refund_rejected: "Từ chối hoàn", refund_paid: "Đã chi hoàn",
@@ -35,6 +36,22 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
         actions={<><OrderDisplayChip state={o.display} /><OrderChip status={o.status} />{o.enrollment && o.status !== "cancelled" && <Link href={`/hoan-tien?enrollment=${o.enrollment.id}`} className="btn-ghost">Hoàn tiền</Link>}</>}
       />
       {o.status === "cancelled" && o.cancelReason && <div className="rounded-xl bg-slate-100 p-3 text-sm">Đã huỷ: {o.cancelReason}</div>}
+
+      {/* Chốt chặn tiền: đơn giảm sâu chưa duyệt thì không ghi nhận thu được */}
+      {o.discountApproval !== "none" && (
+        <div className={`rounded-xl p-3 text-sm ${o.discountApproval === "pending" ? "border border-amber-300 bg-amber-50" : o.discountApproval === "approved" ? "border border-green-300 bg-green-50" : "border border-red-300 bg-red-50"}`}>
+          <div className="font-semibold">
+            {o.discount.approvalLabel}
+            {o.discountApproval !== "pending" && o.discount.approverName ? ` · ${o.discount.approverName}` : ""}
+            {o.discountApprovalAt ? ` · ${fmtD(o.discountApprovalAt)}` : ""}
+          </div>
+          {o.discountApprovalNote && <div className="text-ink-600">{o.discountApprovalNote}</div>}
+          {o.discount.paymentBlocked && <div className="mt-1 text-ink-600">{o.discount.paymentBlocked}</div>}
+          {o.discount.canDecide
+            ? <div className="mt-2"><DecideDiscount orderId={o.id} percent={o.discount.percent} thresholdPct={o.discount.thresholdPct} discountAmount={o.discountAmount} /></div>
+            : o.discountApproval === "pending" && <p className="mt-1 text-xs text-ink-400">Người có quyền duyệt tài chính của cơ sở sẽ duyệt (người tạo đơn không tự duyệt được).</p>}
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
         <div className="card p-4"><div className="text-xs text-ink-400">Tổng phải đóng</div><div className="text-xl font-bold tabular-nums">{vnd(b.total)}</div>{o.discountAmount > 0 && <div className="text-xs text-ink-400">đã giảm {vnd(o.discountAmount)}</div>}</div>
@@ -122,7 +139,7 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
 
           <section className="card space-y-3 p-4">
             <h2 className="font-semibold">Khoản thu</h2>
-            {open && o.perms.create && b.outstanding - b.pending > 0 && <RecordPayment orderId={o.id} suggested={o.nextDue ? Math.min(o.nextDue.remaining, b.outstanding - b.pending) : b.outstanding - b.pending} methods={methods.map((m) => ({ id: m.id, name: m.name }))} defaultMethodId={o.method?.id ?? ""} today={o.today} />}
+            {open && o.perms.create && !o.discount.paymentBlocked && b.outstanding - b.pending > 0 && <RecordPayment orderId={o.id} suggested={o.nextDue ? Math.min(o.nextDue.remaining, b.outstanding - b.pending) : b.outstanding - b.pending} methods={methods.map((m) => ({ id: m.id, name: m.name }))} defaultMethodId={o.method?.id ?? ""} today={o.today} />}
             {o.payments.length === 0 ? <p className="text-sm text-ink-400">Chưa có khoản thu.</p> : (
               <ul className="divide-y divide-black/5 text-sm">
                 {o.payments.map((p) => (

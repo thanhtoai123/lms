@@ -736,12 +736,17 @@ export const PERIOD_STATUS_CHIP: Record<PeriodStatus, string> = {
   closed: "bg-slate-800 text-white", reopened: "bg-sky-100 text-sky-800",
 };
 
-/** Giá trị cũ còn nằm trong dữ liệu — đọc lên map thành `closed` */
-export const PERIOD_STATUS_LEGACY = ["locked"] as const;
-/** Danh sách giá trị enum của cột `timesheet_periods.status` (gồm cả giá trị cũ) */
-export const PERIOD_STATUS_DB = [...PERIOD_STATUSES, ...PERIOD_STATUS_LEGACY] as const;
+/**
+ * Danh sách giá trị enum của cột `timesheet_periods.status`.
+ * Giá trị cũ `locked` đã bị dọn khỏi CSDL và khỏi enum (xem `packages/db/sql/0015_don_enum_ky_cong.sql`),
+ * nên danh sách này trùng đúng `PERIOD_STATUSES` — không còn hằng "legacy" nào.
+ */
+export const PERIOD_STATUS_DB = PERIOD_STATUSES;
 
-/** Chuẩn hoá trạng thái đọc từ CSDL: `locked` (bản cũ) → `closed` */
+/**
+ * Chuẩn hoá trạng thái đọc từ CSDL. Vẫn map `locked` → `closed` để một bản sao lưu cũ
+ * phục hồi vào hệ mới không làm vỡ màn hình, dù CSDL hiện tại không còn giá trị đó.
+ */
 export function normalizePeriodStatus(raw: string | null | undefined): PeriodStatus {
   if (!raw) return "open";
   if (raw === "locked") return "closed";

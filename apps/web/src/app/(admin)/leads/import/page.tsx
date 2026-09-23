@@ -18,7 +18,7 @@ export default async function LeadImportPage() {
         desc="SĐT là căn cứ duy nhất để phát hiện trùng. Trùng với CRM: không ghi đè — chỉ điền ô trống, con mới được thêm, giá trị khác ghi vào ghi chú kèm ngày (tick cột Đè để lấy dữ liệu file). Lead chưa chốt sẽ được giao theo cột Sale; không có sale thì chia tự động."
         actions={<Link href="/leads/import/registered" className="btn-ghost">Nhập khách ĐÃ ĐĂNG KÝ →</Link>}
       />
-      <LeadImporter mode="leads" />
+      <LeadImporter mode="leads" canOverwrite={hasPermission(ctx.actor as Actor, "lead:overwrite")} />
     </div>
   );
 }

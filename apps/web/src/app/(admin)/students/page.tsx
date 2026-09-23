@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { hasPermission, type Actor } from "@satarobo/core";
 import { getServerCaller } from "@/lib/trpc/server";
 import { PageHeader, Pager, StudentStatusChip, STUDENT_STATUS_VI, fmtDate } from "@/components/admin-ui";
 import { ColumnChooser, type ColumnDef } from "@/components/column-chooser";
@@ -28,7 +29,9 @@ export default async function StudentsPage({ searchParams }: { searchParams: Pro
   const status = STATUSES.includes(sp.status as St) ? (sp.status as St) : undefined;
   const g = Number(sp.grade);
   const grade = Number.isInteger(g) && g >= 1 && g <= 12 ? g : undefined;
-  const { caller } = await getServerCaller();
+  const { caller, ctx } = await getServerCaller();
+  // Rút cả danh sách trẻ em ra tệp cần quyền riêng (student:export), không phải ai xem được cũng xuất được
+  const canExport = !!ctx.actor && hasPermission(ctx.actor as Actor, "student:export");
   const [ref, data] = await Promise.all([
     caller.academics.classes.referenceData(),
     caller.students.list({ q: sp.q || undefined, centerId: sp.center || undefined, status, grade, page: Number(sp.page) || 1 }),
@@ -58,7 +61,7 @@ export default async function StudentsPage({ searchParams }: { searchParams: Pro
         <button className="btn-ghost">Lọc</button>
         <span className="ml-auto flex flex-wrap items-center gap-2">
           <ColumnChooser tableKey="students" columns={STUDENT_COLUMNS} />
-          <ExportAllButton kind="students" filename="hoc-vien-theo-bo-loc" filters={{ q: sp.q || undefined, centerId: sp.center || undefined, status, grade }} />
+          {canExport && <ExportAllButton kind="students" filename="hoc-vien-theo-bo-loc" filters={{ q: sp.q || undefined, centerId: sp.center || undefined, status, grade }} />}
         </span>
       </form>
       {data.items.length === 0 ? (

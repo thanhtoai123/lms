@@ -70,7 +70,14 @@ function GuardianFields({ g, onChange, index, required, editing }: { g: Guardian
   );
 }
 
-export function StudentForm({ centers, initial, studentId, guardiansInitial }: { centers: Center[]; initial?: StudentFormValues; studentId?: string; guardiansInitial?: GuardianFormValues[] }) {
+export function StudentForm({ centers, initial, studentId, guardiansInitial, canChangeCode = true }: {
+  centers: Center[];
+  initial?: StudentFormValues;
+  studentId?: string;
+  guardiansInitial?: GuardianFormValues[];
+  /** Có quyền student:change_code không — khi sửa hồ sơ mà không có thì ô mã chỉ để đọc */
+  canChangeCode?: boolean;
+}) {
   const trpc = useTRPC();
   const router = useRouter();
   const editing = !!studentId;
@@ -149,8 +156,19 @@ export function StudentForm({ centers, initial, studentId, guardiansInitial }: {
           <div><label className="label">Tên gọi ở nhà</label><input className="input" value={f.nickname} onChange={set("nickname")} /></div>
           <div>
             <label className="label">Mã học viên</label>
-            <input className="input font-mono uppercase" maxLength={30} value={f.code} onChange={set("code")} placeholder={editing ? "" : "Để trống để tự sinh (VD SR.HV.001)"} />
-            <p className="mt-0.5 text-[11px] text-ink-400">Chữ in hoa, số, dấu chấm, gạch ngang; không trùng học viên khác.</p>
+            <input
+              className="input font-mono uppercase disabled:bg-black/5"
+              maxLength={30}
+              value={f.code}
+              onChange={set("code")}
+              disabled={editing && !canChangeCode}
+              placeholder={editing ? "" : "Để trống để tự sinh (VD SR.HV.001)"}
+            />
+            <p className="mt-0.5 text-[11px] text-ink-400">
+              {editing && !canChangeCode
+                ? "Bạn không có quyền đổi mã học viên (student:change_code) — mã là căn cứ đối chiếu phiếu thu và hệ cũ."
+                : "Chữ in hoa, số, dấu chấm, gạch ngang; không trùng học viên khác."}
+            </p>
           </div>
           <div><label className="label">Ngày sinh</label><input type="date" className="input" value={f.dateOfBirth} onChange={set("dateOfBirth")} /></div>
           <div><label className="label">Giới tính</label><select className="input" value={f.gender} onChange={(e) => setF({ ...f, gender: e.target.value as StudentFormValues["gender"] })}><option value="">—</option><option value="male">Nam</option><option value="female">Nữ</option><option value="other">Khác</option></select></div>

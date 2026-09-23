@@ -153,6 +153,69 @@ export function formatUnitPrice(basePrice: number, format: ClassFormat): number 
 export const DEFAULT_MAX_LINE_DISCOUNT_PCT = 50;
 
 /* ------------------------------------------------------------------ */
+/* Duyệt giảm giá vượt ngưỡng                                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Trần giảm (`maxLineDiscountPercent`) chặn cứng: quá trần thì KHÔNG tạo được đơn.
+ * Ngưỡng duyệt nằm THẤP hơn trần: đơn vẫn tạo được, nhưng chưa thu được tiền cho tới khi
+ * người có `finance:approve` duyệt. Nhờ vậy sale vẫn chốt được khách ngay tại quầy,
+ * còn trung tâm không mất tiền vì một cái tick nhầm.
+ */
+export const DEFAULT_DISCOUNT_APPROVAL_PCT = 20;
+
+export const DISCOUNT_APPROVALS = ["none", "pending", "approved", "rejected"] as const;
+export type DiscountApproval = (typeof DISCOUNT_APPROVALS)[number];
+export const DISCOUNT_APPROVAL_VI: Record<DiscountApproval, string> = {
+  none: "Không cần duyệt",
+  pending: "Chờ duyệt giảm giá",
+  approved: "Giảm giá đã duyệt",
+  rejected: "Giảm giá bị từ chối",
+};
+export const DISCOUNT_APPROVAL_CHIP: Record<DiscountApproval, string> = {
+  none: "",
+  pending: "bg-amber-100 text-amber-800",
+  approved: "bg-green-100 text-green-800",
+  rejected: "bg-red-100 text-red-700",
+};
+
+/** % giảm của cả đơn, làm tròn tới số nguyên (0 khi đơn không có giá trị gốc) */
+export function discountPercentOf(gross: number, discountAmount: number): number {
+  const g = Math.max(0, Math.round(gross));
+  const d = Math.max(0, Math.round(discountAmount));
+  if (g <= 0 || d <= 0) return 0;
+  return Math.round((d * 100) / g);
+}
+
+/**
+ * Đơn có phải chờ duyệt không. Tính trên TỔNG đơn (gồm giảm theo dòng + giảm cấp đơn):
+ * chia nhỏ thành nhiều dòng để lách ngưỡng là cách lách rõ ràng nhất, nên đo ở mức đơn.
+ * Ngưỡng ≥ 100 nghĩa là tắt tính năng (không đơn nào phải duyệt).
+ */
+export function discountNeedsApproval(i: { gross: number; discountAmount: number; thresholdPct?: number }): boolean {
+  const threshold = i.thresholdPct ?? DEFAULT_DISCOUNT_APPROVAL_PCT;
+  if (threshold >= 100) return false;
+  return discountPercentOf(i.gross, i.discountAmount) >= threshold;
+}
+
+/** Trạng thái duyệt của đơn mới tạo */
+export function initialDiscountApproval(i: { gross: number; discountAmount: number; thresholdPct?: number }): DiscountApproval {
+  return discountNeedsApproval(i) ? "pending" : "none";
+}
+
+/**
+ * Có được ghi nhận tiền vào đơn này chưa.
+ * `pending`: chưa ai duyệt — thu tiền rồi mới duyệt thì lỡ từ chối là phải hoàn tiền.
+ * `rejected`: phải sửa lại mức giảm (tạo đơn khác / sửa dòng) chứ không thu theo mức đã bị từ chối.
+ */
+export function paymentBlockedBy(approval: DiscountApproval | null | undefined): string | null {
+  if (approval === "pending") return "Đơn đang chờ duyệt giảm giá — người có quyền duyệt tài chính phải duyệt trước khi ghi nhận thanh toán";
+  if (approval === "rejected") return "Mức giảm giá của đơn đã bị từ chối — sửa lại mức giảm hoặc tạo đơn mới trước khi thu tiền";
+  return null;
+}
+
+
+/* ------------------------------------------------------------------ */
 /* Chính sách giảm giá (bản gốc: 5 loại)                                */
 /* ------------------------------------------------------------------ */
 

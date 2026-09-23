@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { hasPermission, ORDER_STATUSES, ORDER_STATUS_VI, ORDER_TYPE_VI, type Actor, type OrderStatus } from "@satarobo/core";
+import { hasPermission, ORDER_STATUSES, ORDER_STATUS_VI, ORDER_TYPE_VI, DISCOUNT_APPROVAL_VI, DISCOUNT_APPROVAL_CHIP, type Actor, type OrderStatus } from "@satarobo/core";
 import { getServerCaller } from "@/lib/trpc/server";
 import { NoAccess, PageHeader, Pager, StatTabs } from "@/components/admin-ui";
 import { Empty } from "@/components/ui";
@@ -9,7 +9,7 @@ import { RememberFilters } from "@/components/remember-filters";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Đơn hàng" };
 
-type SP = { q?: string; center?: string; status?: string; from?: string; to?: string; page?: string };
+type SP = { q?: string; center?: string; status?: string; duyet?: string; from?: string; to?: string; page?: string };
 
 export default async function OrdersPage({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
@@ -17,9 +17,11 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
   if (!ctx.actor || !hasPermission(ctx.actor as Actor, "finance:read")) return <NoAccess title="Đơn hàng" perm="finance:read" />;
   const canCreate = hasPermission(ctx.actor as Actor, "finance:create");
   const status = ORDER_STATUSES.includes(sp.status as OrderStatus) ? (sp.status as OrderStatus) : undefined;
+  // ?duyet=cho — hàng chờ duyệt giảm giá, mở từ chip đếm ở đầu màn hình
+  const choDuyet = sp.duyet === "cho";
   const [ref, d] = await Promise.all([
     caller.academics.classes.referenceData(),
-    caller.finance.orders({ q: sp.q || undefined, centerId: sp.center || undefined, status, from: sp.from || undefined, to: sp.to || undefined, page: Number(sp.page) || 1 }),
+    caller.finance.orders({ q: sp.q || undefined, centerId: sp.center || undefined, status, approval: choDuyet ? "pending" : undefined, from: sp.from || undefined, to: sp.to || undefined, page: Number(sp.page) || 1 }),
   ]);
   return (
     <div className="space-y-4">
@@ -41,7 +43,13 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
         <button className="btn-ghost">Lọc</button>
       </form>
       <StatTabs basePath="/orders" params={sp} active={status ?? ""} tabs={[{ key: "", label: "Tất cả" }, ...ORDER_STATUSES.map((s) => ({ key: s, label: ORDER_STATUS_VI[s], count: d.counts?.[s] }))]} />
-      <div className="text-sm text-ink-600">{d.total} đơn · tổng giá trị {vnd(d.sum)}</div>
+      {(d.counts?.awaitingDiscount ?? 0) > 0 && (
+        <Link href={choDuyet ? "/orders" : "/orders?duyet=cho"} className={`block rounded-xl border p-3 text-sm ${choDuyet ? "border-amber-400 bg-amber-100" : "border-amber-300 bg-amber-50"}`}>
+          <b>{d.counts!.awaitingDiscount} đơn chờ duyệt giảm giá</b> — các đơn này chưa ghi nhận thu được cho tới khi người có quyền duyệt tài chính duyệt.
+          {choDuyet ? " Bấm để bỏ lọc." : " Bấm để xem danh sách."}
+        </Link>
+      )}
+      <div className="text-sm text-ink-600">{d.total} đơn · tổng giá trị {vnd(d.sum)}{choDuyet ? " · đang lọc: chờ duyệt giảm giá" : ""}</div>
       {d.items.length === 0 ? <Empty>Không có đơn phù hợp.</Empty> : (
         <div className="card overflow-x-auto">
           <table className="w-full text-sm">
@@ -56,7 +64,10 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
                   <td className="p-3 text-right tabular-nums text-green-700">{vnd(o.confirmed)}{o.pending > 0 && <div className="text-[11px] text-amber-700">+{vnd(o.pending)} chờ</div>}</td>
                   <td className={`p-3 text-right tabular-nums ${o.outstanding ? "font-semibold text-red-700" : "text-ink-400"}`}>{vnd(o.outstanding)}</td>
                   <td className="p-3 text-xs">{o.methodName ?? "—"}</td>
-                  <td className="p-3"><OrderDisplayChip state={o.display} /><div className="mt-1"><OrderChip status={o.status} /></div></td>
+                  <td className="p-3">
+                    <OrderDisplayChip state={o.display} /><div className="mt-1"><OrderChip status={o.status} /></div>
+                    {o.discountApproval !== "none" && <div className="mt-1"><span className={`chip ${DISCOUNT_APPROVAL_CHIP[o.discountApproval]}`}>{DISCOUNT_APPROVAL_VI[o.discountApproval]}</span></div>}
+                  </td>
                   <td className="p-3 text-xs">{fmtD(o.createdAt)}<div className="text-ink-400">{o.creatorName ?? ""}</div></td>
                 </tr>
               ))}

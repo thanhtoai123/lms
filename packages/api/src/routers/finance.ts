@@ -1,6 +1,6 @@
 import { z } from "zod";
 import {
-  ORDER_TYPES, ORDER_STATUSES, PAYMENT_STATUSES, PAYMENT_METHOD_KINDS, REFUND_STATUSES, AGING_BUCKETS, BANK_TX_STATUSES, COMMISSION_KINDS, COMMISSION_STATUSES, RATE_TYPES,
+  ORDER_TYPES, ORDER_STATUSES, DISCOUNT_APPROVALS, PAYMENT_STATUSES, PAYMENT_METHOD_KINDS, REFUND_STATUSES, AGING_BUCKETS, BANK_TX_STATUSES, COMMISSION_KINDS, COMMISSION_STATUSES, RATE_TYPES,
   CLASS_FORMATS, INSTALLMENT_KINDS, DEBT_CHIPS, MAX_INSTALLMENTS, DISCOUNT_POLICIES, COMMISSION_EVENTS, COMMISSION_SCOPES, COMMISSION_CALC_METHODS,
 } from "@satarobo/core";
 import { router, protectedProcedure } from "../trpc";
@@ -48,9 +48,10 @@ export const financeRouter = router({
     .mutation(({ ctx, input }) => F.upsertPaymentMethod(ctx, input)),
 
   orders: protectedProcedure
-    .input(z.object({ q: z.string().max(100).optional(), centerId: uuid.optional(), status: z.enum(ORDER_STATUSES).optional(), from: isoDate.optional(), to: isoDate.optional(), page: z.number().int().min(1).optional() }).default({}))
+    .input(z.object({ q: z.string().max(100).optional(), centerId: uuid.optional(), status: z.enum(ORDER_STATUSES).optional(), approval: z.enum(DISCOUNT_APPROVALS).optional(), from: isoDate.optional(), to: isoDate.optional(), page: z.number().int().min(1).optional() }).default({}))
     .query(({ ctx, input }) => F.listOrders(ctx, input)),
   order: protectedProcedure.input(z.object({ id: uuid })).query(({ ctx, input }) => F.getOrder(ctx, input.id)),
+  orderDiscountSettings: protectedProcedure.input(z.object({ centerId: uuid.nullish() }).default({})).query(({ ctx, input }) => F.orderDiscountSettings(ctx, input)),
   orderDraft: protectedProcedure.input(z.object({ enrollmentId: uuid })).query(({ ctx, input }) => F.orderDraftFromEnrollment(ctx, input.enrollmentId)),
   orderDraftFromLead: protectedProcedure.input(z.object({ leadId: uuid })).query(({ ctx, input }) => F.orderDraftFromLead(ctx, input.leadId)),
   createOrder: protectedProcedure
@@ -75,6 +76,10 @@ export const financeRouter = router({
     }))
     .mutation(({ ctx, input }) => F.createOrder(ctx, { ...input, customer: { ...input.customer, email: input.customer.email || null } })),
   cancelOrder: protectedProcedure.input(z.object({ id: uuid, reason: z.string().max(300) })).mutation(({ ctx, input }) => F.cancelOrder(ctx, input)),
+  /** Duyệt / từ chối mức giảm giá vượt ngưỡng — chốt chặn trước khi đơn thu được tiền */
+  decideDiscount: protectedProcedure
+    .input(z.object({ orderId: uuid, decision: z.enum(["approve", "reject"]), note: z.string().max(300).optional() }))
+    .mutation(({ ctx, input }) => F.decideDiscountApproval(ctx, input)),
 
   // Mã QR chuyển khoản có hạn dùng
   orderQr: protectedProcedure.input(z.object({ orderId: uuid, installmentId: uuid.nullish() })).query(({ ctx, input }) => F.orderQrState(ctx, input)),

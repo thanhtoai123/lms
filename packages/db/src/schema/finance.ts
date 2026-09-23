@@ -3,7 +3,7 @@ import { pgTable, text, uuid, boolean, integer, bigint, date, timestamp, pgEnum,
 import { id, timestamps } from "./_common";
 import { tenantCol } from "./tenant";
 import {
-  ORDER_TYPES, ORDER_STATUSES, PAYMENT_STATUSES, PAYMENT_METHOD_KINDS, REFUND_STATUSES, LEDGER_TYPES, BANK_TX_STATUSES, BANK_TX_SOURCES,
+  ORDER_TYPES, ORDER_STATUSES, DISCOUNT_APPROVALS, PAYMENT_STATUSES, PAYMENT_METHOD_KINDS, REFUND_STATUSES, LEDGER_TYPES, BANK_TX_STATUSES, BANK_TX_SOURCES,
   COMMISSION_KINDS, COMMISSION_STATUSES, RATE_TYPES, PAYMENT_QR_STATUSES, DISCOUNT_POLICIES, COMMISSION_EVENTS, COMMISSION_SCOPES, COMMISSION_CALC_METHODS,
 } from "@satarobo/core";
 import { centers } from "./org";
@@ -16,6 +16,7 @@ const money = (name: string) => bigint(name, { mode: "number" });
 
 export const orderTypeEnum = pgEnum("order_type", ORDER_TYPES);
 export const orderStatusEnum = pgEnum("order_status", ORDER_STATUSES);
+export const discountApprovalEnum = pgEnum("discount_approval", DISCOUNT_APPROVALS);
 export const paymentStatusEnum = pgEnum("payment_status", PAYMENT_STATUSES);
 export const paymentMethodKindEnum = pgEnum("payment_method_kind", PAYMENT_METHOD_KINDS);
 export const refundStatusEnum = pgEnum("refund_status", REFUND_STATUSES);
@@ -75,6 +76,14 @@ export const orders = pgTable(
     discountType: text("discount_type"),
     discountValue: integer("discount_value"),
     discountAmount: money("discount_amount").notNull().default(0),
+    /**
+     * Duyệt giảm giá: đơn giảm từ ngưỡng cấu hình trở lên vào `pending` và KHÔNG thu tiền được
+     * cho tới khi người có `finance:approve` duyệt (xem `discountNeedsApproval` ở core).
+     */
+    discountApproval: discountApprovalEnum("discount_approval").notNull().default("none"),
+    discountApprovalBy: uuid("discount_approval_by").references(() => users.id),
+    discountApprovalAt: timestamp("discount_approval_at", { withTimezone: true }),
+    discountApprovalNote: text("discount_approval_note"),
     total: money("total").notNull(),
     paymentMethodId: uuid("payment_method_id").references(() => paymentMethods.id),
     customerNote: text("customer_note"),
@@ -90,6 +99,8 @@ export const orders = pgTable(
     index("orders_enrollment_idx").on(t.enrollmentId),
     index("orders_phone_idx").on(t.customerPhone),
     index("orders_lead_idx").on(t.leadId),
+    // Hàng chờ duyệt giảm giá: lọc theo cơ sở, mở nhiều lần trong ngày
+    index("orders_discount_approval_idx").on(t.discountApproval, t.centerId),
   ],
 );
 

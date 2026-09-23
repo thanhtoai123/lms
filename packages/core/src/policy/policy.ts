@@ -87,6 +87,22 @@ export interface ResourceRef {
   ownerIds?: string[];
 }
 
+/**
+ * BA QUYỀN TINH VI — tách khỏi quyền "sửa" thông thường vì hậu quả khác hẳn:
+ *
+ * - `student:change_code` — đổi MÃ học viên. Mã là thứ đối chiếu với hệ cũ, với phiếu thu và với
+ *   bảng điểm danh in ra; đổi mã là đổi danh tính hồ sơ, không phải sửa một ô thông tin.
+ * - `lead:overwrite`  — khi nhập file, "đè" dữ liệu file lên lead đã có (mất số liệu cũ).
+ *   Nhập thường chỉ điền ô trống + ghi chênh lệch vào ghi chú, việc đó chỉ cần `lead:create`.
+ * - `student:export` / `lead:export` — rút HÀNG LOẠT danh sách kèm liên hệ ra tệp. Xem từng hồ sơ
+ *   trên màn hình và mang cả danh sách ra ngoài là hai mức rủi ro khác nhau.
+ *
+ * Vai trò có `student:*` / `lead:*` (Quản lý cơ sở, Super admin…) nghiễm nhiên có; các vai trò liệt kê
+ * từng hành động thì KHÔNG, trừ khi ghi rõ dưới đây. Kiểm toán (`*:read`) xem được tất cả nhưng
+ * không xuất được — đúng bản chất vai trò đọc.
+ */
+export const SENSITIVE_PERMISSIONS = ["student:change_code", "lead:overwrite", "student:export", "lead:export"] as const;
+
 const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   SUPER_ADMIN: ["*:*"],
   HO_ACCOUNTANT: ["affiliate:read", "affiliate:pay", "finance:*", "inventory:*", "coin:read", "student:read", "enrollment:read", "class:read", "report:read", "course:read", "staff:read", "staff:salary", "timesheet:read", "timesheet:lock"],

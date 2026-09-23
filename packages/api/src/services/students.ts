@@ -128,6 +128,8 @@ async function readStudentExportBatch(ctx: ProtectedContext, where: ReturnType<t
 
 export async function exportStudents(ctx: ProtectedContext, input: StudentListFilters) {
   requirePermission(ctx, "student:read", { centerId: input.centerId ?? null });
+  // Xem từng hồ sơ trên màn hình và mang CẢ DANH SÁCH trẻ em ra tệp là hai mức rủi ro khác nhau
+  requirePermission(ctx, "student:export", { centerId: input.centerId ?? null });
   // Trần rút hàng loạt hồ sơ trẻ em: một nhân sự bình thường xuất vài lần/ngày, rút liên tục
   // hàng chục nghìn dòng là dấu hiệu mang dữ liệu ra ngoài. Nới bằng RATE_LIMIT_EXPORT_USER_MAX.
   await assertRateLimit(ctx.db, "exportUser", rateKey("export", "user", ctx.user.id), "xuất dữ liệu");
@@ -423,7 +425,12 @@ export async function updateStudent(
   if (input.preferredCenterId && input.preferredCenterId !== s.preferredCenterId) await assertCenter(ctx.db, input.preferredCenterId, "Đơn vị mong muốn");
   const { reason, guardians: gPatches, addGuardians, address, code: rawCode, ...rest } = input;
   const patch: Partial<typeof students.$inferInsert> = normalizeProfile(rest);
-  if (rawCode !== undefined && nn(rawCode) && normalizeStudentCode(rawCode) !== s.code) patch.code = (await manualCode(ctx.db, rawCode, s.id))!;
+  if (rawCode !== undefined && nn(rawCode) && normalizeStudentCode(rawCode) !== s.code) {
+    // Đổi MÃ học viên là đổi danh tính hồ sơ (đối chiếu hệ cũ, phiếu thu, bảng điểm danh đã in),
+    // nên tách khỏi student:update — người sửa hồ sơ thường không được đổi mã.
+    requirePermission(ctx, "student:change_code", { centerId: s.homeCenterId });
+    patch.code = (await manualCode(ctx.db, rawCode, s.id))!;
+  }
 
   // Phụ huynh đang gắn: sửa tên / SĐT / email / quan hệ / CCCD
   const linked = gPatches?.length

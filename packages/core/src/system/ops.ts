@@ -2,7 +2,7 @@
  * Cấu hình vận hành (các tab trên /cau-hinh-van-hanh). Chỉ gồm tham số hệ thống thực sự dùng khi chạy.
  * Phạm vi "center": cơ sở ghi đè được, không ghi đè thì kế thừa mặc định toàn hệ thống.
  */
-import { DEFAULT_QR_TTL_HOURS, DEFAULT_ORDER_CODE_FORMAT, ORDER_CODE_FORMATS, ORDER_CODE_FORMAT_VI, type OrderCodeFormat } from "../finance/rules.js";
+import { DEFAULT_QR_TTL_HOURS, DEFAULT_DISCOUNT_APPROVAL_PCT, DEFAULT_ORDER_CODE_FORMAT, ORDER_CODE_FORMATS, ORDER_CODE_FORMAT_VI, type OrderCodeFormat } from "../finance/rules.js";
 import { DEFAULT_COMMISSION_TOTAL_CAP_PCT } from "../finance/commission.js";
 
 const QR_TTL_DEF = DEFAULT_QR_TTL_HOURS;
@@ -71,6 +71,7 @@ export const OPS_GROUPS = {
   "thanh-toan": [
     { key: "orderRemindDays", label: "Nhắc đợt thanh toán trước hạn (mặc định cho đơn mới)", type: "int", min: 0, max: 30, unit: "ngày", def: 3, scope: "center", usedBy: "Đơn hàng, công nợ sắp đến hạn" },
     { key: "maxLineDiscountPercent", label: "Trần giảm giá theo dòng đơn", type: "int", min: 1, max: 100, unit: "%", def: 50, scope: "center", usedBy: "Tạo đơn, sửa dòng đơn (mỗi khoản giảm cần lý do)" },
+    { key: "discountApprovalPercent", label: "Giảm từ mức này phải được duyệt", type: "int", min: 1, max: 100, unit: "%", def: DEFAULT_DISCOUNT_APPROVAL_PCT, scope: "center", usedBy: "Tạo đơn: đơn vượt ngưỡng vào 'Chờ duyệt giảm giá', chưa thu tiền được cho tới khi người có quyền duyệt tài chính duyệt. Đặt 100 = tắt" },
     { key: "debtAgingWarnDays", label: "Tuổi nợ — mốc nhóm 1", type: "int", min: 1, max: 60, unit: "ngày", def: 7, scope: "center", usedBy: "Công nợ theo ghi danh (Quá hạn 1–N ngày)" },
     { key: "debtAgingBadDays", label: "Tuổi nợ — mốc nhóm 2", type: "int", min: 2, max: 180, unit: "ngày", def: 30, scope: "center", usedBy: "Công nợ theo ghi danh (Quá hạn N+1–M, rồi > M)" },
     { key: "qrTtlHours", label: "Hạn dùng mã QR chuyển khoản", type: "int", min: 1, max: 720, unit: "giờ", def: QR_TTL_DEF, scope: "center", usedBy: "Xuất QR trên trang đơn — hết hạn thì phải xuất mã mới" },

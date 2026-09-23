@@ -18,7 +18,7 @@ export default async function RegisteredImportPage() {
         desc="Mỗi SĐT là một khách ở trạng thái “Đã đăng ký”; mỗi dòng là một học viên (một khách nhiều con thì lặp SĐT). Cột “Đã đóng” / “Hạn đợt 2” được ghi vào ghi chú của từng bé (ĐãĐóng=, HạnĐợt2=) để màn Chốt hàng loạt đọc lại. Bắt buộc xem trước rồi mới ghi."
         actions={<Link href="/leads/bulk-convert" className="btn-ghost">Chốt hàng loạt →</Link>}
       />
-      <LeadImporter mode="registered" />
+      <LeadImporter mode="registered" canOverwrite={hasPermission(ctx.actor as Actor, "lead:overwrite")} />
     </div>
   );
 }

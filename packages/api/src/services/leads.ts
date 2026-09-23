@@ -473,6 +473,8 @@ export const LEAD_EXPORT_HEADERS = [
 export async function exportLeads(ctx: ProtectedContext, input: LeadInboxInput) {
   // Xuất đúng những dòng người này được thấy trên màn hình (leadReadCondition lo phần lọc)
   requireLeadsAccess(ctx, input.centerId ?? null);
+  // Rút hàng loạt danh sách khách hàng kèm liên hệ — quyền riêng, không nằm trong lead:read
+  requirePermission(ctx, "lead:export", { centerId: input.centerId ?? null });
   // Cùng trần với xuất học viên: chặn rút hàng loạt danh sách khách hàng (nới bằng RATE_LIMIT_EXPORT_USER_MAX)
   await assertRateLimit(ctx.db, "exportUser", rateKey("export", "user", ctx.user.id), "xuất dữ liệu");
   const { rows: rawRows, total } = await leadRowsForExport(ctx, input);

@@ -1,6 +1,6 @@
 import { getServerCaller } from "@/lib/trpc/server";
 import { StudentForm } from "@/components/student-form";
-import { GUARDIAN_RELATIONS, type GuardianRelation } from "@satarobo/core";
+import { GUARDIAN_RELATIONS, hasPermission, type Actor, type GuardianRelation } from "@satarobo/core";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Sửa học viên" };
@@ -9,7 +9,7 @@ const asRelation = (r: string): GuardianRelation => ((GUARDIAN_RELATIONS as read
 
 export default async function EditStudentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { caller } = await getServerCaller();
+  const { caller, ctx } = await getServerCaller();
   const [ref, s] = await Promise.all([caller.academics.classes.referenceData(), caller.students.get({ id })]);
   const centers = ref.centers.map((c) => ({ id: c.id, code: c.code, name: c.name }));
   if (s.preferredCenter && !centers.some((c) => c.id === s.preferredCenter!.id)) centers.push(s.preferredCenter);
@@ -18,6 +18,7 @@ export default async function EditStudentPage({ params }: { params: Promise<{ id
       <h1 className="text-2xl font-bold">Sửa: {s.fullName}</h1>
       <StudentForm
         studentId={s.id}
+        canChangeCode={!!ctx.actor && hasPermission(ctx.actor as Actor, "student:change_code")}
         centers={centers}
         initial={{
           fullName: s.fullName, nickname: s.nickname ?? "", code: s.code ?? "", dateOfBirth: s.dateOfBirth ?? "", gender: (s.gender ?? "") as "" | "male" | "female" | "other",

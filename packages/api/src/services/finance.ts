@@ -15,10 +15,11 @@ import {
   buildOrderCode, orderCodePrefix, DEFAULT_ORDER_CODE_FORMAT,
   qrExpiresAt, qrExpired, qrState, DEFAULT_QR_TTL_HOURS, QR_REUSE_LABEL,
   applyDiscountPolicy, discountPolicyOf, DISCOUNT_POLICY_KIND, DISCOUNT_POLICY_VI, DEFAULT_MAX_LINE_DISCOUNT_PCT,
+  initialDiscountApproval, discountPercentOf, paymentBlockedBy, DISCOUNT_APPROVAL_VI, DEFAULT_DISCOUNT_APPROVAL_PCT,
   scopeFlagsToAllowFor, allowForToScopeFlags, clientSafeMessage,
   type OrderType, type OrderStatus, type PaymentStatus, type PaymentDecision, type RefundStatus, type PaymentMethodKind, type AgingBucket, type Discount, type Permission,
   type ClassFormat, type InstallmentKind, type LineDiscount, type DebtChip, type DebtAgeBucket,
-  type OrderCodeFormat, type DiscountPolicy, type PaymentScopeFlag,
+  type OrderCodeFormat, type DiscountPolicy, type PaymentScopeFlag, type DiscountApproval,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { getOps, opsForCenters } from "./opsSettings";
@@ -223,11 +224,22 @@ export async function upsertPaymentMethod(ctx: ProtectedContext, input: PaymentM
 /* Đơn hàng                                                            */
 /* ------------------------------------------------------------------ */
 
-export async function listOrders(ctx: ProtectedContext, input: { q?: string; centerId?: string; status?: OrderStatus; from?: string; to?: string; page?: number }) {
+/** Trần giảm + ngưỡng duyệt của một cơ sở — form tạo đơn đọc để cảnh báo TRƯỚC khi bấm tạo */
+export async function orderDiscountSettings(ctx: ProtectedContext, input: { centerId?: string | null }) {
+  requirePermission(ctx, "finance:read", { centerId: input.centerId ?? null });
+  const ops = await getOps(ctx.db, input.centerId ?? null);
+  return {
+    maxLineDiscountPercent: ops.maxLineDiscountPercent ?? DEFAULT_MAX_LINE_DISCOUNT_PCT,
+    discountApprovalPercent: ops.discountApprovalPercent ?? DEFAULT_DISCOUNT_APPROVAL_PCT,
+  };
+}
+
+export async function listOrders(ctx: ProtectedContext, input: { q?: string; centerId?: string; status?: OrderStatus; approval?: DiscountApproval; from?: string; to?: string; page?: number }) {
   requirePermission(ctx, "finance:read", { centerId: input.centerId ?? null });
   const conds: SQL[] = [scope(ctx, orders.centerId), tenantCond(ctx, orders)];
   if (input.centerId) conds.push(eq(orders.centerId, input.centerId));
   if (input.status) conds.push(eq(orders.status, input.status));
+  if (input.approval) conds.push(eq(orders.discountApproval, input.approval));
   if (input.from) conds.push(gte(orders.createdAt, new Date(`${input.from}T00:00:00+07:00`)));
   if (input.to) conds.push(lte(orders.createdAt, new Date(`${input.to}T23:59:59.999+07:00`)));
   if (input.q?.trim()) {
@@ -243,6 +255,7 @@ export async function listOrders(ctx: ProtectedContext, input: { q?: string; cen
     .select({
       id: orders.id, code: orders.code, type: orders.type, status: orders.status, total: orders.total, customerName: orders.customerName, customerPhone: orders.customerPhone,
       createdAt: orders.createdAt, centerCode: centers.code, methodName: paymentMethods.name, creatorName: users.fullName, studentName: students.fullName,
+      discountAmount: orders.discountAmount, discountApproval: orders.discountApproval,
       confirmed: confirmedSql, pending: pendingSql,
     })
     .from(orders).innerJoin(centers, eq(centers.id, orders.centerId)).leftJoin(paymentMethods, eq(paymentMethods.id, orders.paymentMethodId))
@@ -254,6 +267,8 @@ export async function listOrders(ctx: ProtectedContext, input: { q?: string; cen
     paid: sql<number>`count(*) filter (where ${orders.status} = 'paid')::int`,
     cancelled: sql<number>`count(*) filter (where ${orders.status} = 'cancelled')::int`,
     refunded: sql<number>`count(*) filter (where ${orders.status} = 'refunded')::int`,
+    // Hàng chờ duyệt giảm giá — hiện thành một chip lọc ngay đầu màn hình
+    awaitingDiscount: sql<number>`count(*) filter (where ${orders.discountApproval} = 'pending')::int`,
   }).from(orders).where(scope(ctx, orders.centerId));
   const full = hasRole(ctx.actor, "SUPER_ADMIN", "CENTER_MANAGER", "CENTER_SALES_CSM", "CENTER_ACCOUNTANT", "HO_ACCOUNTANT");
   const ids = rows.map((r) => r.id);
@@ -461,6 +476,10 @@ export async function createOrder(ctx: ProtectedContext, input: CreateOrderInput
     : 0;
   const total = priced.total - orderDiscount;
   const discountAmount = priced.discountAmount + orderDiscount;
+  // Giảm từ ngưỡng cấu hình trở lên: đơn vẫn tạo được (sale chốt khách ngay), nhưng vào hàng chờ duyệt
+  // và không thu được tiền cho tới khi người có finance:approve duyệt.
+  const approvalPct = ops.discountApprovalPercent ?? DEFAULT_DISCOUNT_APPROVAL_PCT;
+  const discountApproval = initialDiscountApproval({ gross: priced.total, discountAmount, thresholdPct: approvalPct });
   const method = await ctx.db.query.paymentMethods.findFirst({ where: eq(paymentMethods.id, input.paymentMethodId) });
   if (!method || !method.isActive) throw bad("Phương thức thanh toán không hợp lệ");
   if (method.centerId && method.centerId !== input.centerId) throw bad("Phương thức thanh toán thuộc cơ sở khác");
@@ -502,7 +521,7 @@ export async function createOrder(ctx: ProtectedContext, input: CreateOrderInput
       code, type: input.type, status: total === 0 ? "paid" : "pending_payment", centerId: input.centerId, parentId: input.parentId ?? lead?.convertedParentId ?? null, studentId, enrollmentId: legacyEnrollmentId, leadId: lead?.id ?? null,
       customerName: input.customer.name.trim(), customerPhone: phone, customerEmail: input.customer.email?.trim() || null,
       subtotal: priced.subtotal, discountType: input.discount?.value ? input.discount.type : null, discountValue: input.discount?.value ? Math.round(input.discount.value) : null,
-      discountAmount, total, paymentMethodId: method.id,
+      discountAmount, discountApproval, total, paymentMethodId: method.id,
       customerNote: input.customerNote?.trim() || null, internalNote: input.internalNote?.trim() || null, remindDays: input.remindDays ?? ops.orderRemindDays, createdBy: ctx.user.id,
     }).returning();
     const priv = input.customer;
@@ -536,10 +555,21 @@ export async function createOrder(ctx: ProtectedContext, input: CreateOrderInput
       })));
     }
     await tx.insert(orderEvents).values({ orderId: o!.id, event: "create", toStatus: o!.status, note: discountAmount ? `Giảm ${formatVnd(discountAmount)}` : null, actorId: ctx.user.id });
+    if (discountApproval === "pending") {
+      const pct = discountPercentOf(priced.total, discountAmount);
+      await tx.insert(orderEvents).values({ orderId: o!.id, event: "discount_approval_requested", note: `Giảm ${pct}% (ngưỡng duyệt ${approvalPct}%) — chờ duyệt`, actorId: ctx.user.id });
+      await notify(
+        tx as unknown as Db,
+        await managersOf(tx as unknown as Db, input.centerId),
+        "Đơn chờ duyệt giảm giá",
+        `${code} · giảm ${pct}% (${formatVnd(discountAmount)}) · ${input.customer.name || lead?.parentName || ""}`.trim(),
+        `/orders/${o!.id}`, 1, "order.discount_approval",
+      );
+    }
     await tx.insert(financeLedger).values({ orderId: o!.id, centerId: input.centerId, entryType: "charge", amount: total, refId: o!.id, note: `Tạo đơn ${code}`, actorId: ctx.user.id });
     await writeAudit(tx, { actorId: ctx.user.id, action: "CREATE", module: "finance", entity: "orders", entityId: o!.id, after: { code, total, discount: discountAmount, enrollmentId: legacyEnrollmentId, leadId: lead?.id ?? null, installments: planErrs.length ? 0 : plan.length, lines: input.items.length }, ip: ctx.ip });
     if (lead) await tx.update(leads).set({ lastTouchAt: new Date() }).where(eq(leads.id, lead.id));
-    return { id: o!.id, code, leadId: lead?.id ?? null, total, planError: planErrs.length ? planErrs.join("; ") : null };
+    return { id: o!.id, code, leadId: lead?.id ?? null, total, discountApproval, planError: planErrs.length ? planErrs.join("; ") : null };
   });
 }
 
@@ -760,8 +790,20 @@ export async function getOrder(ctx: ProtectedContext, id: string) {
     ? { url: vietQrImageUrl({ bankBin: method.bankBin, accountNo: method.accountNo, accountName: method.accountName, amount: installments.find((i) => i.remaining > 0)?.remaining ?? bal.outstanding, memo }), bankName: method.bankName, accountNo: method.accountNo, accountName: method.accountName, memo }
     : null;
   const canConfirm = can(ctx, "finance:confirm", o.centerId);
+  const opsOrder = await getOps(ctx.db, o.centerId);
+  const approver = o.discountApprovalBy ? await ctx.db.query.users.findFirst({ where: eq(users.id, o.discountApprovalBy), columns: { fullName: true } }) : null;
   return {
     ...o,
+    discount: {
+      percent: discountPercentOf(o.subtotal, o.discountAmount),
+      thresholdPct: opsOrder.discountApprovalPercent ?? DEFAULT_DISCOUNT_APPROVAL_PCT,
+      approvalLabel: DISCOUNT_APPROVAL_VI[o.discountApproval],
+      approverName: approver?.fullName ?? null,
+      /** Vì sao chưa thu được tiền (null = thu bình thường) */
+      paymentBlocked: paymentBlockedBy(o.discountApproval),
+      /** Người này bấm duyệt được không: có quyền duyệt và KHÔNG phải người tạo đơn */
+      canDecide: o.discountApproval === "pending" && can(ctx, "finance:approve", o.centerId) && o.createdBy !== ctx.user.id,
+    },
     center, method: method ? { id: method.id, name: method.name, kind: method.kind } : null,
     customerPrivate: priv ? { idNumber: maskIdNumber(priv.idNumber), address: priv.address ? `${priv.address.slice(0, 4)}…` : null, province: priv.province, ward: priv.ward, hasIdNumber: !!priv.idNumber } : null,
     items: items.map((x) => ({ ...x.i, courseCode: x.courseCode, studentName: x.studentName, discounts: itemDiscounts.filter((d) => d.orderItemId === x.i.id) })),
@@ -939,6 +981,40 @@ export async function markQrUsed(tx: Db, orderId: string, amount: number, paymen
   return 1;
 }
 
+/**
+ * Duyệt / từ chối mức giảm giá của một đơn. Đây là chốt chặn tiền: chừng nào chưa duyệt thì
+ * `recordPayment` từ chối, nên người tạo đơn không thể tự mình hoàn tất một đơn giảm sâu.
+ * Người duyệt phải khác người tạo đơn — tự duyệt đơn của chính mình thì cái chốt vô nghĩa.
+ */
+export async function decideDiscountApproval(ctx: ProtectedContext, input: { orderId: string; decision: "approve" | "reject"; note?: string | null }) {
+  const o = await loadOrder(ctx, input.orderId, "finance:approve");
+  if (o.discountApproval !== "pending") throw pre(`Đơn không ở trạng thái chờ duyệt (${DISCOUNT_APPROVAL_VI[o.discountApproval]})`);
+  if (o.createdBy && o.createdBy === ctx.user.id) throw new TRPCError({ code: "FORBIDDEN", message: "Không tự duyệt giảm giá cho đơn mình tạo — nhờ người khác có quyền duyệt tài chính" });
+  const note = (input.note ?? "").trim();
+  if (input.decision === "reject" && note.length < 3) throw bad("Từ chối phải ghi lý do (tối thiểu 3 ký tự)");
+  const next: DiscountApproval = input.decision === "approve" ? "approved" : "rejected";
+  const pct = discountPercentOf(o.subtotal, o.discountAmount);
+  await ctx.db.transaction(async (txx) => {
+    const tx = txx as unknown as Db;
+    await tx.update(orders)
+      .set({ discountApproval: next, discountApprovalBy: ctx.user.id, discountApprovalAt: new Date(), discountApprovalNote: note || null })
+      .where(and(eq(orders.id, o.id), eq(orders.discountApproval, "pending")));
+    await tx.insert(orderEvents).values({
+      orderId: o.id, event: input.decision === "approve" ? "discount_approved" : "discount_rejected",
+      note: `${DISCOUNT_APPROVAL_VI[next]} · giảm ${pct}% (${formatVnd(o.discountAmount)})${note ? ` · ${note}` : ""}`,
+      actorId: ctx.user.id,
+    });
+    await notify(tx, [o.createdBy], input.decision === "approve" ? "Giảm giá đã được duyệt" : "Giảm giá bị từ chối",
+      `${o.code} · giảm ${pct}%${note ? ` · ${note}` : ""}`, `/orders/${o.id}`, input.decision === "approve" ? 2 : 1, `order.discount_${next}`);
+    await writeAudit(tx, {
+      actorId: ctx.user.id, action: "TRANSITION", module: "finance", entity: "orders", entityId: o.id,
+      before: { discountApproval: o.discountApproval }, after: { discountApproval: next, percent: pct, discountAmount: o.discountAmount },
+      reason: note || null, ip: ctx.ip,
+    });
+  });
+  return { ok: true, discountApproval: next };
+}
+
 export async function cancelOrder(ctx: ProtectedContext, input: { id: string; reason: string }) {
   const o = await loadOrder(ctx, input.id);
   if (!can(ctx, "finance:approve", o.centerId) && !can(ctx, "finance:confirm", o.centerId)) throw new TRPCError({ code: "FORBIDDEN", message: "Chỉ quản lý cơ sở hoặc kế toán được huỷ đơn" });
@@ -1002,6 +1078,8 @@ async function checkPaymentTarget(db: Db, orderId: string, input: { enrollmentId
 export async function recordPayment(ctx: ProtectedContext, input: { orderId: string; amount: number; paymentMethodId: string; paidAt: string; payerName?: string | null; note?: string | null; enrollmentId?: string | null; orderItemId?: string | null; evidenceUrl?: string | null }) {
   const o = await loadOrder(ctx, input.orderId, "finance:create");
   if (o.status === "cancelled" || o.status === "refunded") throw pre("Đơn đã đóng — không ghi nhận thu");
+  const chanDuyet = paymentBlockedBy(o.discountApproval);
+  if (chanDuyet) throw pre(chanDuyet);
   const amount = Math.round(input.amount);
   if (amount <= 0) throw bad("Số tiền phải > 0");
   const today = todayISO();

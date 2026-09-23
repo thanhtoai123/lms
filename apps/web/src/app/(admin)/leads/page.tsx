@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getServerCaller } from "@/lib/trpc/server";
-import { LEAD_STATUSES, LEAD_STATUS_VI, OPEN_LEAD_STATUSES, LEAD_SHARE_LABEL, type LeadStatus } from "@satarobo/core";
+import { hasPermission, type Actor, LEAD_STATUSES, LEAD_STATUS_VI, OPEN_LEAD_STATUSES, LEAD_SHARE_LABEL, type LeadStatus } from "@satarobo/core";
 import { Pager, fmtDate } from "@/components/admin-ui";
 import { CsvButton } from "@/components/csv-button";
 import { ColumnChooser, type ColumnDef } from "@/components/column-chooser";
@@ -40,7 +40,9 @@ export default async function LeadsInbox({ searchParams }: { searchParams: Promi
   const dateOr = (v?: string) => (v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : undefined);
   const owner = sp.owner === "none" ? "none" : uuidOr(sp.owner);
   const size = [20, 50, 100].includes(Number(sp.size)) ? Number(sp.size) : 50;
-  const { caller } = await getServerCaller();
+  const { caller, ctx } = await getServerCaller();
+  // Xuất danh sách khách kèm liên hệ ra tệp cần quyền riêng (lead:export)
+  const canExport = !!ctx.actor && hasPermission(ctx.actor as Actor, "lead:export");
   const kanban = sp.view === "kanban";
   const filters = { scope, status, allStatuses, q: sp.q || undefined, centerId: uuidOr(sp.center), assignedToId: owner, source: sp.source || undefined, from: dateOr(sp.from), to: dateOr(sp.to) } as const;
   const [{ items, summary, total, page, pageSize, facets }, ref] = await Promise.all([
@@ -117,13 +119,13 @@ export default async function LeadsInbox({ searchParams }: { searchParams: Promi
           {!kanban && (
             <span className="ml-auto flex flex-wrap items-center gap-2">
               <ColumnChooser tableKey="leads" columns={LEAD_COLUMNS} />
-              <ExportAllButton kind="leads" filename="leads-theo-bo-loc" filters={filters} />
-              <CsvButton
+              {canExport && <ExportAllButton kind="leads" filename="leads-theo-bo-loc" filters={filters} />}
+              {canExport && <CsvButton
                 filename={`leads-trang-${page}`}
                 label="Xuất CSV (trang này)"
                 headers={["Ngày nhận", "Phụ huynh", "Con", "Lớp", "SĐT", "Quan tâm", "Cơ sở", "Trạng thái", "Nguồn", "Phụ trách", "Chạm cuối"]}
                 rows={items.map((l) => [fmtDate(l.createdAt), l.parentName, l.childName, l.childGrade, l.phone, l.courseCode, l.centerCode, LEAD_STATUS_VI[l.status], l.source, l.assigneeName, fmtDateTime(l.lastTouchAt)])}
-              />
+              />}
             </span>
           )}
         </div>
