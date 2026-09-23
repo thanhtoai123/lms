@@ -24,7 +24,7 @@ import {
   evalForms, evalQuestions, evalRounds, evalResponses, evalAnswers,
   emailLogs, otpRequests, userGroups, userGroupMembers, userGroupPermissions, notificationTypes, orgUnits, legalEntities, webhookEvents, appSettings, revenueTargets,
   inventoryItems, kitComponents, stockLevels, stockMovements, stockCounters, rentals, rewardItems, coinRules, coinTransactions, redemptions,
-  documents, documentVersions, assignmentTemplates, assignments, submissions, lessonProposals,
+  documents, documentVersions, documentUploadJobs, assignmentTemplates, assignments, submissions, lessonProposals,
   posts, siteBlocks, campaigns, campaignSpends, trackEvents, consentRecords, dataRequests, dataRequestEvents,
   jobPostings, candidates, candidateEvents, conversations, messages, affiliates,
 } from "./schema/index";
@@ -927,17 +927,16 @@ async function main() {
   ]);
   const planKey = `docs/${plan1!.id}/v1/buoi-${lp.sequenceNo}-v1.pdf`;
   writeSeedFile(planKey, planPdf);
-  await db.insert(documentVersions).values([
-    {
-      documentId: plan1!.id, version: 1, objectKey: planKey, fileName: `buoi-${lp.sequenceNo}-v1.pdf`, mimeType: "application/pdf",
-      sizeBytes: planPdf.length, sha256: createHash("sha256").update(planPdf).digest("hex"), uploadedBy: dtU!.id, status: "ready", processedAt: new Date(),
-    },
-    {
-      documentId: plan1!.id, version: 2, objectKey: `docs/${plan1!.id}/v2/buoi-${lp.sequenceNo}-v2.zip`, fileName: `buoi-${lp.sequenceNo}-v2.zip`,
-      mimeType: "application/zip", sizeBytes: 12_582_912, sha256: "0".repeat(64), uploadedBy: dtU!.id, status: "failed",
-      errorText: "Không phải gói SCORM: thiếu imsmanifest.xml", processedAt: new Date(Date.now() - 3600e3), createdAt: new Date(Date.now() - 3600e3),
-    },
-  ]);
+  await db.insert(documentVersions).values({
+    documentId: plan1!.id, version: 1, objectKey: planKey, fileName: `buoi-${lp.sequenceNo}-v1.pdf`, mimeType: "application/pdf",
+    sizeBytes: planPdf.length, sha256: createHash("sha256").update(planPdf).digest("hex"), uploadedBy: dtU!.id,
+  });
+  // Một lần đẩy hỏng (mẫu) để thấy khung cảnh báo + nút "Dọn bản lỗi" trên /scorm
+  await db.insert(documentUploadJobs).values({
+    documentId: plan1!.id, version: 2, fileName: `buoi-${lp.sequenceNo}-v2.zip`, sizeBytes: 12_582_912, status: "failed",
+    errorText: "Không phải gói SCORM: thiếu imsmanifest.xml", startedBy: dtU!.id,
+    createdAt: new Date(Date.now() - 3600e3), processedAt: new Date(Date.now() - 3600e3),
+  });
 
   const [tpl1] = await db.insert(assignmentTemplates).values({ courseId: sata4!.id, lessonId: lessonRows[0]!.id, title: "Lắp xe robot cơ bản", instructions: "Con lắp xe theo hình hướng dẫn trang 3 và chụp ảnh xe đã lắp xong gửi thầy cô.", submissionType: "file", maxScore: 10, createdBy: dtU!.id }).returning();
   const hwActive = enrollA.filter((e, i) => i !== 9);

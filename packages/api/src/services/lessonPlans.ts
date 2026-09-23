@@ -15,7 +15,7 @@
 import { createHash } from "node:crypto";
 import { and, asc, desc, eq, inArray, ne, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
-import { documents, documentVersions, documentAccessLogs, courses, curricula, lessons, users } from "@satarobo/db";
+import { documents, documentVersions, documentUploadJobs, documentAccessLogs, courses, curricula, lessons, users } from "@satarobo/db";
 import {
   parseScormManifest, normalizeZipPath, planFileKind, validatePlanFile, planVersionState, planCoverage, humanSize,
   SCORM_MAX_FILES, PLAN_STUCK_MINUTES, PLAN_FILE_KIND_VI, type PlanFileKind,
@@ -137,9 +137,13 @@ export async function getPlan(ctx: ProtectedContext, input: { lessonId: string }
   const vs = await ctx.db.select({ v: documentVersions, byName: users.fullName })
     .from(documentVersions).leftJoin(users, eq(users.id, documentVersions.uploadedBy))
     .where(eq(documentVersions.documentId, doc.id)).orderBy(desc(documentVersions.version));
+  // Lần tải đang xử lý / hỏng nằm ở bảng riêng (document_versions là append-only): xem schema/content.ts
+  const jobs = await ctx.db.select().from(documentUploadJobs)
+    .where(and(eq(documentUploadJobs.documentId, doc.id), ne(documentUploadJobs.status, "ready")))
+    .orderBy(desc(documentUploadJobs.createdAt));
   const now = new Date();
   const kind: PlanFileKind = doc.kind === "scorm" ? "scorm" : "pdf";
-  const cur = vs.find((x) => x.v.version === doc.currentVersion && x.v.status === "ready");
+  const cur = vs.find((x) => x.v.version === doc.currentVersion);
   const plan = cur
     ? {
       documentId: doc.id,
@@ -160,13 +164,12 @@ export async function getPlan(ctx: ProtectedContext, input: { lessonId: string }
     : null;
 
   // Bản hỏng / kẹt: hiện một dòng cảnh báo kèm nút dọn (đúng như bản gốc)
-  const problems = vs
-    .filter((x) => x.v.status !== "ready")
-    .map((x) => ({ version: x.v.version, fileName: x.v.fileName, ...planVersionState({ status: x.v.status, createdAt: x.v.createdAt, errorText: x.v.errorText }, now) }))
+  const problems = jobs
+    .map((j) => ({ version: j.version, fileName: j.fileName, ...planVersionState({ status: j.status, createdAt: j.createdAt, errorText: j.errorText }, now) }))
     .filter((p) => p.state !== "ready");
 
   // Bản liền trước còn giữ để dùng lại một chạm
-  const prev = vs.find((x) => x.v.status === "ready" && x.v.version < (doc.currentVersion ?? 0));
+  const prev = vs.find((x) => x.v.version < (doc.currentVersion ?? 0));
   return {
     lesson,
     plan,
@@ -249,21 +252,24 @@ export async function uploadPlan(ctx: ProtectedContext, input: { lessonId: strin
   }
 
   const sha = createHash("sha256").update(input.bytes).digest("hex");
-  const [lastRow] = await ctx.db.select({ v: sql<number>`coalesce(max(${documentVersions.version}), 0)::int` })
-    .from(documentVersions).where(eq(documentVersions.documentId, doc.id));
+  // Số phiên bản kế tiếp tính cả các lần tải đang dở, để hai người đẩy cùng lúc không trùng số
+  const [lastRow] = await ctx.db.select({ v: sql<number>`coalesce(max(v), 0)::int` }).from(
+    sql`(select max(version) as v from ${documentVersions} where document_id = ${doc.id}
+         union all select max(version) as v from ${documentUploadJobs} where document_id = ${doc.id}) t`.as("t"),
+  );
   const version = (lastRow?.v ?? 0) + 1;
   const name = `buoi-${lesson.sequenceNo}-v${version}.${kind === "scorm" ? "zip" : "pdf"}`;
   const key = `docs/${doc.id}/v${version}/${name}`;
 
-  await ctx.db.insert(documentVersions).values({
-    documentId: doc.id, version, objectKey: key, fileName: name,
-    mimeType: kind === "scorm" ? "application/zip" : "application/pdf",
-    sizeBytes: input.bytes.byteLength, sha256: sha, uploadedBy: ctx.user.id, status: "processing",
-  });
+  // Ghi "đang xử lý" TRƯỚC khi giải nén: tiến trình chết giữa chừng thì lần mở trang sau vẫn thấy
+  // bản kẹt và dọn được, thay vì rác tệp không ai biết.
+  const [job] = await ctx.db.insert(documentUploadJobs).values({
+    documentId: doc.id, version, fileName: name, sizeBytes: input.bytes.byteLength, status: "processing", startedBy: ctx.user.id,
+  }).returning({ id: documentUploadJobs.id });
 
   const fail = async (message: string) => {
-    await ctx.db.update(documentVersions).set({ status: "failed", errorText: message.slice(0, 500), processedAt: new Date() })
-      .where(and(eq(documentVersions.documentId, doc!.id), eq(documentVersions.version, version)));
+    await ctx.db.update(documentUploadJobs).set({ status: "failed", errorText: message.slice(0, 500), processedAt: new Date() })
+      .where(eq(documentUploadJobs.id, job!.id));
     await dropVersionFiles(doc!.id, version, key);
   };
 
@@ -278,24 +284,34 @@ export async function uploadPlan(ctx: ProtectedContext, input: { lessonId: strin
   }
 
   const previousVersion = doc.currentVersion;
-  await ctx.db.transaction(async (tx) => {
-    await tx.update(documentVersions)
-      .set({ status: "ready", processedAt: new Date(), scormVersion: scorm?.version ?? null, launchPath: scorm?.launch ?? null, fileCount: scorm?.files ?? null })
-      .where(and(eq(documentVersions.documentId, doc!.id), eq(documentVersions.version, version)));
-    await tx.update(documents).set({ currentVersion: version, status: "published", updatedBy: ctx.user.id }).where(eq(documents.id, doc!.id));
-    await writeAudit(tx as never, {
-      actorId: ctx.user.id, action: "CREATE", module: "content", entity: "document_versions", entityId: doc!.id,
-      after: { lessonId: lesson.id, version, kind, size: input.bytes.byteLength, scorm }, ip: ctx.ip,
+  try {
+    await ctx.db.transaction(async (tx) => {
+      // Hàng ở document_versions = "tệp đã sẵn sàng" (bảng chỉ được thêm, không sửa)
+      await tx.insert(documentVersions).values({
+        documentId: doc!.id, version, objectKey: key, fileName: name,
+        mimeType: kind === "scorm" ? "application/zip" : "application/pdf",
+        sizeBytes: input.bytes.byteLength, sha256: sha, uploadedBy: ctx.user.id,
+        scormVersion: scorm?.version ?? null, launchPath: scorm?.launch ?? null, fileCount: scorm?.files ?? null,
+      });
+      await tx.update(documents).set({ currentVersion: version, status: "published", updatedBy: ctx.user.id }).where(eq(documents.id, doc!.id));
+      await tx.delete(documentUploadJobs).where(eq(documentUploadJobs.id, job!.id));
+      await writeAudit(tx as never, {
+        actorId: ctx.user.id, action: "CREATE", module: "content", entity: "document_versions", entityId: doc!.id,
+        after: { lessonId: lesson.id, version, kind, size: input.bytes.byteLength, scorm }, ip: ctx.ip,
+      });
     });
-  });
+  } catch (e) {
+    await fail(`Không ghi được vào cơ sở dữ liệu: ${(e as Error).message}`);
+    throw e;
+  }
 
   // Thay xong mới dọn: giữ bản liền trước để dùng lại, xoá các bản cũ hơn cho đỡ tốn ổ đĩa
   const stale = await ctx.db.select({ version: documentVersions.version, objectKey: documentVersions.objectKey })
     .from(documentVersions)
     .where(and(eq(documentVersions.documentId, doc.id), sql`${documentVersions.version} < ${previousVersion}`));
-  for (const s of stale) {
-    await dropVersionFiles(doc.id, s.version, s.objectKey);
-    await ctx.db.delete(documentVersions).where(and(eq(documentVersions.documentId, doc.id), eq(documentVersions.version, s.version)));
+  for (const st of stale) {
+    await dropVersionFiles(doc.id, st.version, st.objectKey);
+    await ctx.db.delete(documentVersions).where(and(eq(documentVersions.documentId, doc.id), eq(documentVersions.version, st.version)));
   }
   return { documentId: doc.id, version, kind, scorm };
 }
@@ -310,17 +326,16 @@ export async function cleanFailedPlan(ctx: ProtectedContext, input: { lessonId: 
   const doc = await planDoc(ctx, input.lessonId);
   if (!doc) throw notFound("Buổi này chưa có giáo án");
   const stuckBefore = new Date(Date.now() - PLAN_STUCK_MINUTES * 60_000);
-  const rows = await ctx.db.select().from(documentVersions).where(and(
-    eq(documentVersions.documentId, doc.id),
-    ne(documentVersions.version, doc.currentVersion),
-    sql`(${documentVersions.status} = 'failed' or (${documentVersions.status} = 'processing' and ${documentVersions.createdAt} <= ${stuckBefore}))`,
+  const rows = await ctx.db.select().from(documentUploadJobs).where(and(
+    eq(documentUploadJobs.documentId, doc.id),
+    sql`(${documentUploadJobs.status} = 'failed' or (${documentUploadJobs.status} = 'processing' and ${documentUploadJobs.createdAt} <= ${stuckBefore}))`,
   ));
   for (const r of rows) {
-    await dropVersionFiles(doc.id, r.version, r.objectKey);
-    await ctx.db.delete(documentVersions).where(and(eq(documentVersions.documentId, doc.id), eq(documentVersions.version, r.version)));
+    await dropVersionFiles(doc.id, r.version, `docs/${doc.id}/v${r.version}/${r.fileName}`);
+    await ctx.db.delete(documentUploadJobs).where(eq(documentUploadJobs.id, r.id));
   }
   if (rows.length) {
-    await writeAudit(ctx.db, { actorId: ctx.user.id, action: "DELETE", module: "content", entity: "document_versions", entityId: doc.id, before: { versions: rows.map((r) => r.version) }, ip: ctx.ip });
+    await writeAudit(ctx.db, { actorId: ctx.user.id, action: "DELETE", module: "content", entity: "document_upload_jobs", entityId: doc.id, before: { versions: rows.map((r) => r.version) }, ip: ctx.ip });
   }
   return { removed: rows.length };
 }
@@ -333,6 +348,7 @@ export async function removePlan(ctx: ProtectedContext, input: { lessonId: strin
   const vs = await ctx.db.select().from(documentVersions).where(eq(documentVersions.documentId, doc.id));
   for (const v of vs) await dropVersionFiles(doc.id, v.version, v.objectKey);
   await ctx.db.delete(documentVersions).where(eq(documentVersions.documentId, doc.id));
+  await ctx.db.delete(documentUploadJobs).where(eq(documentUploadJobs.documentId, doc.id));
   await ctx.db.update(documents).set({ status: "archived", currentVersion: 0, updatedBy: ctx.user.id }).where(eq(documents.id, doc.id));
   await writeAudit(ctx.db, { actorId: ctx.user.id, action: "DELETE", module: "content", entity: "documents", entityId: doc.id, before: { lessonId: input.lessonId, versions: vs.length }, ip: ctx.ip });
   return { ok: true };
@@ -345,7 +361,6 @@ export async function restorePlanVersion(ctx: ProtectedContext, input: { lessonI
   if (!doc) throw notFound("Buổi này chưa có giáo án");
   const v = await ctx.db.query.documentVersions.findFirst({ where: and(eq(documentVersions.documentId, doc.id), eq(documentVersions.version, input.version)) });
   if (!v) throw notFound("Không tìm thấy phiên bản");
-  if (v.status !== "ready") throw pre("Bản này chưa xử lý xong hoặc bị lỗi");
   await ctx.db.update(documents).set({ currentVersion: v.version, updatedBy: ctx.user.id }).where(eq(documents.id, doc.id));
   await writeAudit(ctx.db, { actorId: ctx.user.id, action: "UPDATE", module: "content", entity: "documents", entityId: doc.id, before: { currentVersion: doc.currentVersion }, after: { currentVersion: v.version }, ip: ctx.ip });
   return { version: v.version };
@@ -374,10 +389,10 @@ export async function openPlan(ctx: ProtectedContext, input: { lessonId: string 
  */
 export async function sweepStuckPlanVersions(db: ProtectedContext["db"], now: Date = new Date()) {
   const cutoff = new Date(now.getTime() - PLAN_STUCK_MINUTES * 60_000);
-  const rows = await db.update(documentVersions)
+  const rows = await db.update(documentUploadJobs)
     .set({ status: "failed", errorText: `Kẹt xử lý quá ${PLAN_STUCK_MINUTES} phút — máy chủ dừng giữa chừng. Dọn bản này rồi đẩy lại tệp.`, processedAt: now })
-    .where(and(eq(documentVersions.status, "processing"), sql`${documentVersions.createdAt} <= ${cutoff}`))
-    .returning({ id: documentVersions.id });
+    .where(and(eq(documentUploadJobs.status, "processing"), sql`${documentUploadJobs.createdAt} <= ${cutoff}`))
+    .returning({ id: documentUploadJobs.id });
   return rows.length;
 }
 
@@ -387,17 +402,17 @@ export async function plansNeedingAttention(ctx: ProtectedContext, input: { cour
   if (mine !== null && !mine.length) return [];
   const rows = await ctx.db.select({
     lessonId: documents.lessonId, sequenceNo: lessons.sequenceNo, lessonTitle: lessons.title,
-    courseCode: courses.code, version: documentVersions.version, status: documentVersions.status,
-    createdAt: documentVersions.createdAt, errorText: documentVersions.errorText,
+    courseCode: courses.code, version: documentUploadJobs.version, status: documentUploadJobs.status,
+    createdAt: documentUploadJobs.createdAt, errorText: documentUploadJobs.errorText,
   })
-    .from(documentVersions)
-    .innerJoin(documents, eq(documents.id, documentVersions.documentId))
+    .from(documentUploadJobs)
+    .innerJoin(documents, eq(documents.id, documentUploadJobs.documentId))
     .innerJoin(lessons, eq(lessons.id, documents.lessonId))
     .innerJoin(courses, eq(courses.id, documents.courseId))
     .where(and(
       eq(documents.category, PLAN_CATEGORY),
       ne(documents.status, "archived"),
-      inArray(documentVersions.status, ["failed", "processing"]),
+      ne(documentUploadJobs.status, "ready"),
       input.courseId ? eq(documents.courseId, input.courseId) : sql`true`,
       mine === null ? sql`true` : inArray(documents.courseId, mine),
     ))

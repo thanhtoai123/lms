@@ -55,17 +55,29 @@ export const documentVersions = pgTable("document_versions", {
   scormVersion: text("scorm_version"),
   launchPath: text("launch_path"),
   fileCount: integer("file_count"),
-  /**
-   * Vòng đời một bản tải lên: processing (đang giải nén / ghi tệp) → ready, hoặc failed.
-   * Có trạng thái thì bản chết giữa chừng không "biến mất" âm thầm: màn hình giáo án hiện
-   * "kẹt xử lý" kèm nút dọn (xem core/content/lessonPlan.ts).
-   */
-  status: docVersionStatusEnum("status").notNull().default("ready"),
-  errorText: text("error_text"),
-  processedAt: timestamp("processed_at", { withTimezone: true }),
   uploadedBy: uuid("uploaded_by").references(() => users.id),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [uniqueIndex("document_versions_uq").on(t.documentId, t.version)]);
+
+/**
+ * MỘT LẦN TẢI TỆP LÊN (đang xử lý / hỏng). Vì sao tách khỏi `document_versions`:
+ * bảng phiên bản là APPEND-ONLY (trigger `document_versions_no_update`) — có một hàng ở đó nghĩa là
+ * "tệp đã sẵn sàng". Lần tải đang giải nén, hoặc hỏng giữa chừng, ghi ở đây rồi xoá khi dọn, nên
+ * kho phiên bản không bao giờ lẫn bản nửa vời.
+ */
+export const documentUploadJobs = pgTable("document_upload_jobs", {
+  id: id(),
+  documentId: uuid("document_id").notNull().references(() => documents.id, { onDelete: "cascade" }),
+  /** Số phiên bản sẽ nhận nếu xử lý xong */
+  version: integer("version").notNull(),
+  fileName: text("file_name").notNull(),
+  sizeBytes: bigint("size_bytes", { mode: "number" }).notNull(),
+  status: docVersionStatusEnum("status").notNull().default("processing"),
+  errorText: text("error_text"),
+  startedBy: uuid("started_by").references(() => users.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  processedAt: timestamp("processed_at", { withTimezone: true }),
+}, (t) => [index("doc_upload_jobs_idx").on(t.documentId, t.status)]);
 
 /** Nhật ký mở / tải tài liệu */
 export const documentAccessLogs = pgTable("document_access_logs", {
