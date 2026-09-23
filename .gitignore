@@ -18,4 +18,5 @@ backups/
 .claude/
 # Báo cáo sinh ra mỗi lần chạy scripts/kiem-thu/kich-ban-toan-dien.ps1
 scripts/kiem-thu/bao-cao-kiem-thu.md
+scripts/kiem-thu/bao-cao-kiem-tra-menu.md
 logs/
