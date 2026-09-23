@@ -113,9 +113,17 @@ function Fetch([string]$path, [string]$who) {
 function BatLaiMayChu() {
   $goc = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
   # Phải DỪNG hẳn tiến trình cũ trước: khoi-dong thấy máy chủ còn trả lời thì bỏ qua, không bật lại,
-  # và bộ nhớ vẫn phình như cũ.
+  # và bộ nhớ vẫn phình như cũ. Dừng theo CHỦ SỞ HỮU CỔNG 3000 rồi mới tới mọi node.exe — chỉ giết
+  # node.exe thôi có lần vẫn còn tiến trình giữ cổng, và Next báo "Another next dev server is already running".
+  foreach ($pid2 in @(Get-NetTCPConnection -LocalPort 3000 -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique)) {
+    & taskkill.exe /PID $pid2 /T /F 2>&1 | Out-Null
+  }
   Get-CimInstance Win32_Process -Filter "Name='node.exe'" -ErrorAction SilentlyContinue | ForEach-Object { & taskkill.exe /PID $_.ProcessId /T /F 2>&1 | Out-Null }
-  Start-Sleep -Seconds 3
+  # Chờ cổng thực sự nhả ra (tối đa 30 giây) rồi mới bật lại
+  for ($k = 0; $k -lt 15; $k++) {
+    if (-not (Get-NetTCPConnection -LocalPort 3000 -State Listen -ErrorAction SilentlyContinue)) { break }
+    Start-Sleep -Seconds 2
+  }
   & powershell -ExecutionPolicy Bypass -File (Join-Path $goc "scripts\khoi-dong.ps1") -KhongMoTrinhDuyet *> $null
   for ($i = 0; $i -lt 24; $i++) {
     Start-Sleep -Seconds 5
