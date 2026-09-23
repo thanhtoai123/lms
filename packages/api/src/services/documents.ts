@@ -49,6 +49,17 @@ async function teacherCourseIds(db: Db, teacherId: string | null | undefined): P
   const b = await db.select({ c: classes.courseId }).from(classes).where(sql`(${classes.leadTeacherId} = ${teacherId} or ${classes.assistantTeacherId} = ${teacherId})`);
   return [...new Set([...a, ...b].map((x) => x.c))];
 }
+/**
+ * Khoá học mà actor được đọc học liệu: null = toàn bộ (Đào tạo, quản lý, giáo vụ…),
+ * mảng = chỉ khoá mình dạy (giáo viên chỉ có `document:read_own`).
+ * Dùng chung cho kho tài liệu và trang giáo án buổi học (services/lessonPlans.ts).
+ */
+export async function readableCourseIds(ctx: ProtectedContext): Promise<string[] | null> {
+  if (readsAll(ctx)) return null;
+  if (!hasPermission(ctx.actor, "document:read")) throw forbid("Không có quyền xem tài liệu");
+  return teacherCourseIds(ctx.db, ctx.actor.personId);
+}
+
 async function docReadScope(ctx: ProtectedContext): Promise<SQL> {
   if (readsAll(ctx)) return sql`true`;
   if (!hasPermission(ctx.actor, "document:read")) throw forbid("Không có quyền xem tài liệu");

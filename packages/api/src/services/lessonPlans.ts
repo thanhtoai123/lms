@@ -22,6 +22,7 @@ import {
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { tenantCond } from "./tenantScope";
+import { readableCourseIds } from "./documents";
 import { writeAudit } from "./audit";
 import { putObject, deleteObject, deletePrefix, signedFileUrl } from "../storage";
 import { listZip, readZipEntry } from "../zip";
@@ -29,6 +30,7 @@ import { listZip, readZipEntry } from "../zip";
 const bad = (m: string) => new TRPCError({ code: "BAD_REQUEST", message: m });
 const pre = (m: string) => new TRPCError({ code: "PRECONDITION_FAILED", message: m });
 const notFound = (m: string) => new TRPCError({ code: "NOT_FOUND", message: m });
+const forbid = (m: string) => new TRPCError({ code: "FORBIDDEN", message: m });
 
 /** Giáo án buổi học là tài liệu có nhóm này */
 const PLAN_CATEGORY = "lesson_plan" as const;
@@ -46,12 +48,25 @@ function canEdit(ctx: ProtectedContext) {
 /* Chọn khoá học → buổi học                                            */
 /* ------------------------------------------------------------------ */
 
-/** Khoá học có khung chương trình (để chọn ở ô đầu tiên) */
+/**
+ * Khoá học để chọn ở ô đầu tiên.
+ * Giáo viên chỉ có `document:read_own` nên chỉ thấy khoá mình dạy — KHÔNG dùng requirePermission
+ * ("document:read") ở đây, vì nó từ chối thẳng biến thể `_own` và làm cả trang lỗi 500.
+ */
 export async function planCourses(ctx: ProtectedContext) {
-  requirePermission(ctx, "document:read");
+  const mine = await readableCourseIds(ctx);
+  if (mine !== null && !mine.length) return [];
   // Cách ly nhượng quyền: chỉ khoá của trung tâm mình (tenantCond) — xem services/tenantScope.ts
   return ctx.db.select({ id: courses.id, code: courses.code, name: courses.name })
-    .from(courses).where(and(eq(courses.isActive, true), tenantCond(ctx, courses))).orderBy(asc(courses.code));
+    .from(courses)
+    .where(and(eq(courses.isActive, true), tenantCond(ctx, courses), mine === null ? sql`true` : inArray(courses.id, mine)))
+    .orderBy(asc(courses.code));
+}
+
+/** Chặn đọc giáo án của khoá không thuộc phạm vi (giáo viên mở nhầm link khoá khác) */
+async function assertCourseReadable(ctx: ProtectedContext, courseId: string) {
+  const mine = await readableCourseIds(ctx);
+  if (mine !== null && !mine.includes(courseId)) throw forbid("Không có quyền xem học liệu của khoá này");
 }
 
 /**
@@ -59,7 +74,7 @@ export async function planCourses(ctx: ProtectedContext) {
  * `curriculumName` để màn hình nói rõ đang xem khung chương trình nào.
  */
 export async function planLessons(ctx: ProtectedContext, input: { courseId: string }) {
-  requirePermission(ctx, "document:read");
+  await assertCourseReadable(ctx, input.courseId);
   const rows = await ctx.db.select({
     id: lessons.id,
     sequenceNo: lessons.sequenceNo,
@@ -113,8 +128,8 @@ async function planDoc(ctx: ProtectedContext, lessonId: string) {
 }
 
 export async function getPlan(ctx: ProtectedContext, input: { lessonId: string }) {
-  requirePermission(ctx, "document:read");
   const lesson = await loadLesson(ctx, input.lessonId);
+  await assertCourseReadable(ctx, lesson.courseId);
   const doc = await planDoc(ctx, input.lessonId);
   const edit = canEdit(ctx);
   if (!doc) return { lesson, plan: null, problems: [], previous: null, canEdit: edit };
@@ -341,7 +356,8 @@ export async function restorePlanVersion(ctx: ProtectedContext, input: { lessonI
 /* ------------------------------------------------------------------ */
 
 export async function openPlan(ctx: ProtectedContext, input: { lessonId: string }) {
-  requirePermission(ctx, "document:read");
+  const lesson = await loadLesson(ctx, input.lessonId);
+  await assertCourseReadable(ctx, lesson.courseId);
   const doc = await planDoc(ctx, input.lessonId);
   if (!doc || !doc.currentVersion) throw pre("Buổi này chưa có giáo án");
   await ctx.db.insert(documentAccessLogs).values({ documentId: doc.id, version: doc.currentVersion, userId: ctx.user.id, action: "view" });
@@ -367,7 +383,8 @@ export async function sweepStuckPlanVersions(db: ProtectedContext["db"], now: Da
 
 /** Danh sách buổi có giáo án hỏng / kẹt — để trang "Việc hôm nay" nhắc người phụ trách học liệu */
 export async function plansNeedingAttention(ctx: ProtectedContext, input: { courseId?: string } = {}) {
-  requirePermission(ctx, "document:read");
+  const mine = await readableCourseIds(ctx);
+  if (mine !== null && !mine.length) return [];
   const rows = await ctx.db.select({
     lessonId: documents.lessonId, sequenceNo: lessons.sequenceNo, lessonTitle: lessons.title,
     courseCode: courses.code, version: documentVersions.version, status: documentVersions.status,
@@ -382,6 +399,7 @@ export async function plansNeedingAttention(ctx: ProtectedContext, input: { cour
       ne(documents.status, "archived"),
       inArray(documentVersions.status, ["failed", "processing"]),
       input.courseId ? eq(documents.courseId, input.courseId) : sql`true`,
+      mine === null ? sql`true` : inArray(documents.courseId, mine),
     ))
     .orderBy(asc(courses.code), asc(lessons.sequenceNo))
     .limit(50);
