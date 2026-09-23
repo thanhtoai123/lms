@@ -69,7 +69,7 @@ function Fetch([string]$path, [string]$who) {
   # Thử tối đa 3 vòng: máy chủ phát triển có thể chết giữa chừng (hết bộ nhớ khi biên dịch ~120 trang
   # trên máy 16GB) — bật lại rồi CHẠY TIẾP, chứ mất cả lượt kiểm tra vì một lần chết thì quá phí.
   # Dùng VÒNG LẶP, không gọi đệ quy: đệ quy trong PowerShell dễ tràn ngăn xếp khi máy chủ không lên lại.
-  for ($lan = 0; $lan -lt 3; $lan++) {
+  for ($lan = 0; $lan -lt 8; $lan++) {
     $f = Join-Path $script:Tmp ("p" + (Get-Random -Minimum 100000 -Maximum 999999) + ".html")
     $cargs = @("-s", "-o", $f, "-w", "%{http_code}|%{redirect_url}", "--max-time", "180")
     if ($who) { $cargs += @("-b", "x-dev-actor=$who") }
@@ -89,9 +89,11 @@ function Fetch([string]$path, [string]$who) {
       return @{ code = $code; loc = $loc; html = $html; ms = [int]$sw.ElapsedMilliseconds }
     }
 
+    # KHÔNG trả về 000 cho người gọi: "máy chủ không trả lời" không phải kết quả kiểm tra, trả về
+    # sẽ thành FAIL oan ("trang ẩn nhưng vẫn mở được"). Thử lại ngay; quá 2 lần thì bật lại máy chủ.
     Remove-Item $f -Force -ErrorAction SilentlyContinue
     $script:dead++
-    if ($script:dead -lt 5) { return @{ code = "000"; loc = ""; html = ""; ms = [int]$sw.ElapsedMilliseconds } }
+    if ($script:dead -lt 3) { Start-Sleep -Seconds 3; continue }
     $script:dead = 0
     if ($script:restarts -ge 3) {
       Write-Host ""
@@ -110,6 +112,10 @@ function Fetch([string]$path, [string]$who) {
 # Bật lại máy chủ web rồi chờ tới khi /login trả lời (tối đa ~2 phút)
 function BatLaiMayChu() {
   $goc = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+  # Phải DỪNG hẳn tiến trình cũ trước: khoi-dong thấy máy chủ còn trả lời thì bỏ qua, không bật lại,
+  # và bộ nhớ vẫn phình như cũ.
+  Get-CimInstance Win32_Process -Filter "Name='node.exe'" -ErrorAction SilentlyContinue | ForEach-Object { & taskkill.exe /PID $_.ProcessId /T /F 2>&1 | Out-Null }
+  Start-Sleep -Seconds 3
   & powershell -ExecutionPolicy Bypass -File (Join-Path $goc "scripts\khoi-dong.ps1") -KhongMoTrinhDuyet *> $null
   for ($i = 0; $i -lt 24; $i++) {
     Start-Sleep -Seconds 5
