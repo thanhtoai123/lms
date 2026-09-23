@@ -8,7 +8,8 @@
  *  1) KHÔNG giao tệp gốc: slide phát theo từng yêu cầu qua đường dẫn gắn phiên đăng nhập,
  *     không có link tải, không lưu đệm — ai gửi link cho người ngoài thì người ngoài không mở được;
  *  2) DỰNG RÀO cho thao tác sao chép dễ dãi: chuột phải, kéo–thả, chọn–chép, Ctrl+P / Ctrl+S,
- *     in giấy, PrintScreen;
+ *     in giấy, PrintScreen — và che màn ~1,5 giây ngay lúc có dấu hiệu chụp (KHÔNG che liên tục:
+ *     màn hình phải luôn rõ để còn chiếu bài cho lớp);
  *  3) TRUY NGUỒN: chữ mờ mang TÊN + SỐ ĐIỆN THOẠI/EMAIL + GIỜ của chính người đang xem, đổi vị trí
  *     liên tục; ảnh lọt ra ngoài là biết ngay của ai;
  *  4) GHI NHẬN: mỗi lần mở và mỗi thao tác nghi vấn (in, PrintScreen, mở DevTools…) đều vào nhật ký
@@ -83,15 +84,19 @@ export interface ProtectOptions {
   watermark: boolean;
   /** Không phát link tải tệp gốc, chỉ phát theo phiên */
   noDownload: boolean;
-  /** Làm mờ nội dung khi cửa sổ mất tiêu điểm (chống công cụ chụp nền) */
-  blurOnBlur: boolean;
+  /**
+   * Che màn TRONG KHOẢNH KHẮC có dấu hiệu chụp (PrintScreen, Win+Shift+S, Ctrl+P/S, DevTools).
+   * KHÔNG che khi chỉ mất tiêu điểm: giáo viên đang chiếu bài cho cả lớp, màn hình phải luôn rõ.
+   */
+  shieldOnCapture: boolean;
   /** Ghi nhật ký thao tác nghi vấn */
   logCapture: boolean;
 }
 
-export const PROTECT_DEFAULTS: ProtectOptions = { watermark: true, noDownload: true, blurOnBlur: true, logCapture: true };
+export const PROTECT_DEFAULTS: ProtectOptions = { watermark: true, noDownload: true, shieldOnCapture: true, logCapture: true };
 
 /** Câu giải thích hiện dưới khung xem — nói đúng điều hệ thống làm được và không làm được */
 export const PROTECT_NOTICE =
-  "Học liệu có bản quyền của trung tâm. Màn hình mang chữ mờ tên bạn và mọi lượt mở đều được ghi nhật ký; "
-  + "thao tác in, tải hoặc chụp màn hình sẽ bị ghi lại. Không chia sẻ nội dung ra ngoài.";
+  "Học liệu có bản quyền của trung tâm. Màn hình mang chữ mờ tên bạn, mọi lượt mở đều được ghi nhật ký, "
+  + "và thao tác in / tải / chụp màn hình sẽ bị ghi lại (màn hình chỉ bị che khoảng 1,5 giây ngay lúc đó, "
+  + "không làm gián đoạn buổi dạy). Không chia sẻ nội dung ra ngoài.";

@@ -59,14 +59,23 @@ của các nền tảng phim, chỉ nâng chi phí sao chép. Vì vậy hệ th�
 |---|---|---|
 | Không giao tệp gốc | Slide phát qua `/api/content/giao-an/<buổi>/tep`, gắn **phiên đăng nhập**, `no-store`, không có nút tải | Gửi link cho người ngoài → mở không được; không còn bản sao nằm trong máy sau khi đóng phiên |
 | Rào thao tác dễ | Tắt chuột phải, kéo–thả, chọn–chép, `Ctrl+P` / `Ctrl+S`, in ra giấy / "Print to PDF" (CSS `@media print`), cắm rào tương tự vào **từng trang HTML trong gói SCORM** | Cách sao chép mà 9/10 người sẽ thử đầu tiên |
-| Truy nguồn | Chữ mờ rải 8 vị trí, mang **tên + liên hệ đã che + giờ chạy theo giây** của chính người đang xem; nội dung **mờ đi khi cửa sổ mất tiêu điểm** | Ảnh/clip lọt ra ngoài là biết của ai, lúc nào; công cụ chụp nền chỉ chụp được màn mờ |
+| Truy nguồn | Chữ mờ rải 8 vị trí, mang **tên + liên hệ đã che + giờ chạy theo giây** của chính người đang xem; **che màn ~1,5 giây** đúng lúc có dấu hiệu chụp (PrintScreen, Win+Shift+S, Ctrl+P/S, DevTools) | Ảnh/clip lọt ra ngoài là biết của ai, lúc nào; ảnh chụp bằng phím tắt dễ dính màn che |
 | Ghi nhật ký | Mỗi lượt mở và mỗi thao tác nghi vấn (in, PrintScreen, chuột phải, DevTools, Ctrl+S) vào `document_access_logs`; trang `/scorm` có mục **"Nhật ký xem & nghi vấn sao chép (30 ngày)"** kèm mức cảnh báo theo người | Đây là lớp bảo vệ THẬT: người dùng biết mình để lại dấu vết, quản trị có bằng chứng để xử lý theo quy định nội bộ |
 
 Ngưỡng cảnh báo: ≥ 3 lần/30 ngày = "nên để ý", ≥ 10 lần = "bất thường, cần hỏi lại người dùng"
 (`captureRisk` trong `packages/core/src/content/protect.ts`).
 
-Điều hệ thống **không** hứa: chặn điện thoại quay màn hình, chặn phần mềm quay (OBS…), chặn máy ảnh
-chụp màn chiếu. Ai cần mức cao hơn phải dùng thiết bị quản lý tập trung (MDM) — không giải quyết bằng web.
+Điều hệ thống **không** hứa: chặn điện thoại quay màn hình, chặn phần mềm quay (OBS, Bandicam…), chặn
+máy ảnh chụp màn chiếu, và **không có cách nào biết máy đang bị quay** — trình duyệt không có API đó.
+
+**Muốn chặn thật ở mức hệ điều hành** thì phải chạy bằng MỘT ỨNG DỤNG MÁY TÍNH, không phải trang web:
+Windows có `SetWindowDisplayAffinity(WDA_EXCLUDEFROMCAPTURE)` (Electron: `win.setContentProtection(true)`,
+macOS tương đương) — cửa sổ đó hiện ĐEN trong mọi phần mềm quay/chụp thông thường. Đường đi nếu trung tâm
+cần mức này: bọc trang `/scorm/buoi/<buổi>` trong một ứng dụng Electron nhỏ cho máy dạy, bật content
+protection, và chỉ cho chiếu giáo án qua ứng dụng đó. Web vẫn dùng cho mọi việc còn lại.
+
+**KHÔNG làm mờ liên tục.** Bản đầu làm mờ mỗi khi cửa sổ mất tiêu điểm nên không chiếu bài được —
+đã bỏ. Nay chỉ che đúng khoảnh khắc có dấu hiệu chụp rồi trả lại màn hình ngay.
 
 ## 6. Trình chiếu
 
