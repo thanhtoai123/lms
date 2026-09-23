@@ -1,4 +1,4 @@
-import { uploadPlan } from "@satarobo/api";
+import { uploadPlan, apiLogger } from "@satarobo/api";
 import { routeContext, errorStatus, crossSite, crossSiteResponse } from "@/lib/route-ctx";
 import { clientSafeMessage, validatePlanFile } from "@satarobo/core";
 
@@ -26,6 +26,9 @@ export async function POST(req: Request) {
     const r = await uploadPlan(ctx, { lessonId, fileName: file.name, bytes: new Uint8Array(await file.arrayBuffer()) });
     return Response.json({ ok: true, ...r });
   } catch (e) {
+    // Người dùng chỉ thấy câu chung chung (không lộ SQL/cấu trúc bảng); chi tiết vào nhật ký máy chủ
+    // để còn tìm được nguyên nhân khi gói SCORM hỏng theo kiểu lạ.
+    apiLogger.child("giao-an").error("day giao an loi", { err: e, lessonId });
     return Response.json({ ok: false, error: clientSafeMessage(e) }, { status: errorStatus(e) });
   }
 }
