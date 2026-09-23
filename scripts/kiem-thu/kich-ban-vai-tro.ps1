@@ -233,7 +233,10 @@ foreach ($cand in $ungVien) {
   if (-not $wsCache.ContainsKey($cand.classId)) { $wsCache[$cand.classId] = (Q "academics.classes.get" @{ id = $cand.classId } $G).data }
   $w = $wsCache[$cand.classId]
   # CHU Y: @($null).Count = 1 trong PowerShell — phai kiem tra $null truoc khi dem
-  if ($null -ne $w -and $null -ne $w.roster -and @($w.roster).Count -gt 0) { $one = $cand; $ws = $w; break }
+  # Lop phai co it nhat mot hoc vien DANG HOC — lop toan ban ghi danh da nghi thi diem danh vo nghia
+  $dangHoc = @()
+  if ($null -ne $w -and $null -ne $w.roster) { $dangHoc = @($w.roster | Where-Object { $_.status -eq "active" -or $_.status -eq "trial" }) }
+  if ($dangHoc.Count -gt 0) { $one = $cand; $ws = $w; break }
 }
 if ($null -eq $one) {
   # Khong co buoi nao vua da dien ra vua thuoc lop con hoc vien: van lay mot buoi de F0/F7/F8 chay duoc
@@ -252,8 +255,10 @@ if ($rosters.Count -gt 0 -and $null -ne $one) {
   # Chon hoc vien nghi phep la nguoi CHUA co yeu cau hoc bu cho dung buoi nay: phan O ben duoi
   # tao yeu cau hoc bu tu pendingAbsences, nen chay lan sau ma van cham dung nguoi do thi
   # pendingAbsences (loc "chua co yeu cau") tra ve 0 dong va F3 bao sai oan.
+  # Nguoi vang con phai DANG HOC (active/trial): danh sach cho xep bu bo qua hoc vien da nghi han,
+  # nen cham vang mot ban ghi danh 'withdrawn' se lam F3 bao sai.
   $daCoYeuCau = Psql ("select coalesce(string_agg(enrollment_id::text, ','), '') from makeup_requests where missed_session_id = '" + $one.id + "' and status <> 'rejected'")
-  $vang = @($rosters | Where-Object { $daCoYeuCau -notlike ("*" + $_.enrollmentId + "*") }) | Select-Object -First 1
+  $vang = @($rosters | Where-Object { ($_.status -eq "active" -or $_.status -eq "trial") -and ($daCoYeuCau -notlike ("*" + $_.enrollmentId + "*")) }) | Select-Object -First 1
   $coNguoiVang = $null -ne $vang
   if (-not $coNguoiVang) { $vang = $rosters[0] }
   $recs = @()
@@ -264,7 +269,7 @@ if ($rosters.Count -gt 0 -and $null -ne $one) {
   if (-not $coNguoiVang) {
     # Ca lop deu da co yeu cau hoc bu cho buoi nay (do nhung lan chay truoc) — khong con dong nao
     # hop le de kiem tra, bo qua thay vi bao sai.
-    Write-Host "SKIP  F3 (moi hoc vien cua buoi nay deu da co yeu cau hoc bu tu lan chay truoc)"
+    Write-Host "SKIP  F3 (khong con hoc vien dang hoc nao cua buoi nay chua co yeu cau hoc bu)"
   } elseif ($one.date -lt $hanHocBu) {
     # Ngoai han dang ky hoc bu thi danh sach cho xep bu KHONG liet ke buoi nay — dung theo nghiep vu,
     # khong phai loi he thong, nen bo qua thay vi bao sai.
