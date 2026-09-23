@@ -236,14 +236,14 @@ flowchart LR
 | Mã | Việc | Cỡ |
 |---|---|---|
 | `KT-10` | Theo quyết định đã chốt ở trên | S–L |
-| `KT-32` | Thêm `student:change_code`, `lead:overwrite`, `*:export`; kiểm ở 3 chỗ gọi | S |
-| `KT-25` | Ngưỡng giảm giá ⇒ trạng thái chờ duyệt (dùng `finance:approve` đã có); bảng `course_discounts` + gợi ý khi tạo đơn | M |
+| `KT-32` ✅ | **XONG 24/09/2026** — `student:change_code`, `lead:overwrite`, `student:export` / `lead:export`; kiểm ở `updateStudent`, `commitLeadImport`, `exportStudents`, `exportLeads`; giao diện ẩn nút / khoá ô tương ứng | S |
+| `KT-25` ✅ | **XONG 24/09/2026** — cấu hình `discountApprovalPercent` (mặc định 20%, đặt 100 = tắt); đơn vượt ngưỡng vào `pending`, `recordPayment` từ chối cho tới khi người có `finance:approve` (khác người tạo đơn) duyệt; form tạo đơn cảnh báo trước, danh sách đơn có chip + lọc `?duyet=cho`. Chưa làm bảng `course_discounts` (ưu đãi khoá) — tách thành việc riêng | M |
 | `KT-18a` | `exams` + `exam_registrations` + `exam_results`; gắn `orderItems.examId`; màn danh sách + đăng ký + nhập kết quả. Chưa làm thi trực tuyến | M |
 | `KT-18b` | Bảng `honors` + trang danh sách + cấu hình danh hiệu | S |
 | `KT-17` | Nhập Excel cho `/nhan-su` → `/students` → `/classes`, theo khuôn 3 bước của `/leads/import` | M |
 | `KT-20` | Viết lại 2 kịch bản `.ps1` bằng TypeScript + `createCaller`; đưa vào CI | M |
 | `KT-12` (M) | `RedisRateLimiter` cùng giao diện `hit/reset`, gọi REST Upstash bằng `fetch`, dự phòng về bộ nhớ khi lỗi | M |
-| `KT-30` | `UPDATE … SET status='closed' WHERE status='locked'`; xoá `PERIOD_STATUS_LEGACY` | S |
+| `KT-30` ✅ | **XONG 24/09/2026** — `packages/db/sql/0015_don_enum_ky_cong.sql` đổi dữ liệu rồi dựng lại enum không còn `locked`; `PERIOD_STATUS_LEGACY` đã xoá khỏi mã (đo lại trên máy thật: 0 nhãn cũ, 0 dòng cũ) | S |
 | `KT-26` | Hoãn — chỉ làm khi có nhu cầu đào tạo nội bộ thật | L |
 
 ## Tiêu chí nghiệm thu Đợt 3

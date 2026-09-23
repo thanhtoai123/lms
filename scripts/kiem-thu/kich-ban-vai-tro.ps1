@@ -171,6 +171,32 @@ T "D9 cong no co Thieu-PH-dang-thay va Thieu-that" (($js -match "shortParent") -
 $r = Q "finance.missingTuition" @{ } $K
 T "D10 danh sach thieu hoc phi" $r.ok $r.err
 
+# --- Duyet giam gia vuot nguong (KT-25) ---
+# Nguong mac dinh 20%: don giam 30% phai vao "cho duyet" va KHONG thu duoc tien cho toi khi duyet.
+$r = Mu "finance.createOrder" @{
+  type = "course"; centerId = $cs1.id; studentId = $student.id
+  customer = @{ name = "PH Giam Gia $rnd"; phone = $phone }
+  items = @(@{
+    description = "Hoc phi kiem thu giam sau"; quantity = 1; unitPrice = 6000000; packageSessions = 48; studentId = $student.id
+    discounts = @(@{ kind = "percent"; policy = "percent"; value = 30; reason = "Uu dai kiem thu" })
+  })
+  paymentMethodId = $method.id
+  installments = @{ count = 1; firstDueDate = $today }
+} $S
+$donGiam = $r.data.id
+T "D11 sale tao duoc don giam 30%" ($r.ok -and $donGiam) $r.err
+T "D11b don vao trang thai cho duyet" ($r.data.discountApproval -eq "pending") ("trang thai=" + $r.data.discountApproval)
+$r = Mu "finance.recordPayment" @{ orderId = $donGiam; amount = 1000000; paymentMethodId = $method.id; paidAt = $today; payerName = "PH Giam Gia" } $S
+T "D12 chua duyet thi KHONG ghi nhan thu duoc" (-not $r.ok) $r.err
+$r = Mu "finance.decideDiscount" @{ orderId = $donGiam; decision = "approve" } $S
+T "D13 sale KHONG tu duyet giam gia duoc" (-not $r.ok) $r.err
+$r = Mu "finance.decideDiscount" @{ orderId = $donGiam; decision = "approve"; note = "Duyet theo chuong trinh" } $M
+T "D14 quan ly co so duyet giam gia" $r.ok $r.err
+$r = Mu "finance.recordPayment" @{ orderId = $donGiam; amount = 1000000; paymentMethodId = $method.id; paidAt = $today; payerName = "PH Giam Gia" } $S
+T "D15 duyet xong thi thu tien binh thuong" $r.ok $r.err
+$r = Q "finance.orders" @{ centerId = $cs1.id; approval = "pending" } $K
+T "D16 loc duoc hang cho duyet giam gia" $r.ok ("so don cho duyet=" + @($r.data.items).Count)
+
 Write-Host ""
 Write-Host "===== E. HOA HONG (tran 9%) ====="
 $r = Mu "finance.upsertCommissionPolicy" @{
@@ -195,7 +221,14 @@ $allSess = @((Q "academics.sessions.list" @{ from = $from; to = $to; centerId = 
 $one = $null; $ws = $null
 $wsCache = @{}
 # Buoi phai DA DIEN RA (recordAttendance chan buoi tuong lai) va thuoc lop con hoc vien.
-$ungVien = @($allSess | Where-Object { $_.status -eq "scheduled" -and $_.classId -and $_.date -le $today } | Sort-Object -Property date -Descending)
+# THEM: uu tien buoi CON TRONG HAN dang ky hoc bu (mac dinh 30 ngay). Moi lan chay kich ban
+# lai chot them mot buoi gan day, nen sau vai lan chay ung vien moi nhat troi ra ngoai han;
+# luc do pendingAbsences (loc theo han) tra ve 0 dong va F3 bao sai oan.
+$hanHocBu = (Get-Date).AddDays(-30).ToString("yyyy-MM-dd")
+$ungVien = @($allSess | Where-Object { $_.status -eq "scheduled" -and $_.classId -and $_.date -le $today -and $_.date -ge $hanHocBu } | Sort-Object -Property date -Descending)
+if ($ungVien.Count -eq 0) {
+  $ungVien = @($allSess | Where-Object { $_.status -eq "scheduled" -and $_.classId -and $_.date -le $today } | Sort-Object -Property date -Descending)
+}
 foreach ($cand in $ungVien) {
   if (-not $wsCache.ContainsKey($cand.classId)) { $wsCache[$cand.classId] = (Q "academics.classes.get" @{ id = $cand.classId } $G).data }
   $w = $wsCache[$cand.classId]
@@ -216,14 +249,31 @@ if ($null -ne $ws -and $null -ne $ws.roster) { $rosters = @($ws.roster) }
 T "F1 lop co hoc vien" ($rosters.Count -gt 0) ("lop=" + $one.classCode + " si so=" + $rosters.Count)
 if ($rosters.Count -eq 0) { Write-Host "SKIP  F2-F6 (khong tim duoc buoi 'scheduled' nao thuoc lop con hoc vien)" }
 if ($rosters.Count -gt 0 -and $null -ne $one) {
+  # Chon hoc vien nghi phep la nguoi CHUA co yeu cau hoc bu cho dung buoi nay: phan O ben duoi
+  # tao yeu cau hoc bu tu pendingAbsences, nen chay lan sau ma van cham dung nguoi do thi
+  # pendingAbsences (loc "chua co yeu cau") tra ve 0 dong va F3 bao sai oan.
+  $daCoYeuCau = Psql ("select coalesce(string_agg(enrollment_id::text, ','), '') from makeup_requests where missed_session_id = '" + $one.id + "' and status <> 'rejected'")
+  $vang = @($rosters | Where-Object { $daCoYeuCau -notlike ("*" + $_.enrollmentId + "*") }) | Select-Object -First 1
+  $coNguoiVang = $null -ne $vang
+  if (-not $coNguoiVang) { $vang = $rosters[0] }
   $recs = @()
-  $recs += @{ enrollmentId = $rosters[0].enrollmentId; status = "absent_excused"; needsMakeup = $true; absenceReason = "PH bao om" }
-  for ($i = 1; $i -lt $rosters.Count; $i++) { $recs += @{ enrollmentId = $rosters[$i].enrollmentId; status = "present"; studentRemark = "Em lam bai tot trong buoi nay" } }
+  $recs += @{ enrollmentId = $vang.enrollmentId; status = "absent_excused"; needsMakeup = $true; absenceReason = "PH bao om" }
+  foreach ($rr in $rosters) { if ($rr.enrollmentId -ne $vang.enrollmentId) { $recs += @{ enrollmentId = $rr.enrollmentId; status = "present"; studentRemark = "Em lam bai tot trong buoi nay" } } }
   $r = Mu "academics.sessions.recordAttendance" @{ sessionId = $one.id; records = $recs } $G
   T "F2 diem danh (vang co phep + can hoc bu + ly do PH)" $r.ok $r.err
-  $r = Q "schedule.pendingAbsences" $null $G
-  $found = @(@($r.data) | Where-Object { $_.sessionId -eq $one.id }).Count
-  T "F3 buoi vang vao danh sach cho xep bu" ($found -ge 1) ("so dong=" + $found)
+  if (-not $coNguoiVang) {
+    # Ca lop deu da co yeu cau hoc bu cho buoi nay (do nhung lan chay truoc) — khong con dong nao
+    # hop le de kiem tra, bo qua thay vi bao sai.
+    Write-Host "SKIP  F3 (moi hoc vien cua buoi nay deu da co yeu cau hoc bu tu lan chay truoc)"
+  } elseif ($one.date -lt $hanHocBu) {
+    # Ngoai han dang ky hoc bu thi danh sach cho xep bu KHONG liet ke buoi nay — dung theo nghiep vu,
+    # khong phai loi he thong, nen bo qua thay vi bao sai.
+    Write-Host ("SKIP  F3 (buoi " + $one.date + " da ngoai han dang ky hoc bu 30 ngay — chay lai db:seed neu muon kiem tra muc nay)")
+  } else {
+    $r = Q "schedule.pendingAbsences" $null $G
+    $found = @(@($r.data) | Where-Object { $_.sessionId -eq $one.id }).Count
+    T "F3 buoi vang vao danh sach cho xep bu" ($found -ge 1) ("so dong=" + $found)
+  }
   $r = Mu "academics.sessions.transition" @{ sessionId = $one.id; event = "complete" } $G
   T "F4 chot buoi khi chua du dieu kien -> bi chan" (-not $r.ok) $r.err
   $r = Mu "academics.sessions.confirmLesson" @{ sessionId = $one.id } $G

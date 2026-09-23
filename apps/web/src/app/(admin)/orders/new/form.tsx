@@ -71,8 +71,9 @@ export function OrderForm({ centers, methods, courses, packages = [], today, dra
   const orderDiscount = discount.value > 0 ? (discount.type === "percent" ? Math.round((priced.total * Math.min(100, discount.value)) / 100) : Math.min(Math.round(discount.value), priced.total)) : 0;
   const total = priced.total - orderDiscount;
   const discountAmount = priced.discountAmount + orderDiscount;
-  const discountPct = discountPercentOf(priced.total, discountAmount);
-  const canDuyet = discountNeedsApproval({ gross: priced.total, discountAmount, thresholdPct: approvalPct });
+  // Mẫu số là giá niêm yết (subtotal), không phải tiền sau giảm — giống hệt cách máy chủ tính
+  const discountPct = discountPercentOf(priced.subtotal, discountAmount);
+  const canDuyet = discountNeedsApproval({ gross: priced.subtotal, discountAmount, thresholdPct: approvalPct });
   const autoPlan = useMemo(() => {
     try { return buildPlan(total, inst.count, inst.firstDueDate, { intervalDays: inst.intervalDays, monthly: inst.monthly, deposit: inst.deposit || null }); } catch { return []; }
   }, [total, inst]);

@@ -479,7 +479,9 @@ export async function createOrder(ctx: ProtectedContext, input: CreateOrderInput
   // Giảm từ ngưỡng cấu hình trở lên: đơn vẫn tạo được (sale chốt khách ngay), nhưng vào hàng chờ duyệt
   // và không thu được tiền cho tới khi người có finance:approve duyệt.
   const approvalPct = ops.discountApprovalPercent ?? DEFAULT_DISCOUNT_APPROVAL_PCT;
-  const discountApproval = initialDiscountApproval({ gross: priced.total, discountAmount, thresholdPct: approvalPct });
+  // Mẫu số là GIÁ NIÊM YẾT (priced.subtotal), không phải tiền sau giảm — giảm 30% của 6tr là 1,8tr/6tr,
+  // lấy nhầm mẫu số 4,2tr sẽ thành 43% và đẩy nhầm nhiều đơn vào hàng chờ.
+  const discountApproval = initialDiscountApproval({ gross: priced.subtotal, discountAmount, thresholdPct: approvalPct });
   const method = await ctx.db.query.paymentMethods.findFirst({ where: eq(paymentMethods.id, input.paymentMethodId) });
   if (!method || !method.isActive) throw bad("Phương thức thanh toán không hợp lệ");
   if (method.centerId && method.centerId !== input.centerId) throw bad("Phương thức thanh toán thuộc cơ sở khác");
@@ -556,7 +558,7 @@ export async function createOrder(ctx: ProtectedContext, input: CreateOrderInput
     }
     await tx.insert(orderEvents).values({ orderId: o!.id, event: "create", toStatus: o!.status, note: discountAmount ? `Giảm ${formatVnd(discountAmount)}` : null, actorId: ctx.user.id });
     if (discountApproval === "pending") {
-      const pct = discountPercentOf(priced.total, discountAmount);
+      const pct = discountPercentOf(priced.subtotal, discountAmount);
       await tx.insert(orderEvents).values({ orderId: o!.id, event: "discount_approval_requested", note: `Giảm ${pct}% (ngưỡng duyệt ${approvalPct}%) — chờ duyệt`, actorId: ctx.user.id });
       await notify(
         tx as unknown as Db,
