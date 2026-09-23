@@ -50,6 +50,7 @@ export default async function LessonPlanPage({ searchParams }: { searchParams: P
           <p>Chọn <b>khoá học</b> → <b>buổi học</b> để xem hoặc đổi giáo án. Mỗi buổi chỉ giữ 1 giáo án: đẩy bản mới sẽ thay bản cũ <b>sau khi xử lý xong</b>, nên buổi dạy không bao giờ trống giữa chừng.</p>
           <p>Gói SCORM là tệp <b>.zip</b> có <code className="font-mono text-xs">imsmanifest.xml</code> (SCORM 1.2 hoặc 2004), tối đa 200MB. Slide là tệp <b>.pdf</b>, tối đa 100MB.</p>
           <p>Bản tải lên bị kẹt quá 15 phút coi như hỏng — bấm <b>Dọn bản lỗi</b> rồi đẩy lại, không cần gọi kỹ thuật.</p>
+          <p><b>Chiếu bài mà không cho quay màn hình:</b> mở bằng ứng dụng <b>Trình chiếu an toàn</b> (thư mục <code className="font-mono text-xs">tools/trinh-chieu</code>) — cửa sổ đó hiện <b>màn đen</b> trong mọi phần mềm quay/chụp và chia sẻ màn hình. Mở bằng trình duyệt thì chỉ có chữ mờ + nhật ký, trình duyệt không chặn được phần mềm quay.</p>
           <p>Giáo viên xem giáo án của buổi mình dạy trong <Link href="/teacher" className="text-brand-600 underline">app giáo viên</Link>; mọi lượt mở đều được ghi nhật ký.</p>
         </div>
       </details>

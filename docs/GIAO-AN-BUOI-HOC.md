@@ -59,7 +59,7 @@ của các nền tảng phim, chỉ nâng chi phí sao chép. Vì vậy hệ th�
 |---|---|---|
 | Không giao tệp gốc | Slide phát qua `/api/content/giao-an/<buổi>/tep`, gắn **phiên đăng nhập**, `no-store`, không có nút tải | Gửi link cho người ngoài → mở không được; không còn bản sao nằm trong máy sau khi đóng phiên |
 | Rào thao tác dễ | Tắt chuột phải, kéo–thả, chọn–chép, `Ctrl+P` / `Ctrl+S`, in ra giấy / "Print to PDF" (CSS `@media print`), cắm rào tương tự vào **từng trang HTML trong gói SCORM** | Cách sao chép mà 9/10 người sẽ thử đầu tiên |
-| Truy nguồn | Chữ mờ rải 8 vị trí, mang **tên + liên hệ đã che + giờ chạy theo giây** của chính người đang xem; **che màn ~1,5 giây** đúng lúc có dấu hiệu chụp (PrintScreen, Win+Shift+S, Ctrl+P/S, DevTools) | Ảnh/clip lọt ra ngoài là biết của ai, lúc nào; ảnh chụp bằng phím tắt dễ dính màn che |
+| Truy nguồn | Chữ mờ **3 dòng** (trên – giữa – dưới, đủ để ảnh chụp bất kỳ dính ít nhất một dòng mà không làm rối slide), mang **tên + liên hệ đã che + giờ chạy theo giây** của chính người đang xem; **che màn ~1,5 giây** đúng lúc có dấu hiệu chụp (PrintScreen, Win+Shift+S, Ctrl+P/S, DevTools) | Ảnh/clip lọt ra ngoài là biết của ai, lúc nào; ảnh chụp bằng phím tắt dễ dính màn che |
 | Ghi nhật ký | Mỗi lượt mở và mỗi thao tác nghi vấn (in, PrintScreen, chuột phải, DevTools, Ctrl+S) vào `document_access_logs`; trang `/scorm` có mục **"Nhật ký xem & nghi vấn sao chép (30 ngày)"** kèm mức cảnh báo theo người | Đây là lớp bảo vệ THẬT: người dùng biết mình để lại dấu vết, quản trị có bằng chứng để xử lý theo quy định nội bộ |
 
 Ngưỡng cảnh báo: ≥ 3 lần/30 ngày = "nên để ý", ≥ 10 lần = "bất thường, cần hỏi lại người dùng"
@@ -68,14 +68,40 @@ Ngưỡng cảnh báo: ≥ 3 lần/30 ngày = "nên để ý", ≥ 10 lần = "b
 Điều hệ thống **không** hứa: chặn điện thoại quay màn hình, chặn phần mềm quay (OBS, Bandicam…), chặn
 máy ảnh chụp màn chiếu, và **không có cách nào biết máy đang bị quay** — trình duyệt không có API đó.
 
-**Muốn chặn thật ở mức hệ điều hành** thì phải chạy bằng MỘT ỨNG DỤNG MÁY TÍNH, không phải trang web:
-Windows có `SetWindowDisplayAffinity(WDA_EXCLUDEFROMCAPTURE)` (Electron: `win.setContentProtection(true)`,
-macOS tương đương) — cửa sổ đó hiện ĐEN trong mọi phần mềm quay/chụp thông thường. Đường đi nếu trung tâm
-cần mức này: bọc trang `/scorm/buoi/<buổi>` trong một ứng dụng Electron nhỏ cho máy dạy, bật content
-protection, và chỉ cho chiếu giáo án qua ứng dụng đó. Web vẫn dùng cho mọi việc còn lại.
+### Lớp chặn thật: ứng dụng "Trình chiếu an toàn" (`tools/trinh-chieu/`)
+
+Vì sao trình duyệt không đủ, nói bằng cơ chế chứ không bằng cảm tính:
+
+- Phần mềm quay (OBS, Bandicam, Teams, Zoom, Meet) lấy hình từ **bộ đệm màn hình của hệ điều hành**,
+  không đi qua trang web — trang không có API nào để biết mình đang bị quay.
+- `PrintScreen` và `Win+Shift+S` bị **Windows nuốt trước**, trình duyệt thường không nhận được phím,
+  nên mã "chặn PrintScreen" của trang có khi không chạy lần nào. Đó đúng là điều người dùng gặp:
+  vẫn chụp và quay được bình thường.
+
+Chặn thật chỉ có ở mức hệ điều hành — `SetWindowDisplayAffinity(WDA_EXCLUDEFROMCAPTURE)` (Windows 10
+2004+) và `NSWindow.sharingType = none` (macOS). Cả hai gói trong một lệnh Electron:
+`win.setContentProtection(true)`. Ứng dụng nhỏ ở `tools/trinh-chieu/` bật đúng cờ đó, nạp thẳng
+`/scorm/buoi/<buổi>`, giữ phiên đăng nhập, khoá tải tệp, khoá DevTools và mọi quyền camera/mic/ghi màn hình.
+
+| | Mở bằng trình duyệt | Mở bằng Trình chiếu an toàn |
+|---|---|---|
+| Phần mềm quay màn hình, chia sẻ màn hình Teams/Zoom | Thu được nội dung | **Chỉ thu được màn đen** |
+| Công cụ chụp của Windows (`Win+Shift+S`, PrintScreen) | Chụp được | **Chỉ ra màn đen** |
+| Máy chiếu nối dây HDMI | Chiếu bình thường | Chiếu bình thường |
+| Điện thoại chụp màn chiếu, thiết bị bắt HDMI | Không chặn được | Không chặn được |
+| Chữ mờ + nhật ký truy nguồn | Có | Có |
+
+Cài trên máy dạy: `cd tools\trinh-chieu` → `npm install` → `npm start` (xem `tools/trinh-chieu/README.md`;
+thư mục này nằm NGOÀI workspace pnpm nên `pnpm install` của dự án không tải Electron). Sửa `baseUrl`
+trong `cau-hinh.json` khi chạy trên máy chủ thật; đóng gói `.exe` portable bằng `npm run dong-goi`.
+
+Khung xem tự nhận biết đang chạy trong ứng dụng (User-Agent có `SataRoboTrinhChieu`) và hiện đúng một câu:
+xanh = "phần mềm quay chỉ thu được màn đen", vàng = "đang trên trình duyệt, quay/chụp KHÔNG bị chặn".
+Không hứa điều không làm được là một phần của bảo mật: giáo viên biết khi nào mình thật sự được bảo vệ.
 
 **KHÔNG làm mờ liên tục.** Bản đầu làm mờ mỗi khi cửa sổ mất tiêu điểm nên không chiếu bài được —
-đã bỏ. Nay chỉ che đúng khoảnh khắc có dấu hiệu chụp rồi trả lại màn hình ngay.
+đã bỏ. Nay chỉ che đúng khoảnh khắc có dấu hiệu chụp rồi trả lại màn hình ngay, và chữ mờ rút còn
+3 dòng để nhìn bài không bị nhiễu.
 
 ## 6. Trình chiếu
 

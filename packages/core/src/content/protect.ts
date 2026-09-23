@@ -96,6 +96,22 @@ export interface ProtectOptions {
 export const PROTECT_DEFAULTS: ProtectOptions = { watermark: true, noDownload: true, shieldOnCapture: true, logCapture: true };
 
 /** Câu giải thích hiện dưới khung xem — nói đúng điều hệ thống làm được và không làm được */
+/**
+ * Câu hiện khi trang chạy TRONG ứng dụng "Trình chiếu an toàn" (Electron, đã bật
+ * setContentProtection → Windows WDA_EXCLUDEFROMCAPTURE): lúc này chặn là chặn thật.
+ */
+export const PROTECT_APP_NOTICE =
+  "Đang chiếu trong Ứng dụng trình chiếu an toàn: phần mềm quay/chụp màn hình và chia sẻ màn hình "
+  + "(Teams, Zoom, OBS…) chỉ thu được màn đen. Máy chiếu nối dây vẫn hiện bài bình thường.";
+
+/**
+ * Câu hiện khi chạy trên TRÌNH DUYỆT thường — nói thật: không chặn được quay/chụp.
+ * Giấu điều này đi thì giáo viên tưởng mình được bảo vệ, đó mới là rủi ro.
+ */
+export const PROTECT_BROWSER_NOTICE =
+  "Đang xem trên trình duyệt: phần mềm quay màn hình và công cụ chụp của hệ điều hành KHÔNG bị chặn "
+  + "(trình duyệt không có cách nào chặn). Muốn chặn thật, mở bài bằng Ứng dụng trình chiếu an toàn.";
+
 export const PROTECT_NOTICE =
   "Học liệu có bản quyền của trung tâm. Màn hình mang chữ mờ tên bạn, mọi lượt mở đều được ghi nhật ký, "
   + "và thao tác in / tải / chụp màn hình sẽ bị ghi lại (màn hình chỉ bị che khoảng 1,5 giây ngay lúc đó, "

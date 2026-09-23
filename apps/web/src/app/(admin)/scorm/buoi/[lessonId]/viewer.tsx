@@ -20,15 +20,18 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { PROTECT_NOTICE, type CaptureKind } from "@satarobo/core";
+import { PROTECT_APP_NOTICE, PROTECT_BROWSER_NOTICE, PROTECT_NOTICE, type CaptureKind } from "@satarobo/core";
 import { useTRPC } from "@/lib/trpc/client";
 import { ScormPlayer } from "../../[id]/player";
 
-/** Vị trí các dòng chữ mờ — rải đều, lệch nhau để không bị cắt gọn bằng một lần crop */
+/**
+ * Chữ mờ: chỉ BA dòng (trên – giữa – dưới), đủ để một ảnh chụp bất kỳ dính ít nhất một dòng
+ * mà không làm rối slide đang chiếu. Trước đây rải 8 dòng, nhìn rất nhiễu khi dạy.
+ */
 const MARKS = [
-  { top: "6%", left: "4%" }, { top: "18%", left: "58%" }, { top: "34%", left: "22%" },
-  { top: "50%", left: "70%" }, { top: "63%", left: "8%" }, { top: "78%", left: "44%" },
-  { top: "90%", left: "66%" }, { top: "26%", left: "86%" },
+  { top: "8%", left: "6%" },
+  { top: "48%", left: "52%" },
+  { top: "88%", left: "26%" },
 ];
 
 /** Thời gian che màn khi phát hiện thao tác chụp (ms) */
@@ -49,6 +52,8 @@ export function PlanViewer({ kind, documentId, lessonId, streamPath, watermark, 
   const box = useRef<HTMLDivElement>(null);
   const [full, setFull] = useState(false);
   const [clock, setClock] = useState("");
+  /** Đang chạy trong "Ứng dụng trình chiếu an toàn" (Electron) hay trình duyệt thường */
+  const [trongUngDung, setTrongUngDung] = useState(false);
   /** Lớp che tạm thời khi có dấu hiệu chụp — KHÔNG phải trạng thái "mất tiêu điểm" */
   const [shield, setShield] = useState<string | null>(null);
   const report = useMutation(trpc.content.planCaptureAttempt.mutationOptions({}));
@@ -70,6 +75,7 @@ export function PlanViewer({ kind, documentId, lessonId, streamPath, watermark, 
   }, [canReport, lessonId]);
 
   useEffect(() => {
+    setTrongUngDung(/SataRoboTrinhChieu|Electron/i.test(navigator.userAgent));
     const tick = () => setClock(new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
     tick();
     const t = window.setInterval(tick, 1000);
@@ -172,7 +178,7 @@ export function PlanViewer({ kind, documentId, lessonId, streamPath, watermark, 
           {MARKS.map((m, i) => (
             <span
               key={i}
-              className="absolute -rotate-[18deg] whitespace-nowrap text-[13px] font-semibold tracking-wide text-black/20 mix-blend-difference sm:text-sm"
+              className="absolute -rotate-[16deg] whitespace-nowrap text-[12px] font-semibold tracking-wide text-black/15 mix-blend-difference sm:text-[13px]"
               style={{ top: m.top, left: m.left }}
             >
               {watermark} · {clock}
@@ -189,6 +195,9 @@ export function PlanViewer({ kind, documentId, lessonId, streamPath, watermark, 
         )}
       </div>
 
+      <p className={`text-xs ${trongUngDung ? "text-green-700" : "text-amber-700"}`}>
+        {trongUngDung ? PROTECT_APP_NOTICE : PROTECT_BROWSER_NOTICE}
+      </p>
       <p className="text-xs text-ink-600">{PROTECT_NOTICE}</p>
     </div>
   );
