@@ -144,12 +144,22 @@ Chiều ngược lại (LMS → ZCRM) chỉ nên có **một lệnh**: gửi tin
 
 ## 6. Ba đợt đề xuất
 
-**Đợt A — đọc một chiều (an toàn, nhìn thấy ngay)**
-1. Thêm kênh `zalo_ca_nhan` + bảng `channel_accounts` + màn khai báo trong *Tích hợp* (khoá mã hoá).
-2. Webhook `/api/webhooks/kenh/zalo_ca_nhan`: nhận `message.received/sent`, `contact.created`,
-   `zalo.connected/disconnected` → hội thoại + cảnh báo. Màn **Zalo CRM** hiện thêm khối "Zalo cá nhân":
-   số nick online, tin trong ngày/hạn mức, hội thoại chưa gắn lead theo từng nick.
-3. Đồng bộ lịch hẹn (`GET /appointments`) → lịch tư vấn/học thử.
+**Đợt A — đọc một chiều (an toàn, nhìn thấy ngay)** — ✅ **XONG 24/09/2026** (mục 1–2; mục 3 để lại Đợt B)
+1. ✅ Kênh `zalo_ca_nhan` + bảng `channel_accounts` (khoá/bí mật mã hoá AES-256-GCM nhãn riêng `kenh`,
+   trần tin/ngày mặc định 180 — thấp hơn trần 200 của công cụ — trạng thái nick, ngày đếm) + thẻ khai báo
+   trong *Tích hợp*: mỗi nick một đường webhook `/api/webhooks/kenh/<slug>` và một bí mật riêng.
+2. ✅ Nhận `message.received` / `message.sent` / `contact.created` / `zalo.connected` / `zalo.disconnected`
+   → hội thoại, tin hai chiều, đếm tin/ngày, cảnh báo nick im lặng > 30 phút và sắp chạm hạn mức.
+   Chữ ký: bí mật thẳng ở `X-Webhook-Secret` **hoặc** HMAC-SHA256 ở `X-Signature` (so sánh thời gian hằng).
+   Hàm đọc payload cố ý dễ tính (nhiều tên trường) và nguyên văn luôn nằm ở `webhook_events`
+   (nguồn `zalo_ca_nhan`, `external_id` = slug nick) để mở ra đối chiếu khi công cụ đổi tên trường.
+   Màn **Zalo CRM** có khối "Zalo cá nhân": nick, tin hôm nay/hạn mức, tín hiệu gần nhất, hội thoại chưa gắn lead.
+3. ⏳ Đồng bộ lịch hẹn (`GET /appointments`) → lịch tư vấn/học thử.
+
+   _Kiểm thử đầu-cuối trên máy thật (24/09): bí mật sai → 401 · tin khách → 200 · bắn lại cùng tin →
+   ghi `duplicate`, không nhân đôi · tin nhân viên trả lời bên công cụ → ghi chiều `out` · `zalo.disconnected`
+   → nick chuyển `offline` + cảnh báo. CSDL sau kiểm thử: webhook 3 processed / 1 duplicate / 1 rejected;
+   1 hội thoại, 2 tin (1 vào, 1 ra)._
 
 **Đợt B — trả lời ngay trong hệ thống**
 4. `gui()` cho kênh cá nhân (gọi `POST /messages/send` của ZCRM) + hạn mức/giãn cách.

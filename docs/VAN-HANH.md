@@ -156,3 +156,26 @@ xin lại authorization code rồi dán refresh token mới — không có cách
 - **Chấm công**: công tính theo ca đã xếp; quét thẻ chỉ sinh cờ để quản lý rà (muộn, thiếu lượt, quét ngoài ca…). Chấm công phải quét mã QR tại quầy, có kiểm tra vị trí. Danh mục 22 mã ca, lưới tháng giữ nguyên ô sửa tay và ô sinh từ đơn.
 - **Đơn từ**: 10 loại, duyệt là áp ngay vào lịch / công; áp lỗi thì đơn quay lại Chờ duyệt kèm lý do. Từ chối bắt buộc có lý do, nộp muộn được đánh dấu.
 - **Vị trí công việc**: gán vị trí cho nhân sự sẽ tự cấp bộ vai trò kèm thời hạn; hết hạn là mất quyền. "Điều động tác nghiệp" mở phạm vi dữ liệu cơ sở khác trong một khoảng thời gian.
+
+## Kênh Zalo cá nhân (công cụ ngoài — ZCRM)
+
+Hệ thống **không** đăng nhập Zalo. Nick chạy bên công cụ riêng, hệ thống chỉ nhận sự kiện về.
+
+**Đấu nối một nick** (quản trị hệ thống):
+1. *Tích hợp* → thẻ **Zalo cá nhân** → **Thêm nick**: đặt tên nick, trần tin/ngày, dán bí mật webhook
+   (chuỗi ngẫu nhiên ≥ 24 ký tự, sinh bằng bất kỳ công cụ nào — hệ thống mã hoá trước khi lưu).
+2. Chép đường webhook hiện trong bảng (`/api/webhooks/kenh/<slug>`) sang **Cài đặt → Webhook** của ZCRM,
+   kèm header `X-Webhook-Secret` bằng đúng bí mật vừa đặt (hoặc ký HMAC-SHA256 vào `X-Signature`).
+3. Chọn sự kiện: `message.received`, `message.sent`, `contact.created`, `zalo.connected`, `zalo.disconnected`.
+
+**Đọc bảng nick ở màn Zalo CRM**
+
+| Thấy gì | Nghĩa là | Làm gì |
+|---|---|---|
+| "im lặng > 30 phút" | Công cụ không gửi sự kiện nào về | Kiểm tra máy chạy ZCRM và nick còn đăng nhập không — khách nhắn vào lúc này hệ thống không thấy |
+| Tin hôm nay sát trần | Nick sắp chạm hạn mức tự đặt | Chia bớt việc sang nick khác; đừng nâng trần quá 200 |
+| Webhook "bị từ chối" | Sai bí mật hoặc chữ ký | Đặt lại bí mật ở cả hai đầu; sự kiện bị từ chối **không** chạy lại được |
+
+**Nguyên tắc**: nick bị Zalo khoá chỉ mất chỗ chat — lead và lịch sử hội thoại đã nằm trong hệ thống.
+Không đồng bộ danh bạ/bạn bè về hệ thống; chỉ người đã nhắn tới trung tâm mới được tạo thành lead,
+và vẫn phải tick xác nhận khách đồng ý.
