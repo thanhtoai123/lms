@@ -105,6 +105,8 @@ export const conversations = pgTable("conversations", {
   parentId: uuid("parent_id").references(() => parents.id, { onDelete: "set null" }),
   /** Giáo viên phụ trách (hội thoại PH ↔ GV) */
   teacherId: uuid("teacher_id").references(() => teachers.id),
+  /** Nick/cổng của kênh ngoài đã nhận hội thoại này (Zalo cá nhân) — để trả lời đúng nick */
+  channelAccountId: uuid("channel_account_id"),
   assignedTo: uuid("assigned_to").references(() => users.id),
   status: convStatusEnum("status").notNull().default("open"),
   subject: text("subject"),

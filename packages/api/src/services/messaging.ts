@@ -2,7 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { and, eq, inArray, sql, desc, asc, or, ilike, isNull, isNotNull, gte, lte, type SQL } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import {
-  conversations, messages, leads, leadActivities, parents, students, studentGuardians, teachers, users, centers, parentNotifications, appSettings, enrollments, classes, userRoles, type Database,
+  conversations, messages, leads, leadActivities, parents, students, studentGuardians, teachers, users, centers, parentNotifications, appSettings, enrollments, classes, userRoles, channelAccounts, type Database,
 } from "@satarobo/db";
 import {
   authorize, authorizeGlobal, centersWith, hasRole, maskPhone, normalizeVnPhone,
@@ -13,6 +13,7 @@ import {
 } from "@satarobo/core";
 import type { ProtectedContext } from "../trpc";
 import { accessTokenZalo } from "./zaloToken";
+import { guiQuaKenh, ngayVN } from "./channelAccounts";
 import { writeAudit } from "./audit";
 import { todayISO } from "./sessions";
 import { notify } from "./finance";
@@ -125,11 +126,15 @@ export async function getConversation(ctx: ProtectedContext, id: string) {
     .where(and(eq(users.isActive, true), inArray(userRoles.role, ["CENTER_MANAGER", "CENTER_SALES_CSM", "CENTER_CLASS_MANAGER", "HO_MARKETING", "SUPER_ADMIN"]), c.centerId ? or(eq(userRoles.centerId, c.centerId), isNull(userRoles.centerId)) : sql`true`))
     .groupBy(users.id, users.fullName).orderBy(asc(users.fullName));
   const canReply = canAct(ctx, c, "message:create");
+  // Kênh ngoài: cho biết tin sẽ đi qua nick nào (trung tâm có nhiều nick Zalo cá nhân)
+  const nick = c.channelAccountId ? await ctx.db.query.channelAccounts.findFirst({ where: eq(channelAccounts.id, c.channelAccountId) }) : null;
   const leadCenters = centersWith(ctx.actor, "lead:create");
   const centerOpts = await ctx.db.select({ id: centers.id, code: centers.code }).from(centers).where(and(eq(centers.isActive, true), leadCenters === null ? sql`true` : leadCenters.length ? inArray(centers.id, leadCenters) : sql`false`)).orderBy(asc(centers.code));
   return {
     centers: centerOpts,
-    id: c.id, channel: c.channel, channelLabel: MSG_CHANNEL_VI[c.channel as MsgChannel], status: c.status, statusLabel: CONV_STATUS_VI[c.status as ConvStatus], subject: c.subject,
+    id: c.id, channel: c.channel, channelLabel: MSG_CHANNEL_VI[c.channel as MsgChannel],
+    nick: nick ? { label: nick.label, active: nick.active, conLai: nick.sentDay === ngayVN() ? Math.max(0, nick.dailyCap - nick.sentToday) : nick.dailyCap } : null,
+    status: c.status, statusLabel: CONV_STATUS_VI[c.status as ConvStatus], subject: c.subject,
     displayName: c.displayName, externalId: c.externalId ? maskExternalId(c.externalId) : null, centerId: c.centerId, assignedTo: c.assignedTo, teacherId: c.teacherId,
     flags: c.flags.map((f) => ({ key: f, label: FLAG_VI[f] ?? f })), portalSeenAt: c.portalSeenAt, createdAt: c.createdAt,
     lead: lead ? { id: lead.id, name: lead.parentName, phone: maskPhone(lead.phoneNormalized), status: lead.status } : null,
@@ -148,9 +153,11 @@ async function markActivity(db: Db, id: string, patch: Partial<typeof conversati
 }
 
 /** Gửi ra kênh ngoài. Không cấu hình khoá → lưu "skipped" (hiển thị rõ cho nhân viên) */
-async function deliver(db: Db, channel: MsgChannel, externalId: string | null, body: string, tag: string | null): Promise<{ status: "sent" | "skipped" | "failed"; externalId?: string; error?: string }> {
+async function deliver(db: Db, channel: MsgChannel, externalId: string | null, body: string, tag: string | null, channelAccountId?: string | null): Promise<{ status: "sent" | "skipped" | "failed"; externalId?: string; error?: string }> {
   if (channel === "portal") return { status: "sent" };
   if (!externalId) return { status: "failed", error: "Thiếu mã người nhận" };
+  // Zalo cá nhân: hệ thống KHÔNG tự nói chuyện với Zalo — nhờ công cụ ngoài gửi hộ, kèm trần tin/ngày
+  if (channel === "zalo_ca_nhan") return guiQuaKenh(db as unknown as Database, { channelAccountId: channelAccountId ?? null, nguoiId: externalId, body });
   try {
     if (channel === "messenger") {
       const token = process.env.META_PAGE_TOKEN;
@@ -192,7 +199,7 @@ export async function sendMessage(ctx: ProtectedContext, input: { id: string; bo
     const p = await ctx.db.query.parents.findFirst({ where: eq(parents.id, c.parentId) });
     if (p?.processingRestricted) throw pre("Phụ huynh đã yêu cầu hạn chế xử lý dữ liệu — không nhắn qua hệ thống");
   }
-  const d = await deliver(ctx.db, c.channel as MsgChannel, c.externalId, body, win.tag);
+  const d = await deliver(ctx.db, c.channel as MsgChannel, c.externalId, body, win.tag, c.channelAccountId);
   const flags = messageFlags(body).filter((f) => f === "private_payment" || f === "abuse");
   await ctx.db.insert(messages).values({ conversationId: c.id, direction: "out", body, senderUserId: ctx.user.id, status: d.status, externalId: d.externalId ?? null, error: d.error ?? null, tag: win.tag, flags });
   await markActivity(ctx.db, c.id, {
@@ -336,21 +343,26 @@ type KenhNgoai = "messenger" | "zalo" | "zalo_ca_nhan";
 const TIEU_DE_KENH: Record<KenhNgoai, string> = { messenger: "Tin nhắn Facebook", zalo: "Tin nhắn Zalo OA", zalo_ca_nhan: "Tin nhắn Zalo cá nhân" };
 
 /** Tìm (hoặc dựng) hội thoại theo cặp kênh + định danh ngoài */
-async function hoiThoaiNgoai(d: Db, input: { channel: KenhNgoai; senderId: string; displayName?: string | null; subject?: string | null; centerId?: string | null }) {
+async function hoiThoaiNgoai(d: Db, input: { channel: KenhNgoai; senderId: string; displayName?: string | null; subject?: string | null; centerId?: string | null; channelAccountId?: string | null }) {
   const settings = await messagingSettings(d);
   let c = await d.query.conversations.findFirst({ where: and(eq(conversations.channel, input.channel), eq(conversations.externalId, input.senderId)) });
   if (!c) {
     const [row] = await d.insert(conversations).values({
       channel: input.channel, externalId: input.senderId, displayName: input.displayName?.slice(0, 120) ?? null,
       centerId: input.centerId ?? settings.defaultCenterId, status: "open",
-      subject: input.subject ?? TIEU_DE_KENH[input.channel],
+      subject: input.subject ?? TIEU_DE_KENH[input.channel], channelAccountId: input.channelAccountId ?? null,
     }).onConflictDoNothing().returning();
     c = row ?? (await d.query.conversations.findFirst({ where: and(eq(conversations.channel, input.channel), eq(conversations.externalId, input.senderId)) }));
+  }
+  // Hội thoại có trước khi khai báo nick (hoặc đổi nick) thì gắn lại — để trả lời đúng nick đã nhận
+  if (c && input.channelAccountId && c.channelAccountId !== input.channelAccountId) {
+    await d.update(conversations).set({ channelAccountId: input.channelAccountId }).where(eq(conversations.id, c.id));
+    c = { ...c, channelAccountId: input.channelAccountId };
   }
   return c ?? null;
 }
 
-export async function ingestExternal(db: Database, input: { channel: KenhNgoai; senderId: string; displayName?: string | null; text: string; messageId: string; at: Date; attachments?: { type: string; url: string }[] | null; subject?: string | null; centerId?: string | null }) {
+export async function ingestExternal(db: Database, input: { channel: KenhNgoai; senderId: string; displayName?: string | null; text: string; messageId: string; at: Date; attachments?: { type: string; url: string }[] | null; subject?: string | null; centerId?: string | null; channelAccountId?: string | null }) {
   const d = asDb(db);
   if (!/^[A-Za-z0-9_.-]{3,64}$/.test(input.senderId)) return { ok: false as const, error: "senderId không hợp lệ" };
   const c = await hoiThoaiNgoai(d, input);
@@ -365,7 +377,7 @@ export async function ingestExternal(db: Database, input: { channel: KenhNgoai; 
  * Ghi lại mới đo được thời gian phản hồi đầu tiên và mới biết hôm nay nick đã gửi bao nhiêu tin —
  * nếu bỏ qua thì màn giám sát sẽ báo "chưa ai trả lời" trong khi thực tế đã trả lời rồi.
  */
-export async function ingestExternalOutbound(db: Database, input: { channel: KenhNgoai; senderId: string; text: string; messageId: string; at: Date; attachments?: { type: string; url: string }[] | null; subject?: string | null; centerId?: string | null }) {
+export async function ingestExternalOutbound(db: Database, input: { channel: KenhNgoai; senderId: string; text: string; messageId: string; at: Date; attachments?: { type: string; url: string }[] | null; subject?: string | null; centerId?: string | null; channelAccountId?: string | null }) {
   const d = asDb(db);
   if (!/^[A-Za-z0-9_.-]{3,64}$/.test(input.senderId)) return { ok: false as const, error: "senderId không hợp lệ" };
   const c = await hoiThoaiNgoai(d, input);

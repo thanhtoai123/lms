@@ -135,8 +135,27 @@ export async function nhanSuKienKenh(db: Database, input: { slug: string; raw: s
   const secret = openWith(NHAN, acc.webhookSecret);
   if (!secret) return { ok: false, status: "rejected", httpStatus: 503, error: "Tài khoản kênh chưa đặt bí mật webhook" };
   if (!chuKyHopLe(input.raw, input.headers, secret)) return { ok: false, status: "rejected", httpStatus: 401, error: "Sai bí mật / chữ ký" };
+  return apDungSuKien(db, acc, input.body);
+}
 
-  const sk = docSuKienZcrm(input.body);
+/**
+ * Chạy lại một sự kiện đã lưu ở `webhook_events` (người quản trị bấm "Chạy lại").
+ * Không kiểm chữ ký: sự kiện đã qua cửa chữ ký lúc nhận, và người bấm phải có `system:update`.
+ */
+export async function xuLyLaiSuKienKenh(db: Database, input: { slug: string | null; body: unknown }): Promise<KetQuaNhan> {
+  const d = asDb(db);
+  const acc = input.slug
+    ? await d.query.channelAccounts.findFirst({ where: and(eq(channelAccounts.slug, input.slug), eq(channelAccounts.channel, "zalo_ca_nhan")) })
+    : await d.query.channelAccounts.findFirst({ where: eq(channelAccounts.channel, "zalo_ca_nhan") });
+  if (!acc) return { ok: false, status: "rejected", httpStatus: 404, error: "Không còn tài khoản kênh tương ứng để chạy lại" };
+  return apDungSuKien(db, acc, input.body);
+}
+
+type TaiKhoanKenh = typeof channelAccounts.$inferSelect;
+
+async function apDungSuKien(db: Database, acc: TaiKhoanKenh, body: unknown): Promise<KetQuaNhan> {
+  const d = asDb(db);
+  const sk = docSuKienZcrm(body);
   const now = new Date();
   if (!sk) {
     await d.update(channelAccounts).set({ lastEventAt: now }).where(eq(channelAccounts.id, acc.id));
@@ -169,7 +188,7 @@ export async function nhanSuKienKenh(db: Database, input: { slug: string; raw: s
     }
     const [moi] = await d.insert(conversations).values({
       channel: "zalo_ca_nhan", externalId: sk.nguoiId, displayName: sk.tenHienThi?.slice(0, 120) ?? null,
-      centerId: acc.centerId, status: "pending", subject: `Zalo cá nhân — ${acc.label}`,
+      centerId: acc.centerId, status: "pending", subject: `Zalo cá nhân — ${acc.label}`, channelAccountId: acc.id,
     }).onConflictDoNothing().returning();
     return { ok: true, status: "processed", loai: sk.loai, conversationId: moi?.id };
   }
@@ -186,7 +205,7 @@ export async function nhanSuKienKenh(db: Database, input: { slug: string; raw: s
     const r = await ingestExternal(db, {
       channel: "zalo_ca_nhan", senderId: sk.nguoiId!, displayName: sk.tenHienThi, text: sk.noiDung,
       messageId: tinId, at: sk.luc, attachments: sk.tepDinhKem.length ? sk.tepDinhKem : null,
-      subject: `Zalo cá nhân — ${acc.label}`, centerId: acc.centerId,
+      subject: `Zalo cá nhân — ${acc.label}`, centerId: acc.centerId, channelAccountId: acc.id,
     });
     await d.update(channelAccounts).set(chung2).where(eq(channelAccounts.id, acc.id));
     if (!r.ok) return { ok: false, status: "rejected", httpStatus: 400, error: r.error };
@@ -196,7 +215,7 @@ export async function nhanSuKienKenh(db: Database, input: { slug: string; raw: s
   // tin_di: nhân viên trả lời bên công cụ — ghi lại để đo thời gian phản hồi và đếm hạn mức ngày
   const r = await ingestExternalOutbound(db, {
     channel: "zalo_ca_nhan", senderId: sk.nguoiId!, text: sk.noiDung, messageId: tinId, at: sk.luc,
-    attachments: sk.tepDinhKem.length ? sk.tepDinhKem : null, subject: `Zalo cá nhân — ${acc.label}`, centerId: acc.centerId,
+    attachments: sk.tepDinhKem.length ? sk.tepDinhKem : null, subject: `Zalo cá nhân — ${acc.label}`, centerId: acc.centerId, channelAccountId: acc.id,
   });
   const homNay = ngayVN(now);
   await d.update(channelAccounts).set({
@@ -236,3 +255,75 @@ export async function nickCaNhan(db: Db, now: Date = new Date()): Promise<NickCa
 }
 
 export type { SuKienKenh };
+
+/* ------------------------------------------------------------------ */
+/* Gửi ra qua công cụ ngoài                                             */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Thân yêu cầu gửi tin: mỗi bản ZCRM đặt tên trường một khác, nên gửi kèm vài tên đồng nghĩa.
+ * Trường thừa bị bỏ qua ở phía nhận; thiếu tên đúng thì tin không đi, nên rộng còn hơn hụt.
+ * Nếu bản của trung tâm dùng tên khác nữa thì thêm ở ĐÚNG MỘT CHỖ này.
+ */
+function thanGuiTin(nguoiId: string, body: string) {
+  return { zaloId: nguoiId, threadId: nguoiId, to: nguoiId, userId: nguoiId, message: body, text: body, content: body };
+}
+
+export type KetQuaGui = { status: "sent" | "skipped" | "failed"; externalId?: string; error?: string };
+
+/**
+ * Gửi tin ra nick Zalo cá nhân qua API của công cụ ngoài.
+ *
+ * Hai cửa chặn trước khi gọi ra ngoài, theo đúng thứ tự:
+ *  1. **Trần tin/ngày của nick** — tăng bộ đếm bằng MỘT câu UPDATE có điều kiện (`sent_today < daily_cap`),
+ *     nên hai người cùng bấm gửi cũng không vượt trần. Chạm trần thì trả `skipped`, không gọi ra ngoài.
+ *  2. Thiếu khai báo (địa chỉ API / khoá) → `skipped` kèm lý do rõ, tin vẫn lưu nội bộ.
+ * Gọi ra ngoài hỏng thì **hoàn lại** bộ đếm — tin không đi mà vẫn trừ hạn mức là mất chỗ gửi oan.
+ */
+export async function guiQuaKenh(db: Database, input: { channelAccountId: string | null; nguoiId: string; body: string }): Promise<KetQuaGui> {
+  const d = asDb(db);
+  const acc = input.channelAccountId
+    ? await d.query.channelAccounts.findFirst({ where: eq(channelAccounts.id, input.channelAccountId) })
+    : await d.query.channelAccounts.findFirst({ where: and(eq(channelAccounts.channel, "zalo_ca_nhan"), eq(channelAccounts.active, true)) });
+  if (!acc) return { status: "skipped", error: "Hội thoại chưa gắn nick nào — khai báo ở Tích hợp → Zalo cá nhân" };
+  if (!acc.active) return { status: "skipped", error: `Nick “${acc.label}” đã bị ngắt khỏi hệ thống` };
+  const baseUrl = acc.baseUrl?.replace(/\/+$/, "") ?? null;
+  const apiKey = openWith(NHAN, acc.apiKey);
+  if (!baseUrl || !apiKey) return { status: "skipped", error: `Nick “${acc.label}” chưa có địa chỉ API / khoá — tin chỉ lưu nội bộ` };
+
+  const homNay = ngayVN();
+  const [giu] = await d
+    .update(channelAccounts)
+    .set({
+      sentDay: homNay,
+      sentToday: sql`case when ${channelAccounts.sentDay} = ${homNay} then ${channelAccounts.sentToday} + 1 else 1 end`,
+    })
+    .where(and(
+      eq(channelAccounts.id, acc.id),
+      sql`(${channelAccounts.sentDay} is distinct from ${homNay} or ${channelAccounts.sentToday} < ${channelAccounts.dailyCap})`,
+    ))
+    .returning({ sentToday: channelAccounts.sentToday, dailyCap: channelAccounts.dailyCap });
+  if (!giu) return { status: "skipped", error: `Nick “${acc.label}” đã chạm trần ${acc.dailyCap} tin hôm nay — gửi tiếp dễ bị Zalo khoá nick` };
+
+  const hoanLai = async (loi: string): Promise<KetQuaGui> => {
+    await d.update(channelAccounts)
+      .set({ sentToday: sql`greatest(0, ${channelAccounts.sentToday} - 1)`, lastError: loi.slice(0, 300), lastErrorAt: new Date() })
+      .where(eq(channelAccounts.id, acc.id));
+    return { status: "failed", error: loi };
+  };
+
+  try {
+    const r = await fetch(`${baseUrl}/api/public/messages/send`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
+      body: JSON.stringify(thanGuiTin(input.nguoiId, input.body)),
+      signal: AbortSignal.timeout(15_000),
+    });
+    const j = (await r.json().catch(() => ({}))) as { messageId?: string; message_id?: string; id?: string; data?: { messageId?: string; id?: string }; error?: string; message?: string };
+    if (!r.ok) return hoanLai(j.error ?? j.message ?? `Công cụ trả lỗi HTTP ${r.status}`);
+    await d.update(channelAccounts).set({ lastError: null, lastErrorAt: null, lastSeenAt: new Date() }).where(eq(channelAccounts.id, acc.id));
+    return { status: "sent", externalId: j.messageId ?? j.message_id ?? j.data?.messageId ?? j.data?.id ?? j.id };
+  } catch (e) {
+    return hoanLai(e instanceof Error ? `Không gọi được công cụ: ${e.message}`.slice(0, 300) : "Không gọi được công cụ");
+  }
+}

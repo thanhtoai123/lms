@@ -24,6 +24,8 @@ import { trangThaiTokenZalo } from "./zaloToken";
 import { assertTenant, tenantCond } from "./tenantScope";
 import { deliverNotifications } from "./notify";
 import { ingestBankTx } from "./bank";
+import { ingestExternal, parseMessengerPayload, parseZaloPayload } from "./messaging";
+import { xuLyLaiSuKienKenh } from "./channelAccounts";
 import { createLead } from "./leads";
 import { leadInput } from "../routers/admissions";
 import { otpPepper } from "../lib/secrets";
@@ -575,6 +577,29 @@ export async function replayWebhook(ctx: ProtectedContext, input: { id: string }
         status = r.duplicated ? "duplicate" : "processed";
         result = { leadId: r.lead?.id ?? null, duplicated: r.duplicated };
       }
+    } else if (w.source === "messenger") {
+      const tins = parseMessengerPayload(w.payload);
+      if (!tins.length) { status = "rejected"; error = "Payload không có tin nào để chạy lại"; }
+      else {
+        const rs = [] as { ok: boolean; duplicate?: boolean }[];
+        for (const t of tins) rs.push(await ingestExternal(ctx.db as never, { channel: "messenger", senderId: t.senderId, text: t.text, messageId: t.messageId, at: t.at, attachments: t.attachments }));
+        status = rs.every((r) => r.ok && r.duplicate) ? "duplicate" : rs.some((r) => r.ok) ? "processed" : "rejected";
+        result = { soTin: rs.length };
+      }
+    } else if (w.source === "zalo") {
+      const ev = parseZaloPayload(w.payload);
+      if (!ev) { status = "rejected"; error = "Sự kiện Zalo không phải tin của khách"; }
+      else {
+        const r = await ingestExternal(ctx.db as never, { channel: "zalo", senderId: ev.senderId, text: ev.text, messageId: ev.messageId, at: ev.at });
+        status = r.ok ? (r.duplicate ? "duplicate" : "processed") : "rejected";
+        if (!r.ok) error = r.error;
+        result = r;
+      }
+    } else if (w.source === "zalo_ca_nhan") {
+      // `external_id` của dòng nhật ký chính là slug nick đã nhận sự kiện
+      const r = await xuLyLaiSuKienKenh(ctx.db as never, { slug: w.externalId, body: w.payload });
+      if (!r.ok) { status = "rejected"; error = r.error; }
+      else { status = r.status === "duplicate" ? "duplicate" : "processed"; result = r; }
     } else {
       throw pre("Nguồn không hỗ trợ chạy lại");
     }

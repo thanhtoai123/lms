@@ -71,6 +71,13 @@ export default async function MessagesPage({ searchParams }: { searchParams: Pro
                     {conv.parent && conv.parent.children.length > 0 && <div className="text-xs">Con: {conv.parent.children.map((k) => <Link key={k.id} href={`/students/${k.id}`} className="mr-2 text-brand-600">{k.name}</Link>)}</div>}
                     {conv.lead && <Link href={`/leads/${conv.lead.id}`} className="text-xs text-brand-600">Mở lead →</Link>}
                     {conv.channel === "portal" && <div className="text-[11px] text-ink-400">PH mở liên kết lần cuối: {conv.portalSeenAt ? dtVN(conv.portalSeenAt) : "chưa mở"}</div>}
+                    {/* Kênh ngoài: tin đi qua nick nào, nick còn bao nhiêu tin trong ngày */}
+                    {conv.nick && (
+                      <div className={`text-[11px] ${conv.nick.active ? "text-ink-400" : "text-red-700"}`}>
+                        Gửi qua nick <b>{conv.nick.label}</b>
+                        {conv.nick.active ? ` · còn ${conv.nick.conLai} tin hôm nay` : " · nick đã bị ngắt, tin chỉ lưu nội bộ"}
+                      </div>
+                    )}
                   </div>
                   {conv.can.manage && <ConvActions id={conv.id} status={conv.status} assignedTo={conv.assignedTo} staff={conv.staff} canClearFlags={supervisor} hasFlags={conv.flags.length > 0} />}
                 </div>
