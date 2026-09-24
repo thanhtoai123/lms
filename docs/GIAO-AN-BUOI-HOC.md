@@ -58,8 +58,9 @@ của các nền tảng phim, chỉ nâng chi phí sao chép. Vì vậy hệ th�
 | Lớp | Làm gì | Chặn được gì |
 |---|---|---|
 | Không giao tệp gốc | Slide phát qua `/api/content/giao-an/<buổi>/tep`, gắn **phiên đăng nhập**, `no-store`, không có nút tải | Gửi link cho người ngoài → mở không được; không còn bản sao nằm trong máy sau khi đóng phiên |
+| Slide vẽ ra `<canvas>` | Không dùng trình xem PDF của trình duyệt: **không còn thanh công cụ đen** kèm nút tải / in / mở tab mới, **không có lớp text để bôi–chép**, và chữ mờ vẽ thẳng vào ảnh trang (xoá phần tử không bóc ra được) | Mọi cách sao chép "một cú nhấp" |
 | Rào thao tác dễ | Tắt chuột phải, kéo–thả, chọn–chép, `Ctrl+P` / `Ctrl+S`, in ra giấy / "Print to PDF" (CSS `@media print`), cắm rào tương tự vào **từng trang HTML trong gói SCORM** | Cách sao chép mà 9/10 người sẽ thử đầu tiên |
-| Truy nguồn | Chữ mờ **3 dòng** (trên – giữa – dưới, đủ để ảnh chụp bất kỳ dính ít nhất một dòng mà không làm rối slide), mang **tên + liên hệ đã che + giờ chạy theo giây** của chính người đang xem; **che màn ~1,5 giây** đúng lúc có dấu hiệu chụp (PrintScreen, Win+Shift+S, Ctrl+P/S, DevTools) | Ảnh/clip lọt ra ngoài là biết của ai, lúc nào; ảnh chụp bằng phím tắt dễ dính màn che |
+| Truy nguồn | Chữ mờ **3 dòng** vẽ thẳng vào ảnh trang (SCORM thì phủ ngoài vì nội dung nằm trong tài liệu con), mang **tên + liên hệ đã che + giờ chạy theo giây** của chính người đang xem; **che màn ~1,5 giây** đúng lúc có dấu hiệu chụp (PrintScreen, Win+Shift+S, Ctrl+P/S, DevTools) | Ảnh/clip lọt ra ngoài là biết của ai, lúc nào; ảnh chụp bằng phím tắt dễ dính màn che |
 | Ghi nhật ký | Mỗi lượt mở và mỗi thao tác nghi vấn (in, PrintScreen, chuột phải, DevTools, Ctrl+S) vào `document_access_logs`; trang `/scorm` có mục **"Nhật ký xem & nghi vấn sao chép (30 ngày)"** kèm mức cảnh báo theo người | Đây là lớp bảo vệ THẬT: người dùng biết mình để lại dấu vết, quản trị có bằng chứng để xử lý theo quy định nội bộ |
 
 Ngưỡng cảnh báo: ≥ 3 lần/30 ngày = "nên để ý", ≥ 10 lần = "bất thường, cần hỏi lại người dùng"
@@ -100,9 +101,14 @@ trong `cau-hinh.json` khi chạy trên máy chủ thật; đóng gói `.exe` por
 cửa sổ mới ra `0x11` = `WDA_EXCLUDEFROMCAPTURE`, và lúc đó ảnh chụp bằng `Graphics.CopyFromScreen`
 (đúng API phần mềm chụp dùng) **không còn thấy cửa sổ**. Chi tiết trong `tools/trinh-chieu/README.md`.
 
-Khung xem tự nhận biết đang chạy trong ứng dụng (User-Agent có `SataRoboTrinhChieu`) và hiện đúng một câu:
-xanh = "phần mềm quay chỉ thu được màn đen", vàng = "đang trên trình duyệt, quay/chụp KHÔNG bị chặn".
-Không hứa điều không làm được là một phần của bảo mật: giáo viên biết khi nào mình thật sự được bảo vệ.
+Ứng dụng còn **canh gác tiến trình**: thấy phần mềm quay/chụp đang chạy (OBS, Bandicam, Camtasia,
+ShareX…) hoặc máy đang ở phiên điều khiển từ xa thì **ẩn hẳn bài giảng**, hiện lời nhắc và ghi nhật ký;
+tắt phần mềm đó thì bài tự hiện lại. Danh sách chặn sửa trong `tools/trinh-chieu/cau-hinh.json`.
+
+Khung xem **không còn dòng chữ cảnh báo nào** (giáo viên đọc một lần là đủ, để mãi trên màn chiếu chỉ
+tổ vướng). Thay bằng một **chấm tròn nhỏ ở góc dưới phải**: xanh = đang trong ứng dụng bảo vệ, vàng =
+đang ở trình duyệt (rê chuột vào để đọc giải thích). Phân tích đầy đủ các mức bảo vệ:
+`docs/CHONG-CHUP-MAN-HINH.md`.
 
 **KHÔNG làm mờ liên tục.** Bản đầu làm mờ mỗi khi cửa sổ mất tiêu điểm nên không chiếu bài được —
 đã bỏ. Nay chỉ che đúng khoảnh khắc có dấu hiệu chụp rồi trả lại màn hình ngay, và chữ mờ rút còn
@@ -110,8 +116,9 @@ Không hứa điều không làm được là một phần của bảo mật: gi
 
 ## 6. Trình chiếu
 
-Nút **Trình chiếu toàn màn hình** (hoặc phím `F`) đưa khung vào fullscreen thật; ở chế độ thường khung
-đã cao gần hết cửa sổ. Gói SCORM và slide PDF dùng chung khung này, nên giáo viên chỉ quen một màn hình.
+Khung chiếm gần hết cửa sổ, **không có thanh công cụ ngang nào ở trên**. Nút **Trình chiếu toàn màn hình**
+nổi ở góc phải và chỉ hiện khi rê chuột (phím tắt `F`, thoát bằng `Esc`). Slide PDF cuộn liên tục từng
+trang; gói SCORM chạy trong trình chạy SCORM — cùng một khung, giáo viên chỉ phải quen một màn hình.
 
 ## 7. Phía giáo viên
 

@@ -39,6 +39,21 @@ function docCauHinh() {
     kiosk: process.env.SATA_KIOSK === "1" || tep.kiosk === true,
     /** Mở thẳng một buổi học nếu được truyền vào: --buoi=<lessonId> */
     lessonId: (process.argv.find((a) => a.startsWith("--buoi=")) || "").slice("--buoi=".length) || tep.lessonId || "",
+    /**
+     * Tên tiến trình phần mềm quay/chụp bị chặn. Đang chạy một trong số này thì ứng dụng ẨN bài
+     * và hiện lời nhắc, tới khi tắt phần mềm đó. KHÔNG mặc định chặn Zoom/Teams vì trung tâm còn
+     * dạy online bằng chính hai phần mềm đó — trung tâm nào cần thì thêm vào cau-hinh.json.
+     */
+    chanPhanMem: Array.isArray(tep.chanPhanMem) && tep.chanPhanMem.length ? tep.chanPhanMem.map(String) : [
+      "obs64.exe", "obs32.exe", "obs.exe", "bandicam.exe", "camtasia.exe", "camtasiastudio.exe",
+      "snagit32.exe", "snagiteditor.exe", "sharex.exe", "action.exe", "xsplit.core.exe",
+      "fraps.exe", "activepresenter.exe", "screenrec.exe", "flashback recorder.exe", "icecreamscreenrecorder.exe",
+      "movavi screen recorder.exe", "apowerrec.exe", "screenpresso.exe", "loom.exe", "streamlabs obs.exe",
+    ],
+    /** Giây giữa hai lần quét tiến trình (0 = tắt hẳn việc quét) */
+    chuKyQuet: Number.isFinite(tep.chuKyQuet) ? Number(tep.chuKyQuet) : 5,
+    /** Chặn khi đang chiếu qua Remote Desktop / phiên điều khiển từ xa */
+    chanTuXa: tep.chanTuXa !== false,
   };
 }
 
@@ -52,6 +67,113 @@ function duongDanDau() {
 }
 
 let win = null;
+
+/* ------------------------------------------------------------------ */
+/* Canh gác: phần mềm quay màn hình & phiên điều khiển từ xa           */
+/* ------------------------------------------------------------------ */
+
+const { execFile } = require("node:child_process");
+const { net } = require("electron");
+
+/** Cửa sổ lời nhắc khi phát hiện phần mềm quay (bài bị ẩn trong lúc này) */
+let canhBao = null;
+let dangChan = null; // tên phần mềm / lý do đang chặn, null = không chặn
+let daBao = new Set(); // đã gửi nhật ký cho lý do nào (khỏi dội máy chủ)
+
+/** Danh sách tiến trình đang chạy, chữ thường. Lỗi thì trả mảng rỗng (không chặn oan). */
+function dsTienTrinh() {
+  return new Promise((ok) => {
+    const xong = (list) => ok(list);
+    if (process.platform === "win32") {
+      execFile("tasklist", ["/fo", "csv", "/nh"], { windowsHide: true, maxBuffer: 4 << 20 }, (e, out) => {
+        if (e || !out) return xong([]);
+        xong(out.split(/\r?\n/).map((d) => (d.split('","')[0] || "").replace(/^"/, "").toLowerCase()).filter(Boolean));
+      });
+    } else {
+      execFile("ps", ["-A", "-o", "comm="], { maxBuffer: 4 << 20 }, (e, out) => {
+        if (e || !out) return xong([]);
+        xong(out.split(/\r?\n/).map((d) => d.trim().split("/").pop().toLowerCase()).filter(Boolean));
+      });
+    }
+  });
+}
+
+/** Đang chiếu qua Remote Desktop? (Windows đặt SESSIONNAME = RDP-Tcp#N cho phiên từ xa) */
+function phienTuXa() {
+  if (process.platform !== "win32") return false;
+  return /^rdp-/i.test(String(process.env.SESSIONNAME || ""));
+}
+
+/** Gửi nhật ký "nghi vấn sao chép" về máy chủ — dùng đúng phiên đăng nhập của cửa sổ đang mở */
+function ghiNhatKy(kind) {
+  try {
+    const url = win && win.webContents ? win.webContents.getURL() : "";
+    const m = /\/scorm\/buoi\/([0-9a-f-]{36})/i.exec(url || "");
+    if (!m) return; // không ở trong khung chiếu thì không có buổi nào để ghi
+    const req = net.request({
+      method: "POST",
+      url: `${CAU_HINH.baseUrl}/api/trpc/content.planCaptureAttempt`,
+      session: session.fromPartition("persist:sata-trinh-chieu"),
+      useSessionCookies: true,
+    });
+    req.setHeader("Content-Type", "application/json");
+    req.on("error", () => {});
+    req.end(JSON.stringify({ json: { lessonId: m[1], kind } }));
+  } catch { /* nhật ký là phụ, không được làm hỏng buổi dạy */ }
+}
+
+/** Hiện / tắt lời nhắc và ẩn bài khi bị chặn */
+function datTrangThaiChan(lyDo, nhan) {
+  if (dangChan === lyDo) return;
+  dangChan = lyDo;
+  if (lyDo) {
+    if (win) win.hide(); // ẩn hẳn: không còn gì trên màn hình để quay
+    if (!canhBao || canhBao.isDestroyed()) {
+      canhBao = new BrowserWindow({
+        width: 760, height: 360, resizable: false, minimizable: false, maximizable: false,
+        alwaysOnTop: true, title: "Trình chiếu an toàn", backgroundColor: "#111827",
+        webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true, devTools: false },
+      });
+      canhBao.setMenu(null);
+      canhBao.on("closed", () => { canhBao = null; });
+    }
+    const html = `<!doctype html><meta charset="utf-8"><title>Tạm dừng chiếu</title>
+      <body style="margin:0;font:16px/1.6 system-ui,Segoe UI,sans-serif;background:#111827;color:#f9fafb;padding:28px">
+      <h1 style="margin:0 0 12px;font-size:22px">Đã tạm dừng chiếu học liệu</h1>
+      <p style="margin:0 0 10px">${nhan}</p>
+      <p style="margin:0 0 10px;color:#fca5a5">Học liệu có bản quyền của trung tâm. Lượt này đã được ghi vào nhật ký.</p>
+      <p style="margin:0;color:#9ca3af">Đóng phần mềm đó rồi bài sẽ tự hiện lại sau vài giây — không cần mở lại ứng dụng.</p>
+      </body>`;
+    canhBao.loadURL("data:text/html;charset=utf-8," + encodeURIComponent(html));
+    canhBao.show();
+    if (!daBao.has(lyDo)) { daBao.add(lyDo); ghiNhatKy(lyDo === "tu-xa" ? "remote_session" : "recorder_running"); }
+  } else {
+    if (canhBao && !canhBao.isDestroyed()) canhBao.close();
+    canhBao = null;
+    daBao.clear();
+    if (win) { win.show(); win.focus(); }
+  }
+}
+
+/** Vòng canh gác: quét tiến trình + phiên từ xa theo chu kỳ */
+function batCanhGac() {
+  if (CAU_HINH.chuKyQuet <= 0) return null;
+  const chan = CAU_HINH.chanPhanMem.map((x) => x.toLowerCase());
+  const quet = async () => {
+    try {
+      if (CAU_HINH.chanTuXa && phienTuXa()) {
+        return datTrangThaiChan("tu-xa", "Máy đang được điều khiển/chiếu từ xa (Remote Desktop) — không chiếu học liệu trong phiên này.");
+      }
+      const dang = await dsTienTrinh();
+      const thay = dang.find((t) => chan.includes(t));
+      if (thay) return datTrangThaiChan(thay, `Phát hiện phần mềm quay/chụp màn hình đang chạy: <b>${thay}</b>.`);
+      datTrangThaiChan(null, "");
+    } catch { /* quét lỗi thì thôi, không chặn oan */ }
+  };
+  void quet();
+  return setInterval(quet, Math.max(2, CAU_HINH.chuKyQuet) * 1000);
+}
+
 
 function taoCuaSo() {
   // Phiên riêng, CÓ lưu cookie: giáo viên đăng nhập một lần, hôm sau mở là vào thẳng.
@@ -165,13 +287,15 @@ if (!app.requestSingleInstanceLock()) {
 } else {
   app.on("second-instance", () => { if (win) { if (win.isMinimized()) win.restore(); win.focus(); } });
 
+  let nhipCanhGac = null;
   app.whenReady().then(() => {
     taoCuaSo();
+    nhipCanhGac = batCanhGac();
     // Thoát toàn màn hình bằng Esc; thoát ứng dụng bằng Ctrl+Shift+Q (để lỡ tay không tắt giữa buổi dạy)
     globalShortcut.register("CommandOrControl+Shift+Q", () => app.quit());
     app.on("activate", () => { if (BrowserWindow.getAllWindows().length === 0) taoCuaSo(); });
   });
 
-  app.on("will-quit", () => globalShortcut.unregisterAll());
+  app.on("will-quit", () => { globalShortcut.unregisterAll(); if (nhipCanhGac) clearInterval(nhipCanhGac); });
   app.on("window-all-closed", () => { if (process.platform !== "darwin") app.quit(); });
 }

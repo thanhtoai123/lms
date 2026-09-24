@@ -1,5 +1,8 @@
 {
   "baseUrl": "http://localhost:3000",
   "kiosk": false,
-  "lessonId": ""
+  "lessonId": "",
+  "chuKyQuet": 5,
+  "chanTuXa": true,
+  "chanPhanMem": []
 }

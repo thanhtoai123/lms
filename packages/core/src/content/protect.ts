@@ -17,7 +17,11 @@
  */
 
 /** Các loại thao tác nghi vấn sao chép mà trình duyệt CÓ THỂ nhận biết */
-export const CAPTURE_KINDS = ["print", "screenshot_key", "copy", "context_menu", "devtools", "download"] as const;
+export const CAPTURE_KINDS = [
+  "print", "screenshot_key", "copy", "context_menu", "devtools", "download",
+  // Hai loại dưới đây do ỨNG DỤNG trình chiếu phát hiện được (trình duyệt thì không):
+  "recorder_running", "remote_session",
+] as const;
 export type CaptureKind = (typeof CAPTURE_KINDS)[number];
 
 export const CAPTURE_KIND_VI: Record<CaptureKind, string> = {
@@ -27,6 +31,8 @@ export const CAPTURE_KIND_VI: Record<CaptureKind, string> = {
   context_menu: "Mở menu chuột phải",
   devtools: "Mở công cụ nhà phát triển",
   download: "Cố tải tệp về",
+  recorder_running: "Có phần mềm quay/chụp màn hình đang chạy",
+  remote_session: "Đang chiếu qua phiên điều khiển từ xa",
 };
 
 /** Ghi vào `document_access_logs.action` — giữ tiền tố để lọc nhanh */

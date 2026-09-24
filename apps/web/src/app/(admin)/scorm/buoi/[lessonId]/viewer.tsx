@@ -3,26 +3,27 @@
 /**
  * KHUNG CHIẾU GIÁO ÁN — dùng chung cho slide PDF và gói SCORM.
  *
- * NGUYÊN TẮC SỐ MỘT: DẠY ĐƯỢC ĐÃ. Giáo viên đang chiếu bài cho cả lớp thì màn hình phải luôn rõ.
- * Bản trước làm mờ mỗi khi cửa sổ mất tiêu điểm — mà chỉ cần bấm vào khung PDF, mở ghi chú, hay
- * máy chiếu đổi màn là mất tiêu điểm — nên bài giảng mờ gần như liên tục. Bỏ hẳn cách đó.
+ * NGUYÊN TẮC SỐ MỘT: DẠY ĐƯỢC ĐÃ. Màn hình phải luôn rõ và không có gì che chắn khi giáo viên
+ * đang chiếu bài: không thanh công cụ, không dòng cảnh báo, không lớp mờ thường trực.
+ * Nút trình chiếu nổi trong góc và chỉ hiện khi rê chuột.
  *
- * Nay chỉ CHE TRONG KHOẢNH KHẮC có dấu hiệu chụp / quay:
- *   - bấm PrintScreen, Win+Shift+S (Snipping Tool), Ctrl+P, Ctrl+S, mở DevTools;
- *   - trang bị đẩy xuống nền NGAY SAU một phím chụp (kiểu chụp rồi chuyển cửa sổ).
- * Che khoảng 1,5 giây, kèm chữ nói rõ thao tác đã được ghi lại, rồi trả lại màn hình cho buổi dạy.
+ * Slide PDF vẽ ra <canvas> (xem pdf-canvas.tsx) chứ KHÔNG dùng trình xem PDF của trình duyệt:
+ * bỏ được thanh công cụ đen kèm nút tải/in, và chữ mờ được vẽ THẲNG VÀO ảnh trang nên không
+ * bóc ra được bằng cách xoá phần tử.
  *
- * NÓI THẲNG GIỚI HẠN — đừng tin vào lời hứa không có thật:
- * TRÌNH DUYỆT KHÔNG CHẶN ĐƯỢC phần mềm quay màn hình (OBS, Bandicam…), không chặn được Snipping Tool
- * hay điện thoại chụp màn chiếu, và KHÔNG CÓ cách nào biết máy đang bị quay. Muốn chặn thật ở mức
- * hệ điều hành thì phải là ỨNG DỤNG MÁY TÍNH (Windows: SetWindowDisplayAffinity / Electron
- * setContentProtection) — xem docs/GIAO-AN-BUOI-HOC.md mục "Bảo vệ học liệu".
+ * Chỉ CHE TRONG KHOẢNH KHẮC có dấu hiệu chụp (PrintScreen, Win+Shift+S, Ctrl+P/S, DevTools,
+ * hoặc trang bị đẩy xuống nền ngay sau một phím chụp) rồi trả lại màn hình ngay.
+ *
+ * NÓI THẲNG GIỚI HẠN: trình duyệt KHÔNG chặn được phần mềm quay màn hình. Lớp chặn thật là
+ * ứng dụng máy tính ở tools/trinh-chieu (Windows: WDA_EXCLUDEFROMCAPTURE) — xem
+ * docs/CHONG-CHUP-MAN-HINH.md. Chấm tròn nhỏ góc dưới phải cho biết đang ở chế độ nào.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { PROTECT_APP_NOTICE, PROTECT_BROWSER_NOTICE, PROTECT_NOTICE, type CaptureKind } from "@satarobo/core";
+import { type CaptureKind } from "@satarobo/core";
 import { useTRPC } from "@/lib/trpc/client";
 import { ScormPlayer } from "../../[id]/player";
+import { PdfCanvas } from "./pdf-canvas";
 
 /**
  * Chữ mờ: chỉ BA dòng (trên – giữa – dưới), đủ để một ảnh chụp bất kỳ dính ít nhất một dòng
@@ -54,6 +55,8 @@ export function PlanViewer({ kind, documentId, lessonId, streamPath, watermark, 
   const [clock, setClock] = useState("");
   /** Đang chạy trong "Ứng dụng trình chiếu an toàn" (Electron) hay trình duyệt thường */
   const [trongUngDung, setTrongUngDung] = useState(false);
+  /** pdf.js không mở được (máy cũ, tệp lạ) → quay về trình xem PDF của trình duyệt */
+  const [duPhongPdf, setDuPhongPdf] = useState(false);
   /** Lớp che tạm thời khi có dấu hiệu chụp — KHÔNG phải trạng thái "mất tiêu điểm" */
   const [shield, setShield] = useState<string | null>(null);
   const report = useMutation(trpc.content.planCaptureAttempt.mutationOptions({}));
@@ -151,54 +154,64 @@ export function PlanViewer({ kind, documentId, lessonId, streamPath, watermark, 
   };
 
   return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap items-center gap-2">
-        <button type="button" className="btn-primary !py-1" onClick={toggle}>{full ? "Thoát trình chiếu" : "Trình chiếu toàn màn hình"}</button>
-        <span className="text-xs text-ink-600">Phím tắt: F (trình chiếu) · Esc (thoát). Màn hình chỉ bị che trong ~1,5 giây khi có thao tác chụp.</span>
+    <div
+      ref={box}
+      onKeyDown={(e) => { if (e.key.toLowerCase() === "f" && !e.ctrlKey && !e.metaKey) void toggle(); }}
+      tabIndex={-1}
+      className={`bao-ve-hoc-lieu group relative select-none overflow-hidden rounded-xl border border-black/10 bg-neutral-100 ${full ? "h-screen w-screen rounded-none" : "h-[calc(100vh-11rem)] min-h-[440px] w-full"}`}
+    >
+      <div className="h-full w-full">
+        {kind === "scorm" ? (
+          <ScormPlayer id={documentId} fill />
+        ) : duPhongPdf || !streamPath ? (
+          <object data={`${streamPath ?? ""}#toolbar=0&navpanes=0&statusbar=0&view=FitH`} type="application/pdf" className="h-full w-full bg-white" aria-label="Slide giáo án">
+            <p className="p-4 text-sm text-white">Trình duyệt không mở được slide trong khung. Hãy dùng Chrome / Edge bản mới.</p>
+          </object>
+        ) : (
+          <PdfCanvas src={streamPath} watermark={watermark} onFail={() => setDuPhongPdf(true)} />
+        )}
       </div>
 
-      <div
-        ref={box}
-        onKeyDown={(e) => { if (e.key.toLowerCase() === "f" && !e.ctrlKey && !e.metaKey) void toggle(); }}
-        tabIndex={-1}
-        className={`bao-ve-hoc-lieu relative select-none overflow-hidden rounded-xl border border-black/10 bg-black ${full ? "h-screen w-screen rounded-none" : "h-[calc(100vh-13rem)] min-h-[420px] w-full"}`}
-      >
-        <div className="h-full w-full">
-          {kind === "scorm" ? (
-            <ScormPlayer id={documentId} fill />
-          ) : (
-            <object data={`${streamPath ?? ""}#toolbar=0&navpanes=0&statusbar=0&view=FitH`} type="application/pdf" className="h-full w-full bg-white" aria-label="Slide giáo án">
-              <p className="p-4 text-sm text-white">Trình duyệt không mở được slide trong khung. Hãy dùng Chrome / Edge bản mới.</p>
-            </object>
-          )}
-        </div>
-
-        {/* Chữ mờ: tên người xem + giờ chạy theo giây — luôn hiện, không cản việc nhìn bài */}
+      {/* Chữ mờ phủ ngoài — CHỈ cần cho gói SCORM và bản dự phòng (nội dung nằm trong tài liệu con,
+          không vẽ chữ vào được). Slide PDF đã có chữ mờ vẽ thẳng vào ảnh trang. */}
+      {(kind === "scorm" || duPhongPdf) && (
         <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
           {MARKS.map((m, i) => (
             <span
               key={i}
-              className="absolute -rotate-[16deg] whitespace-nowrap text-[12px] font-semibold tracking-wide text-black/15 mix-blend-difference sm:text-[13px]"
+              className="absolute -rotate-[16deg] whitespace-nowrap text-[13px] font-semibold tracking-wide text-white/25 mix-blend-difference sm:text-sm"
               style={{ top: m.top, left: m.left }}
             >
               {watermark} · {clock}
             </span>
           ))}
         </div>
+      )}
 
-        {/* Lớp che TẠM THỜI khi có dấu hiệu chụp — tự tắt sau ~1,5 giây */}
-        {shield && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/95 p-6 text-center">
-            <p className="text-lg font-bold text-white">{shield}</p>
-            <p className="text-sm text-white/70">Người xem: {watermark}</p>
-          </div>
-        )}
-      </div>
+      {/* Nút trình chiếu: nổi trong góc, mờ đi khi không rê chuột — không chiếm một thanh ngang */}
+      <button
+        type="button"
+        onClick={toggle}
+        className="absolute right-3 top-3 rounded-lg bg-black/55 px-3 py-1.5 text-xs font-semibold text-white opacity-0 backdrop-blur transition group-hover:opacity-100 focus:opacity-100"
+        title="Phím tắt: F"
+      >
+        {full ? "Thoát trình chiếu (Esc)" : "Trình chiếu toàn màn hình (F)"}
+      </button>
 
-      <p className={`text-xs ${trongUngDung ? "text-green-700" : "text-amber-700"}`}>
-        {trongUngDung ? PROTECT_APP_NOTICE : PROTECT_BROWSER_NOTICE}
-      </p>
-      <p className="text-xs text-ink-600">{PROTECT_NOTICE}</p>
+      {/* Lớp che TẠM THỜI khi có dấu hiệu chụp — tự tắt sau ~1,5 giây */}
+      {shield && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/95 p-6 text-center">
+          <p className="text-lg font-bold text-white">{shield}</p>
+          <p className="text-sm text-white/70">Người xem: {watermark}</p>
+        </div>
+      )}
+
+      {/* Dấu hiệu nhỏ: đang được ứng dụng bảo vệ hay chỉ là trình duyệt (không chiếm chỗ, không ồn) */}
+      <span
+        aria-hidden
+        title={trongUngDung ? "Ứng dụng trình chiếu an toàn: phần mềm quay/chụp chỉ thu được màn đen" : "Trình duyệt: không chặn được phần mềm quay/chụp màn hình"}
+        className={`absolute bottom-2 right-3 h-2 w-2 rounded-full ${trongUngDung ? "bg-green-400" : "bg-amber-400"} opacity-60`}
+      />
     </div>
   );
 }

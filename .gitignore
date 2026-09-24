@@ -20,3 +20,6 @@ backups/
 scripts/kiem-thu/bao-cao-kiem-thu.md
 scripts/kiem-thu/bao-cao-kiem-tra-menu.md
 logs/
+
+# Chép tự động từ pdfjs-dist khi cài gói (apps/web/scripts/copy-pdf-worker.mjs)
+apps/web/public/pdf.worker.min.mjs

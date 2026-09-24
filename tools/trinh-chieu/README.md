@@ -34,8 +34,21 @@ npm start
 | `baseUrl` | Địa chỉ hệ thống, ví dụ `https://lms.trungtam.vn` (mặc định `http://localhost:3000`) |
 | `kiosk` | `true` = khoá cứng toàn màn hình, không có thanh tiêu đề |
 | `lessonId` | Mở thẳng một buổi; để trống thì vào trang `/scorm` chọn buổi |
+| `chuKyQuet` | Số giây giữa hai lần quét phần mềm quay màn hình (0 = tắt quét) |
+| `chanTuXa` | `true` = không chiếu khi máy đang bị điều khiển từ xa (Remote Desktop) |
+| `chanPhanMem` | Danh sách tên tiến trình bị chặn. Để `[]` dùng danh sách mặc định (OBS, Bandicam, Camtasia, ShareX, Snagit, XSplit, ActivePresenter…). Thêm `"zoom.exe"`, `"ms-teams.exe"` nếu trung tâm không dạy online bằng hai phần mềm đó |
 
 Ghi đè nhanh bằng biến môi trường `SATA_URL`, `SATA_KIOSK=1`, hoặc tham số dòng lệnh `--buoi=<lessonId>`.
+
+## Canh gác phần mềm quay màn hình
+
+Cứ vài giây ứng dụng đọc danh sách tiến trình đang chạy. Thấy một phần mềm quay/chụp trong danh sách
+chặn (hoặc máy đang ở phiên Remote Desktop) thì **ẩn hẳn cửa sổ bài giảng** và hiện lời nhắc; tắt phần
+mềm đó thì bài tự hiện lại sau vài giây. Mỗi lần chặn được ghi vào nhật ký truy cập học liệu của hệ thống.
+
+Đây là lớp *ngăn chặn*, không phải lớp *không thể vượt*: ai đó đổi tên `obs64.exe` thành `abc.exe` là
+qua được. Lớp chặn thật vẫn là content protection của Windows ở trên (cửa sổ ra màn đen trong mọi phần
+mềm quay, kể cả phần mềm đổi tên).
 
 ## Ứng dụng làm gì ngoài content protection
 
