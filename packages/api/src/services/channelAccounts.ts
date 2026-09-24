@@ -63,11 +63,12 @@ export async function luuTaiKhoanKenh(ctx: ProtectedContext, input: {
   if (!authorizeGlobal(ctx.actor, "system:configure")) throw forbid("Chỉ quản trị hệ thống được khai báo kênh");
   const label = input.label.trim();
   if (label.length < 2) throw new TRPCError({ code: "BAD_REQUEST", message: "Tên tài khoản kênh quá ngắn" });
-  const baseUrl = input.baseUrl?.trim() || null;
-  if (baseUrl && !/^https?:\/\/[^\s]+$/i.test(baseUrl)) throw new TRPCError({ code: "BAD_REQUEST", message: "Địa chỉ API không hợp lệ" });
-
   const cu = input.id ? await ctx.db.query.channelAccounts.findFirst({ where: eq(channelAccounts.id, input.id) }) : null;
   if (input.id && !cu) throw new TRPCError({ code: "NOT_FOUND", message: "Không thấy tài khoản kênh" });
+  // Không gửi trường nào thì GIỮ NGUYÊN trường đó (sửa mỗi trần tin/ngày không được xoá mất địa chỉ API),
+  // gửi chuỗi rỗng mới là cố ý xoá.
+  const baseUrl = input.baseUrl === undefined ? (cu?.baseUrl ?? null) : (input.baseUrl?.trim() || null);
+  if (baseUrl && !/^https?:\/\/[^\s]+$/i.test(baseUrl)) throw new TRPCError({ code: "BAD_REQUEST", message: "Địa chỉ API không hợp lệ" });
   const slug = cu?.slug ?? `${slugHoa(label) || "nick"}-${Math.random().toString(36).slice(2, 6)}`;
   const giaTri = {
     channel: input.channel, label, slug, centerId: input.centerId ?? cu?.centerId ?? null,
