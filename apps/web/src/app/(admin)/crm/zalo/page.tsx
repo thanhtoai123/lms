@@ -29,7 +29,11 @@ export default async function ZaloCrmPage({ searchParams }: { searchParams: Prom
   const sp = await searchParams;
   const { caller, ctx } = await getServerCaller();
   const actor = ctx.actor as Actor | null;
-  if (!actor || !hasPermission(actor, "message:read")) return <NoAccess title="Zalo CRM" perm="message:read" />;
+  // Giáo viên chỉ có message:read_own (tin của lớp mình) — màn này là công cụ bán hàng, cần cả
+  // quyền đọc lead. Kiểm ở đây để trả màn "Chưa có quyền" thay vì lỗi 500 từ tầng dịch vụ.
+  if (!actor || !hasPermission(actor, "message:read") || !hasPermission(actor, "lead:read")) {
+    return <NoAccess title="Zalo CRM" perm="message:read + lead:read" />;
+  }
   const days = Number(sp.ngay) || 30;
   const d = await caller.messaging.zaloCrm({ days });
   const tk = tokenChip(d.token);

@@ -641,7 +641,8 @@
               "label": "Zalo CRM",
               "href": "/crm/zalo",
               "perm": [
-                "message:read"
+                "message:read",
+                "lead:read"
               ]
             },
             {
