@@ -4,7 +4,7 @@ import { getServerCaller } from "@/lib/trpc/server";
 import { NoAccess, PageHeader } from "@/components/admin-ui";
 import { Empty } from "@/components/ui";
 import { dtVN } from "@/components/care-ui";
-import { Composer, ConvActions, StartConversation, PortalLink, LinkLeadForm } from "./client";
+import { Composer, ConvActions, StartConversation, PortalLink, LinkLeadForm, XinThongTinButton } from "./client";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Tin nhắn" };
@@ -83,6 +83,7 @@ export default async function MessagesPage({ searchParams }: { searchParams: Pro
                 </div>
                 {conv.flags.length > 0 && <div className="flex flex-wrap gap-1">{conv.flags.map((f) => <span key={f.key} className="chip bg-red-100 text-red-700">{f.label}</span>)}</div>}
                 {conv.can.newLink && <PortalLink id={conv.id} link={sp.link?.startsWith("/tn/") ? sp.link : null} />}
+                {conv.can.linkLead && conv.channel === "zalo" && conv.window.allowed && <div className="text-xs"><XinThongTinButton id={conv.id} /></div>}
                 {conv.can.linkLead && <details className="text-xs"><summary className="cursor-pointer text-brand-600">Tạo lead từ hội thoại</summary><div className="mt-2"><LinkLeadForm id={conv.id} centers={conv.centers} /></div></details>}
               </div>
               <div className="flex-1 space-y-2 overflow-y-auto p-3" style={{ maxHeight: "50vh" }}>

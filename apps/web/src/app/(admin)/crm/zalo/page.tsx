@@ -150,6 +150,20 @@ export default async function ZaloCrmPage({ searchParams }: { searchParams: Prom
         )}
       </Section>
 
+      {/* Nút "Xin thông tin": khách tự gửi tên + SĐT — cách rẻ nhất biến hội thoại thành lead */}
+      <Section title="Xin thông tin khách (tin mẫu request_user_info)">
+        <div className="grid grid-cols-3 gap-3 p-3">
+          <Kpi label={`Đã gửi lời mời (${days} ngày)`} value={d.xinThongTin.daGui} />
+          <Kpi label="Khách đã chia sẻ" value={d.xinThongTin.khachChiaSe} tone={d.xinThongTin.khachChiaSe ? "good" : "default"} hint="Tên + SĐT khách tự gửi, hệ thống tạo lead ngay" />
+          <Kpi label="Gửi lỗi" value={d.xinThongTin.loi} tone={d.xinThongTin.loi ? "bad" : "default"} />
+        </div>
+        <p className="border-t border-black/5 p-3 text-xs text-ink-600">
+          Mở một hội thoại Zalo chưa gắn lead ở <Link href="/tin-nhan?channel=zalo" className="text-brand-600">Hộp thư</Link> rồi bấm
+          <b> “Xin thông tin (tên + SĐT)”</b>. Khách bấm chia sẻ là Zalo trả tên + số về, hệ thống tạo lead kèm dấu đồng ý —
+          không phải hỏi tay rồi gõ lại.
+        </p>
+      </Section>
+
       {/* Zalo cá nhân: kênh chạy trên công cụ ngoài (ZCRM). Không có khung 48 giờ, nhưng nick có thể
           im lặng hoặc chạm trần tin/ngày — hai thứ khiến khách nhắn mà không ai thấy. */}
       <Section
@@ -202,8 +216,9 @@ export default async function ZaloCrmPage({ searchParams }: { searchParams: Prom
       </Section>
 
       <Section title={`Tin theo mẫu (ZNS) — ${days} ngày`} actions={<Link href="/cau-hinh-van-hanh?tab=zalo" className="text-xs text-brand-600">Cấu hình mẫu →</Link>}>
-        <div className="grid grid-cols-3 gap-3 p-3">
+        <div className="grid grid-cols-4 gap-3 p-3">
           <Kpi label="Đã gửi" value={d.zns.daGui} tone="good" />
+          <Kpi label="Đã tới máy khách" value={d.zns.daToi} tone={d.zns.daToi ? "good" : "default"} hint="Zalo báo lại qua webhook — “đã gửi” chỉ nghĩa là Zalo đã nhận" />
           <Kpi label="Đang chờ gửi" value={d.zns.cho} tone={d.zns.cho ? "warn" : "default"} />
           <Kpi label="Lỗi" value={d.zns.loi} tone={d.zns.loi ? "bad" : "default"} />
         </div>

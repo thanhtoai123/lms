@@ -100,6 +100,7 @@ export { retentionSweep } from "./services/compliance";
 export { publicJobs, publicJob, applyToJob, candidateRetention, CV_MAX_BYTES } from "./services/recruit";
 export { portalThread, portalPost, ingestExternal, ingestExternalOutbound, parseMessengerPayload, parseZaloPayload, metaSignatureOk, zaloSignatureOk } from "./services/messaging";
 export { nhanSuKienKenh, nickCaNhan } from "./services/channelAccounts";
+export { xuLySuKienOa, xinThongTinZalo } from "./services/zaloOaEvents";
 export { syncAffiliateRewards } from "./services/affiliates";
 export { healthCheck, recordHeartbeat } from "./services/ops";
 export { syncInvoiceDrafts, publicInvoiceLookup } from "./services/einvoice";

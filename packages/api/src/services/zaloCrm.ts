@@ -111,6 +111,7 @@ export async function zaloCrm(ctx: ProtectedContext, input: { days?: number } = 
   const [zns] = await ctx.db
     .select({
       daGui: sql<number>`count(*) filter (where ${parentNotifications.status} = 'sent')::int`,
+      daToi: sql<number>`count(*) filter (where ${parentNotifications.deliveredAt} is not null)::int`,
       cho: sql<number>`count(*) filter (where ${parentNotifications.status} = 'queued')::int`,
       loi: sql<number>`count(*) filter (where ${parentNotifications.status} = 'failed')::int`,
     })
@@ -135,6 +136,23 @@ export async function zaloCrm(ctx: ProtectedContext, input: { days?: number } = 
     })
     .from(webhookEvents)
     .where(eq(webhookEvents.source, "zalo"));
+
+  /* --- Nút "Xin thông tin": có ra lead không -------------------------- */
+  const [xinTt] = await ctx.db
+    .select({
+      daGui: sql<number>`count(*) filter (where ${messages.tag} = 'XIN_THONG_TIN')::int`,
+      loi: sql<number>`count(*) filter (where ${messages.tag} = 'XIN_THONG_TIN' and ${messages.status} = 'failed')::int`,
+      khachChiaSe: sql<number>`count(*) filter (where ${messages.direction} = 'note' and ${messages.externalId} like 'zalo:submit:%')::int`,
+    })
+    .from(messages)
+    .innerJoin(conversations, eq(conversations.id, messages.conversationId))
+    .where(and(eq(conversations.channel, "zalo"), gte(messages.createdAt, tuNgay)));
+
+  /* --- Khách rời OA: nhắn tự do không tới nữa -------------------------- */
+  const [roiOa] = await ctx.db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(conversations)
+    .where(and(eq(conversations.channel, "zalo"), sql`'roi_oa' = any(${conversations.flags})`, sql`${conversations.status} <> 'closed'`));
 
   /* --- Zalo cá nhân: hội thoại + lead theo nick ------------------------ */
   const [demCaNhan] = await ctx.db
@@ -165,6 +183,7 @@ export async function zaloCrm(ctx: ProtectedContext, input: { days?: number } = 
   if ((wh?.tuChoi24h ?? 0) > 0) canhBao.push({ muc: "chan", text: `${wh!.tuChoi24h} sự kiện Zalo bị từ chối trong 24 giờ (sai chữ ký hoặc quá hạn) — tin của khách có thể đã rơi.`, href: "/crm/webhook-replay?source=zalo" });
   if (delivery.zns.mode === "off") canhBao.push({ muc: "luu_y", text: "ZNS đang TẮT: hết khung 48 giờ thì không có cách nào nhắn lại khách.", href: "/cau-hinh-van-hanh?tab=zalo" });
   else if (delivery.zns.mode === "sandbox") canhBao.push({ muc: "luu_y", text: "ZNS đang ở chế độ GIẢ LẬP — tin không thực sự rời hệ thống.", href: "/cau-hinh-van-hanh?tab=zalo" });
+  if ((roiOa?.n ?? 0) > 0) canhBao.push({ muc: "luu_y", text: `${roiOa!.n} khách đã bỏ quan tâm OA nhưng hội thoại còn mở — nhắn tự do sẽ không tới, phải dùng tin theo mẫu (ZNS).`, href: "/tin-nhan?channel=zalo" });
   const sapHetN = hoiThoai.filter((c) => c.sapHet).length;
   if (sapHetN) canhBao.push({ muc: "luu_y", text: `${sapHetN} hội thoại sắp hết khung trả lời miễn phí (dưới ${SAP_HET_GIO} giờ).` });
   for (const n of nicks) {
@@ -195,6 +214,8 @@ export async function zaloCrm(ctx: ProtectedContext, input: { days?: number } = 
     lead: leadDem ?? { tong: 0, daGhiDanh: 0 },
     tin: tin ?? { den: 0, di: 0, loi: 0 },
     hoiThoai,
+    xinThongTin: { ...(xinTt ?? { daGui: 0, loi: 0, khachChiaSe: 0 }) },
+    roiOa: roiOa?.n ?? 0,
     caNhan: {
       nicks,
       dem: demCaNhan ?? { tong: 0, dangMo: 0, chuaGanLead: 0 },

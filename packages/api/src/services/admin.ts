@@ -24,8 +24,9 @@ import { trangThaiTokenZalo } from "./zaloToken";
 import { assertTenant, tenantCond } from "./tenantScope";
 import { deliverNotifications } from "./notify";
 import { ingestBankTx } from "./bank";
-import { ingestExternal, parseMessengerPayload, parseZaloPayload } from "./messaging";
+import { ingestExternal, parseMessengerPayload } from "./messaging";
 import { xuLyLaiSuKienKenh } from "./channelAccounts";
+import { xuLySuKienOa } from "./zaloOaEvents";
 import { createLead } from "./leads";
 import { leadInput } from "../routers/admissions";
 import { otpPepper } from "../lib/secrets";
@@ -587,14 +588,9 @@ export async function replayWebhook(ctx: ProtectedContext, input: { id: string }
         result = { soTin: rs.length };
       }
     } else if (w.source === "zalo") {
-      const ev = parseZaloPayload(w.payload);
-      if (!ev) { status = "rejected"; error = "Sự kiện Zalo không phải tin của khách"; }
-      else {
-        const r = await ingestExternal(ctx.db as never, { channel: "zalo", senderId: ev.senderId, text: ev.text, messageId: ev.messageId, at: ev.at });
-        status = r.ok ? (r.duplicate ? "duplicate" : "processed") : "rejected";
-        if (!r.ok) error = r.error;
-        result = r;
-      }
+      const r = await xuLySuKienOa(ctx.db as never, w.payload, ctx.user.id);
+      if (!r.ok) { status = "rejected"; error = r.error ?? "Không xử lý được sự kiện Zalo"; }
+      else { status = r.duplicate ? "duplicate" : "processed"; result = r; }
     } else if (w.source === "zalo_ca_nhan") {
       // `external_id` của dòng nhật ký chính là slug nick đã nhận sự kiện
       const r = await xuLyLaiSuKienKenh(ctx.db as never, { slug: w.externalId, body: w.payload });

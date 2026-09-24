@@ -64,6 +64,8 @@ export const parentNotifications = pgTable(
     params: jsonb("params").$type<Record<string, string>>(),
     status: notificationStatusEnum("status").notNull().default("queued"),
     sentAt: timestamp("sent_at", { withTimezone: true }),
+    /** ZNS báo đã tới máy khách (webhook `user_received_message`) — `sent` chỉ nghĩa là Zalo đã nhận */
+    deliveredAt: timestamp("delivered_at", { withTimezone: true }),
     readAt: timestamp("read_at", { withTimezone: true }),
     providerRef: text("provider_ref"),
     broadcastId: uuid("broadcast_id"),

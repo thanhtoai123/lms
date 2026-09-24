@@ -53,6 +53,7 @@ export * from "./content/protect.js";
 export * from "./growth/rules.js";
 export * from "./outreach/rules.js";
 export * from "./outreach/kenhNgoai.js";
+export * from "./outreach/zaloOa.js";
 export * from "./ops/rules.js";
 export * from "./einvoice/rules.js";
 export * from "./qr/encode.js";

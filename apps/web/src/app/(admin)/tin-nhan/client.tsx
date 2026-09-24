@@ -104,3 +104,25 @@ export function LinkLeadForm({ id, centers }: { id: string; centers: { id: strin
     </form>
   );
 }
+
+/**
+ * Nút "Xin thông tin" (Zalo OA): gửi tin mẫu `request_user_info`. Khách bấm một lần là Zalo trả về
+ * tên + SĐT, hệ thống tự tạo lead — nhanh và chắc hơn hỏi tay rồi gõ lại.
+ */
+export function XinThongTinButton({ id }: { id: string }) {
+  const trpc = useTRPC();
+  const router = useRouter();
+  const [msg, setMsg] = useState<string | null>(null);
+  const m = useMutation(trpc.messaging.xinThongTin.mutationOptions({
+    onSuccess: (r) => { setMsg(r.status === "sent" ? "Đã gửi lời mời chia sẻ thông tin — chờ khách bấm." : `Không gửi được: ${r.error ?? ""}`); router.refresh(); },
+    onError: (e) => setMsg(e.message),
+  }));
+  return (
+    <span className="inline-flex items-center gap-2">
+      <button type="button" className="btn-ghost !px-2 !py-0.5 text-xs" disabled={m.isPending} onClick={() => m.mutate({ id })}>
+        {m.isPending ? "Đang gửi…" : "Xin thông tin (tên + SĐT)"}
+      </button>
+      {msg && <span className="text-[11px] text-ink-600">{msg}</span>}
+    </span>
+  );
+}
