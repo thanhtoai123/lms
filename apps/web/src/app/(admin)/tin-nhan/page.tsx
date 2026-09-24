@@ -25,7 +25,7 @@ export default async function MessagesPage({ searchParams }: { searchParams: Pro
   const coLead = hasPermission(actor, "lead:read");
   const [d, tags, suKien] = await Promise.all([
     caller.messaging.inbox({ status, channel, mine: sp.mine === "1", flagged: sp.flagged === "1", q: sp.q || undefined, view, tagId }),
-    caller.messaging.tags(),
+    caller.messaging.tags().catch(() => [] as Awaited<ReturnType<typeof caller.messaging.tags>>),
     // Sự kiện sắp tới: hẹn 24 giờ, hẹn quá hạn, sinh nhật 7 ngày — ba cớ để chủ động nhắn khách
     // Khối phụ: hỏng thì bỏ qua, KHÔNG được làm sập cả hộp thư
     coLead ? caller.admissions.appointments.upcoming({}).catch(() => null) : Promise.resolve(null),

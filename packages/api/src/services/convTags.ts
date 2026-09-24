@@ -11,8 +11,8 @@
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { conversations, conversationTags, conversationTagLinks } from "@satarobo/db";
-import { authorize, authorizeGlobal, validateTag, TAG_COLORS, TAG_MAX_PER_CONV, type TagColor } from "@satarobo/core";
-import { requirePermission, type ProtectedContext } from "../trpc";
+import { authorize, authorizeGlobal, hasPermission, validateTag, TAG_COLORS, TAG_MAX_PER_CONV, type TagColor } from "@satarobo/core";
+import type { ProtectedContext } from "../trpc";
 import { writeAudit } from "./audit";
 
 const bad = (m: string) => new TRPCError({ code: "BAD_REQUEST", message: m });
@@ -21,7 +21,9 @@ const notFound = (m: string) => new TRPCError({ code: "NOT_FOUND", message: m })
 
 /** Danh mục nhãn + số hội thoại đang mang từng nhãn (để hiện cạnh tên như ZCRM) */
 export async function danhSachNhan(ctx: ProtectedContext) {
-  requirePermission(ctx, "message:read");
+  // Giáo viên chỉ có `message:read_own` nhưng vẫn phải thấy tên nhãn của hội thoại lớp mình —
+  // danh mục nhãn không chứa dữ liệu khách, nên dùng kiểm quyền "mềm" thay vì requirePermission.
+  if (!hasPermission(ctx.actor, "message:read")) throw forbid("Không có quyền xem tin nhắn");
   const rows = await ctx.db
     .select({
       id: conversationTags.id,
