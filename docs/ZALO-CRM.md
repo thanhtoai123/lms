@@ -55,14 +55,21 @@ token mới vào CSDL trong cùng một giao dịch, và **không được để
 
 ## 4. Kế hoạch ba đợt
 
-**Đợt 1 — Không có thì không chạy thật được** (ưu tiên tuyệt đối)
+**Đợt 1 — Không có thì không chạy thật được** — ✅ **XONG 24/09/2026**
 
-1. Bảng `zalo_tokens` (OA id, access token + hạn, refresh token, cập nhật lúc nào, lần lỗi cuối) +
-   dịch vụ `zaloToken()` tự refresh khi còn < 2 giờ, khoá bằng `pg_advisory_lock` để không refresh đôi;
-   màn `/tich-hop` hiện hạn token và nút "Làm mới ngay".
-2. Sửa cửa sổ Zalo **48 giờ**, kèm đồng hồ đếm ngược trong `/tin-nhan` ("còn 6 giờ 20 phút").
-3. Thực thi `marketingOptOut` ở **cả ba** đường gửi (hàng đợi, broadcast, tin tư vấn) + kiểm thử.
-4. `for update skip locked` cho `parent_notifications`.
+1. ✅ Bảng `zalo_credentials` (app_id, secret, access token + hạn, refresh token — ba cột bí mật mã hoá
+   AES-256-GCM với nhãn khoá riêng `zalo`) + `services/zaloToken.ts`: tự làm mới khi còn < 2 giờ,
+   `pg_advisory_xact_lock` để **chỉ một tiến trình refresh** (refresh token dùng một lần — refresh đôi
+   là đứt chuỗi), kiểm tra lại sau khi giành khoá, worker gọi `sweepZaloToken` trước mỗi lô gửi;
+   màn `/tich-hop` hiện hạn token, nút **Làm mới ngay** và chỗ dán khai báo (không hiện lại giá trị).
+   Chưa khai báo thì vẫn rơi về `ZALO_OA_ACCESS_TOKEN` cũ để hệ thống đang chạy không gãy.
+2. ✅ Cửa sổ Zalo **48 giờ** (`ZALO_CS_WINDOW_HOURS`) + `replyWindowLeft()` → `/tin-nhan` hiện
+   "Còn 6 giờ 20 phút để trả lời miễn phí trên kênh này".
+3. ✅ `consentBlock()` ở core phân định **tin tiếp thị** (chỉ `BROADCAST`) với **tin dịch vụ** (OTP,
+   học phí, lịch học, học bạ…): tắt tiếp thị không được tắt luôn tin dịch vụ. Thực thi ở hàng đợi
+   ZNS/SMS và ở `sendBroadcast` (loại ngay từ khâu chọn đối tượng, màn soạn tin hiện số người bị loại).
+4. ✅ `for update skip locked` + gia hạn hiển thị 5 phút cho `parent_notifications` — giống
+   `claimOutboxBatch` của rule engine.
 
 **Đợt 2 — Đúng nghiệp vụ CRM**
 

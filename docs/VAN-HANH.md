@@ -86,6 +86,20 @@ Thứ tự cho mỗi cơ sở:
 5. "Đối soát": nhập số liệu tổng đang thấy trên hệ cũ → "So và lưu" phải khớp; tải file buổi còn lại / công nợ từng học viên để so chi tiết.
 6. /go-live: đánh dấu danh mục, Hội sở chuyển sang "Chạy song song". Mỗi tối quản lý cơ sở ghi 4 số liệu của hệ cũ; lệch phải ghi nguyên nhân. Đủ 5 ngày khớp liên tiếp + danh mục → Hội sở chuyển "Chính thức", sau đó khoá hệ cũ và chuyển "Hệ cũ chỉ đọc" (không quay lại được).
 
+## Token Zalo OA (bắt buộc đọc trước khi chạy thật)
+
+Zalo cấp access token sống **25 giờ**; refresh token sống 3 tháng và **chỉ dùng được một lần**
+(refresh xong Zalo trả token mới, token cũ vô hiệu). Vì vậy **không để token trong `.env`**:
+
+1. Vào **Tích hợp → Zalo OA (tin tư vấn) → Khai báo ứng dụng**, dán `app_id`, `secret_key` và
+   `refresh_token` lấy từ developers.zalo.me. Khoá được mã hoá trước khi lưu, không hiển thị lại.
+2. Hệ thống tự làm mới khi token còn dưới 2 giờ (worker kiểm mỗi nhịp) và ghi đè refresh token mới.
+3. Màn Tích hợp hiện "còn N giờ M phút"; hỏng thì hiện lỗi làm mới gần nhất — đây là chỗ nhìn đầu
+   tiên khi tin Zalo ngừng gửi.
+
+Nếu chuỗi token đứt (ví dụ hai hệ thống cùng dùng một refresh token), phải vào developers.zalo.me
+xin lại authorization code rồi dán refresh token mới — không có cách tự phục hồi.
+
 ## Kênh gửi Zalo ZNS / SMS
 
 - Cấu hình tại /cau-hinh-van-hanh?tab=zalo (quản trị Hội sở). Biến môi trường: `ZALO_ZNS_TOKEN` (access token OA, cần làm mới định kỳ), `ZNS_API_URL` (tuỳ chọn), `SMS_API_URL`, `SMS_API_KEY`.
