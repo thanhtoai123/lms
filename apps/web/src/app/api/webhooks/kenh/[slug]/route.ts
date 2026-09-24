@@ -25,11 +25,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
 
   const r = await nhanSuKienKenh(db, { slug, raw, headers, body });
   if (!r.ok) {
-    await logWebhook(db, { source: `kenh:${slug}`, status: r.status, httpStatus: r.httpStatus, payload: body, headers: hdrSach, error: r.error, ip });
+    await logWebhook(db, { source: "zalo_ca_nhan", externalId: slug, status: r.status, httpStatus: r.httpStatus, payload: body, headers: hdrSach, error: r.error, ip });
     return Response.json({ ok: false, error: r.error }, { status: r.httpStatus });
   }
   await logWebhook(db, {
-    source: `kenh:${slug}`,
+    // Một nguồn chung cho mọi nick; nick nào nằm ở externalId để lọc và chạy lại khi cần
+    source: "zalo_ca_nhan", externalId: slug,
     status: r.status === "ignored" ? "processed" : r.status,
     httpStatus: 200, payload: body, headers: hdrSach, result: r, ip,
   });

@@ -153,7 +153,7 @@ export async function zaloCrm(ctx: ProtectedContext, input: { days?: number } = 
       tuChoi24h: sql<number>`count(*) filter (where ${webhookEvents.status} = 'rejected' and ${webhookEvents.receivedAt} > now() - interval '24 hours')::int`,
     })
     .from(webhookEvents)
-    .where(sql`${webhookEvents.source} like 'kenh:%'`);
+    .where(eq(webhookEvents.source, "zalo_ca_nhan"));
 
   /* --- Cảnh báo: những thứ khiến kênh Zalo ngừng chạy ------------------ */
   const canhBao: { muc: "chan" | "luu_y"; text: string; href?: string }[] = [];

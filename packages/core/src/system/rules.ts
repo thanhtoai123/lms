@@ -175,9 +175,9 @@ export function otpVerifyDecision(x: { status: OtpStatus; attempts: number; expi
 /* Webhook                                                             */
 /* ------------------------------------------------------------------ */
 
-export const WEBHOOK_SOURCES = ["sepay", "public_lead", "messenger", "zalo", "public_job"] as const;
+export const WEBHOOK_SOURCES = ["sepay", "public_lead", "messenger", "zalo", "zalo_ca_nhan", "public_job"] as const;
 export type WebhookSource = (typeof WEBHOOK_SOURCES)[number];
-export const WEBHOOK_SOURCE_VI: Record<WebhookSource, string> = { sepay: "SePay (biến động số dư)", public_lead: "Form đăng ký học thử", messenger: "Facebook Messenger", zalo: "Zalo OA", public_job: "Form ứng tuyển" };
+export const WEBHOOK_SOURCE_VI: Record<WebhookSource, string> = { sepay: "SePay (biến động số dư)", public_lead: "Form đăng ký học thử", messenger: "Facebook Messenger", zalo: "Zalo OA", zalo_ca_nhan: "Zalo cá nhân (công cụ ngoài)", public_job: "Form ứng tuyển" };
 export const WEBHOOK_STATUSES = ["processed", "failed", "rejected", "duplicate"] as const;
 export type WebhookStatus = (typeof WEBHOOK_STATUSES)[number];
 export const WEBHOOK_STATUS_VI: Record<WebhookStatus, string> = { processed: "Đã xử lý", failed: "Lỗi xử lý", rejected: "Từ chối", duplicate: "Trùng" };
