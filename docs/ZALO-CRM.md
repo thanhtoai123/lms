@@ -71,6 +71,11 @@ token mới vào CSDL trong cùng một giao dịch, và **không được để
 4. ✅ `for update skip locked` + gia hạn hiển thị 5 phút cho `parent_notifications` — giống
    `claimOutboxBatch` của rule engine.
 
+**Màn hình** `/crm/zalo` (menu *Tin nhắn → Zalo CRM*) gom cả kênh về một chỗ: cảnh báo cần xử lý ngay,
+hạn token OA, hội thoại đang mở kèm thời gian còn lại của khung 48 giờ, hội thoại chưa gắn lead, thống kê
+tin theo mẫu (ZNS) và tỉ lệ lead Zalo đã ghi danh. Quyền vào màn: **`message:read` + `lead:read`** — giáo
+viên chỉ có `message:read_own` nên không thấy tab và mở thẳng đường dẫn sẽ ra màn "Chưa có quyền".
+
 **Đợt 2 — Đúng nghiệp vụ CRM**
 
 5. Webhook nhận `follow` / `unfollow` / `user_submit_info` / `user_received_message`; ghi `zalo_id`,
