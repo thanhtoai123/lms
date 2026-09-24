@@ -179,3 +179,15 @@ Hệ thống **không** đăng nhập Zalo. Nick chạy bên công cụ riêng, 
 **Nguyên tắc**: nick bị Zalo khoá chỉ mất chỗ chat — lead và lịch sử hội thoại đã nằm trong hệ thống.
 Không đồng bộ danh bạ/bạn bè về hệ thống; chỉ người đã nhắn tới trung tâm mới được tạo thành lead,
 và vẫn phải tick xác nhận khách đồng ý.
+
+## Nút "Xin thông tin" trên Zalo OA
+
+Dùng khi khách nhắn tới OA nhưng chưa để lại số: mở hội thoại ở *Hộp thư* → **Xin thông tin (tên + SĐT)**.
+Zalo hiện một thẻ cho khách bấm; khách bấm xong hệ thống **tự tạo lead** kèm tên, số và dấu đồng ý
+(khách chủ động chia sẻ), rồi gắn vào đúng hội thoại.
+
+- Chỉ bấm được khi còn trong khung 48 giờ và hội thoại **chưa** gắn lead/phụ huynh.
+- Một hội thoại chỉ xin lại sau 24 giờ — gửi dày làm phiền khách và dễ bị báo xấu.
+- Khách **bỏ quan tâm OA** thì hội thoại mang cờ *đã rời OA*: từ lúc đó tin tự do không tới nơi,
+  muốn liên lạc phải dùng tin theo mẫu (ZNS) hoặc gọi điện.
+- Ảnh minh hoạ trên thẻ đặt bằng biến môi trường `ZALO_XIN_THONG_TIN_ANH` (tuỳ chọn).

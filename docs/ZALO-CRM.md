@@ -76,13 +76,23 @@ hạn token OA, hội thoại đang mở kèm thời gian còn lại của khung
 tin theo mẫu (ZNS) và tỉ lệ lead Zalo đã ghi danh. Quyền vào màn: **`message:read` + `lead:read`** — giáo
 viên chỉ có `message:read_own` nên không thấy tab và mở thẳng đường dẫn sẽ ra màn "Chưa có quyền".
 
-**Đợt 2 — Đúng nghiệp vụ CRM**
+**Đợt 2 — Đúng nghiệp vụ CRM** — ✅ mục 5, 6, 8 **XONG 24/09/2026**; mục 7 còn lại
 
-5. Webhook nhận `follow` / `unfollow` / `user_submit_info` / `user_received_message`; ghi `zalo_id`,
-   cập nhật trạng thái "đã tới máy" cho ZNS, tạo lead từ thông tin khách tự chia sẻ.
-6. Nút **"Xin thông tin"** trong `/tin-nhan` (gửi `request_user_info`).
-7. Nút **gửi ZNS ngay trong hội thoại** khi quá 48 giờ; hàng đợi + retry cho tin OA; nút gửi lại tin lỗi.
-8. Chạy lại webhook cho nguồn `zalo`.
+5. ✅ Webhook nhận đủ `follow` / `unfollow` / `user_submit_info` / `user_received_message`:
+   - `follow` → gỡ cờ "đã rời OA", và nếu hội thoại đã gắn phụ huynh thì lưu `zalo_id` vào hồ sơ
+     (về sau nhắn theo `user_id` miễn phí thay vì ZNS tính phí);
+   - `unfollow` → gắn cờ **`roi_oa`** lên hội thoại + ghi chú trong luồng chat, để nhân viên không gõ
+     tin tự do vào chỗ Zalo sẽ nuốt; màn Zalo CRM cảnh báo số hội thoại đang mở mà khách đã rời OA;
+   - `user_submit_info` → **tạo lead ngay** (tên + SĐT khách tự gửi ⇒ đồng ý do khách chủ động, ghi rõ
+     nguồn trong ghi chú lead), gắn vào hội thoại; đã có lead/phụ huynh thì chỉ ghi chú, không tạo trùng;
+   - `user_received_message` → `parent_notifications.delivered_at`; màn Zalo CRM hiện **"đã tới máy khách"**
+     tách khỏi "đã gửi" (trước đây `sent` chỉ có nghĩa Zalo đã nhận).
+6. ✅ Nút **"Xin thông tin (tên + SĐT)"** trong `/tin-nhan` cho hội thoại Zalo chưa gắn lead: gửi tin mẫu
+   `request_user_info`, chặn gửi lại trong 24 giờ, chặn ngoài khung 48 giờ. Màn Zalo CRM đếm
+   "đã gửi lời mời / khách đã chia sẻ / gửi lỗi" để biết nút có đáng dùng.
+7. ⏳ Nút **gửi ZNS ngay trong hội thoại** khi quá 48 giờ; hàng đợi + retry cho tin OA; nút gửi lại tin lỗi.
+8. ✅ Chạy lại webhook cho nguồn `zalo` (và cả `messenger`, `zalo_ca_nhan`) — sự kiện **bị từ chối**
+   (sai chữ ký) vẫn không chạy lại được, đúng nguyên tắc cũ.
 
 **Đợt 3 — Vận hành & tiền**
 
