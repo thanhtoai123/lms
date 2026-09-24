@@ -201,7 +201,7 @@ export async function zaloCrm(ctx: ProtectedContext, input: { days?: number } = 
     zns: {
       mode: delivery.zns.mode,
       soMau: Object.values(delivery.zns.templates ?? {}).filter(Boolean).length,
-      ...(zns ?? { daGui: 0, cho: 0, loi: 0 }),
+      ...(zns ?? { daGui: 0, daToi: 0, cho: 0, loi: 0 }),
       theoMau: znsTheoMau,
     },
     webhook: {
