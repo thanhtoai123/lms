@@ -12,7 +12,7 @@ import {
   parentRequestTransition, validateParentRequest, slaDue, slaState, requestCode, PARENT_REQUEST_TYPE_VI, REQUEST_NEEDS_DECISION, OPEN_REQUEST_STATUSES,
   feedbackPriority, validateFeedback, ratingStats, FEEDBACK_TAG_VI,
   validateSurvey, validateAnswers, npsScore, npsGroup, INVITE_TTL_DAYS,
-  renderTemplate, unknownVars, nextBirthday, DEFAULT_BIRTHDAY_TEMPLATE, withinMakeupWindow,
+  renderTemplate, unknownVars, nextBirthday, DEFAULT_BIRTHDAY_TEMPLATE, withinMakeupWindow, consentBlock,
   type Permission, type ParentRequestType, type ParentRequestStatus, type ContactChannel, type FeedbackStatus, type SurveyQuestion, type SurveyTrigger,
   type SurveyStatus, type SurveyAnswers, type RequestAction, type BroadcastChannel, type FeedbackTag,
 } from "@satarobo/core";
@@ -672,38 +672,50 @@ async function audienceRows(ctx: ProtectedContext, a: Audience) {
   const rows = await ctx.db.select({ studentId: students.id, studentName: students.fullName, classCode: classes.code, centerId: classes.centerId, centerName: centers.name })
     .from(enrollments).innerJoin(classes, eq(classes.id, enrollments.classId)).innerJoin(students, eq(students.id, enrollments.studentId)).innerJoin(centers, eq(centers.id, classes.centerId))
     .where(and(...conds)).limit(3000);
-  const gs = rows.length ? await ctx.db.select({ studentId: studentGuardians.studentId, parentId: parents.id, parentName: parents.fullName, isPrimary: studentGuardians.isPrimary })
+  const gs = rows.length ? await ctx.db.select({
+    studentId: studentGuardians.studentId, parentId: parents.id, parentName: parents.fullName, isPrimary: studentGuardians.isPrimary,
+    // Đồng ý nhận tin — thông báo chung là tin TIẾP THỊ nên phải tôn trọng lựa chọn của phụ huynh
+    optOut: parents.marketingOptOut, restricted: parents.processingRestricted,
+  })
     .from(studentGuardians).innerJoin(parents, eq(parents.id, studentGuardians.parentId)).where(inArray(studentGuardians.studentId, rows.map((r) => r.studentId))) : [];
   const seen = new Set<string>();
   const out: { parentId: string; parentName: string; studentId: string; studentName: string; classCode: string; centerId: string; centerName: string }[] = [];
   let noParent = 0;
+  let optedOut = 0;
   for (const r of rows) {
     const g = gs.filter((x) => x.studentId === r.studentId).sort((x, y) => Number(y.isPrimary) - Number(x.isPrimary))[0];
     if (!g) { noParent++; continue; }
+    // Thông báo chung = BROADCAST = tin tiếp thị: phụ huynh đã từ chối (hoặc hạn chế xử lý dữ liệu)
+    // thì LOẠI KHỎI danh sách ngay từ đây, không đẩy vào hàng đợi rồi mới rớt.
+    if (consentBlock("BROADCAST", { optOut: g.optOut, restricted: g.restricted })) { optedOut++; continue; }
     const k = `${g.parentId}|${r.studentId}`;
     if (seen.has(k)) continue;
     seen.add(k);
     out.push({ parentId: g.parentId, parentName: g.parentName, ...r });
   }
-  return { rows: out, noParent };
+  return { rows: out, noParent, optedOut };
 }
 
 export async function previewBroadcast(ctx: ProtectedContext, input: { audience: Audience; title: string; body: string }) {
-  const { rows, noParent } = await audienceRows(ctx, input.audience);
+  const { rows, noParent, optedOut } = await audienceRows(ctx, input.audience);
   const unknown = unknownVars(`${input.title} ${input.body}`);
   const sample = rows.slice(0, 3).map((r) => {
     const p = { ten_ph: r.parentName, ten_hv: r.studentName, lop: r.classCode, co_so: r.centerName };
     return { to: r.parentName, title: renderTemplate(input.title, p).text, body: renderTemplate(input.body, p).text };
   });
-  return { recipients: rows.length, noParent, unknownVars: unknown, sample };
+  // `optedOut`: số phụ huynh bị loại vì đã từ chối nhận tin tiếp thị — hiện ra để người gửi biết
+  // vì sao số người nhận ít hơn sĩ số, thay vì nghi hệ thống đếm sai
+  return { recipients: rows.length, noParent, optedOut, unknownVars: unknown, sample };
 }
 
 export async function sendBroadcast(ctx: ProtectedContext, input: { audience: Audience; title: string; body: string; channel: BroadcastChannel; link?: string | null }) {
   if (input.title.trim().length < 3 || input.body.trim().length < 10) throw bad("Tiêu đề ≥ 3 ký tự, nội dung ≥ 10 ký tự");
   const unknown = unknownVars(`${input.title} ${input.body}`);
   if (unknown.length) throw bad(`Biến không hỗ trợ: ${unknown.map((u) => `{${u}}`).join(", ")}`);
-  const { rows } = await audienceRows(ctx, input.audience);
-  if (!rows.length) throw pre("Không có phụ huynh nào trong đối tượng đã chọn");
+  const { rows, optedOut } = await audienceRows(ctx, input.audience);
+  if (!rows.length) throw pre(optedOut > 0
+    ? `Không còn phụ huynh nào nhận được: ${optedOut} người trong đối tượng đã từ chối nhận tin tiếp thị`
+    : "Không có phụ huynh nào trong đối tượng đã chọn");
   for (const c of new Set(rows.map((r) => r.centerId))) requirePermission(ctx, "care:create", { centerId: c });
   const zns = input.channel === "zns";
   return ctx.db.transaction(async (txx) => {
@@ -718,8 +730,8 @@ export async function sendBroadcast(ctx: ProtectedContext, input: { audience: Au
         };
       }));
     }
-    await writeAudit(tx, { actorId: ctx.user.id, action: "CREATE", module: "care", entity: "notification_broadcasts", entityId: b!.id, after: { recipients: rows.length, channel: input.channel, audience: input.audience }, ip: ctx.ip });
-    return { id: b!.id, recipients: rows.length, queued: zns ? rows.length : 0 };
+    await writeAudit(tx, { actorId: ctx.user.id, action: "CREATE", module: "care", entity: "notification_broadcasts", entityId: b!.id, after: { recipients: rows.length, optedOut, channel: input.channel, audience: input.audience }, ip: ctx.ip });
+    return { id: b!.id, recipients: rows.length, optedOut, queued: zns ? rows.length : 0 };
   });
 }
 

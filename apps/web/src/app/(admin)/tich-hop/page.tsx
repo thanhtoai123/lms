@@ -5,6 +5,7 @@ import { NoAccess, PageHeader } from "@/components/admin-ui";
 import { Empty } from "@/components/ui";
 import { dtVN } from "@/components/care-ui";
 import { TestEmail, TestDelivery } from "./test-email";
+import { ZaloOaCard } from "./zalo-oa";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Tích hợp" };
@@ -18,6 +19,8 @@ export default async function IntegrationsPage() {
   const { caller, ctx } = await getServerCaller();
   if (!ctx.actor || !hasPermission(ctx.actor as Actor, "system:read")) return <NoAccess title="Tích hợp" perm="system:read" />;
   const { items, providerErrors } = await caller.admin.integrations();
+  // Trạng thái token Zalo OA (hạn 25 giờ, tự làm mới) — hiện ngay trong thẻ Zalo OA
+  const zalo = await caller.admin.zaloToken();
   const canTest = hasPermission(ctx.actor as Actor, "system:update");
   return (
     <div className="space-y-4">
@@ -37,6 +40,7 @@ export default async function IntegrationsPage() {
                 {it.href && <Link href={it.href} className="ml-auto text-xs text-brand-600">Xem chi tiết →</Link>}
               </div>
               {canTest && it.test === "email" && <TestEmail />}
+              {it.key === "zalo_oa" && <ZaloOaCard state={zalo} canEdit={canTest} />}
               {canTest && it.test === "zns" && <TestDelivery channel="zns" />}
               {canTest && it.test === "sms" && <TestDelivery channel="sms" />}
               {!it.test && <p className="mt-3 border-t border-black/5 pt-3 text-[11px] text-ink-400">Không có thao tác &quot;Gửi thử&quot; cho dịch vụ này.</p>}

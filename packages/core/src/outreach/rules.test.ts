@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   validateJob, jobTransition, candidateTransition, validateApplication, validateInterview, validateScore, jobCode, jobSlug,
-  replyWindow, validateMessage, messageFlags, responseStats, responsePairs, maskExternalId,
+  replyWindow, replyWindowLeft, validateMessage, messageFlags, responseStats, responsePairs, maskExternalId,
   normalizeRefCode, suggestRefCode, validateAffiliate, rewardAmount, rewardTransition, readWithin, pilotVerdict,
 } from "./rules.js";
 
@@ -43,8 +43,17 @@ test("hội thoại: cửa sổ trả lời theo kênh", () => {
   const m2 = replyWindow("messenger", h(30), now);
   assert.ok(m2.allowed && m2.tag === "HUMAN_AGENT");
   assert.equal(replyWindow("messenger", h(24 * 8), now).allowed, false);
-  assert.ok(replyWindow("zalo", h(24 * 6), now).allowed);
-  assert.equal(replyWindow("zalo", h(24 * 8), now).allowed, false);
+  // Zalo OA: khung tin Tư vấn 48 giờ (quy định từ 01/01/2026), không còn 7 ngày như trước
+  const z1 = replyWindow("zalo", h(40), now);
+  assert.ok(z1.allowed && z1.tag === null);
+  assert.ok(z1.allowed && z1.expiresAt!.getTime() === h(40).getTime() + 48 * 3600e3);
+  assert.equal(replyWindow("zalo", h(49), now).allowed, false);
+  assert.equal(replyWindow("zalo", h(24 * 6), now).allowed, false);
+  // Đồng hồ đếm ngược cho giao diện
+  assert.equal(replyWindowLeft(null, now), null);
+  assert.equal(replyWindowLeft(new Date(now.getTime() - 60e3), now), null);
+  assert.equal(replyWindowLeft(new Date(now.getTime() + 2 * 3600e3 + 20 * 60e3), now)?.label, "2 giờ 20 phút");
+  assert.equal(replyWindowLeft(new Date(now.getTime() + 25 * 60e3), now)?.label, "25 phút");
   assert.equal(validateMessage("  ").length, 1);
   assert.equal(validateMessage("x".repeat(2001)).length, 1);
   assert.deepEqual(messageFlags("Tôi muốn khiếu nại và đòi hoàn tiền"), ["complaint", "refund"]);

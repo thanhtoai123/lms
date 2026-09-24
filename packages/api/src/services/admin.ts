@@ -20,6 +20,7 @@ import { sendOtpMessage, deliverySettings, otpDeliveryReady } from "./delivery";
 import { pushOverview } from "./pilot";
 import { getOps } from "./opsSettings";
 import { writeAudit } from "./audit";
+import { trangThaiTokenZalo } from "./zaloToken";
 import { assertTenant, tenantCond } from "./tenantScope";
 import { deliverNotifications } from "./notify";
 import { ingestBankTx } from "./bank";
@@ -594,6 +595,9 @@ export async function replayWebhook(ctx: ProtectedContext, input: { id: string }
 export async function integrations(ctx: ProtectedContext) {
   requirePermission(ctx, "system:read");
   const e = process.env;
+  // Token Zalo nay nằm trong CSDL (tự làm mới) — biến môi trường chỉ là đường lui cho bản cũ
+  const zt = await trangThaiTokenZalo(ctx.db as never);
+  const zaloToken = zt.usable;
   const [bank] = await ctx.db.select({ last: sql<string | null>`max(${bankTransactions.receivedAt})::text`, n24: sql<number>`count(*) filter (where ${bankTransactions.receivedAt} > now() - interval '24 hours')::int` }).from(bankTransactions).where(eq(bankTransactions.source, "sepay"));
   const [wh] = await ctx.db.select({ failed: sql<number>`count(*) filter (where ${webhookEvents.status} = 'failed')::int`, rejected24: sql<number>`count(*) filter (where ${webhookEvents.status} = 'rejected' and ${webhookEvents.receivedAt} > now() - interval '24 hours')::int` }).from(webhookEvents);
   const [em] = await ctx.db.select({ queued: sql<number>`count(*) filter (where ${emailLogs.status} = 'queued')::int`, failed: sql<number>`count(*) filter (where ${emailLogs.status} = 'failed')::int`, sent7: sql<number>`count(*) filter (where ${emailLogs.status} = 'sent' and ${emailLogs.sentAt} > now() - interval '7 days')::int` }).from(emailLogs);
@@ -614,8 +618,12 @@ export async function integrations(ctx: ProtectedContext) {
       details: [`Thiết bị đang nhận: ${pu.devices} (${pu.parents} phụ huynh)`, `Đăng ký đã hết hạn / tắt: ${pu.revoked}`] },
     { key: "messenger", name: "Facebook Messenger", purpose: "Hộp thư Messenger CRM, tạo lead từ hội thoại", status: e.META_APP_SECRET && e.META_VERIFY_TOKEN ? (e.META_PAGE_TOKEN ? "ok" : "warn") : "off", env: ["META_VERIFY_TOKEN", "META_APP_SECRET", "META_PAGE_TOKEN"], href: "/crm/messenger",
       details: ["Webhook: /api/webhooks/messenger (kiểm tra X-Hub-Signature-256)", e.META_PAGE_TOKEN ? "Gửi trả lời: bật" : "Chưa có page token — trả lời chỉ lưu nội bộ"] },
-    { key: "zalo_oa", name: "Zalo OA (tin tư vấn)", purpose: "Nhận / trả lời tin nhắn Zalo OA trong 7 ngày", status: e.ZALO_APP_ID && e.ZALO_OA_SECRET ? (e.ZALO_OA_ACCESS_TOKEN ? "ok" : "warn") : "off", env: ["ZALO_APP_ID", "ZALO_OA_SECRET", "ZALO_OA_ACCESS_TOKEN"], href: "/tin-nhan?channel=zalo",
-      details: ["Webhook: /api/webhooks/zalo (kiểm tra X-ZEvent-Signature)", e.ZALO_OA_ACCESS_TOKEN ? "Gửi tin tư vấn: bật" : "Chưa có access token — trả lời chỉ lưu nội bộ"] },
+    { key: "zalo_oa", name: "Zalo OA (tin tư vấn)", purpose: "Nhận / trả lời tin nhắn Zalo OA trong khung 48 giờ", status: e.ZALO_APP_ID && e.ZALO_OA_SECRET ? (zaloToken ? "ok" : "warn") : "off", env: ["ZALO_APP_ID", "ZALO_OA_SECRET"], href: "/tin-nhan?channel=zalo",
+      details: [
+        "Webhook: /api/webhooks/zalo (kiểm tra X-ZEvent-Signature)",
+        zaloToken ? "Gửi tin tư vấn: bật" : "Chưa có access token — trả lời chỉ lưu nội bộ",
+        "Access token sống 25 giờ, hệ thống tự làm mới trước 2 giờ",
+      ] },
     { key: "auth", name: "Supabase Auth", purpose: "Đăng nhập nhân sự / phụ huynh", status: e.NEXT_PUBLIC_SUPABASE_URL && e.NEXT_PUBLIC_SUPABASE_ANON_KEY ? "ok" : e.ALLOW_DEV_ACTOR === "1" ? "warn" : "off", env: ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY"],
       details: [e.ALLOW_DEV_ACTOR === "1" ? "Đang bật đăng nhập tài khoản mẫu (ALLOW_DEV_ACTOR=1) — TẮT ở production" : "Tài khoản mẫu đã tắt"] },
     { key: "storage", name: "Lưu trữ ảnh", purpose: "Ảnh lớp học (URL ký, hết hạn)", status: e.MEDIA_SIGNING_SECRET ? "ok" : "warn", env: ["STORAGE_DIR", "MEDIA_SIGNING_SECRET"],

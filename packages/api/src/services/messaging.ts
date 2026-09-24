@@ -6,12 +6,13 @@ import {
 } from "@satarobo/db";
 import {
   authorize, authorizeGlobal, centersWith, hasRole, maskPhone, normalizeVnPhone,
-  replyWindow, validateMessage, messageFlags, responsePairs, responseStats, maskExternalId, readWithin, pilotVerdict, pct,
+  replyWindow, replyWindowLeft, validateMessage, messageFlags, responsePairs, responseStats, maskExternalId, readWithin, pilotVerdict, pct,
   MSG_CHANNEL_VI, CONV_STATUS_VI, FLAG_VI, FIRST_RESPONSE_SLA_MIN, READ_TARGET_HOURS, PILOT_TARGETS,
   metaSignatureOk as coreMetaSignatureOk, zaloSignatureOk as coreZaloSignatureOk,
   type MsgChannel, type ConvStatus,
 } from "@satarobo/core";
 import type { ProtectedContext } from "../trpc";
+import { accessTokenZalo } from "./zaloToken";
 import { writeAudit } from "./audit";
 import { todayISO } from "./sessions";
 import { notify } from "./finance";
@@ -133,7 +134,10 @@ export async function getConversation(ctx: ProtectedContext, id: string) {
     flags: c.flags.map((f) => ({ key: f, label: FLAG_VI[f] ?? f })), portalSeenAt: c.portalSeenAt, createdAt: c.createdAt,
     lead: lead ? { id: lead.id, name: lead.parentName, phone: maskPhone(lead.phoneNormalized), status: lead.status } : null,
     parent: parent ? { id: parent.id, name: parent.fullName, phone: maskPhone(normalizeVnPhone(parent.phone) ?? parent.phone), children: kids, marketingOptOut: parent.marketingOptOut } : null,
-    window: win.allowed ? { allowed: true, tag: win.tag, expiresAt: win.expiresAt, reason: null } : { allowed: false, tag: null, expiresAt: null, reason: win.reason },
+    // `left`: còn bao lâu hết cửa sổ — giao diện hiện đồng hồ đếm ngược thay vì để nhân viên gõ xong mới biết bị chặn
+    window: win.allowed
+      ? { allowed: true, tag: win.tag, expiresAt: win.expiresAt, reason: null, left: replyWindowLeft(win.expiresAt, new Date())?.label ?? null }
+      : { allowed: false, tag: null, expiresAt: null, reason: win.reason, left: null },
     messages: msgs.map((x) => ({ id: x.m.id, direction: x.m.direction, body: x.m.body, by: x.by, status: x.m.status, error: x.m.error, tag: x.m.tag, flags: x.m.flags.map((f) => FLAG_VI[f] ?? f), createdAt: x.m.createdAt, attachments: x.m.attachments })),
     staff, can: { reply: canReply && win.allowed && c.status !== "closed", note: canReply, manage: canAct(ctx, c, "message:update"), linkLead: canAct(ctx, c, "message:update") && !c.leadId && !c.parentId && c.channel !== "portal", newLink: c.channel === "portal" && canAct(ctx, c, "message:update") },
   };
@@ -144,7 +148,7 @@ async function markActivity(db: Db, id: string, patch: Partial<typeof conversati
 }
 
 /** Gửi ra kênh ngoài. Không cấu hình khoá → lưu "skipped" (hiển thị rõ cho nhân viên) */
-async function deliver(channel: MsgChannel, externalId: string | null, body: string, tag: string | null): Promise<{ status: "sent" | "skipped" | "failed"; externalId?: string; error?: string }> {
+async function deliver(db: Db, channel: MsgChannel, externalId: string | null, body: string, tag: string | null): Promise<{ status: "sent" | "skipped" | "failed"; externalId?: string; error?: string }> {
   if (channel === "portal") return { status: "sent" };
   if (!externalId) return { status: "failed", error: "Thiếu mã người nhận" };
   try {
@@ -157,8 +161,9 @@ async function deliver(channel: MsgChannel, externalId: string | null, body: str
       const j = (await r.json().catch(() => ({}))) as { message_id?: string; error?: { message?: string } };
       return r.ok ? { status: "sent", externalId: j.message_id } : { status: "failed", error: j.error?.message ?? `HTTP ${r.status}` };
     }
-    const token = process.env.ZALO_OA_ACCESS_TOKEN;
-    if (!token) return { status: "skipped", error: "Chưa cấu hình ZALO_OA_ACCESS_TOKEN — tin chỉ lưu nội bộ" };
+    // Token lấy từ CSDL và TỰ LÀM MỚI khi sắp hết hạn (Zalo chỉ cho 25 giờ) — xem services/zaloToken.ts
+    const token = await accessTokenZalo(db as unknown as Database);
+    if (!token) return { status: "skipped", error: "Chưa khai báo Zalo OA (Tích hợp → Zalo OA) — tin chỉ lưu nội bộ" };
     const r = await fetch("https://openapi.zalo.me/v3.0/oa/message/cs", { method: "POST", headers: { "Content-Type": "application/json", access_token: token }, body: JSON.stringify({ recipient: { user_id: externalId }, message: { text: body } }), signal: AbortSignal.timeout(10_000) });
     const j = (await r.json().catch(() => ({}))) as { error?: number; message?: string; data?: { message_id?: string } };
     return r.ok && !j.error ? { status: "sent", externalId: j.data?.message_id } : { status: "failed", error: j.message ?? `Lỗi Zalo ${j.error ?? r.status}` };
@@ -187,7 +192,7 @@ export async function sendMessage(ctx: ProtectedContext, input: { id: string; bo
     const p = await ctx.db.query.parents.findFirst({ where: eq(parents.id, c.parentId) });
     if (p?.processingRestricted) throw pre("Phụ huynh đã yêu cầu hạn chế xử lý dữ liệu — không nhắn qua hệ thống");
   }
-  const d = await deliver(c.channel as MsgChannel, c.externalId, body, win.tag);
+  const d = await deliver(ctx.db, c.channel as MsgChannel, c.externalId, body, win.tag);
   const flags = messageFlags(body).filter((f) => f === "private_payment" || f === "abuse");
   await ctx.db.insert(messages).values({ conversationId: c.id, direction: "out", body, senderUserId: ctx.user.id, status: d.status, externalId: d.externalId ?? null, error: d.error ?? null, tag: win.tag, flags });
   await markActivity(ctx.db, c.id, {

@@ -90,7 +90,20 @@ export default async function MessagesPage({ searchParams }: { searchParams: Pro
                   </div>
                 ))}
               </div>
-              <Composer id={conv.id} canReply={conv.can.reply} canNote={conv.can.note} windowNote={conv.window.allowed ? (conv.window.tag ? `Quá 24 giờ — tin sẽ gửi với thẻ HUMAN_AGENT (chỉ người thật trả lời, hạn ${dtVN(conv.window.expiresAt)})` : conv.window.expiresAt ? `Được trả lời đến ${dtVN(conv.window.expiresAt)}` : null) : conv.window.reason} />
+              <Composer
+                id={conv.id}
+                canReply={conv.can.reply}
+                canNote={conv.can.note}
+                windowNote={
+                  conv.window.allowed
+                    ? conv.window.tag
+                      ? `Quá 24 giờ — tin sẽ gửi với thẻ HUMAN_AGENT (chỉ người thật trả lời, hạn ${dtVN(conv.window.expiresAt)})`
+                      : conv.window.left
+                        ? `Còn ${conv.window.left} để trả lời miễn phí trên kênh này (đến ${dtVN(conv.window.expiresAt)})`
+                        : null
+                    : conv.window.reason
+                }
+              />
             </>
           )}
         </div>

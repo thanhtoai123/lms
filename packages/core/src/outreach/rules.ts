@@ -115,10 +115,19 @@ export const FIRST_RESPONSE_SLA_MIN = 60;
 export const MSG_MAX_LEN = 2000;
 
 export type ReplyDecision = { allowed: true; tag: null | "HUMAN_AGENT"; expiresAt: Date | null } | { allowed: false; reason: string };
+
+/**
+ * Khung tin Tư vấn của Zalo OA: **48 giờ** kể từ tương tác cuối của khách.
+ * Từ 01/01/2026 Zalo cho gửi tin Tư vấn MIỄN PHÍ KHÔNG GIỚI HẠN trong khung này (trước đó tính theo
+ * lượt và khung 7 ngày). Ngoài khung: chỉ còn tin theo mẫu đã duyệt (ZBS Template Message / ZNS).
+ * Để 7 ngày như cũ là để nhân viên gõ xong rồi Zalo mới từ chối — tin thành `failed`, khách không nhận.
+ */
+export const ZALO_CS_WINDOW_HOURS = 48;
+
 /**
  * Cửa sổ được phép nhắn:
  * - Messenger: 24 giờ kể từ tin cuối của khách; 24h–7 ngày chỉ khi người thật trả lời (thẻ HUMAN_AGENT); quá 7 ngày không gửi.
- * - Zalo OA (tin tư vấn): 7 ngày kể từ tương tác cuối; quá hạn phải dùng ZNS có mẫu duyệt.
+ * - Zalo OA (tin tư vấn): **48 giờ** kể từ tương tác cuối; quá hạn phải dùng tin theo mẫu đã duyệt.
  * - Cổng phụ huynh: luôn được gửi.
  */
 export function replyWindow(channel: MsgChannel, lastInboundAt: Date | null, now: Date): ReplyDecision {
@@ -130,8 +139,22 @@ export function replyWindow(channel: MsgChannel, lastInboundAt: Date | null, now
     if (age <= 7 * DAY) return { allowed: true, tag: "HUMAN_AGENT", expiresAt: new Date(lastInboundAt.getTime() + 7 * DAY) };
     return { allowed: false, reason: "Quá 7 ngày từ tin cuối của khách — Messenger không cho gửi; hãy gọi điện hoặc chờ khách nhắn lại" };
   }
-  if (age <= 7 * DAY) return { allowed: true, tag: null, expiresAt: new Date(lastInboundAt.getTime() + 7 * DAY) };
-  return { allowed: false, reason: "Quá 7 ngày từ tương tác cuối — Zalo OA chỉ cho gửi tin ZNS theo mẫu đã duyệt" };
+  const khung = ZALO_CS_WINDOW_HOURS * 3600_000;
+  if (age <= khung) return { allowed: true, tag: null, expiresAt: new Date(lastInboundAt.getTime() + khung) };
+  return { allowed: false, reason: `Quá ${ZALO_CS_WINDOW_HOURS} giờ từ tương tác cuối — Zalo OA chỉ cho gửi tin theo mẫu đã duyệt (ZNS)` };
+}
+
+/**
+ * Còn bao lâu nữa hết cửa sổ trả lời — để giao diện hiện đồng hồ đếm ngược thay vì để nhân viên
+ * gõ xong mới biết bị chặn. Trả null khi kênh không giới hạn (cổng phụ huynh) hoặc đã hết hạn.
+ */
+export function replyWindowLeft(expiresAt: Date | null, now: Date): { ms: number; label: string } | null {
+  if (!expiresAt) return null;
+  const ms = expiresAt.getTime() - now.getTime();
+  if (ms <= 0) return null;
+  const phut = Math.floor(ms / 60000);
+  const gio = Math.floor(phut / 60);
+  return { ms, label: gio >= 1 ? `${gio} giờ ${phut % 60} phút` : `${phut} phút` };
 }
 
 export function validateMessage(body: string): string[] {

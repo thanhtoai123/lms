@@ -25,7 +25,7 @@ export function Compose({ centers, courses, znsConfigured }: { centers: { id: st
   const ready = kind === "class" ? !!classId : kind === "center" ? !!centerId : !!courseId;
   const pv = useMutation(trpc.care.previewBroadcast.mutationOptions({ onError: (e) => setMsg({ ok: false, text: e.message }) }));
   const send = useMutation(trpc.care.sendBroadcast.mutationOptions({
-    onSuccess: (r) => { setMsg({ ok: true, text: `Đã gửi ${r.recipients} phụ huynh${r.queued ? ` (${r.queued} chờ gửi ZNS)` : ""}` }); pv.reset(); router.refresh(); },
+    onSuccess: (r) => { setMsg({ ok: true, text: `Đã gửi ${r.recipients} phụ huynh${r.queued ? ` (${r.queued} chờ gửi ZNS)` : ""}${r.optedOut ? ` · bỏ qua ${r.optedOut} người đã từ chối nhận tin tiếp thị` : ""}` }); pv.reset(); router.refresh(); },
     onError: (e) => setMsg({ ok: false, text: e.message }),
   }));
   if (!open) return <button className="btn-primary" onClick={() => setOpen(true)}>+ Gửi thông báo</button>;
@@ -51,7 +51,10 @@ export function Compose({ centers, courses, znsConfigured }: { centers: { id: st
       </div>
       {pv.data && (
         <div className="space-y-1 rounded-xl bg-black/[0.03] p-3 text-sm">
-          <div>{pv.data.recipients} phụ huynh nhận{pv.data.noParent ? ` · ${pv.data.noParent} học viên chưa có PH` : ""}</div>
+          <div>
+            {pv.data.recipients} phụ huynh nhận{pv.data.noParent ? ` · ${pv.data.noParent} học viên chưa có PH` : ""}
+            {pv.data.optedOut ? <span className="text-amber-700"> · {pv.data.optedOut} người đã từ chối nhận tin tiếp thị (không gửi)</span> : null}
+          </div>
           {pv.data.unknownVars.length > 0 && <div className="text-red-700">Biến không hỗ trợ: {pv.data.unknownVars.map((v) => `{${v}}`).join(", ")}</div>}
           {pv.data.sample.map((s, i) => <div key={i} className="rounded-lg bg-white p-2 text-xs"><div className="text-ink-400">Gửi {s.to}</div><b>{s.title}</b><div className="whitespace-pre-wrap">{s.body}</div></div>)}
         </div>

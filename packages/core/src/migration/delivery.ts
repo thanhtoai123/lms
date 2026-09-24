@@ -26,6 +26,31 @@ export const DELIVERY_VARS: Record<DeliveryEvent, string[]> = {
   BROADCAST: ["ten_ph", "tieu_de", "noi_dung"],
 };
 
+/**
+ * ĐỒNG Ý NHẬN TIN — vạch ranh giới giữa tin TIẾP THỊ và tin GIAO DỊCH.
+ *
+ * Phụ huynh tắt "nhận tin tiếp thị" thì KHÔNG được gửi thông báo chung nữa (Nghị định 13/2023 và
+ * Luật BVDLCN 2025: tiếp thị phải có đồng ý riêng, rút lại lúc nào cũng được). Nhưng mã OTP,
+ * nhắc học phí, nhắc lịch học, tóm tắt buổi, hoá đơn, học bạ là **tin phục vụ dịch vụ họ đang dùng**
+ * — tắt luôn những tin này thì phụ huynh không biết con nghỉ học hay lớp đổi giờ. Vì vậy chỉ
+ * `BROADCAST` chịu ràng buộc từ chối tiếp thị.
+ *
+ * "Hạn chế xử lý dữ liệu" (`processingRestricted`) thì chặn TẤT CẢ, kể cả OTP — đó là yêu cầu
+ * pháp lý mạnh hơn, người dùng đã yêu cầu ngừng xử lý dữ liệu của họ.
+ */
+export const MARKETING_EVENTS: readonly DeliveryEvent[] = ["BROADCAST"];
+
+export function isMarketingEvent(ev: DeliveryEvent): boolean {
+  return MARKETING_EVENTS.includes(ev);
+}
+
+/** Lý do KHÔNG được gửi (null = được gửi). Dùng chung cho hàng đợi ZNS/SMS và gửi hàng loạt. */
+export function consentBlock(ev: DeliveryEvent, who: { optOut?: boolean | null; restricted?: boolean | null }): string | null {
+  if (who.restricted) return "Phụ huynh đã hạn chế xử lý dữ liệu";
+  if (who.optOut && isMarketingEvent(ev)) return "Phụ huynh đã từ chối nhận tin tiếp thị";
+  return null;
+}
+
 export const DELIVERY_MODES = ["off", "sandbox", "live"] as const;
 export type DeliveryMode = (typeof DELIVERY_MODES)[number];
 

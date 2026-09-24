@@ -6,6 +6,7 @@ import {
 } from "./rules.js";
 import {
   validateDeliverySettings, DELIVERY_DEFAULTS, renderSms, smsSegments, buildZnsData, znsPhone, quietHours, failureRetryable, retryDelayMinutes,
+  consentBlock, isMarketingEvent,
 } from "./delivery.js";
 
 test("nhập học viên", () => {
@@ -136,4 +137,21 @@ test("kênh gửi ZNS / SMS", () => {
   assert.equal(failureRetryable({ kind: "http", status: 400 }), false);
   assert.equal(failureRetryable({ kind: "provider", code: -118 }), false);
   assert.equal(retryDelayMinutes(2), 30);
+});
+
+test("đồng ý nhận tin: từ chối tiếp thị chặn thông báo chung, không chặn tin dịch vụ", () => {
+  // Phụ huynh tắt nhận tin tiếp thị
+  const tuChoi = { optOut: true, restricted: false };
+  assert.ok(consentBlock("BROADCAST", tuChoi)?.includes("tiếp thị"));
+  for (const ev of ["OTP", "TUITION_DUE", "SESSION_REMINDER", "SESSION_SUMMARY", "INVOICE_ISSUED", "REPORT_CARD"] as const) {
+    assert.equal(consentBlock(ev, tuChoi), null, `${ev} là tin dịch vụ, không được chặn vì từ chối tiếp thị`);
+  }
+  // Hạn chế xử lý dữ liệu thì chặn tất, kể cả OTP
+  const hanChe = { optOut: false, restricted: true };
+  for (const ev of ["OTP", "BROADCAST", "TUITION_DUE"] as const) {
+    assert.ok(consentBlock(ev, hanChe)?.includes("hạn chế xử lý"));
+  }
+  assert.equal(consentBlock("BROADCAST", { optOut: false, restricted: false }), null);
+  assert.equal(isMarketingEvent("BROADCAST"), true);
+  assert.equal(isMarketingEvent("TUITION_DUE"), false);
 });

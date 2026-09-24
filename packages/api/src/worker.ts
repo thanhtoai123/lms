@@ -17,6 +17,7 @@ import { syncAffiliateRewards } from "./services/affiliates";
 import { recordHeartbeat } from "./services/ops";
 import { syncInvoiceDrafts } from "./services/einvoice";
 import { dispatchParentMessages } from "./services/delivery";
+import { sweepZaloToken } from "./services/zaloToken";
 import { dispatchPush } from "./services/pilot";
 import { pruneLoginEvents } from "./services/loginSecurity";
 import { remindPauseEnding } from "./services/studentLifecycle";
@@ -44,6 +45,10 @@ async function tick() {
     const r = await processOutbox(db, { batch: 200 });
     const inv = await syncInvoiceDrafts(db, { limit: 50 });
     if (inv.drafted || inv.issued || inv.failed) log.info(`einvoice drafted=${inv.drafted} issued=${inv.issued} failed=${inv.failed}`);
+    // Token Zalo OA chỉ sống 25 giờ: làm mới TRƯỚC khi gửi, nếu không cả lô tin sẽ rớt vì token hết hạn
+    const tk = await sweepZaloToken(db);
+    if (tk.refreshed) log.info("da lam moi token zalo oa");
+    if (tk.error) log.warn(`lam moi token zalo loi: ${tk.error}`);
     const msg = await dispatchParentMessages(db, { limit: 100 });
     if (msg.sent || msg.failed || msg.fallback) log.info(`zns/sms sent=${msg.sent} failed=${msg.failed} fallback=${msg.fallback} retry=${msg.retried}`);
     const pu = await dispatchPush(db, { limit: 100 });

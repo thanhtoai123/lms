@@ -180,3 +180,36 @@ export const affiliateRewards = pgTable("affiliate_rewards", {
   cancelReason: text("cancel_reason"),
   ...timestamps,
 }, (t) => [uniqueIndex("affiliate_rewards_lead_uq").on(t.leadId), index("affiliate_rewards_status_idx").on(t.status, t.affiliateId)]);
+
+/**
+ * KHOÁ TRUY CẬP ZALO OA — vòng đời token, không để trong biến môi trường.
+ *
+ * Zalo cấp access token sống **25 giờ** và refresh token sống 3 tháng **dùng một lần** (refresh
+ * xong token cũ bị vô hiệu, Zalo trả về token mới). Để trong `.env` nghĩa là mỗi ngày phải sửa
+ * tệp và khởi động lại máy chủ, quên một hôm là toàn bộ tin Zalo chết im lặng. Vì vậy token phải
+ * nằm trong CSDL để worker tự làm mới và ghi đè token mới.
+ *
+ * Ba cột token/secret lưu dạng ĐÃ MÃ HOÁ (AES-256-GCM, cùng khoá với PII) — đọc thẳng CSDL
+ * không lấy được giá trị.
+ */
+export const zaloCredentials = pgTable("zalo_credentials", {
+  id: id(),
+  /** Chỗ cho nhiều OA về sau; hiện dùng một dòng "oa" */
+  key: text("key").notNull().default("oa"),
+  oaId: text("oa_id"),
+  appId: text("app_id"),
+  /** secret_key của ứng dụng Zalo (đã mã hoá) */
+  secretKey: text("secret_key"),
+  /** access token hiện hành (đã mã hoá) */
+  accessToken: text("access_token"),
+  /** refresh token cho lần làm mới kế tiếp (đã mã hoá) — dùng một lần rồi bị thay */
+  refreshToken: text("refresh_token"),
+  /** Hạn của access token (Zalo trả expires_in, thường 90.000 giây = 25 giờ) */
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
+  refreshedAt: timestamp("refreshed_at", { withTimezone: true }),
+  /** Lỗi làm mới gần nhất — hiện ở màn Tích hợp để biết vì sao tin Zalo ngừng gửi */
+  lastError: text("last_error"),
+  lastErrorAt: timestamp("last_error_at", { withTimezone: true }),
+  updatedBy: uuid("updated_by").references(() => users.id),
+  ...timestamps,
+}, (t) => [uniqueIndex("zalo_credentials_key_uq").on(t.key)]);

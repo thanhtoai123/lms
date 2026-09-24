@@ -2,6 +2,7 @@ import { z } from "zod";
 import { EMAIL_EVENT_KEYS, EMAIL_STATUSES, OTP_STATUSES, OTP_PURPOSES, WEBHOOK_SOURCES, WEBHOOK_STATUSES, type EmailEvent } from "@satarobo/core";
 import { router, protectedProcedure } from "../trpc";
 import * as A from "../services/admin";
+import * as Z from "../services/zaloToken";
 
 const uuid = z.string().uuid();
 const eventKey = z.enum(EMAIL_EVENT_KEYS as [EmailEvent, ...EmailEvent[]]);
@@ -43,6 +44,13 @@ export const adminRouter = router({
   replayWebhook: protectedProcedure.input(z.object({ id: uuid })).mutation(({ ctx, input }) => A.replayWebhook(ctx, input)),
 
   integrations: protectedProcedure.query(({ ctx }) => A.integrations(ctx)),
+
+  /* Zalo OA — vòng đời token (access token chỉ sống 25 giờ, refresh token dùng một lần) */
+  zaloToken: protectedProcedure.query(({ ctx }) => Z.trangThaiTokenZalo(ctx.db as never)),
+  zaloTokenRefresh: protectedProcedure.mutation(({ ctx }) => Z.lamMoiTokenTheoYeuCau(ctx)),
+  zaloCredentials: protectedProcedure
+    .input(z.object({ appId: z.string().trim().max(30), oaId: z.string().trim().max(30).nullish(), secretKey: z.string().trim().max(200).nullish(), refreshToken: z.string().trim().max(500).nullish() }))
+    .mutation(({ ctx, input }) => Z.luuKhaiBaoZalo(ctx, input)),
   settings: protectedProcedure.query(({ ctx }) => A.settingsForAdmin(ctx)),
   saveSettings: protectedProcedure
     .input(z.object({

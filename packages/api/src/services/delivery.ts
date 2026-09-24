@@ -1,13 +1,14 @@
 import { createHash, randomUUID } from "node:crypto";
-import { and, eq, inArray, sql, desc, or, isNull, lte, gte } from "drizzle-orm";
+import { and, eq, inArray, sql, desc, gte } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { appSettings, parentNotifications, parents, students, type Database } from "@satarobo/db";
 import {
   authorizeGlobal, hasPermission, validateDeliverySettings, buildZnsData, renderSms, znsPhone, quietHours, failureRetryable, retryDelayMinutes, stripDiacritics, maskPhone,
-  DELIVERY_DEFAULTS, DELIVERY_EVENTS, DELIVERY_EVENT_VI, DELIVERY_VARS, MAX_DELIVERY_ATTEMPTS,
+  DELIVERY_DEFAULTS, DELIVERY_EVENTS, DELIVERY_EVENT_VI, DELIVERY_VARS, MAX_DELIVERY_ATTEMPTS, consentBlock,
   type DeliverySettings, type DeliveryEvent, type DeliveryFailure,
 } from "@satarobo/core";
 import type { ProtectedContext } from "../trpc";
+import { accessTokenZalo } from "./zaloToken";
 import { writeAudit } from "./audit";
 
 type Db = ProtectedContext["db"];
@@ -37,7 +38,9 @@ const sandboxBlocked = () => envState().production && !envState().allowSandbox;
 /* Nhà cung cấp                                                         */
 /* ------------------------------------------------------------------ */
 
-export type SendResult = { ok: true; ref: string } | { ok: false; failure: DeliveryFailure; error: string };
+export type SendResult =
+  | { ok: true; ref: string; quota?: { daily: number; remaining: number } }
+  | { ok: false; failure: DeliveryFailure; error: string };
 
 async function postJson(url: string, headers: Record<string, string>, body: unknown): Promise<{ status: number; json: Record<string, unknown> } | null> {
   try {
@@ -49,22 +52,25 @@ async function postJson(url: string, headers: Record<string, string>, body: unkn
 }
 
 /** Zalo ZNS gửi theo SĐT (API "message/template" — ZNS_API_URL cho phép đổi endpoint khi Zalo cập nhật) */
-async function sendZns(mode: DeliverySettings["zns"]["mode"], phone: string, templateId: string, data: Record<string, string>, trackingId: string): Promise<SendResult> {
+async function sendZns(db: Db, mode: DeliverySettings["zns"]["mode"], phone: string, templateId: string, data: Record<string, string>, trackingId: string): Promise<SendResult> {
   if (mode === "sandbox") {
     if (sandboxBlocked()) return { ok: false, failure: { kind: "provider", code: "sandbox" }, error: "Chế độ giả lập bị chặn ở production" };
     if (phone.endsWith("0000000")) return { ok: false, failure: { kind: "provider", code: -118 }, error: "Giả lập: số không dùng Zalo" };
     return { ok: true, ref: `SBX-ZNS-${trackingId.slice(0, 8)}` };
   }
-  const token = process.env.ZALO_ZNS_TOKEN;
-  if (!token) return { ok: false, failure: { kind: "provider", code: "config" }, error: "Chưa cấu hình ZALO_ZNS_TOKEN" };
+  // ZNS đã hợp nhất vào ZBS Template Message (01/01/2026) và dùng CHUNG access token của OA:
+  // ưu tiên token trong CSDL (tự làm mới), chưa khai báo thì về biến môi trường cũ.
+  const token = (await accessTokenZalo(db as unknown as Database)) ?? process.env.ZALO_ZNS_TOKEN;
+  if (!token) return { ok: false, failure: { kind: "provider", code: "config" }, error: "Chưa khai báo Zalo OA (Tích hợp → Zalo OA) hoặc ZALO_ZNS_TOKEN" };
   const url = process.env.ZNS_API_URL || "https://business.openapi.zalo.me/message/template";
   const r = await postJson(url, { access_token: token }, { phone, template_id: templateId, template_data: data, tracking_id: trackingId });
   if (!r) return { ok: false, failure: { kind: "network" }, error: "Không kết nối được Zalo" };
   if (r.status >= 400) return { ok: false, failure: { kind: "http", status: r.status }, error: `Zalo HTTP ${r.status}` };
   const code = Number(r.json.error ?? -1);
   if (code !== 0) return { ok: false, failure: { kind: "provider", code }, error: `Zalo lỗi ${code}: ${String(r.json.message ?? "").slice(0, 200)}` };
-  const d = (r.json.data ?? {}) as { msg_id?: string };
-  return { ok: true, ref: d.msg_id ?? trackingId };
+  // Từ 2026 Zalo trả kèm hạn mức ngày của OA — ghi lại để màn hình cảnh báo trước khi cạn quota
+  const d = (r.json.data ?? {}) as { msg_id?: string; quota?: { dailyQuota?: string; remainingQuota?: string } };
+  return { ok: true, ref: d.msg_id ?? trackingId, quota: d.quota ? { daily: Number(d.quota.dailyQuota ?? 0), remaining: Number(d.quota.remainingQuota ?? 0) } : undefined };
 }
 
 /** SMS brandname qua cổng HTTP chung: POST SMS_API_URL {to, brandname, text, ref} → {id} */
@@ -96,7 +102,7 @@ export async function sendOtpMessage(db: Database, input: { phone: string; code:
   const tpl = s.zns.templates.OTP;
   if (s.zns.mode !== "off" && tpl) {
     const z = buildZnsData(tpl, vars);
-    const r = await sendZns(s.zns.mode, to, tpl.templateId, z.data, input.requestId);
+    const r = await sendZns(asDb(db), s.zns.mode, to, tpl.templateId, z.data, input.requestId);
     if (r.ok) return { channel: "zns", error: null };
     err = r.error;
   }
@@ -121,6 +127,35 @@ function eventOf(template: string): DeliveryEvent {
   return (DELIVERY_EVENTS as readonly string[]).includes(template) ? (template as DeliveryEvent) : "BROADCAST";
 }
 
+
+/**
+ * NHẬN MỘT LÔ TIN CHỜ GỬI — có khoá dòng.
+ *
+ * Trước đây worker chỉ `select ... limit 100`: chạy hai worker (hoặc worker + cron) là cùng đọc
+ * đúng một lô và **gửi trùng tin ZNS mất tiền thật**. Nay nhận việc bằng `for update skip locked`
+ * trong một transaction rồi đẩy `next_attempt_at` ra `visibilityMs`, nên:
+ *  - worker khác bỏ qua lô đang giữ thay vì xếp hàng chờ;
+ *  - nếu tiến trình chết giữa chừng, lô tự quay lại hàng đợi sau khoảng đó chứ không kẹt vĩnh viễn.
+ * Cùng cách làm với `claimOutboxBatch` của rule engine.
+ */
+async function nhanLoTinCho(db: Db, channels: ("zns" | "sms")[], limit: number, now: Date, visibilityMs: number): Promise<string[]> {
+  return db.transaction(async (tx) => {
+    const picked = (await tx.execute(sql`
+      select id from ${parentNotifications}
+       where status = 'queued'
+         and channel = any(string_to_array(${channels.join(",")}, ',')::text[]::notification_channel[])
+         and (next_attempt_at is null or next_attempt_at <= ${now})
+       order by created_at
+       limit ${limit}
+       for update skip locked
+    `)) as unknown as { id: string }[];
+    const ids = picked.map((r) => r.id);
+    if (!ids.length) return [];
+    await tx.update(parentNotifications).set({ nextAttemptAt: new Date(now.getTime() + visibilityMs) }).where(inArray(parentNotifications.id, ids));
+    return ids;
+  });
+}
+
 /** Gửi các tin ZNS / SMS đang chờ. Gọi từ worker / cron. */
 export async function dispatchParentMessages(database: Database, opts: { limit?: number; now?: Date } = {}) {
   const db = asDb(database);
@@ -130,10 +165,13 @@ export async function dispatchParentMessages(database: Database, opts: { limit?:
   const channels = [...(s.zns.mode !== "off" ? ["zns" as const] : []), ...(s.sms.mode !== "off" ? ["sms" as const] : [])];
   if (!channels.length) return res;
   const q = quietHours(now, s.quietStart, s.quietEnd);
+  // Một lô phải gửi xong trong vài phút; quá thì coi như tiến trình chết và trả việc lại hàng đợi
+  const ids = await nhanLoTinCho(db, channels, opts.limit ?? 100, now, 5 * 60_000);
+  if (!ids.length) return res;
   const rows = await db.select({ n: parentNotifications, phone: parents.phone, parentName: parents.fullName, optOut: parents.marketingOptOut, restricted: parents.processingRestricted, studentName: students.fullName })
     .from(parentNotifications).innerJoin(parents, eq(parents.id, parentNotifications.parentId)).leftJoin(students, eq(students.id, parentNotifications.studentId))
-    .where(and(eq(parentNotifications.status, "queued"), inArray(parentNotifications.channel, channels), or(isNull(parentNotifications.nextAttemptAt), lte(parentNotifications.nextAttemptAt, now))))
-    .orderBy(parentNotifications.createdAt).limit(opts.limit ?? 100);
+    .where(inArray(parentNotifications.id, ids))
+    .orderBy(parentNotifications.createdAt);
   const dayStart = new Date(`${new Date(now.getTime() + 7 * 3600_000).toISOString().slice(0, 10)}T00:00:00+07:00`);
   /*
    * Số tin đã gửi hôm nay cho từng phụ huynh (trần chống làm phiền).
@@ -157,10 +195,13 @@ export async function dispatchParentMessages(database: Database, opts: { limit?:
       .groupBy(parentNotifications.parentId);
     for (const r of counted) sentToday.set(r.parentId, r.c);
   }
-  for (const { n, phone, parentName, restricted, studentName } of rows) {
+  for (const { n, phone, parentName, optOut, restricted, studentName } of rows) {
     const ev = eventOf(n.template);
-    if (restricted) {
-      await db.update(parentNotifications).set({ status: "failed", error: "Phụ huynh đã hạn chế xử lý dữ liệu" }).where(eq(parentNotifications.id, n.id));
+    // Đồng ý nhận tin: "hạn chế xử lý dữ liệu" chặn tất; "từ chối tiếp thị" chỉ chặn thông báo chung.
+    // Trước đây cột optOut có đọc lên nhưng KHÔNG dùng — phụ huynh đã từ chối vẫn nhận tin quảng bá.
+    const chan = consentBlock(ev, { optOut, restricted });
+    if (chan) {
+      await db.update(parentNotifications).set({ status: "failed", error: chan }).where(eq(parentNotifications.id, n.id));
       res.skipped++;
       continue;
     }
@@ -183,7 +224,7 @@ export async function dispatchParentMessages(database: Database, opts: { limit?:
       if (!tpl) result = { ok: false, failure: { kind: "provider", code: "template" }, error: `Chưa khai báo mẫu ZNS cho "${DELIVERY_EVENT_VI[ev]}"` };
       else {
         const z = buildZnsData(tpl, vars);
-        result = z.missing.length ? { ok: false, failure: { kind: "provider", code: "params" }, error: `Thiếu biến ${z.missing.join(", ")}` } : await sendZns(s.zns.mode, to, tpl.templateId, z.data, n.id);
+        result = z.missing.length ? { ok: false, failure: { kind: "provider", code: "params" }, error: `Thiếu biến ${z.missing.join(", ")}` } : await sendZns(db, s.zns.mode, to, tpl.templateId, z.data, n.id);
       }
     } else {
       const tpl = s.sms.templates[ev];
@@ -267,7 +308,7 @@ export async function testDelivery(ctx: ProtectedContext, input: { channel: "zns
   if (input.channel === "zns") {
     const tpl = s.zns.templates[input.event];
     if (s.zns.mode === "off" || !tpl) throw bad("ZNS đang tắt hoặc chưa có mẫu cho sự kiện này");
-    r = await sendZns(s.zns.mode, to, tpl.templateId, buildZnsData(tpl, sample).data, ref);
+    r = await sendZns(ctx.db, s.zns.mode, to, tpl.templateId, buildZnsData(tpl, sample).data, ref);
   } else {
     const tpl = s.sms.templates[input.event];
     if (s.sms.mode === "off" || !tpl) throw bad("SMS đang tắt hoặc chưa có nội dung cho sự kiện này");
