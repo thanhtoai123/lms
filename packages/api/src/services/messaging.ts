@@ -85,7 +85,8 @@ export async function inbox(ctx: ProtectedContext, input: { status?: ConvStatus;
   if (input.channel) conds.push(eq(conversations.channel, input.channel));
   if (input.mine) conds.push(eq(conversations.assignedTo, ctx.user.id));
   if (input.flagged) conds.push(sql`cardinality(${conversations.flags}) > 0`);
-  if (input.kind === "lead") conds.push(or(isNotNull(conversations.leadId), inArray(conversations.channel, ["messenger", "zalo"]))!);
+  // Kênh ngoài (Zalo cá nhân) cũng là khách chưa vào phễu — phải nằm trong tab "Khách"
+  if (input.kind === "lead") conds.push(or(isNotNull(conversations.leadId), inArray(conversations.channel, ["messenger", "zalo", "zalo_ca_nhan"]))!);
   if (input.kind === "parent") conds.push(isNotNull(conversations.parentId));
   if (input.q?.trim()) conds.push(or(ilike(conversations.displayName, `%${input.q.trim()}%`), ilike(conversations.lastPreview, `%${input.q.trim()}%`), ilike(conversations.subject, `%${input.q.trim()}%`))!);
   const r = await ctx.db.select({ c: conversations, assignee: users.fullName, centerCode: centers.code, parentName: parents.fullName, leadName: leads.parentName, leadStatus: leads.status, teacherName: teachers.fullName })
