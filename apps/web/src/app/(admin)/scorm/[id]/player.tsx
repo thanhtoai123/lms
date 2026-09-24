@@ -73,21 +73,25 @@ export function ScormPlayer({ id, fill = false }: { id: string; fill?: boolean }
   }, [launch, id]);
 
   if (start.error) return <p className="card p-4 text-red-700">{start.error.message}</p>;
-  if (!launch) return <p className={fill ? "p-4 text-sm text-white" : "card p-4 text-ink-400"}>Đang mở bài giảng…</p>;
-  // `fill`: dùng trong khung trình chiếu — gói SCORM chiếm trọn khung, dòng trạng thái thu nhỏ lại
+  if (!launch) return <p className={fill ? "p-4 text-sm text-ink-600" : "card p-4 text-ink-400"}>Đang mở bài giảng…</p>;
+  // `fill`: dùng trong khung TRÌNH CHIẾU — bài giảng chiếm trọn khung, KHÔNG có thanh trạng thái
+  // ngang ở trên (một thanh đen chạy hết bề ngang lúc đang dạy chỉ tổ vướng mắt cả lớp).
+  // Trạng thái vẫn còn ở trang quản lý học liệu (chế độ thường) và trong nhật ký.
   return (
-    <div className={fill ? "flex h-full w-full flex-col bg-black" : "space-y-2"}>
-      <div className={`flex flex-wrap items-center gap-3 text-xs ${fill ? "px-3 py-1 text-white/70" : "text-ink-600"}`}>
-        <span>SCORM {launch.scormVersion}</span>
-        <span>Trạng thái: <b>{SCORM_STATUS_VI[status as keyof typeof SCORM_STATUS_VI] ?? status}</b></span>
-        {saved && <span>Đã lưu lúc {saved.toLocaleTimeString("vi-VN")}</span>}
-        {commit.error && <span className="text-red-700">Lưu tiến độ lỗi: {commit.error.message}</span>}
-      </div>
+    <div className={fill ? "h-full w-full" : "space-y-2"}>
+      {!fill && (
+        <div className="flex flex-wrap items-center gap-3 text-xs text-ink-600">
+          <span>SCORM {launch.scormVersion}</span>
+          <span>Trạng thái: <b>{SCORM_STATUS_VI[status as keyof typeof SCORM_STATUS_VI] ?? status}</b></span>
+          {saved && <span>Đã lưu lúc {saved.toLocaleTimeString("vi-VN")}</span>}
+          {commit.error && <span className="text-red-700">Lưu tiến độ lỗi: {commit.error.message}</span>}
+        </div>
+      )}
       {ready && (
         <iframe
           src={launch.launchUrl}
           title={launch.title}
-          className={fill ? "h-full w-full flex-1 border-0 bg-white" : "h-[75vh] w-full rounded-xl border border-black/10 bg-white"}
+          className={fill ? "h-full w-full border-0 bg-white" : "h-[75vh] w-full rounded-xl border border-black/10 bg-white"}
           allow="fullscreen; autoplay"
         />
       )}
