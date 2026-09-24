@@ -4,6 +4,7 @@ import { router, protectedProcedure } from "../trpc";
 import * as R from "../services/recruit";
 import * as M from "../services/messaging";
 import * as ZC from "../services/zaloCrm";
+import * as CA from "../services/channelAccounts";
 import * as A from "../services/affiliates";
 
 const uuid = z.string().uuid();
@@ -54,6 +55,15 @@ export const messagingRouter = router({
   settings: protectedProcedure.query(({ ctx }) => M.getMessagingSettings(ctx)),
   saveSettings: protectedProcedure.input(z.object({ defaultCenterId: uuid.nullable(), autoReply: s(500) })).mutation(({ ctx, input }) => M.saveMessagingSettings(ctx, input)),
   pilot: protectedProcedure.input(z.object(range).default({})).query(({ ctx, input }) => M.chatPilotReport(ctx, input)),
+  /* --- Tài khoản kênh chat ngoài (Zalo cá nhân chạy trên ZCRM) --- */
+  channelAccounts: protectedProcedure.query(({ ctx }) => CA.danhSachTaiKhoanKenh(ctx)),
+  saveChannelAccount: protectedProcedure
+    .input(z.object({
+      id: uuid.nullish(), channel: z.literal("zalo_ca_nhan"), label: s(80), centerId: uuid.nullish(), externalId: s(64).nullish(),
+      baseUrl: s(200).nullish(), apiKey: s(200).nullish(), webhookSecret: s(200).nullish(), dailyCap: z.number().int().min(1).max(1000).nullish(), active: z.boolean().optional(),
+    }))
+    .mutation(({ ctx, input }) => CA.luuTaiKhoanKenh(ctx, input)),
+  removeChannelAccount: protectedProcedure.input(z.object({ id: uuid })).mutation(({ ctx, input }) => CA.xoaTaiKhoanKenh(ctx, input)),
   savePilot: protectedProcedure.input(z.object({ classIds: z.array(uuid).max(50), startDate: isoDate.nullable(), note: s(500) })).mutation(({ ctx, input }) => M.savePilot(ctx, input)),
 });
 

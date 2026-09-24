@@ -213,3 +213,46 @@ export const zaloCredentials = pgTable("zalo_credentials", {
   updatedBy: uuid("updated_by").references(() => users.id),
   ...timestamps,
 }, (t) => [uniqueIndex("zalo_credentials_key_uq").on(t.key)]);
+
+/**
+ * TÀI KHOẢN KÊNH CHAT NGOÀI — mỗi dòng là một "nick" hoặc một cổng của công cụ chat bên ngoài
+ * (hiện dùng cho Zalo cá nhân chạy trên ZCRM).
+ *
+ * Vì sao tách bảng thay vì nhét vào `app_settings`: một trung tâm có nhiều nick, mỗi nick có khoá
+ * riêng, hạn mức riêng, trạng thái sống/chết riêng — và trạng thái ấy phải hiện lên màn Zalo CRM.
+ * `api_key` / `webhook_secret` lưu dạng ĐÃ MÃ HOÁ và không bao giờ trả về giao diện.
+ */
+export const channelAccounts = pgTable("channel_accounts", {
+  id: id(),
+  channel: msgChannelEnum("channel").notNull(),
+  /** Tên người dùng đặt: "Nick CS2 — chị Hà" */
+  label: text("label").notNull(),
+  /** Mã ngắn không dấu, dùng trong đường dẫn webhook và header X-Channel-Account */
+  slug: text("slug").notNull(),
+  /** Id nick Zalo phía công cụ (nếu biết) */
+  externalId: text("external_id"),
+  centerId: uuid("center_id").references(() => centers.id),
+  /** Gốc API của công cụ, ví dụ http://10.0.0.5:3080 */
+  baseUrl: text("base_url"),
+  /** Khoá gọi API công cụ (đã mã hoá) — dùng ở đợt gửi tin */
+  apiKey: text("api_key"),
+  /** Bí mật để kiểm chữ ký webhook công cụ bắn về (đã mã hoá) */
+  webhookSecret: text("webhook_secret"),
+  active: boolean("active").notNull().default(true),
+  /** online | offline | error */
+  status: text("status").notNull().default("offline"),
+  lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
+  lastEventAt: timestamp("last_event_at", { withTimezone: true }),
+  lastError: text("last_error"),
+  lastErrorAt: timestamp("last_error_at", { withTimezone: true }),
+  /** Trần tin/ngày cho nick — giữ nick khỏi bị Zalo khoá */
+  dailyCap: integer("daily_cap").notNull().default(180),
+  sentToday: integer("sent_today").notNull().default(0),
+  /** Ngày (giờ VN) của bộ đếm sentToday */
+  sentDay: date("sent_day"),
+  updatedBy: uuid("updated_by").references(() => users.id),
+  ...timestamps,
+}, (t) => [
+  uniqueIndex("channel_accounts_slug_uq").on(t.channel, t.slug),
+  index("channel_accounts_ch_idx").on(t.channel, t.active),
+]);

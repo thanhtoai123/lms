@@ -332,22 +332,55 @@ async function recordInbound(d: Db, c: typeof conversations.$inferSelect, body: 
 /* Webhook Messenger / Zalo                                             */
 /* ------------------------------------------------------------------ */
 
-export async function ingestExternal(db: Database, input: { channel: "messenger" | "zalo"; senderId: string; displayName?: string | null; text: string; messageId: string; at: Date; attachments?: { type: string; url: string }[] | null }) {
-  const d = asDb(db);
-  if (!/^[A-Za-z0-9_.-]{3,64}$/.test(input.senderId)) return { ok: false as const, error: "senderId không hợp lệ" };
+type KenhNgoai = "messenger" | "zalo" | "zalo_ca_nhan";
+const TIEU_DE_KENH: Record<KenhNgoai, string> = { messenger: "Tin nhắn Facebook", zalo: "Tin nhắn Zalo OA", zalo_ca_nhan: "Tin nhắn Zalo cá nhân" };
+
+/** Tìm (hoặc dựng) hội thoại theo cặp kênh + định danh ngoài */
+async function hoiThoaiNgoai(d: Db, input: { channel: KenhNgoai; senderId: string; displayName?: string | null; subject?: string | null; centerId?: string | null }) {
   const settings = await messagingSettings(d);
   let c = await d.query.conversations.findFirst({ where: and(eq(conversations.channel, input.channel), eq(conversations.externalId, input.senderId)) });
   if (!c) {
     const [row] = await d.insert(conversations).values({
-      channel: input.channel, externalId: input.senderId, displayName: input.displayName?.slice(0, 120) ?? null, centerId: settings.defaultCenterId, status: "open",
-      subject: input.channel === "messenger" ? "Tin nhắn Facebook" : "Tin nhắn Zalo OA",
+      channel: input.channel, externalId: input.senderId, displayName: input.displayName?.slice(0, 120) ?? null,
+      centerId: input.centerId ?? settings.defaultCenterId, status: "open",
+      subject: input.subject ?? TIEU_DE_KENH[input.channel],
     }).onConflictDoNothing().returning();
     c = row ?? (await d.query.conversations.findFirst({ where: and(eq(conversations.channel, input.channel), eq(conversations.externalId, input.senderId)) }));
   }
+  return c ?? null;
+}
+
+export async function ingestExternal(db: Database, input: { channel: KenhNgoai; senderId: string; displayName?: string | null; text: string; messageId: string; at: Date; attachments?: { type: string; url: string }[] | null; subject?: string | null; centerId?: string | null }) {
+  const d = asDb(db);
+  if (!/^[A-Za-z0-9_.-]{3,64}$/.test(input.senderId)) return { ok: false as const, error: "senderId không hợp lệ" };
+  const c = await hoiThoaiNgoai(d, input);
   if (!c) return { ok: false as const, error: "Không tạo được hội thoại" };
   const text = input.text.trim() || (input.attachments?.length ? `[${input.attachments.length} tệp đính kèm]` : "[tin trống]");
   const r = await recordInbound(d, c, text.slice(0, 4000), `${input.channel}:${input.messageId}`, input.at, input.attachments);
   return { ok: true as const, conversationId: c.id, duplicate: r.duplicate };
+}
+
+/**
+ * Tin do nhân viên trả lời BÊN NGOÀI hệ thống (gõ thẳng trong ZCRM/Zalo) dội về qua webhook.
+ * Ghi lại mới đo được thời gian phản hồi đầu tiên và mới biết hôm nay nick đã gửi bao nhiêu tin —
+ * nếu bỏ qua thì màn giám sát sẽ báo "chưa ai trả lời" trong khi thực tế đã trả lời rồi.
+ */
+export async function ingestExternalOutbound(db: Database, input: { channel: KenhNgoai; senderId: string; text: string; messageId: string; at: Date; attachments?: { type: string; url: string }[] | null; subject?: string | null; centerId?: string | null }) {
+  const d = asDb(db);
+  if (!/^[A-Za-z0-9_.-]{3,64}$/.test(input.senderId)) return { ok: false as const, error: "senderId không hợp lệ" };
+  const c = await hoiThoaiNgoai(d, input);
+  if (!c) return { ok: false as const, error: "Không tạo được hội thoại" };
+  const body = (input.text.trim() || (input.attachments?.length ? `[${input.attachments.length} tệp đính kèm]` : "[tin trống]")).slice(0, 4000);
+  const inserted = await d.insert(messages).values({
+    conversationId: c.id, direction: "out", body, externalId: `${input.channel}:${input.messageId}`, status: "sent",
+    attachments: input.attachments ?? null, createdAt: input.at,
+  }).onConflictDoNothing({ target: messages.externalId }).returning({ id: messages.id });
+  if (!inserted.length) return { ok: true as const, conversationId: c.id, duplicate: true };
+  await d.update(conversations).set({
+    lastOutboundAt: input.at, lastMessageAt: input.at, lastPreview: preview(body),
+    status: c.status === "closed" ? c.status : "pending", waitingSince: null, updatedAt: new Date(),
+  }).where(eq(conversations.id, c.id));
+  return { ok: true as const, conversationId: c.id, duplicate: false };
 }
 
 /** Parse payload Messenger (object=page) → danh sách tin khách gửi (bỏ echo / delivery / read) */

@@ -104,9 +104,9 @@ export function jobSlug(title: string, code: string): string {
 /* Hội thoại đa kênh                                                    */
 /* ------------------------------------------------------------------ */
 
-export const MSG_CHANNELS = ["portal", "messenger", "zalo"] as const;
+export const MSG_CHANNELS = ["portal", "messenger", "zalo", "zalo_ca_nhan"] as const;
 export type MsgChannel = (typeof MSG_CHANNELS)[number];
-export const MSG_CHANNEL_VI: Record<MsgChannel, string> = { portal: "Cổng phụ huynh", messenger: "Facebook Messenger", zalo: "Zalo OA" };
+export const MSG_CHANNEL_VI: Record<MsgChannel, string> = { portal: "Cổng phụ huynh", messenger: "Facebook Messenger", zalo: "Zalo OA", zalo_ca_nhan: "Zalo cá nhân" };
 export const CONV_STATUSES = ["open", "pending", "closed"] as const;
 export type ConvStatus = (typeof CONV_STATUSES)[number];
 export const CONV_STATUS_VI: Record<ConvStatus, string> = { open: "Cần trả lời", pending: "Chờ khách", closed: "Đã xong" };
@@ -128,10 +128,18 @@ export const ZALO_CS_WINDOW_HOURS = 48;
  * Cửa sổ được phép nhắn:
  * - Messenger: 24 giờ kể từ tin cuối của khách; 24h–7 ngày chỉ khi người thật trả lời (thẻ HUMAN_AGENT); quá 7 ngày không gửi.
  * - Zalo OA (tin tư vấn): **48 giờ** kể từ tương tác cuối; quá hạn phải dùng tin theo mẫu đã duyệt.
+ * - Zalo cá nhân (nick nhân viên, chạy ngoài qua ZCRM): Zalo không áp khung thời gian cho tin cá nhân,
+ *   nhưng chỉ được nhắn người đã nhắn tới trước — chặn ở đây để hệ thống không biến thành công cụ
+ *   nhắn hàng loạt; hạn mức tin/ngày của nick do tầng gửi giữ.
  * - Cổng phụ huynh: luôn được gửi.
  */
 export function replyWindow(channel: MsgChannel, lastInboundAt: Date | null, now: Date): ReplyDecision {
   if (channel === "portal") return { allowed: true, tag: null, expiresAt: null };
+  if (channel === "zalo_ca_nhan") {
+    return lastInboundAt
+      ? { allowed: true, tag: null, expiresAt: null }
+      : { allowed: false, reason: "Khách chưa nhắn tới nick này — không chủ động nhắn từ hệ thống" };
+  }
   if (!lastInboundAt) return { allowed: false, reason: "Khách chưa nhắn tới — không được chủ động nhắn trên kênh này" };
   const age = now.getTime() - lastInboundAt.getTime();
   if (channel === "messenger") {

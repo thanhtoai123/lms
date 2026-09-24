@@ -15,6 +15,7 @@ import { conversations, messages, leads, users, parentNotifications, webhookEven
 import { ZALO_CS_WINDOW_HOURS, replyWindow, replyWindowLeft, LEAD_STATUS_VI, type LeadStatus } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { trangThaiTokenZalo } from "./zaloToken";
+import { nickCaNhan } from "./channelAccounts";
 import { deliverySettings } from "./delivery";
 
 /** Mốc "sắp hết khung" — dưới 6 giờ thì phải trả lời ngay hôm nay */
@@ -26,9 +27,12 @@ export async function zaloCrm(ctx: ProtectedContext, input: { days?: number } = 
   const tuNgay = new Date(Date.now() - days * 86_400_000);
   const now = new Date();
 
-  const [token, delivery] = await Promise.all([
+  const [token, delivery, nicks] = await Promise.all([
     trangThaiTokenZalo(ctx.db as never),
     deliverySettings(ctx.db),
+    // Nick Zalo cá nhân chạy trên công cụ ngoài (ZCRM) — kênh này không có token/khung 48 giờ,
+    // nhưng có rủi ro riêng: nick im lặng hoặc chạm trần tin/ngày là cả buổi không ai nhắn được.
+    nickCaNhan(ctx.db),
   ]);
 
   /* --- Hội thoại Zalo: đếm theo trạng thái + gắn lead ------------------ */
@@ -132,6 +136,25 @@ export async function zaloCrm(ctx: ProtectedContext, input: { days?: number } = 
     .from(webhookEvents)
     .where(eq(webhookEvents.source, "zalo"));
 
+  /* --- Zalo cá nhân: hội thoại + lead theo nick ------------------------ */
+  const [demCaNhan] = await ctx.db
+    .select({
+      tong: sql<number>`count(*)::int`,
+      dangMo: sql<number>`count(*) filter (where ${conversations.status} <> 'closed')::int`,
+      chuaGanLead: sql<number>`count(*) filter (where ${conversations.leadId} is null and ${conversations.status} <> 'closed')::int`,
+    })
+    .from(conversations)
+    .where(and(eq(conversations.channel, "zalo_ca_nhan"), gte(conversations.createdAt, tuNgay)));
+
+  const [whCaNhan] = await ctx.db
+    .select({
+      nhanGanNhat: sql<Date | null>`max(${webhookEvents.receivedAt})`,
+      trong24h: sql<number>`count(*) filter (where ${webhookEvents.receivedAt} > now() - interval '24 hours')::int`,
+      tuChoi24h: sql<number>`count(*) filter (where ${webhookEvents.status} = 'rejected' and ${webhookEvents.receivedAt} > now() - interval '24 hours')::int`,
+    })
+    .from(webhookEvents)
+    .where(sql`${webhookEvents.source} like 'kenh:%'`);
+
   /* --- Cảnh báo: những thứ khiến kênh Zalo ngừng chạy ------------------ */
   const canhBao: { muc: "chan" | "luu_y"; text: string; href?: string }[] = [];
   if (!token.configured && !token.fromEnv) canhBao.push({ muc: "chan", text: "Chưa khai báo ứng dụng Zalo OA — không gửi được tin nào ra ngoài.", href: "/tich-hop" });
@@ -144,6 +167,10 @@ export async function zaloCrm(ctx: ProtectedContext, input: { days?: number } = 
   else if (delivery.zns.mode === "sandbox") canhBao.push({ muc: "luu_y", text: "ZNS đang ở chế độ GIẢ LẬP — tin không thực sự rời hệ thống.", href: "/cau-hinh-van-hanh?tab=zalo" });
   const sapHetN = hoiThoai.filter((c) => c.sapHet).length;
   if (sapHetN) canhBao.push({ muc: "luu_y", text: `${sapHetN} hội thoại sắp hết khung trả lời miễn phí (dưới ${SAP_HET_GIO} giờ).` });
+  for (const n of nicks) {
+    if (n.imLang) canhBao.push({ muc: "chan", text: `Nick Zalo cá nhân “${n.label}” không có tín hiệu quá 30 phút — khách nhắn vào nick này hệ thống không thấy.`, href: "/tich-hop" });
+    else if (n.conLai <= Math.max(10, Math.floor(n.dailyCap * 0.1))) canhBao.push({ muc: "luu_y", text: `Nick “${n.label}” chỉ còn ${n.conLai} tin trong hạn mức hôm nay (${n.sentToday}/${n.dailyCap}).` });
+  }
 
   return {
     days,
@@ -168,6 +195,11 @@ export async function zaloCrm(ctx: ProtectedContext, input: { days?: number } = 
     lead: leadDem ?? { tong: 0, daGhiDanh: 0 },
     tin: tin ?? { den: 0, di: 0, loi: 0 },
     hoiThoai,
+    caNhan: {
+      nicks,
+      dem: demCaNhan ?? { tong: 0, dangMo: 0, chuaGanLead: 0 },
+      webhook: { nhanGanNhat: whCaNhan?.nhanGanNhat ?? null, trong24h: whCaNhan?.trong24h ?? 0, tuChoi24h: whCaNhan?.tuChoi24h ?? 0 },
+    },
     canhBao,
   };
 }

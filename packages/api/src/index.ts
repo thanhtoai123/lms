@@ -98,7 +98,8 @@ export { publicHomework, submitPublicHomework, staffSubmit, remindDueHomework } 
 export { publicPosts, publicPost, publicSite, publicTrackingConfig, recordTrack, uploadSiteMedia, publishDuePosts, SITE_MEDIA_MAX } from "./services/growth";
 export { retentionSweep } from "./services/compliance";
 export { publicJobs, publicJob, applyToJob, candidateRetention, CV_MAX_BYTES } from "./services/recruit";
-export { portalThread, portalPost, ingestExternal, parseMessengerPayload, parseZaloPayload, metaSignatureOk, zaloSignatureOk } from "./services/messaging";
+export { portalThread, portalPost, ingestExternal, ingestExternalOutbound, parseMessengerPayload, parseZaloPayload, metaSignatureOk, zaloSignatureOk } from "./services/messaging";
+export { nhanSuKienKenh, nickCaNhan } from "./services/channelAccounts";
 export { syncAffiliateRewards } from "./services/affiliates";
 export { healthCheck, recordHeartbeat } from "./services/ops";
 export { syncInvoiceDrafts, publicInvoiceLookup } from "./services/einvoice";

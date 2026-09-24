@@ -6,6 +6,7 @@ import { Empty } from "@/components/ui";
 import { dtVN } from "@/components/care-ui";
 import { TestEmail, TestDelivery } from "./test-email";
 import { ZaloOaCard } from "./zalo-oa";
+import { KenhCaNhanCard } from "./kenh-ca-nhan";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Tích hợp" };
@@ -22,6 +23,10 @@ export default async function IntegrationsPage() {
   // Trạng thái token Zalo OA (hạn 25 giờ, tự làm mới) — hiện ngay trong thẻ Zalo OA
   const zalo = await caller.admin.zaloToken();
   const canTest = hasPermission(ctx.actor as Actor, "system:update");
+  // Nick Zalo cá nhân chạy trên công cụ ngoài — chỉ quản trị hệ thống thấy phần khai báo
+  const canConfig = hasPermission(ctx.actor as Actor, "system:configure");
+  const nicks = canConfig ? await caller.messaging.channelAccounts() : [];
+  const goc = (process.env.NEXT_PUBLIC_APP_URL ?? "https://<địa-chỉ-hệ-thống>").replace(/\/+$/, "");
   return (
     <div className="space-y-4">
       <PageHeader title="Tích hợp" desc="Trạng thái các dịch vụ bên ngoài. Khoá bí mật chỉ đặt qua biến môi trường trên máy chủ — trang này không hiển thị giá trị khoá. Thiếu credential thì hệ thống dừng an toàn: không gọi ra ngoài, không mất dữ liệu." />
@@ -48,6 +53,8 @@ export default async function IntegrationsPage() {
           );
         })}
       </div>
+
+      {canConfig && <KenhCaNhanCard nicks={nicks as never} goc={goc} canEdit={canTest} />}
 
       <section className="card">
         <h2 className="border-b border-black/5 p-3 font-semibold">Lỗi nhà cung cấp gần nhất <span className="text-xs font-normal text-ink-400">(email · Zalo ZNS / SMS · webhook — 20 dòng mới nhất)</span></h2>

@@ -150,6 +150,57 @@ export default async function ZaloCrmPage({ searchParams }: { searchParams: Prom
         )}
       </Section>
 
+      {/* Zalo cá nhân: kênh chạy trên công cụ ngoài (ZCRM). Không có khung 48 giờ, nhưng nick có thể
+          im lặng hoặc chạm trần tin/ngày — hai thứ khiến khách nhắn mà không ai thấy. */}
+      <Section
+        title={`Zalo cá nhân (công cụ ngoài) — ${d.caNhan.nicks.length} nick`}
+        actions={<Link href="/tich-hop" className="text-xs text-brand-600">Khai báo nick →</Link>}
+      >
+        {d.caNhan.nicks.length === 0 ? (
+          <div className="p-4">
+            <Empty>
+              Chưa khai báo nick Zalo cá nhân nào. Khai báo ở <Link href="/tich-hop" className="text-brand-600">Tích hợp</Link> rồi
+              dán đường webhook sang công cụ chat để hội thoại chảy về đây.
+            </Empty>
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-3 gap-3 p-3">
+              <Kpi label={`Hội thoại ${days} ngày`} value={d.caNhan.dem.tong} />
+              <Kpi label="Đang mở" value={d.caNhan.dem.dangMo} tone={d.caNhan.dem.dangMo ? "warn" : "default"} />
+              <Kpi label="Chưa gắn lead" value={d.caNhan.dem.chuaGanLead} tone={d.caNhan.dem.chuaGanLead ? "warn" : "good"} />
+            </div>
+            <table className="w-full text-sm">
+              <thead><tr><th className={th}>Nick</th><th className={th}>Trạng thái</th><th className={th}>Tin hôm nay</th><th className={th}>Tín hiệu gần nhất</th></tr></thead>
+              <tbody className="divide-y divide-black/5">
+                {d.caNhan.nicks.map((n) => (
+                  <tr key={n.id} className={n.imLang ? "bg-red-50/60" : undefined}>
+                    <td className="p-3 font-medium">{n.label}</td>
+                    <td className="p-3 text-xs">
+                      <span className={`chip ${n.imLang ? "bg-red-100 text-red-700" : n.status === "online" ? "bg-green-100 text-green-800" : "bg-slate-100 text-slate-600"}`}>
+                        {n.imLang ? "im lặng > 30 phút" : n.status === "online" ? "đang chạy" : "chưa có tín hiệu"}
+                      </span>
+                      {n.lastError && <div className="mt-0.5 text-red-700">{n.lastError}</div>}
+                    </td>
+                    <td className="p-3 text-xs tabular-nums">
+                      <span className={n.conLai <= 10 ? "font-semibold text-amber-800" : ""}>{n.sentToday}/{n.dailyCap}</span>
+                      <span className="ml-1 text-ink-400">còn {n.conLai}</span>
+                    </td>
+                    <td className="p-3 text-xs">{n.lastEventAt ? dtVN(n.lastEventAt) : "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="border-t border-black/5 p-3 text-xs text-ink-600">
+              Webhook 24 giờ: {d.caNhan.webhook.trong24h} sự kiện
+              {d.caNhan.webhook.tuChoi24h ? ` · ${d.caNhan.webhook.tuChoi24h} bị từ chối (sai bí mật)` : ""}
+              {d.caNhan.webhook.nhanGanNhat ? ` · gần nhất ${dtVN(d.caNhan.webhook.nhanGanNhat)}` : " · chưa nhận lần nào"}.
+              Hệ thống chỉ <b>đọc</b> kênh này — nick bị khoá thì chỉ mất chỗ chat, lead và lịch sử vẫn nằm trong hệ thống.
+            </p>
+          </>
+        )}
+      </Section>
+
       <Section title={`Tin theo mẫu (ZNS) — ${days} ngày`} actions={<Link href="/cau-hinh-van-hanh?tab=zalo" className="text-xs text-brand-600">Cấu hình mẫu →</Link>}>
         <div className="grid grid-cols-3 gap-3 p-3">
           <Kpi label="Đã gửi" value={d.zns.daGui} tone="good" />
