@@ -178,7 +178,8 @@ export async function suKienSapToi(ctx: ProtectedContext, input: { soNgaySinhNha
       eq(students.status, "active"),
       centers === null ? sql`true` : centers.length ? inArray(students.homeCenterId, centers) : sql`false`,
       // Chỉ lấy các bé có sinh nhật rơi vào cửa sổ ngày/tháng — lọc thô ở SQL, chốt lại ở core
-      sql`((date_part('doy', ${students.dateOfBirth}::date) - date_part('doy', now())) + 366) % 366 <= ${soNgay}`,
+      // `%` của Postgres không nhận double precision — date_part trả double nên phải ép kiểu int
+      sql`((date_part('doy', ${students.dateOfBirth}::date)::int - date_part('doy', now())::int + 366) % 366) <= ${soNgay}`,
     ))
     .limit(100);
 

@@ -27,7 +27,8 @@ export default async function MessagesPage({ searchParams }: { searchParams: Pro
     caller.messaging.inbox({ status, channel, mine: sp.mine === "1", flagged: sp.flagged === "1", q: sp.q || undefined, view, tagId }),
     caller.messaging.tags(),
     // Sự kiện sắp tới: hẹn 24 giờ, hẹn quá hạn, sinh nhật 7 ngày — ba cớ để chủ động nhắn khách
-    coLead ? caller.admissions.appointments.upcoming({}) : Promise.resolve(null),
+    // Khối phụ: hỏng thì bỏ qua, KHÔNG được làm sập cả hộp thư
+    coLead ? caller.admissions.appointments.upcoming({}).catch(() => null) : Promise.resolve(null),
   ]);
   const conv = sp.id && UUID.test(sp.id) ? await caller.messaging.conversation({ id: sp.id }) : null;
   const isTeacher = actor.assignments.some((a) => a.role === "TEACHER");
