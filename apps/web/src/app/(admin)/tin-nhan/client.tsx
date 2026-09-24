@@ -126,3 +126,80 @@ export function XinThongTinButton({ id }: { id: string }) {
     </span>
   );
 }
+
+/**
+ * Chọn nhãn cho hội thoại — nhãn là cách người bán hàng tự sắp việc ("Chờ báo giá", "Đã hẹn học thử").
+ * Bấm một nhãn là bật/tắt ngay; gửi cả danh sách nên bấm nhanh nhiều lần vẫn ra đúng kết quả.
+ */
+export function TagPicker({ id, tags, selected }: { id: string; tags: { id: string; name: string; color: string }[]; selected: string[] }) {
+  const trpc = useTRPC();
+  const router = useRouter();
+  const [chon, setChon] = useState<string[]>(selected);
+  const m = useMutation(trpc.messaging.setTags.mutationOptions({ onSuccess: () => router.refresh() }));
+  if (tags.length === 0) return <div className="text-[11px] text-ink-400">Chưa có nhãn nào — tạo ở Cấu hình vận hành → Nhãn hội thoại.</div>;
+  const doi = (tagId: string) => {
+    const moi = chon.includes(tagId) ? chon.filter((x) => x !== tagId) : [...chon, tagId].slice(0, 8);
+    setChon(moi);
+    m.mutate({ conversationId: id, tagIds: moi });
+  };
+  return (
+    <div className="flex flex-wrap items-center gap-1 text-[11px]">
+      <span className="text-ink-400">Nhãn:</span>
+      {tags.map((t) => (
+        <button key={t.id} type="button" onClick={() => doi(t.id)} disabled={m.isPending}
+          className={`chip ${chon.includes(t.id) ? "bg-brand-600 text-white" : "bg-black/5 text-ink-600"}`}>
+          {t.name}
+        </button>
+      ))}
+      {m.error && <span className="text-red-700">{m.error.message}</span>}
+    </div>
+  );
+}
+
+/** Quản lý danh mục nhãn ngay trên hộp thư — người trực máy tự thêm nhãn mới, không phải đợi ai */
+export function TagAdmin({ tags }: { tags: { id: string; name: string; color: string; active: boolean; soHoiThoai: number }[] }) {
+  const trpc = useTRPC();
+  const router = useRouter();
+  const [ten, setTen] = useState("");
+  const [mau, setMau] = useState("slate");
+  const m = useMutation(trpc.messaging.saveTag.mutationOptions({ onSuccess: () => { setTen(""); router.refresh(); } }));
+  const MAU: { key: string; label: string }[] = [
+    { key: "slate", label: "Xám" }, { key: "brand", label: "Xanh" }, { key: "green", label: "Lá" },
+    { key: "amber", label: "Vàng" }, { key: "red", label: "Đỏ" }, { key: "violet", label: "Tím" },
+  ];
+  return (
+    <details className="text-xs">
+      <summary className="cursor-pointer text-brand-600">Quản lý nhãn ({tags.length})</summary>
+      <div className="mt-2 space-y-2 rounded-lg bg-black/[0.03] p-3">
+        <div className="flex flex-wrap gap-2">
+          <input className="input !w-48 !py-1 !text-xs" value={ten} onChange={(e) => setTen(e.target.value)} placeholder="Tên nhãn mới (vd: Chờ báo giá)" />
+          <select className="input !w-28 !py-1 !text-xs" value={mau} onChange={(e) => setMau(e.target.value)}>
+            {MAU.map((x) => <option key={x.key} value={x.key}>{x.label}</option>)}
+          </select>
+          <button type="button" className="btn-primary !py-1 !text-xs" disabled={m.isPending || ten.trim().length < 2} onClick={() => m.mutate({ name: ten.trim(), color: mau })}>
+            {m.isPending ? "Đang lưu…" : "Thêm nhãn"}
+          </button>
+        </div>
+        {tags.length > 0 && (
+          <table className="w-full">
+            <tbody className="divide-y divide-black/5">
+              {tags.map((t) => (
+                <tr key={t.id}>
+                  <td className="py-1">{t.name}</td>
+                  <td className="py-1 text-ink-400">{t.soHoiThoai} hội thoại</td>
+                  <td className="py-1 text-right">
+                    <button type="button" className="btn-ghost !px-2 !py-0.5 !text-[11px]" disabled={m.isPending}
+                      onClick={() => m.mutate({ id: t.id, name: t.name, color: t.color, active: !t.active })}>
+                      {t.active ? "Tắt" : "Bật lại"}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+        {m.error && <p className="text-red-700">{m.error.message}</p>}
+      </div>
+    </details>
+  );
+}

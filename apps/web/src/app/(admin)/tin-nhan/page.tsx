@@ -1,15 +1,15 @@
 import Link from "next/link";
-import { hasPermission, CONV_STATUSES, CONV_STATUS_VI, MSG_CHANNELS, MSG_CHANNEL_VI, type Actor, type ConvStatus, type MsgChannel } from "@satarobo/core";
+import { hasPermission, CONV_STATUSES, CONV_STATUS_VI, MSG_CHANNELS, MSG_CHANNEL_VI, INBOX_VIEWS, INBOX_VIEW_VI, INBOX_VIEW_MO_TA, TAG_COLOR_CLASS, type Actor, type ConvStatus, type MsgChannel, type InboxView, type TagColor } from "@satarobo/core";
 import { getServerCaller } from "@/lib/trpc/server";
 import { NoAccess, PageHeader } from "@/components/admin-ui";
 import { Empty } from "@/components/ui";
 import { dtVN } from "@/components/care-ui";
-import { Composer, ConvActions, StartConversation, PortalLink, LinkLeadForm, XinThongTinButton } from "./client";
+import { Composer, ConvActions, StartConversation, PortalLink, LinkLeadForm, XinThongTinButton, TagPicker, TagAdmin } from "./client";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Tin nhắn" };
 
-type SP = { id?: string; status?: string; channel?: string; mine?: string; flagged?: string; q?: string; link?: string };
+type SP = { id?: string; status?: string; channel?: string; mine?: string; flagged?: string; q?: string; link?: string; view?: string; tag?: string };
 const UUID = /^[0-9a-f-]{36}$/i;
 
 export default async function MessagesPage({ searchParams }: { searchParams: Promise<SP> }) {
@@ -19,24 +19,44 @@ export default async function MessagesPage({ searchParams }: { searchParams: Pro
   if (!actor || !hasPermission(actor, "message:read")) return <NoAccess title="Tin nhắn" perm="message:read" />;
   const status = CONV_STATUSES.includes(sp.status as ConvStatus) ? (sp.status as ConvStatus) : undefined;
   const channel = MSG_CHANNELS.includes(sp.channel as MsgChannel) ? (sp.channel as MsgChannel) : undefined;
-  const d = await caller.messaging.inbox({ status, channel, mine: sp.mine === "1", flagged: sp.flagged === "1", q: sp.q || undefined });
+  const view = INBOX_VIEWS.includes(sp.view as InboxView) ? (sp.view as InboxView) : undefined;
+  const tagId = sp.tag && UUID.test(sp.tag) ? sp.tag : undefined;
+  const [d, tags] = await Promise.all([
+    caller.messaging.inbox({ status, channel, mine: sp.mine === "1", flagged: sp.flagged === "1", q: sp.q || undefined, view, tagId }),
+    caller.messaging.tags(),
+  ]);
   const conv = sp.id && UUID.test(sp.id) ? await caller.messaging.conversation({ id: sp.id }) : null;
   const isTeacher = actor.assignments.some((a) => a.role === "TEACHER");
   const myStudents = isTeacher ? await caller.messaging.myStudents() : null;
   const supervisor = hasPermission(actor, "message:audit");
   const q = (patch: Record<string, string | undefined>) => {
-    const u = new URLSearchParams(Object.entries({ status: sp.status, channel: sp.channel, mine: sp.mine, flagged: sp.flagged, q: sp.q, ...patch }).filter(([, v]) => v) as [string, string][]);
+    const u = new URLSearchParams(Object.entries({ status: sp.status, channel: sp.channel, mine: sp.mine, flagged: sp.flagged, q: sp.q, view: sp.view, tag: sp.tag, ...patch }).filter(([, v]) => v) as [string, string][]);
     return `/tin-nhan?${u.toString()}`;
   };
   return (
     <div className="space-y-4">
       <PageHeader title="Tin nhắn" desc="Hộp thư chung: phụ huynh (liên kết riêng), Facebook Messenger, Zalo OA. Messenger chỉ trả lời trong 24 giờ (tới 7 ngày khi nhân viên trả lời trực tiếp); Zalo OA tin tư vấn trong 7 ngày kể từ tương tác cuối."
         actions={<div className="flex gap-2">{supervisor && <Link href="/hoi-thoai" className="btn-ghost">Giám sát →</Link>}{(d.canStart || isTeacher) && <StartConversation myStudents={myStudents} />}</div>} />
+      {/* Bốn ô đếm theo VIỆC PHẢI LÀM — bấm vào là lọc luôn (định nghĩa chung ở core/outreach/hopThu) */}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {([
+          { key: "chua_doc" as InboxView, n: d.counts?.chuaDoc ?? 0, tone: "border-brand-200 bg-brand-50 text-brand-700" },
+          { key: "chua_tra_loi" as InboxView, n: d.counts?.chuaTraLoi ?? 0, tone: "border-amber-200 bg-amber-50 text-amber-800" },
+          { key: "dinh_tre" as InboxView, n: d.counts?.dinhTre ?? 0, tone: "border-red-200 bg-red-50 text-red-700" },
+          { key: "san_sang" as InboxView, n: d.counts?.sanSang ?? 0, tone: "border-green-200 bg-green-50 text-green-800" },
+        ]).map((o) => (
+          <Link key={o.key} href={q({ view: view === o.key ? undefined : o.key })} title={INBOX_VIEW_MO_TA[o.key]}
+            className={`rounded-xl border p-2 text-center ${o.n ? o.tone : "border-black/5 bg-white text-ink-400"} ${view === o.key ? "ring-2 ring-brand-400" : ""}`}>
+            <div className="text-lg font-semibold tabular-nums">{o.n}</div>
+            <div className="text-[11px]">{INBOX_VIEW_VI[o.key]}</div>
+          </Link>
+        ))}
+      </div>
       <div className="flex flex-wrap items-center gap-2 text-xs">
-        <Link href={q({ status: undefined, mine: undefined, flagged: undefined })} className="chip bg-slate-100">Đang mở {d.counts?.open ?? 0}</Link>
+        <Link href={q({ status: undefined, mine: undefined, flagged: undefined, view: undefined, tag: undefined })} className={`chip ${!view && !sp.mine && !sp.flagged && !tagId ? "bg-brand-600 text-white" : "bg-slate-100"}`}>Đang mở {d.counts?.open ?? 0}</Link>
         <Link href={q({ mine: "1" })} className={`chip ${sp.mine ? "bg-brand-100 text-brand-700" : "bg-slate-100"}`}>Của tôi {d.counts?.mine ?? 0}</Link>
         <Link href={q({ flagged: "1" })} className={`chip ${sp.flagged ? "bg-red-100 text-red-700" : "bg-slate-100"}`}>Gắn cờ {d.counts?.flagged ?? 0}</Link>
-        {(d.counts?.waitingOver ?? 0) > 0 && <span className="chip bg-red-100 text-red-700">{d.counts?.waitingOver} chờ quá 60 phút</span>}
+        <Link href={q({ view: view === "chua_gan_lead" ? undefined : "chua_gan_lead" })} className={`chip ${view === "chua_gan_lead" ? "bg-amber-100 text-amber-800" : "bg-slate-100"}`}>Chưa gắn lead {d.counts?.chuaGanLead ?? 0}</Link>
         <form className="flex gap-1" action="/tin-nhan">
           <select name="channel" defaultValue={channel ?? ""} className="input !w-auto !py-1 !text-xs"><option value="">Mọi kênh</option>{MSG_CHANNELS.map((c) => <option key={c} value={c}>{MSG_CHANNEL_VI[c]}</option>)}</select>
           <select name="status" defaultValue={status ?? ""} className="input !w-auto !py-1 !text-xs"><option value="">Đang mở</option>{CONV_STATUSES.map((s) => <option key={s} value={s}>{CONV_STATUS_VI[s]}</option>)}</select>
@@ -44,6 +64,20 @@ export default async function MessagesPage({ searchParams }: { searchParams: Pro
           <button className="btn-ghost !py-1 !text-xs">Lọc</button>
         </form>
       </div>
+      <div className="flex flex-wrap items-center gap-2">
+        {supervisor && <TagAdmin tags={tags} />}
+      </div>
+      {tags.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1 text-[11px]">
+          <span className="text-ink-400">Nhãn:</span>
+          {tags.filter((t) => t.active).map((t) => (
+            <Link key={t.id} href={q({ tag: tagId === t.id ? undefined : t.id })}
+              className={`chip ${tagId === t.id ? "bg-brand-600 text-white" : TAG_COLOR_CLASS[t.color as TagColor] ?? "bg-slate-100"}`}>
+              {t.name}{t.soHoiThoai ? ` ${t.soHoiThoai}` : ""}
+            </Link>
+          ))}
+        </div>
+      )}
       <div className="grid gap-4 lg:grid-cols-[360px_1fr]">
         <div className="card max-h-[75vh] divide-y divide-black/5 overflow-y-auto">
           {d.items.length === 0 ? <div className="p-4"><Empty>Không có hội thoại.</Empty></div> : d.items.map((c) => (
@@ -53,6 +87,8 @@ export default async function MessagesPage({ searchParams }: { searchParams: Pro
               <div className="mt-1 flex flex-wrap gap-1 text-[10px]">
                 <span className="chip bg-slate-100">{c.channelLabel}</span>
                 <span className="chip bg-slate-100">{c.statusLabel}</span>
+                {c.viec.gap && <span className={`chip ${c.viec.key === "dinh_tre" ? "bg-red-100 text-red-700" : c.viec.key === "chua_doc" ? "bg-brand-100 text-brand-700" : "bg-amber-100 text-amber-800"}`}>{c.viec.label}</span>}
+                {c.tags.map((t) => <span key={t.id} className={`chip ${TAG_COLOR_CLASS[t.color as TagColor] ?? "bg-slate-100"}`}>{t.name}</span>)}
                 {c.waitingMin !== null && <span className={`chip ${c.waitingMin > 60 ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-800"}`}>chờ {c.waitingMin}′</span>}
                 {c.flags.map((f) => <span key={f} className="chip bg-red-100 text-red-700">{f}</span>)}
                 {c.assignee && <span className="chip bg-slate-50">{c.assignee}</span>}
@@ -83,6 +119,7 @@ export default async function MessagesPage({ searchParams }: { searchParams: Pro
                 </div>
                 {conv.flags.length > 0 && <div className="flex flex-wrap gap-1">{conv.flags.map((f) => <span key={f.key} className="chip bg-red-100 text-red-700">{f.label}</span>)}</div>}
                 {conv.can.newLink && <PortalLink id={conv.id} link={sp.link?.startsWith("/tn/") ? sp.link : null} />}
+                {conv.can.manage && <TagPicker id={conv.id} tags={tags.filter((t) => t.active).map((t) => ({ id: t.id, name: t.name, color: t.color }))} selected={conv.tags.map((t) => t.id)} />}
                 {conv.can.linkLead && conv.channel === "zalo" && conv.window.allowed && <div className="text-xs"><XinThongTinButton id={conv.id} /></div>}
                 {conv.can.linkLead && <details className="text-xs"><summary className="cursor-pointer text-brand-600">Tạo lead từ hội thoại</summary><div className="mt-2"><LinkLeadForm id={conv.id} centers={conv.centers} /></div></details>}
               </div>

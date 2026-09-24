@@ -1,11 +1,12 @@
 import { z } from "zod";
-import { JOB_STATUSES, CANDIDATE_STAGES, INTERVIEW_RESULTS, EMPLOYMENT_TYPES, MSG_CHANNELS, CONV_STATUSES, AFFILIATE_TYPES, REWARD_STATUSES, DEPARTMENTS } from "@satarobo/core";
+import { JOB_STATUSES, CANDIDATE_STAGES, INTERVIEW_RESULTS, EMPLOYMENT_TYPES, MSG_CHANNELS, CONV_STATUSES, INBOX_VIEWS, AFFILIATE_TYPES, REWARD_STATUSES, DEPARTMENTS } from "@satarobo/core";
 import { router, protectedProcedure } from "../trpc";
 import * as R from "../services/recruit";
 import * as M from "../services/messaging";
 import * as ZC from "../services/zaloCrm";
 import * as CA from "../services/channelAccounts";
 import * as OA from "../services/zaloOaEvents";
+import * as TAG from "../services/convTags";
 import * as A from "../services/affiliates";
 
 const uuid = z.string().uuid();
@@ -38,7 +39,7 @@ export const recruitRouter = router({
 
 export const messagingRouter = router({
   inbox: protectedProcedure
-    .input(z.object({ status: z.enum(CONV_STATUSES).optional(), channel: z.enum(MSG_CHANNELS).optional(), mine: z.boolean().optional(), flagged: z.boolean().optional(), q: s(100).optional(), kind: z.enum(["lead", "parent"]).optional() }).default({}))
+    .input(z.object({ status: z.enum(CONV_STATUSES).optional(), channel: z.enum(MSG_CHANNELS).optional(), mine: z.boolean().optional(), flagged: z.boolean().optional(), q: s(100).optional(), kind: z.enum(["lead", "parent"]).optional(), view: z.enum(INBOX_VIEWS).optional(), tagId: uuid.optional() }).default({}))
     .query(({ ctx, input }) => M.inbox(ctx, input)),
   conversation: protectedProcedure.input(z.object({ id: uuid })).query(({ ctx, input }) => M.getConversation(ctx, input.id)),
   send: protectedProcedure.input(z.object({ id: uuid, body: s(4000), note: z.boolean().optional() })).mutation(({ ctx, input }) => M.sendMessage(ctx, input)),
@@ -58,6 +59,15 @@ export const messagingRouter = router({
   settings: protectedProcedure.query(({ ctx }) => M.getMessagingSettings(ctx)),
   saveSettings: protectedProcedure.input(z.object({ defaultCenterId: uuid.nullable(), autoReply: s(500) })).mutation(({ ctx, input }) => M.saveMessagingSettings(ctx, input)),
   pilot: protectedProcedure.input(z.object(range).default({})).query(({ ctx, input }) => M.chatPilotReport(ctx, input)),
+  /* --- Nhãn hội thoại (kiểu CRM Zalo) --- */
+  tags: protectedProcedure.query(({ ctx }) => TAG.danhSachNhan(ctx)),
+  saveTag: protectedProcedure
+    .input(z.object({ id: uuid.nullish(), name: s(40), color: s(20).nullish(), sortOrder: z.number().int().min(0).max(999).nullish(), active: z.boolean().optional() }))
+    .mutation(({ ctx, input }) => TAG.luuNhan(ctx, input)),
+  setTags: protectedProcedure
+    .input(z.object({ conversationId: uuid, tagIds: z.array(uuid).max(8) }))
+    .mutation(({ ctx, input }) => TAG.ganNhan(ctx, input)),
+
   /* --- Tài khoản kênh chat ngoài (Zalo cá nhân chạy trên ZCRM) --- */
   channelAccounts: protectedProcedure.query(({ ctx }) => CA.danhSachTaiKhoanKenh(ctx)),
   saveChannelAccount: protectedProcedure

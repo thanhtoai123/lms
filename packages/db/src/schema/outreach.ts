@@ -7,6 +7,7 @@ import { parents, teachers } from "./people";
 import { leads } from "./admissions";
 import { staff, employmentTypeEnum } from "./hr";
 import { orders } from "./finance";
+import { tenantCol } from "./tenant";
 
 const money = (name: string) => bigint(name, { mode: "number" });
 
@@ -114,6 +115,8 @@ export const conversations = pgTable("conversations", {
   portalTokenHash: text("portal_token_hash"),
   portalSeenAt: timestamp("portal_seen_at", { withTimezone: true }),
   lastInboundAt: timestamp("last_inbound_at", { withTimezone: true }),
+  /** Lần cuối một nhân viên MỞ hội thoại — để tính "chưa đọc" (tin khách tới sau mốc này) */
+  staffSeenAt: timestamp("staff_seen_at", { withTimezone: true }),
   lastOutboundAt: timestamp("last_outbound_at", { withTimezone: true }),
   lastMessageAt: timestamp("last_message_at", { withTimezone: true }).notNull().defaultNow(),
   lastPreview: text("last_preview"),
@@ -257,4 +260,34 @@ export const channelAccounts = pgTable("channel_accounts", {
 }, (t) => [
   uniqueIndex("channel_accounts_slug_uq").on(t.channel, t.slug),
   index("channel_accounts_ch_idx").on(t.channel, t.active),
+]);
+
+
+/* ---------------- Nhãn hội thoại (kiểu CRM Zalo) ---------------- */
+
+/**
+ * Nhãn do trung tâm tự đặt, gắn lên hội thoại: "Lộ trình ngắn hạn", "Chờ báo giá", "Đã hẹn học thử"…
+ * Tách khỏi `conversations.flags` (cờ hệ thống sinh ra tự động: từ nhạy cảm, thanh toán riêng) vì nhãn
+ * là việc của người bán hàng, sửa được, đổi màu được, và dùng để lọc hộp thư.
+ */
+export const conversationTags = pgTable("conversation_tags", {
+  id: id(),
+  tenantId: tenantCol(),
+  name: text("name").notNull(),
+  /** Mã màu ngắn: slate | brand | green | amber | red | violet */
+  color: text("color").notNull().default("slate"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  active: boolean("active").notNull().default(true),
+  createdBy: uuid("created_by").references(() => users.id),
+  ...timestamps,
+}, (t) => [uniqueIndex("conversation_tags_name_uq").on(t.tenantId, t.name)]);
+
+export const conversationTagLinks = pgTable("conversation_tag_links", {
+  conversationId: uuid("conversation_id").notNull().references(() => conversations.id, { onDelete: "cascade" }),
+  tagId: uuid("tag_id").notNull().references(() => conversationTags.id, { onDelete: "cascade" }),
+  taggedBy: uuid("tagged_by").references(() => users.id),
+  taggedAt: timestamp("tagged_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex("conversation_tag_links_uq").on(t.conversationId, t.tagId),
+  index("conversation_tag_links_tag_idx").on(t.tagId),
 ]);

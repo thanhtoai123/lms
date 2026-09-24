@@ -2,12 +2,12 @@ import { createHash, randomBytes } from "node:crypto";
 import { and, eq, inArray, sql, desc, asc, or, ilike, isNull, isNotNull, gte, lte, type SQL } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import {
-  conversations, messages, leads, leadActivities, parents, students, studentGuardians, teachers, users, centers, parentNotifications, appSettings, enrollments, classes, userRoles, channelAccounts, type Database,
+  conversations, messages, leads, leadActivities, parents, students, studentGuardians, teachers, users, centers, parentNotifications, appSettings, enrollments, classes, userRoles, channelAccounts, conversationTags, conversationTagLinks, type Database,
 } from "@satarobo/db";
 import {
   authorize, authorizeGlobal, centersWith, hasRole, maskPhone, normalizeVnPhone,
   replyWindow, replyWindowLeft, validateMessage, messageFlags, responsePairs, responseStats, maskExternalId, readWithin, pilotVerdict, pct,
-  MSG_CHANNEL_VI, CONV_STATUS_VI, FLAG_VI, FIRST_RESPONSE_SLA_MIN, READ_TARGET_HOURS, PILOT_TARGETS,
+  MSG_CHANNEL_VI, CONV_STATUS_VI, FLAG_VI, FIRST_RESPONSE_SLA_MIN, READ_TARGET_HOURS, PILOT_TARGETS, nhanHoiThoai, type InboxView,
   metaSignatureOk as coreMetaSignatureOk, zaloSignatureOk as coreZaloSignatureOk,
   type MsgChannel, type ConvStatus,
 } from "@satarobo/core";
@@ -77,7 +77,7 @@ function isSupervisor(ctx: ProtectedContext, centerId?: string | null) {
 /* Hộp thư                                                              */
 /* ------------------------------------------------------------------ */
 
-export async function inbox(ctx: ProtectedContext, input: { status?: ConvStatus; channel?: MsgChannel; mine?: boolean; flagged?: boolean; q?: string; kind?: "lead" | "parent" }) {
+export async function inbox(ctx: ProtectedContext, input: { status?: ConvStatus; channel?: MsgChannel; mine?: boolean; flagged?: boolean; q?: string; kind?: "lead" | "parent"; view?: InboxView; tagId?: string }) {
   if (!ctx.actor.assignments.some((a) => authorize({ ...ctx.actor, assignments: [a] }, "message:read", { centerId: a.centerId, ownerIds: ctx.actor.personId ? [ctx.actor.personId] : [] }).allowed)) throw forbid("Không có quyền xem tin nhắn");
   const conds: SQL[] = [scope(ctx)];
   if (input.status) conds.push(eq(conversations.status, input.status));
@@ -88,17 +88,48 @@ export async function inbox(ctx: ProtectedContext, input: { status?: ConvStatus;
   // Kênh ngoài (Zalo cá nhân) cũng là khách chưa vào phễu — phải nằm trong tab "Khách"
   if (input.kind === "lead") conds.push(or(isNotNull(conversations.leadId), inArray(conversations.channel, ["messenger", "zalo", "zalo_ca_nhan"]))!);
   if (input.kind === "parent") conds.push(isNotNull(conversations.parentId));
+  // Bộ lọc theo VIỆC PHẢI LÀM (giống hộp thư của công cụ CRM Zalo) — định nghĩa nằm ở core/outreach/hopThu
+  if (input.view === "chua_doc") conds.push(sql`${conversations.lastInboundAt} is not null and (${conversations.staffSeenAt} is null or ${conversations.staffSeenAt} < ${conversations.lastInboundAt})`);
+  if (input.view === "chua_tra_loi") conds.push(sql`${conversations.lastInboundAt} is not null and (${conversations.lastOutboundAt} is null or ${conversations.lastOutboundAt} < ${conversations.lastInboundAt})`);
+  if (input.view === "dinh_tre") conds.push(sql`${conversations.waitingSince} < now() - make_interval(mins => ${FIRST_RESPONSE_SLA_MIN}::int)`);
+  if (input.view === "san_sang") conds.push(sql`${conversations.lastOutboundAt} is not null and (${conversations.lastInboundAt} is null or ${conversations.lastOutboundAt} >= ${conversations.lastInboundAt})`);
+  if (input.view === "chua_gan_lead") conds.push(sql`${conversations.leadId} is null and ${conversations.parentId} is null`);
+  if (input.view === "cua_toi") conds.push(eq(conversations.assignedTo, ctx.user.id));
+  if (input.view === "gan_co") conds.push(sql`cardinality(${conversations.flags}) > 0`);
+  if (input.tagId) conds.push(sql`exists (select 1 from ${conversationTagLinks} l where l.conversation_id = ${conversations.id} and l.tag_id = ${input.tagId})`);
   if (input.q?.trim()) conds.push(or(ilike(conversations.displayName, `%${input.q.trim()}%`), ilike(conversations.lastPreview, `%${input.q.trim()}%`), ilike(conversations.subject, `%${input.q.trim()}%`))!);
   const r = await ctx.db.select({ c: conversations, assignee: users.fullName, centerCode: centers.code, parentName: parents.fullName, leadName: leads.parentName, leadStatus: leads.status, teacherName: teachers.fullName })
     .from(conversations).leftJoin(users, eq(users.id, conversations.assignedTo)).leftJoin(centers, eq(centers.id, conversations.centerId))
     .leftJoin(parents, eq(parents.id, conversations.parentId)).leftJoin(leads, eq(leads.id, conversations.leadId)).leftJoin(teachers, eq(teachers.id, conversations.teacherId))
     .where(and(...conds)).orderBy(sql`${conversations.waitingSince} asc nulls last`, desc(conversations.lastMessageAt)).limit(200);
+  const dangMo = sql`${conversations.status} <> 'closed'`;
   const [cnt] = await ctx.db.select({
     open: sql<number>`count(*) filter (where ${conversations.status} = 'open')::int`,
-    waitingOver: sql<number>`count(*) filter (where ${conversations.waitingSince} < now() - make_interval(mins => ${FIRST_RESPONSE_SLA_MIN}::int) and ${conversations.status} <> 'closed')::int`,
-    mine: sql<number>`count(*) filter (where ${conversations.assignedTo} = ${ctx.user.id} and ${conversations.status} <> 'closed')::int`,
-    flagged: sql<number>`count(*) filter (where cardinality(${conversations.flags}) > 0 and ${conversations.status} <> 'closed')::int`,
+    waitingOver: sql<number>`count(*) filter (where ${conversations.waitingSince} < now() - make_interval(mins => ${FIRST_RESPONSE_SLA_MIN}::int) and ${dangMo})::int`,
+    mine: sql<number>`count(*) filter (where ${conversations.assignedTo} = ${ctx.user.id} and ${dangMo})::int`,
+    flagged: sql<number>`count(*) filter (where cardinality(${conversations.flags}) > 0 and ${dangMo})::int`,
+    // Bốn ô đếm theo việc phải làm
+    chuaDoc: sql<number>`count(*) filter (where ${conversations.lastInboundAt} is not null and (${conversations.staffSeenAt} is null or ${conversations.staffSeenAt} < ${conversations.lastInboundAt}) and ${dangMo})::int`,
+    chuaTraLoi: sql<number>`count(*) filter (where ${conversations.lastInboundAt} is not null and (${conversations.lastOutboundAt} is null or ${conversations.lastOutboundAt} < ${conversations.lastInboundAt}) and ${dangMo})::int`,
+    dinhTre: sql<number>`count(*) filter (where ${conversations.waitingSince} < now() - make_interval(mins => ${FIRST_RESPONSE_SLA_MIN}::int) and ${dangMo})::int`,
+    sanSang: sql<number>`count(*) filter (where ${conversations.lastOutboundAt} is not null and (${conversations.lastInboundAt} is null or ${conversations.lastOutboundAt} >= ${conversations.lastInboundAt}) and ${dangMo})::int`,
+    chuaGanLead: sql<number>`count(*) filter (where ${conversations.leadId} is null and ${conversations.parentId} is null and ${dangMo})::int`,
   }).from(conversations).where(scope(ctx));
+
+  // Nhãn của các hội thoại đang hiện — lấy một lượt để khỏi N+1
+  const ids = r.map((x) => x.c.id);
+  const tagRows = ids.length
+    ? await ctx.db.select({ convId: conversationTagLinks.conversationId, id: conversationTags.id, name: conversationTags.name, color: conversationTags.color })
+        .from(conversationTagLinks)
+        .innerJoin(conversationTags, eq(conversationTags.id, conversationTagLinks.tagId))
+        .where(inArray(conversationTagLinks.conversationId, ids))
+    : [];
+  const tagTheoHoiThoai = new Map<string, { id: string; name: string; color: string }[]>();
+  for (const t of tagRows) {
+    const ds = tagTheoHoiThoai.get(t.convId) ?? [];
+    ds.push({ id: t.id, name: t.name, color: t.color });
+    tagTheoHoiThoai.set(t.convId, ds);
+  }
   const now = Date.now();
   return {
     counts: cnt, channels: channelConfig(),
@@ -109,6 +140,9 @@ export async function inbox(ctx: ProtectedContext, input: { status?: ConvStatus;
       subject: x.c.subject, preview: x.c.lastPreview, lastMessageAt: x.c.lastMessageAt, centerCode: x.centerCode, assignee: x.assignee, teacher: x.teacherName,
       leadId: x.c.leadId, leadStatus: x.leadStatus, parentId: x.c.parentId, flags: x.c.flags.map((f) => FLAG_VI[f] ?? f),
       waitingMin: x.c.waitingSince ? Math.round((now - x.c.waitingSince.getTime()) / 60_000) : null,
+      tags: tagTheoHoiThoai.get(x.c.id) ?? [],
+      // Nhãn "việc phải làm" của dòng này, dùng đúng định nghĩa với các ô đếm
+      viec: nhanHoiThoai({ lastInboundAt: x.c.lastInboundAt, lastOutboundAt: x.c.lastOutboundAt, staffSeenAt: x.c.staffSeenAt, waitingSince: x.c.waitingSince, status: x.c.status }, new Date(now), FIRST_RESPONSE_SLA_MIN),
     })),
   };
 }
@@ -127,6 +161,15 @@ export async function getConversation(ctx: ProtectedContext, id: string) {
     .where(and(eq(users.isActive, true), inArray(userRoles.role, ["CENTER_MANAGER", "CENTER_SALES_CSM", "CENTER_CLASS_MANAGER", "HO_MARKETING", "SUPER_ADMIN"]), c.centerId ? or(eq(userRoles.centerId, c.centerId), isNull(userRoles.centerId)) : sql`true`))
     .groupBy(users.id, users.fullName).orderBy(asc(users.fullName));
   const canReply = canAct(ctx, c, "message:create");
+  // Mở hội thoại = đã đọc. Ghi mốc này mới đếm được ô "Chưa đọc" (tin khách tới sau lần mở cuối).
+  if (!c.staffSeenAt || (c.lastInboundAt && c.staffSeenAt < c.lastInboundAt)) {
+    await ctx.db.update(conversations).set({ staffSeenAt: new Date() }).where(eq(conversations.id, c.id));
+  }
+  const tags = await ctx.db
+    .select({ id: conversationTags.id, name: conversationTags.name, color: conversationTags.color })
+    .from(conversationTagLinks)
+    .innerJoin(conversationTags, eq(conversationTags.id, conversationTagLinks.tagId))
+    .where(eq(conversationTagLinks.conversationId, c.id));
   // Kênh ngoài: cho biết tin sẽ đi qua nick nào (trung tâm có nhiều nick Zalo cá nhân)
   const nick = c.channelAccountId ? await ctx.db.query.channelAccounts.findFirst({ where: eq(channelAccounts.id, c.channelAccountId) }) : null;
   const leadCenters = centersWith(ctx.actor, "lead:create");
@@ -135,6 +178,7 @@ export async function getConversation(ctx: ProtectedContext, id: string) {
     centers: centerOpts,
     id: c.id, channel: c.channel, channelLabel: MSG_CHANNEL_VI[c.channel as MsgChannel],
     nick: nick ? { label: nick.label, active: nick.active, conLai: nick.sentDay === ngayVN() ? Math.max(0, nick.dailyCap - nick.sentToday) : nick.dailyCap } : null,
+    tags,
     status: c.status, statusLabel: CONV_STATUS_VI[c.status as ConvStatus], subject: c.subject,
     displayName: c.displayName, externalId: c.externalId ? maskExternalId(c.externalId) : null, centerId: c.centerId, assignedTo: c.assignedTo, teacherId: c.teacherId,
     flags: c.flags.map((f) => ({ key: f, label: FLAG_VI[f] ?? f })), portalSeenAt: c.portalSeenAt, createdAt: c.createdAt,
