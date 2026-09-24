@@ -7,11 +7,13 @@ import { Empty } from "@/components/ui";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Điểm & trạng thái khách" };
 
-type View = "tat_ca" | LeadTemp | "dinh_tre";
+/** Bảng này chỉ xếp khách CHƯA ghi danh, nên không có nhóm "đã ghi danh" (vo_dich) */
+type TempBan = Exclude<LeadTemp, "vo_dich">;
+type View = "tat_ca" | TempBan | "dinh_tre";
 const VIEWS: View[] = ["tat_ca", "nong", "am", "lanh", "nguoi", "rui_ro", "ngu_dong", "dinh_tre"];
 const NHAN_VIEW: Record<View, string> = {
   tat_ca: "Tất cả",
-  ...Object.fromEntries(LEAD_TEMPS.map((t) => [t, LEAD_TEMP_VI[t]])) as Record<LeadTemp, string>,
+  ...Object.fromEntries(LEAD_TEMPS.filter((t) => t !== "vo_dich").map((t) => [t, LEAD_TEMP_VI[t]])) as Record<TempBan, string>,
   dinh_tre: "Đình trệ",
 };
 
@@ -38,9 +40,9 @@ export default async function DiemLeadPage({ searchParams }: { searchParams: Pro
 
       <div className="flex flex-wrap items-center gap-2 text-xs">
         {VIEWS.map((v) => (
-          <Link key={v} href={`/leads/diem?view=${v}`} title={v === "tat_ca" || v === "dinh_tre" ? undefined : LEAD_TEMP_MO_TA[v as LeadTemp]}
-            className={`chip ${view === v ? "bg-brand-600 text-white" : v === "dinh_tre" ? "bg-orange-100 text-orange-800" : v === "tat_ca" ? "bg-slate-100" : LEAD_TEMP_CHIP[v as LeadTemp]}`}>
-            {NHAN_VIEW[v]} {v === "tat_ca" ? d.tong : v === "dinh_tre" ? d.dem.dinh_tre : d.dem[v as LeadTemp]}
+          <Link key={v} href={`/leads/diem?view=${v}`} title={v === "tat_ca" || v === "dinh_tre" ? undefined : LEAD_TEMP_MO_TA[v as TempBan]}
+            className={`chip ${view === v ? "bg-brand-600 text-white" : v === "dinh_tre" ? "bg-orange-100 text-orange-800" : v === "tat_ca" ? "bg-slate-100" : LEAD_TEMP_CHIP[v as TempBan]}`}>
+            {NHAN_VIEW[v]} {v === "tat_ca" ? d.tong : v === "dinh_tre" ? d.dem.dinh_tre : d.dem[v as TempBan]}
           </Link>
         ))}
       </div>
