@@ -638,6 +638,13 @@
               ]
             },
             {
+              "label": "Zalo CRM",
+              "href": "/crm/zalo",
+              "perm": [
+                "message:read"
+              ]
+            },
+            {
               "label": "Messenger CRM",
               "href": "/crm/messenger",
               "perm": [

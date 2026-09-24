@@ -270,9 +270,10 @@ export const ADMIN_MENU: NavGroup[] = [
     roles: ["CENTER_SALES_CSM", "CENTER_CLASS_MANAGER", ...MANAGERS],
     items: [
       {
-        label: "Tin nhắn", href: "/tin-nhan", icon: "message-circle", keywords: "hoi thoai messenger zalo",
+        label: "Tin nhắn", href: "/tin-nhan", icon: "message-circle", keywords: "hoi thoai messenger zalo crm oa zns",
         tabs: [
           { label: "Hộp thư", href: "/tin-nhan", perm: "message:read", desc: "Tin nhắn PH ↔ trung tâm / GV, Messenger, Zalo OA." },
+          { label: "Zalo CRM", href: "/crm/zalo", perm: "message:read", desc: "Kênh Zalo trên một màn: kết nối OA, khung trả lời 48 giờ, tin theo mẫu (ZNS), lead từ Zalo." },
           { label: "Messenger CRM", href: "/crm/messenger", perm: ["message:read", "lead:read"], desc: "Hội thoại mạng xã hội gắn với lead." },
           { label: "Giám sát hội thoại", href: "/hoi-thoai", perm: "message:audit", desc: "Tốc độ phản hồi, hội thoại gắn cờ, cấu hình kênh." },
         ],

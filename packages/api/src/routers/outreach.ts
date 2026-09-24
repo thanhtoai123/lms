@@ -3,6 +3,7 @@ import { JOB_STATUSES, CANDIDATE_STAGES, INTERVIEW_RESULTS, EMPLOYMENT_TYPES, MS
 import { router, protectedProcedure } from "../trpc";
 import * as R from "../services/recruit";
 import * as M from "../services/messaging";
+import * as ZC from "../services/zaloCrm";
 import * as A from "../services/affiliates";
 
 const uuid = z.string().uuid();
@@ -46,6 +47,8 @@ export const messagingRouter = router({
     .input(z.object({ id: uuid, leadId: uuid.nullish(), parentId: uuid.nullish(), create: z.object({ parentName: s(120), phone: s(20), childName: s(120).nullish(), centerId: uuid.nullish(), consent: z.boolean() }).nullish() }))
     .mutation(({ ctx, input }) => M.linkConversation(ctx, input)),
   crm: protectedProcedure.query(({ ctx }) => M.messengerCrm(ctx)),
+  /** Zalo CRM — kênh Zalo trên một màn: kết nối, khung 48 giờ, ZNS, lead từ Zalo */
+  zaloCrm: protectedProcedure.input(z.object({ days: z.number().int().min(7).max(180).optional() }).default({})).query(({ ctx, input }) => ZC.zaloCrm(ctx, input)),
   myStudents: protectedProcedure.query(({ ctx }) => M.myStudentsForChat(ctx)),
   supervision: protectedProcedure.input(z.object({ ...range, centerId: uuid.optional() }).default({})).query(({ ctx, input }) => M.supervision(ctx, input)),
   settings: protectedProcedure.query(({ ctx }) => M.getMessagingSettings(ctx)),
