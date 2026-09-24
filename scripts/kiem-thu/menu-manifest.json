@@ -201,6 +201,14 @@
           ]
         },
         {
+          "label": "Lịch hẹn",
+          "href": "/lich-hen",
+          "perm": [
+            "lead:read"
+          ],
+          "tabs": []
+        },
+        {
           "label": "Chốt hàng loạt",
           "href": "/leads/bulk-convert",
           "perm": [

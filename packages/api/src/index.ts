@@ -2,7 +2,7 @@ import { router, createCallerFactory } from "./trpc";
 import { authRouter } from "./routers/auth";
 import { sessionsRouter, classesRouter } from "./routers/academics";
 import { teacherRouter } from "./routers/teacher";
-import { leadsRouter } from "./routers/admissions";
+import { leadsRouter, appointmentsRouter } from "./routers/admissions";
 import { engagementRouter } from "./routers/engagement";
 import { dashboardRouter } from "./routers/dashboard";
 import { inboxRouter } from "./routers/inbox";
@@ -35,7 +35,7 @@ export const appRouter = router({
     evaluations: sessionEvaluationsRouter,
   }),
   teacher: teacherRouter,
-  admissions: router({ leads: leadsRouter, trials: trialsRouter, trialReports: trialReportsRouter }),
+  admissions: router({ leads: leadsRouter, trials: trialsRouter, trialReports: trialReportsRouter, appointments: appointmentsRouter }),
   engagement: engagementRouter,
   dashboard: dashboardRouter,
   inbox: inboxRouter,

@@ -1,5 +1,5 @@
 import { pgTable, text, uuid, integer, bigint, boolean, date, timestamp, pgEnum, jsonb, index, uniqueIndex } from "drizzle-orm/pg-core";
-import { JOB_STATUSES, CANDIDATE_STAGES, INTERVIEW_RESULTS, MSG_CHANNELS, CONV_STATUSES, AFFILIATE_TYPES, REWARD_STATUSES } from "@satarobo/core";
+import { JOB_STATUSES, CANDIDATE_STAGES, INTERVIEW_RESULTS, MSG_CHANNELS, CONV_STATUSES, APPOINTMENT_KINDS, APPOINTMENT_STATUSES, AFFILIATE_TYPES, REWARD_STATUSES } from "@satarobo/core";
 import { id, timestamps } from "./_common";
 import { users } from "./identity";
 import { centers } from "./org";
@@ -290,4 +290,43 @@ export const conversationTagLinks = pgTable("conversation_tag_links", {
 }, (t) => [
   uniqueIndex("conversation_tag_links_uq").on(t.conversationId, t.tagId),
   index("conversation_tag_links_tag_idx").on(t.tagId),
+]);
+
+/* ---------------- Lịch hẹn (CRM bán hàng) ---------------- */
+
+export const appointmentKindEnum = pgEnum("appointment_kind", APPOINTMENT_KINDS);
+export const appointmentStatusEnum = pgEnum("appointment_status", APPOINTMENT_STATUSES);
+
+/**
+ * Lịch hẹn với khách: gọi lại, hẹn tư vấn tại trung tâm, hẹn cho bé học thử.
+ *
+ * Vì sao cần bảng riêng (đã có `trial_bookings` cho học thử): phần lớn cuộc hẹn của tư vấn viên
+ * KHÔNG phải buổi học thử — là "gọi lại 19h tối nay", "chị Lan ghé xem cơ sở thứ bảy". Không có chỗ
+ * ghi thì nó nằm trong đầu nhân viên, và mất khi người đó nghỉ. Quá hẹn mà chưa xử lý phải nổi lên
+ * ngay cạnh hộp thư, đúng như "Lịch hẹn 24h tới" / "Hẹn quá hạn" của công cụ CRM Zalo.
+ */
+export const appointments = pgTable("appointments", {
+  id: id(),
+  tenantId: tenantCol(),
+  centerId: uuid("center_id").references(() => centers.id),
+  leadId: uuid("lead_id").references(() => leads.id, { onDelete: "set null" }),
+  parentId: uuid("parent_id").references(() => parents.id, { onDelete: "set null" }),
+  conversationId: uuid("conversation_id").references(() => conversations.id, { onDelete: "set null" }),
+  title: text("title").notNull(),
+  kind: appointmentKindEnum("kind").notNull().default("goi_lai"),
+  at: timestamp("at", { withTimezone: true }).notNull(),
+  durationMin: integer("duration_min").notNull().default(30),
+  status: appointmentStatusEnum("status").notNull().default("dat"),
+  note: text("note"),
+  /** Người phụ trách cuộc hẹn (mặc định là người tạo) */
+  assignedTo: uuid("assigned_to").references(() => users.id),
+  /** Đã bắn nhắc trước giờ hẹn chưa — tránh nhắc trùng */
+  remindedAt: timestamp("reminded_at", { withTimezone: true }),
+  doneAt: timestamp("done_at", { withTimezone: true }),
+  createdBy: uuid("created_by").references(() => users.id),
+  ...timestamps,
+}, (t) => [
+  index("appointments_time_idx").on(t.at, t.status),
+  index("appointments_owner_idx").on(t.assignedTo, t.status, t.at),
+  index("appointments_lead_idx").on(t.leadId),
 ]);

@@ -136,6 +136,11 @@ export const ADMIN_MENU: NavGroup[] = [
           { label: "Khách đã đăng ký", href: "/leads/import/registered", perm: "lead:create", desc: "Mỗi dòng một học viên đã đăng ký; token ĐãĐóng= / HạnĐợt2= vào ghi chú của bé." },
         ],
       },
+      {
+        label: "Lịch hẹn", href: "/lich-hen", icon: "calendar-clock", perm: "lead:read",
+        keywords: "lich hen goi lai hen tu van hen hoc thu appointment",
+        desc: "Gọi lại, hẹn tư vấn, hẹn học thử: 24 giờ tới và hẹn quá hạn nổi lên đầu.",
+      },
       { label: "Chốt hàng loạt", href: "/leads/bulk-convert", icon: "workflow", perm: "enrollment:create" },
       {
         label: "Chia & bàn giao lead", href: "/quan-ly-chia-lead", icon: "list-ordered", keywords: "pool luot chia",

@@ -1,9 +1,10 @@
 import { z } from "zod";
-import { LEAD_STATUSES, DISTRIBUTION_MODES, MANUAL_LEAD_EVENTS, ASSIGNMENT_SOURCES, LEAD_IMPORT_MAX_ROWS, LEAD_DROP_REASON_MAX, HANDOVER_NOTE_MIN, CHILD_GENDERS } from "@satarobo/core";
+import { APPOINTMENT_KINDS, APPOINTMENT_STATUSES, LEAD_STATUSES, DISTRIBUTION_MODES, MANUAL_LEAD_EVENTS, ASSIGNMENT_SOURCES, LEAD_IMPORT_MAX_ROWS, LEAD_DROP_REASON_MAX, HANDOVER_NOTE_MIN, CHILD_GENDERS } from "@satarobo/core";
 import { router, protectedProcedure } from "../trpc";
 import * as L from "../services/leads";
 import * as A from "../services/admissionsAdmin";
 import * as I from "../services/leadImport";
+import * as AP from "../services/appointments";
 
 const uuid = z.string().uuid();
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Ngày không hợp lệ");
@@ -196,4 +197,23 @@ export const leadsRouter = router({
   poolHistory: protectedProcedure.input(z.object({ centerId: uuid.nullish(), page: z.number().int().min(1).optional() }).default({})).query(({ ctx, input }) => A.poolHistory(ctx, input)),
   myTasks: protectedProcedure.query(({ ctx }) => L.myLeadTasks(ctx)),
   assigneeOptions: protectedProcedure.input(z.object({ centerId: uuid.nullish() }).default({})).query(({ ctx, input }) => L.assigneeOptions(ctx, input.centerId)),
+});
+
+/** LỊCH HẸN — gọi lại / hẹn tư vấn / hẹn học thử; "24 giờ tới" và "quá hạn" hiện ngay cạnh hộp thư */
+export const appointmentsRouter = router({
+  list: protectedProcedure
+    .input(z.object({ view: z.enum(["sap_toi", "qua_han", "hom_nay", "tat_ca", "cua_toi"]).optional(), status: z.enum(APPOINTMENT_STATUSES).optional(), q: z.string().trim().max(100).optional() }).default({}))
+    .query(({ ctx, input }) => AP.dsLichHen(ctx, input)),
+  save: protectedProcedure
+    .input(z.object({
+      id: uuid.nullish(), title: z.string().trim().min(3).max(120), at: z.string().min(10), kind: z.enum(APPOINTMENT_KINDS).optional(),
+      durationMin: z.number().int().min(5).max(480).nullish(), leadId: uuid.nullish(), parentId: uuid.nullish(), conversationId: uuid.nullish(),
+      note: z.string().trim().max(1000).nullish(), assignedTo: uuid.nullish(), centerId: uuid.nullish(),
+    }))
+    .mutation(({ ctx, input }) => AP.luuLichHen(ctx, input)),
+  setStatus: protectedProcedure
+    .input(z.object({ id: uuid, status: z.enum(APPOINTMENT_STATUSES), note: z.string().trim().max(1000).nullish() }))
+    .mutation(({ ctx, input }) => AP.doiTrangThaiLichHen(ctx, input)),
+  upcoming: protectedProcedure.input(z.object({ soNgaySinhNhat: z.number().int().min(1).max(30).optional() }).default({})).query(({ ctx, input }) => AP.suKienSapToi(ctx, input)),
+  forConversation: protectedProcedure.input(z.object({ conversationId: uuid })).query(({ ctx, input }) => AP.goiYGanHen(ctx, input)),
 });

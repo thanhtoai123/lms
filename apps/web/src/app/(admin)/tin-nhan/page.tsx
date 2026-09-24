@@ -5,6 +5,7 @@ import { NoAccess, PageHeader } from "@/components/admin-ui";
 import { Empty } from "@/components/ui";
 import { dtVN } from "@/components/care-ui";
 import { Composer, ConvActions, StartConversation, PortalLink, LinkLeadForm, XinThongTinButton, TagPicker, TagAdmin } from "./client";
+import { LichHenForm } from "../lich-hen/client";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Tin nhắn" };
@@ -21,9 +22,12 @@ export default async function MessagesPage({ searchParams }: { searchParams: Pro
   const channel = MSG_CHANNELS.includes(sp.channel as MsgChannel) ? (sp.channel as MsgChannel) : undefined;
   const view = INBOX_VIEWS.includes(sp.view as InboxView) ? (sp.view as InboxView) : undefined;
   const tagId = sp.tag && UUID.test(sp.tag) ? sp.tag : undefined;
-  const [d, tags] = await Promise.all([
+  const coLead = hasPermission(actor, "lead:read");
+  const [d, tags, suKien] = await Promise.all([
     caller.messaging.inbox({ status, channel, mine: sp.mine === "1", flagged: sp.flagged === "1", q: sp.q || undefined, view, tagId }),
     caller.messaging.tags(),
+    // Sự kiện sắp tới: hẹn 24 giờ, hẹn quá hạn, sinh nhật 7 ngày — ba cớ để chủ động nhắn khách
+    coLead ? caller.admissions.appointments.upcoming({}) : Promise.resolve(null),
   ]);
   const conv = sp.id && UUID.test(sp.id) ? await caller.messaging.conversation({ id: sp.id }) : null;
   const isTeacher = actor.assignments.some((a) => a.role === "TEACHER");
@@ -64,7 +68,14 @@ export default async function MessagesPage({ searchParams }: { searchParams: Pro
           <button className="btn-ghost !py-1 !text-xs">Lọc</button>
         </form>
       </div>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-3 text-xs">
+        {suKien && (
+          <>
+            <Link href="/lich-hen?view=qua_han" className={`chip ${suKien.henQuaHan.length ? "bg-red-100 text-red-700" : "bg-slate-100 text-ink-400"}`}>Hẹn quá hạn {suKien.henQuaHan.length}</Link>
+            <Link href="/lich-hen?view=sap_toi" className={`chip ${suKien.hen24h.length ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-ink-400"}`}>Lịch hẹn 24h tới {suKien.hen24h.length}</Link>
+            <span className={`chip ${suKien.sinhNhat.length ? "bg-violet-100 text-violet-700" : "bg-slate-100 text-ink-400"}`} title={suKien.sinhNhat.slice(0, 5).map((x) => `${x.name} (${x.con === 0 ? "hôm nay" : `${x.con} ngày`})`).join(" · ")}>Sinh nhật {suKien.soNgay} ngày tới {suKien.sinhNhat.length}</span>
+          </>
+        )}
         {supervisor && <TagAdmin tags={tags} />}
       </div>
       {tags.length > 0 && (
@@ -119,6 +130,7 @@ export default async function MessagesPage({ searchParams }: { searchParams: Pro
                 </div>
                 {conv.flags.length > 0 && <div className="flex flex-wrap gap-1">{conv.flags.map((f) => <span key={f.key} className="chip bg-red-100 text-red-700">{f.label}</span>)}</div>}
                 {conv.can.newLink && <PortalLink id={conv.id} link={sp.link?.startsWith("/tn/") ? sp.link : null} />}
+                {conv.can.manage && coLead && <div className="mt-1"><LichHenForm conversationId={conv.id} leadId={conv.lead?.id ?? null} goiY={`Gọi lại ${conv.lead?.name ?? conv.parent?.name ?? conv.displayName ?? "khách"}`} /></div>}
                 {conv.can.manage && <TagPicker id={conv.id} tags={tags.filter((t) => t.active).map((t) => ({ id: t.id, name: t.name, color: t.color }))} selected={conv.tags.map((t) => t.id)} />}
                 {conv.can.linkLead && conv.channel === "zalo" && conv.window.allowed && <div className="text-xs"><XinThongTinButton id={conv.id} /></div>}
                 {conv.can.linkLead && <details className="text-xs"><summary className="cursor-pointer text-brand-600">Tạo lead từ hội thoại</summary><div className="mt-2"><LinkLeadForm id={conv.id} centers={conv.centers} /></div></details>}
