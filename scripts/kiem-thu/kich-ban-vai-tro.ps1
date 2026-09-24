@@ -135,8 +135,15 @@ T "C2 danh sach nhom lop co ban ghi moi" ($found -ge 1) ("tim thay=" + $found)
 Write-Host ""
 Write-Host "===== D. TAI CHINH ====="
 $stu = (Q "students.list" @{ centerId = $cs1.id } $K).data
-$student = @($stu.items)[0]; if ($null -eq $student) { $student = @($stu)[0] }
-T "D0 lay duoc hoc vien" ($null -ne $student) ""
+# Chon hoc vien DANG HOC (con lop) va dang hoat dong: bao luu (H1) doi dieu kien nay.
+# Lay dai [0] thi mot lan chay truoc bi ngat giua chung (hoc vien con o trang thai bao luu)
+# se lam H1 truot ma khong phai loi san pham.
+$dsHv = @($stu.items); if ($dsHv.Count -eq 0) { $dsHv = @($stu) }
+$student = $dsHv | Where-Object { $_.status -eq "active" -and $_.classes } | Select-Object -First 1
+if ($null -eq $student) { $student = $dsHv | Where-Object { $_.status -eq "active" } | Select-Object -First 1 }
+if ($null -eq $student) { $student = $dsHv[0] }
+$hvCoLop = ($null -ne $student) -and ($student.status -eq "active") -and [bool]$student.classes
+T "D0 lay duoc hoc vien" ($null -ne $student) ("ma=" + $student.code + " trang thai=" + $student.status + " lop=" + $student.classes)
 $r = Mu "finance.createOrder" @{
   type = "course"; centerId = $cs1.id; studentId = $student.id
   customer = @{ name = "PH Kiem Thu $rnd"; phone = $phone }
@@ -322,12 +329,16 @@ if ($null -ne $pick) {
 
 Write-Host ""
 Write-Host "===== H. HOC VIEN: BAO LUU / NGHI / KICH HOAT ====="
-$r = Mu "students.reserve" @{ studentId = $student.id; reason = "Gia dinh ve que ba thang"; expectedReturn = (Get-Date).AddDays(60).ToString("yyyy-MM-dd") } $M
-T "H1 bao luu hoc vien" $r.ok $r.err
-$r = Mu "students.endReserve" @{ studentId = $student.id; reason = "Be quay lai som" } $M
-T "H2 ket thuc bao luu" $r.ok $r.err
-$r = Mu "students.reserve" @{ studentId = $student.id; reason = "" } $M
-T "H3 bao luu khong ly do -> bi chan" (-not $r.ok) $r.err
+if (-not $hvCoLop) {
+  Write-Host "SKIP  H1-H3 (khong tim thay hoc vien dang hoc co lop -> khong du dieu kien bao luu)"
+} else {
+  $r = Mu "students.reserve" @{ studentId = $student.id; reason = "Gia dinh ve que ba thang"; expectedReturn = (Get-Date).AddDays(60).ToString("yyyy-MM-dd") } $M
+  T "H1 bao luu hoc vien" $r.ok $r.err
+  $r = Mu "students.endReserve" @{ studentId = $student.id; reason = "Be quay lai som" } $M
+  T "H2 ket thuc bao luu" $r.ok $r.err
+  $r = Mu "students.reserve" @{ studentId = $student.id; reason = "" } $M
+  T "H3 bao luu khong ly do -> bi chan" (-not $r.ok) $r.err
+}
 
 Write-Host ""
 Write-Host "===== I. CHAM CONG ====="
