@@ -123,6 +123,7 @@ export const ADMIN_MENU: NavGroup[] = [
         tabs: [
           { label: "Danh sách lead", href: "/leads", perm: "lead:read" },
           { label: "Tổng quan CRM", href: "/crm", perm: "lead:read", desc: "Phễu chuyển đổi, nguồn, SLA." },
+          { label: "Điểm & trạng thái", href: "/leads/diem", perm: "lead:read", desc: "Chấm điểm khách theo tín hiệu thật, tụt dần khi im lặng: nóng / ấm / lạnh / nguội / nguy cơ mất." },
           { label: "Lâu ngày chưa chăm", href: "/lead-nguoi", perm: "lead:read" },
           { label: "Chuyển liên cơ sở", href: "/leads/bao-cao-chuyen", perm: "lead:read" },
         ],

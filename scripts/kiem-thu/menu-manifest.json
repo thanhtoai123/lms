@@ -157,6 +157,13 @@
               ]
             },
             {
+              "label": "Điểm & trạng thái",
+              "href": "/leads/diem",
+              "perm": [
+                "lead:read"
+              ]
+            },
+            {
               "label": "Lâu ngày chưa chăm",
               "href": "/lead-nguoi",
               "perm": [

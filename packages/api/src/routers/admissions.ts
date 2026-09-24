@@ -5,6 +5,7 @@ import * as L from "../services/leads";
 import * as A from "../services/admissionsAdmin";
 import * as I from "../services/leadImport";
 import * as AP from "../services/appointments";
+import * as LS from "../services/leadScore";
 
 const uuid = z.string().uuid();
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Ngày không hợp lệ");
@@ -200,6 +201,13 @@ export const leadsRouter = router({
 });
 
 /** LỊCH HẸN — gọi lại / hẹn tư vấn / hẹn học thử; "24 giờ tới" và "quá hạn" hiện ngay cạnh hộp thư */
+export const leadScoreRouter = router({
+  /** Bảng "Điểm & trạng thái" — ai đáng gọi trước, ai sắp mất */
+  table: protectedProcedure
+    .input(z.object({ view: z.enum(["tat_ca", "nong", "am", "lanh", "nguoi", "rui_ro", "ngu_dong", "dinh_tre"]).optional(), limit: z.number().int().min(20).max(500).optional() }).default({}))
+    .query(({ ctx, input }) => LS.bangDiemLead(ctx, input)),
+});
+
 export const appointmentsRouter = router({
   list: protectedProcedure
     .input(z.object({ view: z.enum(["sap_toi", "qua_han", "hom_nay", "tat_ca", "cua_toi"]).optional(), status: z.enum(APPOINTMENT_STATUSES).optional(), q: z.string().trim().max(100).optional() }).default({}))
