@@ -1,4 +1,4 @@
-# Cổng phụ huynh `/ph` — đa thiết bị và an toàn thông tin
+# Cổng phụ huynh `/ph` — dựng theo cổng học viên, đa thiết bị, an toàn thông tin
 
 _Khảo sát và dựng lại 26/09/2026. Người dùng: phụ huynh, đăng nhập bằng số điện thoại + mã một lần,
 mở chủ yếu từ đường dẫn trong tin Zalo. Dữ liệu hiển thị là dữ liệu của trẻ em — đó là lý do phần
@@ -91,28 +91,65 @@ hệ điều hành: phụ huynh không cần, mà in ra thì thừa thông tin c
 - Số điện thoại hiển thị đã che (`8491xxx0001`).
 - Thu hồi từng thiết bị / tất cả thiết bị, có sẵn từ trước.
 
-## 4. Đối chiếu với cổng học viên hệ cũ (`hocvien.satarobo.vn`)
+## 4. Dựng theo cổng học viên hệ cũ (`hocvien.satarobo.vn`)
 
-_Chỉ xem, không thao tác trên hệ cũ. Ghi lại cấu trúc, không sao chép dữ liệu._
+_Khảo sát bằng cách xem màn hình thật (chỉ xem, không thao tác trên hệ cũ, không sao chép dữ liệu)._
 
-Hệ cũ dựng cổng theo kiểu **trang quản trị thu nhỏ**: một thanh bên dài ~16 mục
-(Tổng quan · Các bé · Lịch học · Nhận xét · Bài tập · Hình ảnh · Bài thi · Kết quả · Bài giảng ·
-Học bạ · Học phí & công nợ · Yêu cầu học bù · Khảo sát trung tâm · Đánh giá trung tâm · SataCoin ·
-Thông báo), mỗi mục một trang. Trang chủ là lưới thẻ lối tắt cộng một cột thông báo.
+### 4.1 Hệ cũ trông thế nào
 
-Khác biệt cố ý của cổng mình:
+Cổng học viên hệ cũ là một **khung quản trị thu nhỏ**: thanh bên trắng ~230px với logo trên cùng
+và ~16 mục xếp thẳng (Tổng quan · Các con · Lịch học · Nhận xét · Bài tập · Hình ảnh lớp · Bài thi ·
+Kết quả học tập · Bài giảng · Học bạ · Học phí & công nợ · Yêu cầu học bù · Khảo sát trung tâm ·
+Đánh giá trung tâm · SataCoin · Thông báo), mục đang mở là viên thuốc tím nhạt; đáy thanh bên có
+nút chuyển sang cổng còn lại. Thanh trên có chip đổi vai trò, nút sáng/tối, chuông và chip tài khoản.
+
+Trang **Tổng quan** gồm: khối *CÁC CON CỦA BẠN* — mỗi con một thẻ với avatar chữ cái, tên, khoá +
+mã lớp, thanh tiến độ khoá (`2% · 1/48`), dải ba ô *Chuyên cần / Bài chờ / Học phí*, hai nút
+*Hồ sơ* và *Cổng học sinh* — rồi hai cột *LỊCH HỌC* và *THÔNG BÁO*. Tiêu đề khối viết hoa nhỏ,
+giãn chữ, kèm liên kết "Xem lịch →" / "Tất cả →" bên phải.
+
+### 4.2 Hệ mình dựng lại thế nào (26/09/2026)
+
+Khung và trang Tổng quan **bám theo hệ cũ**; phần khác biệt đều là khác có lý do:
 
 | | Hệ cũ | Cổng `/ph` |
 |---|---|---|
-| Điều hướng | ~16 mục thanh bên, cùng một khổ cho mọi thiết bị | 5 mục theo **việc phụ huynh làm**; thanh đáy trên điện thoại, thanh bên từ 768px |
-| Trang chủ | lưới lối tắt + danh sách thông báo | "Hôm nay của con": buổi học tới, nút xin nghỉ một chạm, phiếu nhận xét mới nhất |
-| Nhiều con | vào từng mục rồi chọn | chip đổi con ngay đầu trang, giữ nguyên màn đang xem |
-| Nhận xét buổi học | một mục riêng phải tự tìm | đẩy lên trang chủ, kèm thanh 4 nấc từng tiêu chí và nút phản hồi cảm xúc |
-| Thiết bị đăng nhập | không thấy | có, thu hồi được từng máy |
+| Thanh bên | ~16 mục xếp thẳng, một khổ cho mọi thiết bị | 13 mục **chia 5 nhóm**; từ 1024px hiện cố định, nhỏ hơn thu vào ngăn kéo |
+| Mục chết | một số mục mở ra trang rỗng | **không có**: mục nào chưa có dữ liệu thật thì chưa đưa vào thanh bên |
+| Thẻ con | tiến độ + 3 ô + *Hồ sơ* + *Cổng học sinh* | tiến độ + 3 ô + *Hồ sơ của con* + *Lịch học / Xem buổi tới* |
+| Ô "Chuyên cần" khi chưa có buổi nào | 0% | "—" (báo 0% cho học viên mới vừa sai vừa làm phụ huynh hoảng) |
+| Buổi học tới | nằm trong mục Lịch học | đẩy lên trang Tổng quan, kèm nút xin nghỉ |
+| Cổng học sinh | có, đổi vai trò ở thanh trên | **cố ý chưa làm** — hệ mình chỉ một cổng cho phụ huynh |
+| Thiết bị đăng nhập | không thấy | có, thu hồi được từng máy (xem mục 2.5) |
 
-Những mục hệ cũ có mà `/ph` gộp lại chứ không bỏ: *Bài tập · Hình ảnh · Kết quả · Học bạ ·
-Bài giảng · SataCoin* nằm trong **Hành trình học của con** (`/ph/be/[id]`); *Khảo sát · Đánh giá
-trung tâm* đi theo đường khảo sát riêng (`/ks`) thay vì thành mục thường trực.
+Ánh xạ 16 mục hệ cũ sang hệ mình:
+
+| Hệ cũ | Hệ mình |
+|---|---|
+| Tổng quan | `/ph` — thẻ "Các con của bạn" |
+| Lịch học | `/ph/lich` (tháng / tuần, xin nghỉ ngay trên buổi) |
+| Nhận xét | `/ph/nhan-xet` — mọi phiếu đã phát hành, kèm thanh 4 nấc từng tiêu chí |
+| Bài tập | `/ph/bai-tap` — bài của cả các con, bài đang chờ lên đầu |
+| Hình ảnh lớp | `/ph/hinh-anh` — ảnh **đã duyệt**, gom theo buổi, tôn trọng đồng ý đăng ảnh |
+| Các con · Kết quả học tập · Bài thi | `/ph/be/[id]` — Hành trình học (khoá, mốc, chứng nhận) |
+| Học bạ | `/ph/be/[id]/ho-so` — học bạ năng lực, in được |
+| SataCoin | `/ph/be/[id]/xu` |
+| Học phí & công nợ | `/ph/hoc-phi` — kèm ô tổng còn phải đóng và mã QR từng đơn |
+| Yêu cầu học bù | `/ph/yeu-cau` — xin nghỉ, học bù, hỏi đáp, huỷ yêu cầu |
+| Thông báo | `/ph/thong-bao` |
+| Bài giảng | *chưa làm* — học liệu hiện chỉ mở cho lớp, chưa mở cho phụ huynh |
+| Khảo sát · Đánh giá trung tâm | đi theo đường khảo sát riêng (`/ks`), không thành mục thường trực |
+
+Chỗ dùng chung để sau này thêm trang không phải nhớ lại luật: khung ở `app/ph/layout.tsx` +
+`components/ph/nav.tsx`; lề và khối ở `components/ph-ui.tsx` (`PhMain`, `PhPageHead`, `PhBlock`);
+cách chấm ba ô chỉ số ở `core/portal/theCon` (có kiểm thử).
+
+### 4.3 Một lỗi bố cục đáng ghi lại
+
+Thẻ con ban đầu dùng `truncate` cho tên và tên lớp. `truncate` đặt `white-space: nowrap`, nên
+**chiều rộng tối thiểu của thẻ bằng cả dòng chữ** — ở 375px trang bị tràn ngang 67px, kéo lệch cả
+màn. Thay bằng `line-clamp-1` (vẫn cắt một dòng nhưng cho phép xuống dòng khi tính bề rộng) là hết.
+Bài học: trong lưới/flex, cắt chữ bằng `line-clamp`, đừng dùng `truncate` cho chuỗi dài.
 
 ## 5. Còn lại, theo thứ tự đáng làm
 
