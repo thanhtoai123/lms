@@ -9,11 +9,15 @@
  *  - Idempotent: giữ nguyên UUID legacy làm id mới, upsert theo id → chạy lại không nhân bản.
  *  - Dry-run mặc định in số dòng và 3 mẫu mỗi bảng, không ghi.
  *  - Mỗi bảng là một bước độc lập; lỗi ở bảng nào dừng ở bảng đó với thông báo rõ.
- *  - PII nhạy cảm (CCCD, địa chỉ) chỉ đi vào parent_private và được mã hoá bằng ENCRYPTION_KEY.
+ *  - PII nhạy cảm (CCCD, địa chỉ) chỉ đi vào parent_private, mã hoá bằng ĐÚNG hàm mà ứng dụng
+ *    dùng để giải mã (`core/security/hopKin`) với `PII_ENCRYPTION_KEY`. Trước đây script tự
+ *    mã hoá theo một cách riêng nên ứng dụng đọc lại ra rỗng mà không báo lỗi — mỗi lần đóng
+ *    hộp ở đây đều được thử mở lại ngay, sai là dừng cả lượt nhập.
  */
 import "dotenv/config";
 import postgres from "postgres";
-import { createHmac, createCipheriv, randomBytes } from "node:crypto";
+import { createHmac } from "node:crypto";
+import { dongHop, moHop, resolveSecret, isProductionEnv, NHAN_PII } from "@satarobo/core";
 import { createDb, centers, rooms, courses, teachers, parents, parentPrivate, students, studentGuardians, classes, classSchedules, sessions, enrollments, attendance } from "@satarobo/db";
 import { MAPPING, SESSION_STATUS_MAP, ATTENDANCE_STATUS_MAP, parseLegacySchedule } from "./mapping";
 
@@ -26,14 +30,25 @@ if (!legacyUrl) throw new Error("LEGACY_DATABASE_URL chưa cấu hình");
 const legacy = postgres(legacyUrl, { max: 2 });
 const db = createDb();
 
+/**
+ * Khoá mã hoá PII — CÙNG biến môi trường mà ứng dụng dùng (`PII_ENCRYPTION_KEY`, dự phòng
+ * `MEDIA_SIGNING_SECRET`). Nhập bằng khoá khác là nhập ra rác: ứng dụng vẫn chạy, ô CCCD
+ * vẫn có nội dung, chỉ là không ai đọc được nữa.
+ */
+const piiKey = () =>
+  resolveSecret(process.env, ["PII_ENCRYPTION_KEY", "MEDIA_SIGNING_SECRET"], { devFallback: "dev-only-media-secret", minLength: 32 }, isProductionEnv(process.env));
+
+/**
+ * Đóng hộp một mẩu PII rồi **thử mở lại ngay**. Nghe thừa, nhưng đây đúng là lỗi đã xảy ra:
+ * script mã hoá một kiểu, ứng dụng giải mã kiểu khác, và không có gì báo. Kiểm một vòng
+ * tại chỗ thì lệch bao nhiêu cũng lộ ra ở dòng đầu tiên thay vì sau khi đã nhập xong.
+ */
 function encrypt(plain: string | null): string | null {
-  if (!plain) return null;
-  const key = process.env.ENCRYPTION_KEY;
-  if (!key) throw new Error("ENCRYPTION_KEY (32 bytes hex) cần để mã hoá PII");
-  const iv = randomBytes(12);
-  const cipher = createCipheriv("aes-256-gcm", Buffer.from(key, "hex"), iv);
-  const enc = Buffer.concat([cipher.update(plain, "utf8"), cipher.final()]);
-  return `${iv.toString("hex")}.${cipher.getAuthTag().toString("hex")}.${enc.toString("hex")}`;
+  const hop = dongHop(NHAN_PII, piiKey(), plain);
+  if (hop && moHop(NHAN_PII, piiKey(), hop) !== (plain ?? "").trim()) {
+    throw new Error("Mã hoá PII không mở lại được — kiểm tra PII_ENCRYPTION_KEY rồi chạy lại. Dừng để không nhập ra dữ liệu rác.");
+  }
+  return hop;
 }
 
 async function read<T = Record<string, unknown>>(key: keyof typeof MAPPING): Promise<T[]> {

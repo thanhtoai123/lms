@@ -387,9 +387,18 @@ export async function nextStudentCode(db: Db, centerCode: string) {
   return buildStudentCode(centerCode, year, seq);
 }
 
-/** Ghép phụ huynh theo SĐT chuẩn hoá; tạo mới nếu chưa có */
+/**
+ * Ghép phụ huynh theo SĐT đã chuẩn hoá; tạo mới nếu chưa có.
+ *
+ * Tra bằng `phone_normalized` chứ không bằng chuỗi thô: `0911000001` nhập ở quầy và
+ * `84911000001` nhập từ hệ cũ là cùng một người, so chuỗi thô thì tạo ra hai dòng — và
+ * hai dòng trùng số nghĩa là phụ huynh đó không đăng nhập được cổng /ph.
+ */
 export async function upsertParent(db: Db, p: { fullName: string; phone: string; email: string | null; mediaConsent: boolean }) {
-  const existing = await db.query.parents.findFirst({ where: and(eq(parents.phone, p.phone), isNull(parents.deletedAt)) });
+  const pn = normalizeVnPhone(p.phone);
+  const existing = await db.query.parents.findFirst({
+    where: and(pn ? eq(parents.phoneNormalized, pn) : eq(parents.phone, p.phone), isNull(parents.deletedAt)),
+  });
   if (existing) {
     const patch: Partial<typeof parents.$inferInsert> = {};
     if (p.mediaConsent && !existing.mediaConsent) Object.assign(patch, { mediaConsent: true, mediaConsentAt: new Date() });
@@ -397,7 +406,12 @@ export async function upsertParent(db: Db, p: { fullName: string; phone: string;
     if (Object.keys(patch).length) await db.update(parents).set(patch).where(eq(parents.id, existing.id));
     return existing.id;
   }
-  const [row] = await db.insert(parents).values({ fullName: p.fullName, phone: p.phone, email: p.email, mediaConsent: p.mediaConsent, mediaConsentAt: p.mediaConsent ? new Date() : null }).returning({ id: parents.id });
+  // Đặt sẵn `phoneNormalized` dù trigger ở CSDL cũng làm — để bản ghi vừa tạo đọc lại là đúng ngay,
+  // không phải chờ một vòng SELECT nữa, và để đúng cả khi chạy trên CSDL chưa áp sql/0017.
+  const [row] = await db.insert(parents).values({
+    fullName: p.fullName, phone: p.phone, phoneNormalized: pn, email: p.email,
+    mediaConsent: p.mediaConsent, mediaConsentAt: p.mediaConsent ? new Date() : null,
+  }).returning({ id: parents.id });
   return row!.id;
 }
 

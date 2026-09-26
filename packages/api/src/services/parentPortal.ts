@@ -23,13 +23,22 @@ const sha = (s: string) => createHash("sha256").update(s).digest("hex");
 export const PARENT_SESSION_DAYS = 30;
 export const PARENT_COOKIE = "ph_session";
 
-function phoneVariants(pn: string) {
-  return [...new Set([pn, `0${pn.slice(2)}`])];
-}
+/**
+ * Tìm phụ huynh theo số điện thoại — tra bằng cột đã chuẩn hoá, không tra bằng chuỗi thô.
+ *
+ * Trước đây hàm này so `parents.phone` với hai cách viết (`0…` và `84…`) rồi **từ chối khi
+ * thấy nhiều hơn một dòng**. Cách đó vừa bỏ sót (số viết có dấu chấm, có +84, có khoảng
+ * trắng) vừa quét bảng vì không có chỉ mục nào trên `phone`. Nay dựa vào `phone_normalized`
+ * + chỉ mục `parents_phone_uq`, nên nhiều hơn một dòng là chuyện không xảy ra được nữa;
+ * `limit(2)` vẫn giữ để nếu chỉ mục duy nhất chưa được tạo (dữ liệu còn trùng) thì hành vi
+ * vẫn là từ chối an toàn thay vì chọn bừa một dòng.
+ */
 async function findParentByPhone(d: Db, phone: string) {
   const pn = normalizeVnPhone(phone);
   if (!pn) return null;
-  const rows = await d.select().from(parents).where(and(inArray(parents.phone, phoneVariants(pn)), isNull(parents.deletedAt), isNull(parents.anonymizedAt))).limit(2);
+  const rows = await d.select().from(parents)
+    .where(and(eq(parents.phoneNormalized, pn), isNull(parents.deletedAt), isNull(parents.anonymizedAt)))
+    .limit(2);
   if (rows.length !== 1) return null;
   const p = rows[0]!;
   const [kid] = await d.select({ n: sql<number>`count(*)::int` }).from(studentGuardians).where(eq(studentGuardians.parentId, p.id));

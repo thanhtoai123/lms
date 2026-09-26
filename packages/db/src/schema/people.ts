@@ -47,6 +47,14 @@ export const parents = pgTable("parents", {
   userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
   fullName: text("full_name").notNull(),
   phone: text("phone").notNull(),
+  /**
+   * Số đã chuẩn hoá `84XXXXXXXXX` — đây mới là thứ dùng để TRA CỨU và để chống trùng.
+   * `0911000001` và `84911000001` là cùng một người; so theo cột `phone` thì không thấy.
+   * Trigger `parents_sdt_chuan_hoa` (sql/0017) giữ cột này đồng bộ kể cả khi ghi thẳng vào CSDL.
+   * Chỉ mục duy nhất `parents_phone_uq` (theo tenant, chỉ dòng còn sống) cũng nằm ở tệp đó —
+   * đặt trong SQL vì nó phải dừng lượt cập nhật khi dữ liệu còn trùng.
+   */
+  phoneNormalized: text("phone_normalized"),
   email: text("email"),
   zaloId: text("zalo_id"),
   /** Đồng ý cho đăng ảnh con (NĐ13) — enforce ở service khi publish media */

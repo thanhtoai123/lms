@@ -1,62 +1,36 @@
-import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
+/**
+ * Mã hoá tầng ứng dụng cho PII phụ huynh (`parent_private`: CCCD, địa chỉ) và cho những
+ * bí mật khác không được để trần trong CSDL (token Zalo OA, secret_key tích hợp).
+ *
+ * Thuật toán và định dạng nằm ở `core/security/hopKin` — **script nhập dữ liệu cũ dùng
+ * chung đúng đoạn mã đó**. Tệp này chỉ còn việc gắn khoá của máy chủ vào.
+ */
 import { piiEncryptionSecret } from "../lib/secrets";
+import { dongHop, moHop, hopHopLe, NHAN_PII } from "@satarobo/core";
 
-/**
- * Mã hoá tầng ứng dụng cho PII phụ huynh (parent_private: CCCD, địa chỉ).
- * AES-256-GCM, khoá dẫn xuất từ PII_ENCRYPTION_KEY (dự phòng MEDIA_SIGNING_SECRET khi chưa khai báo).
- * Định dạng: "v1:<iv>:<tag>:<ciphertext>" (base64url).
- */
-function key(label = "pii") {
-  return createHash("sha256").update(`${label}|${piiEncryptionSecret()}`).digest();
-}
-
-/**
- * Mã hoá / giải mã cho những bí mật KHÁC PII nhưng cũng không được để trần trong CSDL
- * (token Zalo OA, secret_key ứng dụng…). Dùng nhãn riêng nên khoá dẫn xuất khác nhau:
- * lộ một nhãn không kéo theo nhãn còn lại.
- */
 export function sealWith(label: string, plain: string | null | undefined): string | null {
-  const t = (plain ?? "").trim();
-  if (!t) return null;
-  const iv = randomBytes(12);
-  const cipher = createCipheriv("aes-256-gcm", key(label), iv);
-  const ct = Buffer.concat([cipher.update(t, "utf8"), cipher.final()]);
-  return `v1:${iv.toString("base64url")}:${cipher.getAuthTag().toString("base64url")}:${ct.toString("base64url")}`;
+  return dongHop(label, piiEncryptionSecret(), plain);
 }
 
 export function openWith(label: string, sealed: string | null | undefined): string | null {
-  if (!sealed) return null;
-  const [v, iv, tag, ct] = sealed.split(":");
-  if (v !== "v1" || !iv || !tag || ct === undefined) return null;
-  try {
-    const d = createDecipheriv("aes-256-gcm", key(label), Buffer.from(iv, "base64url"));
-    d.setAuthTag(Buffer.from(tag, "base64url"));
-    return Buffer.concat([d.update(Buffer.from(ct, "base64url")), d.final()]).toString("utf8");
-  } catch {
-    return null;
-  }
+  return moHop(label, piiEncryptionSecret(), sealed);
 }
 
 export function sealPii(plain: string | null | undefined): string | null {
-  const t = (plain ?? "").trim();
-  if (!t) return null;
-  const iv = randomBytes(12);
-  const cipher = createCipheriv("aes-256-gcm", key(), iv);
-  const ct = Buffer.concat([cipher.update(t, "utf8"), cipher.final()]);
-  return `v1:${iv.toString("base64url")}:${cipher.getAuthTag().toString("base64url")}:${ct.toString("base64url")}`;
+  return dongHop(NHAN_PII, piiEncryptionSecret(), plain);
 }
 
 export function openPii(sealed: string | null | undefined): string | null {
-  if (!sealed) return null;
-  const [v, iv, tag, ct] = sealed.split(":");
-  if (v !== "v1" || !iv || !tag || ct === undefined) return null;
-  try {
-    const d = createDecipheriv("aes-256-gcm", key(), Buffer.from(iv, "base64url"));
-    d.setAuthTag(Buffer.from(tag, "base64url"));
-    return Buffer.concat([d.update(Buffer.from(ct, "base64url")), d.final()]).toString("utf8");
-  } catch {
-    return null;
-  }
+  return moHop(NHAN_PII, piiEncryptionSecret(), sealed);
+}
+
+/**
+ * Ô này có dữ liệu nhưng mở không được (khoá sai, hoặc nhập từ hệ cũ bằng cách mã hoá khác).
+ * Phân biệt với ô trống — `openPii` trả `null` cho cả hai trường hợp, nên chỗ nào cần báo
+ * cho người dùng "có dữ liệu nhưng hệ thống không đọc được" thì hỏi hàm này.
+ */
+export function piiMoKhongDuoc(sealed: string | null | undefined): boolean {
+  return hopHopLe(sealed) && openPii(sealed) === null;
 }
 
 /** Bí danh tương thích (dùng ở hồ sơ học viên) */
