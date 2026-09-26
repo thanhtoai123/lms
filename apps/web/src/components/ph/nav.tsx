@@ -64,6 +64,9 @@ export function PhNav() {
  */
 export function PhSideNav({ unread = 0 }: { unread?: number }) {
   const path = usePathname() ?? "/ph";
+  // Thanh bên có mục Tin nhắn và Thông báo riêng, nên khi đang ở hai trang đó thì KHÔNG sáng
+  // thêm mục chính nào nữa — sáng hai chỗ cùng lúc làm người dùng không biết mình đang ở đâu.
+  const rieng = path.startsWith("/ph/tin-nhan") || path.startsWith("/ph/thong-bao");
   return (
     <div className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-black/5 bg-white md:flex print:hidden">
       <Link href="/ph" className="flex items-center gap-2 px-4 py-4">
@@ -77,7 +80,7 @@ export function PhSideNav({ unread = 0 }: { unread?: number }) {
       <nav aria-label="Điều hướng chính" className="flex-1 overflow-y-auto px-2">
         <ul className="space-y-1">
           {PH_NAV_ITEMS.map(({ href, label, desc, icon: Icon, match }) => {
-            const active = match(path);
+            const active = !rieng && match(path);
             return (
               <li key={href}>
                 <Link
