@@ -474,15 +474,29 @@ if ($Only -eq "tat-ca" -or $Only -eq "bao-mat") {
   T "A" "A31 URL phat anh voi duong dan vuot thu muc -> tu choi" (($rf.code -eq "403") -or ($rf.code -eq "404")) "HTTP 403/404" ("HTTP " + $rf.code)
 
   # --- A32–A33. Chống dò tần suất -----------------------------------------
+  # Cổng phụ huynh chặn theo NGUỒN trước, chặn theo TẦN SUẤT sau. Muốn kiểm đúng cái trần tần suất
+  # thì phải giả lập trình duyệt thật (có Origin đúng) — nếu không sẽ dừng ở 403 và không bao giờ
+  # chạm tới 429. Kẻ dò mã cũng tự đặt được Origin, nên đây mới là tình huống đáng lo.
   $sdtGia = "0900" + (Get-Random -Minimum 100000 -Maximum 999999)
+  $nguonThat = @{ "Origin" = $script:BaseUrl; "Sec-Fetch-Site" = "same-origin" }
   $bi429 = $false
   for ($i = 1; $i -le 26; $i++) {
-    $rr = Http -Method "POST" -Path "/api/ph/login" -Body ('{"action":"login","phone":"' + $sdtGia + '","method":"code","code":"000000"}')
+    $rr = Http -Method "POST" -Path "/api/ph/login" -ExtraHeaders $nguonThat -Body ('{"action":"login","phone":"' + $sdtGia + '","method":"code","code":"000000"}')
     if ($rr.code -eq "429") { $bi429 = $true; break }
   }
   T "A" "A32 dang nhap cong phu huynh sai nhieu lan -> bi chan tan suat" $bi429 "HTTP 429 sau <=26 lan thu" "khong lan nao bi chan (429)"
   Created ("Nhat ky dang nhap that bai cua so dien thoai gia " + $sdtGia + " (bang login_events / otp_requests)")
   Note "A32/A33 dung het han muc tan suat cua dia chi IP dang chay trong 15 phut (cong phu huynh) va 1 gio (OTP). Cho het khoang do truoc khi kiem thu tay tren cung may."
+
+  # A32b–A32d: cửa NGUỒN của cổng phụ huynh (chống giả mạo yêu cầu từ trang khác).
+  # Thiếu cả Origin lẫn Sec-Fetch-Site phải bị chặn — ban cu cho qua.
+  $bodyHuy = '{"action":"cancel","id":"00000000-0000-0000-0000-000000000000"}'
+  $rKhongNguon = Http -Method "POST" -Path "/api/ph/requests" -Body $bodyHuy
+  T "A" "A32b POST cong phu huynh khong co Origin lan Sec-Fetch-Site -> tu choi" ($rKhongNguon.code -eq "403") "HTTP 403" ("HTTP " + $rKhongNguon.code)
+  $rNguonLa = Http -Method "POST" -Path "/api/ph/requests" -ExtraHeaders @{ "Origin" = "https://trang-la.example" } -Body $bodyHuy
+  T "A" "A32c POST cong phu huynh tu Origin la -> tu choi" ($rNguonLa.code -eq "403") "HTTP 403" ("HTTP " + $rNguonLa.code)
+  $rCrossSite = Http -Method "POST" -Path "/api/ph/requests" -ExtraHeaders @{ "Origin" = $script:BaseUrl; "Sec-Fetch-Site" = "cross-site" } -Body $bodyHuy
+  T "A" "A32d POST cong phu huynh co Sec-Fetch-Site cross-site -> tu choi" ($rCrossSite.code -eq "403") "HTTP 403" ("HTTP " + $rCrossSite.code)
 
   $bi429b = $false
   for ($i = 1; $i -le 36; $i++) {

@@ -91,7 +91,30 @@ hệ điều hành: phụ huynh không cần, mà in ra thì thừa thông tin c
 - Số điện thoại hiển thị đã che (`8491xxx0001`).
 - Thu hồi từng thiết bị / tất cả thiết bị, có sẵn từ trước.
 
-## 4. Còn lại, theo thứ tự đáng làm
+## 4. Đối chiếu với cổng học viên hệ cũ (`hocvien.satarobo.vn`)
+
+_Chỉ xem, không thao tác trên hệ cũ. Ghi lại cấu trúc, không sao chép dữ liệu._
+
+Hệ cũ dựng cổng theo kiểu **trang quản trị thu nhỏ**: một thanh bên dài ~16 mục
+(Tổng quan · Các bé · Lịch học · Nhận xét · Bài tập · Hình ảnh · Bài thi · Kết quả · Bài giảng ·
+Học bạ · Học phí & công nợ · Yêu cầu học bù · Khảo sát trung tâm · Đánh giá trung tâm · SataCoin ·
+Thông báo), mỗi mục một trang. Trang chủ là lưới thẻ lối tắt cộng một cột thông báo.
+
+Khác biệt cố ý của cổng mình:
+
+| | Hệ cũ | Cổng `/ph` |
+|---|---|---|
+| Điều hướng | ~16 mục thanh bên, cùng một khổ cho mọi thiết bị | 5 mục theo **việc phụ huynh làm**; thanh đáy trên điện thoại, thanh bên từ 768px |
+| Trang chủ | lưới lối tắt + danh sách thông báo | "Hôm nay của con": buổi học tới, nút xin nghỉ một chạm, phiếu nhận xét mới nhất |
+| Nhiều con | vào từng mục rồi chọn | chip đổi con ngay đầu trang, giữ nguyên màn đang xem |
+| Nhận xét buổi học | một mục riêng phải tự tìm | đẩy lên trang chủ, kèm thanh 4 nấc từng tiêu chí và nút phản hồi cảm xúc |
+| Thiết bị đăng nhập | không thấy | có, thu hồi được từng máy |
+
+Những mục hệ cũ có mà `/ph` gộp lại chứ không bỏ: *Bài tập · Hình ảnh · Kết quả · Học bạ ·
+Bài giảng · SataCoin* nằm trong **Hành trình học của con** (`/ph/be/[id]`); *Khảo sát · Đánh giá
+trung tâm* đi theo đường khảo sát riêng (`/ks`) thay vì thành mục thường trực.
+
+## 5. Còn lại, theo thứ tự đáng làm
 
 1. **Hỏi lại mã trước thao tác nhạy cảm** (đăng xuất tất cả thiết bị, đổi đồng ý quyền riêng tư) —
    hiện chỉ cần phiên còn sống.
