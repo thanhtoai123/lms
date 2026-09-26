@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getDb } from "@satarobo/db";
 import { ParentPortal } from "@satarobo/api";
 import { clientIp, sharedRateLimit, tooManyResponse } from "@/lib/route-ctx";
-import { PH_COOKIE, sameOrigin } from "@/lib/parent-session";
+import { PH_COOKIE, PH_COOKIE_NAMES, phCookieOptions, sameOrigin } from "@/lib/parent-session";
 
 /** POST { action: "otp", phone } → gửi mã; { action: "login", phone, method: "otp"|"code", code } → đặt cookie phiên */
 export async function POST(req: Request) {
@@ -29,7 +29,9 @@ export async function POST(req: Request) {
     const r = await ParentPortal.parentLogin(db, { phone, method, code: String(b.code ?? "").trim().slice(0, 10), ip, userAgent: req.headers.get("user-agent") });
     if (!r.ok) return NextResponse.json(r, { status: 401 });
     const res = NextResponse.json({ ok: true, firstLogin: r.firstLogin });
-    res.cookies.set(PH_COOKIE, r.token, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", expires: r.expiresAt });
+    // Dọn cookie phiên mang tên cũ trước khi đặt tên hiện hành, để trình duyệt không giữ hai phiên
+    for (const ten of PH_COOKIE_NAMES) if (ten !== PH_COOKIE) res.cookies.set(ten, "", { ...phCookieOptions(new Date(0)), maxAge: 0 });
+    res.cookies.set(PH_COOKIE, r.token, phCookieOptions(r.expiresAt));
     return res;
   }
   return NextResponse.json({ ok: false, error: "action không hợp lệ" }, { status: 400 });

@@ -7,6 +7,7 @@ import {
 } from "@satarobo/db";
 import {
   normalizeVnPhone, maskPhone, transferMemo, vietQrImageUrl, CONSENT_PURPOSES, CONSENT_PURPOSE_VI, CONSENT_TEXT_VERSION, ATTENDANCE_STATUS_VI,
+  phienNgungHan, conLaiTruocNgung, tenThietBi, PH_NGUNG_NGAY,
   type ConsentPurpose, type AttendanceStatus,
 } from "@satarobo/core";
 import type { ProtectedContext } from "../trpc";
@@ -78,6 +79,12 @@ export async function parentFromToken(db: Database, token: string | null | undef
   const [r] = await d.select({ s: parentSessions, p: parents }).from(parentSessions).innerJoin(parents, eq(parents.id, parentSessions.parentId))
     .where(and(eq(parentSessions.tokenHash, sha(token)), isNull(parentSessions.revokedAt), gt(parentSessions.expiresAt, new Date()))).limit(1);
   if (!r || r.p.accountStatus !== "active" || r.p.deletedAt || r.p.anonymizedAt || r.p.processingRestricted) return null;
+  // Lâu không dùng thì phiên tự ngưng, dù hạn 30 ngày chưa tới — máy tính bảng để ở nhà, máy mượn,
+  // máy bán lại… đều rơi vào đây. Thu hồi luôn trong CSDL để màn "Thiết bị đang đăng nhập" sạch theo.
+  if (phienNgungHan(r.s.lastSeenAt, new Date())) {
+    await d.update(parentSessions).set({ revokedAt: new Date() }).where(eq(parentSessions.id, r.s.id));
+    return null;
+  }
   if (Date.now() - r.s.lastSeenAt.getTime() > 5 * 60_000) {
     await d.update(parentSessions).set({ lastSeenAt: new Date() }).where(eq(parentSessions.id, r.s.id));
     if (!r.p.lastLoginAt || Date.now() - r.p.lastLoginAt.getTime() > 3_600_000) await d.update(parents).set({ lastLoginAt: new Date() }).where(eq(parents.id, r.p.id));
@@ -94,7 +101,19 @@ export async function parentLogout(db: Database, token: string, all = false) {
 
 export async function parentSessionsList(db: Database, parentId: string, currentId: string) {
   const rows = await asDb(db).select().from(parentSessions).where(and(eq(parentSessions.parentId, parentId), isNull(parentSessions.revokedAt), gt(parentSessions.expiresAt, new Date()))).orderBy(desc(parentSessions.lastSeenAt));
-  return rows.map((r) => ({ id: r.id, current: r.id === currentId, method: r.method, userAgent: r.userAgent, lastSeenAt: r.lastSeenAt, createdAt: r.createdAt }));
+  const now = new Date();
+  return rows
+    .filter((r) => !phienNgungHan(r.lastSeenAt, now))
+    .map((r) => ({
+      id: r.id,
+      current: r.id === currentId,
+      method: r.method,
+      // Tên gọn cho người đọc; chuỗi User-Agent nguyên bản không đưa ra giao diện nữa
+      device: tenThietBi(r.userAgent),
+      lastSeenAt: r.lastSeenAt,
+      createdAt: r.createdAt,
+      conLaiNgay: conLaiTruocNgung(r.lastSeenAt, now),
+    }));
 }
 export async function revokeParentSession(db: Database, parentId: string, id: string) {
   await asDb(db).update(parentSessions).set({ revokedAt: new Date() }).where(and(eq(parentSessions.id, id), eq(parentSessions.parentId, parentId)));

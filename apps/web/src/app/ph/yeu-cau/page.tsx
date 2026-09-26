@@ -4,7 +4,7 @@ import { getDb } from "@satarobo/db";
 import { hubRequests } from "@satarobo/api";
 import { pickChild } from "@satarobo/core";
 import { requireParent } from "@/lib/parent-session";
-import { PhHeader, PhNav, PhSection, dtPh } from "@/components/ph-ui";
+import { PhHeader, PhNav, PhMain, PhTwoCol, PhSection, dtPh } from "@/components/ph-ui";
 import { CancelRequestButton } from "@/components/ph/actions";
 import { AskForm } from "../tin-nhan/client";
 
@@ -36,7 +36,9 @@ export default async function RequestsPage({ searchParams }: { searchParams: Pro
   return (
     <>
       <PhHeader title="Yêu cầu của tôi" />
-      <main className="flex-1 space-y-5 px-4 pb-28 pt-3">
+      <PhMain className="space-y-5">
+        <PhTwoCol
+          main={<>
         <nav aria-label="Gửi yêu cầu mới" className="grid grid-cols-3 gap-2">
           <Link href={`/ph/lich${kid ? `?con=${kid.id}` : ""}`} className="card flex min-h-[88px] flex-col items-center justify-center gap-1 p-2 text-center text-[14px] font-semibold">
             <CalendarPlus className="h-6 w-6 text-primary" aria-hidden />Xin nghỉ
@@ -59,7 +61,8 @@ export default async function RequestsPage({ searchParams }: { searchParams: Pro
             <RequestList items={closed.slice(0, 20)} />
           </PhSection>
         )}
-
+          </>}
+          side={
         <PhSection title="Hỏi trung tâm" id="hoi-dap" action={{ href: "/ph/tin-nhan", label: "Tin nhắn" }}>
           {kid ? (
             <div className="card p-4">
@@ -68,7 +71,9 @@ export default async function RequestsPage({ searchParams }: { searchParams: Pro
             </div>
           ) : <div className="card p-4 text-ink-600">Chưa có học viên gắn với tài khoản này.</div>}
         </PhSection>
-      </main>
+          }
+        />
+      </PhMain>
       <PhNav />
     </>
   );

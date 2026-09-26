@@ -4,7 +4,7 @@ import { getDb } from "@satarobo/db";
 import { hubHome } from "@satarobo/api";
 import { childShortName } from "@satarobo/core";
 import { requireParent } from "@/lib/parent-session";
-import { PhHeader, PhNav, ChildChips, PhSection, vndPh, dtPh, dayPh, todayPh } from "@/components/ph-ui";
+import { PhHeader, PhNav, PhMain, PhTwoCol, ChildChips, PhSection, vndPh, dtPh, dayPh, todayPh } from "@/components/ph-ui";
 import { AbsenceButton, ReactionBar } from "@/components/ph/actions";
 import { LevelMeter } from "@/components/ph/bits";
 
@@ -30,10 +30,10 @@ export default async function ParentHome({ searchParams }: { searchParams: Promi
   return (
     <>
       <PhHeader title="Hôm nay" />
-      <main className="flex-1 space-y-5 px-4 pb-28 pt-3">
+      <PhMain className="space-y-5">
         <div className="px-1">
           <p className="text-[14px] text-ink-600">Chào anh/chị {p.fullName.split(" ").slice(-1)[0]} 👋</p>
-          {kid && <p className="text-[20px] font-extrabold leading-tight">Hôm nay của {name}</p>}
+          {kid && <p className="text-[20px] font-extrabold leading-tight md:text-[26px]">Hôm nay của {name}</p>}
         </div>
 
         <ChildChips kids={d.children} activeId={kid?.id ?? null} hrefFor={(id) => `/ph?con=${id}`} />
@@ -41,7 +41,8 @@ export default async function ParentHome({ searchParams }: { searchParams: Promi
         {!kid && <div className="card p-5">Chưa có học viên gắn với tài khoản này. Anh/chị nhắn trung tâm để được gắn hồ sơ của con.</div>}
 
         {kid && f && (
-          <>
+          <PhTwoCol
+            main={<>
             {/* Buổi học tới */}
             <section aria-label="Buổi học tới" className="overflow-hidden rounded-3xl bg-gradient-to-br from-primary to-primary-darker p-5 text-white shadow-lg">
               <div className="text-[13px] font-semibold uppercase tracking-wide text-white/75">Buổi học tới</div>
@@ -68,7 +69,7 @@ export default async function ParentHome({ searchParams }: { searchParams: Promi
                   </div>
                   {f.upcoming.length > 0 && (
                     <ul className="mt-4 space-y-1 border-t border-white/15 pt-3 text-[14px] text-white/80">
-                      {f.upcoming.map((u) => <li key={u.sessionId} className="flex justify-between gap-2"><span>{dayPh(u.date, today)} · {u.start}</span><span className="truncate">{u.classCode} · {u.label}</span></li>)}
+                      {f.upcoming.map((u) => <li key={u.sessionId} className="flex justify-between gap-3"><span className="shrink-0 whitespace-nowrap">{dayPh(u.date, today)} · {u.start}</span><span className="min-w-0 truncate text-right">{u.classCode} · {u.label}</span></li>)}
                     </ul>
                   )}
                 </>
@@ -134,6 +135,22 @@ export default async function ParentHome({ searchParams }: { searchParams: Promi
               )}
             </PhSection>
 
+            {f.homework.length > 0 && (
+              <PhSection title="Bài tập cần làm">
+                <ul className="card divide-y divide-black/5">
+                  {f.homework.map((h, i) => (
+                    <li key={i}>
+                      <a href={h.link} className="flex min-h-11 items-center justify-between gap-3 p-3">
+                        <span className="min-w-0 truncate font-semibold text-primary">{h.title}</span>
+                        <span className="shrink-0 text-[13px] text-ink-600">{h.status === "returned" ? "cần làm lại · " : ""}hạn {dtPh(h.dueAt)}</span>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </PhSection>
+            )}
+          </>}
+            side={<>
             {/* Học phí */}
             {d.fees.total > 0 && d.fees.first && (
               <section aria-label="Học phí cần đóng" className="card flex items-center gap-3 border-amber-200 bg-amber-50 p-4">
@@ -167,7 +184,7 @@ export default async function ParentHome({ searchParams }: { searchParams: Promi
             )}
 
             {/* Lối tắt */}
-            <nav aria-label="Lối tắt" className="grid grid-cols-2 gap-3">
+            <nav aria-label="Lối tắt" className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-2">
               {[
                 { href: `/ph/lich${q}`, icon: CalendarDays, title: "Lịch học", sub: f.attendance30.rate === null ? "Tháng này" : `Chuyên cần 30 ngày ${f.attendance30.rate}%` },
                 { href: `/ph/be/${kid.id}`, icon: Route, title: "Hành trình học", sub: "Khoá, học bạ, chứng nhận" },
@@ -183,24 +200,10 @@ export default async function ParentHome({ searchParams }: { searchParams: Promi
                 </Link>
               ))}
             </nav>
-
-            {f.homework.length > 0 && (
-              <PhSection title="Bài tập cần làm">
-                <ul className="card divide-y divide-black/5">
-                  {f.homework.map((h, i) => (
-                    <li key={i}>
-                      <a href={h.link} className="flex min-h-11 items-center justify-between gap-3 p-3">
-                        <span className="min-w-0 truncate font-semibold text-primary">{h.title}</span>
-                        <span className="shrink-0 text-[13px] text-ink-600">{h.status === "returned" ? "cần làm lại · " : ""}hạn {dtPh(h.dueAt)}</span>
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              </PhSection>
-            )}
-          </>
+          </>}
+          />
         )}
-      </main>
+      </PhMain>
       <PhNav />
     </>
   );

@@ -5,7 +5,7 @@ import { getDb } from "@satarobo/db";
 import { ParentPortal, familyChildren, hubJourney } from "@satarobo/api";
 import { childShortName, type JourneyEntry } from "@satarobo/core";
 import { requireParent } from "@/lib/parent-session";
-import { PhHeader, PhNav, ChildChips, PhSection, dtPh } from "@/components/ph-ui";
+import { PhHeader, PhNav, PhMain, ChildChips, PhSection, dtPh } from "@/components/ph-ui";
 import { ShareLinkButton } from "@/components/ph/actions";
 import { Progress } from "@/components/ph/bits";
 import { ProgressLine, RadarChart } from "@/components/portfolio/charts";
@@ -35,7 +35,7 @@ export default async function ChildJourneyPage({ params }: { params: Promise<{ i
   return (
     <>
       <PhHeader title={`Hành trình của ${name}`} />
-      <main className="flex-1 space-y-5 px-4 pb-28 pt-3">
+      <PhMain className="space-y-5">
         <ChildChips kids={kids} activeId={j.child.id} hrefFor={(kid) => `/ph/be/${kid}`} />
 
         {/* Tổng quan */}
@@ -145,7 +145,7 @@ export default async function ChildJourneyPage({ params }: { params: Promise<{ i
         <PhSection title="Hỏi trung tâm về con">
           <div className="card p-4"><AskForm studentId={j.child.id} /></div>
         </PhSection>
-      </main>
+      </PhMain>
       <PhNav />
     </>
   );

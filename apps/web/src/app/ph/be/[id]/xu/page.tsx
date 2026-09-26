@@ -4,7 +4,7 @@ import { getDb } from "@satarobo/db";
 import { hubCoins } from "@satarobo/api";
 import { childShortName } from "@satarobo/core";
 import { requireParent } from "@/lib/parent-session";
-import { PhHeader, PhNav, PhSection, dtPh } from "@/components/ph-ui";
+import { PhHeader, PhNav, PhMain, PhSection, dtPh } from "@/components/ph-ui";
 import { Progress } from "@/components/ph/bits";
 
 export const dynamic = "force-dynamic";
@@ -27,7 +27,7 @@ export default async function CoinsPage({ params }: { params: Promise<{ id: stri
   return (
     <>
       <PhHeader title="SataCoin" back={{ href: `/ph/be/${c.child.id}`, label: name }} />
-      <main className="flex-1 space-y-5 px-4 pb-28 pt-3">
+      <PhMain className="space-y-5">
         <section aria-label="Số xu" className="rounded-3xl bg-gradient-to-br from-accent-500 to-accent-600 p-5 text-accent-foreground shadow-lg">
           <div className="flex items-center justify-between gap-3">
             <div>
@@ -88,7 +88,7 @@ export default async function CoinsPage({ params }: { params: Promise<{ id: stri
             </ul>
           )}
         </PhSection>
-      </main>
+      </PhMain>
       <PhNav />
     </>
   );

@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { getDb } from "@satarobo/db";
 import { portalCertificate } from "@satarobo/api";
 import { requireParent } from "@/lib/parent-session";
-import { PhHeader } from "@/components/ph-ui";
+import { PhHeader, PhMain } from "@/components/ph-ui";
 import { PrintButton } from "@/components/portfolio/print-button";
 import { ShareLinkButton } from "@/components/ph/actions";
 import { CertificateSheet, CertificatePrintStyle } from "@/components/certificates/certificate-sheet";
@@ -26,7 +26,7 @@ export default async function ParentCertificatePage({ params }: { params: Promis
   return (
     <>
       <div className="print:hidden"><PhHeader title="Giấy chứng nhận" back={{ href: `/ph/be/${id}`, label: "Hành trình học" }} /></div>
-      <main className="cn-print-root flex-1 space-y-4 px-4 pb-10 pt-3 print:p-0">
+      <PhMain className="cn-print-root space-y-4 print:p-0">
         <CertificatePrintStyle orientation={c.template.orientation} />
         <div className="cn-noprint space-y-2">
           <div className="text-[17px] font-bold">{c.snapshot.pathName}</div>
@@ -40,7 +40,7 @@ export default async function ParentCertificatePage({ params }: { params: Promis
         <section className={`cn-page mx-auto overflow-hidden rounded-xl shadow-md ${c.template.orientation === "landscape" ? "cn-page-landscape" : "cn-page-portrait max-w-sm"}`} aria-label={`Giấy chứng nhận ${c.number}`}>
           <CertificateSheet template={c.template} snapshot={c.snapshot} qrSvg={c.qrSvg} />
         </section>
-      </main>
+      </PhMain>
     </>
   );
 }

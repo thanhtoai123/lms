@@ -4,7 +4,7 @@ import { getDb } from "@satarobo/db";
 import { familyChildren, hubSchedule, type ScheduleEntry } from "@satarobo/api";
 import { monthGrid, weekGrid, normalizeMonth, shiftMonth, monthOf, pickChild, childShortName, addDays, weekdayOf, type CalendarDay } from "@satarobo/core";
 import { requireParent } from "@/lib/parent-session";
-import { PhHeader, PhNav, ChildChips, dayPh, todayPh } from "@/components/ph-ui";
+import { PhHeader, PhNav, PhMain, ChildChips, dayPh, todayPh } from "@/components/ph-ui";
 import { AbsenceButton, MakeupButton } from "@/components/ph/actions";
 import { TONE_STYLE, ToneChip } from "@/components/ph/bits";
 
@@ -33,7 +33,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
     return (
       <>
         <PhHeader title="Lịch học" />
-        <main className="flex-1 px-4 pb-28 pt-3"><div className="card p-5">Chưa có học viên gắn với tài khoản này.</div></main>
+        <PhMain><div className="card p-5">Chưa có học viên gắn với tài khoản này.</div></PhMain>
         <PhNav />
       </>
     );
@@ -51,9 +51,12 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
   return (
     <>
       <PhHeader title="Lịch học" />
-      <main className="flex-1 space-y-4 px-4 pb-28 pt-3">
+      <PhMain className="space-y-4">
         <ChildChips kids={kids} activeId={kid.id} hrefFor={(id) => `/ph/lich?con=${id}${week ? `&xem=tuan&ngay=${anchor}` : `&thang=${month}`}`} />
 
+        {/* Máy tính: lưới lịch đứng yên bên trái, danh sách buổi cuộn bên phải — điện thoại vẫn xếp chồng */}
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)] lg:items-start">
+        <div className="space-y-4 lg:sticky lg:top-24">
         <div className="flex items-center gap-2">
           <div className="grid flex-1 grid-cols-2 rounded-2xl bg-black/5 p-1 text-[15px] font-semibold" role="tablist" aria-label="Kiểu xem lịch">
             <Link role="tab" aria-selected={!week} href={`${base}&thang=${month}`} className={`flex min-h-11 items-center justify-center rounded-xl ${!week ? "bg-white shadow-sm" : "text-ink-600"}`}>Tháng</Link>
@@ -83,6 +86,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
         {!week && <MonthGrid grid={monthGrid(month, entries, hols, today).weeks} />}
 
         <Legend />
+        </div>
 
         {/* Danh sách buổi */}
         <section aria-label="Các buổi học" className="space-y-3">
@@ -91,7 +95,8 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
             : monthGrid(month, entries, hols, today).weeks.flat().filter((day) => day.inMonth && (day.entries.length > 0 || day.holiday)).map((day) => <DayBlock key={day.date} day={day} today={today} kidId={kid.id} name={name} />)}
           {!week && entries.filter((e) => e.date.startsWith(month)).length === 0 && <div className="card p-4 text-ink-600">Tháng này {name} chưa có buổi học nào.</div>}
         </section>
-      </main>
+        </div>
+      </PhMain>
       <PhNav />
     </>
   );
