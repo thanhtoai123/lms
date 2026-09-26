@@ -2,7 +2,7 @@ import { getDb } from "@satarobo/db";
 import { ParentPortal } from "@satarobo/api";
 import { ORDER_STATUS_VI, type OrderStatus } from "@satarobo/core";
 import { requireParent } from "@/lib/parent-session";
-import { PhHeader, PhNav, PhMain, vndPh, dtPh } from "@/components/ph-ui";
+import { PhMain, vndPh, dtPh } from "@/components/ph-ui";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +16,6 @@ export default async function FeesPage({ searchParams }: { searchParams: Promise
   const soDonNo = conNo.length;
   return (
     <>
-      <PhHeader title="Học phí" name={p.fullName} />
       <PhMain className="space-y-4">
         {d.orders.length === 0 && <div className="card p-4">Chưa có đơn học phí.</div>}
         {conPhaiDong > 0 && (
@@ -55,7 +54,6 @@ export default async function FeesPage({ searchParams }: { searchParams: Promise
           {d.invoices.length === 0 ? <p className="text-ink-400">Chưa có hoá đơn.</p> : <ul className="divide-y divide-black/5">{d.invoices.map((i) => <li key={i.id} className="flex justify-between py-2"><span>{i.orderCode} · số {i.number} · {vndPh(i.total)}<div className="text-[13px] text-ink-600">{dtPh(i.issuedAt)}</div></span>{i.lookupCode && <a href={`/tra-cuu-hoa-don?ma=${i.lookupCode}`} className="inline-flex min-h-11 items-center px-2 font-semibold text-primary">Xem</a>}</li>)}</ul>}
         </section>
       </PhMain>
-      <PhNav />
     </>
   );
 }

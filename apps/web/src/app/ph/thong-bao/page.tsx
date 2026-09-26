@@ -1,7 +1,7 @@
 import { getDb } from "@satarobo/db";
 import { ParentPortal } from "@satarobo/api";
 import { requireParent } from "@/lib/parent-session";
-import { PhHeader, PhNav, PhMain, dtPh } from "@/components/ph-ui";
+import { PhMain, dtPh } from "@/components/ph-ui";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +10,6 @@ export default async function ParentNotifications() {
   const items = await ParentPortal.portalNotifications(getDb(), p.id, true);
   return (
     <>
-      <PhHeader title="Thông báo" name={p.fullName} />
       <PhMain>
         {items.length === 0 ? <div className="card p-4 text-[15px]">Chưa có thông báo.</div> : (
           <ul className="card divide-y divide-black/5">{items.map((n) => (
@@ -22,7 +21,6 @@ export default async function ParentNotifications() {
           ))}</ul>
         )}
       </PhMain>
-      <PhNav />
     </>
   );
 }

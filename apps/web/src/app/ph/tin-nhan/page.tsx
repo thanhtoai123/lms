@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getDb } from "@satarobo/db";
 import { parentConversations, parentThread } from "@satarobo/api";
 import { requireParent } from "@/lib/parent-session";
-import { PhHeader, PhNav, PhMain, dtPh } from "@/components/ph-ui";
+import { PhMain, dtPh } from "@/components/ph-ui";
 import { Thread } from "./client";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +15,6 @@ export default async function ParentMessages({ searchParams }: { searchParams: P
   const list = t ? [] : await parentConversations(db, p.id);
   return (
     <>
-      <PhHeader title={t ? t.subject ?? "Tin nhắn" : "Tin nhắn"} name={p.fullName} />
       {/* Khổ chữ đọc thoải mái: không để dòng tin nhắn kéo dài hết 960px trên máy tính */}
       <PhMain className="space-y-3 md:max-w-[760px]">
         {t ? (
@@ -37,7 +36,6 @@ export default async function ParentMessages({ searchParams }: { searchParams: P
           </>
         )}
       </PhMain>
-      <PhNav />
     </>
   );
 }

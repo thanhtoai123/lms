@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { getDb } from "@satarobo/db";
 import { portalCertificate } from "@satarobo/api";
 import { requireParent } from "@/lib/parent-session";
-import { PhHeader, PhMain } from "@/components/ph-ui";
+import { PhMain, PhPageHead } from "@/components/ph-ui";
 import { PrintButton } from "@/components/portfolio/print-button";
 import { ShareLinkButton } from "@/components/ph/actions";
 import { CertificateSheet, CertificatePrintStyle } from "@/components/certificates/certificate-sheet";
@@ -25,7 +25,7 @@ export default async function ParentCertificatePage({ params }: { params: Promis
   const verifyPath = new URL(c.verifyUrl).pathname;
   return (
     <>
-      <div className="print:hidden"><PhHeader title="Giấy chứng nhận" back={{ href: `/ph/be/${id}`, label: "Hành trình học" }} /></div>
+      <div className="print:hidden"><PhPageHead title="Giấy chứng nhận" back={{ href: `/ph/be/${id}`, label: "Hành trình học" }} /></div>
       <PhMain className="cn-print-root space-y-4 print:p-0">
         <CertificatePrintStyle orientation={c.template.orientation} />
         <div className="cn-noprint space-y-2">

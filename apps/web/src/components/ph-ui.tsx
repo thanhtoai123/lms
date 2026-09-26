@@ -1,62 +1,58 @@
 import Link from "next/link";
-import { Bell, ChevronLeft, MessageCircle } from "lucide-react";
-import { getDb } from "@satarobo/db";
-import { parentUnread } from "@satarobo/api";
+import { ChevronLeft } from "lucide-react";
 import { childShortName } from "@satarobo/core";
-import { currentParent } from "@/lib/parent-session";
-import { PhNav } from "@/components/ph/nav";
-
-export { PhNav };
 
 /**
- * Đầu trang cổng phụ huynh: logo (về "Hôm nay"), tiêu đề, Tin nhắn, Thông báo (số chưa đọc).
- * Tự đọc phiên để hiện số chưa đọc — trang không phải truyền. Nút biểu tượng có aria-label tiếng Việt, vùng chạm 44px.
+ * Mảnh dùng chung của cổng phụ huynh. Khung (thanh bên, thanh trên, ngăn kéo) nằm ở
+ * `app/ph/layout.tsx` + `components/ph/nav.tsx`; ở đây chỉ còn phần bên trong trang.
  */
-export async function PhHeader({ title, back }: { title: string; name?: string; back?: { href: string; label: string } }) {
-  const p = await currentParent();
-  const unread = p ? await parentUnread(getDb(), p.id).catch(() => 0) : 0;
+
+/** Tiêu đề phụ trong trang: dùng khi trang cần nút quay lại hoặc một câu dẫn */
+export function PhPageHead({ title, desc, back, action }: {
+  title: string;
+  desc?: string;
+  back?: { href: string; label: string };
+  action?: React.ReactNode;
+}) {
   return (
-    <header className="sticky top-0 z-20 border-b border-black/5 bg-white/90 backdrop-blur print:hidden" style={{ paddingTop: "env(safe-area-inset-top)" }}>
-      <div className="flex h-14 items-center gap-1 px-2 md:h-16 md:px-4">
-        {back ? (
-          <Link href={back.href} aria-label={`Quay lại: ${back.label}`} className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-ink-600 hover:bg-muted">
-            <ChevronLeft className="h-6 w-6" aria-hidden />
-          </Link>
-        ) : (
-          // Máy tính đã có logo ở thanh bên — ẩn đi cho khỏi lặp
-          <Link href="/ph" aria-label="Sata Robo — về trang Hôm nay" className="grid h-11 w-11 shrink-0 place-items-center rounded-xl hover:bg-muted md:hidden">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/icon.svg" alt="" width={30} height={30} className="h-[30px] w-[30px] rounded-lg" />
-          </Link>
-        )}
-        <h1 className="min-w-0 flex-1 truncate px-1 text-[17px] font-bold md:text-[20px]">{title}</h1>
-        <Link href="/ph/tin-nhan" aria-label="Tin nhắn với trung tâm" className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-ink-600 hover:bg-muted md:hidden">
-          <MessageCircle className="h-[22px] w-[22px]" aria-hidden />
+    <div className="flex items-start gap-2">
+      {back && (
+        <Link href={back.href} aria-label={`Quay lại: ${back.label}`} className="-ml-2 grid h-11 w-11 shrink-0 place-items-center rounded-xl text-ink-600 hover:bg-muted">
+          <ChevronLeft className="h-6 w-6" aria-hidden />
         </Link>
-        <Link
-          href="/ph/thong-bao"
-          aria-label={unread ? `Thông báo, ${unread} chưa đọc` : "Thông báo"}
-          className="relative grid h-11 w-11 shrink-0 place-items-center rounded-xl text-ink-600 hover:bg-muted md:hidden"
-        >
-          <Bell className="h-[22px] w-[22px]" aria-hidden />
-          {unread > 0 && (
-            <span className="absolute right-1 top-1 min-w-5 rounded-full bg-accent-500 px-1 text-center text-[11px] font-bold leading-5 text-white" aria-hidden>
-              {unread > 99 ? "99+" : unread}
-            </span>
-          )}
-        </Link>
+      )}
+      <div className="min-w-0 flex-1">
+        <h2 className="text-[20px] font-extrabold leading-tight md:text-[24px]">{title}</h2>
+        {desc && <p className="mt-0.5 text-[14px] text-ink-600">{desc}</p>}
       </div>
-    </header>
+      {action}
+    </div>
   );
 }
 
-/**
- * Vùng nội dung của một trang cổng phụ huynh.
- * Chừa đáy 112px trên điện thoại (thanh điều hướng đáy đè lên), máy tính thì không cần.
- */
+/** Tiêu đề khối kiểu hệ cũ: chữ hoa nhỏ, giãn chữ, liên kết "Xem tất cả" bên phải */
+export function PhBlock({ title, action, children, id, className = "" }: {
+  title: string;
+  action?: { href: string; label: string };
+  children: React.ReactNode;
+  id?: string;
+  className?: string;
+}) {
+  return (
+    <section id={id} className={`scroll-mt-24 space-y-2 ${className}`} aria-label={title}>
+      <div className="flex items-end justify-between gap-2">
+        <h2 className="text-[12px] font-bold uppercase tracking-wider text-ink-600">{title}</h2>
+        {action && <Link href={action.href} className="inline-flex min-h-9 items-center text-[13px] font-bold text-primary">{action.label} →</Link>}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+/** Vùng nội dung của một trang cổng phụ huynh (lề chung cho cả ba khổ màn hình) */
 export function PhMain({ children, className = "", label }: { children: React.ReactNode; className?: string; label?: string }) {
   return (
-    <main aria-label={label} className={`flex-1 px-4 pb-28 pt-3 md:px-6 md:pb-10 md:pt-5 ${className}`}>
+    <main aria-label={label} className={`flex-1 px-4 pb-12 pt-4 md:px-6 md:pt-6 ${className}`}>
       {children}
     </main>
   );

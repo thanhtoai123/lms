@@ -26,6 +26,7 @@ export * from "./portfolio/share.js";
 export * from "./portfolio/chart.js";
 export * from "./portfolio/view.js";
 export * from "./portal/family.js";
+export * from "./portal/theCon.js";
 export * from "./portal/teacher.js";
 export * from "./certificates/rules.js";
 export * from "./media/consent.js";

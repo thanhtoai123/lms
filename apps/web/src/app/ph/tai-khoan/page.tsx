@@ -2,7 +2,7 @@ import { getDb } from "@satarobo/db";
 import { ParentPortal, pushStatus } from "@satarobo/api";
 import { PH_CACH_DANG_NHAP_VI, PH_NGUNG_NGAY } from "@satarobo/core";
 import { requireParent } from "@/lib/parent-session";
-import { PhHeader, PhNav, PhMain, dtPh } from "@/components/ph-ui";
+import { PhMain, dtPh } from "@/components/ph-ui";
 import { ConsentToggle, RevokeSession, PushToggle } from "./client";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +17,6 @@ export default async function ParentAccount() {
   ]);
   return (
     <>
-      <PhHeader title="Tài khoản" name={p.fullName} />
       <PhMain className="space-y-4">
         <section className="card space-y-1 p-4 text-[15px]">
           <div className="font-semibold">{p.fullName}</div>
@@ -85,7 +84,6 @@ export default async function ParentAccount() {
           </div>
         </div>
       </PhMain>
-      <PhNav />
     </>
   );
 }

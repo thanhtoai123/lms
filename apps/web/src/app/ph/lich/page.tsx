@@ -4,7 +4,7 @@ import { getDb } from "@satarobo/db";
 import { familyChildren, hubSchedule, type ScheduleEntry } from "@satarobo/api";
 import { monthGrid, weekGrid, normalizeMonth, shiftMonth, monthOf, pickChild, childShortName, addDays, weekdayOf, type CalendarDay } from "@satarobo/core";
 import { requireParent } from "@/lib/parent-session";
-import { PhHeader, PhNav, PhMain, ChildChips, dayPh, todayPh } from "@/components/ph-ui";
+import { PhMain, ChildChips, dayPh, todayPh } from "@/components/ph-ui";
 import { AbsenceButton, MakeupButton } from "@/components/ph/actions";
 import { TONE_STYLE, ToneChip } from "@/components/ph/bits";
 
@@ -32,9 +32,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
   if (!kid) {
     return (
       <>
-        <PhHeader title="Lịch học" />
         <PhMain><div className="card p-5">Chưa có học viên gắn với tài khoản này.</div></PhMain>
-        <PhNav />
       </>
     );
   }
@@ -50,7 +48,6 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
 
   return (
     <>
-      <PhHeader title="Lịch học" />
       <PhMain className="space-y-4">
         <ChildChips kids={kids} activeId={kid.id} hrefFor={(id) => `/ph/lich?con=${id}${week ? `&xem=tuan&ngay=${anchor}` : `&thang=${month}`}`} />
 
@@ -97,7 +94,6 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
         </section>
         </div>
       </PhMain>
-      <PhNav />
     </>
   );
 }

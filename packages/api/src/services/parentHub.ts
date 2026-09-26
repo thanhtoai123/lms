@@ -15,13 +15,13 @@ import {
   parents, students, studentGuardians, enrollments, classes, sessions, attendance, rooms, centers, teachers, sessionEvaluations,
   parentFeedback, parentRequests, parentRequestEvents, parentNotifications, careTasks, userRoles, users, holidays, makeupRequests,
   coinTransactions, redemptions, rewardItems, certificates, learningPaths, learningPathCourses, courseCompletions, courses,
-  assignments, submissions, type Database,
+  assignments, submissions, orders, payments, type Database,
 } from "@satarobo/db";
 import {
   sessionLabel, isSessionEvalSnapshot, sessionAverage, sheetGlance, pickLatestSheet, validateReaction, reactionPlan, reactionEditable, reactionOf,
   sessionTone, withinMakeupWindow, validateParentRequest, requestCode, slaDue, PARENT_REQUEST_TYPE_VI, PARENT_REQUEST_STATUS_VI,
   COIN_REASON_VI, REDEMPTION_STATUS_VI, coinTier, availableBalance, pathProgress, buildJourney, certificateVerifyPath, isCertificateSnapshot,
-  OBJECTIVE_RESULT_VI, SESSION_REACTION_VI, addDays,
+  OBJECTIVE_RESULT_VI, SESSION_REACTION_VI, addDays, tomTatCon,
   type SessionReaction, type SessionKind, type ParentRequestType, type ParentRequestStatus, type CoinReason, type RedemptionStatus,
   type ObjectiveResult, type JourneyCourseInput, type JourneyPathCertificate,
 } from "@satarobo/core";
@@ -218,6 +218,215 @@ export async function hubHome(db: Database, parentId: string, wantedChildId: str
     unread: nt?.unread ?? 0,
     notifications: unreadList.map((n) => ({ ...n, link: n.link && n.link.startsWith("/") && !n.link.startsWith("//") ? n.link : null })),
   };
+}
+
+/* ------------------------------------------------------------------ */
+/* "Các con của bạn" — thẻ tóm tắt từng con ở trang Tổng quan           */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Một thẻ cho mỗi con: đang học khoá nào, tới buổi bao nhiêu, đi học có đều không,
+ * có bài nào đang nợ không, học phí của RIÊNG con đó đã đủ chưa.
+ *
+ * SQL ở đây chỉ **đếm**; ngưỡng và cách diễn đạt ("Đủ", "—", "cần chú ý") nằm ở
+ * `core/portal/theCon` để có kiểm thử và để sau này đổi mốc ở một chỗ.
+ */
+export async function hubFamily(db: Database, parentId: string) {
+  const d = asDb(db);
+  const kids = await familyChildren(db, parentId);
+  if (!kids.length) return { children: [] as FamilyCard[] };
+  const ids = kids.map((k) => k.id);
+
+  const [enr, att, hw, no] = await Promise.all([
+    // Khoá đang theo: ưu tiên lớp bắt đầu gần đây nhất
+    d.select({
+      studentId: enrollments.studentId,
+      enrollmentId: enrollments.id,
+      status: enrollments.status,
+      classCode: classes.code,
+      className: classes.name,
+      courseName: courses.name,
+      center: centers.name,
+      teacher: teachers.fullName,
+      buoiTong: sql<number>`(select count(*)::int from ${sessions} s where s.class_id = ${classes.id} and s.kind = 'regular' and s.status not in ('cancelled','rescheduled') and s.sequence_no >= ${enrollments.startSequenceNo})`,
+      buoiDaHoc: sql<number>`(select count(*)::int from ${attendance} a where a.enrollment_id = ${enrollments.id} and a.status in ('present','late','makeup'))`,
+    })
+      .from(enrollments)
+      .innerJoin(classes, eq(classes.id, enrollments.classId))
+      .leftJoin(courses, eq(courses.id, classes.courseId))
+      .leftJoin(centers, eq(centers.id, classes.centerId))
+      .leftJoin(teachers, eq(teachers.id, classes.leadTeacherId))
+      .where(and(inArray(enrollments.studentId, ids), inArray(enrollments.status, ["active", "trial"])))
+      .orderBy(desc(enrollments.enrolledAt)),
+    // Chuyên cần: tính trên toàn bộ buổi đã điểm danh của con, không bó trong 30 ngày —
+    // thẻ này nói về cả quá trình học, còn mốc 30 ngày để dành cho màn "Hôm nay của con".
+    d.select({ studentId: enrollments.studentId, status: attendance.status, n: sql<number>`count(*)::int` })
+      .from(attendance).innerJoin(enrollments, eq(enrollments.id, attendance.enrollmentId))
+      .where(inArray(enrollments.studentId, ids)).groupBy(enrollments.studentId, attendance.status),
+    d.select({ studentId: submissions.studentId, n: sql<number>`count(*)::int` })
+      .from(submissions).innerJoin(assignments, eq(assignments.id, submissions.assignmentId))
+      .where(and(inArray(submissions.studentId, ids), inArray(submissions.status, ["assigned", "returned"]), eq(assignments.status, "published")))
+      .groupBy(submissions.studentId),
+    d.select({
+      studentId: orders.studentId,
+      conLai: sql<number>`coalesce(sum(greatest(0, ${orders.total} - (select coalesce(sum(p.amount), 0)::float from ${payments} p where p.order_id = ${orders.id} and p.status = 'confirmed'))), 0)::float`,
+    })
+      .from(orders)
+      .where(and(inArray(orders.studentId, ids), inArray(orders.status, ["pending_payment", "partially_paid"])))
+      .groupBy(orders.studentId),
+  ]);
+
+  return {
+    children: kids.map((k): FamilyCard => {
+      const e = enr.find((x) => x.studentId === k.id) ?? null;
+      const a = att.filter((x) => x.studentId === k.id);
+      const ccTong = a.reduce((s, x) => s + x.n, 0);
+      const ccCoMat = a.filter((x) => ATTENDED.includes(x.status)).reduce((s, x) => s + x.n, 0);
+      const tt = tomTatCon({
+        buoiDaHoc: e?.buoiDaHoc ?? 0,
+        buoiTong: e?.buoiTong ?? 0,
+        chuyenCanTong: ccTong,
+        chuyenCanCoMat: ccCoMat,
+        baiCho: hw.find((x) => x.studentId === k.id)?.n ?? 0,
+        hocPhiConLai: no.find((x) => x.studentId === k.id)?.conLai ?? 0,
+      });
+      return {
+        id: k.id,
+        fullName: k.fullName,
+        nickname: k.nickname,
+        code: k.code,
+        lop: e ? { classCode: e.classCode, className: e.className, courseName: e.courseName, center: e.center, teacher: e.teacher, trial: e.status === "trial" } : null,
+        tomTat: tt,
+      };
+    }),
+  };
+}
+
+export interface FamilyCard {
+  id: string;
+  fullName: string;
+  nickname: string | null;
+  code: string | null;
+  lop: { classCode: string; className: string; courseName: string | null; center: string | null; teacher: string | null; trial: boolean } | null;
+  tomTat: ReturnType<typeof tomTatCon>;
+}
+
+/* ------------------------------------------------------------------ */
+/* Nhận xét · Bài tập · Hình ảnh lớp (ba màn riêng như cổng học viên)   */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Danh sách phiếu nhận xét đã phát hành của một con, mới nhất trước.
+ * Chỉ lấy phiếu `published` — bản nháp của giáo viên không bao giờ ra cổng phụ huynh —
+ * và không kèm `private_note` (ghi chú nội bộ của buổi).
+ */
+export async function hubSheets(db: Database, parentId: string, studentId: string, limit = 30) {
+  const child = await childOf(db, parentId, studentId);
+  if (!child) return null;
+  const d = asDb(db);
+  const rows = await d
+    .select({
+      id: sessionEvaluations.id, sessionId: sessionEvaluations.sessionId, snapshot: sessionEvaluations.snapshot,
+      objectiveResult: sessionEvaluations.objectiveResult, highlights: sessionEvaluations.highlights,
+      remark: sessionEvaluations.remark, productNote: sessionEvaluations.productNote,
+      date: sessions.date, sequenceNo: sessions.sequenceNo, kind: sessions.kind,
+    })
+    .from(sessionEvaluations).innerJoin(sessions, eq(sessions.id, sessionEvaluations.sessionId))
+    .where(and(eq(sessionEvaluations.studentId, child.id), eq(sessionEvaluations.status, "published")))
+    .orderBy(desc(sessions.date), desc(sessions.sequenceNo))
+    .limit(Math.min(100, Math.max(1, limit)));
+
+  const items = rows.flatMap((r) => {
+    if (!isSessionEvalSnapshot(r.snapshot)) return [];
+    const snap = r.snapshot;
+    const criteria = snap.criteria.map((c) => ({ label: c.label, value: c.value ?? null, level: c.levels.find((l) => l.value === c.value)?.label ?? null }));
+    return [{
+      id: r.id, sessionId: r.sessionId, date: r.date,
+      label: snap.context.label || sessionLabel(r.sequenceNo, r.kind as SessionKind),
+      lessonTitle: snap.context.lessonTitle, teacherName: snap.context.teacherName, className: snap.context.className,
+      criteria, glance: sheetGlance(criteria),
+      objective: r.objectiveResult ? OBJECTIVE_RESULT_VI[r.objectiveResult as ObjectiveResult] : null,
+      highlights: r.highlights ?? [], remark: r.remark, productNote: r.productNote,
+    }];
+  });
+  return { child: { id: child.id, fullName: child.fullName, nickname: child.nickname }, items };
+}
+
+/** Bài tập của tất cả các con: đang chờ trước, rồi đến bài đã nộp / đã chấm */
+export async function hubHomework(db: Database, parentId: string) {
+  const d = asDb(db);
+  const kids = await familyChildren(db, parentId);
+  if (!kids.length) return { children: [], items: [] as HubHomework[] };
+  const ids = kids.map((k) => k.id);
+  const rows = await d
+    .select({
+      studentId: submissions.studentId, title: assignments.title, dueAt: assignments.dueAt, maxScore: assignments.maxScore,
+      status: submissions.status, score: submissions.score, token: submissions.token, submittedAt: submissions.submittedAt,
+      className: classes.name,
+    })
+    .from(submissions)
+    .innerJoin(assignments, eq(assignments.id, submissions.assignmentId))
+    .leftJoin(classes, eq(classes.id, assignments.classId))
+    .where(and(inArray(submissions.studentId, ids), inArray(assignments.status, ["published", "closed"])))
+    .orderBy(desc(assignments.dueAt))
+    .limit(200);
+
+  const CHO = ["assigned", "returned"];
+  const items: HubHomework[] = rows.map((r) => ({
+    studentId: r.studentId,
+    studentName: kids.find((k) => k.id === r.studentId)?.fullName ?? "",
+    title: r.title, className: r.className, dueAt: r.dueAt, submittedAt: r.submittedAt,
+    status: r.status, dangCho: CHO.includes(r.status),
+    score: r.score, maxScore: r.maxScore, link: `/bt/${r.token}`,
+  }));
+  items.sort((a, b) => Number(b.dangCho) - Number(a.dangCho) || (b.dueAt?.getTime() ?? 0) - (a.dueAt?.getTime() ?? 0));
+  return { children: kids.map((k) => ({ id: k.id, fullName: k.fullName, nickname: k.nickname })), items };
+}
+
+export interface HubHomework {
+  studentId: string;
+  studentName: string;
+  title: string;
+  className: string | null;
+  dueAt: Date | null;
+  submittedAt: Date | null;
+  status: string;
+  dangCho: boolean;
+  score: number | null;
+  maxScore: number | null;
+  link: string;
+}
+
+/**
+ * Ảnh lớp của một con — chỉ ảnh **đã duyệt**, và chỉ khi gia đình đã đồng ý cho đăng ảnh
+ * (`evidenceMedia` tự kiểm điều này). Gom theo buổi học để phụ huynh biết ảnh của hôm nào.
+ */
+export async function hubPhotos(db: Database, parentId: string, studentId: string, limit = 120) {
+  const child = await childOf(db, parentId, studentId);
+  if (!child) return null;
+  const d = asDb(db);
+  const ses = await d
+    .select({ id: sessions.id, date: sessions.date, seq: sessions.sequenceNo, kind: sessions.kind, className: classes.name })
+    .from(attendance)
+    .innerJoin(enrollments, eq(enrollments.id, attendance.enrollmentId))
+    .innerJoin(sessions, eq(sessions.id, attendance.sessionId))
+    .innerJoin(classes, eq(classes.id, sessions.classId))
+    .where(and(eq(enrollments.studentId, child.id), inArray(attendance.status, ATTENDED)))
+    .orderBy(desc(sessions.date))
+    .limit(60);
+  if (!ses.length) return { child: { id: child.id, fullName: child.fullName, nickname: child.nickname }, buoi: [] };
+
+  const media = (await evidenceMedia(d, ses.map((s) => s.id), [child.id])).get(child.id) ?? [];
+  const buoi = ses
+    .map((s) => ({
+      sessionId: s.id, date: s.date, className: s.className,
+      label: sessionLabel(s.seq, s.kind as SessionKind),
+      anh: media.filter((m) => m.sessionId === s.id).map((m) => ({ id: m.id, url: m.url, caption: m.caption })),
+    }))
+    .filter((b) => b.anh.length > 0);
+  let con = Math.max(1, limit);
+  const cat = buoi.filter((b) => { if (con <= 0) return false; con -= b.anh.length; return true; });
+  return { child: { id: child.id, fullName: child.fullName, nickname: child.nickname }, buoi: cat };
 }
 
 /* ------------------------------------------------------------------ */

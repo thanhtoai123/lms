@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { getDb } from "@satarobo/db";
 import { portalPortfolio } from "@satarobo/api";
 import { requireParent } from "@/lib/parent-session";
-import { PhHeader, PhNav, PhMain } from "@/components/ph-ui";
+import { PhMain } from "@/components/ph-ui";
 import { PortfolioDocument } from "@/components/portfolio/portfolio-document";
 import { PortfolioPrintStyle } from "@/components/portfolio/print-style";
 import { PrintButton } from "@/components/portfolio/print-button";
@@ -23,7 +23,6 @@ export default async function ChildPortfolioPage({ params }: { params: Promise<{
   if (!view) notFound();
   return (
     <>
-      <div className="print:hidden"><PhHeader title="Hồ sơ học tập" name={p.fullName} /></div>
       <PhMain className="space-y-3 print:p-0">
         <PortfolioPrintStyle />
         <Link href={`/ph/be/${id}`} className="text-sm text-ink-600 print:hidden">← {view.student.fullName}</Link>
@@ -32,7 +31,6 @@ export default async function ChildPortfolioPage({ params }: { params: Promise<{
           actions={<PrintButton className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-bold text-primary shadow" />}
         />
       </PhMain>
-      <div className="print:hidden"><PhNav /></div>
     </>
   );
 }

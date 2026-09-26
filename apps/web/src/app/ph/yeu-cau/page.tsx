@@ -4,7 +4,7 @@ import { getDb } from "@satarobo/db";
 import { hubRequests } from "@satarobo/api";
 import { pickChild } from "@satarobo/core";
 import { requireParent } from "@/lib/parent-session";
-import { PhHeader, PhNav, PhMain, PhTwoCol, PhSection, dtPh } from "@/components/ph-ui";
+import { PhMain, PhTwoCol, PhSection, dtPh } from "@/components/ph-ui";
 import { CancelRequestButton } from "@/components/ph/actions";
 import { AskForm } from "../tin-nhan/client";
 
@@ -35,7 +35,6 @@ export default async function RequestsPage({ searchParams }: { searchParams: Pro
 
   return (
     <>
-      <PhHeader title="Yêu cầu của tôi" />
       <PhMain className="space-y-5">
         <PhTwoCol
           main={<>
@@ -74,7 +73,6 @@ export default async function RequestsPage({ searchParams }: { searchParams: Pro
           }
         />
       </PhMain>
-      <PhNav />
     </>
   );
 }
