@@ -86,9 +86,13 @@ export default async function ParentOverview({ searchParams }: { searchParams: P
                     ))}
                   </dl>
 
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <Link href={`/ph/be/${k.id}`} className="btn-ghost min-h-11 flex-1 text-[14px]">Hồ sơ của con</Link>
-                    {!dangXem && <Link href={`/ph?con=${k.id}`} className="btn-primary min-h-11 flex-1 text-[14px]">Xem buổi tới</Link>}
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <Link href={`/ph/be/${k.id}`} className="btn-ghost min-h-11 text-[14px]">Hồ sơ của con</Link>
+                    {dangXem ? (
+                      <Link href={`/ph/lich?con=${k.id}`} className="btn-primary min-h-11 text-[14px]">Lịch học</Link>
+                    ) : (
+                      <Link href={`/ph?con=${k.id}`} className="btn-primary min-h-11 text-[14px]">Xem buổi tới</Link>
+                    )}
                   </div>
                 </li>
               );

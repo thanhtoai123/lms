@@ -135,18 +135,23 @@ function Logo() {
   );
 }
 
-function useConId(): string | null {
+/**
+ * Con đang xem: ưu tiên `?con=` trên URL, rồi id nằm ngay trên đường dẫn `/ph/be/<id>`,
+ * cuối cùng là con mặc định do máy chủ truyền xuống (con đầu tiên của gia đình).
+ * Nhờ bước cuối, các mục "Học tập của con" mở được ngay từ trang Tổng quan mà không cần
+ * phụ huynh bấm chọn con trước.
+ */
+function useConId(macDinh: string | null): string | null {
   const sp = useSearchParams();
   const path = usePathname() ?? "";
   const tuUrl = sp?.get("con") ?? null;
-  // Đang ở trong trang của một con thì lấy id ngay trên đường dẫn
   const tuDuongDan = /^\/ph\/be\/([^/]+)/.exec(path)?.[1] ?? null;
-  return tuUrl ?? tuDuongDan ?? null;
+  return tuUrl ?? tuDuongDan ?? macDinh;
 }
 
 /** Thanh bên cố định — chỉ từ 1024px trở lên */
-export function PhSidebar({ unread = 0 }: { unread?: number }) {
-  const conId = useConId();
+export function PhSidebar({ unread = 0, conMacDinh = null }: { unread?: number; conMacDinh?: string | null }) {
+  const conId = useConId(conMacDinh);
   return (
     <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-border bg-card lg:flex print:hidden">
       <Logo />
@@ -162,9 +167,9 @@ export function PhSidebar({ unread = 0 }: { unread?: number }) {
  * Thanh trên: nút mở ngăn kéo (dưới 1024px), tiêu đề trang, chuông, chip tài khoản.
  * Ngăn kéo nằm luôn trong thành phần này để chỉ có một chỗ giữ trạng thái đóng/mở.
  */
-export function PhTopbar({ unread = 0, parentName = "" }: { unread?: number; parentName?: string }) {
+export function PhTopbar({ unread = 0, parentName = "", conMacDinh = null }: { unread?: number; parentName?: string; conMacDinh?: string | null }) {
   const path = usePathname() ?? "/ph";
-  const conId = useConId();
+  const conId = useConId(conMacDinh);
   const [open, setOpen] = useState(false);
 
   // Đổi trang thì đóng ngăn kéo; bấm Esc cũng đóng
