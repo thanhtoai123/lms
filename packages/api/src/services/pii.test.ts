@@ -14,7 +14,9 @@ import assert from "node:assert/strict";
  */
 process.env.PII_ENCRYPTION_KEY ??= "khoa-kiem-thu-du-dai-de-khong-bi-tu-choi-0123456789";
 
-const { sealPii, openPii, sealWith, openWith, piiMoKhongDuoc } = await import("./pii.ts");
+// Nạp sau khi đã đặt khoá: `piiEncryptionSecret()` đọc biến môi trường lúc gọi, nhưng
+// nạp động cho chắc — đổi thứ tự hai dòng này là bài kiểm thử chạy bằng khoá dự phòng.
+const { sealPii, openPii, sealWith, openWith, piiMoKhongDuoc } = await import("./pii.js");
 
 describe("mã hoá PII của ứng dụng", () => {
   it("đóng rồi mở ra đúng chuỗi ban đầu", () => {
