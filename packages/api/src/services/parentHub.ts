@@ -411,7 +411,7 @@ export async function hubPhotos(db: Database, parentId: string, studentId: strin
     .innerJoin(enrollments, eq(enrollments.id, attendance.enrollmentId))
     .innerJoin(sessions, eq(sessions.id, attendance.sessionId))
     .innerJoin(classes, eq(classes.id, sessions.classId))
-    .where(and(eq(enrollments.studentId, child.id), inArray(attendance.status, ATTENDED)))
+    .where(and(eq(enrollments.studentId, child.id), inArray(attendance.status, ["present", "late", "makeup"])))
     .orderBy(desc(sessions.date))
     .limit(60);
   if (!ses.length) return { child: { id: child.id, fullName: child.fullName, nickname: child.nickname }, buoi: [] };
