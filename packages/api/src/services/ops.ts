@@ -4,7 +4,7 @@ import { eq, sql } from "drizzle-orm";
 import { appSettings, type Database } from "@satarobo/db";
 import { envChecks, envSummary, backupFreshness, heartbeatState, fmtBytes, requirePermissionCheck } from "./ops-helpers";
 import type { ProtectedContext } from "../trpc";
-import { putObject, getObject } from "../storage";
+import { putObject, getObject, moTaKho } from "../storage";
 
 type Db = ProtectedContext["db"];
 const asDb = (d: Database) => d as unknown as Db;
@@ -104,10 +104,15 @@ export async function opsStatus(ctx: ProtectedContext) {
   const envSum = envSummary(env);
   const bf = backupFreshness(latestBackupAt, now);
   const hb = heartbeatState([w?.at, c?.at].filter(Boolean).sort((a, b) => b!.getTime() - a!.getTime())[0] ?? null, now);
+  const khoTep = moTaKho(process.env, production);
   const checklist = [
     { key: "env", label: "Biến môi trường bắt buộc đầy đủ, không còn giá trị mẫu", ok: envSum.ready },
     { key: "dev", label: "Tắt đăng nhập tài khoản mẫu (ALLOW_DEV_ACTOR)", ok: process.env.ALLOW_DEV_ACTOR !== "1" },
     { key: "health", label: "Cơ sở dữ liệu & lưu trữ hoạt động", ok: health.ok },
+    // Kho đối tượng là mục chặn go-live riêng, không gộp vào "biến môi trường": để đĩa cục bộ
+    // trên nền tảng có đĩa tạm thời là mất TOÀN BỘ tệp đã tải lên sau mỗi lần triển khai,
+    // mà không có lỗi nào báo — chỉ đến khi ai đó mở lại một ảnh cũ mới biết.
+    { key: "kho", label: "Tệp tải lên nằm trên kho đối tượng (S3 / R2), không phải đĩa máy chủ", ok: khoTep.loai === "s3" || !production },
     { key: "worker", label: "Worker / cron chạy đều (nhịp ≤ 5 phút)", ok: hb === "ok" },
     { key: "backup", label: "Có bản sao lưu trong 26 giờ gần nhất", ok: bf === "ok" },
     { key: "restore", label: "Đã thử khôi phục bản sao lưu (ghi trong LATEST.json)", ok: !!(backups.latest as { restoreTestedAt?: string } | null)?.restoreTestedAt },
@@ -115,7 +120,7 @@ export async function opsStatus(ctx: ProtectedContext) {
     { key: "compliance", label: "Không có yêu cầu dữ liệu / sự cố quá hạn", ok: (q?.dsr_overdue ?? 0) === 0 && (q?.incident_overdue ?? 0) === 0 },
   ];
   return {
-    production, health, env, envSummary: envSum,
+    production, health, env, envSummary: envSum, khoTep,
     heartbeats: { worker: w ? { at: w.at, state: heartbeatState(w.at, now) } : null, cron: c ? { at: c.at, state: heartbeatState(c.at, now) } : null, overall: hb },
     backups: { ...backups, freshness: bf, latestAt: latestBackupAt, files: backups.files.map((f) => ({ ...f, sizeLabel: fmtBytes(f.size) })) },
     volume: vol ? { ...vol, dbSize: fmtBytes(Number(vol.db_bytes)) } : null,

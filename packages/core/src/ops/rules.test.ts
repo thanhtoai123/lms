@@ -15,9 +15,14 @@ test("vận hành: kiểm tra biến môi trường", () => {
   assert.equal(prod.find((c) => c.key === "STORAGE_DIR")?.status, "weak");
   assert.ok(prod.some((c) => c.key === "DATABASE_URL (mật khẩu)"));
   assert.ok(prod.some((c) => c.key === "DATABASE_URL (SSL)"));
+  // Chạy thật mà chưa khai kho đối tượng thì CHẶN: để nguyên đĩa cục bộ là mất tệp sau mỗi lần triển khai
+  assert.equal(prod.find((c) => c.key === "S3_BUCKET")?.status, "missing");
+  assert.equal(prod.find((c) => c.key === "S3_BUCKET")?.level, "required");
+
   const good = envChecks({
     DATABASE_URL: "postgres://app:Str0ng@db.example:5432/x?sslmode=require", NEXT_PUBLIC_SUPABASE_URL: "https://x.supabase.co", NEXT_PUBLIC_SUPABASE_ANON_KEY: "k", SUPABASE_SERVICE_ROLE_KEY: "s", NEXT_PUBLIC_APP_URL: "https://admin.example",
     MEDIA_SIGNING_SECRET: "a".repeat(40), OTP_PEPPER: "b".repeat(20), CRON_SECRET: "c".repeat(30), STORAGE_DIR: "/srv/sata/uploads",
+    S3_BUCKET: "satarobo", S3_ENDPOINT: "https://tk.r2.cloudflarestorage.com", S3_ACCESS_KEY_ID: "AKIA", S3_SECRET_ACCESS_KEY: "k".repeat(40),
   }, true);
   assert.equal(envSummary(good).ready, true);
   assert.ok(envSummary(good).warnings > 0);

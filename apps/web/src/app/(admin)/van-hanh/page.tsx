@@ -38,6 +38,17 @@ export default async function OpsPage() {
         <Kpi label="Biến môi trường" value={d.envSummary.ready ? "Đủ" : `${d.envSummary.blocking} lỗi`} tone={d.envSummary.ready ? "good" : "bad"} hint={`${d.envSummary.warnings} cảnh báo`} />
         <Kpi label="Dung lượng CSDL" value={v ? String(v.dbSize) : "—"} />
       </div>
+      <Section title="Kho tệp tải lên">
+        <div className="space-y-1 p-3 text-sm">
+          <div className="flex items-center gap-2">
+            <span className={`chip ${d.khoTep.trang_thai === "ok" ? "bg-green-100 text-green-800" : d.khoTep.trang_thai === "nguy_hiem" ? "bg-red-600 text-white" : "bg-amber-100 text-amber-800"}`}>
+              {d.khoTep.loai === "s3" ? "Kho đối tượng" : "Đĩa máy chủ"}
+            </span>
+            <span className="font-mono text-xs text-ink-600">{d.khoTep.mo_ta}</span>
+          </div>
+          <p className="text-ink-600">{d.khoTep.ghi_chu}</p>
+        </div>
+      </Section>
       <Section title="Danh mục go-live">
         <ul className="divide-y divide-black/5 text-sm">{d.checklist.map((c) => <li key={c.key} className="flex items-center justify-between gap-2 p-3"><span>{c.label}</span><Chip s={c.ok ? "ok" : "missing"} /></li>)}</ul>
       </Section>

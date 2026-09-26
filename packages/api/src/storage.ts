@@ -1,42 +1,28 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { mkdir, readFile, writeFile, unlink, rm } from "node:fs/promises";
-import path from "node:path";
-import { isSafeObjectKey } from "@satarobo/core";
 import { mediaSigningSecret } from "./lib/secrets";
+import { kho } from "./kho";
 
 /**
- * Lưu trữ ảnh lớp. Dev: đĩa cục bộ (STORAGE_DIR). Production: thay bằng R2/S3 cùng giao diện.
- * Ảnh không bao giờ công khai: chỉ phát qua URL có chữ ký, hết hạn (mặc định 15 phút).
+ * Lưu trữ tệp (ảnh lớp, tài liệu, CV, bài nộp, gói SCORM).
+ *
+ * Nơi cất tệp do `./kho` quyết định: khai đủ bốn biến `S3_*` thì dùng kho đối tượng tương
+ * thích S3 (R2 / S3 / MinIO), không thì dùng đĩa cục bộ. Tệp này chỉ còn phần **phát tệp
+ * ra ngoài**: mọi tệp đều riêng tư, chỉ đi qua URL có chữ ký HMAC ngắn hạn của chính hệ
+ * thống (mặc định 15 phút) — không dùng URL ký sẵn của S3, để quyền xem vẫn do hệ thống
+ * quyết định chứ không do ai giữ được đường dẫn.
  */
-const ROOT = () => process.env.STORAGE_DIR ?? path.join(process.cwd(), ".data", "uploads");
 const SECRET = mediaSigningSecret;
 
-function safePath(key: string) {
-  // isSafeObjectKey chặn cả "..", "//", đường dẫn tuyệt đối và ký tự lạ
-  if (!isSafeObjectKey(key)) throw new Error("Khoá lưu trữ không hợp lệ");
-  const p = path.join(ROOT(), key);
-  // Lớp chặn cuối: đường dẫn phải nằm trong thư mục gốc sau khi chuẩn hoá
-  const root = path.resolve(ROOT());
-  if (!path.resolve(p).startsWith(root + path.sep)) throw new Error("Khoá lưu trữ không hợp lệ");
-  return p;
-}
-
-export async function putObject(key: string, data: Uint8Array) {
-  const p = safePath(key);
-  await mkdir(/* turbopackIgnore: true */ path.dirname(p), { recursive: true });
-  await writeFile(/* turbopackIgnore: true */ p, data);
+export async function putObject(key: string, data: Uint8Array, contentType?: string) {
+  await kho().dat(key, data, contentType);
 }
 
 export async function getObject(key: string): Promise<Buffer | null> {
-  try {
-    return await readFile(/* turbopackIgnore: true */ safePath(key));
-  } catch {
-    return null;
-  }
+  return kho().lay(key);
 }
 
 export async function deleteObject(key: string) {
-  try { await unlink(/* turbopackIgnore: true */ safePath(key)); } catch { /* đã xoá */ }
+  await kho().xoa(key);
 }
 
 /**
@@ -44,8 +30,11 @@ export async function deleteObject(key: string) {
  * hoặc thay bản mới: gói SCORM là hàng trăm tệp, xoá từng tệp thì phải liệt kê lại cả gói.
  */
 export async function deletePrefix(prefix: string) {
-  try { await rm(/* turbopackIgnore: true */ safePath(prefix), { recursive: true, force: true }); } catch { /* đã xoá */ }
+  await kho().xoaTheoTienTo(prefix);
 }
+
+/** Kho tệp đang dùng — trang Vận hành hiển thị, không trả khoá bí mật */
+export { moTaKho, thieuBienS3 } from "./kho";
 
 function sign(key: string, exp: number) {
   return createHmac("sha256", SECRET()).update(`${key}|${exp}`).digest("base64url");
