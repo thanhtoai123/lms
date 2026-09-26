@@ -34,7 +34,13 @@ function maHoaDuongDan(p: string): string {
 
 export interface YeuCauDaKy {
   url: string;
-  headers: Record<string, string>;
+  /** Bốn header dưới luôn có mặt; `content-type` chỉ có khi truyền vào */
+  headers: Record<string, string> & {
+    authorization: string;
+    host: string;
+    "x-amz-content-sha256": string;
+    "x-amz-date": string;
+  };
 }
 
 /**
@@ -87,11 +93,14 @@ export function kyYeuCau(
   const kSigning = hmac(kService, "aws4_request");
   const signature = createHmac("sha256", kSigning).update(stringToSign).digest("hex");
 
-  headers.authorization =
-    `AWS4-HMAC-SHA256 Credential=${cfg.accessKeyId}/${scope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
-
   return {
     url: `${url.protocol}//${host}${duongDan}${canonicalQuery ? `?${canonicalQuery}` : ""}`,
-    headers,
+    headers: {
+      ...headers,
+      host,
+      "x-amz-content-sha256": payloadHash,
+      "x-amz-date": amz,
+      authorization: `AWS4-HMAC-SHA256 Credential=${cfg.accessKeyId}/${scope}, SignedHeaders=${signedHeaders}, Signature=${signature}`,
+    },
   };
 }
