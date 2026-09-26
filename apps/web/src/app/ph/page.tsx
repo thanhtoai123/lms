@@ -79,7 +79,7 @@ export default async function ParentOverview({ searchParams }: { searchParams: P
 
                   <dl className="mt-3 grid grid-cols-3 gap-2 text-center">
                     {k.tomTat.o.map((x) => (
-                      <div key={x.khoa} className="rounded-xl border border-border px-2 py-2">
+                      <div key={x.khoa} className="min-w-0 rounded-xl border border-border px-2 py-2">
                         <dd className={`truncate text-[15px] font-extrabold ${MUC_STYLE[x.muc]}`}>{x.giaTri}</dd>
                         <dt className="text-[12px] text-ink-600">{x.nhan}</dt>
                       </div>
@@ -87,11 +87,11 @@ export default async function ParentOverview({ searchParams }: { searchParams: P
                   </dl>
 
                   <div className="mt-3 grid grid-cols-2 gap-2">
-                    <Link href={`/ph/be/${k.id}`} className="btn-ghost min-h-11 text-[14px]">Hồ sơ của con</Link>
+                    <Link href={`/ph/be/${k.id}`} className="btn-ghost min-h-11 min-w-0 truncate text-[14px]">Hồ sơ của con</Link>
                     {dangXem ? (
-                      <Link href={`/ph/lich?con=${k.id}`} className="btn-primary min-h-11 text-[14px]">Lịch học</Link>
+                      <Link href={`/ph/lich?con=${k.id}`} className="btn-primary min-h-11 min-w-0 truncate text-[14px]">Lịch học</Link>
                     ) : (
-                      <Link href={`/ph?con=${k.id}`} className="btn-primary min-h-11 text-[14px]">Xem buổi tới</Link>
+                      <Link href={`/ph?con=${k.id}`} className="btn-primary min-h-11 min-w-0 truncate text-[14px]">Xem buổi tới</Link>
                     )}
                   </div>
                 </li>

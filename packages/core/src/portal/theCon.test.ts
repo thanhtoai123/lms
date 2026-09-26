@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { tomTatCon, tienVi, NGUONG_CHUYEN_CAN, type TinHieuCon } from "./theCon.js";
+import { tomTatCon, tienVi, tienGon, NGUONG_CHUYEN_CAN, type TinHieuCon } from "./theCon.js";
 
 const goc: TinHieuCon = { buoiDaHoc: 0, buoiTong: 0, chuyenCanTong: 0, chuyenCanCoMat: 0, baiCho: 0, hocPhiConLai: 0 };
 const o = (t: ReturnType<typeof tomTatCon>, khoa: "chuyen_can" | "bai_cho" | "hoc_phi") => t.o.find((x) => x.khoa === khoa)!;
@@ -40,7 +40,8 @@ describe("thẻ tóm tắt một con", () => {
     assert.equal(o(tomTatCon(goc), "hoc_phi").giaTri, "Đủ");
     assert.equal(o(tomTatCon(goc), "hoc_phi").muc, "ok");
     const no = tomTatCon({ ...goc, hocPhiConLai: 4_200_000 });
-    assert.equal(o(no, "hoc_phi").giaTri, "4.200.000đ");
+    // Ô chỉ số hẹp nên dùng số rút gọn, số đầy đủ nằm ở màn Học phí
+    assert.equal(o(no, "hoc_phi").giaTri, "4,2tr");
     assert.equal(o(no, "hoc_phi").muc, "can_chu_y");
   });
 
@@ -65,5 +66,16 @@ describe("thẻ tóm tắt một con", () => {
   it("tiền hiển thị theo kiểu Việt Nam", () => {
     assert.equal(tienVi(1_000_000), "1.000.000đ");
     assert.equal(tienVi(0), "0đ");
+  });
+
+  it("tiền rút gọn cho ô hẹp: k, tr, không để lẻ .0", () => {
+    assert.equal(tienGon(0), "0đ");
+    assert.equal(tienGon(900), "900đ");
+    assert.equal(tienGon(990_500), "991k");
+    assert.equal(tienGon(1_000_000), "1tr");
+    assert.equal(tienGon(4_200_000), "4,2tr");
+    assert.equal(tienGon(26_400_000), "26,4tr");
+    assert.equal(tienGon(120_000_000), "120tr");
+    assert.equal(tienGon(-5), "0đ");
   });
 });

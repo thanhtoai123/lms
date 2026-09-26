@@ -46,9 +46,24 @@ export interface TomTatCon {
 /** Dưới mốc này thì chuyên cần được coi là cần chú ý */
 export const NGUONG_CHUYEN_CAN = 80;
 
-/** Tiền Việt gọn cho thẻ: 4.200.000đ */
+/** Tiền Việt đầy đủ: 4.200.000đ */
 export function tienVi(n: number): string {
   return `${Math.round(n).toLocaleString("vi-VN")}đ`;
+}
+
+/**
+ * Tiền rút gọn cho ô chỉ số hẹp trên điện thoại: `4,2tr`, `990k`, `900đ`.
+ * Ô chỉ số chỉ rộng chừng một phần ba thẻ — in đủ "4.200.000đ" thì hoặc tràn, hoặc bị cắt
+ * thành "4.200..." (tệ hơn hẳn). Số đầy đủ vẫn nằm ở màn Học phí.
+ */
+export function tienGon(n: number): string {
+  const v = Math.round(Math.max(0, n));
+  if (v < 1_000) return `${v}đ`;
+  if (v < 1_000_000) return `${Math.round(v / 1_000)}k`;
+  const tr = v / 1_000_000;
+  // Một chữ số thập phân, dùng dấu phẩy như cách viết ở Việt Nam
+  const s = tr >= 100 ? String(Math.round(tr)) : (Math.round(tr * 10) / 10).toFixed(1).replace(/\.0$/, "").replace(".", ",");
+  return `${s}tr`;
 }
 
 /**
@@ -92,7 +107,7 @@ export function tomTatCon(t: TinHieuCon): TomTatCon {
       {
         khoa: "hoc_phi",
         nhan: "Học phí",
-        giaTri: no === 0 ? "Đủ" : tienVi(no),
+        giaTri: no === 0 ? "Đủ" : tienGon(no),
         muc: no === 0 ? "ok" : "can_chu_y",
       },
     ],
