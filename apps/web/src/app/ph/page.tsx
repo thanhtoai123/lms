@@ -58,8 +58,10 @@ export default async function ParentOverview({ searchParams }: { searchParams: P
                       {ten.slice(0, 1).toUpperCase()}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-[17px] font-extrabold">{k.fullName}</div>
-                      <div className="truncate text-[13px] text-ink-600">
+                      {/* line-clamp thay cho truncate: `truncate` đặt white-space:nowrap nên chiều rộng
+                          tối thiểu của thẻ bằng cả dòng chữ — trên điện thoại là tràn ngang cả trang. */}
+                      <div className="line-clamp-1 text-[17px] font-extrabold">{k.fullName}</div>
+                      <div className="line-clamp-1 text-[13px] text-ink-600">
                         {k.lop ? `${k.lop.courseName ?? k.lop.className} · ${k.lop.classCode}${k.lop.trial ? " · học thử" : ""}` : "Chưa xếp lớp"}
                       </div>
                     </div>
@@ -80,18 +82,18 @@ export default async function ParentOverview({ searchParams }: { searchParams: P
                   <dl className="mt-3 grid grid-cols-3 gap-2 text-center">
                     {k.tomTat.o.map((x) => (
                       <div key={x.khoa} className="min-w-0 rounded-xl border border-border px-2 py-2">
-                        <dd className={`truncate text-[15px] font-extrabold ${MUC_STYLE[x.muc]}`}>{x.giaTri}</dd>
+                        <dd className={`line-clamp-1 text-[15px] font-extrabold ${MUC_STYLE[x.muc]}`}>{x.giaTri}</dd>
                         <dt className="text-[12px] text-ink-600">{x.nhan}</dt>
                       </div>
                     ))}
                   </dl>
 
                   <div className="mt-3 grid grid-cols-2 gap-2">
-                    <Link href={`/ph/be/${k.id}`} className="btn-ghost min-h-11 min-w-0 truncate text-[14px]">Hồ sơ của con</Link>
+                    <Link href={`/ph/be/${k.id}`} className="btn-ghost min-h-11 min-w-0 text-[14px]">Hồ sơ của con</Link>
                     {dangXem ? (
-                      <Link href={`/ph/lich?con=${k.id}`} className="btn-primary min-h-11 min-w-0 truncate text-[14px]">Lịch học</Link>
+                      <Link href={`/ph/lich?con=${k.id}`} className="btn-primary min-h-11 min-w-0 text-[14px]">Lịch học</Link>
                     ) : (
-                      <Link href={`/ph?con=${k.id}`} className="btn-primary min-h-11 min-w-0 truncate text-[14px]">Xem buổi tới</Link>
+                      <Link href={`/ph?con=${k.id}`} className="btn-primary min-h-11 min-w-0 text-[14px]">Xem buổi tới</Link>
                     )}
                   </div>
                 </li>
