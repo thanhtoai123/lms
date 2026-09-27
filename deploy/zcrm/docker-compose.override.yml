@@ -7,6 +7,11 @@
 #
 # Khi chạy thật với kho đối tượng (R2/S3): đặt STORAGE_DRIVER=r2|s3 trong .env của ZCRM và bỏ tệp này.
 services:
+  # Build bằng mạng của máy chủ Docker: trên Docker Desktop (Windows) mạng build riêng hay mất DNS
+  # ("DNS: no address for host" khi apk/npm tải gói) dù Docker vẫn kéo ảnh bình thường.
+  app:
+    build:
+      network: host
   minio:
     image: alpine:3.20
     entrypoint: ["sh", "-c", "sleep infinity"]
