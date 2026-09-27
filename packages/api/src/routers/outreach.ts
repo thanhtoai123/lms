@@ -77,6 +77,8 @@ export const messagingRouter = router({
     }))
     .mutation(({ ctx, input }) => CA.luuTaiKhoanKenh(ctx, input)),
   removeChannelAccount: protectedProcedure.input(z.object({ id: uuid })).mutation(({ ctx, input }) => CA.xoaTaiKhoanKenh(ctx, input)),
+  /** Đồng bộ lịch hẹn ZCRM ngay (worker vẫn tự chạy mỗi 15 phút) */
+  syncZcrmAppointments: protectedProcedure.mutation(({ ctx }) => CA.dongBoLichHenNgay(ctx)),
   savePilot: protectedProcedure.input(z.object({ classIds: z.array(uuid).max(50), startDate: isoDate.nullable(), note: s(500) })).mutation(({ ctx, input }) => M.savePilot(ctx, input)),
 });
 

@@ -33,6 +33,10 @@ export function KenhCaNhanCard({ nicks, goc, canEdit }: { nicks: NickKhaiBao[]; 
     onSuccess: () => { setMsg({ ok: true, text: "Đã lưu. Dán đường webhook bên dưới vào phần Cài đặt → Webhook của công cụ." }); setF(RONG); setMo(false); router.refresh(); },
     onError: (e) => setMsg({ ok: false, text: e.message }),
   }));
+  const dongBo = useMutation(trpc.messaging.syncZcrmAppointments.mutationOptions({
+    onSuccess: (r) => setMsg({ ok: true, text: `Đã đồng bộ ${r.nhan} lịch hẹn · bỏ qua ${r.boQua} (khách chưa có hồ sơ trong hệ thống — không tự tạo lead).` }),
+    onError: (e) => setMsg({ ok: false, text: e.message }),
+  }));
   const tat = useMutation(trpc.messaging.removeChannelAccount.mutationOptions({
     onSuccess: () => { setMsg({ ok: true, text: "Đã ngắt nick khỏi hệ thống (hội thoại cũ vẫn giữ)." }); router.refresh(); },
     onError: (e) => setMsg({ ok: false, text: e.message }),
@@ -87,6 +91,11 @@ export function KenhCaNhanCard({ nicks, goc, canEdit }: { nicks: NickKhaiBao[]; 
           <button type="button" className="btn-ghost !px-2 !py-1 text-xs" onClick={() => { setMo((v) => !v); if (mo) setF(RONG); }}>
             {mo ? "Đóng" : f.id ? "Sửa nick" : "Thêm nick Zalo"}
           </button>
+          {nicks.some((n) => n.apiKeySet && n.baseUrl) && (
+            <button type="button" className="btn-ghost ml-2 !px-2 !py-1 text-xs" disabled={dongBo.isPending} onClick={() => dongBo.mutate()}>
+              {dongBo.isPending ? "Đang đồng bộ…" : "Đồng bộ lịch hẹn ngay"}
+            </button>
+          )}
         </div>
       )}
 

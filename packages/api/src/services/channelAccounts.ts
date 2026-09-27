@@ -464,3 +464,11 @@ export async function dongBoLichHenZcrm(db: Database, now: Date = new Date()): P
   }
   return { nhan, boQua };
 }
+
+/** Nút "Đồng bộ lịch hẹn ngay" ở Tích hợp — chỉ quản trị hệ thống */
+export async function dongBoLichHenNgay(ctx: ProtectedContext) {
+  if (!authorizeGlobal(ctx.actor, "system:configure")) throw forbid("Chỉ quản trị hệ thống được đồng bộ");
+  const r = await dongBoLichHenZcrm(ctx.db as unknown as Database);
+  await writeAudit(ctx.db, { actorId: ctx.user.id, action: "UPDATE", module: "message", entity: "appointments", entityId: null, after: r, reason: "Đồng bộ lịch hẹn từ Zalo CRM", ip: ctx.ip });
+  return r;
+}
