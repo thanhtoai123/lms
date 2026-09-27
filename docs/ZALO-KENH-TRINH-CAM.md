@@ -270,6 +270,30 @@ coi phiên đăng nhập ZCRM trong khung là "bên thứ ba" và có thể bắ
 phát gói SCORM cùng miền). Không làm proxy ZCRM qua chính LMS — như thế ZCRM chạy cùng miền quản trị,
 và Socket.IO của ZCRM cũng không đi qua được route của Next.js.
 
+### 8.6 Cài ZCRM cạnh hệ thống (một lệnh)
+
+```
+powershell -ExecutionPolicy Bypass -File scripts\zcrm\cai-dat-zcrm.ps1
+```
+
+1. Tải mã ZCRM về `%USERPROFILE%\zcrm` — **ngoài** kho mã LMS (AGPL-3.0: chạy riêng, nói chuyện qua API).
+2. Chép `deploy/zcrm/docker-compose.override.yml` vào đó: ZCRM mặc định lưu tệp trên đĩa nên **bỏ MinIO**
+   (ảnh `minio/minio`, `minio/mc` đã ngừng phát hành công khai — kéo về báo *pull access denied*), và build
+   bằng mạng host (mạng build riêng của Docker Desktop hay mất DNS).
+3. Chạy bộ cài chính thức của ZCRM (`scripts/zalocrm-deploy.sh`): sinh `.env` + bí mật ngẫu nhiên, tự né cổng
+   trùng với LMS (Postgres 5434, Redis 6380), build, migrate. `APP_URL` đặt là địa chỉ **qua khung nhúng**.
+4. Dựng proxy khung nhúng Caddy (`deploy/zcrm/Caddyfile`) ở cổng **3081** → ZCRM 3080, bỏ `X-Frame-Options`,
+   chỉ cho trang quản trị nhúng.
+5. Ghi `ZCRM_ORIGINS=http://localhost:3081` vào `.env` của LMS.
+
+**Việc cần người** (mật khẩu, QR, khoá API không bao giờ để máy tự điền):
+tạo tổ chức + tài khoản chủ ở `http://localhost:3081/setup` → thêm nick Zalo, quét QR → *Cài đặt → API &
+Webhook → Tạo API key* → dán vào LMS *Tích hợp → Zalo cá nhân* (địa chỉ API `http://localhost:3081`).
+
+**Không có tên miền công khai?** ZCRM chỉ bắn webhook tới https công khai, nên máy nội bộ không nhận được
+webhook. Worker của LMS **tự kéo tin qua API mỗi phút** (`keoTinZcrm`) — cùng bộ xử lý, chống trùng theo mã
+tin; chạy thật có tên miền thì webhook về tức thì, kéo tin vẫn là lưới an toàn.
+
 ## 9. Nguồn
 
 - ZCRM v3.4 (mã nguồn mở, `zca-js`, AGPL-3.0, REST API + webhook, hạn mức ~200 tin/ngày, cảnh báo ToS):
