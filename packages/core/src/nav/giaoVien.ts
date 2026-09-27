@@ -50,6 +50,7 @@ export interface BuoiGon { id: string; date: string; startTime: string; endTime:
 
 export type BuoiNoiBat<T extends BuoiGon> =
   | { kind: "dang-day"; session: T; minutesLeft: number }
+  | { kind: "can-chot"; session: T; minutesAgo: number }
   | { kind: "sap-toi"; session: T; minutesUntil: number | null };
 
 /** "09:45" | "09:45:00" → 585 */
@@ -65,6 +66,8 @@ const XONG = new Set(["completed", "notes_done"]);
  * Buổi cần đưa lên đầu trang "Hôm nay":
  * - ĐANG DẠY: buổi hôm nay đã bấm "Bắt đầu" (in_progress), hoặc đang trong khung giờ mà chưa hoàn tất;
  *   `minutesLeft` âm = đã quá giờ kết thúc mà chưa chốt.
+ * - SẮP TỚI trong 60 phút tới (hôm nay) — ưu tiên chuẩn bị.
+ * - CẦN CHỐT: buổi hôm nay đã hết giờ mà chưa hoàn tất (quên điểm danh / nhận xét) — `minutesAgo` từ lúc kết thúc.
  * - SẮP TỚI: buổi sớm nhất chưa bắt đầu — còn trong hôm nay (`minutesUntil` = số phút) hoặc ngày sau (`null`).
  * `today` (YYYY-MM-DD) và `nowMin` (phút trong ngày) theo giờ Việt Nam do nơi gọi truyền vào — hàm thuần, dễ kiểm thử.
  */
@@ -75,8 +78,12 @@ export function buoiNoiBat<T extends BuoiGon>(list: readonly T[], today: string,
     ?? homNay.find((s) => !XONG.has(s.status) && phutTrongNgay(s.startTime) <= nowMin && nowMin < phutTrongNgay(s.endTime));
   if (dang) return { kind: "dang-day", session: dang, minutesLeft: phutTrongNgay(dang.endTime) - nowMin };
   const next = sorted.find((s) => s.status === "scheduled" && (s.date > today || (s.date === today && phutTrongNgay(s.startTime) > nowMin)));
+  const nextUntil = next && next.date === today ? phutTrongNgay(next.startTime) - nowMin : null;
+  if (next && nextUntil !== null && nextUntil <= 60) return { kind: "sap-toi", session: next, minutesUntil: nextUntil };
+  const chot = [...homNay].reverse().find((s) => !XONG.has(s.status) && phutTrongNgay(s.endTime) <= nowMin);
+  if (chot) return { kind: "can-chot", session: chot, minutesAgo: nowMin - phutTrongNgay(chot.endTime) };
   if (!next) return null;
-  return { kind: "sap-toi", session: next, minutesUntil: next.date === today ? phutTrongNgay(next.startTime) - nowMin : null };
+  return { kind: "sap-toi", session: next, minutesUntil: nextUntil };
 }
 
 /** "còn 1 giờ 5 phút" / "còn 40 phút" */

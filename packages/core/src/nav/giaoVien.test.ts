@@ -53,7 +53,8 @@ test("buoiNoiBat: chưa tới giờ → sắp tới, đếm phút; ngày sau →
   const r = buoiNoiBat(list, "2026-09-27", phutTrongNgay("17:00"));
   assert.equal(r?.kind === "sap-toi" && r.session.id, "a");
   assert.equal(r?.kind === "sap-toi" && r.minutesUntil, 60);
-  const r2 = buoiNoiBat(list, "2026-09-27", phutTrongNgay("20:00"));
+  const done = [B("a", "2026-09-27", "18:00", "19:30", "completed"), list[1]!];
+  const r2 = buoiNoiBat(done, "2026-09-27", phutTrongNgay("20:00"));
   assert.equal(r2?.kind === "sap-toi" && r2.session.id, "b");
   assert.equal(r2?.kind === "sap-toi" && r2.minutesUntil, null);
 });
@@ -74,4 +75,16 @@ test("thoiLuongVi, dauTuan", () => {
 
 test("gioVietNam: 17:30 UTC = 00:30 hôm sau ở Việt Nam", () => {
   assert.deepEqual(gioVietNam(new Date("2026-09-27T17:30:00Z")), { today: "2026-09-28", nowMin: 30 });
+});
+
+test("buoiNoiBat: buổi hôm nay hết giờ chưa chốt → cần chốt; nhưng buổi sắp dạy trong 60 phút được ưu tiên", () => {
+  const xong = B("a", "2026-09-27", "09:45", "11:15");
+  const chieu = B("b", "2026-09-27", "18:00", "19:30");
+  const r = buoiNoiBat([xong, chieu], "2026-09-27", phutTrongNgay("16:00"));
+  assert.equal(r?.kind, "can-chot");
+  assert.equal(r?.kind === "can-chot" && r.minutesAgo, 285);
+  const r2 = buoiNoiBat([xong, chieu], "2026-09-27", phutTrongNgay("17:15"));
+  assert.equal(r2?.kind === "sap-toi" && r2.session.id, "b");
+  const r3 = buoiNoiBat([B("a", "2026-09-27", "09:45", "11:15", "completed")], "2026-09-27", phutTrongNgay("16:00"));
+  assert.equal(r3, null);
 });

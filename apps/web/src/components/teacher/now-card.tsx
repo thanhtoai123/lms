@@ -38,18 +38,21 @@ export function NowCard({ rows, initial }: { rows: NowRow[]; initial: { today: s
   }
   const s = hit.session;
   const dang = hit.kind === "dang-day";
+  const chot = hit.kind === "can-chot";
   const plan = planHref(s);
-  const tieuDe = dang
+  const tieuDe = hit.kind === "dang-day"
     ? hit.minutesLeft >= 0 ? `Đang dạy · còn ${thoiLuongVi(hit.minutesLeft)}` : `Đang dạy · quá giờ ${thoiLuongVi(-hit.minutesLeft)}`
-    : hit.minutesUntil !== null
+    : hit.kind === "can-chot"
+      ? `Buổi hôm nay chưa chốt · kết thúc ${thoiLuongVi(hit.minutesAgo)} trước`
+      : hit.minutesUntil !== null
       ? hit.minutesUntil <= 60 ? `Sắp dạy · bắt đầu sau ${thoiLuongVi(hit.minutesUntil)}` : `Buổi tiếp theo · hôm nay ${s.startTime.slice(0, 5)}`
       : `Buổi tiếp theo · ${WEEKDAY_VI[weekdayOf(s.date)]} ${fmtDate(s.date)}`;
 
   return (
-    <section aria-label={dang ? "Buổi đang dạy" : "Buổi dạy tiếp theo"}
-      className={`overflow-hidden rounded-2xl border ${dang ? "border-brand-500/40 bg-brand-50" : "border-black/10 bg-card"} shadow-sm`}>
+    <section aria-label={dang ? "Buổi đang dạy" : chot ? "Buổi cần chốt" : "Buổi dạy tiếp theo"}
+      className={`overflow-hidden rounded-2xl border ${dang ? "border-brand-500/40 bg-brand-50" : chot ? "border-amber-300 bg-amber-50" : "border-black/10 bg-card"} shadow-sm`}>
       <div className="p-4 md:p-5">
-        <div className={`flex items-center gap-2 text-[13px] font-bold uppercase tracking-wide ${dang ? "text-brand-700" : "text-ink-600"}`}>
+        <div className={`flex items-center gap-2 text-[13px] font-bold uppercase tracking-wide ${dang ? "text-brand-700" : chot ? "text-amber-900" : "text-ink-600"}`}>
           {dang && <Radio className="h-4 w-4 animate-pulse" aria-hidden />}{tieuDe}
         </div>
         <h2 className="mt-1 text-[19px] font-extrabold leading-tight md:text-[22px]">{s.className}</h2>
@@ -64,7 +67,7 @@ export function NowCard({ rows, initial }: { rows: NowRow[]; initial: { today: s
         ) : (
           <span className="flex min-h-12 items-center justify-center rounded-xl border-2 border-dashed border-black/10 px-3 text-center text-[14px] text-ink-600">Buổi này chưa có giáo án</span>
         )}
-        <Link href={`/teacher/sessions/${s.id}`} className={`${dang ? "btn-primary" : "btn-ghost"} min-h-12 text-[15px]`}><ClipboardCheck className="h-5 w-5" aria-hidden />{dang ? "Điểm danh & nhận xét" : "Mở buổi dạy"}</Link>
+        <Link href={`/teacher/sessions/${s.id}`} className={`${dang || chot ? "btn-primary" : "btn-ghost"} min-h-12 text-[15px]`}><ClipboardCheck className="h-5 w-5" aria-hidden />{dang || chot ? "Điểm danh & nhận xét" : "Mở buổi dạy"}</Link>
         <Link href={`/teacher/sessions/${s.id}/chuan-bi`} className="btn-ghost min-h-12 text-[15px]"><BookOpen className="h-5 w-5" aria-hidden />Chuẩn bị buổi dạy</Link>
       </div>
     </section>

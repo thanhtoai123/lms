@@ -46,7 +46,7 @@ export default async function TeacherPlanView({ params, searchParams }: { params
         <h1 className="text-lg font-bold leading-tight md:text-xl">Buổi {d.lesson.sequenceNo} — {d.lesson.title}</h1>
         {d.plan && (
           <p className="text-[13px] text-ink-600">
-            {d.plan.kindLabel}{d.plan.kind === "scorm" ? ` ${d.plan.scormVersion ?? "1.2"}` : ""} · v{d.plan.version} · {d.lesson.curriculumName} · rê chuột vào khung → nút <b>Trình chiếu</b> để chiếu toàn màn hình
+            {d.plan.kindLabel}{d.plan.kind === "scorm" ? ` ${d.plan.scormVersion ?? "1.2"}` : ""} · v{d.plan.version} · {d.lesson.curriculumName} · nút <b>Trình chiếu</b> ở góc khung (phím F) để chiếu toàn màn hình
           </p>
         )}
       </header>

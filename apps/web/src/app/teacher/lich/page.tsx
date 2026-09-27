@@ -63,7 +63,7 @@ export default async function TeacherSchedule({ searchParams }: { searchParams: 
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-lg font-bold md:text-xl">Lịch dạy</h1>
-          <p className="text-[14px] text-ink-600">{active.length} buổi · {Math.round((phut / 60) * 10) / 10} giờ dạy{thisWeek && active.length ? ` · còn ${conLai} buổi tuần này` : ""}</p>
+          <p className="text-[14px] text-ink-600">{active.length} buổi · {Math.round((phut / 60) * 10) / 10} giờ dạy{thisWeek && conLai > 0 ? ` · còn ${conLai} buổi tuần này` : ""}</p>
         </div>
         <nav aria-label="Chọn tuần" className="flex items-center gap-1">
           <Link href={q(addDays(start, -7))} className="btn-ghost !min-h-11 !px-3" aria-label="Tuần trước"><ChevronLeft className="h-5 w-5" aria-hidden /></Link>
@@ -72,6 +72,12 @@ export default async function TeacherSchedule({ searchParams }: { searchParams: 
           {!thisWeek && <Link href="/teacher/lich" className="btn-ghost !min-h-11 !px-3 text-[14px]">Tuần này</Link>}
         </nav>
       </header>
+
+      {thisWeek && conLai === 0 && (
+        <Link href={q(addDays(start, 7))} className="flex min-h-12 items-center justify-between gap-2 rounded-xl border border-brand-200 bg-brand-50 px-4 text-[15px] font-semibold text-brand-700">
+          Tuần này không còn buổi dạy nào — xem lịch tuần sau<ChevronRight className="h-5 w-5 shrink-0" aria-hidden />
+        </Link>
+      )}
 
       {/* Máy tính: 7 cột */}
       <div className="hidden gap-2 lg:grid lg:grid-cols-7">
