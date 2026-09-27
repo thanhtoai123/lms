@@ -1,41 +1,12 @@
 import Link from "next/link";
-import { BookOpen, ChevronRight, Clock, MessageCircle, UsersRound } from "lucide-react";
+import { MessageCircle } from "lucide-react";
 import { getServerCaller } from "@/lib/trpc/server";
-import { StatusChip, fmtTime, fmtDate, Empty, WEEKDAY_VI } from "@/components/ui";
-import { weekdayOf, fmtDeadlineVi } from "@satarobo/core";
+import { fmtDate, Empty, WEEKDAY_VI } from "@/components/ui";
+import { SessionCard } from "@/components/teacher/session-card";
+import { NowCard } from "@/components/teacher/now-card";
+import { weekdayOf, fmtDeadlineVi, gioVietNam } from "@satarobo/core";
 
 export const dynamic = "force-dynamic";
-
-type Row = Awaited<ReturnType<Awaited<ReturnType<typeof getServerCaller>>["caller"]["teacher"]["today"]>>["todays"][number];
-
-/** Thẻ buổi dạy: chạm vào thân thẻ mở màn buổi dạy; nút "Chuẩn bị" mở màn chuẩn bị (buổi hôm nay / sắp tới) */
-function SessionCard({ s, highlight, prep }: { s: Row; highlight?: boolean; prep?: boolean }) {
-  return (
-    <div className={`card overflow-hidden ${highlight ? "border-brand-500/40 ring-2 ring-brand-100" : ""}`}>
-      <Link href={`/teacher/sessions/${s.id}`} className="block p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex items-center gap-1 text-[13px] text-ink-600"><Clock className="h-3.5 w-3.5" aria-hidden />{WEEKDAY_VI[weekdayOf(s.date)]} {fmtDate(s.date)} · {fmtTime(s.startTime)}–{fmtTime(s.endTime)} · {s.roomCode ?? "—"}</div>
-            <div className="truncate font-semibold">{s.className}</div>
-            <div className="truncate text-[14px] text-ink-600">{s.label}{s.topic ? ` · ${s.topic}` : ""}</div>
-          </div>
-          <StatusChip status={s.status} />
-        </div>
-        <div className="mt-3 flex items-center justify-between text-[13px] text-ink-600">
-          <span className="inline-flex items-center gap-1"><UsersRound className="h-4 w-4" aria-hidden />Sĩ số {s.enrolled} · {s.attended}/{s.enrolled} đã điểm danh</span>
-          {s.isOverdue && <span className="chip bg-red-100 text-red-700">Quá hạn</span>}
-          {s.nextStep && !s.isOverdue && <span className="font-semibold text-brand-600">{s.nextStep === "submit_attendance" ? "Điểm danh →" : s.nextStep === "submit_notes" ? "Nhận xét →" : "Hoàn tất →"}</span>}
-        </div>
-      </Link>
-      {prep && (
-        <Link href={`/teacher/sessions/${s.id}/chuan-bi`} className="flex min-h-11 items-center justify-between gap-2 border-t border-black/5 bg-brand-50/60 px-4 text-[14px] font-semibold text-primary">
-          <span className="inline-flex items-center gap-2"><BookOpen className="h-4 w-4" aria-hidden />Chuẩn bị buổi dạy: bài, tiêu chí, HV cần lưu ý</span>
-          <ChevronRight className="h-4 w-4" aria-hidden />
-        </Link>
-      )}
-    </div>
-  );
-}
 
 export default async function TeacherToday() {
   const { caller } = await getServerCaller();
@@ -61,9 +32,12 @@ export default async function TeacherToday() {
           <p className="text-ink-600">{WEEKDAY_VI[weekdayOf(data.today)]}, {fmtDate(data.today)}</p>
         </div>
         <div className="mt-1 flex flex-wrap gap-x-4">
+          <Link href="/teacher/lich" className="inline-flex min-h-11 items-center text-[14px] font-semibold text-brand-600">Lịch dạy cả tuần →</Link>
           <Link href="/huong-dan" className="inline-flex min-h-11 items-center text-[14px] text-brand-600">Hướng dẫn sử dụng →</Link>
         </div>
       </section>
+
+      <NowCard rows={[...data.todays, ...data.upcoming]} initial={gioVietNam()} />
 
       {/* Điện thoại: một cột theo thứ tự việc gấp (order-*). Màn rộng: trái = buổi dạy, phải = phiếu + phản hồi */}
       <div className={`flex flex-col gap-6 ${hasSide ? "lg:grid lg:grid-cols-3 lg:items-start" : ""}`}>
@@ -79,12 +53,12 @@ export default async function TeacherToday() {
 
       <section className="order-3 space-y-2">
         <h2 className="text-[15px] font-bold">Hôm nay</h2>
-        {data.todays.length === 0 ? <Empty>Hôm nay bạn không có buổi dạy.</Empty> : <div className="grid grid-cols-1 gap-3 md:grid-cols-2">{data.todays.map((s) => <SessionCard key={s.id} s={s} prep={s.status === "scheduled" || s.status === "in_progress"} />)}</div>}
+        {data.todays.length === 0 ? <Empty>Hôm nay bạn không có buổi dạy.</Empty> : <div className="grid grid-cols-1 gap-3 md:grid-cols-2">{data.todays.map((s) => <SessionCard key={s.id} s={s} showDate={false} />)}</div>}
       </section>
 
       <section className="order-5 space-y-2">
         <h2 className="text-[15px] font-bold text-ink-600">7 ngày tới</h2>
-        {data.upcoming.length === 0 ? <Empty>Chưa có lịch.</Empty> : <div className="grid grid-cols-1 gap-3 md:grid-cols-2">{data.upcoming.map((s) => <SessionCard key={s.id} s={s} prep />)}</div>}
+        {data.upcoming.length === 0 ? <Empty>Chưa có lịch.</Empty> : <div className="grid grid-cols-1 gap-3 md:grid-cols-2">{data.upcoming.map((s) => <SessionCard key={s.id} s={s} />)}</div>}
       </section>
       </div>
       <div className="contents lg:block lg:space-y-6">

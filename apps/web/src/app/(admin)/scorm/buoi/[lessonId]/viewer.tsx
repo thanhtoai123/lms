@@ -158,7 +158,7 @@ export function PlanViewer({ kind, documentId, lessonId, streamPath, watermark, 
       ref={box}
       onKeyDown={(e) => { if (e.key.toLowerCase() === "f" && !e.ctrlKey && !e.metaKey) void toggle(); }}
       tabIndex={-1}
-      className={`bao-ve-hoc-lieu group relative select-none overflow-hidden rounded-xl border border-black/10 bg-neutral-100 ${full ? "h-screen w-screen rounded-none" : "h-[calc(100vh-11rem)] min-h-[440px] w-full"}`}
+      className={`bao-ve-hoc-lieu group relative select-none overflow-hidden rounded-xl border border-black/10 bg-neutral-100 ${full ? "h-screen w-screen rounded-none" : "h-[calc(100dvh-11rem)] min-h-[440px] w-full"}`}
     >
       <div className="h-full w-full">
         {kind === "scorm" ? (
@@ -188,11 +188,12 @@ export function PlanViewer({ kind, documentId, lessonId, streamPath, watermark, 
         </div>
       )}
 
-      {/* Nút trình chiếu: nổi trong góc, mờ đi khi không rê chuột — không chiếm một thanh ngang */}
+      {/* Nút trình chiếu: nổi trong góc, mờ đi khi không rê chuột — không chiếm một thanh ngang.
+          Máy tính bảng / điện thoại (không có rê chuột) luôn thấy nút, mờ vừa phải. */}
       <button
         type="button"
         onClick={toggle}
-        className="absolute right-3 top-3 rounded-lg bg-black/55 px-3 py-1.5 text-xs font-semibold text-white opacity-0 backdrop-blur transition group-hover:opacity-100 focus:opacity-100"
+        className="absolute right-3 top-3 min-h-10 rounded-lg bg-black/55 px-3 py-2 text-xs font-semibold text-white opacity-0 backdrop-blur transition group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-70"
         title="Phím tắt: F"
       >
         {full ? "Thoát trình chiếu (Esc)" : "Trình chiếu toàn màn hình (F)"}

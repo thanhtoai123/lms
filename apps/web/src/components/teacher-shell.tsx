@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowLeftRight, BookOpen, CalendarCheck, ChevronDown, Clock, LayoutGrid, LogOut, ShieldCheck, UserRound, type LucideIcon } from "lucide-react";
+import { ArrowLeftRight, BookOpen, CalendarCheck, CalendarDays, ChevronDown, Clock, LayoutGrid, LogOut, ShieldCheck, UserRound, type LucideIcon } from "lucide-react";
 import { activeNavItem, TEACHER_PRIMARY, teacherTabOf, type TeacherTab } from "@satarobo/core";
 import type { NavGroup } from "@/lib/admin-nav";
 import { HubTabs } from "@/components/admin-shell";
@@ -14,16 +14,16 @@ import { ToastProvider } from "@/components/toast";
 
 type Me = { fullName: string; email: string; initials: string };
 
-const ICON: Record<TeacherTab, LucideIcon> = { today: CalendarCheck, classes: BookOpen, timesheet: Clock, more: LayoutGrid };
+const ICON: Record<TeacherTab, LucideIcon> = { today: CalendarCheck, schedule: CalendarDays, classes: BookOpen, timesheet: Clock, more: LayoutGrid };
 
 /**
  * KHUNG GIAO DIỆN GIÁO VIÊN — một khung cho MỌI trang giáo viên dùng, kể cả các trang nghiệp vụ
  * chung (chấm công, học bạ, bài tập, tài liệu, tin nhắn…): giáo viên không bị đẩy qua lại giữa
  * "app giáo viên" và "khu quản trị".
  *
- * 4 mục chính: Hôm nay · Lớp của tôi · Chấm công · Thêm (mọi chức năng khác theo quyền).
+ * 5 mục chính: Hôm nay · Lịch dạy · Lớp của tôi · Chấm công · Thêm (mọi chức năng khác theo quyền).
  * - Điện thoại (< 768px): thanh đáy kiểu ứng dụng.
- * - Máy tính bảng / máy tính: 4 mục nằm trên thanh đầu, bỏ thanh đáy, nội dung rộng tới 72rem.
+ * - Máy tính bảng / máy tính: 5 mục nằm trên thanh đầu, bỏ thanh đáy, nội dung rộng tới 72rem.
  */
 export function TeacherShell({ nav, me, canAdmin, idleMinutes = null, children }: { nav: NavGroup[]; me: Me; canAdmin: boolean; idleMinutes?: number | null; children: React.ReactNode }) {
   const pathname = usePathname() ?? "";
@@ -44,9 +44,9 @@ export function TeacherShell({ nav, me, canAdmin, idleMinutes = null, children }
                 const Icon = ICON[t.key];
                 const on = tab === t.key;
                 return (
-                  <Link key={t.key} href={t.href} aria-current={on ? "page" : undefined}
+                  <Link key={t.key} href={t.href} aria-current={on ? "page" : undefined} title={t.label}
                     className={`inline-flex min-h-10 items-center gap-2 rounded-lg px-3 text-[14px] font-semibold transition-colors ${on ? "bg-brand-50 text-brand-700" : "text-ink-600 hover:bg-black/[0.04] hover:text-foreground"}`}>
-                    <Icon className="h-[18px] w-[18px]" aria-hidden />{t.label}
+                    <Icon className="h-[18px] w-[18px]" aria-hidden /><span className="max-lg:sr-only">{t.label}</span>
                   </Link>
                 );
               })}
@@ -90,7 +90,7 @@ export function TeacherShell({ nav, me, canAdmin, idleMinutes = null, children }
           {children}
         </main>
         <nav aria-label="Điều hướng giáo viên" className="fixed inset-x-0 bottom-0 z-20 border-t border-black/5 bg-white/95 backdrop-blur md:hidden print:hidden" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
-          <div className="mx-auto grid max-w-lg grid-cols-4 text-center text-[12px] font-semibold">
+          <div className="mx-auto grid max-w-lg grid-cols-5 text-center text-[11px] font-semibold leading-tight">
             {TEACHER_PRIMARY.map((t) => {
               const Icon = ICON[t.key];
               const on = tab === t.key;

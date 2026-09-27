@@ -146,9 +146,12 @@ export function SessionWorkflow({ sessionId }: { sessionId: string }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <Link href="/teacher" className="inline-flex min-h-11 items-center text-sm text-ink-600">← Hôm nay</Link>
-        <Link href={`/teacher/sessions/${sessionId}/chuan-bi`} className="inline-flex min-h-11 items-center text-sm font-semibold text-brand-600">Chuẩn bị buổi dạy →</Link>
+        <div className="flex flex-wrap gap-2">
+          {s.lessonId && <Link href={`/teacher/giao-an/${s.lessonId}?buoi=${sessionId}`} className="btn-primary min-h-11">Mở giáo án</Link>}
+          <Link href={`/teacher/sessions/${sessionId}/chuan-bi`} className="btn-ghost min-h-11">Chuẩn bị</Link>
+        </div>
       </div>
 
       <header className="card p-4">

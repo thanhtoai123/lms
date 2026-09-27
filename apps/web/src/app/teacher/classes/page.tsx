@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ScrollText, TriangleAlert } from "lucide-react";
 import { getServerCaller } from "@/lib/trpc/server";
 import { Empty } from "@/components/ui";
+import { ClassTabs } from "@/components/teacher/class-tabs";
 
 export const dynamic = "force-dynamic";
 
@@ -12,9 +13,10 @@ export const dynamic = "force-dynamic";
 export default async function MyClasses() {
   const { caller } = await getServerCaller();
   const d = await caller.teacher.classInsights().catch(() => null);
-  if (!d || (d.classes.length === 0 && d.others.length === 0)) return <Empty>Bạn chưa được phân công lớp nào.</Empty>;
+  if (!d || (d.classes.length === 0 && d.others.length === 0)) return <div className="space-y-4"><ClassTabs active="lop" /><Empty>Bạn chưa được phân công lớp nào.</Empty></div>;
   return (
     <div className="space-y-4">
+      <ClassTabs active="lop" />
       <h1 className="text-lg font-bold md:text-xl">Lớp của tôi</h1>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-start">
       {d.classes.map((c) => (

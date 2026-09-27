@@ -355,7 +355,7 @@ export async function countSessions(ctx: ProtectedContext, input: SessionListInp
 export async function listSessions(ctx: ProtectedContext, input: SessionListInput) {
   const rows = await ctx.db
     .select({
-      id: sessions.id, classId: sessions.classId, classCode: classes.code, className: classes.name, centerId: classes.centerId, centerCode: centers.code,
+      id: sessions.id, classId: sessions.classId, lessonId: sessions.lessonId, classCode: classes.code, className: classes.name, centerId: classes.centerId, centerCode: centers.code,
       sequenceNo: sessions.sequenceNo, kind: sessions.kind, date: sessions.date, startTime: sessions.startTime, endTime: sessions.endTime, status: sessions.status, topic: sessions.topic,
       roomId: sessions.roomId, roomCode: rooms.code, teacherId: sessions.teacherId, teacherName: teachers.fullName, courseId: classes.courseId, capacity: classes.capacity,
       originalSequenceNo: sessions.originalSequenceNo, cancelReason: sessions.cancelReason, rescheduledFromDate: sessions.rescheduledFromDate,

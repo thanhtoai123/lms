@@ -199,7 +199,7 @@ export async function sessionPrep(ctx: ProtectedContext, sessionId: string) {
     // Giáo án CHÍNH của buổi (slide PDF hoặc gói SCORM) — mở thẳng khung chiếu, một chạm trước giờ dạy
     lessonPlan: (() => {
       const p = docs.find((x) => x.category === "lesson_plan" && x.lessonId && x.lessonId === s.session.lessonId);
-      return p ? { href: `/scorm/buoi/${s.session.lessonId}`, title: p.title, kindLabel: p.kind === "scorm" ? "SCORM" : "Slide PDF" } : null;
+      return p ? { href: `/teacher/giao-an/${s.session.lessonId}?buoi=${s.session.id}`, title: p.title, kindLabel: p.kind === "scorm" ? "SCORM" : "Slide PDF" } : null;
     })(),
     previous: prev ? { date: prev.date, label: sessionLabel(prev.seq, prev.kind as SessionKind, prev.originalSeq), note: prev.sessionNote, absent: prevAtt.filter((a) => ABSENT.includes(a.status)).length } : null,
     students: [...flagged, ...students_.filter((x) => !flagged.includes(x))],
@@ -266,4 +266,24 @@ export async function classInsights(ctx: ProtectedContext, teacherId: string) {
     }),
     others: all.filter((c) => !ids.includes(c.id)).map((c) => ({ id: c.id, code: c.code, name: c.name, status: c.status })),
   };
+}
+
+/* ------------------------------------------------------------------ */
+/* Giáo án gắn vào buổi dạy (nút "Mở giáo án" trên thẻ buổi)            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Gắn `plan` (loại giáo án đang dùng của bài) vào danh sách buổi — một truy vấn cho cả danh sách.
+ * Cùng điều kiện với màn xem giáo án (`lessonPlans.getPlan`): tài liệu nhóm `lesson_plan`, chưa lưu trữ,
+ * đã có bản tải lên. Không kiểm quyền ở đây: màn xem giáo án tự kiểm (giáo viên chỉ xem khoá mình dạy).
+ */
+export async function withPlans<T extends { lessonId: string | null }>(ctx: ProtectedContext, rows: T[]): Promise<(T & { plan: "scorm" | "pdf" | null })[]> {
+  const ids = [...new Set(rows.map((r) => r.lessonId).filter((x): x is string => !!x))];
+  const docs = ids.length
+    ? await ctx.db.select({ lessonId: documents.lessonId, kind: documents.kind })
+      .from(documents)
+      .where(and(inArray(documents.lessonId, ids), eq(documents.category, "lesson_plan"), ne(documents.status, "archived"), sql`${documents.currentVersion} > 0`))
+    : [];
+  const kindOf = new Map(docs.map((d) => [d.lessonId, d.kind === "scorm" ? ("scorm" as const) : ("pdf" as const)]));
+  return rows.map((r) => ({ ...r, plan: (r.lessonId ? kindOf.get(r.lessonId) : undefined) ?? null }));
 }

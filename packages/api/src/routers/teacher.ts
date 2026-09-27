@@ -6,7 +6,7 @@ import { addDays, hasRole } from "@satarobo/core";
 import { router, protectedProcedure } from "../trpc";
 import { listSessions, todayISO } from "../services/sessions";
 import { listClasses } from "../services/classes";
-import { teacherFeedbackFeed, sessionExtras, sessionPrep, classInsights } from "../services/teacherHub";
+import { teacherFeedbackFeed, sessionExtras, sessionPrep, classInsights, withPlans } from "../services/teacherHub";
 
 const uuid = z.string().uuid();
 
@@ -28,11 +28,19 @@ export const teacherRouter = router({
     const t = await myTeacherId(ctx);
     const today = input.date ?? todayISO();
     const [todays, overdue, upcoming] = await Promise.all([
-      listSessions(ctx, { from: today, to: today, teacherId: t.id }),
-      listSessions(ctx, { from: addDays(today, -60), to: addDays(today, -1), teacherId: t.id, onlyOpen: true }),
-      listSessions(ctx, { from: addDays(today, 1), to: addDays(today, 7), teacherId: t.id }),
+      listSessions(ctx, { from: today, to: today, teacherId: t.id }).then((r) => withPlans(ctx, r)),
+      listSessions(ctx, { from: addDays(today, -60), to: addDays(today, -1), teacherId: t.id, onlyOpen: true }).then((r) => withPlans(ctx, r)),
+      listSessions(ctx, { from: addDays(today, 1), to: addDays(today, 7), teacherId: t.id }).then((r) => withPlans(ctx, r)),
     ]);
     return { teacher: t, today, todays, overdue, upcoming };
+  }),
+
+  /** Lịch dạy theo khoảng ngày (trang Lịch dạy theo tuần, Giáo án của tôi) — tối đa 42 ngày */
+  range: protectedProcedure.input(z.object({ from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) })).query(async ({ ctx, input }) => {
+    const t = await myTeacherId(ctx);
+    const to = input.to < input.from ? input.from : input.to > addDays(input.from, 41) ? addDays(input.from, 41) : input.to;
+    const items = await withPlans(ctx, await listSessions(ctx, { from: input.from, to, teacherId: t.id, limit: 300 }));
+    return { teacher: t, today: todayISO(), from: input.from, to, items };
   }),
 
   myClasses: protectedProcedure.query(async ({ ctx }) => {
