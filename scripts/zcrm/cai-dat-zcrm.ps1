@@ -59,14 +59,15 @@ Log ("   HTTP: " + (($h -split "`n")[0]))
 Log ("   X-Frame-Options con khong: " + [bool]($h -match "(?im)^x-frame-options"))
 Log ("   frame-ancestors: " + (([regex]::Match($h, "(?im)^content-security-policy:.*$")).Value))
 
-Log "4. ZCRM_ORIGINS trong .env cua LMS"
-$envLms = Join-Path $Lms ".env"
+Log "4. ZCRM_ORIGINS trong .env cua LMS (goc + apps\web — Next.js doc tep cua apps\web)"
 $dong = "ZCRM_ORIGINS=http://localhost:$CongKhung"
+foreach ($envLms in @((Join-Path $Lms ".env"), (Join-Path $Lms "apps\web\.env"))) {
 if (Test-Path $envLms) {
   $nd = Get-Content $envLms -Raw
   if ($nd -match "(?m)^ZCRM_ORIGINS=") { $nd = [regex]::Replace($nd, "(?m)^ZCRM_ORIGINS=.*$", $dong); [IO.File]::WriteAllText($envLms, $nd, (New-Object Text.UTF8Encoding($false))) }
   else { Add-Content -Path $envLms -Value $dong -Encoding UTF8 }
-  Log "   da ghi $dong (khoi dong lai may chu LMS de co hieu luc)"
+  Log "   da ghi $dong vao $envLms (khoi dong lai may chu LMS de co hieu luc)"
+}
 }
 
 Write-Host ""
