@@ -13,7 +13,7 @@ import {
 } from "@satarobo/core";
 import type { ProtectedContext } from "../trpc";
 import { accessTokenZalo } from "./zaloToken";
-import { guiQuaKenh, ngayVN } from "./channelAccounts";
+import { guiQuaKenh, ngayVN, type DichGui } from "./channelAccounts";
 import { writeAudit } from "./audit";
 import { todayISO } from "./sessions";
 import { notify } from "./finance";
@@ -198,11 +198,11 @@ async function markActivity(db: Db, id: string, patch: Partial<typeof conversati
 }
 
 /** Gửi ra kênh ngoài. Không cấu hình khoá → lưu "skipped" (hiển thị rõ cho nhân viên) */
-async function deliver(db: Db, channel: MsgChannel, externalId: string | null, body: string, tag: string | null, channelAccountId?: string | null): Promise<{ status: "sent" | "skipped" | "failed"; externalId?: string; error?: string }> {
+async function deliver(db: Db, channel: MsgChannel, externalId: string | null, body: string, tag: string | null, channelAccountId?: string | null, dich?: DichGui): Promise<{ status: "sent" | "skipped" | "failed"; externalId?: string; error?: string }> {
   if (channel === "portal") return { status: "sent" };
   if (!externalId) return { status: "failed", error: "Thiếu mã người nhận" };
   // Zalo cá nhân: hệ thống KHÔNG tự nói chuyện với Zalo — nhờ công cụ ngoài gửi hộ, kèm trần tin/ngày
-  if (channel === "zalo_ca_nhan") return guiQuaKenh(db as unknown as Database, { channelAccountId: channelAccountId ?? null, nguoiId: externalId, body });
+  if (channel === "zalo_ca_nhan") return guiQuaKenh(db as unknown as Database, { channelAccountId: channelAccountId ?? null, nguoiId: externalId, body, dich });
   try {
     if (channel === "messenger") {
       const token = process.env.META_PAGE_TOKEN;
@@ -244,7 +244,7 @@ export async function sendMessage(ctx: ProtectedContext, input: { id: string; bo
     const p = await ctx.db.query.parents.findFirst({ where: eq(parents.id, c.parentId) });
     if (p?.processingRestricted) throw pre("Phụ huynh đã yêu cầu hạn chế xử lý dữ liệu — không nhắn qua hệ thống");
   }
-  const d = await deliver(ctx.db, c.channel as MsgChannel, c.externalId, body, win.tag, c.channelAccountId);
+  const d = await deliver(ctx.db, c.channel as MsgChannel, c.externalId, body, win.tag, c.channelAccountId, { nickId: c.extNickId, threadId: c.extThreadId, nhom: c.extThreadType === "group" });
   const flags = messageFlags(body).filter((f) => f === "private_payment" || f === "abuse");
   await ctx.db.insert(messages).values({ conversationId: c.id, direction: "out", body, senderUserId: ctx.user.id, status: d.status, externalId: d.externalId ?? null, error: d.error ?? null, tag: win.tag, flags });
   await markActivity(ctx.db, c.id, {

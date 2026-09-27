@@ -27,7 +27,32 @@ export interface SuKienKenh {
   tepDinhKem: { type: string; url: string }[];
   /** Nick Zalo của trung tâm (tài khoản gửi/nhận) nếu payload có nêu */
   nickId: string | null;
+  /**
+   * Mã hội thoại PHÍA CÔNG CỤ (ZCRM v3.4: `data.conversationId`). Đây mới là khoá đúng để gom tin:
+   * với tin nhân viên gửi đi, `senderUid` là chính nick của trung tâm chứ không phải khách — gom theo
+   * người gửi thì mọi tin trả lời của một nick dồn vào MỘT hội thoại ma.
+   */
+  hoiThoaiId: string | null;
+  /** Mã luồng chat phía Zalo (uid khách trong nick đó, hoặc mã nhóm) nếu payload có nêu */
+  threadId: string | null;
+  /** "user" | "group" nếu payload có nêu; null = chưa biết */
+  loaiLuong: "user" | "group" | null;
+  /** text · image · video · voice · file · sticker · gif · link … (ZCRM `contentType`) */
+  loaiNoiDung: string;
 }
+
+/** Nhãn hiển thị cho tin không phải chữ — ZCRM gửi `content` là URL tệp đã sao về kho của nó */
+export const NHAN_NOI_DUNG_ZCRM: Record<string, string> = {
+  image: "[Hình ảnh]",
+  gif: "[Ảnh động]",
+  video: "[Video]",
+  voice: "[Tin nhắn thoại]",
+  audio: "[Âm thanh]",
+  file: "[Tệp]",
+  sticker: "[Nhãn dán]",
+  link: "[Liên kết]",
+  call: "[Cuộc gọi]",
+};
 
 const LOAI_THEO_TEN: Record<string, SuKienKenhLoai> = {
   "message.received": "tin_den",
@@ -103,19 +128,29 @@ function tepDinhKem(goc: Obj): { type: string; url: string }[] {
  * Đọc một sự kiện webhook của ZCRM.
  * Trả `null` khi payload không phải JSON đối tượng; trả `loai: "bo_qua"` khi là sự kiện ta chưa dùng.
  */
-export function docSuKienZcrm(body: unknown, bayGio: Date = new Date()): SuKienKenh | null {
+export function docSuKienZcrm(body: unknown, bayGio: Date = new Date(), suKienTuHeader?: string | null): SuKienKenh | null {
   if (!laObj(body)) return null;
-  const ten = (chuoi(body, ["event", "type", "event_name", "eventName", "action"]) ?? "").toLowerCase();
+  // ZCRM v3.4 ghi tên sự kiện ở cả thân (`event`) lẫn header `X-Webhook-Event`
+  const ten = (chuoi(body, ["event", "type", "event_name", "eventName", "action"]) ?? suKienTuHeader ?? "").toLowerCase();
   const loai = LOAI_THEO_TEN[ten] ?? "bo_qua";
   const d = laObj(body.data) ? body.data : laObj(body.payload) ? body.payload : body;
 
   const nguoiId = chuoi(d, [
-    "zaloId", "zalo_id", "threadId", "thread_id", "senderId", "sender_id", "userId", "user_id",
+    "zaloId", "zalo_id", "threadId", "thread_id", "senderUid", "sender_uid", "senderId", "sender_id", "userId", "user_id",
     "contact.zaloId", "contact.zalo_id", "contact.id", "customer.zaloId", "customer.zalo_id",
     "from.id", "from.zaloId", "conversation.zaloId", "conversation.threadId",
   ]);
-  const noiDungTho = chuoi(d, ["content", "text", "body", "message.text", "message.content", "message"]) ?? "";
+  const loaiNoiDung = (chuoi(d, ["contentType", "content_type", "msgType", "message.type"]) ?? "text").toLowerCase();
+  let noiDungTho = chuoi(d, ["content", "text", "body", "message.text", "message.content", "message"]) ?? "";
   const tep = tepDinhKem(laObj(d.message) ? { ...d, ...d.message } : d);
+  // ZCRM: tin không phải chữ thì `content` là URL tệp (đã sao về kho của công cụ) — chuyển thành tệp
+  // đính kèm + nhãn, không hiện nguyên đường dẫn dài như một câu chat
+  if (loaiNoiDung !== "text") {
+    const url = /^https?:\/\//i.test(noiDungTho) ? noiDungTho : null;
+    if (url && tep.length < 10 && !tep.some((t) => t.url === url)) tep.push({ type: loaiNoiDung, url });
+    noiDungTho = NHAN_NOI_DUNG_ZCRM[loaiNoiDung] ?? (url ? `[${loaiNoiDung}]` : noiDungTho);
+  }
+  const luongTho = (chuoi(d, ["threadType", "thread_type", "conversation.threadType"]) ?? "").toLowerCase();
 
   return {
     loai,
@@ -126,7 +161,11 @@ export function docSuKienZcrm(body: unknown, bayGio: Date = new Date()): SuKienK
     tinId: chuoi(d, ["messageId", "message_id", "msgId", "msg_id", "message.id", "id"]),
     luc: thoiDiem(d, ["timestamp", "time", "sentAt", "sent_at", "createdAt", "created_at", "message.timestamp"], bayGio),
     tepDinhKem: tep,
-    nickId: chuoi(d, ["accountId", "account_id", "zaloAccountId", "zalo_account_id", "account.id", "account.zaloId", "ownerId"]),
+    nickId: chuoi(d, ["zaloAccountId", "zalo_account_id", "accountId", "account_id", "account.id", "account.zaloId", "ownerId"]),
+    hoiThoaiId: chuoi(d, ["conversationId", "conversation_id", "conversation.id"]),
+    threadId: chuoi(d, ["threadId", "thread_id", "conversation.threadId", "externalThreadId"]),
+    loaiLuong: luongTho === "group" || luongTho === "1" ? "group" : luongTho === "user" || luongTho === "0" ? "user" : null,
+    loaiNoiDung,
   };
 }
 
@@ -162,4 +201,106 @@ export const NICK_IM_LANG_PHUT = 30;
 export function nickImLang(thayLuc: Date | null, bayGio: Date): boolean {
   if (!thayLuc) return true;
   return bayGio.getTime() - thayLuc.getTime() > NICK_IM_LANG_PHUT * 60_000;
+}
+
+/* ------------------------------------------------------------------ */
+/* Đọc API công khai của ZCRM v3.4 (X-API-Key)                          */
+/* ------------------------------------------------------------------ */
+
+/** Khoá gom hội thoại: mã hội thoại phía công cụ nếu có, không thì người gửi (bản cũ) */
+export function khoaHoiThoai(s: SuKienKenh): string | null {
+  return s.hoiThoaiId ?? s.nguoiId;
+}
+
+export interface HoiThoaiZcrm {
+  id: string;
+  threadId: string | null;
+  loaiLuong: "user" | "group";
+  nickId: string | null;
+  lienHeId: string | null;
+  ten: string | null;
+  sdt: string | null;
+}
+
+/**
+ * Tìm một hội thoại trong kết quả `GET /api/public/conversations` của ZCRM
+ * (`{ conversations: [{ id, threadType, externalThreadId, contact: { id, fullName, phone } }] }`).
+ * Webhook tin nhắn của ZCRM chỉ mang `conversationId` + `senderUid` — tên khách, SĐT và mã luồng để
+ * trả lời phải lấy từ đây. Hội thoại vừa có tin nên luôn nằm đầu danh sách (sắp theo tin mới nhất).
+ */
+export function timHoiThoaiZcrm(json: unknown, id: string): HoiThoaiZcrm | null {
+  if (!laObj(json) || !Array.isArray(json.conversations)) return null;
+  for (const c of json.conversations) {
+    if (!laObj(c) || chuoi(c, ["id"]) !== id) continue;
+    const luong = (chuoi(c, ["threadType"]) ?? "user").toLowerCase();
+    return {
+      id,
+      threadId: chuoi(c, ["externalThreadId", "threadId"]),
+      loaiLuong: luong === "group" ? "group" : "user",
+      nickId: chuoi(c, ["zaloAccountId", "zaloAccount.id"]),
+      lienHeId: chuoi(c, ["contact.id", "contactId"]),
+      ten: chuoi(c, ["contact.crmName", "contact.fullName", "groupName"]),
+      sdt: sdt84(chuoi(c, ["contact.phone"])),
+    };
+  }
+  return null;
+}
+
+/** Thân `POST /api/public/messages/send` đúng như ZCRM v3.4 đòi (thiếu một trường là 400) */
+export function thanGuiZcrm(x: { nickId: string; threadId: string; noiDung: string; nhom?: boolean }) {
+  return { zaloAccountId: x.nickId, threadId: x.threadId, content: x.noiDung, threadType: x.nhom ? "group" : "user" };
+}
+
+export type LoaiHenLms = "goi_lai" | "tu_van" | "hoc_thu" | "khac";
+export type TrangThaiHenLms = "dat" | "xong" | "vang" | "huy";
+
+export interface LichHenZcrm {
+  id: string;
+  luc: Date;
+  loai: LoaiHenLms;
+  trangThai: TrangThaiHenLms;
+  tieuDe: string;
+  ghiChu: string | null;
+  thoiLuongPhut: number;
+  sdt: string | null;
+  tenKhach: string | null;
+}
+
+const LOAI_HEN: Record<string, LoaiHenLms> = { call: "goi_lai", message: "goi_lai", follow_up: "goi_lai", meeting: "tu_van" };
+const TRANG_THAI_HEN: Record<string, TrangThaiHenLms> = { scheduled: "dat", completed: "xong", no_show: "vang", cancelled: "huy" };
+
+/**
+ * Một lịch hẹn của ZCRM → lịch hẹn của LMS. `appointmentDate` là ngày (có thể 00:00 UTC),
+ * `appointmentTime` là "HH:mm" giờ Việt Nam; ghép lại thành một mốc thời gian đúng.
+ */
+export function docLichHenZcrm(a: unknown): LichHenZcrm | null {
+  if (!laObj(a)) return null;
+  const id = chuoi(a, ["id"]);
+  const ngayTho = chuoi(a, ["appointmentDate"]);
+  if (!id || !ngayTho) return null;
+  const ngay = new Date(ngayTho);
+  if (Number.isNaN(ngay.getTime())) return null;
+  const gio = /^(\d{1,2}):(\d{2})/.exec(chuoi(a, ["appointmentTime"]) ?? "");
+  let luc = ngay;
+  if (gio) {
+    // Ngày theo giờ VN (UTC+7), rồi đặt giờ-phút VN
+    const vn = new Date(ngay.getTime() + 7 * 3600_000);
+    const y = vn.getUTCFullYear(), m = vn.getUTCMonth(), dd = vn.getUTCDate();
+    luc = new Date(Date.UTC(y, m, dd, Number(gio[1]) - 7, Number(gio[2])));
+  }
+  const loaiTho = (chuoi(a, ["type"]) ?? "").toLowerCase();
+  const ttTho = (chuoi(a, ["status"]) ?? "scheduled").toLowerCase();
+  const ten = chuoi(a, ["contact.crmName", "contact.fullName"]);
+  const tl = Number(chuoi(a, ["durationMin"]) ?? 30);
+  return {
+    id,
+    luc,
+    loai: LOAI_HEN[loaiTho] ?? "khac",
+    trangThai: TRANG_THAI_HEN[ttTho] ?? "dat",
+    tieuDe: (chuoi(a, ["title"]) ?? `Hẹn từ Zalo CRM${ten ? ` — ${ten}` : ""}`).slice(0, 200),
+    ghiChu: chuoi(a, ["notes", "location"])?.slice(0, 1000) ?? null,
+    thoiLuongPhut: Number.isFinite(tl) && tl >= 5 && tl <= 480 ? Math.round(tl) : 30,
+    sdt: sdt84(chuoi(a, ["contact.phone"])),
+    tenKhach: ten,
+  };
 }

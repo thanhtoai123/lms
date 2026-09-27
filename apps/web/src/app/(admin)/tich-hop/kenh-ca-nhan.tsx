@@ -15,12 +15,12 @@ import { useTRPC } from "@/lib/trpc/client";
 
 export type NickKhaiBao = {
   id: string; label: string; slug: string; status: string; active: boolean;
-  baseUrl: string | null; dailyCap: number; sentToday: number; imLang: boolean;
+  baseUrl: string | null; externalId: string | null; dailyCap: number; sentToday: number; imLang: boolean;
   lastSeenAt: string | Date | null; lastError: string | null;
   apiKeySet: boolean; webhookSecretSet: boolean;
 };
 
-const RONG = { id: null as string | null, label: "", baseUrl: "", apiKey: "", webhookSecret: "", dailyCap: 180 };
+const RONG = { id: null as string | null, label: "", baseUrl: "", externalId: "", apiKey: "", webhookSecret: "", dailyCap: 180 };
 
 export function KenhCaNhanCard({ nicks, goc, canEdit }: { nicks: NickKhaiBao[]; goc: string; canEdit: boolean }) {
   const trpc = useTRPC();
@@ -43,7 +43,7 @@ export function KenhCaNhanCard({ nicks, goc, canEdit }: { nicks: NickKhaiBao[]; 
       <div className="flex items-start justify-between gap-2">
         <div>
           <h2 className="font-semibold">Zalo cá nhân (công cụ ngoài)</h2>
-          <p className="text-xs text-ink-600">Nhận hội thoại, khách mới và trạng thái nick từ ZCRM về hệ thống. Hệ thống chỉ đọc — không đăng nhập Zalo.</p>
+          <p className="text-xs text-ink-600">Nhận hội thoại và trạng thái nick từ ZCRM, đồng bộ lịch hẹn, trả lời qua API của ZCRM. Hệ thống không tự đăng nhập Zalo.</p>
         </div>
         <span className={`chip ${nicks.some((n) => n.status === "online" && !n.imLang) ? "bg-green-100 text-green-800" : nicks.length ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-600"}`}>
           {nicks.length ? `${nicks.filter((n) => n.status === "online" && !n.imLang).length}/${nicks.length} nick đang chạy` : "Chưa khai báo"}
@@ -56,7 +56,10 @@ export function KenhCaNhanCard({ nicks, goc, canEdit }: { nicks: NickKhaiBao[]; 
           <tbody className="divide-y divide-black/5">
             {nicks.map((n) => (
               <tr key={n.id}>
-                <td className="py-1.5 font-medium">{n.label}{!n.webhookSecretSet && <span className="ml-1 text-red-700">· chưa đặt bí mật</span>}</td>
+                <td className="py-1.5 font-medium">{n.label}{!n.webhookSecretSet && <span className="ml-1 text-red-700">· chưa đặt bí mật</span>}
+                  {(!n.apiKeySet || !n.baseUrl) && <div className="font-normal text-amber-700">chưa có API — chỉ nhận, chưa trả lời / chưa lấy tên khách được</div>}
+                  {n.apiKeySet && n.baseUrl && !n.externalId && <div className="font-normal text-amber-700">chưa có mã nick — chưa trả lời được</div>}
+                </td>
                 <td className="py-1.5">
                   <span className={`chip ${n.imLang ? "bg-amber-100 text-amber-800" : n.status === "online" ? "bg-green-100 text-green-800" : "bg-slate-100 text-slate-600"}`}>
                     {n.imLang ? "im lặng > 30 phút" : n.status === "online" ? "đang chạy" : "chưa có tín hiệu"}
@@ -68,7 +71,7 @@ export function KenhCaNhanCard({ nicks, goc, canEdit }: { nicks: NickKhaiBao[]; 
                 <td className="py-1.5 text-right">
                   {canEdit && (
                     <>
-                      <button type="button" className="btn-ghost !px-2 !py-0.5 text-[11px]" onClick={() => { setF({ id: n.id, label: n.label, baseUrl: n.baseUrl ?? "", apiKey: "", webhookSecret: "", dailyCap: n.dailyCap }); setMo(true); }}>Sửa</button>
+                      <button type="button" className="btn-ghost !px-2 !py-0.5 text-[11px]" onClick={() => { setF({ id: n.id, label: n.label, baseUrl: n.baseUrl ?? "", externalId: n.externalId ?? "", apiKey: "", webhookSecret: "", dailyCap: n.dailyCap }); setMo(true); }}>Sửa</button>
                       <button type="button" className="btn-ghost !px-2 !py-0.5 text-[11px] text-red-700" disabled={tat.isPending} onClick={() => tat.mutate({ id: n.id })}>Ngắt</button>
                     </>
                   )}
@@ -89,12 +92,16 @@ export function KenhCaNhanCard({ nicks, goc, canEdit }: { nicks: NickKhaiBao[]; 
 
       {mo && canEdit && (
         <div className="mt-2 space-y-2 rounded-lg bg-black/[0.03] p-3 text-xs">
-          <p className="text-ink-600">
-            Bên ZCRM vào <b>Cài đặt → Webhook</b>, dán đường bên trên và <b>bí mật</b> khai ở đây (gửi kèm header
-            <code className="mx-1 rounded bg-black/5 px-1">X-Webhook-Secret</code> hoặc ký HMAC-SHA256 vào
-            <code className="mx-1 rounded bg-black/5 px-1">X-Signature</code>). Chọn các sự kiện
-            <i> message.received · message.sent · contact.created · zalo.connected · zalo.disconnected</i>.
-          </p>
+          <ol className="list-decimal space-y-0.5 pl-4 text-ink-600">
+            <li>Bên ZCRM (v3.4) vào <b>Cài đặt → API &amp; Webhook</b>: dán <b>đường webhook</b> của nick này và <b>bí mật</b> khai ở đây.
+              ZCRM tự ký HMAC-SHA256 vào header <code className="mx-1 rounded bg-black/5 px-1">X-Webhook-Signature</code>.
+              Mỗi tổ chức ZCRM chỉ có <b>một</b> đường webhook — nên khai <b>một dòng cho mỗi tổ chức ZCRM</b>.</li>
+            <li>Cũng ở màn đó bấm <b>Tạo API key</b>, dán vào ô API key; địa chỉ API là gốc máy chủ ZCRM (vd <code className="rounded bg-black/5 px-1">https://zcrm.trungtam.vn</code>).
+              Có API thì hệ thống mới lấy được tên khách, SĐT, đồng bộ lịch hẹn và trả lời được.</li>
+            <li><b>Mã nick trong ZCRM</b> (zaloAccountId) để trả lời — tự điền khi nick kết nối lại lần đầu, hoặc chép từ ZCRM.
+              Tổ chức có nhiều nick thì ZCRM bản hiện tại <b>chưa báo tin thuộc nick nào</b>: chỉ trả lời được qua nick này (xem tài liệu ZALO-KENH-TRINH-CAM mục 8.3).</li>
+            <li>ZCRM <b>chặn webhook tới địa chỉ nội bộ</b> — hệ thống phải có tên miền công khai (https) thì mới nhận được.</li>
+          </ol>
           <div className="grid gap-2 sm:grid-cols-2">
             <label>Tên nick (để nhận ra người dùng)
               <input className="input mt-0.5 !py-1" value={f.label} onChange={(e) => setF({ ...f, label: e.target.value })} placeholder="Nick CS2 — chị Hà" />
@@ -102,8 +109,11 @@ export function KenhCaNhanCard({ nicks, goc, canEdit }: { nicks: NickKhaiBao[]; 
             <label>Trần tin/ngày
               <input className="input mt-0.5 !py-1" type="number" min={1} max={1000} value={f.dailyCap} onChange={(e) => setF({ ...f, dailyCap: Number(e.target.value) || 180 })} />
             </label>
-            <label>Địa chỉ API của công cụ (tuỳ chọn, để dành cho đợt gửi tin)
-              <input className="input mt-0.5 !py-1 font-mono" value={f.baseUrl} onChange={(e) => setF({ ...f, baseUrl: e.target.value })} placeholder="http://10.0.0.5:3080" />
+            <label>Địa chỉ API của ZCRM
+              <input className="input mt-0.5 !py-1 font-mono" value={f.baseUrl} onChange={(e) => setF({ ...f, baseUrl: e.target.value })} placeholder="https://zcrm.trungtam.vn" />
+            </label>
+            <label>Mã nick trong ZCRM (zaloAccountId)
+              <input className="input mt-0.5 !py-1 font-mono" value={f.externalId} onChange={(e) => setF({ ...f, externalId: e.target.value })} placeholder="tự điền khi nick kết nối" />
             </label>
             <label>API key của công cụ {f.id && <span className="text-ink-400">(để trống nếu giữ nguyên)</span>}
               <input className="input mt-0.5 !py-1 font-mono" type="password" autoComplete="off" value={f.apiKey} onChange={(e) => setF({ ...f, apiKey: e.target.value })} />
@@ -116,7 +126,7 @@ export function KenhCaNhanCard({ nicks, goc, canEdit }: { nicks: NickKhaiBao[]; 
             <button
               type="button" className="btn-primary !py-1 text-xs" disabled={luu.isPending || f.label.trim().length < 2}
               onClick={() => luu.mutate({
-                id: f.id, channel: "zalo_ca_nhan", label: f.label.trim(), baseUrl: f.baseUrl.trim() || null,
+                id: f.id, channel: "zalo_ca_nhan", label: f.label.trim(), baseUrl: f.baseUrl.trim() || null, externalId: f.externalId.trim() || null,
                 apiKey: f.apiKey.trim() || null, webhookSecret: f.webhookSecret.trim() || null, dailyCap: f.dailyCap,
               })}
             >

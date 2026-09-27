@@ -9,11 +9,11 @@
  * (so sánh theo thời gian hằng) HOẶC chữ ký HMAC-SHA256 của nguyên văn thân yêu cầu ở `X-Signature`.
  * Bí mật lưu mã hoá AES-256-GCM, không bao giờ trả về giao diện.
  */
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, gte, isNull, desc, sql } from "drizzle-orm";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { TRPCError } from "@trpc/server";
-import { channelAccounts, conversations, type Database } from "@satarobo/db";
-import { authorizeGlobal, docSuKienZcrm, duDeGhiTin, nickImLang, HAN_MUC_NICK_NGAY, type SuKienKenh, loiUrlCongNoi } from "@satarobo/core";
+import { channelAccounts, conversations, messages, parents, leads, centers, appointments, type Database } from "@satarobo/db";
+import { authorizeGlobal, docSuKienZcrm, duDeGhiTin, nickImLang, HAN_MUC_NICK_NGAY, type SuKienKenh, loiUrlCongNoi, khoaHoiThoai, timHoiThoaiZcrm, thanGuiZcrm, docLichHenZcrm, type HoiThoaiZcrm } from "@satarobo/core";
 import type { ProtectedContext } from "../trpc";
 import { sealWith, openWith } from "./pii";
 import { writeAudit } from "./audit";
@@ -114,7 +114,8 @@ function bangNhau(a: string, b: string): boolean {
 export function chuKyHopLe(raw: string, headers: Record<string, string>, secret: string): boolean {
   const thang = headers["x-webhook-secret"] ?? headers["x-api-key"] ?? headers["x-zcrm-secret"];
   if (thang && bangNhau(thang, secret)) return true;
-  const ky = headers["x-signature"] ?? headers["x-hub-signature-256"] ?? headers["x-zcrm-signature"];
+  // ZCRM v3.4: `X-Webhook-Signature` = HMAC-SHA256 hex của nguyên văn thân, không tiền tố
+  const ky = headers["x-webhook-signature"] ?? headers["x-signature"] ?? headers["x-hub-signature-256"] ?? headers["x-zcrm-signature"];
   if (!ky) return false;
   const h = createHmac("sha256", secret).update(raw, "utf8").digest();
   const sach = ky.replace(/^sha256=/i, "").trim();
@@ -137,7 +138,7 @@ export async function nhanSuKienKenh(db: Database, input: { slug: string; raw: s
   const secret = openWith(NHAN, acc.webhookSecret);
   if (!secret) return { ok: false, status: "rejected", httpStatus: 503, error: "Tài khoản kênh chưa đặt bí mật webhook" };
   if (!chuKyHopLe(input.raw, input.headers, secret)) return { ok: false, status: "rejected", httpStatus: 401, error: "Sai bí mật / chữ ký" };
-  return apDungSuKien(db, acc, input.body);
+  return apDungSuKien(db, acc, input.body, input.headers["x-webhook-event"] ?? null);
 }
 
 /**
@@ -155,44 +156,76 @@ export async function xuLyLaiSuKienKenh(db: Database, input: { slug: string | nu
 
 type TaiKhoanKenh = typeof channelAccounts.$inferSelect;
 
-async function apDungSuKien(db: Database, acc: TaiKhoanKenh, body: unknown): Promise<KetQuaNhan> {
+/** Hội thoại nhóm đã biết (mã hội thoại ZCRM → hạn nhớ) — khỏi hỏi lại API mỗi tin nhóm */
+const NHOM_DA_BIET = new Map<string, number>();
+const NHO_NHOM_MS = 6 * 3600_000;
+
+/** Gọi API công khai của ZCRM (X-API-Key). Hỏng thì trả null — webhook vẫn phải ghi được tin. */
+async function goiZcrm(acc: TaiKhoanKenh, duongDan: string): Promise<unknown | null> {
+  const baseUrl = acc.baseUrl?.replace(/\/+$/, "") ?? null;
+  const apiKey = openWith(NHAN, acc.apiKey);
+  if (!baseUrl || !apiKey || loiUrlCongNoi(baseUrl)) return null;
+  try {
+    const r = await fetch(`${baseUrl}${duongDan}`, { headers: { "X-API-Key": apiKey }, redirect: "error", signal: AbortSignal.timeout(8_000) });
+    if (!r.ok) return null;
+    return await r.json();
+  } catch {
+    return null;
+  }
+}
+
+/** Tên khách, SĐT, mã luồng để trả lời — webhook tin nhắn của ZCRM không mang theo, phải tra */
+async function traHoiThoaiZcrm(acc: TaiKhoanKenh, id: string): Promise<HoiThoaiZcrm | null> {
+  return timHoiThoaiZcrm(await goiZcrm(acc, "/api/public/conversations?limit=50"), id);
+}
+
+/**
+ * Gắn hội thoại vào phụ huynh / lead ĐÃ CÓ theo SĐT (không tạo mới — tạo lead cần dấu đồng ý).
+ * Chỉ tìm trong cùng trung tâm (tenant) với nick nhận tin.
+ */
+async function ganTheoSdt(d: Db, convId: string, sdt: string, centerId: string | null) {
+  const tenant = centerId ? (await d.select({ t: centers.tenantId }).from(centers).where(eq(centers.id, centerId)))[0]?.t ?? null : null;
+  const [ph] = await d.select({ id: parents.id }).from(parents)
+    .where(and(eq(parents.phoneNormalized, sdt), isNull(parents.deletedAt), tenant ? eq(parents.tenantId, tenant) : sql`true`)).limit(2);
+  if (ph) {
+    await d.update(conversations).set({ parentId: ph.id }).where(and(eq(conversations.id, convId), isNull(conversations.parentId), isNull(conversations.leadId)));
+    return;
+  }
+  const [ld] = await d.select({ id: leads.id }).from(leads)
+    .where(and(eq(leads.phoneNormalized, sdt), centerId ? eq(leads.centerId, centerId) : sql`true`)).orderBy(desc(leads.createdAt)).limit(1);
+  if (ld) await d.update(conversations).set({ leadId: ld.id }).where(and(eq(conversations.id, convId), isNull(conversations.parentId), isNull(conversations.leadId)));
+}
+
+async function apDungSuKien(db: Database, acc: TaiKhoanKenh, body: unknown, suKienHeader: string | null = null): Promise<KetQuaNhan> {
   const d = asDb(db);
-  const sk = docSuKienZcrm(body);
+  const sk = docSuKienZcrm(body, new Date(), suKienHeader);
   const now = new Date();
   if (!sk) {
     await d.update(channelAccounts).set({ lastEventAt: now }).where(eq(channelAccounts.id, acc.id));
     return { ok: true, status: "ignored" };
   }
 
-  // Mọi sự kiện hợp lệ đều là bằng chứng nick còn sống
+  // Mọi sự kiện hợp lệ đều là bằng chứng công cụ còn sống
   const chung = { lastEventAt: now, lastSeenAt: now } as const;
 
   if (sk.loai === "ket_noi" || sk.loai === "mat_ket_noi") {
     const song = sk.loai === "ket_noi";
     await d.update(channelAccounts).set({
       ...chung, status: song ? "online" : "offline",
-      lastError: song ? null : "Nick Zalo mất kết nối",
+      lastError: song ? null : `Nick Zalo${sk.nickId ? ` ${sk.nickId.slice(0, 8)}…` : ""} mất kết nối`,
       lastErrorAt: song ? null : now,
       ...(song ? {} : { lastSeenAt: acc.lastSeenAt }),
-      externalId: sk.nickId ?? acc.externalId,
+      // Mã nick mặc định chỉ tự điền khi chưa khai — một tổ chức ZCRM có thể có nhiều nick
+      externalId: acc.externalId ?? sk.nickId,
     }).where(eq(channelAccounts.id, acc.id));
     return { ok: true, status: "processed", loai: sk.loai };
   }
 
   if (sk.loai === "khach_moi") {
+    // ZCRM v3.4: `contact.created` chỉ có { contactId, fullName } — không có mã Zalo để gom với tin nhắn,
+    // nên KHÔNG dựng vỏ hội thoại (sẽ thành hội thoại ma). Hội thoại tự có khi khách nhắn tin đầu tiên.
     await d.update(channelAccounts).set({ ...chung, status: "online" }).where(eq(channelAccounts.id, acc.id));
-    if (!sk.nguoiId) return { ok: true, status: "ignored" };
-    // Chỉ dựng vỏ hội thoại để nhân viên thấy khách mới; KHÔNG tự tạo lead (cần dấu đồng ý của khách)
-    const co = await d.query.conversations.findFirst({ where: and(eq(conversations.channel, "zalo_ca_nhan"), eq(conversations.externalId, sk.nguoiId)) });
-    if (co) {
-      if (sk.tenHienThi && !co.displayName) await d.update(conversations).set({ displayName: sk.tenHienThi.slice(0, 120) }).where(eq(conversations.id, co.id));
-      return { ok: true, status: "duplicate", loai: sk.loai, conversationId: co.id };
-    }
-    const [moi] = await d.insert(conversations).values({
-      channel: "zalo_ca_nhan", externalId: sk.nguoiId, displayName: sk.tenHienThi?.slice(0, 120) ?? null,
-      centerId: acc.centerId, status: "pending", subject: `Zalo cá nhân — ${acc.label}`, channelAccountId: acc.id,
-    }).onConflictDoNothing().returning();
-    return { ok: true, status: "processed", loai: sk.loai, conversationId: moi?.id };
+    return { ok: true, status: "ignored", loai: sk.loai };
   }
 
   if (!duDeGhiTin(sk)) {
@@ -200,32 +233,73 @@ async function apDungSuKien(db: Database, acc: TaiKhoanKenh, body: unknown): Pro
     return { ok: true, status: "ignored" };
   }
 
-  const tinId = sk.tinId ?? `${sk.nguoiId}-${sk.luc.getTime()}`;
-  const chung2 = { ...chung, status: "online" as const, externalId: sk.nickId ?? acc.externalId };
+  const khoa = khoaHoiThoai(sk)!;
+  const tieuDe = `Zalo cá nhân — ${acc.label}`;
+  const nhoNhom = NHOM_DA_BIET.get(khoa);
+  if (nhoNhom && nhoNhom > Date.now()) return { ok: true, status: "ignored", loai: "nhom" };
 
+  let conv = await d.query.conversations.findFirst({ where: and(eq(conversations.channel, "zalo_ca_nhan"), eq(conversations.externalId, khoa)) });
+  // Lần đầu gặp hội thoại (hoặc chưa biết mã luồng): tra API để có tên, SĐT, mã luồng, loại luồng
+  const info = sk.hoiThoaiId && (!conv || !conv.extThreadId) ? await traHoiThoaiZcrm(acc, sk.hoiThoaiId) : null;
+  const loaiLuong = info?.loaiLuong ?? sk.loaiLuong ?? (conv?.extThreadType as "user" | "group" | null) ?? null;
+  if (loaiLuong === "group") {
+    // Tin nhóm (nhóm lớp, nhóm phụ huynh) KHÔNG đưa vào hệ thống: là dữ liệu của nhiều người chưa
+    // liên hệ với trung tâm, và không phải việc 1-1 của tư vấn viên
+    NHOM_DA_BIET.set(khoa, Date.now() + NHO_NHOM_MS);
+    await d.update(channelAccounts).set(chung).where(eq(channelAccounts.id, acc.id));
+    return { ok: true, status: "ignored", loai: "nhom" };
+  }
+  const threadId = info?.threadId ?? sk.threadId ?? conv?.extThreadId ?? (sk.loai === "tin_den" ? sk.nguoiId : null);
+  const nickId = info?.nickId ?? sk.nickId ?? conv?.extNickId ?? null;
+  const tinId = sk.tinId ?? `${khoa}-${sk.luc.getTime()}`;
+  const chung2 = { ...chung, status: "online" as const };
+
+  let r: { ok: true; conversationId: string; duplicate: boolean } | { ok: false; error: string };
   if (sk.loai === "tin_den") {
-    const r = await ingestExternal(db, {
-      channel: "zalo_ca_nhan", senderId: sk.nguoiId!, displayName: sk.tenHienThi, text: sk.noiDung,
+    r = await ingestExternal(db, {
+      channel: "zalo_ca_nhan", senderId: khoa, displayName: info?.ten ?? sk.tenHienThi, text: sk.noiDung,
       messageId: tinId, at: sk.luc, attachments: sk.tepDinhKem.length ? sk.tepDinhKem : null,
-      subject: `Zalo cá nhân — ${acc.label}`, centerId: acc.centerId, channelAccountId: acc.id,
+      subject: tieuDe, centerId: acc.centerId, channelAccountId: acc.id,
     });
     await d.update(channelAccounts).set(chung2).where(eq(channelAccounts.id, acc.id));
-    if (!r.ok) return { ok: false, status: "rejected", httpStatus: 400, error: r.error };
-    return { ok: true, status: r.duplicate ? "duplicate" : "processed", loai: sk.loai, conversationId: r.conversationId };
+  } else {
+    // tin_di. Tin do nhân viên gửi TỪ HỆ THỐNG sẽ dội về đây lần nữa (ZCRM bắn `message.sent` cho mọi tin
+    // của nick) — đã lưu lúc gửi, chỉ gắn mã tin của công cụ vào, không ghi đôi
+    if (conv) {
+      const [cuaMinh] = await d.select({ id: messages.id }).from(messages).where(and(
+        eq(messages.conversationId, conv.id), eq(messages.direction, "out"), isNull(messages.externalId),
+        eq(messages.body, sk.noiDung.trim().slice(0, 4000)), gte(messages.createdAt, new Date(sk.luc.getTime() - 15 * 60_000)),
+      )).orderBy(desc(messages.createdAt)).limit(1);
+      if (cuaMinh) {
+        await d.update(messages).set({ externalId: `zalo_ca_nhan:${tinId}`, status: "sent" }).where(eq(messages.id, cuaMinh.id));
+        await d.update(channelAccounts).set(chung2).where(eq(channelAccounts.id, acc.id));
+        return { ok: true, status: "duplicate", loai: sk.loai, conversationId: conv.id };
+      }
+    }
+    r = await ingestExternalOutbound(db, {
+      channel: "zalo_ca_nhan", senderId: khoa, text: sk.noiDung, messageId: tinId, at: sk.luc,
+      attachments: sk.tepDinhKem.length ? sk.tepDinhKem : null, subject: tieuDe, centerId: acc.centerId, channelAccountId: acc.id,
+    });
+    const homNay = ngayVN(now);
+    await d.update(channelAccounts).set({
+      ...chung2,
+      sentDay: homNay,
+      sentToday: acc.sentDay === homNay ? sql`${channelAccounts.sentToday} + 1` : 1,
+    }).where(eq(channelAccounts.id, acc.id));
   }
-
-  // tin_di: nhân viên trả lời bên công cụ — ghi lại để đo thời gian phản hồi và đếm hạn mức ngày
-  const r = await ingestExternalOutbound(db, {
-    channel: "zalo_ca_nhan", senderId: sk.nguoiId!, text: sk.noiDung, messageId: tinId, at: sk.luc,
-    attachments: sk.tepDinhKem.length ? sk.tepDinhKem : null, subject: `Zalo cá nhân — ${acc.label}`, centerId: acc.centerId, channelAccountId: acc.id,
-  });
-  const homNay = ngayVN(now);
-  await d.update(channelAccounts).set({
-    ...chung2,
-    sentDay: homNay,
-    sentToday: acc.sentDay === homNay ? sql`${channelAccounts.sentToday} + 1` : 1,
-  }).where(eq(channelAccounts.id, acc.id));
   if (!r.ok) return { ok: false, status: "rejected", httpStatus: 400, error: r.error };
+
+  // Ghi thông tin để trả lời được + gắn hồ sơ có sẵn theo SĐT
+  const vua = conv ?? (await d.query.conversations.findFirst({ where: eq(conversations.id, r.conversationId) }));
+  if (vua) {
+    const patch: Partial<typeof conversations.$inferInsert> = {};
+    if (threadId && vua.extThreadId !== threadId) patch.extThreadId = threadId;
+    if (nickId && vua.extNickId !== nickId) patch.extNickId = nickId;
+    if (loaiLuong && vua.extThreadType !== loaiLuong) patch.extThreadType = loaiLuong;
+    if (info?.ten && !vua.displayName) patch.displayName = info.ten.slice(0, 120);
+    if (Object.keys(patch).length) await d.update(conversations).set(patch).where(eq(conversations.id, vua.id));
+    if (info?.sdt && !vua.parentId && !vua.leadId) await ganTheoSdt(d, vua.id, info.sdt, acc.centerId);
+  }
   return { ok: true, status: r.duplicate ? "duplicate" : "processed", loai: sk.loai, conversationId: r.conversationId };
 }
 
@@ -267,8 +341,11 @@ export type { SuKienKenh };
  * Trường thừa bị bỏ qua ở phía nhận; thiếu tên đúng thì tin không đi, nên rộng còn hơn hụt.
  * Nếu bản của trung tâm dùng tên khác nữa thì thêm ở ĐÚNG MỘT CHỖ này.
  */
-function thanGuiTin(nguoiId: string, body: string) {
-  return { zaloId: nguoiId, threadId: nguoiId, to: nguoiId, userId: nguoiId, message: body, text: body, content: body };
+/** Hội thoại cần gì để trả lời qua ZCRM v3.4: mã nick (zaloAccountId) + mã luồng Zalo */
+export interface DichGui {
+  nickId: string | null;
+  threadId: string | null;
+  nhom: boolean;
 }
 
 export type KetQuaGui = { status: "sent" | "skipped" | "failed"; externalId?: string; error?: string };
@@ -282,7 +359,7 @@ export type KetQuaGui = { status: "sent" | "skipped" | "failed"; externalId?: st
  *  2. Thiếu khai báo (địa chỉ API / khoá) → `skipped` kèm lý do rõ, tin vẫn lưu nội bộ.
  * Gọi ra ngoài hỏng thì **hoàn lại** bộ đếm — tin không đi mà vẫn trừ hạn mức là mất chỗ gửi oan.
  */
-export async function guiQuaKenh(db: Database, input: { channelAccountId: string | null; nguoiId: string; body: string }): Promise<KetQuaGui> {
+export async function guiQuaKenh(db: Database, input: { channelAccountId: string | null; nguoiId: string; body: string; dich?: DichGui }): Promise<KetQuaGui> {
   const d = asDb(db);
   const acc = input.channelAccountId
     ? await d.query.channelAccounts.findFirst({ where: eq(channelAccounts.id, input.channelAccountId) })
@@ -292,6 +369,13 @@ export async function guiQuaKenh(db: Database, input: { channelAccountId: string
   const baseUrl = acc.baseUrl?.replace(/\/+$/, "") ?? null;
   const apiKey = openWith(NHAN, acc.apiKey);
   if (!baseUrl || !apiKey) return { status: "skipped", error: `Nick “${acc.label}” chưa có địa chỉ API / khoá — tin chỉ lưu nội bộ` };
+  // ZCRM đòi đúng nick + đúng luồng: uid của một khách KHÁC NHAU giữa các nick, gửi nhầm nick là
+  // tin không đi (hoặc tệ hơn, tới nhầm người). Không đủ thông tin thì KHÔNG đoán.
+  const nickId = input.dich?.nickId ?? acc.externalId;
+  const threadId = input.dich?.threadId ?? (/^\d{5,30}$/.test(input.nguoiId) ? input.nguoiId : null);
+  if (input.dich?.nhom) return { status: "skipped", error: "Không trả lời hội thoại nhóm từ hệ thống" };
+  if (!nickId) return { status: "skipped", error: `Chưa biết nick ZCRM để gửi — khai “Mã nick trong ZCRM” cho “${acc.label}” ở Tích hợp` };
+  if (!threadId) return { status: "skipped", error: "Chưa biết mã luồng Zalo của khách — chờ khách nhắn thêm một tin rồi trả lời" };
 
   const homNay = ngayVN();
   const [giu] = await d
@@ -322,7 +406,7 @@ export async function guiQuaKenh(db: Database, input: { channelAccountId: string
       method: "POST",
       redirect: "error",
       headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
-      body: JSON.stringify(thanGuiTin(input.nguoiId, input.body)),
+      body: JSON.stringify(thanGuiZcrm({ nickId, threadId, noiDung: input.body })),
       signal: AbortSignal.timeout(15_000),
     });
     const j = (await r.json().catch(() => ({}))) as { messageId?: string; message_id?: string; id?: string; data?: { messageId?: string; id?: string }; error?: string; message?: string };
@@ -332,4 +416,51 @@ export async function guiQuaKenh(db: Database, input: { channelAccountId: string
   } catch (e) {
     return hoanLai(e instanceof Error ? `Không gọi được công cụ: ${e.message}`.slice(0, 300) : "Không gọi được công cụ");
   }
+}
+
+/* ------------------------------------------------------------------ */
+/* Đồng bộ lịch hẹn ZCRM → LMS (worker, mỗi 15 phút)                   */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Kéo lịch hẹn từ `GET /api/public/appointments` của ZCRM (từ hôm qua tới 30 ngày tới) về bảng
+ * `appointments`, khoá chống trùng `external_ref = "zcrm:<id>"`.
+ *
+ * Chỉ nhận lịch hẹn của khách **đã có hồ sơ** (lead hoặc phụ huynh, khớp theo SĐT) — không tự tạo
+ * lead từ danh bạ Zalo của nhân viên. Lịch hẹn đổi giờ / đổi trạng thái bên ZCRM thì cập nhật theo;
+ * lịch hẹn đã chốt trong LMS (xong / không đến / huỷ) thì LMS là nguồn đúng, không bị ghi đè.
+ */
+export async function dongBoLichHenZcrm(db: Database, now: Date = new Date()): Promise<{ nhan: number; boQua: number }> {
+  const d = asDb(db);
+  const ds = await d.select().from(channelAccounts).where(and(eq(channelAccounts.channel, "zalo_ca_nhan"), eq(channelAccounts.active, true)));
+  let nhan = 0, boQua = 0;
+  const tu = new Date(now.getTime() - 86_400_000).toISOString().slice(0, 10);
+  const den = new Date(now.getTime() + 30 * 86_400_000).toISOString().slice(0, 10);
+  for (const acc of ds) {
+    const json = await goiZcrm(acc, `/api/public/appointments?from=${tu}&to=${den}`);
+    const hen = json && typeof json === "object" && Array.isArray((json as { appointments?: unknown }).appointments) ? (json as { appointments: unknown[] }).appointments : [];
+    for (const raw of hen) {
+      const h = docLichHenZcrm(raw);
+      if (!h || !h.sdt) { boQua++; continue; }
+      const [ph] = await d.select({ id: parents.id }).from(parents).where(and(eq(parents.phoneNormalized, h.sdt), isNull(parents.deletedAt))).limit(1);
+      const [ld] = ph ? [] : await d.select({ id: leads.id, centerId: leads.centerId, owner: leads.assignedToId }).from(leads)
+        .where(and(eq(leads.phoneNormalized, h.sdt), acc.centerId ? eq(leads.centerId, acc.centerId) : sql`true`)).orderBy(desc(leads.createdAt)).limit(1);
+      if (!ph && !ld) { boQua++; continue; }
+      const ref = `zcrm:${h.id}`;
+      const cu = await d.query.appointments.findFirst({ where: eq(appointments.externalRef, ref) });
+      if (cu && cu.status !== "dat") { continue; }
+      const giaTri = {
+        title: h.tieuDe, kind: h.loai, at: h.luc, durationMin: h.thoiLuongPhut, status: h.trangThai, note: h.ghiChu,
+        leadId: ld?.id ?? null, parentId: ph?.id ?? null, centerId: ld?.centerId ?? acc.centerId, assignedTo: ld?.owner ?? null,
+        externalRef: ref,
+      };
+      if (cu) {
+        await d.update(appointments).set({ ...giaTri, remindedAt: cu.at.getTime() !== h.luc.getTime() ? null : cu.remindedAt }).where(eq(appointments.id, cu.id));
+      } else {
+        await d.insert(appointments).values(giaTri).onConflictDoNothing();
+      }
+      nhan++;
+    }
+  }
+  return { nhan, boQua };
 }

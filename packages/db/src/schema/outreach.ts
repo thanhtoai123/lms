@@ -108,6 +108,12 @@ export const conversations = pgTable("conversations", {
   teacherId: uuid("teacher_id").references(() => teachers.id),
   /** Nick/cổng của kênh ngoài đã nhận hội thoại này (Zalo cá nhân) — để trả lời đúng nick */
   channelAccountId: uuid("channel_account_id"),
+  /** Zalo cá nhân qua ZCRM: mã luồng Zalo (uid khách trong nick) — cần để trả lời */
+  extThreadId: text("ext_thread_id"),
+  /** Zalo cá nhân qua ZCRM: mã nick (zaloAccountId) đã nhận hội thoại, nếu công cụ có báo */
+  extNickId: text("ext_nick_id"),
+  /** user | group — tin nhóm không đưa vào hệ thống */
+  extThreadType: text("ext_thread_type"),
   assignedTo: uuid("assigned_to").references(() => users.id),
   status: convStatusEnum("status").notNull().default("open"),
   subject: text("subject"),
@@ -324,8 +330,11 @@ export const appointments = pgTable("appointments", {
   remindedAt: timestamp("reminded_at", { withTimezone: true }),
   doneAt: timestamp("done_at", { withTimezone: true }),
   createdBy: uuid("created_by").references(() => users.id),
+  /** Lịch hẹn đồng bộ từ công cụ ngoài: "zcrm:<id>" — chống nhập trùng */
+  externalRef: text("external_ref"),
   ...timestamps,
 }, (t) => [
+  uniqueIndex("appointments_external_ref_uq").on(t.externalRef),
   index("appointments_time_idx").on(t.at, t.status),
   index("appointments_owner_idx").on(t.assignedTo, t.status, t.at),
   index("appointments_lead_idx").on(t.leadId),

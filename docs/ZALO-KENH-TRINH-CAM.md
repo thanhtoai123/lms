@@ -154,7 +154,7 @@ Chiều ngược lại (LMS → ZCRM) chỉ nên có **một lệnh**: gửi tin
    Hàm đọc payload cố ý dễ tính (nhiều tên trường) và nguyên văn luôn nằm ở `webhook_events`
    (nguồn `zalo_ca_nhan`, `external_id` = slug nick) để mở ra đối chiếu khi công cụ đổi tên trường.
    Màn **Zalo CRM** có khối "Zalo cá nhân": nick, tin hôm nay/hạn mức, tín hiệu gần nhất, hội thoại chưa gắn lead.
-3. ⏳ Đồng bộ lịch hẹn (`GET /appointments`) → lịch tư vấn/học thử.
+3. ✅ (27/09) Đồng bộ lịch hẹn (`GET /api/public/appointments`) → lịch hẹn LMS, worker 15 phút — xem mục 8.2.
 
    _Kiểm thử đầu-cuối trên máy thật (24/09): bí mật sai → 401 · tin khách → 200 · bắn lại cùng tin →
    ghi `duplicate`, không nhân đôi · tin nhân viên trả lời bên công cụ → ghi chiều `out` · `zalo.disconnected`
@@ -162,7 +162,7 @@ Chiều ngược lại (LMS → ZCRM) chỉ nên có **một lệnh**: gửi tin
    1 hội thoại, 2 tin (1 vào, 1 ra)._
 
 **Đợt B — trả lời ngay trong hệ thống**
-4. `gui()` cho kênh cá nhân (gọi `POST /messages/send` của ZCRM) + hạn mức/giãn cách.
+4. ✅ (27/09) `gui()` cho kênh cá nhân (`POST /api/public/messages/send` đúng thân v3.4) + trần tin/ngày. Giãn cách: ZCRM tự lo.
 5. Bộ định tuyến gửi ra (OA → Bot → cá nhân → ZNS) dùng chung cho nhắc học phí, nhắc lịch.
 6. Chạy lại webhook cho nguồn `zalo_ca_nhan` (gộp với việc Đợt 2 của tài liệu Zalo CRM).
 
@@ -183,10 +183,68 @@ Chiều ngược lại (LMS → ZCRM) chỉ nên có **một lệnh**: gửi tin
   và có API/webhook mở), chỉ phải viết lại **một tệp adapter** — đó là lý do làm tầng trình cắm ngay từ
   đầu thay vì nối thẳng.
 
-## 8. Nguồn
+## 8. Đối chiếu với mã nguồn thật ZCRM v3.4 (27/09/2026)
+
+_Đọc trực tiếp kho `github.com/locphamnguyen/ZaloCRM` (commit `8664567`): `backend/src/modules/api/public-api-routes.ts`,
+`webhook-service.ts`, `webhook-settings-routes.ts`, `chat/message-handler.ts`, `prisma/schema.prisma`. Chỉ đọc để
+viết bộ chuyển đổi — **không chép một dòng mã nào** vào hệ thống (AGPL-3.0)._
+
+### 8.1 Bản đọc cũ đoán sai — trước sửa, ghép với ZCRM thật là KHÔNG chạy
+
+| Chỗ | Bản cũ đoán | ZCRM v3.4 thật | Hậu quả nếu không sửa |
+|---|---|---|---|
+| Chữ ký webhook | `X-Webhook-Secret` / `X-Signature` | **`X-Webhook-Signature`** = HMAC-SHA256 hex của thân, kèm `X-Webhook-Event` | **Mọi** sự kiện bị trả 401 |
+| Người gửi | `zaloId`, `senderId`… | **`senderUid`** | Mọi tin bị coi "không đủ dữ liệu", bỏ qua |
+| Khoá hội thoại | người gửi | **`conversationId`** (tin nhân viên gửi có `senderUid` = chính nick) | Mọi tin trả lời của một nick dồn vào một hội thoại ma |
+| Thân gửi tin | `zaloId`, `to`, `message`… | **`zaloAccountId` + `threadId` + `content`** (+ `threadType`) | Gửi tin luôn 400 |
+| `contact.created` | có mã Zalo | chỉ `{ contactId, fullName }` | Sinh hội thoại rỗng không bao giờ ghép được |
+| Tin ảnh/video | mảng `attachments` | `contentType` + `content` = URL tệp | Tin ảnh hiện nguyên một đường dẫn dài |
+| Đường webhook | một đường mỗi nick | **một đường mỗi tổ chức ZCRM**; ZCRM **chặn địa chỉ nội bộ** (chống SSRF) | Chỉ nhận được khi LMS có tên miền công khai |
+
+Tất cả đã sửa (hàm đọc `core/outreach/kenhNgoai.ts` + kiểm thử theo đúng hình dạng thật).
+
+### 8.2 Luồng sau khi sửa
+
+```
+ZCRM ──webhook (ký X-Webhook-Signature)──► /api/webhooks/kenh/<slug>
+   message.received / message.sent: { messageId, conversationId, senderUid, content, contentType, sentAt }
+        │ lần đầu gặp hội thoại → GET /api/public/conversations (X-API-Key)
+        │   lấy: tên khách, SĐT, externalThreadId (để trả lời), threadType
+        ├─ nhóm (threadType = group)  → BỎ QUA, không lưu (dữ liệu của nhiều người, không phải việc 1-1)
+        ├─ SĐT khớp phụ huynh / lead ĐÃ CÓ → gắn hội thoại (không tự tạo lead)
+        └─ ghi hội thoại + tin; tin nhân viên gửi TỪ LMS dội về (`message.sent`) → gắn mã, không ghi đôi
+LMS ──POST /api/public/messages/send { zaloAccountId, threadId, content }──► ZCRM (trần tin/ngày trước khi gọi)
+Worker 15 phút ──GET /api/public/appointments──► lịch hẹn LMS (chỉ khách đã có hồ sơ; LMS đã chốt thì không ghi đè)
+```
+
+### 8.3 Giới hạn của ZCRM bản hiện tại — và bản vá nhỏ đề xuất gửi tác giả
+
+Webhook tin nhắn của ZCRM **không cho biết tin thuộc nick nào**, và danh sách hội thoại công khai cũng không
+trả `zaloAccountId`. Với tổ chức ZCRM **một nick**: khai "Mã nick trong ZCRM" là trả lời được. Với tổ chức
+**nhiều nick**: hệ thống **không đoán** (uid của cùng một khách khác nhau giữa các nick — đoán sai là tin
+không đi hoặc tới nhầm người), nên chỉ trả lời qua nick đã khai.
+
+Cách gỡ sạch là một thay đổi rất nhỏ **bên ZCRM** (gửi tác giả dạng pull request, hoặc tự áp vào bản ZCRM
+của trung tâm — bản sửa của một phần mềm AGPL chạy qua mạng thì phải công bố mã nguồn bản sửa cho người
+dùng bản đó, việc này nằm ở phía ZCRM, không dính tới LMS):
+
+- thêm vào dữ liệu `message.received` / `message.sent`: `zaloAccountId`, `threadId`, `threadType`, `contactId`, `senderName`;
+- thêm `zaloAccountId` vào kết quả `GET /api/public/conversations`;
+- trả `msgId` trong kết quả `POST /api/public/messages/send`.
+
+Bộ đọc của LMS **đã đọc sẵn các trường này nếu có** — ZCRM bổ sung là tự dùng, không phải sửa LMS.
+
+### 8.4 Những gì cố ý KHÔNG tích hợp
+
+- **Bạn bè, quét nhóm, kho ảnh, chiến dịch gửi hàng loạt** của ZCRM: giữ bên ZCRM (dữ liệu cá nhân của
+  người chưa liên hệ với trung tâm; gửi hàng loạt bằng nick cá nhân là con đường nhanh nhất để bị khoá nick).
+- **Nhúng mã / chạy ZCRM trong máy chủ LMS**: không. ZCRM chạy riêng (Docker, Postgres + Redis + MinIO riêng,
+  2–4 GB RAM), LMS chỉ nói chuyện qua API + webhook.
+
+## 9. Nguồn
 
 - ZCRM v3.4 (mã nguồn mở, `zca-js`, AGPL-3.0, REST API + webhook, hạn mức ~200 tin/ngày, cảnh báo ToS):
-  github.com/nguyenvanlendev/ZaloCRM
+  github.com/locphamnguyen/ZaloCRM
 - `zca-js` — API Zalo không chính thức, đăng nhập bằng QR, cảnh báo khoá tài khoản, một phiên nghe/nick:
   github.com/RFS-ADRENO/zca-js
 - Zalo Bot (tạo bot trong "Zalo Bot Manager", `bot-api.zaloplatforms.com/bot<TOKEN>/sendMessage`,

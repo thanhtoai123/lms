@@ -8,6 +8,7 @@ import "@satarobo/db/env";
 import { createDb } from "@satarobo/db";
 import { processOutbox, scanLeadSla } from "./services/engagement";
 import { ghiLoiMayChu } from "./services/loiMayChu";
+import { dongBoLichHenZcrm } from "./services/channelAccounts";
 import { runSurveyTriggers } from "./services/care";
 import { processEmailQueue } from "./services/admin";
 import { remindDueHomework } from "./services/assignments";
@@ -36,6 +37,7 @@ let running = true;
 let lastSurvey = 0;
 let lastRetention = 0;
 let lastRatePrune = 0;
+let lastZcrmSync = 0;
 /** Log của worker đi qua bộ che PII giống mọi nơi khác */
 const log = apiLogger.child("worker");
 process.on("SIGINT", () => { running = false; });
@@ -83,6 +85,12 @@ async function tick() {
       if (cr.count) log.info(`candidates anonymized=${cr.count}`);
       const pr = await remindPauseEnding(db);
       if (pr) log.info(`pause reminders=${pr}`);
+    }
+    // Lịch hẹn đặt bên Zalo CRM (ZCRM) → lịch hẹn LMS, mỗi 15 phút (chỉ khách đã có hồ sơ)
+    if (Date.now() - lastZcrmSync > 15 * 60_000) {
+      lastZcrmSync = Date.now();
+      const zh = await dongBoLichHenZcrm(db);
+      if (zh.nhan) log.info(`zcrm appointments synced=${zh.nhan} skipped=${zh.boQua}`);
     }
     // Dọn bộ đếm trần tần suất đã hết hạn (bảng rate_limits) — mỗi 10 phút là đủ
     if (Date.now() - lastRatePrune > 10 * 60_000) {

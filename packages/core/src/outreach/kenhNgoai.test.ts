@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { docSuKienZcrm, duDeGhiTin, conLaiTrongNgay, nickImLang, HAN_MUC_NICK_NGAY } from "./kenhNgoai.js";
+import { docSuKienZcrm, duDeGhiTin, conLaiTrongNgay, nickImLang, HAN_MUC_NICK_NGAY, khoaHoiThoai, timHoiThoaiZcrm, thanGuiZcrm, docLichHenZcrm } from "./kenhNgoai.js";
 
 const BAY_GIO = new Date("2026-09-24T03:00:00.000Z");
 
@@ -84,5 +84,79 @@ describe("hạn mức & sức khoẻ nick", () => {
     assert.equal(nickImLang(new Date(BAY_GIO.getTime() - 10 * 60_000), BAY_GIO), false);
     assert.equal(nickImLang(new Date(BAY_GIO.getTime() - 31 * 60_000), BAY_GIO), true);
     assert.equal(nickImLang(null, BAY_GIO), true);
+  });
+});
+
+/*
+ * Hình dạng THẬT của ZCRM v3.4 (đọc từ mã nguồn công khai, `message-handler.ts` + `webhook-service.ts`):
+ *   { event, timestamp, data: { messageId, conversationId, senderUid, content, contentType, sentAt } }
+ * Bản đọc cũ đoán tên trường nên bỏ sót `senderUid` — mọi tin thật đều bị coi là "không đủ dữ liệu".
+ */
+describe("ZCRM v3.4 — payload thật", () => {
+  const tinDen = {
+    event: "message.received",
+    timestamp: "2026-09-27T08:00:01.000Z",
+    data: { messageId: "b1f0c2d4-0000-4000-8000-000000000001", conversationId: "c0nv-0000-4000-8000-000000000001", senderUid: "7712345678901234567", content: "Cho em hỏi lớp robot thứ 7", contentType: "text", sentAt: "2026-09-27T08:00:00.000Z" },
+  };
+
+  it("tin khách: đọc được người gửi, hội thoại, nội dung", () => {
+    const s = docSuKienZcrm(tinDen, BAY_GIO)!;
+    assert.equal(s.loai, "tin_den");
+    assert.equal(s.nguoiId, "7712345678901234567");
+    assert.equal(s.hoiThoaiId, "c0nv-0000-4000-8000-000000000001");
+    assert.equal(s.tinId, "b1f0c2d4-0000-4000-8000-000000000001");
+    assert.equal(s.luc.toISOString(), "2026-09-27T08:00:00.000Z");
+    assert.equal(duDeGhiTin(s), true);
+  });
+
+  it("tin nhân viên gửi đi: gom theo HỘI THOẠI, không theo người gửi (người gửi là chính nick)", () => {
+    const s = docSuKienZcrm({ ...tinDen, event: "message.sent", data: { ...tinDen.data, senderUid: "uid-cua-nick", content: "Dạ có ạ" } }, BAY_GIO)!;
+    assert.equal(s.loai, "tin_di");
+    assert.equal(khoaHoiThoai(s), "c0nv-0000-4000-8000-000000000001");
+  });
+
+  it("tên sự kiện lấy được từ header X-Webhook-Event khi thân không có", () => {
+    const { event: _bo, ...khongTen } = tinDen;
+    assert.equal(docSuKienZcrm(khongTen, BAY_GIO, "message.received")?.loai, "tin_den");
+  });
+
+  it("tin ảnh: nội dung là URL → thành tệp đính kèm + nhãn", () => {
+    const s = docSuKienZcrm({ ...tinDen, data: { ...tinDen.data, contentType: "image", content: "https://minio.example/zalo-image.jpg" } }, BAY_GIO)!;
+    assert.equal(s.noiDung, "[Hình ảnh]");
+    assert.deepEqual(s.tepDinhKem, [{ type: "image", url: "https://minio.example/zalo-image.jpg" }]);
+  });
+
+  it("sự kiện nick: accountId là mã nick trong ZCRM", () => {
+    assert.equal(docSuKienZcrm({ event: "zalo.disconnected", data: { accountId: "nick-uuid" } }, BAY_GIO)?.nickId, "nick-uuid");
+  });
+
+  it("tìm hội thoại trong danh sách API công khai để lấy tên, SĐT, mã luồng", () => {
+    const json = { conversations: [
+      { id: "khac", threadType: "user", externalThreadId: "1", contact: { id: "k1", fullName: "Người khác", phone: null } },
+      { id: "c0nv-1", threadType: "user", externalThreadId: "7712345678901234567", contact: { id: "ct-1", fullName: "Chị Lan", phone: "0901234567" } },
+    ] };
+    assert.deepEqual(timHoiThoaiZcrm(json, "c0nv-1"), { id: "c0nv-1", threadId: "7712345678901234567", loaiLuong: "user", nickId: null, lienHeId: "ct-1", ten: "Chị Lan", sdt: "84901234567" });
+    assert.equal(timHoiThoaiZcrm(json, "khong-co"), null);
+    assert.equal(timHoiThoaiZcrm({ loi: 1 }, "c0nv-1"), null);
+  });
+
+  it("nhận ra hội thoại nhóm (không đưa tin nhóm lớp vào hệ thống)", () => {
+    const json = { conversations: [{ id: "g1", threadType: "group", externalThreadId: "nhom-1", contact: null, groupName: "Lớp Robot 3A" }] };
+    assert.equal(timHoiThoaiZcrm(json, "g1")?.loaiLuong, "group");
+  });
+
+  it("thân gửi tin đúng bốn trường ZCRM đòi", () => {
+    assert.deepEqual(thanGuiZcrm({ nickId: "n1", threadId: "t1", noiDung: "Dạ" }), { zaloAccountId: "n1", threadId: "t1", content: "Dạ", threadType: "user" });
+  });
+
+  it("lịch hẹn ZCRM → lịch hẹn LMS: ghép ngày + giờ Việt Nam, đổi loại và trạng thái", () => {
+    const h = docLichHenZcrm({ id: "a1", appointmentDate: "2026-09-30T00:00:00.000Z", appointmentTime: "19:30", type: "call", status: "scheduled", notes: "Gọi lại tư vấn", contact: { id: "ct", fullName: "Chị Lan", phone: "0901234567" } })!;
+    assert.equal(h.luc.toISOString(), "2026-09-30T12:30:00.000Z");
+    assert.equal(h.loai, "goi_lai");
+    assert.equal(h.trangThai, "dat");
+    assert.equal(h.sdt, "84901234567");
+    assert.match(h.tieuDe, /Chị Lan/);
+    assert.equal(docLichHenZcrm({ id: "a2", appointmentDate: "2026-09-30T00:00:00.000Z", type: "meeting", status: "no_show" })!.trangThai, "vang");
+    assert.equal(docLichHenZcrm({ id: "a3" }), null);
   });
 });
