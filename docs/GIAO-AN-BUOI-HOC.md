@@ -117,16 +117,55 @@ tổ vướng). Thay bằng một **chấm tròn nhỏ ở góc dưới phải**
 ## 6. Trình chiếu
 
 Khung chiếm gần hết cửa sổ, **không có thanh công cụ ngang nào ở trên**. Nút **Trình chiếu toàn màn hình**
-nổi ở góc phải và chỉ hiện khi rê chuột (phím tắt `F`, thoát bằng `Esc`). Slide PDF cuộn liên tục từng
-trang; gói SCORM chạy trong trình chạy SCORM — cùng một khung, giáo viên chỉ phải quen một màn hình.
+nổi ở góc phải (phím tắt `F`, thoát bằng `Esc`): máy tính hiện khi rê chuột, máy tính bảng / điện thoại luôn hiện mờ.
+Slide PDF cuộn liên tục từng trang; gói SCORM chạy trong trình chạy SCORM — cùng một khung.
 
 ## 7. Phía giáo viên
 
-Trang **Chuẩn bị buổi dạy** (`/teacher/sessions/<id>/chuan-bi`) có nút **Mở giáo án buổi này**, đi thẳng
-tới khung chiếu — giáo viên không phải tìm trong kho tài liệu. Mọi lượt mở đều ghi `document_access_logs`.
+Giáo viên mở giáo án ngay từ buổi dạy: thẻ nổi bật đầu trang **Hôm nay**, nút **Giáo án** trên mọi thẻ buổi
+(Hôm nay, Lịch dạy), nút **Mở giáo án** ở màn buổi dạy và màn Chuẩn bị, và **Lớp của tôi → Giáo án của tôi**
+(khoá mình dạy → từng buổi, trạng thái mở / khoá). Khung chiếu của giáo viên: `/teacher/giao-an/<bài>?buoi=<buổi>`
+(có buổi trước / sau, nút Điểm danh buổi này). `/scorm` và `/scorm/buoi/<bài>` tự chuyển giáo viên sang đó.
+Mọi lượt mở đều ghi `document_access_logs`.
 
-## 8. Quyền
+## 8. Xem giáo án theo ca dạy — xin xem ngoài ca
 
-- Xem: `document:read`.
+**Luật** (thuần, có kiểm thử: `packages/core/src/content/planAccess.ts`). Giáo viên — người chỉ có
+`document:read_own` — xem giáo án của một bài khi và chỉ khi:
+
+| Điều kiện | Chi tiết |
+|---|---|
+| Đang trong ca dạy bài đó | Có buổi **hôm nay** gắn đúng bài (`sessions.lesson_id`), của lớp mình: mình dạy buổi đó (kể cả dạy thay), là trợ giảng của lớp, hoặc buổi chưa gán người và mình là GV chính. GV chính **không** mở được khi buổi đã giao người khác dạy thay. Khung mở: **30 phút trước giờ vào lớp → 15 phút sau giờ tan** (giờ Việt Nam). Buổi huỷ / dời không mở. |
+| Có yêu cầu đã duyệt còn hạn | Giáo viên gửi yêu cầu kèm lý do (10–300 ký tự) → **Quản lý cơ sở** (quyền `plan_access:approve`) duyệt → xem **đúng bài đó trong 2 giờ kể từ lúc duyệt**. Hạn do máy chủ tính, không nhận từ máy khách. |
+
+Người đọc toàn kho (`document:read` đầy đủ: Đào tạo, quản lý, giáo vụ, kiểm soát) không bị giới hạn.
+
+**Quy tắc yêu cầu:** mỗi (người, bài) chỉ một yêu cầu chờ (chỉ mục duy nhất); tối đa 3 yêu cầu chờ / người;
+chờ quá 24 giờ tự hết hiệu lực; không ai tự duyệt yêu cầu của mình (quản lý kiêm dạy phải nhờ người khác);
+từ chối bắt buộc ghi lý do; quản lý **thu hồi sớm** được quyền còn hạn. Người duyệt nhận thông báo
+(`plan_access.requested`) và thấy nhóm **Xin xem giáo án ngoài ca dạy** ở *Việc hôm nay*; giáo viên nhận
+kết quả (`plan_access.decided`). Mọi thao tác ghi `audit_log` (bảng `lesson_plan_access_requests`).
+
+**Chặn ở máy chủ, trên MỌI đường phát nội dung** (`packages/api/src/services/planAccess.ts → assertPlanAccess`):
+
+| Đường | Chặn thế nào |
+|---|---|
+| `content.plan` (khung chiếu) | Khi khoá: **không trả mã tài liệu / đường phát**, chỉ loại giáo án + trạng thái quyền |
+| `content.planOpen`, `/api/content/giao-an/<bài>/tep` (slide PDF) | 403 khi khoá |
+| Kho tài liệu / SCORM: `content.document`, `openDocument`, `scormLaunch`, `scormCommit` | `loadDocForRead` chặn tài liệu nhóm `lesson_plan` |
+| URL ký của gói SCORM | Hạn vé cắt đúng bằng thời gian còn được xem (không còn 4 giờ cố định) |
+| Trình duyệt | Đếm ngược trên khung; hết giờ tự tải lại → máy chủ khoá, khung chiếu biến mất |
+
+Đã kiểm trên máy thật (tài khoản mẫu): giáo viên ngoài ca → 403 ở cả 4 đường API, `content.plan` không lộ mã
+tài liệu; gửi yêu cầu → quản lý duyệt → mở được, vé SCORM hạn đúng 120 phút; thu hồi → 403 ngay; giáo viên
+mở `/duyet-xem-giao-an` → "Chưa có quyền".
+
+Triển khai: `pnpm db:push` (tạo bảng) → `pnpm db:apply-sql` (`sql/0019_xin_xem_giao_an.sql`: trigger điền
+tenant, chính sách RLS — chỉ bật RLS nếu hệ thống đã bật).
+
+## 9. Quyền
+
+- Xem: `document:read` (đầy đủ) — không giới hạn; `document:read_own` (giáo viên) — theo mục 8.
+- Duyệt xem ngoài ca: `plan_access:approve` (Quản lý cơ sở; cấp thêm cho người khác bằng nhóm người dùng).
 - Đẩy / gỡ / dọn / dùng lại: `document:update`.
-- Trang tự kiểm quyền; menu cũng ẩn mục với vai trò không có `document:read` (xem `docs/KIEN-TRUC-MENU.md`).
+- Trang tự kiểm quyền; menu cũng ẩn mục với vai trò không có quyền (xem `docs/KIEN-TRUC-MENU.md`).

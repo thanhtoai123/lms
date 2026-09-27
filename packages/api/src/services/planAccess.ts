@@ -200,6 +200,11 @@ export async function requestPlanAccess(ctx: ProtectedContext, input: { lessonId
     .where(and(eq(lessonPlanAccessRequests.requestedBy, ctx.user.id), eq(lessonPlanAccessRequests.status, "pending"), lt(lessonPlanAccessRequests.createdAt, new Date(now.getTime() - TTL_MS))));
   const [{ n } = { n: 0 }] = await ctx.db.select({ n: sql<number>`count(*)::int` }).from(lessonPlanAccessRequests)
     .where(and(eq(lessonPlanAccessRequests.requestedBy, ctx.user.id), eq(lessonPlanAccessRequests.status, "pending")));
+  const dup = await ctx.db.query.lessonPlanAccessRequests.findFirst({
+    where: and(eq(lessonPlanAccessRequests.requestedBy, ctx.user.id), eq(lessonPlanAccessRequests.lessonId, l.id), eq(lessonPlanAccessRequests.status, "pending")),
+    columns: { id: true },
+  });
+  if (dup) throw pre("Bạn đã có yêu cầu đang chờ duyệt cho bài này");
   if (n >= PLAN_PENDING_MAX) throw pre(`Bạn đang có ${n} yêu cầu chờ duyệt — chờ quản lý xử lý hoặc huỷ bớt trước khi gửi thêm`);
 
   // Cơ sở duyệt: cơ sở của hồ sơ giáo viên; chưa gắn thì cơ sở của lớp đang dạy khoá này
@@ -227,7 +232,9 @@ export async function requestPlanAccess(ctx: ProtectedContext, input: { lessonId
       sessionId, reason: input.reason.trim(), status: "pending",
     }).returning({ id: lessonPlanAccessRequests.id });
   } catch (e) {
-    if (String((e as { code?: string })?.code) === "23505" || /plan_access_req_pending_uq/.test(String(e))) throw pre("Bạn đã có yêu cầu đang chờ duyệt cho bài này");
+    // Hai lần gửi song song: chỉ mục duy nhất chặn lần sau (drizzle bọc lỗi pg trong `cause`)
+    const err = e as { code?: string; cause?: { code?: string; constraint_name?: string } };
+    if (err?.code === "23505" || err?.cause?.code === "23505") throw pre("Bạn đã có yêu cầu đang chờ duyệt cho bài này");
     throw e;
   }
   const who = await approverIds(ctx, center.id);
