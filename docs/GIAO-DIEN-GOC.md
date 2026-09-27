@@ -141,3 +141,14 @@ Mục chỉ có ở hệ mới — chọn icon cùng bộ cho hợp: `/huong-dan
 `/quan-ly-chia-lead/lich-su history`, `/cham-cong/phan-ca table-properties`, `/cham-cong/ky-cong calendar-clock`,
 `/cham-cong/danh-muc-ca tags`, `/cham-cong/diem-cham map-pinned`, `/cham-cong/man-hinh monitor`,
 `/leads/import upload`, `/leads/import/registered upload`, `/bao-cao/sau-go-live line-chart`.
+
+## 6. Chuẩn chữ & bố cục (áp cho toàn hệ thống)
+
+| Quy tắc | Cách làm |
+|---|---|
+| **Một dòng mô tả dưới tiêu đề trang** | `PageHeader desc` được tách tự động (`core/nav/moTa.ts → tachMoTa`): câu đầu (≤ ~110 ký tự) hiện ngay, phần còn lại thu vào nút **? Cách dùng** (mở khi cần). Viết mới: `desc` = một câu nói trang để làm gì; quy tắc / lưu ý / các bước → `help`. |
+| **Một cỡ tiêu đề trang** | `<h1 className="page-title">` (xl → 2xl trên màn rộng) — khu quản trị, giao diện giáo viên, trang tài khoản. |
+| **Không bày hướng dẫn dài trên trang** | Khối "Hướng dẫn dùng trang này" → `PageHeader help`. Gợi ý phím tắt chỉ hiện trên máy tính (`lg:`). |
+| **Hành động phụ / nguy hiểm trên từng dòng** | Thêm lớp `row-action` (Xoá, Đổi cha…): máy tính chỉ hiện khi rê chuột / vào dòng bằng bàn phím; máy cảm ứng luôn hiện. Hành động chính của dòng luôn hiện. |
+| **Lưới co giãn** | `.grid` mặc định một cột `minmax(0,1fr)` — nội dung dài không đẩy trang tràn ngang trên điện thoại. |
+| **Lỗi quyền là 403, không phải 500** | Lỗi domain (`ForbiddenError`, `TenantIsolationError`, lỗi quy tắc) được đổi mã ở `mapDomainErrors` (đọc kết quả `next()` của tRPC v11). Bảng lỗi máy chủ (/van-hanh) không ghi 403/404/412, người xem đóng trang, redirect (`core/ops/loiMayChu.ts → laLoiCanGhi`). |

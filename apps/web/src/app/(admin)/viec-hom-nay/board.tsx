@@ -136,7 +136,8 @@ export function InboxBoard({ greeting }: { greeting: string }) {
           <h1 className="page-title">Việc hôm nay</h1>
           <p className="text-sm text-muted-foreground">{greeting}</p>
         </div>
-        <p className="text-xs text-muted-foreground">
+        {/* Gợi ý phím tắt: chỉ máy tính có bàn phím (điện thoại / máy tính bảng không cần) */}
+        <p className="hidden text-xs text-muted-foreground lg:block">
           Bấm <kbd className="rounded border border-border bg-muted px-1">?</kbd> xem phím tắt · <kbd className="rounded border border-border bg-muted px-1">E</kbd> làm ngay dòng đang trỏ
         </p>
       </div>
