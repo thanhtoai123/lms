@@ -1,0 +1,20 @@
+# Khung nhúng ZCRM — proxy nhỏ đứng trước ZCRM để trang quản trị LMS nhúng được giao diện ZCRM.
+#
+# ZCRM v3.4 gửi `X-Frame-Options: DENY` cho mọi trang → trình duyệt cấm mọi trang khác nhúng nó.
+# Proxy này KHÔNG sửa mã ZCRM: chỉ bỏ header đó và cho đúng MỘT nguồn (trang quản trị LMS) nhúng.
+# CSP của ZCRM mặc định ở chế độ report-only (không chặn gì), nên thay bằng frame-ancestors không làm
+# yếu đi bảo vệ nào đang có hiệu lực. Nếu ZCRM chạy CSP_MODE=enforce thì chép nguyên CSP của nó vào
+# đây và chỉ đổi frame-ancestors.
+#
+# Biến: ZCRM_UPSTREAM (vd host.docker.internal:3080) · LMS_ORIGIN (vd https://admin.trungtam.vn)
+{
+	admin off
+}
+
+:80 {
+	reverse_proxy {$ZCRM_UPSTREAM} {
+		header_down -X-Frame-Options
+		header_down -Content-Security-Policy-Report-Only
+		header_down Content-Security-Policy "frame-ancestors {$LMS_ORIGIN}"
+	}
+}
