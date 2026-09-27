@@ -24,10 +24,17 @@ describe("ký yêu cầu S3", () => {
     assert.equal(r.url, "https://tk.r2.cloudflarestorage.com/satarobo/media/2026/anh.jpg");
   });
 
-  it("kiểu virtual-host thì bucket nằm trong tên miền", () => {
+  it("kiểu virtual-host thì bucket nằm trong tên miền, không nằm trong đường dẫn", () => {
     const r = kyYeuCau({ ...R2, pathStyle: false }, "GET", "media/anh.jpg", { now: NOW });
-    assert.equal(r.url, "https://tk.r2.cloudflarestorage.com/media/anh.jpg");
+    assert.equal(r.url, "https://satarobo.tk.r2.cloudflarestorage.com/media/anh.jpg");
     assert.equal(r.headers.host, "satarobo.tk.r2.cloudflarestorage.com");
+    // Header host phải khớp host trong URL — lệch là chữ ký sai và S3 trả 403
+    assert.equal(new URL(r.url).host, r.headers.host);
+  });
+
+  it("kiểu path-style cũng phải khớp host giữa URL và header", () => {
+    const r = kyYeuCau(R2, "GET", "media/anh.jpg", { now: NOW });
+    assert.equal(new URL(r.url).host, r.headers.host);
   });
 
   it("GET và DELETE dùng băm của nội dung rỗng", () => {

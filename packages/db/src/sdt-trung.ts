@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * SOI VÀ GỘP PHỤ HUYNH TRÙNG SỐ ĐIỆN THOẠI.
  *
@@ -7,8 +6,8 @@
  * phụ huynh đó KHÔNG đăng nhập được và KHÔNG nhận được thông báo. Dọn sau khi đã có dữ
  * liệu thật là sửa dữ liệu sản xuất, đắt hơn nhiều.
  *
- *   node scripts/ops/sdt-trung.mjs          → chỉ xem báo cáo, không ghi gì
- *   node scripts/ops/sdt-trung.mjs --gop    → gộp thật
+ *   pnpm sdt-trung          → chỉ xem báo cáo, không ghi gì
+ *   pnpm sdt-trung --gop    → gộp thật
  *
  * Gộp làm gì: chuyển con, đơn học phí, thông báo, phiên đăng nhập, đồng ý NĐ13 và PII về
  * dòng được giữ lại, rồi XOÁ MỀM các dòng còn lại (`deleted_at`) — không xoá cứng, để còn
@@ -18,6 +17,7 @@
  * Luật chọn dòng giữ lại nằm ở `@satarobo/core` (`keHoachGopTheoSo`) và có kiểm thử —
  * script này chỉ đọc CSDL rồi thi hành.
  */
+import "./env";
 import process from "node:process";
 import postgres from "postgres";
 import { keHoachGopTheoSo } from "@satarobo/core";
@@ -29,6 +29,18 @@ if (!url) {
   process.exit(1);
 }
 const sql = postgres(url, { max: 2 });
+
+interface DongThoi {
+  id: string;
+  full_name: string;
+  account_status: string;
+  email: string | null;
+  zalo_id: string | null;
+  created_at: string;
+  sdt: string;
+  so_con: number;
+  so_don: number;
+}
 
 /** Mọi bảng trỏ tới parents.id — chuyển hết về dòng giữ lại trước khi xoá mềm */
 const CHUYEN = [
@@ -42,13 +54,13 @@ const CHUYEN = [
   { bang: "push_subscriptions", cot: "parent_id", note: "đăng ký thông báo đẩy" },
 ];
 
-async function coBang(ten) {
-  const [r] = await sql`select to_regclass(${"public." + ten}) is not null as co`;
+async function coBang(ten: string): Promise<boolean> {
+  const [r] = await sql<{ co: boolean }[]>`select to_regclass(${"public." + ten}) is not null as co`;
   return r?.co === true;
 }
 
 async function main() {
-  const rows = await sql`
+  const rows = await sql<DongThoi[]>`
     select p.id, p.full_name, p.account_status, p.email, p.zalo_id, p.created_at,
            coalesce(p.phone_normalized, '84' || right(regexp_replace(p.phone, '\\D', '', 'g'), 9)) as sdt,
            (select count(*)::int from student_guardians g where g.parent_id = p.id) as so_con,
@@ -91,7 +103,7 @@ async function main() {
     return;
   }
 
-  const bangCo = [];
+  const bangCo: typeof CHUYEN = [];
   for (const c of CHUYEN) if (await coBang(c.bang)) bangCo.push(c);
 
   let daGop = 0;
@@ -103,7 +115,7 @@ async function main() {
           await tx.unsafe(
             `update ${c.bang} set ${c.cot} = $1 where ${c.cot} = $2`,
             [n.giuLai.id, g.id],
-          ).catch(async (e) => {
+          ).catch(async (e: unknown) => {
             if (!/duplicate key/i.test(String(e))) throw e;
             await tx.unsafe(`delete from ${c.bang} where ${c.cot} = $1`, [g.id]);
           });
@@ -136,8 +148,8 @@ async function main() {
 
 main()
   .then(() => sql.end())
-  .catch(async (e) => {
-    console.error("Lỗi:", e.message ?? e);
+  .catch(async (e: unknown) => {
+    console.error("Lỗi:", e instanceof Error ? e.message : e);
     await sql.end();
     process.exit(1);
   });

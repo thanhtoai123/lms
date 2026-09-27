@@ -20,7 +20,7 @@
     "reset": "tsx src/reset.ts",
     "apply-sql": "tsx src/apply-sql.ts",
     "test": "echo 'no tests in db'",
-    "sdt-trung": "node ../../scripts/ops/sdt-trung.mjs"
+    "sdt-trung": "tsx src/sdt-trung.ts"
   },
   "dependencies": {
     "@satarobo/core": "workspace:*",
