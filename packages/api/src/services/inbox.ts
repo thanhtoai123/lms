@@ -32,11 +32,12 @@ import * as EN from "./engagement";
 import * as RC from "./reportCards";
 import * as TR from "./trialReports";
 import * as SE from "./sessionEvaluations";
+import * as PA from "./planAccess";
 
 export const INBOX_GROUP_KEYS = [
   "lead_task", "lead_sla", "session_attendance", "session_note", "report_card", "makeup",
   "media", "payment", "refund", "staff_request", "parent_request", "care_task", "completion", "notification",
-  "trial_report", "session_evaluation",
+  "trial_report", "session_evaluation", "plan_access",
 ] as const;
 export type InboxGroupKey = (typeof INBOX_GROUP_KEYS)[number];
 
@@ -129,6 +130,7 @@ export async function inboxToday(ctx: ProtectedContext) {
       safe(() => parentRequestGroup(ctx)),
       safe(() => careTaskGroup(ctx)),
       safe(() => completionGroup(ctx)),
+      safe(() => planAccessGroup(ctx)),
       safe(() => notificationGroup(ctx)),
     ])
   ).filter((g): g is InboxGroup => g !== null && g.total > 0);
@@ -259,6 +261,25 @@ async function sessionGroups(ctx: ProtectedContext, mode: "attendance" | "note")
       href: "/sessions", emptyHint: "Không còn buổi nào chờ nhận xét.",
       total, overdue: overdueCount, items,
     };
+}
+
+/**
+ * Giáo viên xin xem giáo án ngoài ca dạy — quản lý duyệt từng yêu cầu ở trang Duyệt xem giáo án
+ * (đọc lý do + buổi dạy liên quan rồi mới duyệt, nên là "open", không duyệt hàng loạt tại chỗ).
+ */
+async function planAccessGroup(ctx: ProtectedContext): Promise<InboxGroup | null> {
+  if (!canAnywhere(ctx, "plan_access:approve")) return null;
+  const q = await PA.planAccessQueue(ctx);
+  return {
+    key: "plan_access", title: "Xin xem giáo án ngoài ca dạy", icon: "key-round",
+    actionLabel: "Xem & duyệt", actionKind: "open", undoable: false,
+    href: "/duyet-xem-giao-an", emptyHint: "Không có yêu cầu xem giáo án nào đang chờ.",
+    total: q.pending.length, overdue: q.pending.filter((p) => Date.now() - new Date(p.createdAt).getTime() > 2 * 3600e3).length,
+    items: q.pending.slice(0, MAX_PER_GROUP).map((p) => ({
+      id: p.id, title: `${p.requester} · ${p.lesson}`, sub: `${p.centerCode} · ${p.reason}`, meta: hoursAgo(new Date(p.createdAt)),
+      overdue: Date.now() - new Date(p.createdAt).getTime() > 2 * 3600e3, href: `/duyet-xem-giao-an?id=${p.id}`,
+    })),
+  };
 }
 
 /**

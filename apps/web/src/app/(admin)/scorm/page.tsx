@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { hasPermission, type Actor } from "@satarobo/core";
+import { centersWith, hasPermission, type Actor } from "@satarobo/core";
+import { redirect } from "next/navigation";
 import { getServerCaller } from "@/lib/trpc/server";
 import { NoAccess, PageHeader } from "@/components/admin-ui";
 import { PlanActions, PlanPicker, PlanUpload } from "@/components/lesson-plan-ui";
@@ -20,6 +21,9 @@ export default async function LessonPlanPage({ searchParams }: { searchParams: P
   const { caller, ctx } = await getServerCaller();
   if (!ctx.actor || !hasPermission(ctx.actor as Actor, "document:read")) return <NoAccess title="SCORM / Giáo án buổi học" perm="document:read" />;
   const courseId = sp.khoa && UUID.test(sp.khoa) ? sp.khoa : "";
+  // Giáo viên (chỉ `document:read_own`): trang quản lý giáo án không dành cho họ → Giáo án của tôi
+  const full = centersWith(ctx.actor as Actor, "document:read");
+  if (full !== null && full.length === 0) redirect(`/teacher/giao-an${courseId ? `?khoa=${courseId}` : ""}`);
   const lessonId = sp.buoi && UUID.test(sp.buoi) ? sp.buoi : "";
 
   const courses = await caller.content.planCourses();

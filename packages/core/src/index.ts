@@ -54,6 +54,7 @@ export * from "./content/rules.js";
 export * from "./content/lessonPlan.js";
 export * from "./content/protect.js";
 export * from "./content/scormNguon.js";
+export * from "./content/planAccess.js";
 export * from "./growth/rules.js";
 export * from "./outreach/rules.js";
 export * from "./outreach/kenhNgoai.js";

@@ -32,7 +32,6 @@ export default async function TeacherToday() {
           <p className="text-ink-600">{WEEKDAY_VI[weekdayOf(data.today)]}, {fmtDate(data.today)}</p>
         </div>
         <div className="mt-1 flex flex-wrap gap-x-4">
-          <Link href="/teacher/lich" className="inline-flex min-h-11 items-center text-[14px] font-semibold text-brand-600">Lịch dạy cả tuần →</Link>
           <Link href="/huong-dan" className="inline-flex min-h-11 items-center text-[14px] text-brand-600">Hướng dẫn sử dụng →</Link>
         </div>
       </section>
@@ -57,8 +56,12 @@ export default async function TeacherToday() {
       </section>
 
       <section className="order-5 space-y-2">
-        <h2 className="text-[15px] font-bold text-ink-600">7 ngày tới</h2>
-        {data.upcoming.length === 0 ? <Empty>Chưa có lịch.</Empty> : <div className="grid grid-cols-1 gap-3 md:grid-cols-2">{data.upcoming.map((s) => <SessionCard key={s.id} s={s} />)}</div>}
+        <div className="flex items-baseline justify-between gap-2">
+          <h2 className="text-[15px] font-bold text-ink-600">Sắp tới</h2>
+          <Link href="/teacher/lich" className="inline-flex min-h-11 items-center text-[14px] font-semibold text-brand-600">Cả lịch dạy →</Link>
+        </div>
+        {/* Chỉ vài buổi gần nhất — lịch đầy đủ ở mục Lịch dạy */}
+        {data.upcoming.length === 0 ? <Empty>Không có buổi dạy trong 7 ngày tới.</Empty> : <div className="grid grid-cols-1 gap-3 md:grid-cols-2">{data.upcoming.slice(0, 4).map((s) => <SessionCard key={s.id} s={s} />)}</div>}
       </section>
       </div>
       <div className="contents lg:block lg:space-y-6">

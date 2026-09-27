@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { BookOpen, Clock, MonitorPlay, UsersRound } from "lucide-react";
-import { weekdayOf, type SessionStatus } from "@satarobo/core";
+import { BookOpen, Clock, Lock, MonitorPlay, UsersRound } from "lucide-react";
+import { gioPhut, phutTrongNgay, weekdayOf, PLAN_WINDOW_BEFORE_MIN, type SessionStatus } from "@satarobo/core";
 import { StatusChip, fmtTime, fmtDate, WEEKDAY_VI } from "@/components/ui";
 
 export type CardRow = {
@@ -8,7 +8,19 @@ export type CardRow = {
   className: string; label: string; topic: string | null; roomCode: string | null;
   enrolled: number; attended: number; lessonId: string | null; plan: "scorm" | "pdf" | null;
   isOverdue?: boolean; nextStep?: string | null;
+  planAccess?: { state: "all" | "open" | "granted" | "pending" | "locked"; until: string | null; opensAt: string | null } | null;
 };
+
+/** Nhãn nút giáo án theo quyền xem: mở được ngay, hay khoá (mở lúc … / chờ duyệt) */
+export function planButton(s: CardRow): { href: string; label: string; locked: boolean } | null {
+  if (!s.lessonId || !s.plan) return null;
+  const href = `/teacher/giao-an/${s.lessonId}?buoi=${s.id}`;
+  const st = s.planAccess?.state ?? "all";
+  const loai = s.plan === "scorm" ? " SCORM" : "";
+  if (st === "all" || st === "open" || st === "granted") return { href, label: `Giáo án${loai}`, locked: false };
+  if (st === "pending") return { href, label: "Chờ duyệt xem", locked: true };
+  return { href, label: `Giáo án mở ${gioPhut(phutTrongNgay(s.startTime) - PLAN_WINDOW_BEFORE_MIN)}`, locked: true };
+}
 
 const BUOC: Record<string, string> = { submit_attendance: "Điểm danh →", submit_notes: "Nhận xét →" };
 
@@ -19,7 +31,7 @@ const BUOC: Record<string, string> = { submit_attendance: "Điểm danh →", su
  */
 export function SessionCard({ s, highlight, compact, showDate = true }: { s: CardRow; highlight?: boolean; compact?: boolean; showDate?: boolean }) {
   const huy = s.status === "cancelled" || s.status === "rescheduled";
-  const plan = s.lessonId && s.plan ? `/teacher/giao-an/${s.lessonId}?buoi=${s.id}` : null;
+  const pb = planButton(s);
   return (
     <div className={`card overflow-hidden ${highlight ? "border-brand-500/40 ring-2 ring-brand-100" : ""} ${huy ? "opacity-60" : ""}`}>
       <Link href={`/teacher/sessions/${s.id}`} className={`block ${compact ? "p-3" : "p-4"}`}>
@@ -41,8 +53,10 @@ export function SessionCard({ s, highlight, compact, showDate = true }: { s: Car
       </Link>
       {!huy && (
         <div className="grid grid-cols-2 border-t border-black/5 text-[14px] font-semibold">
-          {plan ? (
-            <Link href={plan} className="flex min-h-11 items-center justify-center gap-2 text-primary hover:bg-brand-50"><MonitorPlay className="h-4 w-4" aria-hidden />Giáo án{s.plan === "scorm" ? " SCORM" : ""}</Link>
+          {pb ? (
+            <Link href={pb.href} className={`flex min-h-11 items-center justify-center gap-2 hover:bg-brand-50 ${pb.locked ? "text-ink-600" : "text-primary"}`} title={pb.locked ? "Giáo án chỉ mở trong ca dạy — hoặc xin quản lý duyệt" : undefined}>
+              {pb.locked ? <Lock className="h-4 w-4" aria-hidden /> : <MonitorPlay className="h-4 w-4" aria-hidden />}{pb.label}
+            </Link>
           ) : (
             <span className="flex min-h-11 items-center justify-center gap-2 text-[13px] font-normal text-ink-600" title="Bài của buổi này chưa có giáo án — báo bộ phận đào tạo">Chưa có giáo án</span>
           )}

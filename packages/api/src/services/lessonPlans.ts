@@ -24,6 +24,7 @@ import {
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { tenantCond } from "./tenantScope";
 import { readableCourseIds } from "./documents";
+import { planAccessState, assertPlanAccess, planAccessBriefs } from "./planAccess";
 import { writeAudit } from "./audit";
 import { putObject, getObject, deleteObject, deletePrefix } from "../storage";
 import { listZip, readZipEntry } from "../zip";
@@ -97,9 +98,11 @@ export async function planLessons(ctx: ProtectedContext, input: { courseId: stri
     hasPlan: !!r.planKind && (r.planVersion ?? 0) > 0,
     planKind: (r.planKind === "scorm" ? "scorm" : r.planKind ? "pdf" : null) as PlanFileKind | null,
   }));
+  // Giáo viên: trạng thái mở giáo án từng buổi (trong ca / đã duyệt / chờ duyệt / khoá) — 2 truy vấn cả danh sách
+  const briefs = await planAccessBriefs(ctx, items.filter((l) => l.hasPlan).map((l) => l.id));
   return {
     curriculumName: rows[0]?.curriculumName ?? null,
-    items,
+    items: items.map((l) => ({ ...l, access: briefs.get(l.id) ?? null })),
     coverage: planCoverage(items),
     /** Buổi đầu tiên còn thiếu — nút "Tới buổi chưa có giáo án" một chạm */
     firstMissing: items.find((l) => !l.hasPlan)?.id ?? null,
@@ -133,7 +136,9 @@ export async function getPlan(ctx: ProtectedContext, input: { lessonId: string }
   await assertCourseReadable(ctx, lesson.courseId);
   const doc = await planDoc(ctx, input.lessonId);
   const edit = canEdit(ctx);
-  if (!doc) return { lesson, plan: null, problems: [], previous: null, canEdit: edit };
+  // Quyền xem theo ca dạy / yêu cầu đã duyệt (người đọc toàn kho: luôn được) — services/planAccess.ts
+  const access = await planAccessState(ctx, input.lessonId);
+  if (!doc) return { lesson, plan: null, locked: null, problems: [], previous: null, canEdit: edit, access };
 
   const vs = await ctx.db.select({ v: documentVersions, byName: users.fullName })
     .from(documentVersions).leftJoin(users, eq(users.id, documentVersions.uploadedBy))
@@ -174,12 +179,21 @@ export async function getPlan(ctx: ProtectedContext, input: { lessonId: string }
 
   // Bản liền trước còn giữ để dùng lại một chạm
   const prev = vs.find((x) => x.v.version < (doc.currentVersion ?? 0));
+  // Chưa được xem: KHÔNG trả mã tài liệu / đường phát — chỉ đủ để nói "bài này có giáo án loại gì"
+  if (!access.allowed) {
+    return {
+      lesson, plan: null, locked: plan ? { kind: plan.kind, kindLabel: plan.kindLabel, version: plan.version } : null,
+      problems: [], previous: null, canEdit: edit, access,
+    };
+  }
   return {
     lesson,
     plan,
+    locked: null,
     problems,
     previous: prev ? { version: prev.v.version, fileName: prev.v.fileName, uploadedAt: prev.v.createdAt, sizeLabel: humanSize(prev.v.sizeBytes) } : null,
     canEdit: edit,
+    access,
   };
 }
 
@@ -381,6 +395,7 @@ export async function openPlan(ctx: ProtectedContext, input: { lessonId: string 
   await assertCourseReadable(ctx, lesson.courseId);
   const doc = await planDoc(ctx, input.lessonId);
   if (!doc || !doc.currentVersion) throw pre("Buổi này chưa có giáo án");
+  await assertPlanAccess(ctx, input.lessonId);
   await ctx.db.insert(documentAccessLogs).values({ documentId: doc.id, version: doc.currentVersion, userId: ctx.user.id, action: "view" });
   return { documentId: doc.id, kind: (doc.kind === "scorm" ? "scorm" : "pdf") as PlanFileKind };
 }
@@ -445,6 +460,7 @@ export async function planFileStream(ctx: ProtectedContext, input: { lessonId: s
   const doc = await planDoc(ctx, input.lessonId);
   if (!doc || !doc.currentVersion) throw pre("Buổi này chưa có giáo án");
   if (doc.kind === "scorm") throw pre("Giáo án dạng SCORM chạy trong trình chiếu, không phát tệp");
+  await assertPlanAccess(ctx, input.lessonId);
   const v = await ctx.db.query.documentVersions.findFirst({
     where: and(eq(documentVersions.documentId, doc.id), eq(documentVersions.version, doc.currentVersion)),
   });

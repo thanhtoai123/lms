@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { hasPermission, watermarkText, type Actor } from "@satarobo/core";
 import { getServerCaller } from "@/lib/trpc/server";
 import { NoAccess } from "@/components/admin-ui";
@@ -13,6 +14,8 @@ export default async function PlanViewPage({ params }: { params: Promise<{ lesso
   const { caller, ctx } = await getServerCaller();
   if (!ctx.actor || !hasPermission(ctx.actor as Actor, "document:read")) return <NoAccess title="Giáo án buổi học" perm="document:read" />;
   const d = await caller.content.plan({ lessonId });
+  // Giáo viên (chỉ đọc khoá mình dạy): xem ở giao diện giáo viên — nơi có khoá theo ca dạy và nút xin xem
+  if (d.access.via !== "all") redirect(`/teacher/giao-an/${lessonId}`);
   const back = `/scorm?khoa=${d.lesson.courseId}&buoi=${lessonId}`;
   if (!d.plan) {
     return (

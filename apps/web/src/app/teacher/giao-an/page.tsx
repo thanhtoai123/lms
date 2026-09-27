@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CalendarClock, ChevronRight, FileText, MonitorPlay } from "lucide-react";
+import { CalendarClock, ChevronRight, FileText, Lock, MonitorPlay } from "lucide-react";
 import { addDays, gioVietNam, weekdayOf } from "@satarobo/core";
 import { getServerCaller } from "@/lib/trpc/server";
 import { Empty, WEEKDAY_VI, fmtDate } from "@/components/ui";
@@ -10,6 +10,17 @@ export const dynamic = "force-dynamic";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+const hm = (iso: string) => new Date(iso).toLocaleTimeString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh", hour: "2-digit", minute: "2-digit" });
+
+/** Trạng thái xem giáo án của bài: đang mở (trong ca / được duyệt), chờ duyệt, hay khoá */
+function AccessChip({ a }: { a: { state: string; until: string | null; opensAt: string | null } }) {
+  if (a.state === "all") return null;
+  if (a.state === "open") return <span className="chip bg-green-100 text-green-800">Đang mở · trong ca đến {a.until ? hm(a.until) : ""}</span>;
+  if (a.state === "granted") return <span className="chip bg-green-100 text-green-800">Được duyệt · đến {a.until ? hm(a.until) : ""}</span>;
+  if (a.state === "pending") return <span className="chip bg-amber-100 text-amber-900">Chờ quản lý duyệt</span>;
+  return <span className="chip bg-black/5 text-ink-600"><Lock className="mr-1 h-3 w-3" aria-hidden />{a.opensAt ? `Mở ${a.opensAt}` : "Khoá · xin xem"}</span>;
+}
+
 /**
  * GIÁO ÁN CỦA TÔI — khoá mình dạy → từng buổi: có giáo án chưa (SCORM / slide), buổi nào sắp dạy.
  * Chỉ để XEM (đổi giáo án là việc của bộ phận đào tạo ở Kho tài liệu). Chạm một buổi → khung chiếu.
@@ -18,9 +29,10 @@ export default async function MyLessonPlans({ searchParams }: { searchParams: Pr
   const sp = await searchParams;
   const { caller } = await getServerCaller();
   const { today } = gioVietNam();
-  const [courses, upcoming] = await Promise.all([
+  const [courses, upcoming, mine] = await Promise.all([
     caller.content.planCourses().catch(() => []),
     caller.teacher.range({ from: today, to: addDays(today, 41) }).then((r) => r.items).catch(() => []),
+    caller.content.planAccessMine().catch(() => []),
   ]);
   // Khoá mặc định: khoá của buổi dạy gần nhất, nếu không thì khoá đầu tiên
   const nextCourse = upcoming.find((s) => s.status !== "cancelled" && s.status !== "rescheduled")?.courseId;
@@ -35,7 +47,7 @@ export default async function MyLessonPlans({ searchParams }: { searchParams: Pr
       <ClassTabs active="giao-an" />
       <header>
         <h1 className="text-lg font-bold md:text-xl">Giáo án của tôi</h1>
-        <p className="text-[14px] text-ink-600">Giáo án (SCORM hoặc slide) của từng buổi thuộc khoá bạn dạy. Buổi sắp dạy được đánh dấu; chạm để mở khung chiếu.</p>
+        <p className="text-[14px] text-ink-600">Giáo án của từng buổi thuộc khoá bạn dạy. Giáo án tự mở trong ca dạy bài đó (30 phút trước giờ vào lớp đến 15 phút sau giờ tan); ngoài ca, mở bài và gửi yêu cầu để quản lý duyệt xem 2 giờ.</p>
       </header>
 
       {courses.length === 0 ? <Empty>Bạn chưa được phân công khoá nào nên chưa có giáo án để xem.</Empty> : (
@@ -68,6 +80,7 @@ export default async function MyLessonPlans({ searchParams }: { searchParams: Pr
                       <span className="block font-semibold leading-snug">Buổi {l.sequenceNo}: {l.title}</span>
                       <span className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[12px]">
                         {l.hasPlan ? <span className="chip bg-brand-50 text-brand-700">{l.planKind === "scorm" ? "SCORM" : "Slide PDF"}</span> : <span className="chip bg-black/5 text-ink-600">Chưa có giáo án</span>}
+                        {l.hasPlan && l.access && <AccessChip a={l.access} />}
                         {next && <span className="chip bg-amber-100 text-amber-900"><CalendarClock className="mr-1 h-3 w-3" aria-hidden />Dạy {next.date === today ? "hôm nay" : `${WEEKDAY_VI[weekdayOf(next.date)]} ${fmtDate(next.date).slice(0, 5)}`} {next.startTime.slice(0, 5)}</span>}
                       </span>
                     </span>
@@ -87,6 +100,27 @@ export default async function MyLessonPlans({ searchParams }: { searchParams: Pr
             </ul>
           )}
         </>
+      )}
+
+      {mine.length > 0 && (
+        <section className="space-y-2" aria-labelledby="yeu-cau">
+          <h2 id="yeu-cau" className="text-[15px] font-bold">Yêu cầu xem ngoài ca của tôi (14 ngày)</h2>
+          <ul className="card divide-y divide-black/5">
+            {mine.map((r) => (
+              <li key={r.id}>
+                <Link href={`/teacher/giao-an/${r.lessonId}`} className="flex min-h-12 flex-wrap items-center justify-between gap-2 px-3 py-2 hover:bg-black/[0.02]">
+                  <span className="min-w-0">
+                    <span className="block font-semibold">{r.label}</span>
+                    <span className="block text-[13px] text-ink-600">“{r.reason}”{r.decisionNote ? ` · ↳ ${r.decisionNote}` : ""}</span>
+                  </span>
+                  <span className={`chip shrink-0 ${r.status === "approved" ? "bg-green-100 text-green-800" : r.status === "pending" ? "bg-amber-100 text-amber-900" : r.status === "rejected" || r.status === "revoked" ? "bg-red-100 text-red-700" : "bg-black/5 text-ink-600"}`}>
+                    {r.statusLabel}{r.status === "approved" && r.expiresAt ? ` đến ${hm(r.expiresAt)}` : ""}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
     </div>
   );

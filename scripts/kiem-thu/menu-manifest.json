@@ -609,6 +609,13 @@
               "perm": [
                 "document:read"
               ]
+            },
+            {
+              "label": "Duyệt xem giáo án",
+              "href": "/duyet-xem-giao-an",
+              "perm": [
+                "plan_access:approve"
+              ]
             }
           ]
         },

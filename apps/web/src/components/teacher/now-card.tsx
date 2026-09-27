@@ -2,14 +2,15 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { BookOpen, ClipboardCheck, MonitorPlay, Radio, TimerReset } from "lucide-react";
-import { buoiNoiBat, gioVietNam, thoiLuongVi, weekdayOf } from "@satarobo/core";
+import { BookOpen, ClipboardCheck, Lock, MonitorPlay, Radio, TimerReset } from "lucide-react";
+import { buoiNoiBat, gioPhut, gioVietNam, khungCa, thoiLuongVi, weekdayOf } from "@satarobo/core";
 import { WEEKDAY_VI, fmtDate } from "@/components/ui";
 
 export type NowRow = {
   id: string; date: string; startTime: string; endTime: string; status: string;
   className: string; label: string; topic: string | null; roomCode: string | null;
   enrolled: number; attended: number; lessonId: string | null; plan: "scorm" | "pdf" | null;
+  planAccess?: { state: string; until: string | null; opensAt: string | null } | null;
 };
 
 export const planHref = (r: { id: string; lessonId: string | null }) => (r.lessonId ? `/teacher/giao-an/${r.lessonId}?buoi=${r.id}` : null);
@@ -40,6 +41,11 @@ export function NowCard({ rows, initial }: { rows: NowRow[]; initial: { today: s
   const dang = hit.kind === "dang-day";
   const chot = hit.kind === "can-chot";
   const plan = planHref(s);
+  // Giáo án mở trong khung ca (30 phút trước → 15 phút sau) hoặc khi đã được duyệt — tự mở khi tới giờ
+  const k = khungCa(s);
+  const trongCa = s.date === now.today && k.from <= now.nowMin && now.nowMin < k.to;
+  const pa = s.planAccess;
+  const moGiaoAn = trongCa || !pa || pa.state === "all" || (pa.state === "granted" && !!pa.until && new Date(pa.until).getTime() > Date.now());
   const tieuDe = hit.kind === "dang-day"
     ? hit.minutesLeft >= 0 ? `Đang dạy · còn ${thoiLuongVi(hit.minutesLeft)}` : `Đang dạy · quá giờ ${thoiLuongVi(-hit.minutesLeft)}`
     : hit.kind === "can-chot"
@@ -62,8 +68,10 @@ export function NowCard({ rows, initial }: { rows: NowRow[]; initial: { today: s
         </p>
       </div>
       <div className="grid grid-cols-1 gap-2 border-t border-black/5 bg-white/60 p-3 sm:grid-cols-3">
-        {plan && s.plan ? (
+        {plan && s.plan && moGiaoAn ? (
           <Link href={plan} className="btn-primary min-h-12 text-[15px]"><MonitorPlay className="h-5 w-5" aria-hidden />Mở giáo án {s.plan === "scorm" ? "SCORM" : "(slide)"}</Link>
+        ) : plan && s.plan ? (
+          <Link href={plan} className="btn-ghost min-h-12 text-[15px]" title="Giáo án chỉ mở trong ca dạy — hoặc xin quản lý duyệt"><Lock className="h-5 w-5" aria-hidden />Giáo án mở lúc {gioPhut(khungCa(s).from)}</Link>
         ) : (
           <span className="flex min-h-12 items-center justify-center rounded-xl border-2 border-dashed border-black/10 px-3 text-center text-[14px] text-ink-600">Buổi này chưa có giáo án</span>
         )}

@@ -1,9 +1,9 @@
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, MonitorPlay } from "lucide-react";
+import { ChevronLeft, ChevronRight, Lock, MonitorPlay } from "lucide-react";
 import { addDays, dauTuan, gioVietNam, phutTrongNgay, weekdayOf } from "@satarobo/core";
 import { getServerCaller } from "@/lib/trpc/server";
 import { Empty, StatusChip, WEEKDAY_VI, fmtTime } from "@/components/ui";
-import { SessionCard, type CardRow } from "@/components/teacher/session-card";
+import { SessionCard, planButton, type CardRow } from "@/components/teacher/session-card";
 
 export const metadata = { title: "Lịch dạy" };
 export const dynamic = "force-dynamic";
@@ -14,7 +14,7 @@ const dm = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
 /** Mục gọn trong cột ngày (máy tính): giờ, lớp, buổi + 2 nút nhỏ */
 function MiniSession({ s }: { s: CardRow }) {
   const huy = s.status === "cancelled" || s.status === "rescheduled";
-  const plan = s.lessonId && s.plan ? `/teacher/giao-an/${s.lessonId}?buoi=${s.id}` : null;
+  const pb = planButton(s);
   return (
     <div className={`rounded-lg border border-black/10 bg-white text-[13px] ${huy ? "opacity-60" : ""}`}>
       <Link href={`/teacher/sessions/${s.id}`} className="block space-y-0.5 p-2 hover:bg-brand-50/50">
@@ -25,7 +25,11 @@ function MiniSession({ s }: { s: CardRow }) {
       </Link>
       {!huy && (
         <div className="grid grid-cols-2 border-t border-black/5 text-[12px] font-semibold">
-          {plan ? <Link href={plan} className="flex min-h-9 items-center justify-center gap-1 text-primary hover:bg-brand-50" title="Mở giáo án"><MonitorPlay className="h-3.5 w-3.5" aria-hidden />Giáo án</Link> : <span className="flex min-h-9 items-center justify-center text-[11px] text-ink-600">Chưa có GA</span>}
+          {pb ? (
+            <Link href={pb.href} className={`flex min-h-9 items-center justify-center gap-1 hover:bg-brand-50 ${pb.locked ? "text-ink-600" : "text-primary"}`} title={pb.label}>
+              {pb.locked ? <Lock className="h-3.5 w-3.5" aria-hidden /> : <MonitorPlay className="h-3.5 w-3.5" aria-hidden />}Giáo án
+            </Link>
+          ) : <span className="flex min-h-9 items-center justify-center text-[11px] text-ink-600">Chưa có GA</span>}
           <Link href={`/teacher/sessions/${s.id}/chuan-bi`} className="flex min-h-9 items-center justify-center border-l border-black/5 text-primary hover:bg-brand-50">Chuẩn bị</Link>
         </div>
       )}

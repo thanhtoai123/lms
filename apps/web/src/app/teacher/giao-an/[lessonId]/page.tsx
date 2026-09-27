@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft, ChevronRight, ClipboardCheck } from "lucide-react";
-import { watermarkText } from "@satarobo/core";
+import { ChevronLeft, ChevronRight, ClipboardCheck, Lock } from "lucide-react";
+import { watermarkText, weekdayOf, PLAN_WINDOW_BEFORE_MIN, PLAN_WINDOW_AFTER_MIN } from "@satarobo/core";
 import { getServerCaller } from "@/lib/trpc/server";
-import { Empty } from "@/components/ui";
+import { Empty, WEEKDAY_VI, fmtDate } from "@/components/ui";
+import { AccessCountdown, RequestAccess } from "@/components/teacher/plan-access";
 import { PlanViewer } from "@/app/(admin)/scorm/buoi/[lessonId]/viewer";
 
 export const metadata = { title: "Giáo án buổi học" };
@@ -51,7 +52,28 @@ export default async function TeacherPlanView({ params, searchParams }: { params
         )}
       </header>
 
-      {d.plan ? (
+      {d.plan && d.access.until && d.access.via !== "all" && d.access.via && <AccessCountdown until={d.access.until} via={d.access.via} />}
+
+      {!d.plan && d.locked ? (
+        <section className="card space-y-4 p-4 md:p-6" aria-labelledby="khoa">
+          <div className="flex items-start gap-3">
+            <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-black/5"><Lock className="h-5 w-5" aria-hidden /></span>
+            <div>
+              <h2 id="khoa" className="text-[17px] font-bold">Giáo án đang khoá</h2>
+              <p className="text-[14px] text-ink-600">
+                Bài này có giáo án {d.locked.kindLabel}. Giáo án chỉ mở trong ca dạy bài này — từ {PLAN_WINDOW_BEFORE_MIN} phút trước giờ vào lớp
+                đến {PLAN_WINDOW_AFTER_MIN} phút sau giờ tan. Ngoài ca, gửi yêu cầu để quản lý cơ sở duyệt.
+              </p>
+            </div>
+          </div>
+          <p className="rounded-xl bg-black/[0.03] px-3 py-2 text-[14px]">
+            {d.access.next
+              ? <>Ca dạy gần nhất: <b>{WEEKDAY_VI[weekdayOf(d.access.next.date)]} {fmtDate(d.access.next.date)}</b> · lớp {d.access.next.classCode} · giáo án tự mở lúc <b>{d.access.next.from}</b></>
+              : "Bạn không có ca dạy bài này trong 30 ngày tới."}
+          </p>
+          <RequestAccess lessonId={lessonId} sessionId={buoi} request={d.access.request} canRequest={d.access.canRequest} />
+        </section>
+      ) : d.plan ? (
         <PlanViewer
           kind={d.plan.kind}
           documentId={d.plan.documentId}

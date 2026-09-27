@@ -121,6 +121,8 @@ export const NOTIFICATION_TYPES: readonly NotificationTypeDef[] = [
   // — Học liệu & giáo án
   { prefix: "lesson_proposal.submitted", label: "Đề xuất sửa giáo án chờ xem xét", groupKey: "content", priority: "info", recipients: ["TRAINING"], pushEnabled: false },
   { prefix: "lesson_proposal.decided", label: "Kết quả đề xuất sửa giáo án", groupKey: "content", priority: "info", recipients: TEACHERS, pushEnabled: false },
+  { prefix: "plan_access.requested", label: "Giáo viên xin xem giáo án ngoài ca dạy", groupKey: "content", priority: "normal", recipients: ["CENTER_MANAGER"], pushEnabled: true },
+  { prefix: "plan_access.decided", label: "Kết quả yêu cầu xem giáo án", groupKey: "content", priority: "normal", recipients: TEACHERS, pushEnabled: true },
 
   // — Hệ thống & vận hành
   { prefix: "action_required", label: "Việc cần thực hiện (rà soát tự động)", groupKey: "system", priority: "urgent", recipients: [...ACCOUNTANTS, "HO_MARKETING", "CENTER_MANAGER"], pushEnabled: true },

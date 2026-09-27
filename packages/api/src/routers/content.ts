@@ -7,6 +7,7 @@ import { router, protectedProcedure } from "../trpc";
 import * as D from "../services/documents";
 import * as H from "../services/assignments";
 import * as P from "../services/lessonPlans";
+import * as PA from "../services/planAccess";
 
 const uuid = z.string().uuid();
 const s = (n: number) => z.string().max(n);
@@ -40,6 +41,12 @@ export const contentRouter = router({
   planRestore: protectedProcedure.input(z.object({ lessonId: uuid, version: z.number().int().min(1) })).mutation(({ ctx, input }) => P.restorePlanVersion(ctx, input)),
   planOpen: protectedProcedure.input(z.object({ lessonId: uuid })).mutation(({ ctx, input }) => P.openPlan(ctx, input)),
   planAccessReport: protectedProcedure.input(z.object({ lessonId: uuid, days: z.number().int().min(1).max(180).optional() })).query(({ ctx, input }) => P.planAccessReport(ctx, input)),
+  /** Xem giáo án ngoài ca dạy: giáo viên xin → quản lý cơ sở duyệt → xem 2 giờ (services/planAccess.ts) */
+  planAccessRequest: protectedProcedure.input(z.object({ lessonId: uuid, reason: z.string().min(1).max(300), sessionId: uuid.nullish() })).mutation(({ ctx, input }) => PA.requestPlanAccess(ctx, input)),
+  planAccessCancel: protectedProcedure.input(z.object({ id: uuid })).mutation(({ ctx, input }) => PA.cancelPlanAccess(ctx, input)),
+  planAccessMine: protectedProcedure.query(({ ctx }) => PA.myPlanAccessRequests(ctx)),
+  planAccessQueue: protectedProcedure.query(({ ctx }) => PA.planAccessQueue(ctx)),
+  planAccessDecide: protectedProcedure.input(z.object({ id: uuid, action: z.enum(["approve", "reject", "revoke"]), note: z.string().max(300).nullish() })).mutation(({ ctx, input }) => PA.decidePlanAccess(ctx, input)),
   planCaptureAttempt: protectedProcedure.input(z.object({ lessonId: uuid, kind: z.enum(CAPTURE_KINDS) })).mutation(({ ctx, input }) => P.logCaptureAttempt(ctx, input)),
   plansNeedingAttention: protectedProcedure.input(z.object({ courseId: uuid.optional() }).default({})).query(({ ctx, input }) => P.plansNeedingAttention(ctx, input)),
 

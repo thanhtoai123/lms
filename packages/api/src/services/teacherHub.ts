@@ -24,6 +24,7 @@ import { tenantCond } from "./tenantScope";
 import { loadSessionForAuth, todayISO } from "./sessions";
 import { sessionEvaluationBoard } from "./sessionEvaluations";
 import { listClasses } from "./classes";
+import { planAccessBriefs, type PlanAccessBrief } from "./planAccess";
 
 type Db = ProtectedContext["db"];
 const ABSENT = ["absent_excused", "absent_unexcused"];
@@ -277,7 +278,7 @@ export async function classInsights(ctx: ProtectedContext, teacherId: string) {
  * Cùng điều kiện với màn xem giáo án (`lessonPlans.getPlan`): tài liệu nhóm `lesson_plan`, chưa lưu trữ,
  * đã có bản tải lên. Không kiểm quyền ở đây: màn xem giáo án tự kiểm (giáo viên chỉ xem khoá mình dạy).
  */
-export async function withPlans<T extends { lessonId: string | null }>(ctx: ProtectedContext, rows: T[]): Promise<(T & { plan: "scorm" | "pdf" | null })[]> {
+export async function withPlans<T extends { lessonId: string | null }>(ctx: ProtectedContext, rows: T[]): Promise<(T & { plan: "scorm" | "pdf" | null; planAccess: PlanAccessBrief | null })[]> {
   const ids = [...new Set(rows.map((r) => r.lessonId).filter((x): x is string => !!x))];
   const docs = ids.length
     ? await ctx.db.select({ lessonId: documents.lessonId, kind: documents.kind })
@@ -285,5 +286,7 @@ export async function withPlans<T extends { lessonId: string | null }>(ctx: Prot
       .where(and(inArray(documents.lessonId, ids), eq(documents.category, "lesson_plan"), ne(documents.status, "archived"), sql`${documents.currentVersion} > 0`))
     : [];
   const kindOf = new Map(docs.map((d) => [d.lessonId, d.kind === "scorm" ? ("scorm" as const) : ("pdf" as const)]));
-  return rows.map((r) => ({ ...r, plan: (r.lessonId ? kindOf.get(r.lessonId) : undefined) ?? null }));
+  // Mở được ngay không (trong ca / đã duyệt) — để thẻ buổi hiện khoá và giờ mở
+  const briefs = await planAccessBriefs(ctx, docs.map((d) => d.lessonId).filter((x): x is string => !!x));
+  return rows.map((r) => ({ ...r, plan: (r.lessonId ? kindOf.get(r.lessonId) : undefined) ?? null, planAccess: (r.lessonId ? briefs.get(r.lessonId) : undefined) ?? null }));
 }

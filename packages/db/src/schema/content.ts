@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import { pgTable, text, uuid, integer, bigint, boolean, timestamp, pgEnum, jsonb, index, uniqueIndex, numeric } from "drizzle-orm/pg-core";
 import {
   DOC_KINDS, DOC_AUDIENCES, DOC_STATUSES, DOC_CATEGORIES, SCORM_STATUSES, SUBMISSION_TYPES, ASSIGNMENT_STATUSES, SUBMISSION_STATUSES,
@@ -5,7 +6,9 @@ import {
 } from "@satarobo/core";
 import { id, timestamps } from "./_common";
 import { users } from "./identity";
-import { students } from "./people";
+import { students, teachers } from "./people";
+import { centers } from "./org";
+import { tenantCol } from "./tenant";
 import { courses, curricula, lessons, classes, sessions } from "./academics";
 
 export const docKindEnum = pgEnum("doc_kind", DOC_KINDS);
@@ -192,3 +195,34 @@ export const proposalComments = pgTable("proposal_comments", {
   body: text("body").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+/**
+ * YÊU CẦU XEM GIÁO ÁN NGOÀI CA DẠY (core/content/planAccess.ts).
+ * Giáo viên chỉ xem giáo án trong ca dạy bài đó; ngoài ca phải xin — quản lý cơ sở duyệt thì được xem
+ * đúng bài đó trong 2 giờ (`expiresAt` do máy chủ tính lúc duyệt, không nhận từ máy khách).
+ * Trạng thái: pending → approved | rejected | cancelled; approved → revoked (thu hồi sớm).
+ * "Hết hiệu lực" không ghi xuống bảng — suy ra từ `expiresAt` / `createdAt` lúc đọc.
+ */
+export const lessonPlanAccessRequests = pgTable("lesson_plan_access_requests", {
+  id: id(),
+  tenantId: tenantCol(),
+  lessonId: uuid("lesson_id").notNull().references(() => lessons.id, { onDelete: "cascade" }),
+  courseId: uuid("course_id").notNull().references(() => courses.id, { onDelete: "cascade" }),
+  centerId: uuid("center_id").notNull().references(() => centers.id),
+  requestedBy: uuid("requested_by").notNull().references(() => users.id),
+  teacherId: uuid("teacher_id").references(() => teachers.id, { onDelete: "set null" }),
+  /** Buổi dạy liên quan (nếu xin từ một buổi cụ thể) — để người duyệt có ngữ cảnh */
+  sessionId: uuid("session_id").references(() => sessions.id, { onDelete: "set null" }),
+  reason: text("reason").notNull(),
+  status: text("status").notNull().default("pending"),
+  decidedBy: uuid("decided_by").references(() => users.id),
+  decidedAt: timestamp("decided_at", { withTimezone: true }),
+  decisionNote: text("decision_note"),
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
+  ...timestamps,
+}, (t) => [
+  index("plan_access_req_user_idx").on(t.requestedBy, t.lessonId, t.status),
+  index("plan_access_req_center_idx").on(t.centerId, t.status, t.createdAt),
+  // Một yêu cầu CHỜ DUYỆT cho mỗi (người, bài) — chặn bấm gửi hai lần / gửi song song
+  uniqueIndex("plan_access_req_pending_uq").on(t.requestedBy, t.lessonId).where(sql`status = 'pending'`),
+]);

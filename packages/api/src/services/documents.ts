@@ -17,6 +17,7 @@ import { tenantCond, tenantSql } from "./tenantScope";
 import { writeAudit } from "./audit";
 import { deliverNotifications } from "./notify";
 import { putObject, signedFileUrl, signedScormBase } from "../storage";
+import { assertPlanAccess, planAccessState } from "./planAccess";
 import { listZip, readZipEntry } from "../zip";
 
 type Db = ProtectedContext["db"];
@@ -36,7 +37,7 @@ function rule<T>(fn: () => T): T {
 }
 
 /** Có quyền đọc toàn bộ kho tài liệu (Đào tạo, quản lý, giáo vụ, kiểm soát) */
-function readsAll(ctx: ProtectedContext) {
+export function docReadsAll(ctx: ProtectedContext) {
   return ctx.actor.assignments.some((a) => authorize({ userId: ctx.actor.userId, assignments: [a] }, "document:read", {}).allowed);
 }
 function canEditDocs(ctx: ProtectedContext) {
@@ -55,13 +56,13 @@ async function teacherCourseIds(db: Db, teacherId: string | null | undefined): P
  * Dùng chung cho kho tài liệu và trang giáo án buổi học (services/lessonPlans.ts).
  */
 export async function readableCourseIds(ctx: ProtectedContext): Promise<string[] | null> {
-  if (readsAll(ctx)) return null;
+  if (docReadsAll(ctx)) return null;
   if (!hasPermission(ctx.actor, "document:read")) throw forbid("Không có quyền xem tài liệu");
   return teacherCourseIds(ctx.db, ctx.actor.personId);
 }
 
 async function docReadScope(ctx: ProtectedContext): Promise<SQL> {
-  if (readsAll(ctx)) return sql`true`;
+  if (docReadsAll(ctx)) return sql`true`;
   if (!hasPermission(ctx.actor, "document:read")) throw forbid("Không có quyền xem tài liệu");
   const ids = await teacherCourseIds(ctx.db, ctx.actor.personId);
   return ids.length ? and(inArray(documents.courseId, ids), eq(documents.status, "published"))! : sql`false`;
@@ -69,9 +70,14 @@ async function docReadScope(ctx: ProtectedContext): Promise<SQL> {
 async function loadDocForRead(ctx: ProtectedContext, id: string) {
   const d = await ctx.db.query.documents.findFirst({ where: eq(documents.id, id) });
   if (!d) throw notFound("Không tìm thấy tài liệu");
-  if (readsAll(ctx)) return d;
+  if (docReadsAll(ctx)) return d;
   const ids = await teacherCourseIds(ctx.db, ctx.actor.personId);
   if (!hasPermission(ctx.actor, "document:read") || !ids.includes(d.courseId) || d.status !== "published") throw forbid("Tài liệu không thuộc khoá bạn dạy");
+  // Giáo án buổi học: chỉ trong ca dạy bài đó hoặc khi được quản lý duyệt (không lách qua kho tài liệu / SCORM)
+  if (d.category === "lesson_plan") {
+    if (!d.lessonId) throw forbid("Giáo án không gắn bài học — liên hệ bộ phận đào tạo");
+    await assertPlanAccess(ctx, d.lessonId);
+  }
   return d;
 }
 
@@ -125,7 +131,7 @@ export async function getDocument(ctx: ProtectedContext, id: string) {
   const versions = await ctx.db.select({ v: documentVersions, byName: users.fullName }).from(documentVersions).leftJoin(users, eq(users.id, documentVersions.uploadedBy))
     .where(eq(documentVersions.documentId, d.id)).orderBy(desc(documentVersions.version));
   const edit = canEditDocs(ctx);
-  const access = edit || readsAll(ctx)
+  const access = edit || docReadsAll(ctx)
     ? await ctx.db.select({ action: documentAccessLogs.action, version: documentAccessLogs.version, createdAt: documentAccessLogs.createdAt, byName: users.fullName })
       .from(documentAccessLogs).leftJoin(users, eq(users.id, documentAccessLogs.userId)).where(eq(documentAccessLogs.documentId, d.id)).orderBy(desc(documentAccessLogs.createdAt)).limit(30)
     : [];
@@ -284,9 +290,15 @@ export async function scormLaunch(ctx: ProtectedContext, input: { id: string }) 
     .returning();
   await ctx.db.insert(documentAccessLogs).values({ documentId: d.id, version: v.version, userId: ctx.user.id, action: "launch" });
   const [me] = await ctx.db.select({ fullName: users.fullName }).from(users).where(eq(users.id, ctx.user.id));
+  // URL ký của gói là "vé" mang theo được: với giáo án của giáo viên, cắt hạn vé đúng bằng thời gian còn được xem
+  let ttl = 4 * 3600;
+  if (d.category === "lesson_plan" && d.lessonId && !docReadsAll(ctx)) {
+    const a = await planAccessState(ctx, d.lessonId);
+    if (a.until) ttl = Math.max(1, Math.min(ttl, Math.floor((new Date(a.until).getTime() - Date.now()) / 1000)));
+  }
   return {
     title: d.title, version: v.version, scormVersion: (v.scormVersion ?? "1.2") as "1.2" | "2004",
-    launchUrl: `${signedScormBase(d.id, v.version)}${v.launchPath.split("/").map(encodeURIComponent).join("/")}`,
+    launchUrl: `${signedScormBase(d.id, v.version, ttl)}${v.launchPath.split("/").map(encodeURIComponent).join("/")}`,
     learner: { id: ctx.user.id, name: me?.fullName ?? "" },
     state: { status: att!.status as ScormStatus, location: att!.location, suspendData: att!.suspendData, entry: att!.launches > 1 && att!.suspendData ? "resume" : "ab-initio", score: att!.score },
   };
@@ -317,7 +329,7 @@ export async function scormCommit(ctx: ProtectedContext, input: { id: string; ve
 }
 
 export async function scormReport(ctx: ProtectedContext, input: { id: string }) {
-  if (!readsAll(ctx)) throw forbid("Chỉ Đào tạo / quản lý xem báo cáo học SCORM");
+  if (!docReadsAll(ctx)) throw forbid("Chỉ Đào tạo / quản lý xem báo cáo học SCORM");
   const d = await ctx.db.query.documents.findFirst({ where: eq(documents.id, input.id) });
   if (!d || d.kind !== "scorm") throw notFound("Không tìm thấy bài giảng SCORM");
   const rows = await ctx.db.select({ a: scormAttempts, fullName: users.fullName, email: users.email }).from(scormAttempts).innerJoin(users, eq(users.id, scormAttempts.userId))
