@@ -1333,7 +1333,7 @@ W "## 2. Bảng tổng hợp"
 W ""
 W "| Bộ | Nội dung | Đạt | Không đạt | Bỏ qua | Tổng |"
 W "|---|---|---:|---:|---:|---:|"
-$boViet = @{ A = "Bảo mật"; B = "Cách ly dữ liệu theo trung tâm (tenant)"; C = "Trải nghiệm một chạm (Việc hôm nay)"; D = "Nghiệp vụ theo 7 vai trò" }
+$boViet = @{ A = "Bảo mật"; B = "Cách ly dữ liệu theo trung tâm (tenant)"; C = "Trải nghiệm một chạm (Việc hôm nay)"; D = "Nghiệp vụ theo 7 vai trò"; E = "Tấn công mở rộng + hồi quy đợt B" }
 foreach ($b in $boThuTu) {
   $rows = @($script:results | Where-Object { $_.bo -eq $b })
   if ($rows.Count -eq 0) { continue }
