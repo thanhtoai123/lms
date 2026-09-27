@@ -243,7 +243,8 @@ Bộ đọc của LMS **đã đọc sẵn các trường này nếu có** — ZC
 
 ### 8.5 Giao diện ZCRM ngay trong màn Zalo CRM
 
-Màn **Zalo CRM** có thêm thẻ **"Giao diện Zalo CRM (ZCRM)"** (`/crm/zalo?xem=zcrm`): một khung trỏ tới ZCRM
+**Tin nhắn → Zalo CRM** (`/crm/zalo`) mở **thẳng giao diện ZCRM** ngay trong hệ thống (như hệ cũ); số liệu kênh
+của LMS nằm ở thẻ **"Tổng quan kênh Zalo"** (`?xem=tong-quan`). Khung trỏ tới ZCRM
 đã khai ở *Tích hợp*, chọn được từng tổ chức ZCRM nếu có nhiều. Nhân viên chat, xem bạn bè, lịch hẹn… như
 trên ZCRM, còn hội thoại và lịch hẹn vẫn tự đổ về sổ sách LMS.
 
@@ -269,6 +270,12 @@ coi phiên đăng nhập ZCRM trong khung là "bên thứ ba" và có thể bắ
 **An toàn:** khung thuộc miền khác nên JavaScript của ZCRM không đọc được phiên quản trị (khác hẳn việc
 phát gói SCORM cùng miền). Không làm proxy ZCRM qua chính LMS — như thế ZCRM chạy cùng miền quản trị,
 và Socket.IO của ZCRM cũng không đi qua được route của Next.js.
+
+**Vì sao không phục vụ ZCRM dưới chính địa chỉ LMS (vd `/zalo-crm/...`)**: ZCRM là ứng dụng riêng, chiếm các
+đường gốc `/api/v1`, `/api/public`, `/socket.io`, `/login`, `/setup`, `/assets` — trùng với đường của LMS, muốn
+dời xuống thư mục con phải sửa và build lại mã ZCRM. Và chạy chung một địa chỉ thì JavaScript của ZCRM gọi
+được mọi API quản trị bằng phiên của người đang xem. Nên khi chạy thật: ZCRM ở một **tên miền con** (vd
+`zalo.satarobo.vn`), người dùng chỉ thấy và chỉ gõ địa chỉ LMS.
 
 ### 8.6 Cài ZCRM cạnh hệ thống (một lệnh)
 
