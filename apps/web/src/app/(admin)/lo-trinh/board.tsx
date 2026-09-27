@@ -30,7 +30,7 @@ interface FormState {
 const blank: FormState = { code: "", name: "", description: "", criteriaText: "", certificateTemplateId: "", isActive: true, courses: [] };
 const fmtDay = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" }) : "—");
 
-export function PathsBoard({ paths, options, initialPathId }: { paths: PathRow[]; options: Options; initialPathId: string | null }) {
+export function PathsBoard({ paths, options, initialPathId, canStudents = true }: { paths: PathRow[]; options: Options; initialPathId: string | null; canStudents?: boolean }) {
   const [edit, setEdit] = useState<FormState | null>(null);
   const [selected, setSelected] = useState<string | null>(initialPathId);
   const current = paths.find((p) => p.id === selected) ?? null;
@@ -89,7 +89,8 @@ export function PathsBoard({ paths, options, initialPathId }: { paths: PathRow[]
         </button>
       )}
 
-      {current && <PathStudentsPanel key={current.id} path={current} />}
+      {/* Danh sách học viên theo lộ trình cần quyền hoàn thành khoá đầy đủ (giáo viên chỉ xem cấu trúc lộ trình) */}
+      {current && canStudents && <PathStudentsPanel key={current.id} path={current} />}
 
       {edit && <PathDrawer value={edit} options={options} onClose={() => setEdit(null)} onSaved={(id) => { setEdit(null); setSelected(id); }} />}
     </div>

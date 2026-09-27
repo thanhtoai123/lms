@@ -47,3 +47,22 @@ export function taoLoiMayChu(x: { name: string; code?: string | null; msg: strin
   const ma = x.code ? String(x.code).slice(0, 40) : null;
   return { ten, ma, thongDiep, duongDan, vanTay: bam(`${ten}|${ma ?? ""}|${thongDiep}|${duongDan}`) };
 }
+
+/**
+ * Lỗi có đáng ghi vào bảng lỗi máy chủ không. KHÔNG ghi những thứ là phản hồi bình thường:
+ * - từ chối quyền / cách ly trung tâm / không tìm thấy / dữ liệu vào sai (403, 404, 400, 412 — người dùng thấy lời nhắn rõ);
+ * - người xem đóng trang giữa chừng ("destination stream closed early", AbortError);
+ * - điều hướng nội bộ của Next.js (redirect / notFound).
+ * Khi những thứ này lẫn vào, bảng lỗi toàn "nhiễu" và lỗi thật bị chìm.
+ */
+const MA_BINH_THUONG = new Set(["FORBIDDEN", "UNAUTHORIZED", "NOT_FOUND", "BAD_REQUEST", "PRECONDITION_FAILED", "CONFLICT", "TOO_MANY_REQUESTS", "METHOD_NOT_SUPPORTED", "PARSE_ERROR", "CLIENT_CLOSED_REQUEST"]);
+const TEN_BINH_THUONG = new Set(["ForbiddenError", "TenantIsolationError", "AbortError", "ResponseAborted"]);
+export function laLoiCanGhi(err: unknown): boolean {
+  const e = err as { name?: string; code?: string; message?: string; digest?: string } | null;
+  if (!e) return false;
+  if (e.name && TEN_BINH_THUONG.has(e.name)) return false;
+  if (e.name === "TRPCError" && e.code && MA_BINH_THUONG.has(e.code)) return false;
+  if (typeof e.digest === "string" && /^NEXT_(REDIRECT|NOT_FOUND|HTTP_ERROR_FALLBACK)/.test(e.digest)) return false;
+  if (typeof e.message === "string" && /destination stream closed early|aborted|ECONNRESET/i.test(e.message)) return false;
+  return true;
+}

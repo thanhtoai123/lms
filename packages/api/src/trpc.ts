@@ -43,17 +43,35 @@ const t = initTRPC.context<Context>().create({
 export const router = t.router;
 export const createCallerFactory = t.createCallerFactory;
 
-/** Chuyển lỗi domain thành mã tRPC chuẩn */
+/** Lỗi domain (core) → mã tRPC chuẩn; null = để nguyên */
+const PRE_NAMES = new Set(["SessionTransitionError", "LeadTransitionError", "EnrollmentTransitionError", "MakeupTransitionError", "ReportCardTransitionError", "TrialTransitionError", "FinanceRuleError", "ClassTransitionError", "HrRuleError", "StudentLifecycleError"]);
+export function domainToTrpc(e: unknown): TRPCError | null {
+  if (e instanceof TRPCError) return null;
+  // So sánh theo name vì @satarobo/core có thể được nạp 2 lần (src qua Turbopack + dist) → instanceof không đáng tin
+  const name = (e as { name?: string })?.name;
+  if (e instanceof ForbiddenError || name === "ForbiddenError" || name === "TenantIsolationError") return new TRPCError({ code: "FORBIDDEN", message: (e as Error).message, cause: e as Error });
+  if (e instanceof SessionTransitionError || (name && PRE_NAMES.has(name))) return new TRPCError({ code: "PRECONDITION_FAILED", message: (e as Error).message, cause: e as Error });
+  return null;
+}
+
+/**
+ * Chuyển lỗi domain thành mã tRPC chuẩn.
+ * tRPC v11: `next()` KHÔNG ném — lỗi của thủ tục trả về dạng `{ ok: false, error }` với lỗi gốc ở
+ * `error.cause`. Trước đây chỉ bọc try/catch nên ForbiddenError của core rơi thành 500 (lỗi hệ thống)
+ * thay vì 403 "không có quyền". Giữ cả try/catch cho lỗi ném ra ngoài luồng kết quả.
+ */
 const mapDomainErrors = t.middleware(async ({ next }) => {
+  let res;
   try {
-    return await next();
+    res = await next();
   } catch (e) {
-    // So sánh theo name vì @satarobo/core có thể được nạp 2 lần (src qua Turbopack + dist) → instanceof không đáng tin
-    const name = (e as { name?: string })?.name;
-    if (e instanceof ForbiddenError || name === "ForbiddenError" || name === "TenantIsolationError") throw new TRPCError({ code: "FORBIDDEN", message: (e as Error).message, cause: e as Error });
-    if (e instanceof SessionTransitionError || name === "SessionTransitionError" || name === "LeadTransitionError" || name === "EnrollmentTransitionError" || name === "MakeupTransitionError" || name === "ReportCardTransitionError" || name === "TrialTransitionError" || name === "FinanceRuleError" || name === "ClassTransitionError" || name === "HrRuleError" || name === "StudentLifecycleError") throw new TRPCError({ code: "PRECONDITION_FAILED", message: (e as Error).message, cause: e as Error });
-    throw e;
+    throw domainToTrpc(e) ?? e;
   }
+  if (!res.ok) {
+    const mapped = domainToTrpc(res.error.cause ?? null);
+    if (mapped) throw mapped;
+  }
+  return res;
 });
 
 /**

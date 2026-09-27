@@ -225,3 +225,10 @@ body {
 @layer base {
   .grid { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Hành động phụ / nguy hiểm trên TỪNG DÒNG (Xoá, Đổi cha…): máy tính chỉ hiện khi rê chuột hoặc
+   dùng bàn phím vào dòng — bảng 50 dòng không còn 50 chữ "Xoá" lặp lại. Máy cảm ứng luôn hiện. */
+@media (hover: hover) {
+  :where(tr, li) .row-action { opacity: 0; transition: opacity 120ms; }
+  :where(tr, li):hover .row-action, :where(tr, li):focus-within .row-action, .row-action:focus-visible { opacity: 1; }
+}

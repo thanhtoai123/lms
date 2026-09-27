@@ -4,9 +4,11 @@
  */
 import { sql, desc, gte } from "drizzle-orm";
 import { getDb, serverErrors, type Database } from "@satarobo/db";
-import { redactErrorForLog, taoLoiMayChu } from "@satarobo/core";
+import { laLoiCanGhi, redactErrorForLog, taoLoiMayChu } from "@satarobo/core";
 
 export async function ghiLoiMayChu(err: unknown, path: string, db?: Database) {
+  // Phản hồi bình thường (403/404/412, người xem đóng trang, redirect) không phải lỗi máy chủ
+  if (!laLoiCanGhi(err)) return;
   try {
     const r = redactErrorForLog(err);
     const l = taoLoiMayChu({ name: r.name, code: r.code ?? null, msg: r.msg, path });

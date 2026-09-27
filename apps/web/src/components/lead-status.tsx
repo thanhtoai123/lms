@@ -84,7 +84,7 @@ export function LeadStatusSelect({ leadId, status, disabled, onDone, compact }: 
 }
 
 /** Xoá lead 2 bước (lý do bắt buộc) */
-export function LeadDeleteButton({ leadId, name, onDeleted }: { leadId: string; name: string; onDeleted?: () => void }) {
+export function LeadDeleteButton({ leadId, name, onDeleted, subtle }: { leadId: string; name: string; onDeleted?: () => void; subtle?: boolean }) {
   const trpc = useTRPC();
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -92,7 +92,7 @@ export function LeadDeleteButton({ leadId, name, onDeleted }: { leadId: string; 
   const m = useMutation(trpc.admissions.leads.delete.mutationOptions({
     onSuccess: () => { setOpen(false); setReason(""); if (onDeleted) onDeleted(); else router.refresh(); },
   }));
-  if (!open) return <button type="button" className="text-xs text-ink-400 hover:text-red-700" title={`Xoá ${name}`} onClick={() => setOpen(true)}>Xoá</button>;
+  if (!open) return <button type="button" className={`text-xs text-ink-400 hover:text-red-700 ${subtle ? "row-action" : ""}`} title={`Xoá ${name}`} onClick={() => setOpen(true)}>Xoá</button>;
   return (
     <span className="inline-flex flex-wrap items-center gap-1">
       <input className="input !w-40 !py-1 text-xs" autoFocus placeholder="Lý do xoá *" maxLength={LEAD_DROP_REASON_MAX} value={reason} onChange={(e) => setReason(e.target.value)} />

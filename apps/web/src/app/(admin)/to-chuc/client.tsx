@@ -154,8 +154,8 @@ export function UnitActions({ unit, units, entities }: { unit: Unit; units: Unit
     <>
       <span className="flex flex-wrap gap-1">
         <button className="btn-ghost !px-2 !py-0.5 text-xs" onClick={() => setMode("edit")}>Sửa</button>
-        {unit.type !== "root" && <button className="btn-ghost !px-2 !py-0.5 text-xs" onClick={() => setMode("move")}>Đổi cha</button>}
-        {unit.type !== "root" && <button className="btn-ghost !px-2 !py-0.5 text-xs text-red-700" onClick={() => setMode("delete")}>Xoá</button>}
+        {unit.type !== "root" && <button className="row-action btn-ghost !px-2 !py-0.5 text-xs" onClick={() => setMode("move")}>Đổi cha</button>}
+        {unit.type !== "root" && <button className="row-action btn-ghost !px-2 !py-0.5 text-xs text-red-700" onClick={() => setMode("delete")}>Xoá</button>}
       </span>
       {mode === "edit" && <EditUnit unit={unit} entities={entities} onClose={() => setMode("")} />}
       {mode === "move" && <MoveUnit unit={unit} units={units} onClose={() => setMode("")} />}

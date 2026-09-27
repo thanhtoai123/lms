@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { hasPermission, type Actor } from "@satarobo/core";
+import { hasPermission, type Actor, centersWith } from "@satarobo/core";
 import { getServerCaller } from "@/lib/trpc/server";
 import { NoAccess, PageHeader } from "@/components/admin-ui";
 import { PathsBoard } from "./board";
@@ -29,7 +29,7 @@ export default async function LearningPathsPage({ searchParams }: { searchParams
         desc="Ghép các khoá thành lộ trình (có thứ tự, đánh dấu khoá bắt buộc). Học viên hoàn thành — đã được duyệt — mọi khoá bắt buộc sẽ vào nhóm “Đủ điều kiện”; cấp giấy chứng nhận hàng loạt rồi in theo mẫu thiết kế trên Canva, mỗi giấy có mã QR xác thực."
         actions={<Link href="/lo-trinh/mau-chung-nhan" className="btn-ghost">Mẫu giấy chứng nhận</Link>}
       />
-      <PathsBoard paths={paths} options={options} initialPathId={sp.path ?? paths.find((p) => p.isActive)?.id ?? null} />
+      <PathsBoard paths={paths} options={options} canStudents={(() => { const c = centersWith(actor, "completion:read"); return c === null || c.length > 0; })()} initialPathId={sp.path ?? paths.find((p) => p.isActive)?.id ?? null} />
     </div>
   );
 }

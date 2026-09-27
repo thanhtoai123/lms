@@ -171,7 +171,7 @@ export default async function LeadsInbox({ searchParams }: { searchParams: Promi
                   <td className="p-3" data-col="actions">
                     <div className="flex items-center gap-1">
                       <LeadTouchButton leadId={l.id} name={l.parentName} />
-                      {l.canDelete && <LeadDeleteButton leadId={l.id} name={l.parentName} />}
+                      {l.canDelete && <LeadDeleteButton leadId={l.id} name={l.parentName} subtle />}
                     </div>
                   </td>
                 </tr>
