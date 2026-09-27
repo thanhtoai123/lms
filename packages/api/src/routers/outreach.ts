@@ -79,6 +79,8 @@ export const messagingRouter = router({
   removeChannelAccount: protectedProcedure.input(z.object({ id: uuid })).mutation(({ ctx, input }) => CA.xoaTaiKhoanKenh(ctx, input)),
   /** Đồng bộ lịch hẹn ZCRM ngay (worker vẫn tự chạy mỗi 15 phút) */
   syncZcrmAppointments: protectedProcedure.mutation(({ ctx }) => CA.dongBoLichHenNgay(ctx)),
+  /** Giao diện ZCRM nhúng trong màn Zalo CRM (kèm kiểm tra có nhúng được không) */
+  zcrmEmbed: protectedProcedure.query(({ ctx }) => CA.giaoDienZcrm(ctx)),
   savePilot: protectedProcedure.input(z.object({ classIds: z.array(uuid).max(50), startDate: isoDate.nullable(), note: s(500) })).mutation(({ ctx, input }) => M.savePilot(ctx, input)),
 });
 

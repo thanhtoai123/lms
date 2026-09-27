@@ -13,8 +13,8 @@ import { and, eq, gte, isNull, desc, sql } from "drizzle-orm";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { TRPCError } from "@trpc/server";
 import { channelAccounts, conversations, messages, parents, leads, centers, appointments, type Database } from "@satarobo/db";
-import { authorizeGlobal, docSuKienZcrm, duDeGhiTin, nickImLang, HAN_MUC_NICK_NGAY, type SuKienKenh, loiUrlCongNoi, khoaHoiThoai, timHoiThoaiZcrm, thanGuiZcrm, docLichHenZcrm, type HoiThoaiZcrm } from "@satarobo/core";
-import type { ProtectedContext } from "../trpc";
+import { authorizeGlobal, docSuKienZcrm, duDeGhiTin, nickImLang, HAN_MUC_NICK_NGAY, type SuKienKenh, loiUrlCongNoi, khoaHoiThoai, timHoiThoaiZcrm, thanGuiZcrm, docLichHenZcrm, phanTichNhung, type HoiThoaiZcrm } from "@satarobo/core";
+import { requirePermission, type ProtectedContext } from "../trpc";
 import { sealWith, openWith } from "./pii";
 import { writeAudit } from "./audit";
 import { ingestExternal, ingestExternalOutbound } from "./messaging";
@@ -471,4 +471,54 @@ export async function dongBoLichHenNgay(ctx: ProtectedContext) {
   const r = await dongBoLichHenZcrm(ctx.db as unknown as Database);
   await writeAudit(ctx.db, { actorId: ctx.user.id, action: "UPDATE", module: "message", entity: "appointments", entityId: null, after: r, reason: "Đồng bộ lịch hẹn từ Zalo CRM", ip: ctx.ip });
   return r;
+}
+
+/* ------------------------------------------------------------------ */
+/* Giao diện ZCRM nhúng trong màn Zalo CRM                              */
+/* ------------------------------------------------------------------ */
+
+function nguonCua(url: string | null | undefined): string | null {
+  try { return url ? new URL(url).origin : null; } catch { return null; }
+}
+
+/**
+ * Các ZCRM đã khai (địa chỉ API = địa chỉ web: ZCRM v3.4 phục vụ giao diện và API trên cùng một gốc)
+ * kèm kết quả kiểm tra "trình duyệt có cho nhúng không". Kiểm ở MÁY CHỦ vì trang không đọc được header
+ * của một miền khác — nếu để trình duyệt tự thử, khung chỉ trắng trơn mà không ai biết vì sao.
+ */
+export async function giaoDienZcrm(ctx: ProtectedContext) {
+  requirePermission(ctx, "message:read");
+  requirePermission(ctx, "lead:read");
+  const ds = await ctx.db.select().from(channelAccounts).where(and(eq(channelAccounts.channel, "zalo_ca_nhan"), eq(channelAccounts.active, true)));
+  const nguonLms = nguonCua(process.env.NEXT_PUBLIC_APP_URL) ?? "http://localhost:3000";
+  const choPhep = [process.env.ZCRM_ORIGINS, process.env.CSP_FRAME_SRC_EXTRA].filter(Boolean).join(" ").split(/[\s,]+/).map((x) => x.trim().replace(/\/+$/, "")).filter(Boolean);
+  const out: { id: string; label: string; url: string; nguon: string; nhungDuoc: boolean; lyDo: string[] }[] = [];
+  for (const acc of ds) {
+    const nguon = nguonCua(acc.baseUrl);
+    if (!nguon) continue;
+    const lyDo: string[] = [];
+    let nhungDuoc = false;
+    const loiUrl = loiUrlCongNoi(nguon);
+    if (loiUrl) {
+      lyDo.push(loiUrl);
+    } else {
+      try {
+        const r = await fetch(`${nguon}/`, { method: "GET", redirect: "manual", signal: AbortSignal.timeout(5_000) });
+        const h: Record<string, string> = {};
+        r.headers.forEach((v, k) => { h[k.toLowerCase()] = v; });
+        const kq = phanTichNhung(h, nguon, nguonLms);
+        nhungDuoc = kq.nhungDuoc;
+        lyDo.push(...kq.lyDo);
+      } catch {
+        lyDo.push("Máy chủ hệ thống không gọi được tới ZCRM — kiểm tra địa chỉ hoặc ZCRM có đang chạy");
+      }
+    }
+    // Phía LMS: CSP `frame-src` phải liệt kê miền ZCRM, không thì chính trình duyệt chặn khung
+    if (!choPhep.some((c) => c.toLowerCase() === nguon.toLowerCase())) {
+      nhungDuoc = false;
+      lyDo.push(`Hệ thống chưa cho phép nhúng ${nguon} — thêm vào biến ZCRM_ORIGINS rồi khởi động lại`);
+    }
+    out.push({ id: acc.id, label: acc.label, url: `${nguon}/`, nguon, nhungDuoc, lyDo });
+  }
+  return { nguonLms, ds: out };
 }

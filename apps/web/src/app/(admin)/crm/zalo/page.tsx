@@ -5,6 +5,7 @@ import { NoAccess, PageHeader } from "@/components/admin-ui";
 import { Kpi, Section, th } from "@/components/report-ui";
 import { Empty } from "@/components/ui";
 import { dtVN } from "@/components/care-ui";
+import { ZcrmKhung } from "./zcrm-khung";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Zalo CRM" };
@@ -25,7 +26,7 @@ function tokenChip(t: { configured: boolean; usable: boolean; fromEnv: boolean; 
  * Bốn câu hỏi của người bán hàng: kênh còn sống không · ai đang chờ · sắp hết khung 48 giờ chưa ·
  * khách từ Zalo ra tiền chưa. Các màn cũ (Hộp thư, Giám sát hội thoại, Thông báo phụ huynh) giữ nguyên.
  */
-export default async function ZaloCrmPage({ searchParams }: { searchParams: Promise<{ ngay?: string }> }) {
+export default async function ZaloCrmPage({ searchParams }: { searchParams: Promise<{ ngay?: string; xem?: string; nick?: string }> }) {
   const sp = await searchParams;
   const { caller, ctx } = await getServerCaller();
   const actor = ctx.actor as Actor | null;
@@ -33,6 +34,22 @@ export default async function ZaloCrmPage({ searchParams }: { searchParams: Prom
   // quyền đọc lead. Kiểm ở đây để trả màn "Chưa có quyền" thay vì lỗi 500 từ tầng dịch vụ.
   if (!actor || !hasPermission(actor, "message:read") || !hasPermission(actor, "lead:read")) {
     return <NoAccess title="Zalo CRM" perm="message:read + lead:read" />;
+  }
+  const tabs = (
+    <div className="flex gap-1 border-b border-black/10 text-sm">
+      <Link href="/crm/zalo" className={`-mb-px border-b-2 px-3 py-2 ${sp.xem !== "zcrm" ? "border-brand-600 font-semibold text-brand-700" : "border-transparent text-ink-600"}`}>Tổng quan kênh Zalo</Link>
+      <Link href="/crm/zalo?xem=zcrm" className={`-mb-px border-b-2 px-3 py-2 ${sp.xem === "zcrm" ? "border-brand-600 font-semibold text-brand-700" : "border-transparent text-ink-600"}`}>Giao diện Zalo CRM (ZCRM)</Link>
+    </div>
+  );
+  if (sp.xem === "zcrm") {
+    const z = await caller.messaging.zcrmEmbed();
+    return (
+      <div className="space-y-3">
+        <PageHeader title="Zalo CRM" desc="Chat nhiều nick Zalo, bạn bè, lịch hẹn… ngay trong hệ thống. Hội thoại và lịch hẹn vẫn tự đổ về sổ sách LMS qua webhook." />
+        {tabs}
+        <ZcrmKhung ds={z.ds} chon={sp.nick} nguonLms={z.nguonLms} />
+      </div>
+    );
   }
   const days = Number(sp.ngay) || 30;
   const d = await caller.messaging.zaloCrm({ days });
@@ -52,6 +69,8 @@ export default async function ZaloCrmPage({ searchParams }: { searchParams: Prom
           </>
         }
       />
+
+      {tabs}
 
       {/* Việc phải xử lý ngay — đặt trên cùng vì đây là lý do mở màn này */}
       {d.canhBao.length > 0 && (

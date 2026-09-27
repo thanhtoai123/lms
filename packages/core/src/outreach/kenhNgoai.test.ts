@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { docSuKienZcrm, duDeGhiTin, conLaiTrongNgay, nickImLang, HAN_MUC_NICK_NGAY, khoaHoiThoai, timHoiThoaiZcrm, thanGuiZcrm, docLichHenZcrm } from "./kenhNgoai.js";
+import { docSuKienZcrm, duDeGhiTin, conLaiTrongNgay, nickImLang, HAN_MUC_NICK_NGAY, khoaHoiThoai, timHoiThoaiZcrm, thanGuiZcrm, docLichHenZcrm, phanTichNhung } from "./kenhNgoai.js";
 
 const BAY_GIO = new Date("2026-09-24T03:00:00.000Z");
 
@@ -158,5 +158,29 @@ describe("ZCRM v3.4 — payload thật", () => {
     assert.match(h.tieuDe, /Chị Lan/);
     assert.equal(docLichHenZcrm({ id: "a2", appointmentDate: "2026-09-30T00:00:00.000Z", type: "meeting", status: "no_show" })!.trangThai, "vang");
     assert.equal(docLichHenZcrm({ id: "a3" }), null);
+  });
+});
+
+describe("nhúng giao diện ZCRM vào màn Zalo CRM", () => {
+  const Z = "https://zcrm.trungtam.vn", L = "https://admin.trungtam.vn";
+  it("ZCRM v3.4 mặc định (DENY + frame-ancestors 'none' dạng report-only) → không nhúng được", () => {
+    const r = phanTichNhung({ "x-frame-options": "DENY", "content-security-policy-report-only": "frame-ancestors 'none'" }, Z, L);
+    assert.equal(r.nhungDuoc, false);
+    assert.match(r.lyDo[0]!, /DENY/);
+  });
+  it("CSP cưỡng chế frame-ancestors 'none' → không nhúng được", () => {
+    assert.equal(phanTichNhung({ "content-security-policy": "default-src 'self'; frame-ancestors 'none'" }, Z, L).nhungDuoc, false);
+  });
+  it("proxy đã đổi frame-ancestors sang miền quản trị → nhúng được (bỏ qua X-Frame-Options)", () => {
+    const r = phanTichNhung({ "x-frame-options": "DENY", "content-security-policy": `frame-ancestors ${L}` }, Z, L);
+    assert.equal(r.nhungDuoc, true);
+  });
+  it("ký tự đại diện miền con", () => {
+    assert.equal(phanTichNhung({ "content-security-policy": "frame-ancestors https://*.trungtam.vn" }, Z, L).nhungDuoc, true);
+    assert.equal(phanTichNhung({ "content-security-policy": "frame-ancestors https://*.khac.vn" }, Z, L).nhungDuoc, false);
+  });
+  it("không có header nào → nhúng được; SAMEORIGIN khác nguồn → không", () => {
+    assert.equal(phanTichNhung({}, Z, L).nhungDuoc, true);
+    assert.equal(phanTichNhung({ "x-frame-options": "SAMEORIGIN" }, Z, L).nhungDuoc, false);
   });
 });

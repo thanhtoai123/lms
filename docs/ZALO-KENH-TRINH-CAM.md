@@ -241,6 +241,35 @@ Bộ đọc của LMS **đã đọc sẵn các trường này nếu có** — ZC
 - **Nhúng mã / chạy ZCRM trong máy chủ LMS**: không. ZCRM chạy riêng (Docker, Postgres + Redis + MinIO riêng,
   2–4 GB RAM), LMS chỉ nói chuyện qua API + webhook.
 
+### 8.5 Giao diện ZCRM ngay trong màn Zalo CRM
+
+Màn **Zalo CRM** có thêm thẻ **"Giao diện Zalo CRM (ZCRM)"** (`/crm/zalo?xem=zcrm`): một khung trỏ tới ZCRM
+đã khai ở *Tích hợp*, chọn được từng tổ chức ZCRM nếu có nhiều. Nhân viên chat, xem bạn bè, lịch hẹn… như
+trên ZCRM, còn hội thoại và lịch hẹn vẫn tự đổ về sổ sách LMS.
+
+**Vì sao mặc định khung sẽ trắng:** ZCRM v3.4 gửi `X-Frame-Options: DENY` và `frame-ancestors 'none'` cho
+mọi trang (`backend/src/shared/security/security-headers.ts`) — trình duyệt cấm mọi trang khác nhúng nó.
+Hệ thống **kiểm tra header này ở máy chủ** trước khi vẽ khung và nói rõ lý do, thay vì để khung trắng.
+
+**Cách mở nhúng — không sửa mã ZCRM:** đặt ZCRM sau proxy và đổi hai header cho riêng miền quản trị:
+
+```
+# Caddy
+zcrm.trungtam.vn {
+  reverse_proxy 127.0.0.1:3080
+  header -X-Frame-Options
+  header Content-Security-Policy "frame-ancestors https://admin.trungtam.vn"
+}
+```
+
+Phía LMS đặt `ZCRM_ORIGINS=https://zcrm.trungtam.vn` (để CSP `frame-src` của trang quản trị cho phép khung)
+rồi khởi động lại. Nên để ZCRM **cùng tên miền gốc** với trang quản trị: khác tên miền gốc thì trình duyệt
+coi phiên đăng nhập ZCRM trong khung là "bên thứ ba" và có thể bắt đăng nhập lại.
+
+**An toàn:** khung thuộc miền khác nên JavaScript của ZCRM không đọc được phiên quản trị (khác hẳn việc
+phát gói SCORM cùng miền). Không làm proxy ZCRM qua chính LMS — như thế ZCRM chạy cùng miền quản trị,
+và Socket.IO của ZCRM cũng không đi qua được route của Next.js.
+
 ## 9. Nguồn
 
 - ZCRM v3.4 (mã nguồn mở, `zca-js`, AGPL-3.0, REST API + webhook, hạn mức ~200 tin/ngày, cảnh báo ToS):

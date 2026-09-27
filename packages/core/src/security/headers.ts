@@ -238,6 +238,8 @@ export interface CspEnv {
   CSP_FRAME_SRC_EXTRA?: string;
   /** Miền học liệu SCORM riêng — trang quản trị phải được nhúng khung từ miền này */
   SCORM_ORIGIN?: string;
+  /** Miền giao diện Zalo CRM (ZCRM) được nhúng trong màn Zalo CRM — nhiều miền cách nhau bởi dấu phẩy */
+  ZCRM_ORIGINS?: string;
   CSP_STYLE_SRC_EXTRA?: string;
   CSP_FRAME_ANCESTORS?: string;
   CSP_REPORT_URI?: string;
@@ -262,7 +264,7 @@ export function securityHeaderOptions(env: CspEnv, nonce?: string | null): Secur
     extraScriptSrc: env.CSP_SCRIPT_SRC_EXTRA,
     extraConnectSrc: env.CSP_CONNECT_SRC_EXTRA,
     extraImgSrc: env.CSP_IMG_SRC_EXTRA,
-    extraFrameSrc: [env.CSP_FRAME_SRC_EXTRA, env.SCORM_ORIGIN].filter(Boolean).join(" ") || undefined,
+    extraFrameSrc: [env.CSP_FRAME_SRC_EXTRA, env.SCORM_ORIGIN, env.ZCRM_ORIGINS?.replace(/,/g, " ")].filter(Boolean).join(" ") || undefined,
     extraStyleSrc: env.CSP_STYLE_SRC_EXTRA,
     reportUri: env.CSP_REPORT_URI ?? null,
     hstsMaxAge: Number.isFinite(maxAge) && maxAge > 0 ? maxAge : undefined,

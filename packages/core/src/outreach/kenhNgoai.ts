@@ -304,3 +304,49 @@ export function docLichHenZcrm(a: unknown): LichHenZcrm | null {
     tenKhach: ten,
   };
 }
+
+/* ------------------------------------------------------------------ */
+/* Nhúng giao diện ZCRM vào màn Zalo CRM                               */
+/* ------------------------------------------------------------------ */
+
+export interface KetQuaNhung {
+  nhungDuoc: boolean;
+  lyDo: string[];
+}
+
+function khopNguon(nguon: string, mau: string): boolean {
+  const m = mau.replace(/\/+$/, "").toLowerCase();
+  const n = nguon.toLowerCase();
+  if (m === "*") return true;
+  if (m === "https:" || m === "http:") return n.startsWith(m);
+  if (m.includes("*.")) {
+    const [giao, host] = m.split("*.");
+    return n.startsWith(giao ?? "") && n.endsWith(`.${host}`);
+  }
+  return n === m;
+}
+
+/**
+ * Trình duyệt có cho trang quản trị (`nguonLms`) nhúng ZCRM (`nguonZcrm`) vào khung không — suy từ
+ * header ZCRM trả về. ZCRM v3.4 mặc định gửi `X-Frame-Options: DENY` + `frame-ancestors 'none'`,
+ * nên phải đặt ZCRM sau một proxy đổi hai header này thì mới nhúng được.
+ * Luật trình duyệt: có `frame-ancestors` ở CSP **cưỡng chế** thì bỏ qua `X-Frame-Options`;
+ * CSP "report-only" không chặn gì.
+ */
+export function phanTichNhung(headers: Record<string, string | null | undefined>, nguonZcrm: string, nguonLms: string): KetQuaNhung {
+  const get = (k: string) => (headers[k] ?? headers[k.toLowerCase()] ?? "").trim();
+  const cungNguon = nguonZcrm.toLowerCase() === nguonLms.toLowerCase();
+  const csp = get("content-security-policy");
+  const fa = /(?:^|;)\s*frame-ancestors\s+([^;]*)/i.exec(csp)?.[1]?.trim() ?? null;
+  if (fa !== null) {
+    const ds = fa.split(/\s+/).filter(Boolean);
+    const ok = ds.some((m) => (m === "'self'" ? cungNguon : m === "'none'" ? false : khopNguon(nguonLms, m)));
+    return ok
+      ? { nhungDuoc: true, lyDo: [] }
+      : { nhungDuoc: false, lyDo: [`ZCRM chỉ cho nhúng từ: ${fa || "(trống)"} — cần thêm ${nguonLms}`] };
+  }
+  const xfo = get("x-frame-options").toUpperCase();
+  if (xfo === "DENY") return { nhungDuoc: false, lyDo: ["ZCRM gửi X-Frame-Options: DENY — cấm mọi trang nhúng"] };
+  if (xfo === "SAMEORIGIN" && !cungNguon) return { nhungDuoc: false, lyDo: ["ZCRM gửi X-Frame-Options: SAMEORIGIN — chỉ cho chính nó nhúng"] };
+  return { nhungDuoc: true, lyDo: [] };
+}

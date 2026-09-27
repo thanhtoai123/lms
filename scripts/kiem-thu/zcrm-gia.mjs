@@ -30,6 +30,14 @@ const json = (res, code, body) => { res.writeHead(code, { "Content-Type": "appli
 http.createServer((req, res) => {
   const url = new URL(req.url, "http://x");
   if (url.pathname === "/__sent") return json(res, 200, { sent: daGui });
+  // Trang giao diện: y như ZCRM v3.4 mặc định — cấm mọi trang nhúng (X-Frame-Options: DENY)
+  if (url.pathname === "/") {
+    const h = { "Content-Type": "text/html; charset=utf-8" };
+    if (process.env.ZCRM_CHO_NHUNG) h["Content-Security-Policy"] = `frame-ancestors ${process.env.ZCRM_CHO_NHUNG}`;
+    else { h["X-Frame-Options"] = "DENY"; h["Content-Security-Policy-Report-Only"] = "frame-ancestors 'none'"; }
+    res.writeHead(200, h);
+    return res.end("<!doctype html><title>ZCRM gia</title><h1>ZCRM gia</h1>");
+  }
   if (!url.pathname.startsWith("/api/public/")) return json(res, 404, { error: "not found" });
   if (req.headers["x-api-key"] !== KEY) return json(res, 401, { error: "Invalid API key" });
   if (req.method === "GET" && url.pathname === "/api/public/conversations") return json(res, 200, { conversations: hoiThoai });
