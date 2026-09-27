@@ -5,6 +5,7 @@ import { NoAccess, PageHeader } from "@/components/admin-ui";
 import { Kpi, Section, th, td } from "@/components/report-ui";
 import { Empty } from "@/components/ui";
 import { dtVN } from "@/components/care-ui";
+import { ChayLaiHangDoiChet } from "./chay-lai";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Vận hành & sao lưu" };
@@ -66,6 +67,7 @@ export default async function OpsPage() {
               ["Sự cố dữ liệu quá hạn thông báo", q.incident_overdue, ""],
             ].map(([label, n, hint]) => <tr key={String(label)}><td className="p-3">{label}{hint ? <span className="ml-1 text-xs text-ink-400">({hint})</span> : null}</td><td className={`${td} text-right ${Number(n) ? "font-semibold text-red-700" : "text-ink-400"}`}>{n ?? 0}</td></tr>)}
           </tbody></table>
+          {hasPermission(actor, "automation:update") && <ChayLaiHangDoiChet soLuong={Number(q.outbox_stuck ?? 0)} />}
         </Section>
         <Section title="Khối lượng dữ liệu">
           {!v ? <div className="p-4"><Empty>—</Empty></div> : (

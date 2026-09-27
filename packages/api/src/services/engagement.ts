@@ -12,6 +12,7 @@ import {
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { assertTenant, tenantCond, tenantCondStrict } from "./tenantScope";
 import { deliverNotifications } from "./notify";
+import { writeAudit } from "./audit";
 import { slaOverdueMinutesSql, slaOverdueSql } from "./leadSlaSql";
 
 /* ---------------------------------------------------------------------------------------------
@@ -109,6 +110,7 @@ export async function retryDeadLetter(ctx: ProtectedContext, input: { ids?: stri
     .set({ deadLetterAt: null, attempts: 0, nextAttemptAt: new Date(), lastError: null })
     .where(and(...conds))
     .returning({ id: outbox.id });
+  if (rows.length) await writeAudit(ctx.db, { actorId: ctx.user.id, action: "UPDATE", module: "system", entity: "outbox", entityId: null, after: { requeued: rows.length, ids: input.ids?.length ? rows.map((r) => r.id).slice(0, 50) : "tat-ca" }, reason: "Chạy lại hàng đợi chết" });
   return { requeued: rows.length };
 }
 
