@@ -5,7 +5,7 @@ import { NoAccess, PageHeader } from "@/components/admin-ui";
 import { Kpi, Section, th, td } from "@/components/report-ui";
 import { Empty } from "@/components/ui";
 import { dtVN } from "@/components/care-ui";
-import { ChayLaiHangDoiChet } from "./chay-lai";
+import { ChayLaiHangDoiChet, DaXuLyLoi } from "./chay-lai";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Vận hành & sao lưu" };
@@ -49,6 +49,24 @@ export default async function OpsPage() {
           </div>
           <p className="text-ink-600">{d.khoTep.ghi_chu}</p>
         </div>
+      </Section>
+      <Section title={`Lỗi máy chủ 7 ngày (${d.loiMayChu.length})`}>
+        {d.loiMayChu.length === 0 ? <div className="p-4"><Empty>Không có lỗi máy chủ nào chưa xử lý.</Empty></div> : (
+          <table className="w-full text-sm">
+            <thead className="text-left text-xs uppercase text-ink-400"><tr><th className={th}>Lỗi</th><th className={th}>Ở đâu</th><th className={`${th} text-right`}>Số lần</th><th className={th}>Gần nhất</th><th className={th}></th></tr></thead>
+            <tbody className="divide-y divide-black/5">
+              {d.loiMayChu.map((l) => (
+                <tr key={l.fingerprint}>
+                  <td className="p-3"><b>{l.name}</b>{l.code ? <span className="ml-1 font-mono text-xs text-ink-400">{l.code}</span> : null}<div className="text-xs text-ink-600">{l.message}</div></td>
+                  <td className="p-3 font-mono text-xs">{l.path}</td>
+                  <td className={`${td} text-right font-semibold`}>{l.count}</td>
+                  <td className="p-3 text-xs">{dtVN(l.lastAt)}<div className="text-ink-400">từ {dtVN(l.firstAt)}</div></td>
+                  <td className="p-3">{hasPermission(actor, "system:configure") && <DaXuLyLoi fingerprint={l.fingerprint} />}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </Section>
       <Section title="Danh mục go-live">
         <ul className="divide-y divide-black/5 text-sm">{d.checklist.map((c) => <li key={c.key} className="flex items-center justify-between gap-2 p-3"><span>{c.label}</span><Chip s={c.ok ? "ok" : "missing"} /></li>)}</ul>

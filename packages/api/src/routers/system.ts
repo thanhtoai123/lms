@@ -16,6 +16,7 @@ const roleAssign = z.object({ role: z.enum(ROLES), centerId: uuid.nullable() });
 
 export const systemRouter = router({
   ops: protectedProcedure.query(({ ctx }) => Ops.opsStatus(ctx)),
+  resolveServerError: protectedProcedure.input(z.object({ fingerprint: z.string().min(1).max(40) })).mutation(({ ctx, input }) => Ops.danhDauLoiDaXuLy(ctx, input)),
   users: protectedProcedure
     .input(z.object({ q: z.string().max(100).optional(), role: z.enum(ROLES).optional(), centerId: uuid.optional(), status: z.enum(["active", "locked"]).optional(), page: z.number().int().min(1).optional() }).default({}))
     .query(({ ctx, input }) => Acc.listUsers(ctx, input)),

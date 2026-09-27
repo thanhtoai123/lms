@@ -32,3 +32,15 @@ export function ChayLaiHangDoiChet({ soLuong }: { soLuong: number }) {
     </div>
   );
 }
+
+/** Đánh dấu một nhóm lỗi máy chủ đã xử lý (tái phát thì tự hiện lại) */
+export function DaXuLyLoi({ fingerprint }: { fingerprint: string }) {
+  const trpc = useTRPC();
+  const router = useRouter();
+  const m = useMutation(trpc.system.resolveServerError.mutationOptions({ onSuccess: () => router.refresh() }));
+  return (
+    <button type="button" className="btn-ghost !py-1 text-xs" disabled={m.isPending} onClick={() => m.mutate({ fingerprint })}>
+      {m.isPending ? "…" : "Đã xử lý"}
+    </button>
+  );
+}

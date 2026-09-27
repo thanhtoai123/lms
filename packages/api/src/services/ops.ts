@@ -3,8 +3,10 @@ import path from "node:path";
 import { eq, sql } from "drizzle-orm";
 import { appSettings, type Database } from "@satarobo/db";
 import { scormNguon, mienHocLieuHopLe } from "@satarobo/core";
+import { loiGanDay } from "./loiMayChu";
+import { serverErrors } from "@satarobo/db";
 import { envChecks, envSummary, backupFreshness, heartbeatState, fmtBytes, requirePermissionCheck } from "./ops-helpers";
-import type { ProtectedContext } from "../trpc";
+import { requirePermission, type ProtectedContext } from "../trpc";
 import { putObject, getObject, moTaKho } from "../storage";
 
 type Db = ProtectedContext["db"];
@@ -124,12 +126,20 @@ export async function opsStatus(ctx: ProtectedContext) {
     { key: "queue", label: "Không có sự kiện outbox trong hàng đợi chết (hỏng quá 5 lần)", ok: (q?.outbox_stuck ?? 0) === 0 },
     { key: "compliance", label: "Không có yêu cầu dữ liệu / sự cố quá hạn", ok: (q?.dsr_overdue ?? 0) === 0 && (q?.incident_overdue ?? 0) === 0 },
   ];
+  const loiMayChu = await loiGanDay(ctx.db as unknown as Database).catch(() => []);
   return {
-    production, health, env, envSummary: envSum, khoTep,
+    production, health, env, envSummary: envSum, khoTep, loiMayChu,
     heartbeats: { worker: w ? { at: w.at, state: heartbeatState(w.at, now) } : null, cron: c ? { at: c.at, state: heartbeatState(c.at, now) } : null, overall: hb },
     backups: { ...backups, freshness: bf, latestAt: latestBackupAt, files: backups.files.map((f) => ({ ...f, sizeLabel: fmtBytes(f.size) })) },
     volume: vol ? { ...vol, dbSize: fmtBytes(Number(vol.db_bytes)) } : null,
     queues: q ?? {},
     checklist, readyScore: Math.round((checklist.filter((x) => x.ok).length / checklist.length) * 100),
   };
+}
+
+/** Đánh dấu một nhóm lỗi máy chủ đã xử lý — tái phát sau mốc này thì hiện lại */
+export async function danhDauLoiDaXuLy(ctx: ProtectedContext, input: { fingerprint: string }) {
+  requirePermission(ctx, "system:configure");
+  await ctx.db.update(serverErrors).set({ resolvedAt: new Date() }).where(eq(serverErrors.fingerprint, input.fingerprint));
+  return { ok: true };
 }

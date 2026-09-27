@@ -7,6 +7,7 @@
 import "@satarobo/db/env";
 import { createDb } from "@satarobo/db";
 import { processOutbox, scanLeadSla } from "./services/engagement";
+import { ghiLoiMayChu } from "./services/loiMayChu";
 import { runSurveyTriggers } from "./services/care";
 import { processEmailQueue } from "./services/admin";
 import { remindDueHomework } from "./services/assignments";
@@ -95,6 +96,7 @@ async function tick() {
     if (r.deadLettered) log.error(`outbox dead-letter=${r.deadLettered} — vào /van-hanh để xem lý do rồi chạy lại (engagement.retryDeadLetter)`);
   } catch (e) {
     log.error("vòng lặp worker gặp lỗi", { err: e });
+    await ghiLoiMayChu(e, "worker", db);
   }
 }
 

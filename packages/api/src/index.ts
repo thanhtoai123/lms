@@ -103,6 +103,7 @@ export { nhanSuKienKenh, nickCaNhan } from "./services/channelAccounts";
 export { xuLySuKienOa, xinThongTinZalo } from "./services/zaloOaEvents";
 export { syncAffiliateRewards } from "./services/affiliates";
 export { healthCheck, recordHeartbeat } from "./services/ops";
+export { ghiLoiMayChu } from "./services/loiMayChu";
 export { syncInvoiceDrafts, publicInvoiceLookup } from "./services/einvoice";
 export * as ParentPortal from "./services/parentPortal";
 export {

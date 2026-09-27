@@ -61,6 +61,7 @@ export * from "./outreach/zaloOa.js";
 export * from "./outreach/hopThu.js";
 export * from "./outreach/lichHen.js";
 export * from "./ops/rules.js";
+export * from "./ops/loiMayChu.js";
 export * from "./einvoice/rules.js";
 export * from "./qr/encode.js";
 export * from "./migration/rules.js";

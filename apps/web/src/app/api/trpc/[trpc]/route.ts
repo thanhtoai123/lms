@@ -1,5 +1,5 @@
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
-import { appRouter, createContext } from "@satarobo/api";
+import { appRouter, createContext, ghiLoiMayChu } from "@satarobo/api";
 import { idleExpired, devActorAllowed, DEV_ACTOR_HEADER, scormNguon, dungMienHocLieu, ipTuHeader } from "@satarobo/core";
 import { ACCESS_COOKIE, IDLE_COOKIE, REFRESH_COOKIE, SEEN_COOKIE, cookieOptions, needsRefresh, refreshSession, supabaseOn } from "@/lib/auth-session";
 import { webLogger } from "@/lib/logger";
@@ -72,6 +72,8 @@ const handler = async (req: Request) => {
       // `webLogger` lược SQL rồi che PII trước khi ghi (@satarobo/core → security/log.ts).
       if (error.code !== "INTERNAL_SERVER_ERROR") return;
       webLogger.child("trpc").error("lỗi không mong đợi", { path: path ?? "?", type, err: error.cause ?? error });
+      // Gom vào bảng lỗi máy chủ (/van-hanh) — chỉ phần an toàn, không chặn phản hồi
+      void ghiLoiMayChu(error.cause ?? error, `trpc:${path ?? "?"}`);
     },
   });
 };

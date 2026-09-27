@@ -234,3 +234,24 @@ export const loginEvents = pgTable(
     index("login_events_created_idx").on(t.createdAt),
   ],
 );
+
+/**
+ * Lỗi máy chủ gom theo vân tay (xem core/ops/loiMayChu.ts). Chỉ chứa phần AN TOÀN của lỗi:
+ * loại, mã, câu đã lược SQL + che PII + chuẩn hoá, đường dẫn chuẩn hoá. Không PII, không dữ liệu gửi lên.
+ */
+export const serverErrors = pgTable(
+  "server_errors",
+  {
+    fingerprint: text("fingerprint").primaryKey(),
+    name: text("name").notNull(),
+    code: text("code"),
+    message: text("message").notNull(),
+    path: text("path").notNull(),
+    count: integer("count").notNull().default(1),
+    firstAt: timestamp("first_at", { withTimezone: true }).notNull().defaultNow(),
+    lastAt: timestamp("last_at", { withTimezone: true }).notNull().defaultNow(),
+    /** Người vận hành đánh dấu đã xử lý; lặp lại sau mốc này thì hiện lại */
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+  },
+  (t) => [index("server_errors_last_idx").on(t.lastAt)],
+);
