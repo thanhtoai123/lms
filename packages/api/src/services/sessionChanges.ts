@@ -21,10 +21,12 @@ const addMinutes = (t: string, m: number) => {
   return `${String(Math.floor(x / 60)).padStart(2, "0")}:${String(x % 60).padStart(2, "0")}`;
 };
 
-async function loadForChange(ctx: ProtectedContext, sessionId: string) {
+async function loadForChange(ctx: ProtectedContext, sessionId: string, opts: { kiemQuyen?: boolean } = {}) {
   const s = await loadSessionForAuth(ctx, sessionId);
-  // Điều chỉnh / huỷ buổi là việc của giáo vụ / quản lý cơ sở (GV gửi đơn), không dùng quyền "của mình"
-  requirePermission(ctx, "session:update", { centerId: s.centerId });
+  // Điều chỉnh / huỷ buổi là việc của giáo vụ / quản lý cơ sở (GV gửi đơn), không dùng quyền "của mình".
+  // Ngoại lệ duy nhất: đơn "Nghỉ buổi dạy" đã được duyệt qua quy trình nhân sự — quyền đã kiểm ở bước
+  // duyệt đơn (`timesheet:approve`), ở đây chỉ còn kiểm tenant (`loadSessionForAuth`) và trạng thái lớp.
+  if (opts.kiemQuyen !== false) requirePermission(ctx, "session:update", { centerId: s.centerId });
   const cls = await loadClass(ctx.db, s.session.classId);
   if (cls.status !== "recruiting" && cls.status !== "running") throw precondition("Chỉ điều chỉnh / huỷ buổi của lớp đang tuyển sinh / đang chạy");
   const [m] = await ctx.db.select({ n: sql<number>`count(*)::int` }).from(attendance).where(eq(attendance.sessionId, sessionId));
@@ -100,8 +102,8 @@ export async function adjustSession(ctx: ProtectedContext, input: { sessionId: s
 /* Huỷ một buổi (có / không dời bù)                                    */
 /* ------------------------------------------------------------------ */
 
-async function buildCancel(ctx: ProtectedContext, sessionId: string, mode: "shift" | "none") {
-  const { s, cls, hasAttendance } = await loadForChange(ctx, sessionId);
+async function buildCancel(ctx: ProtectedContext, sessionId: string, mode: "shift" | "none", kiemQuyen = true) {
+  const { s, cls, hasAttendance } = await loadForChange(ctx, sessionId, { kiemQuyen });
   const errors = validateSessionCancel({ status: s.status, hasAttendance });
   const isRegular = s.kind === "regular" && s.sequenceNo <= EXTRA_SEQUENCE_BASE;
   const today = todayISO();
@@ -129,64 +131,130 @@ export async function previewCancelSession(ctx: ProtectedContext, input: { sessi
   };
 }
 
+type KetQuaHuy = { trialsCancelled: number; replacementId: string | null };
+type BanHuy = Awaited<ReturnType<typeof buildCancel>>;
+
+/**
+ * Thân của một lượt huỷ buổi — chạy trong giao dịch do nơi gọi mở.
+ * Tách ra để **đơn "Nghỉ buổi dạy" đi đúng đường chính** thay vì tự đặt `status = cancelled`
+ * rồi dừng (bản cũ ở `hrSessionEffects`): không sinh buổi bù, không dời ngày kết thúc, không
+ * báo phụ huynh — nên lớp 24 buổi còn 23, "sắp hết khoá" báo sớm, và tiền hoàn tính sai mẫu số.
+ */
+async function apDungHuyBuoi(
+  tx: Parameters<Parameters<ProtectedContext["db"]["transaction"]>[0]>[0],
+  ctx: ProtectedContext,
+  b: BanHuy,
+  input: { mode: "shift" | "none"; notifyParents?: boolean },
+  reason: string,
+  out: KetQuaHuy,
+) {
+  const { s, cls, plan, moved } = b;
+  const label = sessionLabel(s.sequenceNo, s.kind as SessionKind, s.originalSequenceNo);
+  const shift = input.mode === "shift" && !!plan?.replacement;
+  const db = tx as unknown as Db;
+  await tx.execute(sql`set constraints sessions_no_room_overlap, sessions_no_teacher_overlap deferred`);
+  const up = await tx.update(sessions).set({
+    status: "cancelled", cancelReason: reason, cancelledAt: new Date(), cancelledBy: ctx.user.id,
+    ...(shift ? { sequenceNo: plan!.archiveSeq, originalSequenceNo: s.sequenceNo } : {}),
+  }).where(and(eq(sessions.id, s.id), inArray(sessions.status, ["scheduled", "in_progress"]), sql`not exists (select 1 from ${attendance} a where a.session_id = ${SID})`)).returning({ id: sessions.id });
+  if (!up.length) throw new TRPCError({ code: "CONFLICT", message: "Buổi vừa thay đổi (đã điểm danh / đã xử lý) — tải lại trang" });
+  if (shift) {
+    for (const m of moved) {
+      const u = await tx.update(sessions).set({ date: m.to.date, startTime: m.to.startTime, endTime: m.to.endTime, roomId: m.to.roomId, teacherId: m.to.teacherId, rescheduledFromDate: sql`coalesce(${sessions.rescheduledFromDate}, ${m.from.date}::date)` })
+        .where(and(eq(sessions.id, m.sessionId), eq(sessions.status, "scheduled"))).returning({ id: sessions.id });
+      if (!u.length) throw new TRPCError({ code: "CONFLICT", message: `Buổi ${m.sequenceNo} vừa thay đổi — xem trước lại` });
+    }
+    const r = plan!.replacement!;
+    const [row] = await tx.insert(sessions).values({
+      classId: cls.id, lessonId: s.lessonId, sequenceNo: s.sequenceNo, kind: "regular", date: r.date, startTime: r.startTime, endTime: r.endTime,
+      roomId: r.roomId, teacherId: r.teacherId, topic: s.topic, privateNote: s.privateNote, rescheduledFromId: s.id, rescheduledFromDate: s.date, adjustReason: `Bù cho buổi huỷ ${fmt(s.date)}: ${reason}`, createdBy: ctx.user.id,
+    }).returning({ id: sessions.id });
+    out.replacementId = row!.id;
+    await tx.update(classes).set({ expectedEndDate: plan!.newEndDate }).where(eq(classes.id, cls.id));
+  } else if (s.kind === "regular") {
+    await syncEnd(db, cls.id);
+  }
+  out.trialsCancelled = await cancelTrialsFor(db, [s.id], `Buổi ${fmt(s.date)} bị huỷ: ${reason}`, ctx.user.id, cls.code);
+  if (shift) await notifyTrialsMoved(db, moved.map((m) => m.sessionId), "buổi học dời một nhịp do có buổi huỷ", cls.code);
+  // Học bù đã xếp vào buổi bị huỷ → trả về chờ xếp lại
+  await tx.update(makeupRequests).set({ status: "requested", targetSessionId: null, note: `Buổi bù ${fmt(s.date)} bị huỷ — xếp lại`, updatedAt: new Date() })
+    .where(and(eq(makeupRequests.targetSessionId, s.id), eq(makeupRequests.status, "approved")));
+  await tx.insert(classEvents).values({
+    classId: cls.id, event: "cancel_session", reason, actorId: ctx.user.id,
+    meta: { sessionId: s.id, label, date: s.date, mode: input.mode, replacementId: out.replacementId, replacementDate: shift ? plan!.replacement!.date : null, moved: moved.length, trialsCancelled: out.trialsCancelled },
+  });
+  await writeAudit(db, {
+    actorId: ctx.user.id, action: "TRANSITION", module: "academics", entity: "sessions", entityId: s.id,
+    before: { status: s.status, sequenceNo: s.sequenceNo, date: s.date },
+    after: { status: "cancelled", mode: input.mode, ...(shift ? { archiveSeq: plan!.archiveSeq, replacementId: out.replacementId, replacement: plan!.replacement, moved: moved.map((m) => `${m.sequenceNo}: ${m.from.date}→${m.to.date}`) } : {}), trialsCancelled: out.trialsCancelled },
+    reason, ip: ctx.ip,
+  });
+  const tUsers = await teacherUserIds(db, [s.teacherId, cls.leadTeacherId, cls.assistantTeacherId, ...moved.map((m) => m.to.teacherId)]);
+  const shiftText = shift ? ` Bù: ${fmt(plan!.replacement!.date)} ${plan!.replacement!.startTime}${moved.length ? `, ${moved.length} buổi sau dời một nhịp` : ""}.` : "";
+  await notifyUsers(db, tUsers, "Huỷ buổi học", `${cls.code} · ${label} ${fmt(s.date)}: ${reason}.${shiftText}`, out.replacementId ? `/teacher/sessions/${out.replacementId}` : "/teacher/classes", 1, "class.session_cancelled");
+  if (input.notifyParents) {
+    await notifyClassParents(db, cls.id, { template: "SESSION_CANCELLED", title: `Lớp ${cls.name}: nghỉ ${label}`, body: `${label} ngày ${fmt(s.date)} ${hhmm(s.startTime)} nghỉ: ${reason}.${shiftText}` });
+  }
+}
+
 export async function cancelSession(ctx: ProtectedContext, input: { sessionId: string; reason: string; mode: "shift" | "none"; notifyParents?: boolean }) {
   const reason = reasonOrThrow(input.reason);
   const b = await buildCancel(ctx, input.sessionId, input.mode);
   if (b.errors.length) throw precondition(b.errors);
   if (b.conflicts.length) throw new TRPCError({ code: "CONFLICT", message: `Không dời bù được: ${conflictMessage(b.conflicts)}` });
-  const { s, cls, plan, moved } = b;
+  const { s, plan, moved } = b;
   const label = sessionLabel(s.sequenceNo, s.kind as SessionKind, s.originalSequenceNo);
   const shift = input.mode === "shift" && !!plan?.replacement;
-  const out = { trialsCancelled: 0, replacementId: null as string | null };
+  const out: KetQuaHuy = { trialsCancelled: 0, replacementId: null };
   try {
     await ctx.db.transaction(async (tx) => {
-      const db = tx as unknown as Db;
-      await tx.execute(sql`set constraints sessions_no_room_overlap, sessions_no_teacher_overlap deferred`);
-      const up = await tx.update(sessions).set({
-        status: "cancelled", cancelReason: reason, cancelledAt: new Date(), cancelledBy: ctx.user.id,
-        ...(shift ? { sequenceNo: plan!.archiveSeq, originalSequenceNo: s.sequenceNo } : {}),
-      }).where(and(eq(sessions.id, s.id), inArray(sessions.status, ["scheduled", "in_progress"]), sql`not exists (select 1 from ${attendance} a where a.session_id = ${SID})`)).returning({ id: sessions.id });
-      if (!up.length) throw new TRPCError({ code: "CONFLICT", message: "Buổi vừa thay đổi (đã điểm danh / đã xử lý) — tải lại trang" });
-      if (shift) {
-        for (const m of moved) {
-          const u = await tx.update(sessions).set({ date: m.to.date, startTime: m.to.startTime, endTime: m.to.endTime, roomId: m.to.roomId, teacherId: m.to.teacherId, rescheduledFromDate: sql`coalesce(${sessions.rescheduledFromDate}, ${m.from.date}::date)` })
-            .where(and(eq(sessions.id, m.sessionId), eq(sessions.status, "scheduled"))).returning({ id: sessions.id });
-          if (!u.length) throw new TRPCError({ code: "CONFLICT", message: `Buổi ${m.sequenceNo} vừa thay đổi — xem trước lại` });
-        }
-        const r = plan!.replacement!;
-        const [row] = await tx.insert(sessions).values({
-          classId: cls.id, lessonId: s.lessonId, sequenceNo: s.sequenceNo, kind: "regular", date: r.date, startTime: r.startTime, endTime: r.endTime,
-          roomId: r.roomId, teacherId: r.teacherId, topic: s.topic, privateNote: s.privateNote, rescheduledFromId: s.id, rescheduledFromDate: s.date, adjustReason: `Bù cho buổi huỷ ${fmt(s.date)}: ${reason}`, createdBy: ctx.user.id,
-        }).returning({ id: sessions.id });
-        out.replacementId = row!.id;
-        await tx.update(classes).set({ expectedEndDate: plan!.newEndDate }).where(eq(classes.id, cls.id));
-      } else if (s.kind === "regular") {
-        await syncEnd(db, cls.id);
-      }
-      out.trialsCancelled = await cancelTrialsFor(db, [s.id], `Buổi ${fmt(s.date)} bị huỷ: ${reason}`, ctx.user.id, cls.code);
-      if (shift) await notifyTrialsMoved(db, moved.map((m) => m.sessionId), "buổi học dời một nhịp do có buổi huỷ", cls.code);
-      // Học bù đã xếp vào buổi bị huỷ → trả về chờ xếp lại
-      await tx.update(makeupRequests).set({ status: "requested", targetSessionId: null, note: `Buổi bù ${fmt(s.date)} bị huỷ — xếp lại`, updatedAt: new Date() })
-        .where(and(eq(makeupRequests.targetSessionId, s.id), eq(makeupRequests.status, "approved")));
-      await tx.insert(classEvents).values({
-        classId: cls.id, event: "cancel_session", reason, actorId: ctx.user.id,
-        meta: { sessionId: s.id, label, date: s.date, mode: input.mode, replacementId: out.replacementId, replacementDate: shift ? plan!.replacement!.date : null, moved: moved.length, trialsCancelled: out.trialsCancelled },
-      });
-      await writeAudit(db, {
-        actorId: ctx.user.id, action: "TRANSITION", module: "academics", entity: "sessions", entityId: s.id,
-        before: { status: s.status, sequenceNo: s.sequenceNo, date: s.date },
-        after: { status: "cancelled", mode: input.mode, ...(shift ? { archiveSeq: plan!.archiveSeq, replacementId: out.replacementId, replacement: plan!.replacement, moved: moved.map((m) => `${m.sequenceNo}: ${m.from.date}→${m.to.date}`) } : {}), trialsCancelled: out.trialsCancelled },
-        reason, ip: ctx.ip,
-      });
-      const tUsers = await teacherUserIds(db, [s.teacherId, cls.leadTeacherId, cls.assistantTeacherId, ...moved.map((m) => m.to.teacherId)]);
-      const shiftText = shift ? ` Bù: ${fmt(plan!.replacement!.date)} ${plan!.replacement!.startTime}${moved.length ? `, ${moved.length} buổi sau dời một nhịp` : ""}.` : "";
-      await notifyUsers(db, tUsers, "Huỷ buổi học", `${cls.code} · ${label} ${fmt(s.date)}: ${reason}.${shiftText}`, out.replacementId ? `/teacher/sessions/${out.replacementId}` : "/teacher/classes", 1, "class.session_cancelled");
-      if (input.notifyParents) {
-        await notifyClassParents(db, cls.id, { template: "SESSION_CANCELLED", title: `Lớp ${cls.name}: nghỉ ${label}`, body: `${label} ngày ${fmt(s.date)} ${hhmm(s.startTime)} nghỉ: ${reason}.${shiftText}` });
-      }
+      await apDungHuyBuoi(tx, ctx, b, input, reason, out);
     });
   } catch (e) {
     mapExclusion(e);
   }
   return { mode: input.mode, label, replacementId: out.replacementId, replacement: shift ? plan!.replacement : null, moved: moved.length, trialsCancelled: out.trialsCancelled, newEndDate: shift ? plan!.newEndDate : null };
 }
+
+/**
+ * Huỷ buổi theo đơn "Nghỉ buổi dạy" đã duyệt — chạy TRONG giao dịch của đơn, nên huỷ buổi
+ * và duyệt đơn cùng thành công hoặc cùng quay lại (đơn trở về chờ duyệt kèm `applyError`).
+ *
+ * Buổi chính thức thì **dời bù** (sinh buổi thay thế, các buổi sau lùi một nhịp): giáo viên
+ * nghỉ không có nghĩa là học viên mất một buổi đã đóng tiền. Không dời bù được (trùng phòng,
+ * trùng giờ giáo viên, vượt giới hạn…) thì **ném lỗi chứ không lặng lẽ huỷ trơn** — giáo vụ
+ * xử lý tay ở màn buổi học, còn đơn quay lại chờ với lý do rõ ràng.
+ */
+export async function cancelSessionInTx(
+  tx: Parameters<Parameters<ProtectedContext["db"]["transaction"]>[0]>[0],
+  ctx: ProtectedContext,
+  input: { sessionId: string; reason: string },
+) {
+  const reason = reasonOrThrow(input.reason);
+  const ban = await loadForChange(ctx, input.sessionId, { kiemQuyen: false });
+  const laChinhThuc = ban.s.kind === "regular" && ban.s.sequenceNo <= EXTRA_SEQUENCE_BASE;
+  const mode: "shift" | "none" = laChinhThuc ? "shift" : "none";
+  const b = await buildCancel(ctx, input.sessionId, mode, false);
+  if (b.errors.length) throw precondition(b.errors);
+  if (b.conflicts.length) throw new TRPCError({ code: "CONFLICT", message: `Không dời bù được: ${conflictMessage(b.conflicts)} — xử lý ở màn buổi học rồi duyệt lại đơn` });
+  const out: KetQuaHuy = { trialsCancelled: 0, replacementId: null };
+  try {
+    await apDungHuyBuoi(tx, ctx, b, { mode, notifyParents: true }, reason, out);
+    // Giao dịch của đơn còn chạy tiếp sau đây: kiểm ràng buộc chồng giờ NGAY, để lỗi trùng phòng /
+    // trùng giáo viên hiện ra ở đây (có thông điệp dễ hiểu) chứ không nổ lúc chốt giao dịch của đơn.
+    await tx.execute(sql`set constraints sessions_no_room_overlap, sessions_no_teacher_overlap immediate`);
+  } catch (e) {
+    mapExclusion(e);
+  }
+  const label = sessionLabel(b.s.sequenceNo, b.s.kind as SessionKind, b.s.originalSequenceNo);
+  return {
+    sessionId: b.s.id,
+    label,
+    mode,
+    replacementId: out.replacementId,
+    replacementDate: mode === "shift" && b.plan?.replacement ? b.plan.replacement.date : null,
+    moved: b.moved.length,
+    trialsCancelled: out.trialsCancelled,
+  };
+}
+

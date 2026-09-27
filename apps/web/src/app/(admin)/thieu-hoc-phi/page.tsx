@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { hasPermission, ENROLLMENT_STATUS_VI, type Actor } from "@satarobo/core";
 import { getServerCaller } from "@/lib/trpc/server";
-import { NoAccess, PageHeader } from "@/components/admin-ui";
+import { NoAccess, PageHeader, Pager } from "@/components/admin-ui";
 import { Empty } from "@/components/ui";
 import { Kpi } from "@/components/report-ui";
 import { OrderChip, vnd } from "@/components/finance-ui";
@@ -12,13 +12,13 @@ import { RememberFilters } from "@/components/remember-filters";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Thiếu học phí" };
 
-export default async function MissingTuitionPage({ searchParams }: { searchParams: Promise<{ center?: string; kind?: string }> }) {
+export default async function MissingTuitionPage({ searchParams }: { searchParams: Promise<{ center?: string; kind?: string; page?: string }> }) {
   const sp = await searchParams;
   const { caller, ctx } = await getServerCaller();
   if (!ctx.actor || !hasPermission(ctx.actor as Actor, "finance:read")) return <NoAccess title="Thiếu học phí" perm="finance:read" />;
   const canCreate = hasPermission(ctx.actor as Actor, "finance:create");
   const kind = sp.kind === "no_order" || sp.kind === "unpaid" ? sp.kind : undefined;
-  const [ref, d] = await Promise.all([caller.academics.classes.referenceData(), caller.finance.missingTuition({ centerId: sp.center || undefined, kind })]);
+  const [ref, d] = await Promise.all([caller.academics.classes.referenceData(), caller.finance.missingTuition({ centerId: sp.center || undefined, kind, page: Math.max(1, Number(sp.page) || 1) })]);
   const today = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10);
   const link = (k?: string) => { const u = new URLSearchParams(); if (sp.center) u.set("center", sp.center); if (k) u.set("kind", k); return `/thieu-hoc-phi${u.toString() ? `?${u}` : ""}`; };
   return (
@@ -38,6 +38,12 @@ export default async function MissingTuitionPage({ searchParams }: { searchParam
         <Link href={link("unpaid")}><Kpi label="Đơn chưa đóng đủ" value={d.totals.unpaid} tone="warn" /></Link>
         <Link href={link()}><Kpi label="Ước tính còn thiếu" value={vnd(d.totals.amount)} hint="đơn chưa lập tính theo giá gói niêm yết" /></Link>
       </div>
+      {(d.truncated || d.hidden > 0) && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          {d.truncated && <div>Phạm vi quá lớn — đang hiện một phần. Chọn một cơ sở để xem đủ.</div>}
+          {d.hidden > 0 && <div>{d.hidden} dòng thuộc trung tâm chỉ chia sẻ số tổng hợp — có trong số tổng, không hiện chi tiết.</div>}
+        </div>
+      )}
       <div className="flex justify-end">
         <CsvButton filename="thieu-hoc-phi" headers={["Cơ sở", "Lớp", "Mã HV", "Học viên", "Phụ huynh", "Trạng thái học", "Đã học / gói", "Đơn", "Tổng đơn", "Đã thu", "Còn thiếu"]}
           rows={d.items.map((i) => [i.centerCode, i.classCode, i.studentCode, i.studentName, i.parentName, ENROLLMENT_STATUS_VI[i.enrollmentStatus], `${i.consumed}/${i.packageSessions}`, i.order?.code ?? "chưa lập", i.order?.total ?? i.expected, i.order?.confirmed ?? 0, i.outstanding])} />
@@ -67,6 +73,7 @@ export default async function MissingTuitionPage({ searchParams }: { searchParam
               ))}
             </tbody>
           </table>
+          <Pager basePath="/thieu-hoc-phi" params={{ center: sp.center, kind }} page={d.page} pageSize={d.pageSize} total={d.total} />
         </div>
       )}
     </div>

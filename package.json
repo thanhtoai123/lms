@@ -24,7 +24,8 @@
     "db:studio": "pnpm --filter @satarobo/db studio",
     "migrate:legacy": "pnpm --filter @satarobo/migrate-legacy start",
     "worker": "pnpm --filter @satarobo/api worker",
-    "sdt-trung": "pnpm --filter @satarobo/db sdt-trung"
+    "sdt-trung": "pnpm --filter @satarobo/db sdt-trung",
+    "rls-kiem": "pnpm --filter @satarobo/db rls-kiem"
   },
   "devDependencies": {
     "turbo": "^2.5.6",

@@ -1424,7 +1424,7 @@ export async function debts(ctx: ProtectedContext, input: { centerId?: string; b
   if (input.q?.trim()) conds.push(or(ilike(orders.code, `%${input.q.trim()}%`), ilike(orders.customerName, `%${input.q.trim()}%`))!);
   const rows = await ctx.db
     .select({
-      id: orders.id, code: orders.code, total: orders.total, customerName: orders.customerName, customerPhone: orders.customerPhone, remindDays: orders.remindDays, createdAt: orders.createdAt,
+      id: orders.id, tenantId: orders.tenantId, code: orders.code, total: orders.total, customerName: orders.customerName, customerPhone: orders.customerPhone, remindDays: orders.remindDays, createdAt: orders.createdAt,
       centerId: orders.centerId, centerCode: centers.code, studentName: students.fullName, classCode: classes.code, enrollmentStatus: enrollments.status,
       confirmed: confirmedSql, pending: pendingSql,
     })
@@ -1474,8 +1474,12 @@ export async function debts(ctx: ProtectedContext, input: { centerId?: string; b
   }
   const buckets = AGING_BUCKETS.map((b) => ({ bucket: b, count: bucketAcc.get(b)?.count ?? 0, amount: bucketAcc.get(b)?.amount ?? 0 }));
   const byCenter = [...centerAcc.entries()].map(([centerId, c]) => ({ centerId, centerCode: c.centerCode, orders: c.orders, outstanding: c.outstanding, overdue: c.overdue, pending: c.pending }));
-  const filtered = input.bucket ? items.filter((i) => i.bucket === input.bucket) : items;
+  // Số tổng/nhóm tuổi nợ gồm cả trung tâm chỉ chia sẻ số tổng hợp; DANH SÁCH đơn thì chỉ
+  // gồm dòng được xem chi tiết và che PII theo trung tâm sở hữu (cùng luật `listPayments`).
+  const chiTiet = items.filter((i) => canSeeFinanceDetailOf(ctx, i.tenantId));
+  const filtered = (input.bucket ? chiTiet.filter((i) => i.bucket === input.bucket) : chiTiet).map((i) => redact(ctx, i));
   return {
+    hidden: items.length - chiTiet.length,
     today,
     totals: {
       orders: items.length,
@@ -1489,8 +1493,28 @@ export async function debts(ctx: ProtectedContext, input: { centerId?: string; b
   };
 }
 
-/** Học viên đang học nhưng chưa có đơn hoặc chưa đóng đủ */
-export async function missingTuition(ctx: ProtectedContext, input: { centerId?: string; kind?: "no_order" | "unpaid" }) {
+/** Số dòng mỗi trang ở /thieu-hoc-phi */
+export const MISSING_TUITION_PAGE = 100;
+/**
+ * Trần an toàn cho số ghi danh quét trong một lượt. Vượt trần thì trả `truncated` để màn hình
+ * nói rõ "đang hiện một phần — lọc theo cơ sở", thay vì để truy vấn chạy tới lúc bị giết.
+ */
+export const MISSING_TUITION_SCAN_MAX = 20_000;
+
+/**
+ * Học viên đang học nhưng chưa có đơn hoặc chưa đóng đủ.
+ *
+ * Bản cũ có ba truy vấn con TƯƠNG QUAN trên mỗi dòng (tên phụ huynh, đơn theo dòng hàng, đơn
+ * kiểu cũ) và **không có `LIMIT`**: ở quy mô thật, một lượt mở màn là một lượt quét dài,
+ * `DB_STATEMENT_TIMEOUT_MS` giết nó và kế toán nhận lỗi mỗi sáng. Nay ba tra cứu đó chạy
+ * **một lần cho cả trang** (`distinct on`), danh sách có phân trang, và số tổng vẫn tính trên
+ * toàn bộ phạm vi.
+ *
+ * Chia sẻ tài chính giữa các trung tâm: số TỔNG gồm cả trung tâm nhượng quyền (được chia sẻ
+ * số tổng hợp), còn DANH SÁCH chỉ gồm dòng người xem được xem chi tiết, và PII được che theo
+ * cấu hình của trung tâm sở hữu dòng — cùng luật với `listPayments`.
+ */
+export async function missingTuition(ctx: ProtectedContext, input: { centerId?: string; kind?: "no_order" | "unpaid"; page?: number }) {
   requirePermission(ctx, "finance:read", { centerId: input.centerId ?? null });
   const conds: SQL[] = [scope(ctx, classes.centerId as unknown as typeof orders.centerId), inArray(enrollments.status, ["active", "trial", "paused"]), sql`${classes.status} not in ('cancelled')`];
   if (input.centerId) conds.push(eq(classes.centerId, input.centerId));
@@ -1498,36 +1522,75 @@ export async function missingTuition(ctx: ProtectedContext, input: { centerId?: 
     .select({
       enrollmentId: enrollments.id, enrollmentStatus: enrollments.status, packageSessions: enrollments.packageSessions, consumed: consumedSql,
       studentId: students.id, studentName: students.fullName, studentCode: students.code, classId: classes.id, classCode: classes.code, centerCode: centers.code, centerId: classes.centerId,
+      tenantId: centers.tenantId,
       courseCode: courses.code, listPrice: courses.listPrice, courseSessions: courses.totalSessions,
-      parentName: sql<string | null>`(select p.full_name from ${studentGuardians} g join ${parents} p on p.id = g.parent_id where g.student_id = ${students.id} order by g.is_primary desc limit 1)`,
-      orderId: sql<string | null>`(select oi.order_id from ${orderItems} oi join ${orders} o on o.id = oi.order_id where oi.enrollment_id = ${enrollments.id} and o.status in ('pending_payment','partially_paid','paid') order by o.created_at desc limit 1)`,
-      legacyOrderId: sql<string | null>`(select o.id from ${orders} o where o.enrollment_id = ${enrollments.id} and o.status in ('pending_payment','partially_paid','paid') order by o.created_at desc limit 1)`,
     })
     .from(enrollments).innerJoin(students, eq(students.id, enrollments.studentId)).innerJoin(classes, eq(classes.id, enrollments.classId))
     .innerJoin(courses, eq(courses.id, classes.courseId)).innerJoin(centers, eq(centers.id, classes.centerId))
-    .where(and(...conds)).orderBy(asc(centers.code), asc(classes.code), asc(students.fullName));
-  const orderIds = [...new Set(rows.map((r) => r.orderId ?? r.legacyOrderId).filter((x): x is string => !!x))];
+    .where(and(...conds)).orderBy(asc(centers.code), asc(classes.code), asc(students.fullName))
+    .limit(MISSING_TUITION_SCAN_MAX + 1);
+  const truncated = rows.length > MISSING_TUITION_SCAN_MAX;
+  if (truncated) rows.length = MISSING_TUITION_SCAN_MAX;
+
+  // Ba tra cứu một lần cho cả tập (thay cho ba truy vấn con trên MỖI dòng)
+  const enrIds = rows.map((r) => r.enrollmentId);
+  const stuIds = [...new Set(rows.map((r) => r.studentId))];
+  const [byItem, byLegacy, guardians] = enrIds.length
+    ? await Promise.all([
+      ctx.db.execute(sql`select distinct on (oi.enrollment_id) oi.enrollment_id as eid, oi.order_id as oid
+        from ${orderItems} oi join ${orders} o on o.id = oi.order_id
+        where oi.enrollment_id in ${sql`(${sql.join(enrIds.map((i) => sql`${i}::uuid`), sql`, `)})`} and o.status in ('pending_payment','partially_paid','paid')
+        order by oi.enrollment_id, o.created_at desc`),
+      ctx.db.execute(sql`select distinct on (o.enrollment_id) o.enrollment_id as eid, o.id as oid
+        from ${orders} o
+        where o.enrollment_id in ${sql`(${sql.join(enrIds.map((i) => sql`${i}::uuid`), sql`, `)})`} and o.status in ('pending_payment','partially_paid','paid')
+        order by o.enrollment_id, o.created_at desc`),
+      ctx.db.execute(sql`select distinct on (g.student_id) g.student_id as sid, p.full_name as name
+        from ${studentGuardians} g join ${parents} p on p.id = g.parent_id
+        where g.student_id in ${sql`(${sql.join(stuIds.map((i) => sql`${i}::uuid`), sql`, `)})`}
+        order by g.student_id, g.is_primary desc`),
+    ])
+    : [[], [], []];
+  const asRows = (x: unknown) => ((x as { rows?: unknown[] }).rows ?? (x as unknown[])) as Record<string, string>[];
+  const donTheoDong = new Map(asRows(byItem).map((r) => [r.eid, r.oid]));
+  const donKieuCu = new Map(asRows(byLegacy).map((r) => [r.eid, r.oid]));
+  const tenPhuHuynh = new Map(asRows(guardians).map((r) => [r.sid, r.name]));
+
+  const orderIds = [...new Set(rows.map((r) => donTheoDong.get(r.enrollmentId) ?? donKieuCu.get(r.enrollmentId)).filter((x): x is string => !!x))];
   const os = orderIds.length ? await ctx.db.select({ id: orders.id, code: orders.code, total: orders.total, status: orders.status, confirmed: confirmedSql, pending: pendingSql }).from(orders).where(inArray(orders.id, orderIds)) : [];
+  const osById = new Map(os.map((o) => [o.id, o]));
   const items = rows.map((r) => {
-    const oid = r.orderId ?? r.legacyOrderId;
-    const o = oid ? os.find((x) => x.id === oid) ?? null : null;
+    const oid = donTheoDong.get(r.enrollmentId) ?? donKieuCu.get(r.enrollmentId) ?? null;
+    const o = oid ? osById.get(oid) ?? null : null;
     const expected = packagePrice(Number(r.listPrice), r.courseSessions, r.packageSessions);
     const confirmed = o ? Number(o.confirmed) : 0;
     const outstanding = o ? Math.max(0, o.total - confirmed) : expected;
     return {
-      ...r, listPrice: Number(r.listPrice), expected,
+      ...r, parentName: tenPhuHuynh.get(r.studentId) ?? null, orderId: oid, legacyOrderId: donKieuCu.get(r.enrollmentId) ?? null,
+      listPrice: Number(r.listPrice), expected,
       order: o ? { id: o.id, code: o.code, total: o.total, status: o.status, confirmed, pending: Number(o.pending) } : null,
       kind: (o ? "unpaid" : "no_order") as "no_order" | "unpaid",
       outstanding,
       paidRatio: o && o.total > 0 ? Math.round((confirmed / o.total) * 100) : 0,
     };
   }).filter((r) => !r.order || r.outstanding > 0);
-  const filtered = input.kind ? items.filter((i) => i.kind === input.kind) : items;
+
+  // Số tổng: trên toàn bộ phạm vi (kể cả trung tâm chỉ chia sẻ số tổng hợp)
+  const totals = { noOrder: items.filter((i) => i.kind === "no_order").length, unpaid: items.filter((i) => i.kind === "unpaid").length, amount: items.reduce((s, i) => s + i.outstanding, 0) };
+  // Danh sách: chỉ dòng được xem chi tiết, che PII theo trung tâm sở hữu
+  const chiTiet = items.filter((i) => canSeeFinanceDetailOf(ctx, i.tenantId) && (!input.kind || i.kind === input.kind));
+  const page = Math.max(1, Math.floor(input.page ?? 1));
+  const trang = chiTiet.slice((page - 1) * MISSING_TUITION_PAGE, page * MISSING_TUITION_PAGE);
   // Trần % giảm để form "Ghi học phí" hiện đúng giới hạn (máy chủ vẫn là nơi quyết định cuối)
-  const ops = await opsForCenters(ctx.db, [...new Set(rows.map((r) => r.centerId))]);
+  const ops = await opsForCenters(ctx.db, [...new Set(trang.map((r) => r.centerId))]);
   return {
-    totals: { noOrder: items.filter((i) => i.kind === "no_order").length, unpaid: items.filter((i) => i.kind === "unpaid").length, amount: items.reduce((s, i) => s + i.outstanding, 0) },
-    items: filtered.map((i) => ({ ...i, maxDiscountPercent: ops.get(i.centerId)?.maxLineDiscountPercent ?? DEFAULT_MAX_LINE_DISCOUNT_PCT })),
+    totals,
+    total: chiTiet.length,
+    hidden: items.length - items.filter((i) => canSeeFinanceDetailOf(ctx, i.tenantId)).length,
+    page,
+    pageSize: MISSING_TUITION_PAGE,
+    truncated,
+    items: trang.map((i) => redact(ctx, { ...i, maxDiscountPercent: ops.get(i.centerId)?.maxLineDiscountPercent ?? DEFAULT_MAX_LINE_DISCOUNT_PCT })),
   };
 }
 
@@ -1656,7 +1719,7 @@ export async function enrollmentDebts(ctx: ProtectedContext, input: { centerId?:
   const rows = await ctx.db.select({
     enrollmentId: enrollments.id, enrollmentStatus: enrollments.status, packageSessions: enrollments.packageSessions,
     studentId: students.id, studentName: students.fullName, studentCode: students.code,
-    classId: classes.id, classCode: classes.code, centerId: classes.centerId, centerCode: centers.code,
+    classId: classes.id, classCode: classes.code, centerId: classes.centerId, centerCode: centers.code, tenantId: centers.tenantId,
     courseCode: courses.code, courseName: courses.name, listPrice: courses.listPrice, courseSessions: courses.totalSessions,
   }).from(enrollments).innerJoin(students, eq(students.id, enrollments.studentId)).innerJoin(classes, eq(classes.id, enrollments.classId))
     .innerJoin(courses, eq(courses.id, classes.courseId)).innerJoin(centers, eq(centers.id, classes.centerId))
@@ -1681,16 +1744,27 @@ export async function enrollmentDebts(ctx: ProtectedContext, input: { centerId?:
     ? await ctx.db.select().from(orderInstallments).where(and(inArray(orderInstallments.orderId, orderIds), isNull(orderInstallments.cancelledAt)))
     : [];
   const opsByCenter = await opsForCenters(ctx.db, [...new Set(rows.map((r) => r.centerId))]);
+  // Gom một lần thành Map — bản cũ `find/filter` cho MỖI dòng là O(n²) trên 5.000 ghi danh
+  const lineByEnr = new Map<string, (typeof lines)[number]>();
+  for (const l of lines) if (l.enrollmentId && !lineByEnr.has(l.enrollmentId)) lineByEnr.set(l.enrollmentId, l);
+  const paysByEnr = new Map<string, typeof pays>();
+  const paysByItem = new Map<string, typeof pays>();
+  for (const pay of pays) {
+    if (pay.enrollmentId) (paysByEnr.get(pay.enrollmentId) ?? paysByEnr.set(pay.enrollmentId, []).get(pay.enrollmentId)!).push(pay);
+    if (pay.orderItemId) (paysByItem.get(pay.orderItemId) ?? paysByItem.set(pay.orderItemId, []).get(pay.orderItemId)!).push(pay);
+  }
+  const instByOrder = new Map<string, typeof insts>();
+  for (const i of insts) (instByOrder.get(i.orderId) ?? instByOrder.set(i.orderId, []).get(i.orderId)!).push(i);
   const items = rows.map((r) => {
-    const line = lines.find((l) => l.enrollmentId === r.enrollmentId) ?? null;
-    const mine = pays.filter((p) => p.enrollmentId === r.enrollmentId || (line && p.orderItemId === line.itemId));
+    const line = lineByEnr.get(r.enrollmentId) ?? null;
+    const mine = [...(paysByEnr.get(r.enrollmentId) ?? []), ...(line ? paysByItem.get(line.itemId) ?? [] : [])];
     const seen = new Set<string>();
     const uniq = mine.filter((p) => (seen.has(p.id) ? false : (seen.add(p.id), true)));
     const confirmed = uniq.filter((p) => p.status === "confirmed").reduce((s, p) => s + p.amount, 0);
     const recorded = uniq.filter((p) => p.status === "recorded").reduce((s, p) => s + p.amount, 0);
     const total = line?.net ?? 0;
     const chip = enrollmentDebtChip({ hasFee: !!line, total, confirmed, recorded });
-    const plan = line ? insts.filter((i) => i.orderId === line.orderId) : [];
+    const plan = line ? instByOrder.get(line.orderId) ?? [] : [];
     const alloc = allocateInstallments(plan.map((p) => ({ seq: p.seq, amount: p.amount, dueDate: p.dueDate, kind: p.kind })), confirmed, today);
     const overdueDays = alloc.reduce((m, a) => Math.max(m, a.overdueDays), 0);
     const ops = opsByCenter.get(r.centerId);
@@ -1728,8 +1802,11 @@ export async function enrollmentDebts(ctx: ProtectedContext, input: { centerId?:
     count: items.filter((i) => i.ageBucket === b && i.shortParent > 0).length,
     amount: items.filter((i) => i.ageBucket === b && i.shortParent > 0).reduce((s, i) => s + (b === "current" ? i.shortParent : i.overdueAmount), 0),
   }));
-  const filtered = input.chip ? items.filter((i) => i.chip === input.chip) : items.filter((i) => i.shortParent > 0 || i.chip === "no_fee" || i.chip === "overpaid" || i.chip === "paid_pending");
+  // Số tổng gồm cả trung tâm chỉ chia sẻ số tổng hợp; danh sách chỉ dòng được xem chi tiết, che PII
+  const chiTiet = items.filter((i) => canSeeFinanceDetailOf(ctx, i.tenantId));
+  const filtered = (input.chip ? chiTiet.filter((i) => i.chip === input.chip) : chiTiet.filter((i) => i.shortParent > 0 || i.chip === "no_fee" || i.chip === "overpaid" || i.chip === "paid_pending")).map((i) => redact(ctx, i));
   return {
+    hidden: items.length - chiTiet.length,
     today,
     totals: {
       enrollments: items.length,

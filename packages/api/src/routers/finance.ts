@@ -146,7 +146,7 @@ export const financeRouter = router({
   updateEnrollmentFee: protectedProcedure
     .input(z.object({ enrollmentId: uuid, newTotal: money, reason: z.string().max(300) }))
     .mutation(({ ctx, input }) => F.updateEnrollmentFee(ctx, input)),
-  missingTuition: protectedProcedure.input(z.object({ centerId: uuid.optional(), kind: z.enum(["no_order", "unpaid"]).optional() }).default({})).query(({ ctx, input }) => F.missingTuition(ctx, input)),
+  missingTuition: protectedProcedure.input(z.object({ centerId: uuid.optional(), kind: z.enum(["no_order", "unpaid"]).optional(), page: z.number().int().min(1).max(10_000).optional() }).default({})).query(({ ctx, input }) => F.missingTuition(ctx, input)),
   backfillTuition: protectedProcedure
     .input(z.object({
       enrollmentId: uuid, total: money.nullish(),

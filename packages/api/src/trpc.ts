@@ -3,10 +3,11 @@ import superjson from "superjson";
 import { ZodError } from "zod";
 import {
   ForbiddenError, SessionTransitionError, assertAuthorized, clientSafeMessage,
-  shouldLogSlow, slowProcedureLog, slowThresholdFromEnv,
+  shouldLogSlow, slowProcedureLog, slowThresholdFromEnv, tenantChanGhi,
   type Permission, type ResourceRef,
 } from "@satarobo/core";
-import { countQueries } from "@satarobo/db";
+import { sql } from "drizzle-orm";
+import { countQueries, tenantSessionSql } from "@satarobo/db";
 import type { Context } from "./context";
 
 const t = initTRPC.context<Context>().create({
@@ -77,11 +78,46 @@ const measure = t.middleware(async ({ next, path }) => {
 /** Thủ tục công khai (đăng nhập, OTP, form web) — cũng được đo */
 export const publicProcedure = t.procedure.use(measure);
 
-export const protectedProcedure = t.procedure.use(measure).use(mapDomainErrors).use(({ ctx, next, path }) => {
+/**
+ * LỚP PHÒNG THỦ THỨ HAI — Row Level Security của Postgres (xem packages/db/sql/0009, 0018).
+ *
+ * Bật bằng `DB_RLS=on`. Mỗi lượt gọi đã đăng nhập chạy trong MỘT giao dịch: đổi sang vai trò
+ * `satarobo_app` (không phải chủ bảng → chính sách RLS có hiệu lực) và đặt `app.tenant_ids` là các
+ * trung tâm người này được thấy. Khi đó một truy vấn quên `tenantCond` cũng không đọc được dòng
+ * của trung tâm khác — CSDL trả về rỗng.
+ *
+ * `set local` / `set_config(..., true)` chỉ sống trong giao dịch, nên pool dùng chung kết nối
+ * không bao giờ rò phạm vi của người này sang lượt gọi của người khác.
+ *
+ * tRPC trả lỗi dạng `{ ok: false }` thay vì ném, nên phải ném lại để giao dịch ROLLBACK —
+ * không thì một thủ tục ghi nửa chừng rồi báo lỗi vẫn được commit.
+ */
+export function rlsBat(env: Record<string, string | undefined> = process.env): boolean {
+  return ["on", "1", "true"].includes((env.DB_RLS ?? "").trim().toLowerCase());
+}
+
+const rlsSession = t.middleware(async ({ ctx, next }) => {
+  if (!rlsBat() || !ctx.actor) return next();
+  return ctx.db.transaction(async (tx) => {
+    await tx.execute(sql`set local role satarobo_app`);
+    await tx.execute(tenantSessionSql({ tenantIds: ctx.tenantIds ?? [] }));
+    const r = await next({ ctx: { ...ctx, db: tx as unknown as typeof ctx.db } });
+    if (!r.ok) throw r.error;
+    return r;
+  });
+});
+
+export const protectedProcedure = t.procedure.use(measure).use(mapDomainErrors).use(({ ctx, next, path, type }) => {
   if (!ctx.actor || !ctx.user) throw new TRPCError({ code: "UNAUTHORIZED", message: "Chưa đăng nhập" });
   if (ctx.auth?.mfa.required && !ctx.auth.mfa.satisfied && !path.startsWith("auth.")) throw new TRPCError({ code: "FORBIDDEN", message: "Cần xác thực 2 lớp (vào Bảo mật tài khoản)" });
+  // Trung tâm tạm ngừng / đã đóng: đọc được, không ghi được (Super Admin vẫn ghi để mở lại)
+  if (type === "mutation" && !ctx.actor.assignments.some((a) => a.role === "SUPER_ADMIN")) {
+    const status = ctx.tenants?.find((x) => x.id === ctx.tenantId)?.status;
+    const chan = tenantChanGhi(status as Parameters<typeof tenantChanGhi>[0], path);
+    if (chan) throw new TRPCError({ code: "FORBIDDEN", message: chan });
+  }
   return next({ ctx: { ...ctx, actor: ctx.actor, user: ctx.user } });
-});
+}).use(rlsSession);
 
 export type ProtectedContext = Context & { actor: NonNullable<Context["actor"]>; user: NonNullable<Context["user"]> };
 

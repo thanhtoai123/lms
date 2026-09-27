@@ -374,3 +374,23 @@ export function validateTenantCode(code: string): string | null {
 
 /** Mã tenant mặc định của chuỗi gốc — mọi dữ liệu cũ được gán về đây */
 export const DEFAULT_TENANT_CODE = "SATA";
+
+/* ------------------------------------------------------------------ */
+/* Trung tâm tạm ngừng / đã đóng                                       */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Người của một trung tâm đã TẠM NGỪNG hoặc ĐÃ ĐÓNG còn được GHI dữ liệu không?
+ *
+ * Trước đây trạng thái tenant chỉ là một nhãn: đóng trung tâm rồi mà tài khoản của trung tâm
+ * đó vẫn lập đơn, thu tiền, sửa học viên bình thường. Luật nay: **vẫn đọc được** (để đối soát,
+ * xuất dữ liệu trả khách), **không ghi được** — trừ các thao tác tài khoản cá nhân (đăng xuất,
+ * đổi mật khẩu, 2 lớp) để người dùng không bị kẹt. Trả `null` là được ghi, chuỗi là lý do chặn.
+ */
+export function tenantChanGhi(status: TenantStatus | null | undefined, path: string): string | null {
+  if (status !== "suspended" && status !== "closed") return null;
+  if (path.startsWith("auth.")) return null;
+  return status === "closed"
+    ? "Trung tâm đã đóng — chỉ còn xem và xuất dữ liệu, không ghi thêm được"
+    : "Trung tâm đang tạm ngừng — chỉ xem được, không ghi thêm được cho tới khi Hội sở mở lại";
+}

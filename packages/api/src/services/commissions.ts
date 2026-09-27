@@ -9,7 +9,7 @@ import {
   type CommissionEvent, type CommissionScope, type CommissionCalcMethod, type CommissionPolicy, type CommissionTier,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
-import { tenantCond } from "./tenantScope";
+import { tenantCond, canSeeFinanceDetailOf, redact } from "./tenantScope";
 import { writeAudit } from "./audit";
 import { todayISO } from "./sessions";
 import { getOps } from "./opsSettings";
@@ -126,7 +126,7 @@ export async function listCommissions(ctx: ProtectedContext, input: { period?: s
   }
   const base = and(...conds);
   const rows = await ctx.db.select({
-    c: commissions, orderCode: orders.code, orderStatus: orders.status, customerName: orders.customerName, centerCode: centers.code, studentName: students.fullName,
+    c: commissions, tenantId: centers.tenantId, orderCode: orders.code, orderStatus: orders.status, customerName: orders.customerName, centerCode: centers.code, studentName: students.fullName,
     approverName: sql<string | null>`(select full_name from ${users} u where u.id = ${commissions.approvedBy})`,
     payerName: sql<string | null>`(select full_name from ${users} u where u.id = ${commissions.paidBy})`,
   }).from(commissions).innerJoin(orders, eq(orders.id, commissions.orderId)).innerJoin(centers, eq(centers.id, commissions.centerId)).leftJoin(students, eq(students.id, orders.studentId))
@@ -139,7 +139,7 @@ export async function listCommissions(ctx: ProtectedContext, input: { period?: s
     cancelled: sql<number>`count(*) filter (where ${commissions.status} = 'cancelled')::int`,
   }).from(commissions).innerJoin(orders, eq(orders.id, commissions.orderId)).where(base);
   const items = rows.map((x) => ({
-    ...x.c, orderCode: x.orderCode, orderStatus: x.orderStatus, customerName: x.customerName, centerCode: x.centerCode, studentName: x.studentName,
+    ...x.c, tenantId: x.tenantId, orderCode: x.orderCode, orderStatus: x.orderStatus, customerName: x.customerName, centerCode: x.centerCode, studentName: x.studentName,
     approverName: x.approverName, payerName: x.payerName,
     canApprove: x.c.status === "accrued" && can(ctx, "finance:approve", x.c.centerId) && (x.c.beneficiaryUserId !== ctx.user.id || hasRole(ctx.actor, "SUPER_ADMIN")),
     canPay: x.c.status === "approved" && can(ctx, "finance:confirm", x.c.centerId) && (x.c.approvedBy !== ctx.user.id || hasRole(ctx.actor, "SUPER_ADMIN")) && x.c.beneficiaryUserId !== ctx.user.id,
@@ -155,8 +155,11 @@ export async function listCommissions(ctx: ProtectedContext, input: { period?: s
     map.set(key, g);
   }
   const periods = (await ctx.db.selectDistinct({ p: commissions.period }).from(commissions).where(and(...conds.slice(0, all ? 1 : 2))).orderBy(desc(commissions.period)).limit(24)).map((r) => r.p);
+  // Tổng theo người thụ hưởng gồm cả trung tâm chỉ chia sẻ số tổng hợp; danh sách dòng thì
+  // chỉ gồm trung tâm được xem chi tiết và che PII theo trung tâm sở hữu
+  const chiTiet = items.filter((i) => i.beneficiaryUserId === ctx.user.id || canSeeFinanceDetailOf(ctx, i.tenantId)).map((i) => redact(ctx, i));
   return {
-    ownOnly: !all, counts, periods, items,
+    ownOnly: !all, counts, periods, items: chiTiet, hidden: items.length - chiTiet.length,
     byBeneficiary: [...map.values()].sort((a, b) => b.accrued + b.approved + b.paid - (a.accrued + a.approved + a.paid)),
     totals: {
       accrued: items.filter((i) => i.status === "accrued").reduce((s, i) => s + i.amount, 0),

@@ -309,6 +309,7 @@ export const refunds = pgTable(
   "refunds",
   {
     id: id(),
+    tenantId: tenantCol(),
     orderId: uuid("order_id").notNull().references(() => orders.id),
     enrollmentId: uuid("enrollment_id").references(() => enrollments.id),
     centerId: uuid("center_id").notNull().references(() => centers.id),
@@ -528,6 +529,7 @@ export const commissions = pgTable(
   "commissions",
   {
     id: id(),
+    tenantId: tenantCol(),
     orderId: uuid("order_id").notNull().references(() => orders.id),
     centerId: uuid("center_id").notNull().references(() => centers.id),
     kind: commissionKindEnum("kind").notNull(),

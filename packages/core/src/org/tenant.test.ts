@@ -1,4 +1,4 @@
-import { test } from "node:test";
+import { test, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
   TENANT_TYPES, TENANT_TYPE_VI, TENANT_STATUSES, TENANT_STATUS_VI, TENANT_SETTING_VI,
@@ -6,7 +6,7 @@ import {
   isHeadOfficeActor, isSuperAdminActor, defaultTenantSettings, withSettingsDefaults, validateTenantSettings,
   canSeePii, canSeeFinanceDetail, redactForActor, assertFinanceDetail,
   canTransferAcrossTenant, assertTransferAllowed, validateTenantCode, TenantIsolationError,
-  DEFAULT_TENANT_CODE, type TenantActor, type TenantRef,
+  DEFAULT_TENANT_CODE, tenantChanGhi, type TenantActor, type TenantRef,
 } from "./tenant.js";
 import type { Role } from "../policy/policy.js";
 
@@ -212,4 +212,18 @@ test("validateTenantCode", () => {
   assert.ok(validateTenantCode("fr1"));
   assert.ok(validateTenantCode("1FR"));
   assert.ok(validateTenantCode("QUA_DAI_QUA_DAI"));
+});
+
+describe("tenantChanGhi — trung tâm tạm ngừng / đã đóng", () => {
+  it("đang hoạt động hoặc đang thiết lập thì ghi bình thường", () => {
+    for (const s of ["active", "onboarding", null, undefined] as const) assert.equal(tenantChanGhi(s, "finance.createOrder"), null);
+  });
+  it("tạm ngừng hoặc đã đóng thì chặn ghi, nói rõ lý do", () => {
+    assert.match(tenantChanGhi("suspended", "finance.createOrder") ?? "", /tạm ngừng/);
+    assert.match(tenantChanGhi("closed", "students.update") ?? "", /đã đóng/);
+  });
+  it("thao tác tài khoản cá nhân vẫn được — không để người dùng bị kẹt", () => {
+    assert.equal(tenantChanGhi("closed", "auth.logout"), null);
+    assert.equal(tenantChanGhi("suspended", "auth.changePassword"), null);
+  });
 });
