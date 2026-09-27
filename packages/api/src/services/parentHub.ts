@@ -23,7 +23,7 @@ import {
   COIN_REASON_VI, REDEMPTION_STATUS_VI, coinTier, availableBalance, pathProgress, buildJourney, certificateVerifyPath, isCertificateSnapshot,
   OBJECTIVE_RESULT_VI, SESSION_REACTION_VI, addDays, tomTatCon,
   type SessionReaction, type SessionKind, type ParentRequestType, type ParentRequestStatus, type CoinReason, type RedemptionStatus,
-  type ObjectiveResult, type JourneyCourseInput, type JourneyPathCertificate,, duongNoiBo } from "@satarobo/core";
+  type ObjectiveResult, type JourneyCourseInput, type JourneyPathCertificate, duongNoiBo } from "@satarobo/core";
 import type { ProtectedContext } from "../trpc";
 import { todayISO } from "./sessions";
 import { writeAudit } from "./audit";

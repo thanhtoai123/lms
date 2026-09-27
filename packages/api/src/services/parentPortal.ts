@@ -8,7 +8,7 @@ import {
 import {
   normalizeVnPhone, maskPhone, transferMemo, vietQrImageUrl, CONSENT_PURPOSES, CONSENT_PURPOSE_VI, CONSENT_TEXT_VERSION, ATTENDANCE_STATUS_VI,
   phienNgungHan, conLaiTruocNgung, tenThietBi, PH_NGUNG_NGAY,
-  type ConsentPurpose, type AttendanceStatus,, duongNoiBo } from "@satarobo/core";
+  type ConsentPurpose, type AttendanceStatus, duongNoiBo } from "@satarobo/core";
 import type { ProtectedContext } from "../trpc";
 import { requestOtp, verifyOtp } from "./admin";
 import { verifyActivationCode } from "./parentAccounts";
