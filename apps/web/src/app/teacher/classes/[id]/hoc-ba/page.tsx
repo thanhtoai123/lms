@@ -34,7 +34,7 @@ export default async function TeacherClassReportCards({ params }: { params: Prom
         <p className="text-[14px] text-ink-600">{d.class.code} · {d.class.courseCode}</p>
         <div className="mt-2 flex flex-wrap gap-1.5 text-[13px]">
           {d.milestones.map((m) => (
-            <span key={m.seq} className="chip bg-black/5">{m.label} · buổi {m.seq}{m.date ? ` · ${fmtDate(m.date)}` : ""}{m.reached ? "" : " · chưa tới"}</span>
+            <span key={m.seq} className="chip bg-black/5">{m.label}{m.date ? ` · ${fmtDate(m.date)}` : ""}{m.reached ? "" : " · chưa tới"}</span>
           ))}
           {due > 0 && <span className="chip bg-red-100 text-red-700">{due} học bạ cần viết</span>}
         </div>

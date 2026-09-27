@@ -214,3 +214,12 @@ body {
     font-weight: 700;
   }
 }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Lưới một cột co giãn được. `grid` không khai cột → cột ngầm rộng theo nội dung dài nhất
+   (tên tài liệu, bảng…) và đẩy cả trang tràn ngang trên điện thoại (vd trang lớp /classes/[id]).
+   Đặt ở lớp base nên mọi tiện ích grid-cols-* / md:grid-cols-* (lớp utilities) vẫn thắng.
+   ───────────────────────────────────────────────────────────────────────── */
+@layer base {
+  .grid { grid-template-columns: minmax(0, 1fr); }
+}
