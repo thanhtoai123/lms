@@ -69,7 +69,7 @@ export function OfflineSync() {
 
   if (online && pending === 0) return null;
   return (
-    <div className={`sticky top-[49px] z-10 px-4 py-2 text-xs ${online ? "bg-amber-50 text-amber-900" : "bg-slate-800 text-white"}`} role="status">
+    <div className={`sticky top-[61px] z-20 px-4 py-2 text-center text-xs ${online ? "bg-amber-50 text-amber-900" : "bg-slate-800 text-white"}`} role="status">
       {!online && <span>Đang mất mạng — điểm danh vẫn lưu trên máy. </span>}
       {pending > 0 && (
         <span>

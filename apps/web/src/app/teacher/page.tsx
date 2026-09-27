@@ -51,29 +51,46 @@ export default async function TeacherToday() {
     caller.teacher.feedback({ days: 14, limit: 8 }).catch(() => null),
   ]);
   const freshFb = fb?.items.filter((x) => x.fresh).length ?? 0;
+  const hasSide = (!!sheets && sheets.total > 0) || (!!fb && fb.items.length > 0);
 
   return (
     <div className="space-y-6">
-      <section>
-        <h1 className="text-lg font-bold">Chào {data.teacher.fullName} 👋</h1>
-        <p className="text-ink-600">{WEEKDAY_VI[weekdayOf(data.today)]}, {fmtDate(data.today)}</p>
+      <section className="md:flex md:items-end md:justify-between md:gap-4">
+        <div>
+          <h1 className="text-lg font-bold md:text-xl">Chào {data.teacher.fullName} 👋</h1>
+          <p className="text-ink-600">{WEEKDAY_VI[weekdayOf(data.today)]}, {fmtDate(data.today)}</p>
+        </div>
         <div className="mt-1 flex flex-wrap gap-x-4">
           <Link href="/cham-cong/lich-ca" className="inline-flex min-h-11 items-center text-[14px] font-semibold text-brand-600">Lịch ca & chấm công của tôi →</Link>
           <Link href="/huong-dan" className="inline-flex min-h-11 items-center text-[14px] text-brand-600">Hướng dẫn sử dụng →</Link>
         </div>
       </section>
 
+      {/* Điện thoại: một cột theo thứ tự việc gấp (order-*). Màn rộng: trái = buổi dạy, phải = phiếu + phản hồi */}
+      <div className={`flex flex-col gap-6 ${hasSide ? "lg:grid lg:grid-cols-3 lg:items-start" : ""}`}>
+      <div className={hasSide ? "contents lg:col-span-2 lg:block lg:space-y-6" : "contents"}>
       {data.overdue.length > 0 && (
-        <section className="space-y-2">
+        <section className="order-1 space-y-2">
           <h2 className="flex items-center gap-2 text-[15px] font-bold text-red-700">
             Cần chốt ngay <span className="chip bg-red-100 text-red-700">{data.overdue.length}</span>
           </h2>
-          {data.overdue.map((s) => <SessionCard key={s.id} s={s} highlight />)}
+          <div className="grid gap-3 md:grid-cols-2">{data.overdue.map((s) => <SessionCard key={s.id} s={s} highlight />)}</div>
         </section>
       )}
 
+      <section className="order-3 space-y-2">
+        <h2 className="text-[15px] font-bold">Hôm nay</h2>
+        {data.todays.length === 0 ? <Empty>Hôm nay bạn không có buổi dạy.</Empty> : <div className="grid gap-3 md:grid-cols-2">{data.todays.map((s) => <SessionCard key={s.id} s={s} prep={s.status === "scheduled" || s.status === "in_progress"} />)}</div>}
+      </section>
+
+      <section className="order-5 space-y-2">
+        <h2 className="text-[15px] font-bold text-ink-600">7 ngày tới</h2>
+        {data.upcoming.length === 0 ? <Empty>Chưa có lịch.</Empty> : <div className="grid gap-3 md:grid-cols-2">{data.upcoming.map((s) => <SessionCard key={s.id} s={s} prep />)}</div>}
+      </section>
+      </div>
+      <div className="contents lg:block lg:space-y-6">
       {sheets && sheets.total > 0 && (
-        <section className="space-y-2" aria-label="Phiếu cần hoàn thiện">
+        <section className="order-2 space-y-2" aria-label="Phiếu cần hoàn thiện">
           <h2 className="flex items-center gap-2 text-[15px] font-bold">
             Phiếu cần hoàn thiện <span className="chip bg-amber-100 text-amber-800">{sheets.total}</span>
             {sheets.overdue > 0 && <span className="chip bg-red-100 text-red-700">{sheets.overdue} quá hạn</span>}
@@ -95,13 +112,8 @@ export default async function TeacherToday() {
         </section>
       )}
 
-      <section className="space-y-2">
-        <h2 className="text-[15px] font-bold">Hôm nay</h2>
-        {data.todays.length === 0 ? <Empty>Hôm nay bạn không có buổi dạy.</Empty> : data.todays.map((s) => <SessionCard key={s.id} s={s} prep={s.status === "scheduled" || s.status === "in_progress"} />)}
-      </section>
-
       {fb && fb.items.length > 0 && (
-        <section className="space-y-2" aria-label="Phản hồi mới của phụ huynh">
+        <section className="order-4 space-y-2" aria-label="Phản hồi mới của phụ huynh">
           <h2 className="flex items-center gap-2 text-[15px] font-bold">
             <MessageCircle className="h-4 w-4 text-brand-600" aria-hidden /> Phản hồi của phụ huynh
             {freshFb > 0 && <span className="chip bg-brand-100 text-brand-700">{freshFb} mới</span>}
@@ -124,11 +136,8 @@ export default async function TeacherToday() {
           </ul>
         </section>
       )}
-
-      <section className="space-y-2">
-        <h2 className="text-[15px] font-bold text-ink-600">7 ngày tới</h2>
-        {data.upcoming.length === 0 ? <Empty>Chưa có lịch.</Empty> : data.upcoming.map((s) => <SessionCard key={s.id} s={s} prep />)}
-      </section>
+      </div>
+      </div>
     </div>
   );
 }

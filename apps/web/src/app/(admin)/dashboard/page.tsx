@@ -81,7 +81,7 @@ export default async function Dashboard() {
       {!L && d.totalTasks === 0 && (
         <div className="card p-6 text-sm text-ink-600">
           Tài khoản của bạn chưa có khối số liệu nào trên Dashboard. Dùng menu bên trái để vào các màn hình được phân quyền
-          {" "}hoặc mở <Link href="/teacher" className="text-brand-600 underline">Ứng dụng giáo viên</Link>.
+          {" "}hoặc mở <Link href="/teacher" className="text-brand-600 underline">giao diện giáo viên</Link>.
         </div>
       )}
     </div>

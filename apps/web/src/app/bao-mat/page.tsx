@@ -4,6 +4,7 @@ import { getServerCaller } from "@/lib/trpc/server";
 import { supabaseOn } from "@/lib/auth-session";
 import { MfaPanel } from "./panel";
 import { LoginHistory } from "@/components/login-history";
+import { trangChinh } from "@/lib/account";
 
 export const metadata = { title: "Bảo mật tài khoản", robots: { index: false } };
 export const dynamic = "force-dynamic";
@@ -14,12 +15,18 @@ export default async function SecurityPage() {
   if (!me) redirect("/login?next=/bao-mat");
   const auth = me.auth;
   const pending = !!auth?.mfa.required && !auth.mfa.satisfied;
+  const home = trangChinh(me.assignments.map((a) => a.role));
   const logins = await caller.auth.myLogins().catch(() => ({ items: [], lockedNow: false }));
   return (
-    <main className="mx-auto max-w-2xl space-y-4 p-6">
-      <div className="flex items-center justify-between">
+    <main className="mx-auto w-full max-w-2xl space-y-4 px-4 py-5 sm:p-6">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-bold">Bảo mật tài khoản</h1>
-        {!pending && <Link href="/viec-hom-nay" className="text-sm text-brand-600">← Quản trị</Link>}
+        {!pending && (
+          <div className="flex flex-wrap gap-x-4">
+            <Link href="/tai-khoan" className="inline-flex min-h-11 items-center text-sm text-brand-600">Hồ sơ tài khoản</Link>
+            <Link href={home.href} className="inline-flex min-h-11 items-center text-sm text-brand-600">← {home.label}</Link>
+          </div>
+        )}
       </div>
       <p className="text-sm text-ink-600">{me.user.fullName} · {me.user.email}</p>
       {pending && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Vai trò của bạn bắt buộc xác thực 2 lớp. Nhập mã từ ứng dụng xác thực (Google Authenticator, Microsoft Authenticator…) để tiếp tục.</div>}

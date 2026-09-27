@@ -35,7 +35,7 @@ export default async function PrepPage({ params }: { params: Promise<{ id: strin
   const others = d.criteria.filter((c) => !c.focus);
 
   return (
-    <div className="space-y-4">
+    <div className="mx-auto w-full max-w-5xl space-y-4">
       <Link href="/teacher" className="inline-flex min-h-11 items-center text-ink-600">← Hôm nay</Link>
 
       <header className="card p-4">
@@ -47,11 +47,14 @@ export default async function PrepPage({ params }: { params: Promise<{ id: strin
           <div className="rounded-xl bg-amber-50 p-2"><div className="text-[12px] text-amber-900">Cần lưu ý</div><div className="text-[18px] font-extrabold text-amber-900">{d.counts.flagged}</div></div>
           <div className="rounded-xl bg-sky-50 p-2"><div className="text-[12px] text-sky-900">Học thử</div><div className="text-[18px] font-extrabold text-sky-900">{d.counts.trial}</div></div>
         </div>
-        <Link href={`/teacher/sessions/${s.id}`} className="btn-primary mt-3 min-h-11 w-full">
+        <Link href={`/teacher/sessions/${s.id}`} className="btn-primary mt-3 min-h-11 w-full md:w-auto">
           <ClipboardCheck className="h-5 w-5" aria-hidden /> {s.isToday ? "Vào buổi dạy: điểm danh & phiếu" : "Mở màn buổi dạy"}
         </Link>
       </header>
 
+      {/* Màn rộng: trái = bài học + tài liệu, phải = học viên + tiêu chí */}
+      <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
+      <div className="space-y-4">
       {/* Bài học */}
       <section className="card space-y-3 p-4" aria-label="Bài học">
         <h2 className="flex items-center gap-2 font-bold"><BookOpen className="h-5 w-5 text-brand-600" aria-hidden />{d.lesson.sequenceNo ? `Bài ${d.lesson.sequenceNo}: ` : ""}{d.lesson.title ?? "Chưa gắn bài giảng"}</h2>
@@ -76,6 +79,29 @@ export default async function PrepPage({ params }: { params: Promise<{ id: strin
         <p className="text-[13px] text-ink-600">Hạn hoàn thiện phiếu nhận xét: {fmtDeadlineVi(new Date(d.deadline))}</p>
       </section>
 
+      {/* Tài liệu */}
+      <section className="card p-4" aria-label="Tài liệu giảng dạy">
+        <h2 className="mb-2 flex items-center gap-2 font-bold"><FileText className="h-5 w-5 text-brand-600" aria-hidden />Tài liệu giảng dạy</h2>
+        {/* Giáo án của buổi: mở thẳng khung chiếu, không phải tìm trong danh sách */}
+        {d.lessonPlan && (
+          <Link href={d.lessonPlan.href} className="btn-primary mb-3 flex min-h-11 items-center justify-center">
+            Mở giáo án buổi này ({d.lessonPlan.kindLabel})
+          </Link>
+        )}
+        {d.documents.length === 0 ? <p className="text-ink-600">Chưa có tài liệu đã phát hành cho bài này.</p> : (
+          <ul className="divide-y divide-black/5">
+            {d.documents.map((x) => (
+              <li key={x.id}>
+                <Link href={x.href} className="flex min-h-11 items-center justify-between gap-2 py-2">
+                  <span className="min-w-0"><span className="block truncate font-semibold text-brand-600">{x.title}</span><span className="block text-[13px] text-ink-600">{x.category} · {x.kindLabel}{x.forLesson ? " · của bài này" : " · chung của khoá"}</span></span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+      </div>
+      <div className="space-y-4">
       {/* Học viên cần lưu ý */}
       <section className="card p-4" aria-label="Học viên">
         <h2 className="mb-2 flex items-center gap-2 font-bold"><TriangleAlert className="h-5 w-5 text-amber-600" aria-hidden />Học viên ({d.counts.total})</h2>
@@ -113,27 +139,8 @@ export default async function PrepPage({ params }: { params: Promise<{ id: strin
         )}
       </section>
 
-      {/* Tài liệu */}
-      <section className="card p-4" aria-label="Tài liệu giảng dạy">
-        <h2 className="mb-2 flex items-center gap-2 font-bold"><FileText className="h-5 w-5 text-brand-600" aria-hidden />Tài liệu giảng dạy</h2>
-        {/* Giáo án của buổi: mở thẳng khung chiếu, không phải tìm trong danh sách */}
-        {d.lessonPlan && (
-          <Link href={d.lessonPlan.href} className="btn-primary mb-3 flex min-h-11 items-center justify-center">
-            Mở giáo án buổi này ({d.lessonPlan.kindLabel})
-          </Link>
-        )}
-        {d.documents.length === 0 ? <p className="text-ink-600">Chưa có tài liệu đã phát hành cho bài này.</p> : (
-          <ul className="divide-y divide-black/5">
-            {d.documents.map((x) => (
-              <li key={x.id}>
-                <Link href={x.href} className="flex min-h-11 items-center justify-between gap-2 py-2">
-                  <span className="min-w-0"><span className="block truncate font-semibold text-brand-600">{x.title}</span><span className="block text-[13px] text-ink-600">{x.category} · {x.kindLabel}{x.forLesson ? " · của bài này" : " · chung của khoá"}</span></span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      </div>
+      </div>
     </div>
   );
 }

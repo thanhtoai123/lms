@@ -33,6 +33,7 @@ const QUICK_ACTIONS: { title: string; sub: string; href: string; needs: string; 
   { title: "Học bạ cần viết / duyệt", sub: "Lưới học bạ mốc theo lớp và hàng đợi duyệt", href: "/ho-so-hoc-tap?xem=hoc-ba-moc", needs: "/ho-so-hoc-tap?xem=hoc-ba-moc", words: "hoc ba moc viet duyet report card" },
   { title: "Tra cứu hồ sơ học tập", sub: "Chọn học viên → học bạ, chứng nhận, in PDF", href: "/ho-so-hoc-tap?xem=tra-cuu", needs: "/ho-so-hoc-tap?xem=tra-cuu", words: "tra cuu hoc ba ho so hoc tap hoc vien" },
   { title: "Xem báo cáo", sub: "Chỉ mục mọi báo cáo nghiệp vụ", href: "/bao-cao", needs: "/bao-cao", words: "bao cao thong ke doanh thu lead" },
+  { title: "Hồ sơ tài khoản", sub: "Tôi là ai trong hệ thống: vai trò, cơ sở, hồ sơ nhân sự / giáo viên", href: "/tai-khoan", needs: "/viec-hom-nay", words: "ho so tai khoan cua toi thong tin ca nhan vai tro profile" },
   { title: "Bảo mật tài khoản", sub: "Xác thực 2 lớp bằng ứng dụng OTP", href: "/bao-mat", needs: "/viec-hom-nay", words: "bao mat tai khoan 2 lop otp mat khau" },
   { title: "Làm đơn của tôi", sub: "Xin nghỉ, bổ sung công, đổi ca", href: "/cham-cong/lich-ca", needs: "/cham-cong/lich-ca", words: "lam don xin nghi cong ca cua toi" },
 ];

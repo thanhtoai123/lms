@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getServerCaller } from "@/lib/trpc/server";
+import { laChiGiaoVien } from "@/lib/account";
 
 export default async function Home() {
   const { caller } = await getServerCaller();
@@ -7,6 +8,6 @@ export default async function Home() {
   if (!me) redirect("/login");
   const roles = me.assignments.map((a) => a.role);
   // Chỉ giáo viên/trợ giảng thuần tuý vào app giáo viên; mọi vai trò quản trị vào "Việc hôm nay"
-  const teacherOnly = roles.every((r) => r === "TEACHER" || r === "ASSISTANT_TEACHER");
+  const teacherOnly = laChiGiaoVien(roles);
   redirect(teacherOnly ? "/teacher" : "/viec-hom-nay");
 }

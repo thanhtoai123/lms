@@ -35,6 +35,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const path = (await headers()).get(PATH_REQUEST_HEADER) ?? "";
   const blocked = path ? pageAllowed(ADMIN_NAV, path, can, strictCan) === false : false;
   const main = PRIORITY.find((r) => roles.includes(r)) ?? roles[0]!;
+  const isTeacher = await caller.auth.hasTeacherProfile().catch(() => false);
   const initials = me.user.fullName.split(/\s+/).filter(Boolean).slice(-2).map((w) => w[0]!.toUpperCase()).join("") || "U";
 
   // `.admin-scope` là lớp bao của bản gốc: nó ghi đè bộ biến màu cho riêng khu
@@ -44,7 +45,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     <div className="admin-scope contents">
       <AdminShell
         nav={nav}
-        me={{ fullName: me.user.fullName, email: me.user.email, roleLabel: ROLE_LABEL_VI[main], initials }}
+        me={{ fullName: me.user.fullName, email: me.user.email, roleLabel: ROLE_LABEL_VI[main], initials, isTeacher }}
         roles={[...new Set<Role>(roles)]}
         canRunWorker={hasRole(actor, "SUPER_ADMIN", "CENTER_MANAGER")}
         idleMinutes={idle}

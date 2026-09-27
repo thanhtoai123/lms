@@ -15,7 +15,8 @@ export default async function MyClasses() {
   if (!d || (d.classes.length === 0 && d.others.length === 0)) return <Empty>Bạn chưa được phân công lớp nào.</Empty>;
   return (
     <div className="space-y-4">
-      <h1 className="text-lg font-bold">Lớp của tôi</h1>
+      <h1 className="text-lg font-bold md:text-xl">Lớp của tôi</h1>
+      <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
       {d.classes.map((c) => (
         <section key={c.id} className="card space-y-3 p-4" aria-label={c.name}>
           <Link href={`/classes/${c.id}`} className="block">
@@ -64,6 +65,7 @@ export default async function MyClasses() {
           ) : <p className="text-[13px] text-green-800">Không có học viên nào cần lưu ý đặc biệt.</p>}
         </section>
       ))}
+      </div>
       {d.others.length > 0 && (
         <details className="card p-4">
           <summary className="flex min-h-11 cursor-pointer items-center font-semibold text-ink-600">Lớp khác ({d.others.length})</summary>

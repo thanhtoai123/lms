@@ -8,7 +8,7 @@ import {
   Cake, CalendarCheck, CalendarClock, CalendarDays, CalendarSearch, ChartColumn, ChartLine, CheckCheck,
   ChevronDown, ClipboardCheck, ClipboardList, ClipboardPen, Clock, Coins, CreditCard, Database, DoorOpen,
   FileSpreadsheet, FileText, FlaskConical, FolderCheck, Gauge, GraduationCap, HeartHandshake, History, IdCard,
-  Image as ImageIcon, KeyRound, Landmark, Layers, LayoutDashboard, ListChecks, ListOrdered, Mail, MapPin, MapPinned, Menu,
+  Image as ImageIcon, KeyRound, Landmark, Layers, LayoutDashboard, ListChecks, LogOut, ListOrdered, Mail, MapPin, MapPinned, Menu,
   MessageCircle, MessageSquarePlus, MessagesSquare, Monitor, Network, Newspaper, NotebookPen, Package,
   Package2, PackageOpen, Pin, Plug, Presentation, Receipt, RefreshCw, Rocket, Route, ScrollText, Search, Send, ServerCog,
   Settings, Share2, ShieldAlert, ShieldCheck, ShoppingBag, SlidersHorizontal, Star, Store, TableProperties, Tags,
@@ -23,7 +23,7 @@ import { CommandPalette, rememberPage } from "@/components/command-palette";
 import { ToastProvider } from "@/components/toast";
 import { ShortcutHelp } from "@/components/shortcuts";
 
-type Me = { fullName: string; email: string; roleLabel: string; initials: string };
+type Me = { fullName: string; email: string; roleLabel: string; initials: string; isTeacher?: boolean };
 
 /**
  * Tra bảng tên icon (docs/GIAO-DIEN-GOC.md mục 5) → component lucide.
@@ -383,12 +383,23 @@ export function AdminShell({ nav, me, roles, canRunWorker, idleMinutes = null, c
                 </span>
                 <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
               </button>
+              {userOpen && <button type="button" tabIndex={-1} aria-hidden className="fixed inset-0 z-10 cursor-default" onClick={() => setUserOpen(false)} />}
               {userOpen && (
                 <div className="absolute right-0 z-20 mt-2 w-60 rounded-xl border border-border bg-card p-2 text-sm shadow-lg">
-                  <div className="truncate px-2 py-1.5 text-xs text-muted-foreground">{me.email}</div>
-                  <Link href="/bao-mat" className="block rounded-lg px-2 py-1.5 hover:bg-muted">Bảo mật tài khoản</Link>
-                  <Link href="/teacher" className="block rounded-lg px-2 py-1.5 hover:bg-muted">Ứng dụng giáo viên</Link>
-                  <Link href="/logout" prefetch={false} className="block rounded-lg px-2 py-1.5 text-red-700 hover:bg-red-50">Đăng xuất</Link>
+                  <div className="px-2 py-1.5">
+                    <div className="truncate text-sm font-semibold text-foreground md:hidden">{me.fullName}</div>
+                    <div className="truncate text-xs text-muted-foreground">{me.email}</div>
+                  </div>
+                  <Link href="/tai-khoan" onClick={() => setUserOpen(false)} className="flex min-h-10 items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-muted"><UserRound className="h-4 w-4 text-muted-foreground" aria-hidden />Hồ sơ tài khoản</Link>
+                  <Link href="/bao-mat" onClick={() => setUserOpen(false)} className="flex min-h-10 items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-muted"><ShieldCheck className="h-4 w-4 text-muted-foreground" aria-hidden />Bảo mật tài khoản</Link>
+                  {me.isTeacher && (
+                    <>
+                      <div className="my-1 border-t border-border" />
+                      <Link href="/teacher" onClick={() => setUserOpen(false)} className="flex min-h-10 items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-muted"><BookOpen className="h-4 w-4 text-muted-foreground" aria-hidden />Chuyển sang giao diện giáo viên</Link>
+                    </>
+                  )}
+                  <div className="my-1 border-t border-border" />
+                  <Link href="/logout" prefetch={false} className="flex min-h-10 items-center gap-2 rounded-lg px-2 py-1.5 text-red-700 hover:bg-red-50"><LogOut className="h-4 w-4" aria-hidden />Đăng xuất</Link>
                 </div>
               )}
             </div>
