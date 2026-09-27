@@ -401,10 +401,20 @@ Nay khung được chọn theo **người dùng**, không theo đường dẫn (
 | Kiêm nhiệm (có hồ sơ GV + vai trò quản trị) | Vào `/teacher` → chế độ giáo viên (cookie `sr-giao-dien=gv`, chỉ chọn khung, không cấp quyền); menu tài khoản → *Chuyển sang khu quản trị* (`/giao-dien?m=ql`) |
 | Còn lại | AdminShell như cũ |
 
-TeacherShell có 4 mục chính cố định (`packages/core/src/nav/giaoVien.ts`, có kiểm thử):
-**Hôm nay** (`/teacher`) · **Lớp của tôi** (`/teacher/classes`, gồm chi tiết lớp và học bạ lớp) ·
-**Chấm công** (`/cham-cong/lich-ca`) · **Thêm** (`/teacher/them` — mọi mục menu còn lại theo quyền, lấy từ chính
-cây menu đã lọc, bỏ *Dashboard*). Điện thoại: thanh đáy; máy tính bảng / máy tính: mục nằm trên thanh đầu.
+TeacherShell có 5 mục chính cố định (`packages/core/src/nav/giaoVien.ts`, có kiểm thử):
+**Hôm nay** (`/teacher`) · **Lịch dạy** (`/teacher/lich?tuan=`) · **Lớp của tôi** (`/teacher/classes`, chip *Giáo án của tôi*
+`/teacher/giao-an`; gồm chi tiết lớp và học bạ lớp) · **Chấm công** (`/cham-cong/lich-ca`) · **Thêm** (`/teacher/them` —
+mọi mục menu còn lại theo quyền, lấy từ chính cây menu đã lọc, bỏ *Dashboard*). Điện thoại: thanh đáy; máy tính bảng:
+biểu tượng trên thanh đầu; máy tính: biểu tượng + chữ.
+
+Buổi dạy và giáo án:
+- **Hôm nay** mở đầu bằng thẻ nổi bật (`buoiNoiBat`): *Đang dạy* (đếm ngược) › *Sắp dạy trong 60 phút* › *Buổi hôm nay
+  chưa chốt* › *Buổi tiếp theo*; 3 nút *Mở giáo án* · *Điểm danh & nhận xét* · *Chuẩn bị*. Giờ tính theo Asia/Ho_Chi_Minh.
+- Mọi thẻ buổi (Hôm nay, Lịch dạy) có hàng nút **Giáo án** (khi bài đã có giáo án SCORM / slide) · **Chuẩn bị**.
+- **Lịch dạy**: tuần T2–CN, lùi / tiến tuần; máy tính 7 cột, điện thoại theo ngày; hết buổi trong tuần thì gợi ý tuần sau.
+- **Giáo án của tôi**: khoá mình dạy → từng buổi (có giáo án chưa, buổi nào sắp dạy). Xem giáo án ở
+  `/teacher/giao-an/<bài>?buoi=<buổi>` — cùng khung chiếu, chữ mờ, nhật ký của khu quản trị; có buổi trước / sau,
+  nút *Điểm danh buổi này*; nút *Trình chiếu* luôn hiện trên máy tính bảng (không có rê chuột).
 
 Học bạ của giáo viên: `/teacher/classes/<lớp>/hoc-ba` (thẻ từng học viên, chip từng mốc → trang viết học bạ).
 `/tai-khoan` (Hồ sơ tài khoản, mới) và `/bao-mat` nằm trong khung; tài khoản chưa xác thực 2 lớp bắt buộc chỉ thấy
