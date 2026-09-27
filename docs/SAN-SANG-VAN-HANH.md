@@ -5,11 +5,87 @@ không dựa vào ô tick trong tài liệu. Mọi khẳng định dưới đây
 
 ## 0. Kết luận một dòng
 
+> **Cập nhật 27/09:** các lỗi mã nguồn ở mục 2–4 và 6 đã sửa xong, kèm rà soát tấn công — xem **mục 0b**. Phần còn lại là bốn việc của chủ hệ thống (nơi chạy, kho tệp, Zalo, hoá đơn điện tử). Nội dung từ mục 1 trở đi giữ nguyên làm hồ sơ đánh giá ban đầu (26/09).
+
 **Chưa vào hoạt động thật được.** Phần mềm đã đủ chức năng — 929 trang qua kiểm tra menu, 209 kịch
 bản nghiệp vụ đạt — nhưng **nền để đặt nó lên thì chưa có**, và ba lỗi dưới đây sẽ **hỏng hoặc lộ
 dữ liệu thật** ngay trong tuần đầu.
 
 Khoảng cách không nằm ở tính năng. Nằm ở: **nơi cất tệp, môi trường chạy, và ba lỗi dữ liệu**.
+
+## 0b. Cập nhật 27/09/2026 — sau đợt hoàn thiện cuối
+
+**Phần mã nguồn: đã đóng toàn bộ các lỗi chặn go-live nêu ở mục 2–4 và 6.** Việc còn lại để vào
+hoạt động thật **không còn nằm trong mã** mà ở bốn quyết định / hợp đồng của chủ hệ thống (cuối mục này).
+
+### Đã sửa — kèm bằng chứng kiểm được
+
+| Mục | Đã làm | Kiểm bằng |
+|---|---|---|
+| 2.1 PII nhập cũ | `migrate-legacy` dùng chung `dongHop/moHop` (core) với ứng dụng; mã hoá xong mở lại, lệch là dừng | `core/security/hopKin.test.ts`, `api/services/pii.test.ts` |
+| 2.2 SĐT trùng | `phone_normalized` + chỉ mục duy nhất (sql 0017); `pnpm sdt-trung [--gop]` | PC: 151 dòng, 0 trùng; chỉ mục đã tạo |
+| 2.3 Nghỉ dạy mất buổi | Duyệt đơn `class_off` đi đường huỷ buổi chính (`cancelSessionInTx`): dời bù + lùi nhịp | Bộ E: E20–E23 |
+| 3 Lộ tài chính chéo | Công nợ / Thiếu học phí / Công nợ ghi danh / Hoa hồng: tổng gồm cả nhượng quyền, **danh sách chỉ dòng được xem chi tiết + che PII** | Bộ E: E10–E13 |
+| 3 RLS chết | `refunds`, `commissions` có `tenant_id` (sql 0018); middleware `DB_RLS=on`; `pnpm rls-kiem` chạy trên CSDL thật rồi hoàn tác | PC: rls-kiem **tất cả đạt**, kể cả chặn ghi dòng trung tâm khác |
+| 3 Đóng trung tâm là giả | Tạm ngừng / đóng: đọc được, **không ghi được**; chỉ Hội sở đổi trạng thái | Bộ E: E15–E19 |
+| 4.1 Kho tệp | Bộ chuyển S3/R2 (SigV4 viết tay, không thêm thư viện); `/van-hanh` báo **nguy hiểm** nếu chạy thật trên đĩa | `kho/sigv4.test.ts`, `kho.test.ts` |
+| 4.3 Không biết khi lỗi | Theo dõi lỗi tự chứa: gom theo vân tay, ghi từ tRPC + `instrumentation.onRequestError` + worker; bảng ở `/van-hanh` | `core/ops/loiMayChu.test.ts`, E24 |
+| 4.5 `.env.example` | Bổ sung 19 biến + `DB_RLS`, `SCORM_ORIGIN`, `TRUSTED_PROXY_HOPS`, `S3_*` | so khớp `process.env.*` toàn kho |
+| 6 Mẫu test api | `src/**/*.test.ts` | PC: api 31/31 |
+| KT-03 | Nút "Chạy lại" hàng đợi chết ở `/van-hanh`, có nhật ký | — |
+| KT-06 | Thiếu học phí: bỏ 3 truy vấn con tương quan, phân trang 100 | E14 |
+| KT-12 / KT-13 | `/tich-hop` nói đúng kho đếm; form công khai dùng trần chung (bảng `rate_limits`) | E09 |
+
+### Rà soát tấn công (đọc mã + kiểm thử chạy thật)
+
+Đã rà: XSS lưu trữ, chuyển hướng mở, SSRF, IDOR cổng phụ huynh, route công khai, phục vụ tệp,
+PII trong log, xác thực phiên, gán thuộc tính hàng loạt, chèn SQL. Tìm được và **đã sửa**:
+
+| Mức | Lỗ hổng | Sửa |
+|---|---|---|
+| Cao | Gói SCORM (JavaScript người dùng tải lên) chạy **cùng miền** quản trị → người có quyền tải học liệu cài mã tự cấp quyền, chờ Super Admin mở xem | `SCORM_ORIGIN`: phát trên miền học liệu riêng; cầu nối `window.name`/`postMessage` thay `window.parent.API`; miền đó không phục vụ trang/API |
+| Cao | Route tải lên / tải xuống **bỏ qua xác thực 2 lớp** (chỉ tRPC kiểm) | `routeContext` bắt buộc 2 lớp như tRPC |
+| TB | Chuyển hướng mở sau đăng nhập (`/\evil.com`, tab/xuống dòng) | `duongNoiBo` dùng chung cho login, thông báo phụ huynh, markdown |
+| TB | Giả `X-Forwarded-For` để lách mọi trần theo IP; form công khai đếm trong bộ nhớ một tiến trình | `ipTuHeader` lấy phần proxy nối (`TRUSTED_PROXY_HOPS`); trần chung trong Postgres |
+| TB | Link bài nộp loại khác không kiểm → hiện thành liên kết cho giáo viên | luôn phải http/https |
+| Thấp | Ghi nhật ký "đăng xuất" từ token chưa kiểm chữ ký; SSRF vào địa chỉ siêu dữ liệu đám mây qua cổng Zalo; nonce không kiểm | chỉ ghi khi token thật; chặn 169.254.x / metadata, không theo chuyển hướng; kiểm nonce |
+| — | Trạng thái trung tâm đi chung cổng với tuỳ chọn riêng tư → nhượng quyền tự "mở lại" được | chỉ Super Admin Hội sở đổi trạng thái |
+
+Đã kiểm và **ổn**: markdown/tin tức escape trước; mọi đọc theo con ở cổng phụ huynh đều kiểm quan hệ
+giám hộ; phiên phụ huynh băm + cookie `__Host-`; tài khoản mẫu luôn tắt ở production; token nhân sự
+kiểm ở máy chủ (`auth.getUser`); OTP `crypto.randomInt` + so khớp hằng thời gian; URL ký HMAC có hạn;
+webhook kiểm chữ ký hằng thời gian; không `sql.raw` với dữ liệu người dùng; zod bỏ khoá lạ.
+
+Bộ kiểm thử mới **bộ E** (`kich-ban-toan-dien.ps1 -Only tan-cong`, 24 bài): CSRF, sai phương thức,
+token giả, chèn SQL, lỗi không lộ cấu trúc, thân 3MB, giả IP, cộng các hồi quy ở bảng trên.
+
+### Việc của chủ hệ thống — mã không làm thay được
+
+1. **Chọn nơi chạy + tên miền** (xem khuyến nghị dưới). Cần **hai tên miền con**: quản trị
+   (vd `admin.…`) và học liệu (vd `hoc-lieu.…`, trỏ cùng ứng dụng) cho `SCORM_ORIGIN`.
+2. **Kho đối tượng** S3/R2: tạo bucket + khoá, điền 4 biến `S3_*`.
+3. **Zalo**: duyệt mẫu ZNS; khai token OA ở `/tich-hop`.
+4. **Hoá đơn điện tử**: ký hợp đồng nhà cung cấp, điền `EINVOICE_API_URL/KEY`.
+
+Sau khi có môi trường: chạy `pnpm db:apply-sql` → `pnpm rls-kiem` (phải đạt) →
+`SELECT satarobo_rls_enable();` → đặt `DB_RLS=on` → mở `/van-hanh`, **mọi mục phải xanh**.
+
+### Khuyến nghị nơi chạy
+
+Luật Bảo vệ dữ liệu cá nhân có hiệu lực từ 01/01/2026: đưa dữ liệu cá nhân (ở đây là **dữ liệu trẻ
+em**, nhóm nhạy cảm) ra nước ngoài phải lập và nộp hồ sơ đánh giá tác động chuyển dữ liệu; vi phạm bị
+phạt tới hàng tỷ đồng. Vì vậy thứ tự khuyến nghị:
+
+| Phương án | Chi phí tham khảo | Công vận hành | Dữ liệu cá nhân |
+|---|---|---|---|
+| **A. Máy chủ ảo tại Việt Nam** (Postgres + ứng dụng + worker trên 1–2 máy, sao lưu ra kho đối tượng trong nước) — **khuyến nghị** | vài trăm nghìn – ~2 triệu đ/tháng tuỳ cấu hình | Cao nhất: tự vá hệ điều hành, tự giám sát; có sẵn `scripts/ops/backup.sh` | Ở trong nước — đơn giản nhất về pháp lý |
+| B. Vercel Pro + Supabase Pro | ~20 USD/người phát triển/tháng + 25 USD/tháng, chưa tính vượt mức | Thấp | Ở nước ngoài (vd Singapore) → **phải làm hồ sơ chuyển dữ liệu ra nước ngoài** |
+| C. Kết hợp: ứng dụng ở Vercel, CSDL + kho tệp ở Việt Nam | B + A (phần CSDL) | Trung bình; độ trễ giữa hai nơi làm trang chậm hơn | Vẫn có dữ liệu đi qua máy chủ nước ngoài → vẫn nên có hồ sơ |
+
+Với phương án A: worker chạy như dịch vụ hệ thống (`pnpm worker`), cron `scripts/ops/backup.sh` mỗi
+đêm, và **phục hồi thử một lần** bằng `restore.sh` trước ngày mở (mục 8.3). Giá cụ thể phụ thuộc nhà
+cung cấp — nên lấy báo giá 2–3 nơi. Đây là thông tin tham khảo, không phải tư vấn pháp lý: nên hỏi
+luật sư về hồ sơ chuyển dữ liệu nếu chọn B hoặc C.
 
 ## 1. Ba cửa phải qua
 
