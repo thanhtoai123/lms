@@ -27,7 +27,7 @@ export async function GET(req: Request, { params }: { params: Promise<P> }) {
   // nonce do proxy gắn cho chính yêu cầu này — script chèn thêm phải mang nonce, nếu không CSP chặn
   const nonce = nonceAnToan(req.headers.get(NONCE_REQUEST_HEADER));
   const appOrigin = khungNgoai();
-  let out: string | Uint8Array = new Uint8Array(body);
+  let out: BodyInit = new Uint8Array(body);
   if (type.startsWith("text/html")) {
     let html = injectGuard(body.toString("utf8"), nonce);
     // Miền riêng: cầu nối API SCORM (window.name vào, postMessage ra) thay cho window.parent.API
