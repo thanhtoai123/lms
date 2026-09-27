@@ -35,17 +35,19 @@ export default async function ZaloCrmPage({ searchParams }: { searchParams: Prom
   if (!actor || !hasPermission(actor, "message:read") || !hasPermission(actor, "lead:read")) {
     return <NoAccess title="Zalo CRM" perm="message:read + lead:read" />;
   }
+  // Mặc định màn này LÀ Zalo CRM (ZCRM) nhúng thẳng trong hệ thống — như hệ cũ; phần số liệu kênh
+  // của LMS nằm ở thẻ thứ hai. Chưa khai ZCRM nào thì vào thẳng số liệu kênh.
+  const z = sp.xem === "tong-quan" ? null : await caller.messaging.zcrmEmbed();
+  const moZcrm = !!z && (z.ds.length > 0 || sp.xem === "zcrm");
   const tabs = (
-    <div className="flex gap-1 border-b border-black/10 text-sm">
-      <Link href="/crm/zalo" className={`-mb-px border-b-2 px-3 py-2 ${sp.xem !== "zcrm" ? "border-brand-600 font-semibold text-brand-700" : "border-transparent text-ink-600"}`}>Tổng quan kênh Zalo</Link>
-      <Link href="/crm/zalo?xem=zcrm" className={`-mb-px border-b-2 px-3 py-2 ${sp.xem === "zcrm" ? "border-brand-600 font-semibold text-brand-700" : "border-transparent text-ink-600"}`}>Giao diện Zalo CRM (ZCRM)</Link>
+    <div className="flex items-center gap-1 border-b border-black/10 text-sm">
+      <Link href="/crm/zalo" className={`-mb-px border-b-2 px-3 py-2 ${moZcrm ? "border-brand-600 font-semibold text-brand-700" : "border-transparent text-ink-600"}`}>Zalo CRM</Link>
+      <Link href="/crm/zalo?xem=tong-quan" className={`-mb-px border-b-2 px-3 py-2 ${!moZcrm ? "border-brand-600 font-semibold text-brand-700" : "border-transparent text-ink-600"}`}>Tổng quan kênh Zalo</Link>
     </div>
   );
-  if (sp.xem === "zcrm") {
-    const z = await caller.messaging.zcrmEmbed();
+  if (moZcrm && z) {
     return (
-      <div className="space-y-3">
-        <PageHeader title="Zalo CRM" desc="Chat nhiều nick Zalo, bạn bè, lịch hẹn… ngay trong hệ thống. Hội thoại và lịch hẹn vẫn tự đổ về sổ sách LMS qua webhook." />
+      <div className="space-y-2">
         {tabs}
         <ZcrmKhung ds={z.ds} chon={sp.nick} nguonLms={z.nguonLms} />
       </div>
@@ -93,7 +95,7 @@ export default async function ZaloCrmPage({ searchParams }: { searchParams: Prom
         </span>
         <span className="ml-auto flex gap-1">
           {[7, 30, 90].map((n) => (
-            <Link key={n} href={`/crm/zalo?ngay=${n}`} className={`chip ${days === n ? "bg-brand-600 text-white" : "bg-black/5 text-ink-600"}`}>{n} ngày</Link>
+            <Link key={n} href={`/crm/zalo?xem=tong-quan&ngay=${n}`} className={`chip ${days === n ? "bg-brand-600 text-white" : "bg-black/5 text-ink-600"}`}>{n} ngày</Link>
           ))}
         </span>
       </div>

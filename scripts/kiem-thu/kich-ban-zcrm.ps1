@@ -95,7 +95,7 @@ try {
   $z = @($emb.data.ds) | Where-Object { $_.id -eq $accId } | Select-Object -First 1
   T "Z12 man Zalo CRM phat hien ZCRM dang cam nhung (DENY) va noi ro ly do" (($null -ne $z) -and (-not $z.nhungDuoc) -and ((($z.lyDo) -join " ") -match "DENY")) ("nhungDuoc=" + $z.nhungDuoc)
   $trang = Join-Path $tmp "trang.html"
-  $ma = (& curl.exe -s -o $trang -w "%{http_code}" -m 120 -b "x-dev-actor=$A" "$BaseUrl/crm/zalo?xem=zcrm&nick=$accId") -join ""
+  $ma = (& curl.exe -s -o $trang -w "%{http_code}" -m 120 -b "x-dev-actor=$A" "$BaseUrl/crm/zalo?nick=$accId") -join ""
   $html = [IO.File]::ReadAllText($trang, [Text.Encoding]::UTF8)
   T "Z13 tab Giao dien ZCRM mo duoc, co huong dan + nut mo tab moi" (($ma -eq "200") -and ($html -match "localhost:3099")) ("HTTP " + $ma)
 

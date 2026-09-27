@@ -24,18 +24,18 @@ export function ZcrmKhung({ ds, chon, nguonLms }: { ds: Zcrm[]; chon?: string; n
   const z = ds.find((x) => x.id === chon) ?? ds[0]!;
   return (
     <div className="space-y-2">
-      <div className="flex flex-wrap items-center gap-2 text-xs">
-        {ds.length > 1 && ds.map((x) => (
-          <Link key={x.id} href={`/crm/zalo?xem=zcrm&nick=${x.id}`} className={`chip ${x.id === z.id ? "bg-brand-600 text-white" : "bg-black/5 text-ink-600"}`}>{x.label}</Link>
-        ))}
-        <span className="font-mono text-ink-400">{z.nguon}</span>
-        <a href={z.url} target="_blank" rel="noopener noreferrer" className="btn-ghost ml-auto !py-1 text-xs">Mở ZCRM ở tab mới ↗</a>
-      </div>
+      {ds.length > 1 && (
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          {ds.map((x) => (
+            <Link key={x.id} href={`/crm/zalo?nick=${x.id}`} className={`chip ${x.id === z.id ? "bg-brand-600 text-white" : "bg-black/5 text-ink-600"}`}>{x.label}</Link>
+          ))}
+        </div>
+      )}
       {z.nhungDuoc ? (
         <iframe
           src={z.url}
           title={`Zalo CRM — ${z.label}`}
-          className="h-[calc(100vh-190px)] min-h-[560px] w-full rounded-xl border border-black/10 bg-white"
+          className="h-[calc(100vh-150px)] min-h-[600px] w-full rounded-xl border border-black/10 bg-white"
           // Khung khác miền: ZCRM chạy trong nguồn của chính nó, không chạm được trang quản trị
           sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads allow-modals"
           allow="clipboard-read; clipboard-write; microphone; camera; fullscreen"
