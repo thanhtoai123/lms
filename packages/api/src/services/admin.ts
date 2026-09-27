@@ -657,16 +657,17 @@ export async function integrations(ctx: ProtectedContext) {
       details: [`Nguồn cho phép: ${e.PUBLIC_FORM_ORIGINS ?? "mặc định (satarobo.vn, localhost)"}`, `Sự kiện lỗi chờ chạy lại: ${wh?.failed ?? 0}`] },
   ];
 
-  // Rate limit — ghi rõ đang đếm ở đâu
-  const redis = e.UPSTASH_REDIS_REST_URL || e.REDIS_URL;
+  // Rate limit — nói đúng sự thật: KHÔNG có Redis trong mã; mọi trần dùng chung nằm ở Postgres
+  const [rl] = (await ctx.db.execute(sql`select count(*)::int as n from rate_limits where expires_at > now()`).catch(() => [{ n: -1 }])) as unknown as { n: number }[];
   items.push({
     key: "ratelimit", name: "Rate limit (chống spam / dò mật khẩu)", purpose: "Giới hạn lần gửi OTP, đăng nhập, form công khai, tin nhắn phụ huynh",
-    status: redis ? "ok" : "warn", env: ["UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN", "REDIS_URL"], href: "/cau-hinh-van-hanh?tab=otp",
+    status: (rl?.n ?? -1) >= 0 ? "ok" : "warn", env: ["RATE_LIMIT_<TÊN>_MAX (tuỳ chọn, nới trần)", "TRUSTED_PROXY_HOPS"], href: "/cau-hinh-van-hanh?tab=otp",
     details: [
-      redis ? "Kho đếm: Redis (Upstash) — dùng chung cho mọi phiên bản máy chủ" : "Kho đếm: Postgres cho OTP / đăng nhập (bảng otp_requests, login_events) + bộ nhớ tiến trình cho route công khai",
-      redis ? "" : "Chưa có Redis: chạy nhiều phiên bản thì hạn mức route công khai đếm riêng từng phiên bản",
+      "Kho đếm: Postgres (bảng rate_limits) — dùng chung cho mọi bản sao máy chủ, không cần Redis",
+      (rl?.n ?? -1) >= 0 ? `Bộ đếm đang hiệu lực: ${rl!.n}` : "Chưa đọc được bảng rate_limits — chạy pnpm db:push",
+      "IP người gọi lấy theo proxy tin cậy (TRUSTED_PROXY_HOPS), không theo phần X-Forwarded-For máy khách tự khai",
       `Hạn mức OTP hiện hành: ${OTP_POLICY.perPhoneMax} mã / ${OTP_POLICY.perPhoneWindowMin} phút mỗi SĐT · ${OTP_POLICY.perIpMax} mã / giờ mỗi IP`,
-    ].filter(Boolean),
+    ],
   });
 
   // MISA AMIS (kế toán)
