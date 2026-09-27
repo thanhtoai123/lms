@@ -1,0 +1,21 @@
+# Chép vào thư mục ZCRM (cạnh docker-compose.yml của ZCRM) — compose tự gộp khi chạy.
+#
+# Vì sao: ZCRM mặc định lưu tệp trên đĩa (STORAGE_DRIVER=local) nên KHÔNG cần MinIO, nhưng
+# docker-compose của ZCRM vẫn bắt app chờ MinIO "healthy". Ảnh minio/minio, minio/mc đã ngừng
+# phát hành công khai trên Docker Hub (kéo về báo "pull access denied") → cài mới bị kẹt.
+# Tệp này thay hai dịch vụ đó bằng một container rỗng luôn "healthy". Không đụng mã ZCRM.
+#
+# Khi chạy thật với kho đối tượng (R2/S3): đặt STORAGE_DRIVER=r2|s3 trong .env của ZCRM và bỏ tệp này.
+services:
+  minio:
+    image: alpine:3.20
+    entrypoint: ["sh", "-c", "sleep infinity"]
+    command: []
+    healthcheck:
+      test: ["CMD", "true"]
+      interval: 5s
+      timeout: 3s
+      retries: 1
+  minio-init:
+    image: alpine:3.20
+    entrypoint: ["true"]

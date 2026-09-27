@@ -32,6 +32,10 @@ if (Test-Path (Join-Path $ThuMuc ".git")) { git -C $ThuMuc pull --ff-only 2>&1 |
 else { git clone --depth 1 https://github.com/locphamnguyen/ZaloCRM.git $ThuMuc 2>&1 | Select-Object -Last 1 | ForEach-Object { Log $_ } }
 if (-not (Test-Path (Join-Path $ThuMuc "docker-compose.yml"))) { Write-Host "Khong tai duoc ma nguon ZCRM." -ForegroundColor Red; exit 1 }
 
+# Luu tep tren dia (mac dinh cua ZCRM) -> khong can MinIO; anh MinIO da ngung phat hanh cong khai
+Copy-Item (Join-Path $Lms "deploy\zcrm\docker-compose.override.yml") (Join-Path $ThuMuc "docker-compose.override.yml") -Force
+Log "   da dat docker-compose.override.yml (thay MinIO bang container rong — ZCRM luu tep tren dia)"
+
 Log "2. Bo cai chinh thuc cua ZCRM (build lan dau mat 10-20 phut)"
 # APP_URL = dia chi qua khung nhung: duong dan, Socket.IO, link dang nhap deu di qua cong nay
 $env:APP_URL = "http://localhost:$CongKhung"
