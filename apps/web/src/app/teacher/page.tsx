@@ -74,18 +74,18 @@ export default async function TeacherToday() {
           <h2 className="flex items-center gap-2 text-[15px] font-bold text-red-700">
             Cần chốt ngay <span className="chip bg-red-100 text-red-700">{data.overdue.length}</span>
           </h2>
-          <div className="grid gap-3 md:grid-cols-2">{data.overdue.map((s) => <SessionCard key={s.id} s={s} highlight />)}</div>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">{data.overdue.map((s) => <SessionCard key={s.id} s={s} highlight />)}</div>
         </section>
       )}
 
       <section className="order-3 space-y-2">
         <h2 className="text-[15px] font-bold">Hôm nay</h2>
-        {data.todays.length === 0 ? <Empty>Hôm nay bạn không có buổi dạy.</Empty> : <div className="grid gap-3 md:grid-cols-2">{data.todays.map((s) => <SessionCard key={s.id} s={s} prep={s.status === "scheduled" || s.status === "in_progress"} />)}</div>}
+        {data.todays.length === 0 ? <Empty>Hôm nay bạn không có buổi dạy.</Empty> : <div className="grid grid-cols-1 gap-3 md:grid-cols-2">{data.todays.map((s) => <SessionCard key={s.id} s={s} prep={s.status === "scheduled" || s.status === "in_progress"} />)}</div>}
       </section>
 
       <section className="order-5 space-y-2">
         <h2 className="text-[15px] font-bold text-ink-600">7 ngày tới</h2>
-        {data.upcoming.length === 0 ? <Empty>Chưa có lịch.</Empty> : <div className="grid gap-3 md:grid-cols-2">{data.upcoming.map((s) => <SessionCard key={s.id} s={s} prep />)}</div>}
+        {data.upcoming.length === 0 ? <Empty>Chưa có lịch.</Empty> : <div className="grid grid-cols-1 gap-3 md:grid-cols-2">{data.upcoming.map((s) => <SessionCard key={s.id} s={s} prep />)}</div>}
       </section>
       </div>
       <div className="contents lg:block lg:space-y-6">

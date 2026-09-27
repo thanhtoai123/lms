@@ -53,8 +53,8 @@ export default async function PrepPage({ params }: { params: Promise<{ id: strin
       </header>
 
       {/* Màn rộng: trái = bài học + tài liệu, phải = học viên + tiêu chí */}
-      <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
-      <div className="space-y-4">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-start">
+      <div className="min-w-0 space-y-4">
       {/* Bài học */}
       <section className="card space-y-3 p-4" aria-label="Bài học">
         <h2 className="flex items-center gap-2 font-bold"><BookOpen className="h-5 w-5 text-brand-600" aria-hidden />{d.lesson.sequenceNo ? `Bài ${d.lesson.sequenceNo}: ` : ""}{d.lesson.title ?? "Chưa gắn bài giảng"}</h2>
@@ -101,7 +101,7 @@ export default async function PrepPage({ params }: { params: Promise<{ id: strin
         )}
       </section>
       </div>
-      <div className="space-y-4">
+      <div className="min-w-0 space-y-4">
       {/* Học viên cần lưu ý */}
       <section className="card p-4" aria-label="Học viên">
         <h2 className="mb-2 flex items-center gap-2 font-bold"><TriangleAlert className="h-5 w-5 text-amber-600" aria-hidden />Học viên ({d.counts.total})</h2>

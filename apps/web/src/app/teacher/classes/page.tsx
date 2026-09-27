@@ -16,7 +16,7 @@ export default async function MyClasses() {
   return (
     <div className="space-y-4">
       <h1 className="text-lg font-bold md:text-xl">Lớp của tôi</h1>
-      <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-start">
       {d.classes.map((c) => (
         <section key={c.id} className="card space-y-3 p-4" aria-label={c.name}>
           <Link href={`/classes/${c.id}`} className="block">

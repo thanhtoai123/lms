@@ -9,6 +9,8 @@ import { normalizeIdle } from "@satarobo/core";
 import { IDLE_COOKIE } from "@/lib/auth-session";
 import { TeacherNav } from "./teacher-nav";
 
+export const metadata = { title: "Giáo viên" };
+
 /**
  * Khung GIAO DIỆN GIÁO VIÊN — một bố cục co giãn cho mọi thiết bị:
  * - Điện thoại (< 768px): thanh đầu gọn + thanh điều hướng đáy, nội dung một cột.
