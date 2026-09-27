@@ -505,7 +505,7 @@ export async function giaoDienZcrm(ctx: ProtectedContext) {
       try {
         const r = await fetch(`${nguon}/`, { method: "GET", redirect: "manual", signal: AbortSignal.timeout(5_000) });
         const h: Record<string, string> = {};
-        r.headers.forEach((v, k) => { h[k.toLowerCase()] = v; });
+        r.headers.forEach((v: string, k: string) => { h[k.toLowerCase()] = v; });
         const kq = phanTichNhung(h, nguon, nguonLms);
         nhungDuoc = kq.nhungDuoc;
         lyDo.push(...kq.lyDo);
