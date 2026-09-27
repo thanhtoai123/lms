@@ -8,7 +8,7 @@ import "@satarobo/db/env";
 import { createDb } from "@satarobo/db";
 import { processOutbox, scanLeadSla } from "./services/engagement";
 import { ghiLoiMayChu } from "./services/loiMayChu";
-import { dongBoLichHenZcrm } from "./services/channelAccounts";
+import { dongBoLichHenZcrm, keoTinZcrm } from "./services/channelAccounts";
 import { runSurveyTriggers } from "./services/care";
 import { processEmailQueue } from "./services/admin";
 import { remindDueHomework } from "./services/assignments";
@@ -38,6 +38,7 @@ let lastSurvey = 0;
 let lastRetention = 0;
 let lastRatePrune = 0;
 let lastZcrmSync = 0;
+let lastZcrmPull = 0;
 /** Log của worker đi qua bộ che PII giống mọi nơi khác */
 const log = apiLogger.child("worker");
 process.on("SIGINT", () => { running = false; });
@@ -85,6 +86,12 @@ async function tick() {
       if (cr.count) log.info(`candidates anonymized=${cr.count}`);
       const pr = await remindPauseEnding(db);
       if (pr) log.info(`pause reminders=${pr}`);
+    }
+    // Tin Zalo cá nhân qua ZCRM: kéo bằng API mỗi phút — dự phòng khi webhook không tới được (máy nội bộ)
+    if (Date.now() - lastZcrmPull > 60_000) {
+      lastZcrmPull = Date.now();
+      const kt = await keoTinZcrm(db);
+      if (kt.tin) log.info(`zcrm pulled messages=${kt.tin} conversations=${kt.hoiThoai}`);
     }
     // Lịch hẹn đặt bên Zalo CRM (ZCRM) → lịch hẹn LMS, mỗi 15 phút (chỉ khách đã có hồ sơ)
     if (Date.now() - lastZcrmSync > 15 * 60_000) {

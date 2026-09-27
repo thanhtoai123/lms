@@ -465,10 +465,11 @@ export async function dongBoLichHenZcrm(db: Database, now: Date = new Date()): P
   return { nhan, boQua };
 }
 
-/** Nút "Đồng bộ lịch hẹn ngay" ở Tích hợp — chỉ quản trị hệ thống */
+/** Nút "Đồng bộ ngay" ở Tích hợp — kéo tin mới + lịch hẹn; chỉ quản trị hệ thống */
 export async function dongBoLichHenNgay(ctx: ProtectedContext) {
   if (!authorizeGlobal(ctx.actor, "system:configure")) throw forbid("Chỉ quản trị hệ thống được đồng bộ");
-  const r = await dongBoLichHenZcrm(ctx.db as unknown as Database);
+  const k = await keoTinZcrm(ctx.db as unknown as Database);
+  const r = { ...(await dongBoLichHenZcrm(ctx.db as unknown as Database)), tin: k.tin, hoiThoai: k.hoiThoai };
   await writeAudit(ctx.db, { actorId: ctx.user.id, action: "UPDATE", module: "message", entity: "appointments", entityId: null, after: r, reason: "Đồng bộ lịch hẹn từ Zalo CRM", ip: ctx.ip });
   return r;
 }
@@ -521,4 +522,62 @@ export async function giaoDienZcrm(ctx: ProtectedContext) {
     out.push({ id: acc.id, label: acc.label, url: `${nguon}/`, nguon, nhungDuoc, lyDo });
   }
   return { nguonLms, ds: out };
+}
+
+/* ------------------------------------------------------------------ */
+/* Kéo tin bằng API (khi webhook không tới được)                         */
+/* ------------------------------------------------------------------ */
+
+type ObjZ = Record<string, unknown>;
+const laObjZ = (v: unknown): v is ObjZ => typeof v === "object" && v !== null && !Array.isArray(v);
+
+/**
+ * Kéo tin mới từ ZCRM qua API công khai, mỗi phút (worker).
+ *
+ * Vì sao cần ngoài webhook: ZCRM chỉ bắn webhook tới địa chỉ **https công khai** (chặn localhost và mạng
+ * nội bộ để chống SSRF). Hệ thống chạy trong mạng trung tâm, hoặc máy thử nghiệm, sẽ không bao giờ nhận
+ * được webhook. Kéo tin là đường dự phòng: cùng một bộ xử lý với webhook, chống trùng theo mã tin, nên
+ * có cả hai thì cũng không ghi đôi.
+ *
+ * Chỉ đi qua các hội thoại có tin mới hơn mốc lần trước (`pull_at`); lần đầu lấy 24 giờ gần nhất —
+ * không kéo cả lịch sử cũ của nick về hệ thống.
+ */
+export async function keoTinZcrm(db: Database, now: Date = new Date()): Promise<{ tin: number; hoiThoai: number }> {
+  const d = asDb(db);
+  const ds = await d.select().from(channelAccounts).where(and(eq(channelAccounts.channel, "zalo_ca_nhan"), eq(channelAccounts.active, true)));
+  let tin = 0, hoiThoai = 0;
+  for (const acc of ds) {
+    if (!acc.baseUrl || !acc.apiKey) continue;
+    const json = await goiZcrm(acc, "/api/public/conversations?limit=50");
+    if (!laObjZ(json) || !Array.isArray(json.conversations)) continue;
+    const moc = acc.pullAt ?? new Date(now.getTime() - 86_400_000);
+    let caoNhat = moc;
+    for (const c of json.conversations) {
+      if (!laObjZ(c) || typeof c.id !== "string") continue;
+      const cuoi = new Date(String(c.lastMessageAt ?? ""));
+      if (Number.isNaN(cuoi.getTime()) || cuoi <= moc) continue;
+      if (cuoi > caoNhat) caoNhat = cuoi;
+      if (c.threadType === "group") continue;
+      const mj = await goiZcrm(acc, `/api/public/conversations/${encodeURIComponent(c.id)}/messages?limit=50`);
+      const msgs = laObjZ(mj) && Array.isArray(mj.messages) ? [...mj.messages].reverse() : [];
+      const threadId = typeof c.externalThreadId === "string" ? c.externalThreadId : null;
+      let co = false;
+      for (const m of msgs) {
+        if (!laObjZ(m) || typeof m.id !== "string") continue;
+        const luc = new Date(String(m.sentAt ?? ""));
+        if (Number.isNaN(luc.getTime()) || luc <= moc) continue;
+        const r = await apDungSuKien(db, acc, {
+          event: m.senderType === "self" ? "message.sent" : "message.received",
+          data: {
+            messageId: m.id, conversationId: c.id, senderUid: threadId, threadId, threadType: c.threadType ?? "user",
+            content: m.content ?? "", contentType: m.contentType ?? "text", sentAt: m.sentAt, senderName: m.senderType === "self" ? null : m.senderName,
+          },
+        });
+        if (r.ok && r.status === "processed") { tin++; co = true; }
+      }
+      if (co) hoiThoai++;
+    }
+    await d.update(channelAccounts).set({ pullAt: caoNhat, lastEventAt: now }).where(eq(channelAccounts.id, acc.id));
+  }
+  return { tin, hoiThoai };
 }

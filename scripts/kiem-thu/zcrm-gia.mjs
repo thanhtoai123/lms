@@ -42,6 +42,14 @@ http.createServer((req, res) => {
   if (req.headers["x-api-key"] !== KEY) return json(res, 401, { error: "Invalid API key" });
   if (req.method === "GET" && url.pathname === "/api/public/conversations") return json(res, 200, { conversations: hoiThoai });
   if (req.method === "GET" && url.pathname === "/api/public/appointments") return json(res, 200, { appointments: lichHen });
+  const mm = /^\/api\/public\/conversations\/([^/]+)\/messages$/.exec(url.pathname);
+  if (req.method === "GET" && mm) {
+    // Tin mới nhất đứng đầu (như ZCRM): một tin khách gửi khi webhook không tới được
+    if (decodeURIComponent(mm[1]) !== `conv-${RND}`) return json(res, 200, { messages: [] });
+    return json(res, 200, { messages: [
+      { id: `p1-${RND}`, senderType: "contact", senderName: `Khach ZCRM ${RND}`, content: `Tin keo ve ${RND}`, contentType: "text", sentAt: new Date().toISOString(), attachments: null },
+    ] });
+  }
   if (req.method === "POST" && url.pathname === "/api/public/messages/send") {
     let raw = "";
     req.on("data", (c) => { raw += c; });

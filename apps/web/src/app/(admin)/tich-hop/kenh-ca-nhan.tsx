@@ -34,7 +34,7 @@ export function KenhCaNhanCard({ nicks, goc, canEdit }: { nicks: NickKhaiBao[]; 
     onError: (e) => setMsg({ ok: false, text: e.message }),
   }));
   const dongBo = useMutation(trpc.messaging.syncZcrmAppointments.mutationOptions({
-    onSuccess: (r) => setMsg({ ok: true, text: `Đã đồng bộ ${r.nhan} lịch hẹn · bỏ qua ${r.boQua} (khách chưa có hồ sơ trong hệ thống — không tự tạo lead).` }),
+    onSuccess: (r) => setMsg({ ok: true, text: `Đã kéo ${r.tin} tin mới (${r.hoiThoai} hội thoại) · ${r.nhan} lịch hẹn · bỏ qua ${r.boQua} lịch hẹn của khách chưa có hồ sơ (không tự tạo lead).` }),
     onError: (e) => setMsg({ ok: false, text: e.message }),
   }));
   const tat = useMutation(trpc.messaging.removeChannelAccount.mutationOptions({
@@ -93,7 +93,7 @@ export function KenhCaNhanCard({ nicks, goc, canEdit }: { nicks: NickKhaiBao[]; 
           </button>
           {nicks.some((n) => n.apiKeySet && n.baseUrl) && (
             <button type="button" className="btn-ghost ml-2 !px-2 !py-1 text-xs" disabled={dongBo.isPending} onClick={() => dongBo.mutate()}>
-              {dongBo.isPending ? "Đang đồng bộ…" : "Đồng bộ lịch hẹn ngay"}
+              {dongBo.isPending ? "Đang đồng bộ…" : "Đồng bộ tin + lịch hẹn ngay"}
             </button>
           )}
         </div>
@@ -109,7 +109,8 @@ export function KenhCaNhanCard({ nicks, goc, canEdit }: { nicks: NickKhaiBao[]; 
               Có API thì hệ thống mới lấy được tên khách, SĐT, đồng bộ lịch hẹn và trả lời được.</li>
             <li><b>Mã nick trong ZCRM</b> (zaloAccountId) để trả lời — tự điền khi nick kết nối lại lần đầu, hoặc chép từ ZCRM.
               Tổ chức có nhiều nick thì ZCRM bản hiện tại <b>chưa báo tin thuộc nick nào</b>: chỉ trả lời được qua nick này (xem tài liệu ZALO-KENH-TRINH-CAM mục 8.3).</li>
-            <li>ZCRM <b>chặn webhook tới địa chỉ nội bộ</b> — hệ thống phải có tên miền công khai (https) thì mới nhận được.</li>
+            <li>ZCRM <b>chặn webhook tới địa chỉ nội bộ</b> (chỉ gửi tới https công khai). Không có tên miền công khai thì hệ thống
+              <b>tự kéo tin qua API mỗi phút</b> — chậm hơn webhook tối đa một phút, không mất tin.</li>
           </ol>
           <div className="grid gap-2 sm:grid-cols-2">
             <label>Tên nick (để nhận ra người dùng)

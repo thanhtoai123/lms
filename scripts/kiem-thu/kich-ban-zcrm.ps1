@@ -84,6 +84,13 @@ try {
   $dh = Api "POST" "messaging.syncZcrmAppointments" @{ }
   T "Z10 lich hen cua khach CHUA co ho so: bo qua, khong tu tao lead" ($dh.ok -and $dh.data.boQua -ge 1) ("nhan=" + $dh.data.nhan + " boQua=" + $dh.data.boQua + " " + $dh.err)
 
+  $ct3 = Api "GET" "messaging.conversation" @{ id = $cid }
+  $keo = @($ct3.data.messages | Where-Object { $_.body -eq ("Tin keo ve " + $rnd) }).Count
+  T "Z14 keo tin qua API (khi webhook khong toi duoc): tin moi vao dung hoi thoai, khong trung" (($dh.data.tin -ge 1) -and ($keo -eq 1)) ("keo=" + $dh.data.tin + " trong hoi thoai=" + $keo)
+  $dh2 = Api "POST" "messaging.syncZcrmAppointments" @{ }
+  $ct4 = Api "GET" "messaging.conversation" @{ id = $cid }
+  T "Z15 keo lan hai khong nhan doi tin" (@($ct4.data.messages | Where-Object { $_.body -eq ("Tin keo ve " + $rnd) }).Count -eq 1) ("lan 2 keo=" + $dh2.data.tin)
+
   $emb = Api "GET" "messaging.zcrmEmbed" $null
   $z = @($emb.data.ds) | Where-Object { $_.id -eq $accId } | Select-Object -First 1
   T "Z12 man Zalo CRM phat hien ZCRM dang cam nhung (DENY) va noi ro ly do" (($null -ne $z) -and (-not $z.nhungDuoc) -and ((($z.lyDo) -join " ") -match "DENY")) ("nhungDuoc=" + $z.nhungDuoc)

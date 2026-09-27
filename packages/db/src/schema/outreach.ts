@@ -261,6 +261,8 @@ export const channelAccounts = pgTable("channel_accounts", {
   sentToday: integer("sent_today").notNull().default(0),
   /** Ngày (giờ VN) của bộ đếm sentToday */
   sentDay: date("sent_day"),
+  /** Mốc "đã kéo tin tới đây" khi đồng bộ bằng cách hỏi API (không có webhook — máy nội bộ) */
+  pullAt: timestamp("pull_at", { withTimezone: true }),
   updatedBy: uuid("updated_by").references(() => users.id),
   ...timestamps,
 }, (t) => [
