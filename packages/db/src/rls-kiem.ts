@@ -36,7 +36,7 @@ try {
       console.log("SKIP  chưa có bảng tenants có dữ liệu — chạy 0005 trước");
       throw new HoanTac();
     }
-    const [{ n }] = await tx<{ n: number }[]>`select satarobo_rls_enable() as n`;
+    const n = (await tx<{ n: number }[]>`select satarobo_rls_enable() as n`)[0]?.n ?? 0;
     console.log(`→ bật RLS tạm thời trên ${n} bảng (sẽ hoàn tác)`);
     const a = tenants[0]!;
     const bangCo = (await tx<{ t: string }[]>`select table_name as t from satarobo_rls_tables()`).map((r) => r.t);
