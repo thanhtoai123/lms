@@ -2,6 +2,7 @@ import { readdir, stat, readFile } from "node:fs/promises";
 import path from "node:path";
 import { eq, sql } from "drizzle-orm";
 import { appSettings, type Database } from "@satarobo/db";
+import { scormNguon, mienHocLieuHopLe } from "@satarobo/core";
 import { envChecks, envSummary, backupFreshness, heartbeatState, fmtBytes, requirePermissionCheck } from "./ops-helpers";
 import type { ProtectedContext } from "../trpc";
 import { putObject, getObject, moTaKho } from "../storage";
@@ -113,6 +114,10 @@ export async function opsStatus(ctx: ProtectedContext) {
     // trên nền tảng có đĩa tạm thời là mất TOÀN BỘ tệp đã tải lên sau mỗi lần triển khai,
     // mà không có lỗi nào báo — chỉ đến khi ai đó mở lại một ảnh cũ mới biết.
     { key: "kho", label: "Tệp tải lên nằm trên kho đối tượng (S3 / R2), không phải đĩa máy chủ", ok: khoTep.loai === "s3" || !production },
+    // Gói SCORM là JavaScript do người dùng tải lên: phát cùng miền quản trị là chạy kèm cookie
+    // đăng nhập của người xem (xem core/content/scormNguon.ts)
+    { key: "scorm", label: "Bài giảng SCORM phát trên miền học liệu riêng (SCORM_ORIGIN)", ok: !production || mienHocLieuHopLe(scormNguon(process.env), process.env.NEXT_PUBLIC_APP_URL) },
+    { key: "rls", label: "Lớp RLS của CSDL đang bật (DB_RLS=on, đã chạy pnpm rls-kiem)", ok: !production || ["on", "1", "true"].includes((process.env.DB_RLS ?? "").toLowerCase()) },
     { key: "worker", label: "Worker / cron chạy đều (nhịp ≤ 5 phút)", ok: hb === "ok" },
     { key: "backup", label: "Có bản sao lưu trong 26 giờ gần nhất", ok: bf === "ok" },
     { key: "restore", label: "Đã thử khôi phục bản sao lưu (ghi trong LATEST.json)", ok: !!(backups.latest as { restoreTestedAt?: string } | null)?.restoreTestedAt },
