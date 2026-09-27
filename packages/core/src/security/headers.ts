@@ -148,7 +148,9 @@ export function buildCsp(o: CspOptions = {}): string {
     ["frame-src", ["'self'", "https://www.youtube-nocookie.com", "https://drive.google.com", ...clean(o.extraFrameSrc)]],
     ["media-src", ["'self'", "blob:"]],
     ["manifest-src", ["'self'"]],
-    ["upgrade-insecure-requests", []],
+    // Máy phát triển chạy http: nâng mọi yêu cầu lên https là làm hỏng khung nhúng http (ZCRM ở
+    // http://localhost:3081 bị đổi thành https://… rồi không kết nối được — khung hiện biểu tượng lỗi)
+    ...(o.dev ? [] : ([["upgrade-insecure-requests", []]] as [string, string[]][])),
   ];
   const parts = directives.map(([k, v]) => (v.length ? `${k} ${v.join(" ")}` : k));
   if (o.reportUri) parts.push(`report-uri ${o.reportUri}`);

@@ -89,6 +89,9 @@ test("đường thoát CSP_ALLOW_UNSAFE_INLINE bật lại 'unsafe-inline' khi c
 test("'unsafe-eval' chỉ có ở môi trường phát triển", () => {
   assert.ok(buildCsp({ nonce: generateNonce(), dev: true }).includes("'unsafe-eval'"));
   assert.ok(!buildCsp({ nonce: generateNonce(), dev: false }).includes("'unsafe-eval'"));
+  // Máy phát triển chạy http: không nâng khung nhúng http lên https (làm hỏng khung ZCRM localhost)
+  assert.ok(!buildCsp({ nonce: generateNonce(), dev: true }).includes("upgrade-insecure-requests"));
+  assert.ok(buildCsp({ nonce: generateNonce(), dev: false }).includes("upgrade-insecure-requests"));
 });
 
 test("style-src vẫn nới lỏng (lý do ghi trong tài liệu) nhưng script-src-attr thì khoá chặt", () => {
