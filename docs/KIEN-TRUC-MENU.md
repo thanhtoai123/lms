@@ -386,3 +386,26 @@ KS Kiểm soát · QLCS Quản lý cơ sở · GVụ Giáo vụ · TV/CSKH Tư v
 | 118 | Báo cáo | Doanh thu vs mục tiêu | `/bao-cao/doanh-thu` | Gộp vào Báo cáo | Tổng quan › Báo cáo › chip “Doanh thu vs mục tiêu” | như trên | QT, KT-HS, NS-HS, MKT, ĐT, KS, QLCS, KT |
 | 119 | Báo cáo | Sau go-live | `/bao-cao/sau-go-live` | Chuyển vào Công cụ kỹ thuật | Công cụ kỹ thuật › Go-live › chip “Sau go-live” | Báo cáo tạm thời của đợt chuyển hệ | QT, KT-HS, NS-HS, MKT, ĐT, KS, QLCS, KT |
 | 120 | Báo cáo | Đo pilot chat | `/bao-cao/chat-pilot` | Chuyển vào Công cụ kỹ thuật | Công cụ kỹ thuật › Go-live › chip “Đo pilot chat” | Báo cáo tạm thời của đợt pilot | QT, KT-HS, NS-HS, MKT, ĐT, KS, QLCS, KT |
+
+## Giao diện giáo viên — một khung cho mọi trang giáo viên dùng
+
+Trước: app giáo viên (`/teacher`) có 4 mục *Hôm nay · Lớp của tôi · Chấm công · Quản trị*, nhưng hai mục sau
+(và các liên kết *Chi tiết lớp*, *Viết học bạ*, *Hướng dẫn*) mở trang trong **khung quản trị** — giáo viên bị
+đẩy qua lại giữa hai giao diện; *Viết học bạ* còn dẫn tới màn cần quyền đầy đủ nên báo "Chưa có quyền".
+
+Nay khung được chọn theo **người dùng**, không theo đường dẫn (`(admin)/layout.tsx` + `lib/shell.ts`):
+
+| Người dùng | Khung |
+|---|---|
+| Chỉ vai trò Giáo viên / Trợ giảng | Luôn **TeacherShell** — chấm công, học bạ, bài tập, tài liệu, tin nhắn… đều mở trong giao diện giáo viên |
+| Kiêm nhiệm (có hồ sơ GV + vai trò quản trị) | Vào `/teacher` → chế độ giáo viên (cookie `sr-giao-dien=gv`, chỉ chọn khung, không cấp quyền); menu tài khoản → *Chuyển sang khu quản trị* (`/giao-dien?m=ql`) |
+| Còn lại | AdminShell như cũ |
+
+TeacherShell có 4 mục chính cố định (`packages/core/src/nav/giaoVien.ts`, có kiểm thử):
+**Hôm nay** (`/teacher`) · **Lớp của tôi** (`/teacher/classes`, gồm chi tiết lớp và học bạ lớp) ·
+**Chấm công** (`/cham-cong/lich-ca`) · **Thêm** (`/teacher/them` — mọi mục menu còn lại theo quyền, lấy từ chính
+cây menu đã lọc, bỏ *Dashboard*). Điện thoại: thanh đáy; máy tính bảng / máy tính: mục nằm trên thanh đầu.
+
+Học bạ của giáo viên: `/teacher/classes/<lớp>/hoc-ba` (thẻ từng học viên, chip từng mốc → trang viết học bạ).
+`/tai-khoan` (Hồ sơ tài khoản, mới) và `/bao-mat` nằm trong khung; tài khoản chưa xác thực 2 lớp bắt buộc chỉ thấy
+trang Bảo mật, không khung.
