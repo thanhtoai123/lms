@@ -4,7 +4,6 @@ import { getServerCaller } from "@/lib/trpc/server";
 import { supabaseOn } from "@/lib/auth-session";
 import { MfaPanel } from "./panel";
 import { LoginHistory } from "@/components/login-history";
-import { trangChinh } from "@/lib/account";
 
 export const metadata = { title: "Bảo mật tài khoản", robots: { index: false } };
 export const dynamic = "force-dynamic";
@@ -15,17 +14,13 @@ export default async function SecurityPage() {
   if (!me) redirect("/login?next=/bao-mat");
   const auth = me.auth;
   const pending = !!auth?.mfa.required && !auth.mfa.satisfied;
-  const home = trangChinh(me.assignments.map((a) => a.role));
   const logins = await caller.auth.myLogins().catch(() => ({ items: [], lockedNow: false }));
   return (
-    <main className="mx-auto w-full max-w-2xl space-y-4 px-4 py-5 sm:p-6">
+    <div className="mx-auto w-full max-w-3xl space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-bold">Bảo mật tài khoản</h1>
         {!pending && (
-          <div className="flex flex-wrap gap-x-4">
-            <Link href="/tai-khoan" className="inline-flex min-h-11 items-center text-sm text-brand-600">Hồ sơ tài khoản</Link>
-            <Link href={home.href} className="inline-flex min-h-11 items-center text-sm text-brand-600">← {home.label}</Link>
-          </div>
+          <Link href="/tai-khoan" className="inline-flex min-h-11 items-center text-sm text-brand-600">Hồ sơ tài khoản →</Link>
         )}
       </div>
       <p className="text-sm text-ink-600">{me.user.fullName} · {me.user.email}</p>
@@ -48,6 +43,6 @@ export default async function SecurityPage() {
         {logins.lockedNow && <div className="m-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">Tài khoản đang tạm khoá đăng nhập do nhập sai mật khẩu nhiều lần.</div>}
         <LoginHistory rows={logins.items} />
       </section>
-    </main>
+    </div>
   );
 }

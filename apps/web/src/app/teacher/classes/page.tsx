@@ -43,7 +43,7 @@ export default async function MyClasses() {
                   </span>
                 </li>
               ))}
-              {c.milestones.some((m) => m.state === "due") && <li><Link href="/report-cards" className="inline-flex min-h-11 items-center px-1 text-[14px] font-semibold text-brand-600">Viết học bạ →</Link></li>}
+              {c.milestones.some((m) => m.state === "due") && <li><Link href={`/teacher/classes/${c.id}/hoc-ba`} className="inline-flex min-h-11 items-center px-1 text-[14px] font-semibold text-brand-600">Viết học bạ →</Link></li>}
             </ul>
           )}
 
@@ -63,6 +63,10 @@ export default async function MyClasses() {
               </ul>
             </div>
           ) : <p className="text-[13px] text-green-800">Không có học viên nào cần lưu ý đặc biệt.</p>}
+          <div className="flex flex-wrap gap-x-4 border-t border-black/5 pt-2 text-[14px] font-semibold">
+            <Link href={`/classes/${c.id}`} className="inline-flex min-h-11 items-center text-brand-600">Chi tiết lớp →</Link>
+            <Link href={`/teacher/classes/${c.id}/hoc-ba`} className="inline-flex min-h-11 items-center text-brand-600">Học bạ lớp →</Link>
+          </div>
         </section>
       ))}
       </div>

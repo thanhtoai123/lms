@@ -2,7 +2,6 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { BookOpen, Clock, KeyRound, ShieldCheck, UserRound } from "lucide-react";
 import { getServerCaller } from "@/lib/trpc/server";
-import { trangChinh } from "@/lib/account";
 
 export const metadata = { title: "Hồ sơ tài khoản", robots: { index: false } };
 export const dynamic = "force-dynamic";
@@ -27,16 +26,13 @@ export default async function AccountPage() {
   const { caller } = await getServerCaller();
   const me = await caller.auth.me();
   if (!me) redirect("/login?next=/tai-khoan");
-  if (me.auth?.mfa.required && !me.auth.mfa.satisfied) redirect("/bao-mat");
   const p = await caller.auth.myProfile();
-  const home = trangChinh(me.assignments.map((a) => a.role));
   const initials = p.fullName.split(/\s+/).filter(Boolean).slice(-2).map((w) => w[0]!.toUpperCase()).join("") || "U";
 
   return (
-    <main className="mx-auto w-full max-w-4xl space-y-4 px-4 py-5 sm:px-6 sm:py-8">
+    <div className="mx-auto w-full max-w-4xl space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-bold">Hồ sơ tài khoản</h1>
-        <Link href={home.href} className="inline-flex min-h-11 items-center text-sm text-brand-600">← {home.label}</Link>
       </div>
 
       <section className="card flex flex-col items-start gap-4 p-4 sm:flex-row sm:items-center sm:p-6">
@@ -85,6 +81,6 @@ export default async function AccountPage() {
         </ul>
         <p className="mt-3"><Link href="/logout" prefetch={false} className="inline-flex min-h-11 items-center text-sm text-red-700 underline">Đăng xuất</Link></p>
       </section>
-    </main>
+    </div>
   );
 }

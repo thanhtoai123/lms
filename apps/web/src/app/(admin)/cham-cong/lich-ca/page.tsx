@@ -1,4 +1,4 @@
-import { REQUEST_KIND_VI, LEAVE_TYPE_VI } from "@satarobo/core";
+import { REQUEST_KIND_VI, LEAVE_TYPE_VI, centersWith, type Actor } from "@satarobo/core";
 import { getServerCaller } from "@/lib/trpc/server";
 import { PageHeader } from "@/components/admin-ui";
 import { Empty } from "@/components/ui";
@@ -12,7 +12,9 @@ export const metadata = { title: "Lịch ca & công của tôi" };
 
 export default async function MyShiftsPage({ searchParams }: { searchParams: Promise<{ period?: string }> }) {
   const sp = await searchParams;
-  const { caller } = await getServerCaller();
+  const { caller, ctx } = await getServerCaller();
+  // Chip quản lý chấm công chỉ cho người có quyền xem bảng công; giáo viên / nhân viên chỉ thấy phần "của tôi"
+  const qlCong = !!ctx.actor && (() => { const c = centersWith(ctx.actor as Actor, "timesheet:read"); return c === null || c.length > 0; })();
   const period = /^\d{4}-(0[1-9]|1[0-2])$/.test(sp.period ?? "") ? sp.period : undefined;
   const d = await caller.hr.me({ period });
   if (!d.staff) {
@@ -27,7 +29,7 @@ export default async function MyShiftsPage({ searchParams }: { searchParams: Pro
   return (
     <div className="space-y-4">
       <PageHeader title="Lịch ca & công của tôi" desc={`${d.staff.fullName} · ${d.staff.code} · ${d.staff.title}${d.center ? ` · ${d.center.code}` : ""}`} />
-      <TimesheetTabs active="cua-toi" />
+      {qlCong && <TimesheetTabs active="cua-toi" />}
       <PunchCard
         today={d.today}
         cell={d.todayCell ? { status: d.todayCell.status, shift: d.todayCell.shift, inMin: d.todayCell.inMin, outMin: d.todayCell.outMin, lateMin: d.todayCell.lateMin, openFlags: d.todayCell.openFlags } : null}
@@ -36,7 +38,8 @@ export default async function MyShiftsPage({ searchParams }: { searchParams: Pro
 
       <section className="card p-4">
         <h2 className="mb-2 font-semibold">Lịch ca 2 tuần</h2>
-        <div className="grid grid-cols-7 gap-1 text-xs">
+        <div className="-mx-1 overflow-x-auto px-1 pb-1">
+        <div className="grid min-w-[560px] grid-cols-7 gap-1 text-xs">
           {d.weeks.map((c) => (
             <div key={c.date} className={`rounded-lg border p-1.5 ${c.date === d.today ? "border-brand-400 bg-brand-50" : "border-black/5"}`}>
               <div className="text-ink-400">{wdOf(c.date)} {dmy(c.date).slice(0, 5)}</div>
@@ -45,6 +48,7 @@ export default async function MyShiftsPage({ searchParams }: { searchParams: Pro
               {c.requests.filter((r) => r.kind === "leave" && r.status !== "cancelled").map((r) => <div key={r.id} className="text-sky-700">Nghỉ phép {r.status === "pending" ? "(chờ)" : ""}</div>)}
             </div>
           ))}
+        </div>
         </div>
       </section>
 
@@ -61,7 +65,8 @@ export default async function MyShiftsPage({ searchParams }: { searchParams: Pro
           <div className="rounded-xl bg-black/[0.03] p-2"><div className="text-xs text-ink-400">Đi muộn</div><b>{s.lateCount} lần · {s.lateMin}′</b></div>
           <div className="rounded-xl bg-black/[0.03] p-2"><div className="text-xs text-ink-400">Phép năm còn</div><b>{units(d.leave.remaining)}</b><span className="text-xs text-ink-400"> / {units(d.leave.entitled)}</span></div>
         </div>
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-[480px] text-sm">
           <tbody className="divide-y divide-black/5">
             {d.month.filter((c) => c.shift || c.status !== "off").map((c) => (
               <tr key={c.date}>
@@ -74,6 +79,7 @@ export default async function MyShiftsPage({ searchParams }: { searchParams: Pro
             ))}
           </tbody>
         </table>
+        </div>
       </section>
 
       <RequestForm />
@@ -81,7 +87,8 @@ export default async function MyShiftsPage({ searchParams }: { searchParams: Pro
       <section className="card p-4">
         <h2 className="mb-2 font-semibold">Đơn của tôi</h2>
         {d.requests.length === 0 ? <div className="text-sm text-ink-400">Chưa có đơn.</div> : (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[520px] text-sm">
             <tbody className="divide-y divide-black/5">
               {d.requests.map((r) => (
                 <tr key={r.id}>
@@ -94,6 +101,7 @@ export default async function MyShiftsPage({ searchParams }: { searchParams: Pro
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </section>
     </div>

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { decodeJwtPayload, devActorAllowed } from "@satarobo/core";
 import { getDb } from "@satarobo/db";
 import { recordLogin } from "@satarobo/api";
+import { GIAO_DIEN_COOKIE } from "@/lib/giao-dien";
 import { ACCESS_COOKIE, IDLE_COOKIE, REFRESH_COOKIE, SEEN_COOKIE, clientMeta, revokeSession, supabaseOn } from "@/lib/auth-session";
 
 export async function GET(req: Request) {
@@ -16,6 +17,6 @@ export async function GET(req: Request) {
   const devEmail = devActorAllowed(process.env) && c.get("x-dev-actor")?.value ? decodeURIComponent(c.get("x-dev-actor")!.value) : null;
   const email = (thuHoi ? decodeJwtPayload(access)?.email : null) ?? devEmail;
   if (email) await recordLogin(getDb(), { email, result: idle ? "idle_logout" : "logout", ...clientMeta(await headers()) });
-  for (const n of ["x-dev-actor", ACCESS_COOKIE, REFRESH_COOKIE, SEEN_COOKIE, IDLE_COOKIE]) c.delete(n);
+  for (const n of ["x-dev-actor", ACCESS_COOKIE, REFRESH_COOKIE, SEEN_COOKIE, IDLE_COOKIE, GIAO_DIEN_COOKIE]) c.delete(n);
   redirect(idle ? "/login?error=idle" : "/login");
 }

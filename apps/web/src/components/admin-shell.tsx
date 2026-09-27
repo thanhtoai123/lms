@@ -52,7 +52,7 @@ const NAV_ICON: Record<string, LucideIcon> = {
   "users-round": UsersRound, wallet: Wallet, workflow: Workflow,
 };
 
-function NavIcon({ name }: { name?: string }) {
+export function NavIcon({ name }: { name?: string }) {
   const Icon = name ? NAV_ICON[name] : undefined;
   // Mục chưa khai icon vẫn giữ đúng lề với các mục khác
   if (!Icon) return <span className="h-4 w-4 shrink-0" aria-hidden />;
@@ -89,7 +89,7 @@ function resolvePin(nav: NavGroup[], href: string): { label: string; icon?: stri
  * Dải chip của trang trung tâm (hub): hiện trên mọi trang là một chip của mục menu đang mở.
  * Đọc truy vấn (`?xem=…`) nên tách riêng và bọc Suspense.
  */
-function HubTabs({ item, pathname }: { item: NavItem | undefined; pathname: string }) {
+export function HubTabs({ item, pathname }: { item: NavItem | undefined; pathname: string }) {
   const params = useSearchParams();
   const tabs = item?.tabs ?? [];
   if (!item || tabs.length < 2) return null;
@@ -395,7 +395,7 @@ export function AdminShell({ nav, me, roles, canRunWorker, idleMinutes = null, c
                   {me.isTeacher && (
                     <>
                       <div className="my-1 border-t border-border" />
-                      <Link href="/teacher" onClick={() => setUserOpen(false)} className="flex min-h-10 items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-muted"><BookOpen className="h-4 w-4 text-muted-foreground" aria-hidden />Chuyển sang giao diện giáo viên</Link>
+                      <Link href="/giao-dien?m=gv&next=/teacher" prefetch={false} onClick={() => setUserOpen(false)} className="flex min-h-10 items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-muted"><BookOpen className="h-4 w-4 text-muted-foreground" aria-hidden />Chuyển sang giao diện giáo viên</Link>
                     </>
                   )}
                   <div className="my-1 border-t border-border" />

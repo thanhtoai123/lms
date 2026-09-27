@@ -1,56 +1,43 @@
 import { redirect } from "next/navigation";
-import { cookies, headers } from "next/headers";
-import { normalizeIdle } from "@satarobo/core";
-import { IDLE_COOKIE } from "@/lib/auth-session";
-import { centersWith, filterMenu, pageAllowed, pagePermLabel, hasPermission, hasRole, ROLE_LABEL_VI, STAFF_ROLES, type Actor, type Role } from "@satarobo/core";
-import { getServerCaller } from "@/lib/trpc/server";
-import { ADMIN_NAV } from "@/lib/admin-nav";
+import { hasRole } from "@satarobo/core";
 import { AdminShell } from "@/components/admin-shell";
+import { TeacherShell } from "@/components/teacher-shell";
 import { NoAccess } from "@/components/admin-ui";
-import { PATH_REQUEST_HEADER } from "@/lib/path-header";
+import { loadShell } from "@/lib/shell";
 
 export const dynamic = "force-dynamic";
 
-/** Vai trò chính để hiển thị: ưu tiên vai trò cao nhất theo thứ tự khai báo */
-const PRIORITY = ["SUPER_ADMIN", "AUDITOR", "HO_ACCOUNTANT", "HO_HR", "HO_MARKETING", "HO_SALE", "TRAINING", "CENTER_MANAGER", "CENTER_CLASS_MANAGER", "CENTER_SALES_CSM", "CENTER_ACCOUNTANT", "CENTER_HR", "TEACHER", "ASSISTANT_TEACHER"] as const;
-
+/**
+ * Khung của mọi trang nghiệp vụ. Chọn khung theo NGƯỜI DÙNG, không theo đường dẫn:
+ * - giáo viên / trợ giảng (và người kiêm nhiệm đang ở chế độ giáo viên) → khung giáo viên
+ *   (TeacherShell): chấm công, học bạ, bài tập, tin nhắn… mở ngay trong giao diện giáo viên;
+ * - còn lại → khung quản trị (AdminShell, sidebar đầy đủ).
+ * Menu đã lọc quyền và hàng rào trang dùng chung cho cả hai khung (lib/shell.ts).
+ */
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const { caller, ctx } = await getServerCaller();
-  const me = await caller.auth.me();
-  if (!me || !ctx.actor) redirect("/login?next=/viec-hom-nay");
-  const actor = ctx.actor as Actor;
-  const roles = me.assignments.map((a) => a.role);
-  if (!roles.some((r) => STAFF_ROLES.includes(r))) redirect("/login?error=forbidden");
-  if (me.auth?.mfa.required && !me.auth.mfa.satisfied) redirect("/bao-mat");
+  const s = await loadShell();
+  if (!s) redirect("/login?next=/viec-hom-nay");
+  if (!s.isStaff) redirect("/login?error=forbidden");
+  // Vai trò bắt buộc xác thực 2 lớp mà chưa xác thực: chỉ được ở trang Bảo mật, không khung, không menu
+  if (s.mfaPending) {
+    if (s.path !== "/bao-mat") redirect("/bao-mat");
+    return <div className="admin-scope contents"><main id="main" className="mx-auto w-full max-w-2xl px-4 py-5 sm:p-6">{children}</main></div>;
+  }
+  const body = s.blocked ? <NoAccess title="Chưa có quyền" perm={s.blockedPerm} /> : children;
 
-  const idle = me.auth?.via === "supabase" ? normalizeIdle((await cookies()).get(IDLE_COOKIE)?.value ?? 60) : null;
-  // Lọc theo quyền (hàng rào hiển thị; service vẫn kiểm tra chặt). Mục trung tâm giữ các chip được phép.
-  const can = (p: Parameters<typeof hasPermission>[1]) => hasPermission(actor, p);
-  // Quyền đầy đủ (không tính `_own`) ở ít nhất một cơ sở — cho các mục `strict` của menu
-  const strictCan = (p: Parameters<typeof hasPermission>[1]) => { const c = centersWith(actor, p); return c === null || c.length > 0; };
-  const nav = filterMenu(ADMIN_NAV, can, strictCan);
-  // Hàng rào trang: mở thẳng URL của mục menu đã bị ẩn với vai trò này → báo "chưa có quyền"
-  // thay vì chạy trang (trước đây: trang trống, hoặc lỗi 500 khi truy vấn của trang từ chối).
-  // Chỉ khớp ĐÚNG đường dẫn của mục/chip; trang chi tiết và trang ngoài menu tự kiểm quyền như cũ.
-  const path = (await headers()).get(PATH_REQUEST_HEADER) ?? "";
-  const blocked = path ? pageAllowed(ADMIN_NAV, path, can, strictCan) === false : false;
-  const main = PRIORITY.find((r) => roles.includes(r)) ?? roles[0]!;
-  const isTeacher = await caller.auth.hasTeacherProfile().catch(() => false);
-  const initials = me.user.fullName.split(/\s+/).filter(Boolean).slice(-2).map((w) => w[0]!.toUpperCase()).join("") || "U";
-
-  // `.admin-scope` là lớp bao của bản gốc: nó ghi đè bộ biến màu cho riêng khu
-  // quản trị (tím #610b8a, vòng focus, chữ phụ, mũi tên select) — xem globals.css.
-  // `contents` để lớp bao không xen vào bố cục, chỉ truyền biến CSS xuống dưới.
+  // `.admin-scope` là lớp bao của bản gốc: nó ghi đè bộ biến màu (tím #610b8a, vòng focus, chữ phụ,
+  // mũi tên select) — xem globals.css. `contents` để lớp bao không xen vào bố cục.
+  if (s.teacherMode) {
+    return (
+      <div className="admin-scope contents">
+        <TeacherShell nav={s.nav} me={s.me} canAdmin={!s.teacherOnly} idleMinutes={s.idle}>{body}</TeacherShell>
+      </div>
+    );
+  }
   return (
     <div className="admin-scope contents">
-      <AdminShell
-        nav={nav}
-        me={{ fullName: me.user.fullName, email: me.user.email, roleLabel: ROLE_LABEL_VI[main], initials, isTeacher }}
-        roles={[...new Set<Role>(roles)]}
-        canRunWorker={hasRole(actor, "SUPER_ADMIN", "CENTER_MANAGER")}
-        idleMinutes={idle}
-      >
-        {blocked ? <NoAccess title="Chưa có quyền" perm={pagePermLabel(ADMIN_NAV, path)} /> : children}
+      <AdminShell nav={s.nav} me={s.me} roles={s.roles} canRunWorker={hasRole(s.actor, "SUPER_ADMIN", "CENTER_MANAGER")} idleMinutes={s.idle}>
+        {body}
       </AdminShell>
     </div>
   );

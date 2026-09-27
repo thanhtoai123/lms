@@ -61,7 +61,6 @@ export default async function TeacherToday() {
           <p className="text-ink-600">{WEEKDAY_VI[weekdayOf(data.today)]}, {fmtDate(data.today)}</p>
         </div>
         <div className="mt-1 flex flex-wrap gap-x-4">
-          <Link href="/cham-cong/lich-ca" className="inline-flex min-h-11 items-center text-[14px] font-semibold text-brand-600">Lịch ca & chấm công của tôi →</Link>
           <Link href="/huong-dan" className="inline-flex min-h-11 items-center text-[14px] text-brand-600">Hướng dẫn sử dụng →</Link>
         </div>
       </section>

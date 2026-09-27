@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { hasPermission, type Actor } from "@satarobo/core";
+import { centersWith, hasPermission, type Actor } from "@satarobo/core";
 import { getServerCaller } from "@/lib/trpc/server";
 import { ReportCardChip } from "@/components/admin-ui";
 import { ReportCardEditor } from "./editor";
@@ -15,9 +15,12 @@ export default async function ReportCardPage({ params }: { params: Promise<{ enr
   const { caller, ctx } = await getServerCaller();
   const d = await caller.learning.reportCard({ enrollmentId, milestoneSeq: n });
   const actor = ctx.actor as Actor;
+  const full = centersWith(actor, "report_card:read");
+  const laGv = full !== null && full.length === 0;
   return (
     <div className="max-w-4xl space-y-4">
-      <Link href={`/ho-so-hoc-tap?xem=hoc-ba-moc&class=${d.class.id}`} className="text-sm text-ink-600">← Học bạ mốc lớp {d.class.code}</Link>
+      {/* Giáo viên (chỉ quyền _own) không vào được màn quản lý học bạ mốc → quay về học bạ lớp trong giao diện giáo viên */}
+      <Link href={laGv ? `/teacher/classes/${d.class.id}/hoc-ba` : `/ho-so-hoc-tap?xem=hoc-ba-moc&class=${d.class.id}`} className="text-sm text-ink-600">← Học bạ lớp {d.class.code}</Link>
       <header className="card flex flex-wrap items-start justify-between gap-3 p-5">
         <div>
           <h1 className="text-xl font-bold">{d.enrollment.studentName}</h1>

@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { PATH_REQUEST_HEADER } from "@/lib/path-header";
+import { GIAO_DIEN_COOKIE } from "@/lib/giao-dien";
 import {
   idleExpired,
   devActorAllowed,
@@ -123,6 +124,11 @@ export async function proxy(req: NextRequest) {
   const touch = (res: NextResponse) => {
     // Mỗi lần mở trang = một lần thao tác; ghi tối đa mỗi 30 giây
     if ((access || refresh) && (!seen || now - seen > 30_000)) res.cookies.set(SEEN_COOKIE, String(now), seenCookieOptions());
+    // Mở giao diện giáo viên = chọn khung giáo viên cho các trang nghiệp vụ sau đó (người kiêm nhiệm).
+    // Chỉ chọn khung hiển thị, không cấp quyền — xem lib/giao-dien.ts.
+    if (/^\/teacher(\/|$)/.test(pathname) && req.cookies.get(GIAO_DIEN_COOKIE)?.value !== "gv") {
+      res.cookies.set(GIAO_DIEN_COOKIE, "gv", { httpOnly: true, sameSite: "lax", path: "/", secure: process.env.NODE_ENV === "production", maxAge: 60 * 60 * 24 * 180 });
+    }
     return withSecurity(res, nonce);
   };
 

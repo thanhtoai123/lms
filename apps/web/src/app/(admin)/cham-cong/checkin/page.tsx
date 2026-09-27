@@ -13,7 +13,7 @@ export default async function CheckinPage({ searchParams }: { searchParams: Prom
       <PageHeader
         title="Chấm công"
         desc="Cần quét mã QR tại quầy. Mở từ menu thì không chấm được — dùng camera điện thoại quét mã dán tại quầy (hoặc chiếu trên màn hình quầy) của cơ sở."
-        actions={<Link href="/cham-cong/lich-ca" className="btn-ghost">Về lịch ca của tôi</Link>}
+        actions={<Link href="/cham-cong/lich-ca" className="btn-ghost">Về lịch ca &amp; công của tôi</Link>}
       />
       {!token ? (
         <div className="card p-6 text-sm">
