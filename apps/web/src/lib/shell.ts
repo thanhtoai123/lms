@@ -44,7 +44,7 @@ export async function loadShell() {
 
   return {
     caller, actor, roles, isStaff, mfaPending, idle, nav, path, blocked,
-    blockedPerm: blocked ? pagePermLabel(ADMIN_NAV, path) : undefined,
+    blockedPerm: (blocked ? pagePermLabel(ADMIN_NAV, path) : null) ?? "",
     teacherOnly, isTeacher, teacherMode,
     me: { fullName: me.user.fullName, email: me.user.email, roleLabel: ROLE_LABEL_VI[main], initials, isTeacher },
   };
