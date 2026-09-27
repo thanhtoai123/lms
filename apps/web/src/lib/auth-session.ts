@@ -2,7 +2,7 @@
  * Phiên đăng nhập nhân sự (Supabase): cookie access token (ngắn hạn) + refresh token (30 ngày), tự làm mới.
  * Dùng được trong proxy.ts, route handler và server action.
  */
-import { tokenNeedsRefresh } from "@satarobo/core";
+import { tokenNeedsRefresh, ipTuHeader } from "@satarobo/core";
 
 export const ACCESS_COOKIE = "sb-access-token";
 export const REFRESH_COOKIE = "sb-refresh-token";
@@ -18,7 +18,7 @@ export function seenCookieOptions() {
 export const hasStaffSession = (get: (n: string) => string | undefined) => !!(get(ACCESS_COOKIE) || get(REFRESH_COOKIE));
 
 export function clientMeta(h: Headers) {
-  return { ip: h.get("x-forwarded-for")?.split(",")[0]?.trim() ?? h.get("x-real-ip") ?? null, userAgent: h.get("user-agent") };
+  return { ip: ipTuHeader(h, process.env), userAgent: h.get("user-agent") };
 }
 
 export interface SupaSession { access_token: string; refresh_token: string; expires_in: number }
@@ -56,8 +56,10 @@ export async function refreshSession(refreshToken: string): Promise<SupaSession 
   return j?.access_token && j.refresh_token ? j : null;
 }
 
-export async function revokeSession(accessToken: string) {
-  await authFetch("logout?scope=local", { method: "POST", token: accessToken });
+/** Thu hồi phiên ở Supabase. `true` khi Supabase CHẤP NHẬN token (tức token là thật). */
+export async function revokeSession(accessToken: string): Promise<boolean> {
+  const r = await authFetch("logout?scope=local", { method: "POST", token: accessToken });
+  return !!r && r.ok;
 }
 
 export function needsRefresh(access: string | undefined, refresh: string | undefined): boolean {

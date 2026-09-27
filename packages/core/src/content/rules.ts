@@ -272,6 +272,8 @@ export function validateSubmission(x: { type: SubmissionType; text?: string | nu
   if (x.type === "offline") e.push("Bài này nộp trực tiếp tại lớp");
   if (x.type === "text" && (x.text ?? "").trim().length < 2) e.push("Nhập câu trả lời");
   if (x.type === "link" && !/^https?:\/\/[^\s]+$/i.test(x.link ?? "")) e.push("Nhập đường link hợp lệ (http/https)");
+  // Link đi kèm bài nộp loại khác cũng hiện thành liên kết bấm được ở màn chấm bài — phải cùng luật
+  else if (x.type !== "link" && (x.link ?? "").trim() && !/^https?:\/\/[^\s]+$/i.test((x.link ?? "").trim())) e.push("Đường link đính kèm phải là http/https");
   if (x.type === "file" && x.files.length === 0) e.push("Chọn ít nhất 1 ảnh / tệp");
   if (x.files.length > SUBMISSION_MAX_FILES) e.push(`Tối đa ${SUBMISSION_MAX_FILES} tệp`);
   if (x.files.some((f) => !(SUBMISSION_MIME as readonly string[]).includes(f.mime))) e.push("Chỉ nhận ảnh JPG / PNG / WEBP hoặc PDF");

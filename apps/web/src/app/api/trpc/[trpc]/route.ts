@@ -1,6 +1,6 @@
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { appRouter, createContext } from "@satarobo/api";
-import { idleExpired, devActorAllowed, DEV_ACTOR_HEADER } from "@satarobo/core";
+import { idleExpired, devActorAllowed, DEV_ACTOR_HEADER, scormNguon, dungMienHocLieu, ipTuHeader } from "@satarobo/core";
 import { ACCESS_COOKIE, IDLE_COOKIE, REFRESH_COOKIE, SEEN_COOKIE, cookieOptions, needsRefresh, refreshSession, supabaseOn } from "@/lib/auth-session";
 import { webLogger } from "@/lib/logger";
 
@@ -27,6 +27,9 @@ const serialize = (name: string, value: string, o: ReturnType<typeof cookieOptio
 
 const handler = async (req: Request) => {
   if (crossSite(req)) return Response.json({ error: { message: "Yêu cầu từ trang khác bị chặn" } }, { status: 403 });
+  // Miền học liệu SCORM không phục vụ API (xem core/content/scormNguon.ts)
+  const nguon = scormNguon(process.env);
+  if (nguon && dungMienHocLieu(nguon, req.headers.get("x-forwarded-host") ?? req.headers.get("host"))) return new Response("Không tìm thấy", { status: 404 });
   const cookie = req.headers.get("cookie") ?? "";
   let access = readCookie(cookie, ACCESS_COOKIE);
   let refresh = readCookie(cookie, REFRESH_COOKIE);
@@ -55,7 +58,7 @@ const handler = async (req: Request) => {
       const dev = devActorAllowed(process.env) ? readCookie(cookie, DEV_ACTOR_HEADER) : undefined;
       if (dev) h.set(DEV_ACTOR_HEADER, dev);
       if (access && !h.get("authorization")) h.set("authorization", `Bearer ${access}`);
-      return createContext({ headers: h, ip: req.headers.get("x-forwarded-for") ?? undefined });
+      return createContext({ headers: h, ip: ipTuHeader(req.headers, process.env) });
     },
     responseMeta() {
       if (!setCookies.length) return {};

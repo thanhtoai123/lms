@@ -8,8 +8,7 @@ import {
 import {
   normalizeVnPhone, maskPhone, transferMemo, vietQrImageUrl, CONSENT_PURPOSES, CONSENT_PURPOSE_VI, CONSENT_TEXT_VERSION, ATTENDANCE_STATUS_VI,
   phienNgungHan, conLaiTruocNgung, tenThietBi, PH_NGUNG_NGAY,
-  type ConsentPurpose, type AttendanceStatus,
-} from "@satarobo/core";
+  type ConsentPurpose, type AttendanceStatus,, duongNoiBo } from "@satarobo/core";
 import type { ProtectedContext } from "../trpc";
 import { requestOtp, verifyOtp } from "./admin";
 import { verifyActivationCode } from "./parentAccounts";
@@ -240,7 +239,7 @@ export async function portalNotifications(db: Database, parentId: string, markRe
   const rows = await d.select({ id: parentNotifications.id, title: parentNotifications.title, body: parentNotifications.body, link: parentNotifications.link, createdAt: parentNotifications.createdAt, readAt: parentNotifications.readAt })
     .from(parentNotifications).where(and(eq(parentNotifications.parentId, parentId), eq(parentNotifications.channel, "in_app"), isNull(parentNotifications.hiddenAt))).orderBy(desc(parentNotifications.createdAt)).limit(100);
   if (markRead) await d.update(parentNotifications).set({ readAt: new Date(), status: "read" }).where(and(eq(parentNotifications.parentId, parentId), eq(parentNotifications.channel, "in_app"), isNull(parentNotifications.readAt), isNull(parentNotifications.hiddenAt), sql`${parentNotifications.template} <> 'MESSAGE_NEW'`));
-  return rows.map((r) => ({ ...r, link: r.link && r.link.startsWith("/") && !r.link.startsWith("//") ? r.link : null }));
+  return rows.map((r) => ({ ...r, link: duongNoiBo(r.link) }));
 }
 
 export async function portalConsents(db: Database, parentId: string) {

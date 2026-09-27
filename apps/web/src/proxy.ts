@@ -10,6 +10,8 @@ import {
   generateNonce,
   securityHeaderOptions,
   securityHeaders,
+  scormNguon,
+  dungMienHocLieu,
 } from "@satarobo/core";
 import { ACCESS_COOKIE, IDLE_COOKIE, REFRESH_COOKIE, SEEN_COOKIE, cookieOptions, needsRefresh, refreshSession, seenCookieOptions, supabaseOn } from "@/lib/auth-session";
 
@@ -22,6 +24,11 @@ import { ACCESS_COOKIE, IDLE_COOKIE, REFRESH_COOKIE, SEEN_COOKIE, cookieOptions,
  * theo từng yêu cầu** nên không đặt tĩnh trong `next.config.ts` được.
  */
 const PUBLIC = [/^\/login(\/|$)/, /^\/quen-mat-khau(\/|$)/, /^\/dat-mat-khau(\/|$)/, /^\/ks(\/|$)/, /^\/pdg(\/|$)/, /^\/hs(\/|$)/, /^\/cn(\/|$)/, /^\/in-ho-so(\/|$)/, /^\/bt(\/|$)/, /^\/tin-tuc(\/|$)/, /^\/gioi-thieu(\/|$)/, /^\/logout(\/|$)/, /^\/dang-ky(\/|$)/, /^\/tuyen-dung(\/|$)/, /^\/tn(\/|$)/, /^\/ph(\/|$)/, /^\/tra-cuu-hoa-don(\/|$)/, /^\/api\//, /^\/_next\//, /^\/manifest\.webmanifest$/, /^\/favicon/, /\.(?:png|jpg|jpeg|svg|ico|webp|txt|xml)$/];
+
+function laMienHocLieu(req: NextRequest) {
+  const nguon = scormNguon({ SCORM_ORIGIN: process.env.SCORM_ORIGIN });
+  return !!nguon && dungMienHocLieu(nguon, req.headers.get("x-forwarded-host") ?? req.headers.get("host"));
+}
 
 function toLogin(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
@@ -47,6 +54,7 @@ const cspEnv = () => ({
   CSP_CONNECT_SRC_EXTRA: process.env.CSP_CONNECT_SRC_EXTRA,
   CSP_IMG_SRC_EXTRA: process.env.CSP_IMG_SRC_EXTRA,
   CSP_FRAME_SRC_EXTRA: process.env.CSP_FRAME_SRC_EXTRA,
+  SCORM_ORIGIN: process.env.SCORM_ORIGIN,
   CSP_STYLE_SRC_EXTRA: process.env.CSP_STYLE_SRC_EXTRA,
   CSP_FRAME_ANCESTORS: process.env.CSP_FRAME_ANCESTORS,
   CSP_REPORT_URI: process.env.CSP_REPORT_URI,
@@ -92,6 +100,10 @@ export async function proxy(req: NextRequest) {
   };
   const pass = () => NextResponse.next({ request: { headers: requestHeaders() } });
 
+  // Miền học liệu SCORM chỉ phát bài giảng (/api/content/scorm/…, không qua proxy này).
+  // Mọi trang khác trên miền đó — nhất là /login — bị chặn: đăng nhập được trên miền học liệu
+  // là JavaScript của gói lại chạy kèm cookie phiên, mất tác dụng cách ly.
+  if (laMienHocLieu(req)) return withSecurity(new NextResponse("Không tìm thấy", { status: 404 }), nonce);
   if (PUBLIC.some((r) => r.test(pathname))) return withSecurity(pass(), nonce);
   const access = req.cookies.get(ACCESS_COOKIE)?.value;
   const refresh = req.cookies.get(REFRESH_COOKIE)?.value;

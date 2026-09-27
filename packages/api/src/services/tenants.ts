@@ -113,6 +113,12 @@ export function canEditSettings(ctx: ProtectedContext, tenantId: string): boolea
   return ctx.tenantId === tenantId && ctx.actor.assignments.some((a) => a.role === "SUPER_ADMIN" && a.centerId === null);
 }
 
+/** Hội sở chuỗi: quản trị tối cao cấp chuỗi thuộc trung tâm loại OWNED */
+export function canChangeStatus(ctx: ProtectedContext): boolean {
+  const mine = ctx.tenants.find((t) => t.id === ctx.tenantId);
+  return mine?.type === "OWNED" && ctx.actor.assignments.some((a) => a.role === "SUPER_ADMIN" && a.centerId === null);
+}
+
 export async function updateSettings(
   ctx: ProtectedContext,
   input: { tenantId: string } & Partial<TenantSettings> & { status?: TenantStatus; reason: string },
@@ -122,7 +128,15 @@ export async function updateSettings(
   const reason = reasonOf(input.reason, 5);
   const cur = ctx.tenants.find((t) => t.id === input.tenantId);
   if (!cur) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy trung tâm" });
-  if (!canEditSettings(ctx, input.tenantId)) {
+  const doiTuyChon = (["hoSeesPii", "hoSeesFinanceDetail", "allowCrossCenterTransfer", "dataRetentionYears"] as const).some((k) => input[k] !== undefined);
+  // Trạng thái (tạm ngừng / đóng / mở lại) là quyết định của HỘI SỞ, không phải của chính trung tâm:
+  // trước đây trạng thái đi chung cổng với tuỳ chọn riêng tư, nên trung tâm nhượng quyền tự "mở lại"
+  // được sau khi bị tạm ngừng, còn Hội sở thì không tạm ngừng được ai.
+  if (!doiTuyChon && input.status === undefined) throw bad("Không có gì để đổi");
+  if (input.status !== undefined && !canChangeStatus(ctx)) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "Chỉ quản trị tối cao của Hội sở chuỗi mới đổi được trạng thái trung tâm" });
+  }
+  if (doiTuyChon && !canEditSettings(ctx, input.tenantId)) {
     throw new TRPCError({
       code: "FORBIDDEN",
       message: "Chỉ quản trị của chính trung tâm đó mới đổi được tuỳ chọn quyền riêng tư — Hội sở chuỗi không tự mở quyền xem dữ liệu",

@@ -13,7 +13,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { TRPCError } from "@trpc/server";
 import { channelAccounts, conversations, type Database } from "@satarobo/db";
-import { authorizeGlobal, docSuKienZcrm, duDeGhiTin, nickImLang, HAN_MUC_NICK_NGAY, type SuKienKenh } from "@satarobo/core";
+import { authorizeGlobal, docSuKienZcrm, duDeGhiTin, nickImLang, HAN_MUC_NICK_NGAY, type SuKienKenh, loiUrlCongNoi } from "@satarobo/core";
 import type { ProtectedContext } from "../trpc";
 import { sealWith, openWith } from "./pii";
 import { writeAudit } from "./audit";
@@ -68,7 +68,8 @@ export async function luuTaiKhoanKenh(ctx: ProtectedContext, input: {
   // Không gửi trường nào thì GIỮ NGUYÊN trường đó (sửa mỗi trần tin/ngày không được xoá mất địa chỉ API),
   // gửi chuỗi rỗng mới là cố ý xoá.
   const baseUrl = input.baseUrl === undefined ? (cu?.baseUrl ?? null) : (input.baseUrl?.trim() || null);
-  if (baseUrl && !/^https?:\/\/[^\s]+$/i.test(baseUrl)) throw new TRPCError({ code: "BAD_REQUEST", message: "Địa chỉ API không hợp lệ" });
+  const loiUrl = baseUrl ? loiUrlCongNoi(baseUrl) : null;
+  if (loiUrl) throw new TRPCError({ code: "BAD_REQUEST", message: loiUrl });
   const slug = cu?.slug ?? `${slugHoa(label) || "nick"}-${Math.random().toString(36).slice(2, 6)}`;
   const giaTri = {
     channel: input.channel, label, slug, centerId: input.centerId ?? cu?.centerId ?? null,
@@ -314,8 +315,12 @@ export async function guiQuaKenh(db: Database, input: { channelAccountId: string
   };
 
   try {
+    // Kiểm lại lúc GỬI (dòng cũ lưu trước khi có luật) và không theo chuyển hướng
+    const loiGui = loiUrlCongNoi(baseUrl);
+    if (loiGui) return await hoanLai(loiGui);
     const r = await fetch(`${baseUrl}/api/public/messages/send`, {
       method: "POST",
+      redirect: "error",
       headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
       body: JSON.stringify(thanGuiTin(input.nguoiId, input.body)),
       signal: AbortSignal.timeout(15_000),

@@ -2,15 +2,23 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { SCORM_STATUS_VI } from "@satarobo/core";
+import { SCORM_STATUS_VI, docTinScorm } from "@satarobo/core";
 import { useTRPC } from "@/lib/trpc/client";
 
 type Launch = { title: string; version: number; scormVersion: "1.2" | "2004"; launchUrl: string; learner: { id: string; name: string }; state: { status: string; location: string | null; suspendData: string | null; entry: string; score: number | null } };
 type W = Window & { API?: unknown; API_1484_11?: unknown };
 
 /**
- * Trình chạy SCORM: cung cấp đối tượng API (1.2) / API_1484_11 (2004) cho gói trong iframe cùng nguồn,
+ * Trình chạy SCORM: cung cấp đối tượng API (1.2) / API_1484_11 (2004) cho gói trong iframe,
  * lưu dữ liệu CMI định kỳ (30 giây), khi Commit và khi Terminate.
+ *
+ * Hai chế độ:
+ * - CÙNG MIỀN (máy phát triển): gói tìm `window.parent.API` như SCORM chuẩn.
+ * - MIỀN HỌC LIỆU RIÊNG (`SCORM_ORIGIN`, bắt buộc khi chạy thật): gói không chạm được vào trang
+ *   này. Dữ liệu ban đầu đi vào qua tên khung (`window.name`), thay đổi đi ra qua `postMessage` —
+ *   cầu nối do máy chủ nhúng vào gói (core/content/scormNguon.ts). Tin nhận về là dữ liệu KHÔNG tin
+ *   cậy: chỉ nhận từ đúng miền + đúng khung, và qua `docTinScorm` (giới hạn khoá, dung lượng, bỏ
+ *   khoá định danh người học).
  */
 export function ScormPlayer({ id, fill = false }: { id: string; fill?: boolean }) {
   const trpc = useTRPC();
@@ -21,6 +29,8 @@ export function ScormPlayer({ id, fill = false }: { id: string; fill?: boolean }
   const cmi = useRef<Record<string, string>>({});
   const dirty = useRef(false);
   const lastError = useRef("0");
+  const frame = useRef<HTMLIFrameElement>(null);
+  const [frameName, setFrameName] = useState<string | undefined>(undefined);
   const start = useMutation(trpc.content.scormLaunch.mutationOptions({ onSuccess: (r) => setLaunch(r as Launch) }));
   const commit = useMutation(trpc.content.scormCommit.mutationOptions({ onSuccess: (r) => { setStatus(r.status); setSaved(new Date()); } }));
   const commitRef = useRef(commit.mutate);
@@ -57,13 +67,30 @@ export function ScormPlayer({ id, fill = false }: { id: string; fill?: boolean }
       GetLastError: () => lastError.current, GetErrorString: errStr, GetDiagnostic: errStr,
     };
     const w = window as W;
-    if (v12) w.API = api12; else w.API_1484_11 = api04;
+    const nguonGoi = (() => { try { return new URL(launch.launchUrl, window.location.href).origin; } catch { return window.location.origin; } })();
+    const khacMien = nguonGoi !== window.location.origin;
+    const onMsg = (e: MessageEvent) => {
+      if (!khacMien || e.origin !== nguonGoi || e.source !== frame.current?.contentWindow) return;
+      const tin = docTinScorm(e.data);
+      if (!tin) return;
+      const id0 = Object.fromEntries(Object.entries(cmi.current).filter(([k]) => /student_(id|name)|learner_(id|name)/.test(k)));
+      cmi.current = { ...cmi.current, ...tin.cmi, ...id0 };
+      dirty.current = true;
+      if (tin.op === "commit") save(false);
+      if (tin.op === "finish" && !terminated) { terminated = true; save(true); }
+    };
+    if (khacMien) {
+      // Gói ở miền khác: dữ liệu ban đầu đi vào bằng tên khung — cầu nối trong gói đọc window.name
+      setFrameName(JSON.stringify({ sr: 1, cmi: init }));
+      window.addEventListener("message", onMsg);
+    } else if (v12) w.API = api12; else w.API_1484_11 = api04;
     setReady(true);
     const timer = setInterval(() => { if (dirty.current) save(false); }, 30_000);
     const onHide = () => { if (document.visibilityState === "hidden" && dirty.current) save(false); };
     document.addEventListener("visibilitychange", onHide);
     return () => {
       clearInterval(timer);
+      window.removeEventListener("message", onMsg);
       document.removeEventListener("visibilitychange", onHide);
       if (!terminated && dirty.current) save(true);
       delete w.API;
@@ -89,6 +116,8 @@ export function ScormPlayer({ id, fill = false }: { id: string; fill?: boolean }
       )}
       {ready && (
         <iframe
+          ref={frame}
+          name={frameName}
           src={launch.launchUrl}
           title={launch.title}
           className={fill ? "h-full w-full border-0 bg-white" : "h-[75vh] w-full rounded-xl border border-black/10 bg-white"}

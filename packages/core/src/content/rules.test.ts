@@ -88,6 +88,10 @@ test("bài tập: tạo, nộp, chấm", () => {
   assert.ok(validateSubmission({ type: "file", files: [{ mime: "application/zip", size: 100 }] }).length);
   assert.ok(validateSubmission({ type: "link", link: "scratch", files: [] }).length);
   assert.deepEqual(validateSubmission({ type: "link", link: "https://scratch.mit.edu/projects/1", files: [] }), []);
+  // Link đính kèm bài nộp loại khác cũng phải là http/https (hiện thành liên kết ở màn chấm bài)
+  assert.ok(validateSubmission({ type: "text", text: "bài làm", link: "javascript:alert(1)", files: [] }).length);
+  assert.ok(validateSubmission({ type: "file", link: "//evil.example", files: [{ mime: "image/png", size: 1 }] }).length);
+  assert.deepEqual(validateSubmission({ type: "text", text: "bài làm", link: "https://scratch.mit.edu/projects/1", files: [] }), []);
   assert.ok(validateSubmission({ type: "offline", files: [] }).length);
   const st = assignmentStats([
     { status: "graded", score: 9, late: false }, { status: "graded", score: 6, late: true }, { status: "submitted", score: null, late: false },

@@ -1,23 +1,13 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@satarobo/db";
 import { createLead, mapPublicLeadBody, logWebhook, recordTrack } from "@satarobo/api";
-import { clientSafeMessage } from "@satarobo/core";
+import { clientSafeMessage, ipTuHeader } from "@satarobo/core";
+import { sharedRateLimited } from "@/lib/route-ctx";
 
 /**
  * POST /api/public/leads — endpoint cho form "Đặt buổi học thử" trên website / landing page / Zalo Mini App.
- * Bảo vệ: honeypot field `website`, rate-limit theo IP (in-memory; production dùng Upstash), CORS chỉ domain cho phép.
+ * Bảo vệ: honeypot field `website`, rate-limit theo IP dùng chung mọi bản sao (bảng rate_limits), CORS chỉ domain cho phép.
  */
-const WINDOW_MS = 10 * 60_000;
-const MAX_PER_WINDOW = 5;
-const hits = new Map<string, number[]>();
-function limited(ip: string) {
-  const now = Date.now();
-  const arr = (hits.get(ip) ?? []).filter((t) => now - t < WINDOW_MS);
-  if (arr.length >= MAX_PER_WINDOW) return true;
-  arr.push(now);
-  hits.set(ip, arr);
-  return false;
-}
 
 const ALLOWED_ORIGINS = (process.env.PUBLIC_FORM_ORIGINS ?? "https://satarobo.vn,http://localhost:3000").split(",").map((s) => s.trim());
 
@@ -32,8 +22,8 @@ export async function OPTIONS(req: Request) {
 
 export async function POST(req: Request) {
   const headers = cors(req.headers.get("origin"));
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-  if (limited(ip)) return NextResponse.json({ ok: false, error: "Bạn gửi quá nhiều lần, vui lòng thử lại sau." }, { status: 429, headers });
+  const ip = ipTuHeader(req.headers, process.env);
+  if (await sharedRateLimited("publicLeadIp", "ip", ip)) return NextResponse.json({ ok: false, error: "Bạn gửi quá nhiều lần, vui lòng thử lại sau." }, { status: 429, headers });
 
   let body: Record<string, unknown>;
   try {

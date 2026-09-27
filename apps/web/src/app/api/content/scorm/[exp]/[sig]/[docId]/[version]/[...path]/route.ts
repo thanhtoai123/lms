@@ -1,5 +1,5 @@
 import { getObject, verifyScormSignature } from "@satarobo/api";
-import { SCORM_CONTENT_TYPES, NONCE_REQUEST_HEADER, fileExt, normalizeZipPath } from "@satarobo/core";
+import { SCORM_CONTENT_TYPES, NONCE_REQUEST_HEADER, fileExt, normalizeZipPath, scormNguon, dungMienHocLieu, nonceAnToan, scriptCauNoiScorm, chenCauNoi } from "@satarobo/core";
 
 type P = { exp: string; sig: string; docId: string; version: string; path: string[] };
 
@@ -10,6 +10,12 @@ export async function GET(req: Request, { params }: { params: Promise<P> }) {
   if (!/^[0-9a-f-]{36}$/.test(p.docId) || !Number.isInteger(version) || !verifyScormSignature(p.docId, version, Number(p.exp), p.sig)) {
     return new Response("Phiên học đã hết hạn — mở lại bài giảng", { status: 403 });
   }
+  // Miền học liệu riêng: gói chỉ được phát trên miền đó. Phát trên miền quản trị là để JavaScript
+  // của gói chạy kèm cookie đăng nhập của người xem (xem core/content/scormNguon.ts).
+  const nguon = scormNguon(process.env);
+  if (nguon && !dungMienHocLieu(nguon, req.headers.get("x-forwarded-host") ?? req.headers.get("host"))) {
+    return new Response("Bài giảng chỉ mở trên miền học liệu", { status: 403 });
+  }
   const rel = normalizeZipPath(p.path.map((s) => decodeURIComponent(s)).join("/"));
   if (!rel) return new Response("Đường dẫn không hợp lệ", { status: 400 });
   const body = await getObject(`scorm/${p.docId}/v${version}/${rel}`);
@@ -19,16 +25,33 @@ export async function GET(req: Request, { params }: { params: Promise<P> }) {
   // nên rào chuột phải / kéo–thả / chọn–chép phải cắm thẳng vào trang đó. Chữ mờ và nhật ký vẫn do
   // khung ngoài lo (xem app/(admin)/scorm/buoi/[lessonId]/viewer.tsx).
   // nonce do proxy gắn cho chính yêu cầu này — script chèn thêm phải mang nonce, nếu không CSP chặn
-  const out = type.startsWith("text/html") ? injectGuard(body.toString("utf8"), req.headers.get(NONCE_REQUEST_HEADER)) : new Uint8Array(body);
-  return new Response(out, {
-    headers: {
-      "Content-Type": type,
-      "Cache-Control": "private, no-store",
-      "X-Content-Type-Options": "nosniff",
-      "X-Frame-Options": "SAMEORIGIN",
-      "Referrer-Policy": "no-referrer",
-    },
-  });
+  const nonce = nonceAnToan(req.headers.get(NONCE_REQUEST_HEADER));
+  const appOrigin = khungNgoai();
+  let out: string | Uint8Array = new Uint8Array(body);
+  if (type.startsWith("text/html")) {
+    let html = injectGuard(body.toString("utf8"), nonce);
+    // Miền riêng: cầu nối API SCORM (window.name vào, postMessage ra) thay cho window.parent.API
+    if (nguon && appOrigin) html = chenCauNoi(html, scriptCauNoiScorm(appOrigin, nonce));
+    out = html;
+  }
+  const headers: Record<string, string> = {
+    "Content-Type": type,
+    "Cache-Control": "private, no-store",
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "no-referrer",
+  };
+  // Cùng miền: chỉ cho khung cùng nguồn. Miền riêng: chỉ trang quản trị được nhúng bài giảng.
+  if (nguon && appOrigin) headers["Content-Security-Policy"] = `frame-ancestors ${appOrigin}`;
+  else headers["X-Frame-Options"] = "SAMEORIGIN";
+  return new Response(out, { headers });
+}
+
+function khungNgoai(): string | null {
+  try {
+    return new URL(process.env.NEXT_PUBLIC_APP_URL ?? "").origin;
+  } catch {
+    return null;
+  }
 }
 
 /** Rào sao chép cắm vào mỗi trang HTML của gói SCORM (không đụng tới nội dung bài giảng) */

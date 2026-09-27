@@ -1,3 +1,4 @@
+import { ipTuHeader } from "@satarobo/core";
 import { getDb } from "@satarobo/db";
 import { publicJob, applyToJob, logWebhook, CV_MAX_BYTES } from "@satarobo/api";
 import { publicCors } from "@/lib/public-cors";
@@ -14,7 +15,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
 export async function POST(req: Request, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const headers = publicCors(req.headers.get("origin"), "GET, POST, OPTIONS");
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "?";
+  const ip = ipTuHeader(req.headers, process.env);
   if (!/^[a-z0-9-]{3,100}$/.test(slug)) return Response.json({ ok: false, error: "Không tìm thấy" }, { status: 404, headers });
   if (rateLimited(`job|${ip}`, 5, 10 * 60_000)) return Response.json({ ok: false, error: "Gửi quá nhiều lần, thử lại sau" }, { status: 429, headers });
   if (Number(req.headers.get("content-length") ?? 0) > CV_MAX_BYTES + 200_000) return Response.json({ ok: false, error: "CV tối đa 5MB" }, { status: 413, headers });

@@ -1,6 +1,6 @@
 import { createContext, checkRateLimit, rateKey, tooManyMessage } from "@satarobo/api";
 import { getDb } from "@satarobo/db";
-import { devActorAllowed, DEV_ACTOR_HEADER, MemoryRateLimiter, type RateLimitName } from "@satarobo/core";
+import { devActorAllowed, DEV_ACTOR_HEADER, MemoryRateLimiter, scormNguon, dungMienHocLieu, ipTuHeader, type RateLimitName } from "@satarobo/core";
 
 type RateKeyKind = Parameters<typeof rateKey>[1];
 
@@ -19,8 +19,15 @@ export async function routeContext(req: Request) {
   if (dev) h.set(DEV_ACTOR_HEADER, dev);
   const sb = readCookie(cookie, "sb-access-token");
   if (sb && !h.get("authorization")) h.set("authorization", `Bearer ${sb}`);
-  const ctx = await createContext({ headers: h, ip: req.headers.get("x-forwarded-for") ?? undefined });
+  // Miền học liệu SCORM không bao giờ có phiên quản trị (xem core/content/scormNguon.ts)
+  const nguon = scormNguon(process.env);
+  if (nguon && dungMienHocLieu(nguon, req.headers.get("x-forwarded-host") ?? req.headers.get("host"))) return null;
+  const ctx = await createContext({ headers: h, ip: ipTuHeader(req.headers, process.env) });
   if (!ctx.actor || !ctx.user) return null;
+  // Cùng luật với tRPC (`protectedProcedure`): tài khoản bắt buộc 2 lớp mà chưa xác thực lớp 2 thì
+  // KHÔNG được tải lên / tải xuống qua route handler. Trước đây chỉ tRPC kiểm, nên một mật khẩu bị
+  // lộ vẫn đủ để tải gói học liệu hay tải tệp giáo án.
+  if (ctx.auth?.mfa.required && !ctx.auth.mfa.satisfied) return null;
   return { ...ctx, actor: ctx.actor, user: ctx.user };
 }
 
@@ -87,7 +94,7 @@ export function tooManyResponse(d: { retryAfterSec: number }, what = "thao tác"
 /** Địa chỉ IP của người gọi (chuỗi rỗng → "unknown" để khoá đếm không bị tách) */
 export function clientIp(req: Request | Headers) {
   const h = req instanceof Headers ? req : req.headers;
-  return h.get("x-forwarded-for")?.split(",")[0]?.trim() || h.get("x-real-ip")?.trim() || "unknown";
+  return ipTuHeader(h, process.env);
 }
 
 export function errorStatus(e: unknown) {

@@ -4,7 +4,7 @@ import { loginPrecheck, recordLogin, staffBlocked, staffIdleMinutes } from "@sat
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createServerClient } from "@supabase/ssr";
-import { devActorAllowed, DEV_ACTOR_HEADER } from "@satarobo/core";
+import { devActorAllowed, DEV_ACTOR_HEADER, duongNoiBo } from "@satarobo/core";
 import { ACCESS_COOKIE, REFRESH_COOKIE, IDLE_COOKIE, SEEN_COOKIE, clientMeta, cookieOptions, seenCookieOptions } from "@/lib/auth-session";
 import { sharedRateLimited } from "@/lib/route-ctx";
 
@@ -16,7 +16,7 @@ const hasSupabase = !!process.env.NEXT_PUBLIC_SUPABASE_URL && !!process.env.NEXT
 /** Chỉ cho quay về đường dẫn nội bộ (chống open redirect) */
 function safeNext(v: FormDataEntryValue | string | null | undefined) {
   const s = typeof v === "string" ? v : "";
-  return s.startsWith("/") && !s.startsWith("//") ? s : "/";
+  return duongNoiBo(s) ?? "/";
 }
 
 async function devLogin(formData: FormData) {

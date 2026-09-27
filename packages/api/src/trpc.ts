@@ -110,8 +110,10 @@ const rlsSession = t.middleware(async ({ ctx, next }) => {
 export const protectedProcedure = t.procedure.use(measure).use(mapDomainErrors).use(({ ctx, next, path, type }) => {
   if (!ctx.actor || !ctx.user) throw new TRPCError({ code: "UNAUTHORIZED", message: "Chưa đăng nhập" });
   if (ctx.auth?.mfa.required && !ctx.auth.mfa.satisfied && !path.startsWith("auth.")) throw new TRPCError({ code: "FORBIDDEN", message: "Cần xác thực 2 lớp (vào Bảo mật tài khoản)" });
-  // Trung tâm tạm ngừng / đã đóng: đọc được, không ghi được (Super Admin vẫn ghi để mở lại)
-  if (type === "mutation" && !ctx.actor.assignments.some((a) => a.role === "SUPER_ADMIN")) {
+  // Trung tâm tạm ngừng / đã đóng: đọc được, không ghi được — kể cả quản trị của chính trung tâm đó.
+  // Mở lại là việc của Hội sở (tenants.updateSettings, xem canChangeStatus), mà người Hội sở thuộc
+  // trung tâm đang hoạt động nên không bị chặn ở đây.
+  if (type === "mutation") {
     const status = ctx.tenants?.find((x) => x.id === ctx.tenantId)?.status;
     const chan = tenantChanGhi(status as Parameters<typeof tenantChanGhi>[0], path);
     if (chan) throw new TRPCError({ code: "FORBIDDEN", message: chan });

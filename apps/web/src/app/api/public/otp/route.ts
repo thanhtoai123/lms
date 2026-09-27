@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@satarobo/db";
 import { requestOtp, verifyOtp } from "@satarobo/api";
-import { OTP_PURPOSES, type OtpPurpose } from "@satarobo/core";
+import { OTP_PURPOSES, type OtpPurpose, ipTuHeader } from "@satarobo/core";
 import { clientIp, sharedRateLimit, tooManyResponse } from "@/lib/route-ctx";
 
 /**
@@ -17,7 +17,7 @@ export async function POST(req: Request) {
   }
   const purpose = OTP_PURPOSES.includes(body.purpose as OtpPurpose) ? (body.purpose as OtpPurpose) : null;
   if (!purpose || typeof body.phone !== "string") return NextResponse.json({ ok: false, error: "Thiếu số điện thoại / mục đích" }, { status: 400 });
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
+  const ip = ipTuHeader(req.headers, process.env);
   // Trần theo IP ngay ở cửa ngõ — đếm trong bảng `rate_limits` nên đúng cả khi chạy nhiều bản sao
   // (lớp trong CSDL vẫn giữ trần riêng theo SĐT / mục đích)
   const gate = await sharedRateLimit("otpIp", "ip", clientIp(req), "otp");

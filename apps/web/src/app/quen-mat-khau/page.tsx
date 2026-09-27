@@ -1,3 +1,4 @@
+import { ipTuHeader } from "@satarobo/core";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import Link from "next/link";
@@ -11,7 +12,7 @@ export const dynamic = "force-dynamic";
 async function send(formData: FormData) {
   "use server";
   const h = await headers();
-  const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  const ip = ipTuHeader(h, process.env);
   const email = String(formData.get("email") ?? "").slice(0, 200);
   // Trần dùng chung giữa các bản sao. Đụng trần vẫn trả về MÀN HÌNH GIỐNG HỆT lúc gửi thành công —
   // không được để kẻ dò phân biệt "email này có tài khoản" qua thông báo lỗi.

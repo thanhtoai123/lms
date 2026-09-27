@@ -1,3 +1,4 @@
+import { duongNoiBo } from "../security/duongNoiBo.js";
 /**
  * Website / tin tức, tracking marketing, cohort / churn, tuân thủ dữ liệu (NĐ13/2023) — quy tắc thuần.
  */
@@ -72,7 +73,7 @@ const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replac
 
 /** Markdown tối giản → HTML an toàn (mọi thẻ HTML gốc bị escape; link chỉ http/https hoặc đường dẫn nội bộ) */
 export function renderMarkdown(md: string, opts: { imageUrl?: (src: string) => string | null } = {}): string {
-  const safeUrl = (u: string) => (/^(https?:\/\/|\/)[^\s"'<>]*$/i.test(u) && !/^\/\//.test(u) ? u : null);
+  const safeUrl = (u: string) => (/^https?:\/\/[^\s"'<>\\]*$/i.test(u) ? u : /^\/[^\s"'<>]*$/.test(u) ? duongNoiBo(u) : null);
   const inline = (raw: string) => {
     let s = esc(raw);
     s = s.replace(/!\[([^\]]*)\]\(([^)\s]+)\)/g, (_m, alt: string, src: string) => {

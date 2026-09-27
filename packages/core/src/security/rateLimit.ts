@@ -187,6 +187,10 @@ export const RATE_LIMITS = {
    * theo phụ huynh. Một gia đình vài con làm vài chục thao tác / giờ là nhiều; trần chỉ chặn máy bấm dồn.
    */
   parentActionUser: { max: 60, windowMs: 60 * 60_000 },
+  /** Form công khai "Đặt buổi học thử" (/api/public/leads) theo IP — trước là Map trong một tiến trình */
+  publicLeadIp: { max: 5, windowMs: 10 * 60_000 },
+  /** Gửi khảo sát công khai theo IP + token — trước là Map trong một tiến trình */
+  publicSurveyIp: { max: 10, windowMs: 10 * 60_000 },
 } as const satisfies Record<string, { max: number; windowMs: number }>;
 
 export type RateLimitName = keyof typeof RATE_LIMITS;

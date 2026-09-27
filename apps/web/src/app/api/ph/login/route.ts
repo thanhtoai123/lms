@@ -1,3 +1,4 @@
+import { ipTuHeader } from "@satarobo/core";
 import { NextResponse } from "next/server";
 import { getDb } from "@satarobo/db";
 import { ParentPortal } from "@satarobo/api";
@@ -7,7 +8,7 @@ import { PH_COOKIE, PH_COOKIE_NAMES, phCookieOptions, sameOrigin } from "@/lib/p
 /** POST { action: "otp", phone } → gửi mã; { action: "login", phone, method: "otp"|"code", code } → đặt cookie phiên */
 export async function POST(req: Request) {
   if (!sameOrigin(req)) return NextResponse.json({ ok: false, error: "Nguồn không hợp lệ" }, { status: 403 });
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
+  const ip = ipTuHeader(req.headers, process.env);
   let b: { action?: string; phone?: string; method?: string; code?: string };
   try { b = (await req.json()) as typeof b; } catch { return NextResponse.json({ ok: false, error: "Dữ liệu không hợp lệ" }, { status: 400 }); }
   const phone = typeof b.phone === "string" ? b.phone.slice(0, 20) : "";

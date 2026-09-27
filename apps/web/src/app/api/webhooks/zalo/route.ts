@@ -1,3 +1,4 @@
+import { ipTuHeader } from "@satarobo/core";
 import { getDb } from "@satarobo/db";
 import { logWebhook, xuLySuKienOa, zaloSignatureOk } from "@satarobo/api";
 import { clientIp, sharedRateLimit } from "@/lib/route-ctx";
@@ -6,7 +7,7 @@ import { clientIp, sharedRateLimit } from "@/lib/route-ctx";
 export async function POST(req: Request) {
   const db = getDb();
   const raw = await req.text();
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
+  const ip = ipTuHeader(req.headers, process.env);
   // Trần rộng, chỉ chặn đợt bắn dồn; Zalo gửi lại khi gặp 429 nên không mất tin
   const gate = await sharedRateLimit("webhookIp", "ip", clientIp(req), "wh-zalo");
   if (gate) return Response.json({ ok: false, error: "Quá nhiều yêu cầu" }, { status: 429, headers: { "Retry-After": String(Math.max(1, gate.retryAfterSec)) } });

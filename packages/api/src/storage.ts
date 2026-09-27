@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { mediaSigningSecret } from "./lib/secrets";
 import { kho } from "./kho";
+import { scormNguon } from "@satarobo/core";
 
 /**
  * Lưu trữ tệp (ảnh lớp, tài liệu, CV, bài nộp, gói SCORM).
@@ -63,7 +64,9 @@ export function signedFileUrl(key: string, fileName: string, ttlSeconds = 900, i
 export function signedScormBase(documentId: string, version: number, ttlSeconds = 4 * 3600) {
   const exp = Math.floor(Date.now() / 1000) + ttlSeconds;
   const prefix = `scorm/${documentId}/v${version}`;
-  return `/api/content/scorm/${exp}/${sign(prefix, exp)}/${documentId}/${version}/`;
+  // Có miền học liệu riêng (SCORM_ORIGIN) thì URL tuyệt đối sang miền đó — xem core/content/scormNguon.ts
+  const nguon = scormNguon(process.env) ?? "";
+  return `${nguon}/api/content/scorm/${exp}/${sign(prefix, exp)}/${documentId}/${version}/`;
 }
 
 export function verifyScormSignature(documentId: string, version: number, exp: number, sig: string) {

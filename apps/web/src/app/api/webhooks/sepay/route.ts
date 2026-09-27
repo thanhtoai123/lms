@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@satarobo/db";
 import { ingestBankTx, logWebhook } from "@satarobo/api";
-import { checkApiKey, parseSepayPayload } from "@satarobo/core";
+import { checkApiKey, parseSepayPayload, ipTuHeader } from "@satarobo/core";
 import { clientIp, sharedRateLimit } from "@/lib/route-ctx";
 import { webLogger } from "@/lib/logger";
 
@@ -14,7 +14,7 @@ import { webLogger } from "@/lib/logger";
 export async function POST(req: Request) {
   const db = getDb();
   const headers = Object.fromEntries(req.headers.entries());
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
+  const ip = ipTuHeader(req.headers, process.env);
   // Trần rất rộng, chỉ để chặn đợt bắn dồn vào cổng webhook. SePay gửi lại tối đa 7 lần khi lỗi
   // nên không được chặn nhầm; trả 429 để nhà cung cấp tự gửi lại sau.
   const gate = await sharedRateLimit("webhookIp", "ip", clientIp(req), "wh-sepay");

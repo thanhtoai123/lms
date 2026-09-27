@@ -1,3 +1,4 @@
+import { ipTuHeader } from "@satarobo/core";
 import { getDb } from "@satarobo/db";
 import { recordTrack, publicTrackingConfig } from "@satarobo/api";
 import { rateLimited } from "@/lib/route-ctx";
@@ -24,7 +25,7 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, error: "Dữ liệu không hợp lệ" }, { status: 400, headers });
   }
   const anonId = typeof b.anonId === "string" ? b.anonId : "";
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "?";
+  const ip = ipTuHeader(req.headers, process.env);
   if (rateLimited(`trk|${anonId}`, 120, 10 * 60_000) || rateLimited(`trkip|${ip}`, 600, 10 * 60_000)) return Response.json({ ok: false, error: "Quá nhiều sự kiện" }, { status: 429, headers });
   const str = (v: unknown) => (typeof v === "string" ? v : null);
   const r = await recordTrack(getDb(), {

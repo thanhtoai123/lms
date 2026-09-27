@@ -1,3 +1,4 @@
+import { ipTuHeader } from "@satarobo/core";
 import { getDb } from "@satarobo/db";
 import { portalPost, portalThread } from "@satarobo/api";
 import { rateLimited } from "@/lib/route-ctx";
@@ -11,7 +12,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ token: 
 
 export async function POST(req: Request, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "?";
+  const ip = ipTuHeader(req.headers, process.env);
   if (rateLimited(`chat|${ip}|${token}`, 20, 10 * 60_000)) return Response.json({ ok: false, error: "Gửi quá nhiều tin, thử lại sau ít phút" }, { status: 429 });
   let b: { body?: unknown };
   try { b = (await req.json()) as { body?: unknown }; } catch { return Response.json({ ok: false, error: "Dữ liệu không hợp lệ" }, { status: 400 }); }

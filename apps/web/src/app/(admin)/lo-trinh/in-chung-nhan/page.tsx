@@ -1,3 +1,4 @@
+import { duongNoiBo } from "@satarobo/core";
 import Link from "next/link";
 import { getServerCaller } from "@/lib/trpc/server";
 import { PrintButton } from "@/components/portfolio/print-button";
@@ -17,7 +18,7 @@ export default async function PrintCertificatesPage({ searchParams }: { searchPa
   const ids = (sp.ids ?? "").split(",").map((x) => x.trim()).filter((x) => UUID_RE.test(x)).slice(0, 200);
   const { caller } = await getServerCaller();
   const list = ids.length ? await caller.certificates.print({ ids }) : [];
-  const back = sp.back && sp.back.startsWith("/") && !sp.back.startsWith("//") ? sp.back : "/lo-trinh";
+  const back = duongNoiBo(sp.back) ?? "/lo-trinh";
   const firstOrientation = list[0]?.template.orientation ?? "landscape";
   const revoked = list.filter((c) => c.status === "revoked").length;
 

@@ -1,12 +1,12 @@
 import { getDb } from "@satarobo/db";
 import { submitPublicHomework } from "@satarobo/api";
-import { SUBMISSION_MAX_BYTES, SUBMISSION_MAX_FILES } from "@satarobo/core";
+import { SUBMISSION_MAX_BYTES, SUBMISSION_MAX_FILES, ipTuHeader } from "@satarobo/core";
 import { rateLimited } from "@/lib/route-ctx";
 
 /** POST /api/public/homework/[token] — phụ huynh nộp bài cho con (token là quyền) */
 export async function POST(req: Request, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "?";
+  const ip = ipTuHeader(req.headers, process.env);
   if (!/^[A-Za-z0-9_-]{16,80}$/.test(token)) return Response.json({ ok: false, error: "Liên kết không đúng" }, { status: 404 });
   if (rateLimited(`hw|${ip}|${token}`, 10, 10 * 60_000)) return Response.json({ ok: false, error: "Gửi quá nhiều lần, thử lại sau" }, { status: 429 });
   const len = Number(req.headers.get("content-length") ?? 0);

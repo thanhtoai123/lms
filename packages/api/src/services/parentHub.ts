@@ -23,8 +23,7 @@ import {
   COIN_REASON_VI, REDEMPTION_STATUS_VI, coinTier, availableBalance, pathProgress, buildJourney, certificateVerifyPath, isCertificateSnapshot,
   OBJECTIVE_RESULT_VI, SESSION_REACTION_VI, addDays, tomTatCon,
   type SessionReaction, type SessionKind, type ParentRequestType, type ParentRequestStatus, type CoinReason, type RedemptionStatus,
-  type ObjectiveResult, type JourneyCourseInput, type JourneyPathCertificate,
-} from "@satarobo/core";
+  type ObjectiveResult, type JourneyCourseInput, type JourneyPathCertificate,, duongNoiBo } from "@satarobo/core";
 import type { ProtectedContext } from "../trpc";
 import { todayISO } from "./sessions";
 import { writeAudit } from "./audit";
@@ -216,7 +215,7 @@ export async function hubHome(db: Database, parentId: string, wantedChildId: str
     focus,
     fees: { total: due.reduce((s, b) => s + b.remaining, 0), count: due.length, first: firstDue ? { id: firstDue.id, code: firstDue.code, remaining: firstDue.remaining, student: firstDue.student } : null },
     unread: nt?.unread ?? 0,
-    notifications: unreadList.map((n) => ({ ...n, link: n.link && n.link.startsWith("/") && !n.link.startsWith("//") ? n.link : null })),
+    notifications: unreadList.map((n) => ({ ...n, link: duongNoiBo(n.link) })),
   };
 }
 
