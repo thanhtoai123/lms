@@ -1,12 +1,12 @@
 ﻿# -----------------------------------------------------------------------------
 #  Kich ban kiem thu toan dien — Sata Robo Platform
-#  Bo A: bao mat · Bo B: cach ly trung tam (tenant) · Bo C: mot cham · Bo D: vai tro
+#  Bo A: bao mat · Bo B: cach ly trung tam (tenant) · Bo C: mot cham · Bo D: vai tro · Bo E: tan cong mo rong
 #  Chay tren Windows PowerShell 5.1. Xem docs/KIEM-THU-TOAN-DIEN.md
 # -----------------------------------------------------------------------------
 param(
   [string]$BaseUrl = "http://localhost:3000",
   [string]$Out = "",
-  [ValidateSet("bao-mat", "tenant", "mot-cham", "vai-tro", "tat-ca")]
+  [ValidateSet("bao-mat", "tenant", "mot-cham", "vai-tro", "tan-cong", "tat-ca")]
   [string]$Only = "tat-ca"
 )
 
@@ -1107,10 +1107,154 @@ if ($Only -eq "tat-ca" -or $Only -eq "vai-tro") {
 }
 
 # =========================================================================== #
+#  BỘ E — TẤN CÔNG MỞ RỘNG + HỒI QUY ĐỢT B                                    #
+#  (CSRF, giả token, SQLi, tải trọng lớn, giả IP, lộ tài chính chéo trung     #
+#   tâm, trung tâm tạm ngừng, đơn nghỉ dạy không mất buổi)                    #
+# =========================================================================== #
+if ($Only -eq "tat-ca" -or $Only -eq "tan-cong") {
+  Write-Host ""
+  Write-Host "===== BO E — TAN CONG MO RONG + HOI QUY DOT B =====" -ForegroundColor Cyan
+
+  # --- E01–E03. CSRF và sai phương thức -------------------------------------
+  $r = CallApi -Method "POST" -Path "engagement.markRead" -InputObj @{ } -Who $A -ExtraHeaders @{ "Origin" = "https://evil.example" }
+  T "E" "E01 goi mutation tu Origin la (co cookie) -> 403" ($r.code -eq "403") "HTTP 403" ("HTTP " + $r.code)
+  $r = CallApi -Method "POST" -Path "engagement.markRead" -InputObj @{ } -Who $A -ExtraHeaders @{ "Sec-Fetch-Site" = "cross-site" }
+  T "E" "E02 goi mutation voi Sec-Fetch-Site cross-site -> 403" ($r.code -eq "403") "HTTP 403" ("HTTP " + $r.code)
+  $r = Q "engagement.markRead" @{ } $A
+  T "E" "E03 goi mutation bang GET -> bi tu choi" (-not $r.ok) "khong ok" ("HTTP " + $r.code + " " + $r.err)
+
+  # --- E04. Token giả trong cookie phiên ------------------------------------
+  $fake = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIwMDAwMDAwMC0wMDAwLTAwMDAtMDAwMC0wMDAwMDAwMDAwMDEiLCJlbWFpbCI6InN1cGVyYWRtaW5AZXhhbXBsZS50ZXN0Iiwicm9sZSI6ImF1dGhlbnRpY2F0ZWQiLCJleHAiOjk5OTk5OTk5OTl9.gia-mao"
+  $r = CallApi -Method "GET" -Path "auth.me" -InputObj $null -NoCookie -ExtraHeaders @{ "Cookie" = "sb-access-token=$fake" }
+  T "E" "E04 cookie phien gia (JWT tu ky) khong dang nhap duoc" ($null -eq $r.data -or -not $r.ok) "auth.me = null" ("data = " + (Say (Js $r.data) 80))
+
+  # --- E05–E07. Chèn SQL qua ô tìm kiếm + lỗi không lộ cấu trúc -------------
+  $sqli = "' OR '1'='1' --"
+  $r = Q "students.list" @{ q = $sqli } $M
+  $ds = @()
+  if ($r.ok -and $r.data) { $ds = Rows $r.data.items }
+  T "E" "E05 tim hoc vien voi chuoi chen SQL: khong loi, khong tra het du lieu" ($r.ok -and $ds.Count -eq 0) "ok, 0 dong" ("ok=" + $r.ok + " dong=" + $ds.Count + " loi=" + $r.err)
+  $r = Q "finance.debts" @{ q = "x'; drop table orders; --" } $K
+  T "E" "E06 tim cong no voi lenh SQL: khong loi" ($r.ok) "ok" ("loi=" + $r.err)
+  $r = Q "students.get" @{ id = "khong-phai-uuid' or 1=1" } $M
+  $lo = [string]$r.err + " " + [string]$r.raw
+  T "E" "E07 id sai dinh dang: bi chan, loi khong lo SQL / duong dan may chu" ((-not $r.ok) -and -not ($lo -match "(?i)select |from \x22|syntax error|node_modules|at [A-Za-z]+ \(")) "bi chan, khong lo" (Say $lo 160)
+
+  # --- E08. Tải trọng lớn -----------------------------------------------------
+  $big = "A" * (3 * 1024 * 1024)
+  $r = Mu "engagement.markRead" @{ ids = @($big) } $A
+  $song = Q "auth.me" $null $A
+  T "E" "E08 than yeu cau 3MB: bi tu choi, may chu van song" ((-not $r.ok) -and $song.ok) "tu choi + auth.me ok" ("HTTP " + $r.code + " · sau do auth.me ok=" + $song.ok)
+
+  # --- E09. Giả X-Forwarded-For để lách trần tần suất form công khai --------
+  $bi429 = $false
+  for ($i = 1; $i -le 7; $i++) {
+    $h = Http -Method "POST" -Path "/api/public/leads" -Body '{"website":"bot","name":"x","phone":"0900000000"}' -ExtraHeaders @{ "X-Forwarded-For" = ("10.9." + $i + ".1, 203.0.113.77"); "Origin" = "http://localhost:3000" }
+    if ($h.code -eq "429") { $bi429 = $true; break }
+  }
+  T "E" "E09 doi IP gia o dau X-Forwarded-For khong lach duoc tran form cong khai" $bi429 "gap 429 truoc lan thu 7" ("den lan " + $i + " HTTP " + $h.code)
+
+  # --- E10–E14. Tài chính chéo trung tâm (B2) + phân trang (B6) -------------
+  $tenantsE = @((Q "tenants.list" $null $A).data.items)
+  $tFrE = @($tenantsE) | Where-Object { $_.code -eq "FR_HUE" } | Select-Object -First 1
+  if ($null -eq $tFrE) {
+    Skip "E" "E10-E13 tai chinh cheo trung tam" "khong co trung tam FR_HUE trong du lieu mau"
+  } elseif ($tFrE.hoSeesFinanceDetail) {
+    Skip "E" "E10-E13 tai chinh cheo trung tam" "FR_HUE dang cho Hoi so xem chi tiet tai chinh"
+  } else {
+    foreach ($x in @(
+      @{ n = "E10"; p = "finance.debts"; i = @{ }; ten = "Cong no" },
+      @{ n = "E11"; p = "finance.missingTuition"; i = @{ }; ten = "Thieu hoc phi" },
+      @{ n = "E12"; p = "finance.enrollmentDebts"; i = @{ }; ten = "Cong no ghi danh" },
+      @{ n = "E13"; p = "finance.commissions"; i = @{ }; ten = "Hoa hong" }
+    )) {
+      $r = Q $x.p $x.i $A
+      if (-not $r.ok) { T "E" ($x.n + " " + $x.ten + ": Hoi so doc duoc") $false "ok" $r.err; continue }
+      $lo = @(Rows $r.data.items | Where-Object { $_.tenantId -eq $tFrE.id }).Count
+      T "E" ($x.n + " " + $x.ten + ": danh sach KHONG co dong chi tiet cua FR_HUE") ($lo -eq 0) "0 dong FR_HUE" ("so dong FR_HUE = " + $lo)
+    }
+  }
+  $r = Q "finance.missingTuition" @{ page = 1 } $K
+  $okTrang = $r.ok -and ($r.data.pageSize -eq 100) -and (@(Rows $r.data.items).Count -le 100) -and ($r.data.total -ge @(Rows $r.data.items).Count)
+  T "E" "E14 Thieu hoc phi co phan trang (100 dong/trang, co tong)" $okTrang "pageSize=100, items<=100" ("pageSize=" + $r.data.pageSize + " items=" + @(Rows $r.data.items).Count + " total=" + $r.data.total)
+  Perf "finance.missingTuition (trang 1)" $r.ms
+
+  # --- E15–E18. Trung tâm tạm ngừng: đọc được, không ghi được (B4) ----------
+  $frE = $FR
+  $meFr = Q "auth.me" $null $FR
+  if ((-not $meFr.ok) -or ($null -eq $meFr.data)) { $frE = $FR2; $meFr = Q "auth.me" $null $FR2 }
+  if ($null -eq $tFrE -or (-not $meFr.ok) -or ($null -eq $meFr.data)) {
+    Skip "E" "E15-E18 trung tam tam ngung" "khong co tai khoan FR_HUE dang hoat dong"
+  } else {
+    $goc = [string]$tFrE.status
+    $r = Mu "tenants.updateSettings" @{ tenantId = $tFrE.id; status = "suspended"; reason = "Kiem thu E: tam ngung de soat chan ghi" } $A
+    T "E" "E15 Hoi so tam ngung duoc trung tam nhuong quyen" $r.ok "ok" $r.err
+    if ($r.ok) {
+      $w = Mu "hr.createRequest" @{ kind = "leave"; dateFrom = $today; reason = "Kiem thu" } $frE
+      T "E" "E16 nguoi cua trung tam tam ngung KHONG ghi duoc" ((-not $w.ok) -and ($w.err -match "tạm ngừng|tam ngung")) "FORBIDDEN, neu ly do tam ngung" ("ok=" + $w.ok + " loi=" + $w.err)
+      $rd = Q "org.centers" $null $frE
+      T "E" "E17 nguoi cua trung tam tam ngung van DOC duoc" ($rd.ok) "ok" $rd.err
+      $tu = Mu "tenants.updateSettings" @{ tenantId = $tFrE.id; status = "active"; reason = "Tu mo lai trung tam minh" } $frE
+      T "E" "E18 trung tam bi tam ngung KHONG tu mo lai duoc" (-not $tu.ok) "bi chan" ("ok=" + $tu.ok)
+      $back = Mu "tenants.updateSettings" @{ tenantId = $tFrE.id; status = $goc; reason = "Kiem thu E: tra ve trang thai ban dau" } $A
+      if (-not $back.ok) { Note ("CAN XU LY TAY: khong tra duoc FR_HUE ve trang thai '" + $goc + "': " + $back.err) }
+      $tu2 = Mu "tenants.updateSettings" @{ tenantId = $tFrE.id; status = "closed"; reason = "Tu dong trung tam minh" } $frE
+      T "E" "E19 quan tri trung tam nhuong quyen KHONG tu doi trang thai (chi Hoi so)" (-not $tu2.ok) "bi chan" ("ok=" + $tu2.ok)
+      if ($tu2.ok) { [void](Mu "tenants.updateSettings" @{ tenantId = $tFrE.id; status = $goc; reason = "Kiem thu E: tra ve trang thai ban dau" } $A) }
+    }
+  }
+
+  # --- E20–E23. Đơn nghỉ dạy không làm lớp mất buổi (B1) ---------------------
+  $form = Q "hr.requestForm" $null $TE
+  $lopTE = @()
+  if ($form.ok -and $form.data) { $lopTE = Rows $form.data.classes }
+  if ($lopTE.Count -eq 0) {
+    Skip "E" "E20-E23 don nghi day" "giao vien mau khong co lop dang chay"
+  } else {
+    $chon = $null; $lopChon = $null
+    $tuNgay = (Get-Date).AddDays(2).ToString("yyyy-MM-dd"); $denNgay = (Get-Date).AddDays(60).ToString("yyyy-MM-dd")
+    foreach ($l in $lopTE) {
+      $ss = Rows (Q "academics.sessions.list" @{ from = $tuNgay; to = $denNgay; classId = $l.id } $A).data
+      $chon = @($ss) | Where-Object { $_.kind -eq "regular" -and $_.status -eq "scheduled" } | Sort-Object date | Select-Object -First 1
+      if ($chon) { $lopChon = $l; break }
+    }
+    if ($null -eq $chon) {
+      Skip "E" "E20-E23 don nghi day" "khong tim thay buoi chinh thuc sap toi cua lop giao vien mau"
+    } else {
+      $rong = @{ from = (Get-Date).AddDays(-400).ToString("yyyy-MM-dd"); to = (Get-Date).AddDays(400).ToString("yyyy-MM-dd"); classId = $lopChon.id; limit = 2000 }
+      $truoc = @(Rows (Q "academics.sessions.list" $rong $A).data | Where-Object { $_.kind -eq "regular" -and $_.status -ne "cancelled" }).Count
+      $don = Mu "hr.createRequest" @{ kind = "class_off"; dateFrom = [string]$chon.date; classId = $lopChon.id; reason = "Kiem thu hoi quy B1: nghi day theo don" } $TE
+      if (-not $don.ok) {
+        Skip "E" "E20-E23 don nghi day" ("khong tao duoc don: " + $don.err)
+      } else {
+        $idDon = [string]$don.data.id
+        $duyet = Mu "hr.decideRequest" @{ id = $idDon; action = "approve" } $H
+        if (-not $duyet.ok) { $duyet = Mu "hr.decideRequest" @{ id = $idDon; action = "approve" } $M }
+        Created ("Don nghi day lop " + $lopChon.code + " ngay " + $chon.date + " (kiem thu B1)")
+        T "E" "E20 duyet don nghi day thanh cong" $duyet.ok "ok" $duyet.err
+        if ($duyet.ok) {
+          $sau = Rows (Q "academics.sessions.list" $rong $A).data
+          $buoiCu = @($sau) | Where-Object { $_.id -eq $chon.id } | Select-Object -First 1
+          T "E" "E21 buoi ngay nghi da chuyen sang Huy" ($buoiCu.status -eq "cancelled") "cancelled" ("status=" + $buoiCu.status)
+          $conLai = @($sau | Where-Object { $_.kind -eq "regular" -and $_.status -ne "cancelled" }).Count
+          T "E" "E22 lop KHONG mat buoi (so buoi chinh thuc giu nguyen)" ($conLai -eq $truoc) ("= " + $truoc) ("truoc=" + $truoc + " sau=" + $conLai)
+          $bu = @($sau | Where-Object { [string]$_.rescheduledFromDate -eq [string]$chon.date }).Count
+          T "E" "E23 co buoi bu ghi ro doi tu ngay nghi" ($bu -ge 1) ">= 1 buoi bu" ("so buoi bu = " + $bu)
+        }
+      }
+    }
+  }
+
+  # --- E24. Theo dõi lỗi máy chủ có mặt ở trang Vận hành (B5) ----------------
+  $ops = Q "system.ops" $null $A
+  T "E" "E24 trang Van hanh co bang loi may chu" ($ops.ok -and ($null -ne $ops.data.PSObject.Properties["loiMayChu"])) "co truong loiMayChu" ("ok=" + $ops.ok)
+}
+
+# =========================================================================== #
 #  TỔNG HỢP + BÁO CÁO                                                         #
 # =========================================================================== #
-$boTen = @{ A = "Bao mat"; B = "Cach ly trung tam (tenant)"; C = "Mot cham (Viec hom nay)"; D = "Nghiep vu theo vai tro" }
-$boThuTu = @("A", "B", "C", "D")
+$boTen = @{ A = "Bao mat"; B = "Cach ly trung tam (tenant)"; C = "Mot cham (Viec hom nay)"; D = "Nghiep vu theo vai tro"; E = "Tan cong mo rong + hoi quy dot B" }
+$boThuTu = @("A", "B", "C", "D", "E")
 
 $tongPass = @($script:results | Where-Object { $_.status -eq "PASS" }).Count
 $tongFail = @($script:results | Where-Object { $_.status -eq "FAIL" }).Count
