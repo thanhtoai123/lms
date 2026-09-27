@@ -19,7 +19,7 @@ export default async function TeacherMore() {
   const groups = teacherMoreGroups(s.nav);
   return (
     <div className="space-y-5">
-      <h1 className="text-lg font-bold md:text-xl">Thêm chức năng</h1>
+      <h1 className="page-title">Thêm chức năng</h1>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         {groups.map((g) => (
           <section key={g.label} className="card p-2" aria-label={g.label}>

@@ -27,7 +27,7 @@ export default async function PrintCertificatesPage({ searchParams }: { searchPa
       <CertificatePrintStyle orientation={firstOrientation} />
       <div className="cn-noprint flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-lg font-bold">In giấy chứng nhận</h1>
+          <h1 className="page-title">In giấy chứng nhận</h1>
           <p className="text-xs text-muted-foreground">
             {list.length} giấy · mỗi giấy một trang A4 · khi in chọn <b>Lề: Không</b> và bật <b>Đồ hoạ nền</b> (Chrome: “Background graphics”).
             {revoked > 0 && <span className="ml-1 font-semibold text-red-700">{revoked} giấy đã thu hồi (in kèm dấu “ĐÃ THU HỒI”).</span>}

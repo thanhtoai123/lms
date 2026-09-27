@@ -66,7 +66,7 @@ export default async function TeacherSchedule({ searchParams }: { searchParams: 
     <div className="space-y-4">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-lg font-bold md:text-xl">Lịch dạy</h1>
+          <h1 className="page-title">Lịch dạy</h1>
           <p className="text-[14px] text-ink-600">{active.length} buổi · {Math.round((phut / 60) * 10) / 10} giờ dạy{thisWeek && conLai > 0 ? ` · còn ${conLai} buổi tuần này` : ""}</p>
         </div>
         <nav aria-label="Chọn tuần" className="flex items-center gap-1">

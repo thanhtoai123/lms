@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ENROLLMENT_STATUS_VI, REPORT_CARD_STATUS_VI, type EnrollmentStatus, type ReportCardStatus } from "@satarobo/core";
+import { ENROLLMENT_STATUS_VI, REPORT_CARD_STATUS_VI, tachMoTa, type EnrollmentStatus, type ReportCardStatus } from "@satarobo/core";
 
 export const STUDENT_STATUS_VI: Record<string, string> = {
   prospect: "Tiềm năng",
@@ -47,12 +47,33 @@ export function fmtDate(d: string | Date | null | undefined) {
   return x.toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh", day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
-export function PageHeader({ title, desc, actions }: { title: string; desc?: string; actions?: React.ReactNode }) {
+/**
+ * ĐẦU TRANG CHUẨN của toàn hệ thống: tiêu đề + MỘT dòng mô tả ngắn + nút hành động.
+ * Phần giải thích dài (quy tắc, lưu ý, cách làm) không bày ra trang: thu vào "Cách dùng" (mở khi cần).
+ * - `desc` dài được tách tự động: câu đầu làm dòng mô tả, phần còn lại vào "Cách dùng" (core `tachMoTa`).
+ * - `help` (tuỳ chọn): nội dung "Cách dùng" tự viết — danh sách bước, liên kết…
+ */
+export function PageHeader({ title, desc, help, actions }: { title: string; desc?: string; help?: React.ReactNode; actions?: React.ReactNode }) {
+  const { lead, rest } = tachMoTa(desc);
+  const more = help ?? rest;
   return (
     <div className="flex flex-wrap items-end justify-between gap-3">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">{title}</h1>
-        {desc && <p className="text-sm text-muted-foreground">{desc}</p>}
+      <div className="min-w-0 max-w-3xl">
+        <h1 className="page-title">{title}</h1>
+        {(lead || more) && (
+          <div className="flex flex-wrap items-baseline gap-x-2">
+            {lead && <p className="text-sm text-muted-foreground">{lead}</p>}
+            {more && (
+              <details className="group text-sm open:w-full">
+                <summary className="inline-flex cursor-pointer list-none items-center gap-1 text-xs font-semibold text-primary hover:underline [&::-webkit-details-marker]:hidden">
+                  <span aria-hidden className="grid size-4 place-items-center rounded-full border border-current text-[10px] leading-none">?</span>
+                  <span className="group-open:hidden">Cách dùng</span><span className="hidden group-open:inline">Thu gọn</span>
+                </summary>
+                <div className="mt-2 rounded-lg bg-muted px-3 py-2 text-muted-foreground">{more}</div>
+              </details>
+            )}
+          </div>
+        )}
       </div>
       {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
     </div>

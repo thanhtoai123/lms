@@ -30,7 +30,7 @@ export default async function CrmDashboard({ searchParams }: { searchParams: Pro
     <div className="space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">CRM Dashboard</h1>
+          <h1 className="page-title">CRM Dashboard</h1>
           <p className="text-sm text-ink-400">{days} ngày qua · {s.total} lead · {s.enrolled} đã đăng ký · tỉ lệ chốt {s.conversionRate}% · {s.overdueOpen} lead mở đang quá SLA</p>
         </div>
         <div className="flex items-center gap-2">

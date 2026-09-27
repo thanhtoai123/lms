@@ -30,7 +30,7 @@ export default async function TeacherClassReportCards({ params }: { params: Prom
     <div className="space-y-4">
       <Link href="/teacher/classes" className="inline-flex min-h-11 items-center text-ink-600">← Lớp của tôi</Link>
       <header className="card p-4">
-        <h1 className="flex items-center gap-2 text-lg font-bold md:text-xl"><ScrollText className="h-5 w-5 text-brand-600" aria-hidden />Học bạ · {d.class.name}</h1>
+        <h1 className="page-title flex items-center gap-2"><ScrollText className="h-5 w-5 text-brand-600" aria-hidden />Học bạ · {d.class.name}</h1>
         <p className="text-[14px] text-ink-600">{d.class.code} · {d.class.courseCode}</p>
         <div className="mt-2 flex flex-wrap gap-1.5 text-[13px]">
           {d.milestones.map((m) => (

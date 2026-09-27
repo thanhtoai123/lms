@@ -63,7 +63,7 @@ export default async function OperationalSettings({ searchParams }: { searchPara
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold">Cấu hình vận hành</h1>
+        <h1 className="page-title">Cấu hình vận hành</h1>
         <p className="text-sm text-ink-600">Bộ luật vận hành theo cơ sở. Cơ sở không cấu hình riêng sẽ kế thừa mặc định toàn hệ thống.</p>
       </div>
 

@@ -14,7 +14,7 @@ export default async function ScormPlayPage({ params }: { params: Promise<{ id: 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <Link href="/scorm" className="text-sm text-ink-600">← Bài giảng tương tác</Link>
-          <h1 className="text-xl font-bold">{d.title}</h1>
+          <h1 className="page-title">{d.title}</h1>
           <p className="text-xs text-ink-400">{d.courseCode}{d.lessonSeq ? ` · Bài ${d.lessonSeq}: ${d.lessonTitle}` : ""}</p>
         </div>
         <Link href={`/documents/${d.id}`} className="btn-ghost">Chi tiết & tiến độ</Link>

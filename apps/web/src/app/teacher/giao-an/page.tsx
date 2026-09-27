@@ -4,6 +4,7 @@ import { addDays, gioVietNam, weekdayOf } from "@satarobo/core";
 import { getServerCaller } from "@/lib/trpc/server";
 import { Empty, WEEKDAY_VI, fmtDate } from "@/components/ui";
 import { ClassTabs } from "@/components/teacher/class-tabs";
+import { PageHeader } from "@/components/admin-ui";
 
 export const metadata = { title: "Giáo án của tôi" };
 export const dynamic = "force-dynamic";
@@ -45,10 +46,11 @@ export default async function MyLessonPlans({ searchParams }: { searchParams: Pr
   return (
     <div className="space-y-4">
       <ClassTabs active="giao-an" />
-      <header>
-        <h1 className="text-lg font-bold md:text-xl">Giáo án của tôi</h1>
-        <p className="text-[14px] text-ink-600">Giáo án của từng buổi thuộc khoá bạn dạy. Giáo án tự mở trong ca dạy bài đó (30 phút trước giờ vào lớp đến 15 phút sau giờ tan); ngoài ca, mở bài và gửi yêu cầu để quản lý duyệt xem 2 giờ.</p>
-      </header>
+      <PageHeader
+        title="Giáo án của tôi"
+        desc="Giáo án từng buổi của khoá bạn dạy — tự mở trong ca dạy bài đó."
+        help="Giáo án mở từ 30 phút trước giờ vào lớp đến 15 phút sau giờ tan. Ngoài ca: mở bài và gửi yêu cầu, quản lý cơ sở duyệt thì xem được bài đó trong 2 giờ."
+      />
 
       {courses.length === 0 ? <Empty>Bạn chưa được phân công khoá nào nên chưa có giáo án để xem.</Empty> : (
         <>

@@ -21,7 +21,7 @@ export default async function DistributionPage({ searchParams }: { searchParams:
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">Quản lý chia lead</h1>
+          <h1 className="page-title">Quản lý chia lead</h1>
           <p className="text-sm text-ink-600">Ai đang nhận lead tự động, và vòng chia đã chia cho ai. Tắt một người → thôi nhận lead mới, lead đang giữ nguyên, bộ đếm lượt đóng băng. Bật lại → lượt về mức thấp nhất của những người đang nhận (không bị dồn lead bù).</p>
         </div>
         {centerId && <Link href={`/quan-ly-chia-lead/lich-su?center=${centerId}`} className="btn-ghost">Lịch sử thay đổi pool</Link>}

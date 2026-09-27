@@ -16,7 +16,7 @@ export default async function StalePage({ searchParams }: { searchParams: Promis
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold">Lead lâu ngày chưa chăm</h1>
+        <h1 className="page-title">Lead lâu ngày chưa chăm</h1>
         <p className="text-sm text-ink-600">Lead còn mở nhưng không ai chạm từ {days} ngày trở lên. Chọn nhiều dòng để phân bổ lại kèm lý do — lead đã chốt được bỏ qua.</p>
       </div>
       <form className="flex flex-wrap items-center gap-2">

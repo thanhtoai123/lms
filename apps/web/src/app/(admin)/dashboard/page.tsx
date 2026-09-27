@@ -31,7 +31,7 @@ export default async function Dashboard() {
     <div className="space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">Xin chào, {displayName} 👋</h1>
+          <h1 className="page-title">Xin chào, {displayName} 👋</h1>
           <p className="text-sm text-ink-400 first-letter:uppercase">{dateVi}</p>
         </div>
         {L && <MoreCharts series={L.series} byStatus={L.byStatus} statusLabel={LEAD_STATUS_VI} statusChip={LEAD_CHIP} />}

@@ -53,7 +53,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
           <div><div className="font-bold">{(r.org.legalName || r.org.brandName).toUpperCase()} — {r.centerName}</div>{r.org.taxCode && <div className="text-ink-600">MST: {r.org.taxCode}</div>}<div className="text-ink-600">{r.centerAddress ?? ""}</div>{r.centerPhone && <div className="text-ink-600">ĐT: {r.centerPhone}</div>}</div>
           <div className="text-right"><div>Số: <b className="font-mono">{r.p.receiptNo}</b></div><div>Ngày: {fmtD(r.p.paidAt)}</div></div>
         </header>
-        <h1 className="text-center text-2xl font-bold tracking-wide">PHIẾU THU</h1>
+        <h1 className="page-title text-center tracking-wide">PHIẾU THU</h1>
         <dl className="grid grid-cols-[10rem_1fr] gap-y-2 text-sm">
           <dt>Người nộp tiền:</dt><dd className="font-semibold">{r.p.payerName ?? r.customerName}</dd>
           <dt>Điện thoại:</dt><dd>{r.customerPhone}</dd>

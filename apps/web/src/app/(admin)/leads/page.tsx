@@ -57,7 +57,7 @@ export default async function LeadsInbox({ searchParams }: { searchParams: Promi
       <RememberFilters storageKey="leads" ignore={["page"]} />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">Danh sách Lead</h1>
+          <h1 className="page-title">Danh sách Lead</h1>
           <p className="text-sm text-ink-600">Lead đang mở sắp theo mức quá hạn SLA: lead mới phải gọi trong 15 phút, sau học thử gọi trong 24 giờ. Chọn “Mọi trạng thái” để xem cả lead đã đăng ký / đã mất (mới nhận trước).</p>
         </div>
         <div className="flex flex-wrap gap-2">

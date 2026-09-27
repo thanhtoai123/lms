@@ -28,7 +28,7 @@ export default async function TeacherToday() {
     <div className="space-y-6">
       <section className="md:flex md:items-end md:justify-between md:gap-4">
         <div>
-          <h1 className="text-lg font-bold md:text-xl">Chào {data.teacher.fullName} 👋</h1>
+          <h1 className="page-title">Chào {data.teacher.fullName} 👋</h1>
           <p className="text-ink-600">{WEEKDAY_VI[weekdayOf(data.today)]}, {fmtDate(data.today)}</p>
         </div>
         <div className="mt-1 flex flex-wrap gap-x-4">

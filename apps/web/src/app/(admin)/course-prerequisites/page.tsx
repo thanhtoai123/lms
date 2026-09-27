@@ -16,7 +16,7 @@ export default async function PrereqPage() {
   return (
     <div className="space-y-4">
       <Link href="/courses" className="text-sm text-ink-600">← Khoá học</Link>
-      <PageHeader title="Khoá tiên quyết" desc="Học viên phải hoàn thành khoá yêu cầu (có chứng nhận hoặc đăng ký 'Hoàn thành') mới ghi danh / chuyển lớp / chốt vào khoá sau. Quản lý cơ sở có thể miễn kèm lý do (xếp lớp theo năng lực) — được ghi nhật ký." />
+      <PageHeader title="Khoá tiên quyết" desc="Khoá phải học xong trước khi vào khoá sau. Học viên phải hoàn thành khoá yêu cầu (có chứng nhận hoặc đăng ký 'Hoàn thành') mới ghi danh / chuyển lớp / chốt vào khoá sau. Quản lý cơ sở có thể miễn kèm lý do (xếp lớp theo năng lực) — được ghi nhật ký." />
       {canEdit && <AddPrereq courses={courses} />}
       {rows.length === 0 ? <Empty>Chưa có điều kiện tiên quyết nào.</Empty> : (
         <div className="card overflow-x-auto">

@@ -48,7 +48,7 @@ export default async function ClassDetail({ params, searchParams }: { params: Pr
     <div className="space-y-6">
       <div>
         <Link href="/classes" className="text-sm text-ink-600">← Lớp học</Link>
-        <h1 className="mt-1 text-2xl font-bold">{c.name}</h1>
+        <h1 className="page-title mt-1">{c.name}</h1>
         <div className="text-sm text-ink-600">
           {c.code} · {c.course.name} · {c.center.name}{c.homeRoom ? ` · ${c.homeRoom.name}` : ""} · GV: {c.leadTeacher?.fullName ?? "—"}{c.assistantTeacher ? ` · Trợ giảng: ${c.assistantTeacher.fullName}` : ""}
         </div>

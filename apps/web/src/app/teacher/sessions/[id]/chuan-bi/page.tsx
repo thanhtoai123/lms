@@ -40,7 +40,7 @@ export default async function PrepPage({ params }: { params: Promise<{ id: strin
 
       <header className="card p-4">
         <div className="text-[13px] text-ink-600">{WEEKDAY_VI[weekdayOf(s.date)]} {fmtDate(s.date)} · {s.startTime}–{s.endTime}</div>
-        <h1 className="text-[18px] font-bold">{s.className}</h1>
+        <h1 className="page-title">{s.className}</h1>
         <div className="text-ink-600">{s.label}{s.courseName ? ` · ${s.courseName}` : ""}</div>
         <div className="mt-3 grid grid-cols-3 gap-2 text-center">
           <div className="rounded-xl bg-black/[0.03] p-2"><div className="text-[12px] text-ink-600">Sĩ số</div><div className="text-[18px] font-extrabold">{d.counts.total}</div></div>

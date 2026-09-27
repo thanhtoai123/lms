@@ -15,7 +15,7 @@ export default async function TransfersPage({ searchParams }: { searchParams: Pr
   const rows = await caller.admissions.leads.transfersReport({ month, kind });
   return (
     <div className="space-y-4">
-      <div><h1 className="text-2xl font-bold">Chuyển lead liên cơ sở</h1><p className="text-sm text-ink-600">Bàn giao giữa sale và chuyển lead liên cơ sở theo tháng — ai chuyển, cho ai, lý do, kết quả hiện tại.</p></div>
+      <div><h1 className="page-title">Chuyển lead liên cơ sở</h1><p className="text-sm text-ink-600">Bàn giao giữa sale và chuyển lead liên cơ sở theo tháng — ai chuyển, cho ai, lý do, kết quả hiện tại.</p></div>
       <form className="flex gap-2 items-center">
         <input type="month" name="month" defaultValue={month} className="input max-w-[180px]" />
         <select name="kind" defaultValue={kind ?? ""} className="input max-w-[200px]"><option value="">Mọi loại</option>{Object.entries(KIND_VI).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>

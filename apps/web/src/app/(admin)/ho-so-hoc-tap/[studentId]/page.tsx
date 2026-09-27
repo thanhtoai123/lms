@@ -44,7 +44,7 @@ export default async function StudentPortfolioPage({ params, searchParams }: { p
       <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
         <div>
           <Link href={`/students/${studentId}`} className="text-sm text-ink-600">← Hồ sơ học viên</Link>
-          <h1 className="text-xl font-bold">Hồ sơ học tập · {r.view.student.fullName}</h1>
+          <h1 className="page-title">Hồ sơ học tập · {r.view.student.fullName}</h1>
           <p className="text-xs text-muted-foreground">Phiếu nhận xét từng buổi, học bạ mốc, chứng nhận và sản phẩm xuyên suốt các khoá. In ra PDF khổ A4 (2 phiếu buổi / trang).</p>
         </div>
         <PortfolioToolbar

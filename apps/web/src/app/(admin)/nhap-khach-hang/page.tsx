@@ -11,7 +11,7 @@ export default async function NewLeadPage() {
   return (
     <div className="max-w-3xl space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-2">
-        <h1 className="text-2xl font-bold">Nhập khách hàng</h1>
+        <h1 className="page-title">Nhập khách hàng</h1>
         <Link href="/leads/import" className="text-sm text-brand-600 hover:underline">Nhập nhiều khách từ file →</Link>
       </div>
       <NewLeadForm

@@ -19,7 +19,7 @@ export default async function AuditListPage({ searchParams }: { searchParams: Pr
   const creatable = d.centers.filter((c) => c.canCreate);
   return (
     <div className="space-y-4">
-      <PageHeader title="Kiểm kê kho" desc="Chụp số tồn sổ sách → đếm thực tế → nộp → quản lý (khác người nộp) duyệt → hệ thống tự lập phiếu điều chỉnh chênh lệch. Chênh lệch lớn bắt buộc ghi nguyên nhân." actions={creatable.length ? <NewAudit centers={creatable.map((c) => ({ id: c.id, label: `${c.code} — ${c.name}` }))} /> : null} />
+      <PageHeader title="Kiểm kê kho" desc="Đếm tồn thực tế, quản lý duyệt, hệ thống tự điều chỉnh chênh lệch. Quy trình: chụp số tồn sổ sách → đếm thực tế → nộp → quản lý (khác người nộp) duyệt → hệ thống tự lập phiếu điều chỉnh chênh lệch. Chênh lệch lớn bắt buộc ghi nguyên nhân." actions={creatable.length ? <NewAudit centers={creatable.map((c) => ({ id: c.id, label: `${c.code} — ${c.name}` }))} /> : null} />
       <div className="flex flex-wrap gap-2 text-sm">
         <Link href="/inventory/audit" className={`chip ${!status ? "bg-brand-600 text-white" : "bg-black/5"}`}>Tất cả</Link>
         {AUDIT_STATUSES.map((s) => <Link key={s} href={`/inventory/audit?status=${s}`} className={`chip ${status === s ? "bg-brand-600 text-white" : "bg-black/5"}`}>{AUDIT_STATUS_VI[s]}</Link>)}

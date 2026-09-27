@@ -24,7 +24,7 @@ export default async function SessionsPage({ searchParams }: { searchParams: Pro
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold">Buổi học</h1>
+      <h1 className="page-title">Buổi học</h1>
       <form className="flex flex-wrap items-end gap-2">
         <div><label className="label" htmlFor="f-from">Từ</label><input id="f-from" type="date" name="from" defaultValue={from} className="input" /></div>
         <div><label className="label" htmlFor="f-to">Đến</label><input id="f-to" type="date" name="to" defaultValue={to} className="input" /></div>

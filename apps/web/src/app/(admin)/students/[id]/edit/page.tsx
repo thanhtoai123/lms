@@ -15,7 +15,7 @@ export default async function EditStudentPage({ params }: { params: Promise<{ id
   if (s.preferredCenter && !centers.some((c) => c.id === s.preferredCenter!.id)) centers.push(s.preferredCenter);
   return (
     <div className="max-w-4xl space-y-4">
-      <h1 className="text-2xl font-bold">Sửa: {s.fullName}</h1>
+      <h1 className="page-title">Sửa: {s.fullName}</h1>
       <StudentForm
         studentId={s.id}
         canChangeCode={!!ctx.actor && hasPermission(ctx.actor as Actor, "student:change_code")}

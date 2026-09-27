@@ -33,7 +33,7 @@ export default async function PlanViewPage({ params }: { params: Promise<{ lesso
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <Link href={back} className="text-sm text-ink-600">← Giáo án buổi học</Link>
-          <h1 className="text-xl font-bold">Buổi {d.lesson.sequenceNo} — {d.lesson.title}</h1>
+          <h1 className="page-title">Buổi {d.lesson.sequenceNo} — {d.lesson.title}</h1>
           <p className="text-xs text-ink-400">
             {d.plan.kindLabel}
             {d.plan.kind === "scorm" ? ` ${d.plan.scormVersion ?? "1.2"} · ${d.plan.fileCount ?? 0} tệp` : ""}

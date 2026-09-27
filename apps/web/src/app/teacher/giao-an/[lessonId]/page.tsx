@@ -44,7 +44,7 @@ export default async function TeacherPlanView({ params, searchParams }: { params
         {buoi && <Link href={`/teacher/sessions/${buoi}#diem-danh`} className="btn-ghost min-h-11"><ClipboardCheck className="h-4 w-4" aria-hidden />Điểm danh buổi này</Link>}
       </div>
       <header>
-        <h1 className="text-lg font-bold leading-tight md:text-xl">Buổi {d.lesson.sequenceNo} — {d.lesson.title}</h1>
+        <h1 className="page-title">Buổi {d.lesson.sequenceNo} — {d.lesson.title}</h1>
         {d.plan && (
           <p className="text-[13px] text-ink-600">
             {d.plan.kindLabel}{d.plan.kind === "scorm" ? ` ${d.plan.scormVersion ?? "1.2"}` : ""} · v{d.plan.version} · {d.lesson.curriculumName} · nút <b>Trình chiếu</b> ở góc khung (phím F) để chiếu toàn màn hình
@@ -61,8 +61,7 @@ export default async function TeacherPlanView({ params, searchParams }: { params
             <div>
               <h2 id="khoa" className="text-[17px] font-bold">Giáo án đang khoá</h2>
               <p className="text-[14px] text-ink-600">
-                Bài này có giáo án {d.locked.kindLabel}. Giáo án chỉ mở trong ca dạy bài này — từ {PLAN_WINDOW_BEFORE_MIN} phút trước giờ vào lớp
-                đến {PLAN_WINDOW_AFTER_MIN} phút sau giờ tan. Ngoài ca, gửi yêu cầu để quản lý cơ sở duyệt.
+                Giáo án {d.locked.kindLabel} chỉ mở trong ca dạy bài này ({PLAN_WINDOW_BEFORE_MIN} phút trước giờ vào lớp → {PLAN_WINDOW_AFTER_MIN} phút sau giờ tan).
               </p>
             </div>
           </div>

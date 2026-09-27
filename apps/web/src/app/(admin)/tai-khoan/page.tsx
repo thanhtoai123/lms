@@ -32,7 +32,7 @@ export default async function AccountPage() {
   return (
     <div className="mx-auto w-full max-w-4xl space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-bold">Hồ sơ tài khoản</h1>
+        <h1 className="page-title">Hồ sơ tài khoản</h1>
       </div>
 
       <section className="card flex flex-col items-start gap-4 p-4 sm:flex-row sm:items-center sm:p-6">

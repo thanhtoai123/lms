@@ -71,7 +71,7 @@ export default async function StudentProfile({ params }: { params: Promise<{ id:
         <div className="flex items-center gap-4">
           <div className="grid h-14 w-14 place-items-center rounded-full bg-brand-600/10 text-xl font-bold text-brand-600">{s.fullName.split(/\s+/).slice(-1)[0]?.[0] ?? "?"}</div>
           <div>
-            <h1 className="text-xl font-bold">{s.fullName}{s.nickname ? <span className="ml-2 text-sm font-normal text-ink-400">({s.nickname})</span> : null}</h1>
+            <h1 className="page-title">{s.fullName}{s.nickname ? <span className="ml-2 text-sm font-normal text-ink-400">({s.nickname})</span> : null}</h1>
             <div className="text-sm text-ink-600"><span className="font-mono">{s.code}</span> · {s.center?.code ?? "—"} · {s.grade ? `Lớp ${s.grade}` : "chưa rõ lớp"}{s.school ? ` · ${s.school}` : ""}</div>
             <div className="mt-1 text-xs text-ink-400">
               {fmtDate(s.dateOfBirth)}{age !== null ? ` (${age} tuổi)` : ""}{s.gender ? ` · ${GENDER_VI[s.gender]}` : ""}

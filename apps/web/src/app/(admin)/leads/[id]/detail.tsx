@@ -76,7 +76,7 @@ export function LeadDetail({ id, assignees, centers, courses }: { id: string; as
 
       <header className="card flex flex-wrap items-start justify-between gap-3 p-5">
         <div className="space-y-0.5">
-          <h1 className="text-xl font-bold">
+          <h1 className="page-title">
             {l.parentName}{" "}
             {phoneFull ? <a href={`tel:${l.phone}`} className="ml-2 font-mono text-sm text-ink-600 hover:underline">{l.phone}</a> : <span className="ml-2 font-mono text-sm text-ink-600">{l.phone}</span>}
           </h1>

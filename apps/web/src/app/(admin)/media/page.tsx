@@ -22,7 +22,7 @@ export default async function MediaPage({ searchParams }: { searchParams: Promis
     <div className="space-y-4">
       <PageHeader
         title="Ảnh lớp học"
-        desc="Hai tầng: giáo viên tải ảnh vào kho của lớp (phụ huynh chưa thấy) → gắn thẻ học viên hoặc đánh dấu ảnh chung cả lớp → Gửi duyệt. Ảnh lưu kín, chỉ xem qua liên kết có hạn; ảnh có học viên chưa được phụ huynh đồng ý đăng ảnh sẽ không duyệt được."
+        desc="Ảnh lớp: tải lên, gắn thẻ học viên, gửi duyệt — phụ huynh chỉ thấy ảnh đã duyệt. Hai tầng: giáo viên tải ảnh vào kho của lớp (phụ huynh chưa thấy) → gắn thẻ học viên hoặc đánh dấu ảnh chung cả lớp → Gửi duyệt. Ảnh lưu kín, chỉ xem qua liên kết có hạn; ảnh có học viên chưa được phụ huynh đồng ý đăng ảnh sẽ không duyệt được."
       />
       <form className="flex gap-2">
         <select name="class" defaultValue={classId ?? ""} className="input max-w-lg">

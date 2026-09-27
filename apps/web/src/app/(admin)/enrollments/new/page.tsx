@@ -14,7 +14,7 @@ export default async function NewEnrollmentPage({ searchParams }: { searchParams
   const open = classes.filter((c) => c.status === "recruiting" || c.status === "running" || c.status === "draft");
   return (
     <div className="max-w-3xl space-y-4">
-      <h1 className="text-2xl font-bold">Ghi danh vào lớp</h1>
+      <h1 className="page-title">Ghi danh vào lớp</h1>
       <EnrollForm
         classes={open.map((c) => ({ id: c.id, code: c.code, name: c.name, centerCode: c.centerCode, courseCode: c.courseCode, enrolled: c.enrolled, capacity: c.capacity, sessionsTotal: c.sessionsTotal, sessionsDone: c.sessionsDone, schedule: c.schedule }))}
         initialStudent={student ? { id: student.id, fullName: student.fullName, code: student.code, grade: student.grade } : null}

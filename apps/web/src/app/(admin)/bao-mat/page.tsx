@@ -18,7 +18,7 @@ export default async function SecurityPage() {
   return (
     <div className="mx-auto w-full max-w-3xl space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-bold">Bảo mật tài khoản</h1>
+        <h1 className="page-title">Bảo mật tài khoản</h1>
         {!pending && (
           <Link href="/tai-khoan" className="inline-flex min-h-11 items-center text-sm text-brand-600">Hồ sơ tài khoản →</Link>
         )}

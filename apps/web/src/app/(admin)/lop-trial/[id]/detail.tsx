@@ -147,7 +147,7 @@ export function TrialClassDetail({ id, openReport }: { id: string; /** Mở sẵ
 
       <header className="card flex flex-wrap items-start justify-between gap-3 p-5">
         <div className="space-y-1">
-          <h1 className="text-xl font-bold">{c.name} <TrialClassChip status={c.status} /></h1>
+          <h1 className="page-title">{c.name} <TrialClassChip status={c.status} /></h1>
           <div className="font-mono text-xs text-ink-400">{c.code}</div>
           <div className="text-sm text-ink-600">
             {c.centerCode} — {c.centerName}{c.courseCode ? ` · khoá trải nghiệm ${c.courseCode}` : " · chưa chọn khoá trải nghiệm"} · Sĩ số {c.enrolled}/{c.capacity} · {c.sessionCount} buổi

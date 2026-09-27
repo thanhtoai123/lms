@@ -23,7 +23,7 @@ export default async function ReportCardPage({ params }: { params: Promise<{ enr
       <Link href={laGv ? `/teacher/classes/${d.class.id}/hoc-ba` : `/ho-so-hoc-tap?xem=hoc-ba-moc&class=${d.class.id}`} className="text-sm text-ink-600">← Học bạ lớp {d.class.code}</Link>
       <header className="card flex flex-wrap items-start justify-between gap-3 p-5">
         <div>
-          <h1 className="text-xl font-bold">{d.enrollment.studentName}</h1>
+          <h1 className="page-title">{d.enrollment.studentName}</h1>
           <div className="text-sm text-ink-600">{d.label} · {d.class.name} · {d.class.courseCode}</div>
           <div className="text-xs text-ink-400">Chuyên cần đến mốc: {d.attendance.attended}/{d.attendance.total} buổi{d.authorName ? ` · Người viết: ${d.authorName}` : ""} · Thang {d.scale} mức</div>
         </div>

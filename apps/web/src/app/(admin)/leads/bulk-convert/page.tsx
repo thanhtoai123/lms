@@ -11,7 +11,7 @@ export default async function BulkConvertPage({ searchParams }: { searchParams: 
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold">Chốt hàng loạt</h1>
+        <h1 className="page-title">Chốt hàng loạt</h1>
         <p className="text-sm text-ink-600">Chọn lớp, ghi nhận đã đóng, đồng ý ảnh cho nhiều lead rồi chốt một lần. Mỗi dòng xử lý độc lập — dòng lỗi không chặn dòng khác. Sau chốt, tài khoản phụ huynh ở trạng thái <b>chờ kích hoạt</b> (OTP Zalo).</p>
       </div>
       <form className="flex flex-wrap gap-2 items-center">

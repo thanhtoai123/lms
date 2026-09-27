@@ -29,7 +29,7 @@ export default async function PlannedScreen({ params }: { params: Promise<{ slug
   return (
     <div className="space-y-4 max-w-3xl">
       <div className="text-xs text-ink-400">{item.group}</div>
-      <h1 className="text-2xl font-bold">{item.label}</h1>
+      <h1 className="page-title">{item.label}</h1>
       <div className="card p-5 space-y-3">
         <div className="flex flex-wrap items-center gap-2">
           <span className="chip bg-amber-100 text-amber-800">Đang xây dựng</span>
