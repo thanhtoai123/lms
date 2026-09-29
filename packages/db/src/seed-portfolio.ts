@@ -285,24 +285,8 @@ export async function seedPortfolio(db: Database, opts: { today?: string } = {})
   let token: string | null = null;
   if (demoStudentId) {
     const [st] = await db.select({ id: students.id, tenantId: students.tenantId, homeCenterId: students.homeCenterId }).from(students).where(eq(students.id, demoStudentId)).limit(1);
-    const [consent] = await db.select({ ok: sql<boolean>`bool_or(${parents.mediaConsent})` }).from(studentGuardians).innerJoin(parents, eq(parents.id, studentGuardians.parentId)).where(eq(studentGuardians.studentId, demoStudentId));
-    const [admin] = await db.select({ id: users.id }).from(users).innerJoin(userRoles, eq(userRoles.userId, users.id)).where(and(eq(userRoles.role, "SUPER_ADMIN"))).limit(1);
-    const mine = evIns.filter((e) => e.studentId === demoStudentId).sort((a, b) => ((a.publishedAt as Date).getTime() - (b.publishedAt as Date).getTime()));
-    if (consent?.ok && mine.length) {
-      const picks = [mine[Math.max(0, mine.length - 1)]!, mine[Math.max(0, mine.length - 3)]!].filter((x, i, arr) => arr.indexOf(x) === i);
-      for (const [k, e] of picks.entries()) {
-        const s = sessById.get(e.sessionId);
-        if (!s) continue;
-        const reviewedAt = new Date((e.publishedAt as Date).getTime() + 3600e3);
-        const [m] = await db.insert(sessionMedia).values({
-          tenantId: s.tenantId, sessionId: s.id, objectKey: `seed/ho-so-mau-buoi-${s.seq}-${k + 1}.svg`, caption: k === 0 ? "Bé giới thiệu mô hình của mình" : "Robot chạy thử trên sa bàn",
-          status: "approved", takenAt: s.date, taggedStudentIds: [demoStudentId], uploadedBy: s.completedBy, submittedAt: e.publishedAt as Date, submittedBy: s.completedBy,
-          reviewedBy: admin?.id ?? null, reviewedAt, createdAt: e.publishedAt as Date,
-        }).returning({ id: sessionMedia.id });
-        // Gắn ảnh minh chứng vào phiếu (cột media_ids được phép cập nhật sau phát hành)
-        if (m) await db.update(sessionEvaluations).set({ mediaIds: [m.id] }).where(and(eq(sessionEvaluations.sessionId, s.id), eq(sessionEvaluations.studentId, demoStudentId)));
-      }
-    }
+    // Ảnh minh chứng (bật đồng ý + ảnh cả lớp + ảnh của bé) do seedDemoPortfolioMedia() lo bên dưới.
+    const [admin] = await db.select({ id: users.id }).from(users).innerJoin(userRoles, eq(userRoles.userId, users.id)).where(eq(userRoles.role, "SUPER_ADMIN")).limit(1);
     if (st) {
       await db.insert(portfolioShares).values({
         tenantId: st.tenantId, centerId: st.homeCenterId, studentId: st.id, token: DEMO_PORTFOLIO_TOKEN, scope: "all",
@@ -318,5 +302,75 @@ export async function seedPortfolio(db: Database, opts: { today?: string } = {})
   await db.insert(appSettings).values({ key: "ho_so_hoc_tap", value: { since } })
     .onConflictDoUpdate({ target: appSettings.key, set: { value: { since }, updatedAt: new Date() } });
 
-  return { evaluations: evIns.length, cards: cardCount, token, studentId: demoStudentId };
+  const media = await seedDemoPortfolioMedia(db);
+
+  return { evaluations: evIns.length, cards: cardCount, token, studentId: demoStudentId, media };
+}
+
+/* ------------------------------------------------------------------ */
+/* Ảnh minh chứng mẫu — GALLERY từng buổi cho gia đình mẫu             */
+/*                                                                     */
+/* Idempotent + ĐỘC LẬP (tự truy vấn CSDL) → chạy lại được mà không    */
+/* cần reset: `pnpm db:seed-media`. Mỗi buổi có phiếu của con sẽ có     */
+/* 1 ảnh CHUNG CẢ LỚP + 1–2 ảnh CỦA BÉ (đã duyệt, phụ huynh đồng ý),   */
+/* để hồ sơ năng lực thể hiện được cả con lẫn không khí lớp học.       */
+/* ------------------------------------------------------------------ */
+export async function seedDemoPortfolioMedia(db: Database) {
+  const d = db;
+  // Gia đình mẫu: ưu tiên "Phụ huynh mẫu 1" (có nhiều con để xem chip chuyển nhanh)
+  const [parent] = await d.select({ id: parents.id }).from(parents).where(eq(parents.fullName, "Phụ huynh mẫu 1")).limit(1);
+  const [admin] = await d.select({ id: users.id }).from(users).innerJoin(userRoles, eq(userRoles.userId, users.id)).where(eq(userRoles.role, "SUPER_ADMIN")).limit(1);
+
+  // Con của gia đình mẫu; không có gia đình mẫu thì lấy học viên mẫu có phiếu
+  let kidIds: string[] = [];
+  if (parent) {
+    // Bật đồng ý đăng ảnh cho phụ huynh mẫu (điều kiện để ảnh hiển thị)
+    await d.update(parents).set({ mediaConsent: true, mediaConsentAt: new Date() }).where(eq(parents.id, parent.id));
+    const gs = await d.select({ studentId: studentGuardians.studentId }).from(studentGuardians).where(eq(studentGuardians.parentId, parent.id));
+    kidIds = gs.map((g) => g.studentId);
+  } else {
+    const named = await d.select({ id: students.id }).from(students).where(inArray(students.fullName, ["Học viên mẫu 2", "Học viên mẫu 1"]));
+    kidIds = named.map((s) => s.id);
+  }
+  if (!kidIds.length) return { students: 0, photos: 0 };
+
+  // Buổi đã có phiếu phát hành của từng con (kèm dữ liệu để dựng ảnh)
+  const evs = await d
+    .select({ studentId: sessionEvaluations.studentId, sessionId: sessions.id, date: sessions.date, seq: sessions.sequenceNo, tenantId: sessions.tenantId, teacherBy: sessions.completedBy })
+    .from(sessionEvaluations)
+    .innerJoin(sessions, eq(sessions.id, sessionEvaluations.sessionId))
+    .where(and(inArray(sessionEvaluations.studentId, kidIds), eq(sessionEvaluations.status, "published")))
+    .orderBy(sessions.date);
+  if (!evs.length) return { students: 0, photos: 0 };
+
+  const targetSessionIds = [...new Set(evs.map((e) => e.sessionId))];
+  // Idempotent: xoá ảnh mẫu cũ của các buổi này rồi dựng lại; trả media_ids về auto (rỗng)
+  await inChunks(targetSessionIds, (ids) => d.delete(sessionMedia).where(and(inArray(sessionMedia.sessionId, ids), sql`${sessionMedia.objectKey} like 'seed/%'`)));
+  await inChunks(targetSessionIds, (ids) => d.update(sessionEvaluations).set({ mediaIds: [] }).where(and(inArray(sessionEvaluations.sessionId, ids), inArray(sessionEvaluations.studentId, kidIds), eq(sessionEvaluations.status, "published"))));
+
+  const BE_CAPTIONS = ["Bé giới thiệu mô hình của mình", "Bé lắp ráp cùng nhóm", "Bé thuyết trình sản phẩm", "Robot của bé chạy thử trên sa bàn", "Bé thử nghiệm và chỉnh sửa"];
+  const LOP_CAPTIONS = ["Cả lớp trong giờ thực hành", "Không khí buổi học nhóm", "Trưng bày sản phẩm cuối buổi"];
+  const rows: (typeof sessionMedia.$inferInsert)[] = [];
+  const classWideDone = new Set<string>();
+
+  // Sắp theo con → buổi mới nhất trước để 3 buổi gần nhất có thêm ảnh
+  for (const kid of kidIds) {
+    const mine = evs.filter((e) => e.studentId === kid).sort((a, b) => (a.date < b.date ? 1 : -1));
+    for (const [i, e] of mine.entries()) {
+      const reviewedAt = new Date(new Date(`${e.date}T12:00:00`).getTime() + 3600e3);
+      const base = { tenantId: e.tenantId, sessionId: e.sessionId, status: "approved" as const, takenAt: e.date, uploadedBy: e.teacherBy, submittedBy: e.teacherBy, reviewedBy: admin?.id ?? null, reviewedAt };
+      // 1 ảnh CHUNG CẢ LỚP mỗi buổi (dùng chung, chỉ dựng một lần cho mỗi buổi)
+      if (!classWideDone.has(e.sessionId)) {
+        classWideDone.add(e.sessionId);
+        rows.push({ ...base, objectKey: `seed/lop-${e.sessionId}.svg`, caption: LOP_CAPTIONS[e.seq % LOP_CAPTIONS.length]!, isClassWide: true, taggedStudentIds: [] });
+      }
+      // 1–2 ảnh CỦA BÉ; 3 buổi gần nhất thêm ảnh thứ hai để gallery phong phú
+      const nBe = i < 3 ? 2 : 1;
+      for (let k = 0; k < nBe; k++) {
+        rows.push({ ...base, objectKey: `seed/be-${kid}-${e.sessionId}-${k + 1}.svg`, caption: BE_CAPTIONS[(e.seq + k) % BE_CAPTIONS.length]!, isClassWide: false, taggedStudentIds: [kid] });
+      }
+    }
+  }
+  await inChunks(rows, (part) => d.insert(sessionMedia).values(part));
+  return { students: kidIds.length, photos: rows.length };
 }

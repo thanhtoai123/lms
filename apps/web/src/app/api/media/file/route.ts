@@ -17,9 +17,14 @@ export async function GET(req: Request) {
   const ext = key.split(".").pop()?.toLowerCase() ?? "";
   let body = await getObject(key);
   if (!body && key.startsWith("seed/")) {
-    // ảnh mẫu của dữ liệu seed: sinh ảnh giữ chỗ
-    const label = key.split("/").pop()?.replace(/\.\w+$/, "") ?? "ảnh";
-    body = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="640" height="420" viewBox="0 0 640 420"><rect width="640" height="420" fill="#ecdcf5"/><circle cx="160" cy="150" r="60" fill="#610b8a" opacity=".25"/><rect x="260" y="110" width="260" height="160" rx="18" fill="#610b8a" opacity=".18"/><text x="320" y="360" font-family="sans-serif" font-size="28" text-anchor="middle" fill="#4b076b">Ảnh lớp mẫu · ${escXml(label)}</text></svg>`);
+    // ảnh mẫu của dữ liệu seed: sinh ảnh giữ chỗ (đổi màu + nhãn theo khoá cho gallery đỡ đơn điệu)
+    const fname = key.split("/").pop()?.replace(/\.\w+$/, "") ?? "anh";
+    const isBe = /(^|\/)be-/.test(key) || /\bbe-/.test(fname);
+    const isLop = /(^|\/)lop-/.test(key) || /\blop-/.test(fname);
+    let hsh = 2166136261; for (let i = 0; i < key.length; i++) { hsh ^= key.charCodeAt(i); hsh = Math.imul(hsh, 16777619); }
+    const hue = (hsh >>> 0) % 360;
+    const label = isBe ? "Ảnh của bé (mẫu)" : isLop ? "Ảnh cả lớp (mẫu)" : "Ảnh minh chứng (mẫu)";
+    body = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="640" height="420" viewBox="0 0 640 420"><rect width="640" height="420" fill="hsl(${hue} 45% 92%)"/><circle cx="150" cy="150" r="70" fill="hsl(${hue} 55% 55%)" opacity=".35"/><rect x="250" y="120" width="300" height="180" rx="20" fill="hsl(${(hue + 40) % 360} 55% 50%)" opacity=".3"/><path d="M120 320 q80 -60 160 0 t160 0" stroke="hsl(${hue} 50% 45%)" stroke-width="10" fill="none" opacity=".4"/><text x="320" y="380" font-family="sans-serif" font-size="26" font-weight="700" text-anchor="middle" fill="hsl(${hue} 60% 30%)">${escXml(label)}</text></svg>`);
     return new Response(new Uint8Array(body), {
       headers: {
         "Content-Type": "image/svg+xml", "Cache-Control": "private, max-age=600", "X-Content-Type-Options": "nosniff",
