@@ -178,7 +178,7 @@ async function consentByStudent(db: Db, studentIds: string[]) {
   return new Map(rows.map((r) => [r.studentId, !!r.consent]));
 }
 
-export interface EvidenceMedia { id: string; sessionId: string; url: string; caption: string | null; date: string | null; objectKey: string }
+export interface EvidenceMedia { id: string; sessionId: string; url: string; caption: string | null; date: string | null; objectKey: string; classWide: boolean }
 
 /**
  * Ảnh đã duyệt của các buổi, theo từng học viên: ảnh có gắn thẻ bé hoặc ảnh chung cả lớp,
@@ -199,7 +199,7 @@ export async function evidenceMedia(db: Db, sessionIds: string[], studentIds: st
     if (consent.get(st) !== true) continue;
     const list = rows
       .filter((m) => m.isClassWide || (Array.isArray(m.tagged) && m.tagged.includes(st)))
-      .map((m) => ({ id: m.id, sessionId: m.sessionId, url: signedMediaUrl(m.objectKey, 3600), caption: m.caption, date: m.takenAt ?? null, objectKey: m.objectKey }));
+      .map((m) => ({ id: m.id, sessionId: m.sessionId, url: signedMediaUrl(m.objectKey, 3600), caption: m.caption, date: m.takenAt ?? null, objectKey: m.objectKey, classWide: !!m.isClassWide }));
     if (list.length) out.set(st, list);
   }
   return out;
@@ -497,7 +497,7 @@ export async function getSessionSheet(ctx: ProtectedContext, id: string): Promis
     id: e.id, studentId: e.studentId, sessionId: e.sessionId, status: e.status, revision: e.revision,
     publishedAt: e.publishedAt ? e.publishedAt.toISOString() : null,
     snapshot: e.snapshot, objectiveResult: e.objectiveResult, highlights: e.highlights ?? [], productNote: e.productNote, remark: e.remark,
-    media: chosen.map((m) => ({ id: m.id, url: m.url, caption: m.caption, date: m.date })),
+    media: chosen.map((m) => ({ id: m.id, url: m.url, caption: m.caption, date: m.date, classWide: m.classWide })),
     average: sessionAverage(e.snapshot),
     center: center ?? null,
     canAmend: e.status === "published" && authorize(ctx.actor, "session_note:write", { centerId: s.centerId, ownerIds: s.ownerIds }).allowed,

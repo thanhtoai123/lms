@@ -134,11 +134,14 @@ export async function buildPortfolio(db: Db, studentId: string, scopeIn: Portfol
     const sheets: SessionSheetView[] = sheetsRaw.map((r) => {
       const snap = r.snapshot;
       const own = allMedia.filter((m) => m.sessionId === r.sessionId);
-      const chosen = (r.mediaIds ?? []).length ? own.filter((m) => (r.mediaIds ?? []).includes(m.id)) : own.slice(0, 2);
+      // GV chọn tay thì theo đúng lựa chọn; nếu không: ưu tiên ảnh CÓ GẮN THẺ CON rồi tới ảnh cả lớp, tối đa 4
+      const chosen = (r.mediaIds ?? []).length
+        ? own.filter((m) => (r.mediaIds ?? []).includes(m.id))
+        : [...own.filter((m) => !m.classWide), ...own.filter((m) => m.classWide)].slice(0, 4);
       return {
         id: r.id, status: r.status, revision: r.revision, publishedAt: iso(r.publishedAt), snapshot: snap,
         objectiveResult: r.objectiveResult, highlights: r.highlights ?? [], productNote: r.productNote, remark: r.remark,
-        media: chosen.map((m) => ({ id: m.id, url: m.url, caption: m.caption, date: m.date })),
+        media: chosen.map((m) => ({ id: m.id, url: m.url, caption: m.caption, date: m.date, classWide: m.classWide })),
         average: sessionAverage(snap), center: centerView,
       };
     });
@@ -180,7 +183,7 @@ export async function buildPortfolio(db: Db, studentId: string, scopeIn: Portfol
     for (const m of courseMedia) {
       if (seenMedia.has(m.id)) continue;
       seenMedia.add(m.id);
-      gallery.push({ id: m.id, url: m.url, caption: m.caption, date: m.date, courseName: e.courseName });
+      gallery.push({ id: m.id, url: m.url, caption: m.caption, date: m.date, classWide: m.classWide, courseName: e.courseName });
     }
 
     const hasContent = sheets.length || milestones.length || certificate || att.total;

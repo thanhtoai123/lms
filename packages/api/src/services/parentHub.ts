@@ -136,7 +136,9 @@ async function latestSheetOf(d: Db, studentId: string) {
   const snap = latest.snapshot;
   const media = (await evidenceMedia(d, [latest.sessionId], [studentId])).get(studentId) ?? [];
   const ids = latest.mediaIds ?? [];
-  const chosen = ids.length ? media.filter((m) => ids.includes(m.id)) : media.slice(0, 2);
+  const chosen = ids.length
+    ? media.filter((m) => ids.includes(m.id))
+    : [...media.filter((m) => !m.classWide), ...media.filter((m) => m.classWide)].slice(0, 2);
   const criteria = snap.criteria.map((c) => ({ label: c.label, value: c.value ?? null, level: c.levels.find((l) => l.value === c.value)?.label ?? null }));
   const [fb] = await d.select({ id: parentFeedback.id, reaction: parentFeedback.reaction, rating: parentFeedback.rating, channel: parentFeedback.channel, status: parentFeedback.status, comment: parentFeedback.comment })
     .from(parentFeedback).where(and(eq(parentFeedback.sessionId, latest.sessionId), eq(parentFeedback.studentId, studentId))).limit(1);
@@ -146,7 +148,7 @@ async function latestSheetOf(d: Db, studentId: string) {
     criteria, glance: sheetGlance(criteria), average: sessionAverage(snap),
     objective: latest.objectiveResult ? OBJECTIVE_RESULT_VI[latest.objectiveResult as ObjectiveResult] : null,
     highlights: latest.highlights ?? [], productNote: latest.productNote, remark: latest.remark,
-    media: chosen.map((m) => ({ id: m.id, url: m.url, caption: m.caption })),
+    media: chosen.map((m) => ({ id: m.id, url: m.url, caption: m.caption, classWide: m.classWide })),
     reaction: fb ? { value: reactionOf({ reaction: fb.reaction, rating: fb.rating }), note: fb.comment, editable: reactionEditable(fb) } : null,
   };
 }
@@ -420,7 +422,7 @@ export async function hubPhotos(db: Database, parentId: string, studentId: strin
     .map((s) => ({
       sessionId: s.id, date: s.date, className: s.className,
       label: sessionLabel(s.seq, s.kind as SessionKind),
-      anh: media.filter((m) => m.sessionId === s.id).map((m) => ({ id: m.id, url: m.url, caption: m.caption })),
+      anh: media.filter((m) => m.sessionId === s.id).map((m) => ({ id: m.id, url: m.url, caption: m.caption, classWide: m.classWide })),
     }))
     .filter((b) => b.anh.length > 0);
   let con = Math.max(1, limit);

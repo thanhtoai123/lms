@@ -99,16 +99,21 @@ export function SessionSheet({
         )}
 
         {sheet.media.length > 0 && (
-          <section className="hs-avoid" aria-label="Ảnh sản phẩm">
+          <section className="hs-avoid" aria-label="Ảnh trong buổi">
             <div className="mb-1 flex items-center gap-1.5 text-xs font-bold text-muted-foreground"><Camera className="h-3.5 w-3.5" aria-hidden /> Hình ảnh trong buổi</div>
-            <div className="grid grid-cols-2 gap-2">
-              {sheet.media.slice(0, compact ? 2 : 4).map((m) => (
-                <figure key={m.id} className="overflow-hidden rounded-lg border border-border bg-muted">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={m.url} alt={m.caption ?? "Ảnh buổi học"} className={`w-full object-cover ${compact ? "h-24 print:h-20" : "h-36 print:h-28"}`} loading="lazy" />
-                  {m.caption && !compact && <figcaption className="truncate px-2 py-1 text-[11px] text-muted-foreground">{m.caption}</figcaption>}
-                </figure>
-              ))}
+            {/* Màn hình: hiện tối đa 4 ảnh; bản in giữ 2 (compact) / 3 (full) để không vỡ trang A4 */}
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {sheet.media.slice(0, 4).map((m, i) => {
+                const inPrint = i < (compact ? 2 : 3);
+                return (
+                  <figure key={m.id} className={`relative overflow-hidden rounded-lg border border-border bg-muted ${inPrint ? "" : "print:hidden"} ${i >= 3 ? "sm:hidden xl:block" : ""}`}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={m.url} alt={m.caption ?? (m.classWide ? "Ảnh cả lớp" : "Ảnh của bé")} className={`w-full object-cover ${compact ? "h-24 print:h-20" : "h-32 sm:h-36 print:h-28"}`} loading="lazy" />
+                    <span className={`absolute left-1.5 top-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold shadow-sm ${m.classWide ? "bg-black/55 text-white" : "bg-primary text-white"}`}>{m.classWide ? "Cả lớp" : "Của bé"}</span>
+                    {m.caption && !compact && <figcaption className="truncate px-2 py-1 text-[11px] text-muted-foreground">{m.caption}</figcaption>}
+                  </figure>
+                );
+              })}
             </div>
           </section>
         )}

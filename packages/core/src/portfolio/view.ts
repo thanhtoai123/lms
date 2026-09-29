@@ -14,6 +14,8 @@ export interface PortfolioMedia {
   url: string;
   caption: string | null;
   date: string | null;
+  /** true = ảnh chung cả lớp; false = ảnh có gắn thẻ chính con này */
+  classWide: boolean;
 }
 
 export interface SessionSheetView {

@@ -53,8 +53,11 @@ export default async function PhotosPage({ searchParams }: { searchParams: Promi
               <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
                 {b.anh.map((m) => (
                   <li key={m.id}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={m.url} alt={m.caption ?? `Ảnh buổi học của ${childShortName(kid)}`} loading="lazy" className="aspect-[4/3] w-full rounded-2xl object-cover" />
+                    <div className="relative overflow-hidden rounded-2xl">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={m.url} alt={m.caption ?? (m.classWide ? `Ảnh cả lớp ${b.label}` : `Ảnh của ${childShortName(kid)}`)} loading="lazy" className="aspect-[4/3] w-full object-cover" />
+                      <span className={`absolute left-2 top-2 rounded-full px-2 py-0.5 text-[11px] font-bold shadow-sm ${m.classWide ? "bg-black/55 text-white" : "bg-primary text-white"}`}>{m.classWide ? "Cả lớp" : "Của con"}</span>
+                    </div>
                     {m.caption && <p className="mt-1 line-clamp-2 text-[12px] text-ink-600">{m.caption}</p>}
                   </li>
                 ))}
