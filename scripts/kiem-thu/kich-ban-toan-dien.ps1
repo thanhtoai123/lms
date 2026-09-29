@@ -1313,7 +1313,9 @@ if ($Only -eq "tat-ca" -or $Only -eq "tan-cong") {
 
   $srcTenant = (@(Rows (Q "tenants.list" $null $A).data.items) | Select-Object -First 1).id
   if ($srcTenant) {
-    $r = Mu "tenants.provision" @{ sourceTenantId = $srcTenant; code = "HACK1"; name = "Trung tam gia mao" } $M
+    # Payload day du va hop le -> yeu cau cham dung buoc kiem QUYEN (tenant:provision), khong dung o zod
+    $pv = @{ sourceTenantId = $srcTenant; code = "HACK1"; name = "Trung tam gia mao"; centerCode = "HACKC1"; centerName = "Co so gia mao"; adminEmail = "hack@example.test"; adminFullName = "Ke Gia Mao"; reason = "Kiem thu leo quyen nhan ban trung tam" }
+    $r = Mu "tenants.provision" $pv $M
     T "F" "F08 leo thang: quan ly co so nhan ban trung tam -> 403 (khong phai loi dinh dang)" ($r.errCode -eq "FORBIDDEN") "FORBIDDEN" ("ok=" + $r.ok + " ma=" + $r.errCode)
   } else { Skip "F" "F08 leo thang provision" "khong lay duoc tenant nguon" }
 
