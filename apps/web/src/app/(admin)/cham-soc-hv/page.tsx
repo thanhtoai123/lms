@@ -1,4 +1,5 @@
 import { getServerCaller } from "@/lib/trpc/server";
+import { PageDesc } from "@/components/admin-ui";
 import { CareList } from "./list";
 
 export const dynamic = "force-dynamic";
@@ -11,7 +12,7 @@ export default async function CarePage() {
     <div className="space-y-4">
       <div>
         <h1 className="page-title">Chăm sóc học viên</h1>
-        <p className="text-sm text-ink-600">Việc sinh tự động từ rủi ro (nghỉ 2 buổi liên tiếp, chuyên cần thấp, chờ học bù). Không trùng: một rủi ro / một học viên chỉ có một việc đang mở.</p>
+        <PageDesc lead="Việc chăm sóc sinh tự động từ rủi ro của học viên.">Nguồn: nghỉ 2 buổi liên tiếp, chuyên cần thấp, chờ học bù. Không trùng: một rủi ro / một học viên chỉ có một việc đang mở.</PageDesc>
       </div>
       <CareList initial={items} />
     </div>

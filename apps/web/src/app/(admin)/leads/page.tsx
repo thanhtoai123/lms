@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getServerCaller } from "@/lib/trpc/server";
 import { hasPermission, type Actor, LEAD_STATUSES, LEAD_STATUS_VI, OPEN_LEAD_STATUSES, LEAD_SHARE_LABEL, type LeadStatus } from "@satarobo/core";
-import { Pager, fmtDate } from "@/components/admin-ui";
+import { PageDesc, Pager, fmtDate } from "@/components/admin-ui";
 import { CsvButton } from "@/components/csv-button";
 import { ColumnChooser, type ColumnDef } from "@/components/column-chooser";
 import { ExportAllButton } from "@/components/export-all-button";
@@ -58,7 +58,7 @@ export default async function LeadsInbox({ searchParams }: { searchParams: Promi
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="page-title">Danh sách Lead</h1>
-          <p className="text-sm text-ink-600">Lead đang mở sắp theo mức quá hạn SLA: lead mới phải gọi trong 15 phút, sau học thử gọi trong 24 giờ. Chọn “Mọi trạng thái” để xem cả lead đã đăng ký / đã mất (mới nhận trước).</p>
+          <PageDesc lead="Lead đang mở, sắp theo mức quá hạn SLA.">Lead mới phải gọi trong 15 phút, sau học thử gọi trong 24 giờ. Chọn “Mọi trạng thái” để xem cả lead đã đăng ký / đã mất (mới nhận trước).</PageDesc>
         </div>
         <div className="flex flex-wrap gap-2">
           <div className="flex rounded-xl border border-border bg-muted p-1 text-sm">

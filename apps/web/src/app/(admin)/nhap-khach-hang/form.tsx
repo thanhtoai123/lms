@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useMutation } from "@tanstack/react-query";
 import { useTRPC } from "@/lib/trpc/client";
+import { PageDesc } from "@/components/admin-ui";
 
 type Kid = { fullName: string; interestedCourseId: string };
 type Result = { key: number; at: string; leadId: string; name: string; phone: string; kind: "created" | "merged" | "same"; detail: string };
@@ -56,7 +57,7 @@ export function NewLeadForm({ centers, courses, assignees }: { centers: { id: st
           });
         }}
       >
-        <p className="text-sm text-ink-600">Nhập nhanh khách thu được từ quảng cáo, sự kiện, hoặc tư vấn trực tiếp. Hệ thống tự kiểm tra trùng số điện thoại và tự giao cho tư vấn viên theo cơ sở. Điền được tới đâu lưu tới đó — nhân viên nhập lấy theo tài khoản đang đăng nhập.</p>
+        <PageDesc lead="Nhập nhanh khách từ quảng cáo, sự kiện, hoặc tư vấn trực tiếp.">Hệ thống tự kiểm tra trùng số điện thoại và tự giao cho tư vấn viên theo cơ sở. Điền được tới đâu lưu tới đó — nhân viên nhập lấy theo tài khoản đang đăng nhập.</PageDesc>
         <div className="grid gap-3 sm:grid-cols-2">
           <div><label className="label">Tên phụ huynh</label><input className="input" value={f.parentName} onChange={set("parentName")} maxLength={120} /></div>
           <div><label className="label">SĐT phụ huynh *</label><input className="input" value={f.phone} onChange={set("phone")} required inputMode="tel" placeholder="09xx xxx xxx" /></div>

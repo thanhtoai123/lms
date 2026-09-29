@@ -80,6 +80,27 @@ export function PageHeader({ title, desc, help, actions }: { title: string; desc
   );
 }
 
+/**
+ * Mô tả đầu trang cho các trang KHÔNG dùng PageHeader: một dòng ngắn luôn hiện + nút "Cách dùng"
+ * mở phần giải thích dài. Cùng kiểu với PageHeader để toàn hệ thống nhất quán.
+ */
+export function PageDesc({ lead, children }: { lead: string; children?: React.ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-baseline gap-x-2">
+      <p className="text-sm text-muted-foreground">{lead}</p>
+      {children && (
+        <details className="group text-sm open:w-full">
+          <summary className="inline-flex cursor-pointer list-none items-center gap-1 text-xs font-semibold text-primary hover:underline [&::-webkit-details-marker]:hidden">
+            <span aria-hidden className="grid size-4 place-items-center rounded-full border border-current text-[10px] leading-none">?</span>
+            <span className="group-open:hidden">Cách dùng</span><span className="hidden group-open:inline">Thu gọn</span>
+          </summary>
+          <div className="mt-2 rounded-lg bg-muted px-3 py-2 text-muted-foreground">{children}</div>
+        </details>
+      )}
+    </div>
+  );
+}
+
 /** Phân trang GET (giữ các tham số lọc hiện có) */
 export function Pager({ basePath, params, page, pageSize, total }: { basePath: string; params: Record<string, string | undefined>; page: number; pageSize: number; total: number }) {
   const pages = Math.max(1, Math.ceil(total / pageSize));

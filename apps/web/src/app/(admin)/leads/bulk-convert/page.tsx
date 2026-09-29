@@ -1,4 +1,5 @@
 import { getServerCaller } from "@/lib/trpc/server";
+import { PageDesc } from "@/components/admin-ui";
 import { BulkConvert } from "./table";
 
 export const dynamic = "force-dynamic";
@@ -12,7 +13,7 @@ export default async function BulkConvertPage({ searchParams }: { searchParams: 
     <div className="space-y-4">
       <div>
         <h1 className="page-title">Chốt hàng loạt</h1>
-        <p className="text-sm text-ink-600">Chọn lớp, ghi nhận đã đóng, đồng ý ảnh cho nhiều lead rồi chốt một lần. Mỗi dòng xử lý độc lập — dòng lỗi không chặn dòng khác. Sau chốt, tài khoản phụ huynh ở trạng thái <b>chờ kích hoạt</b> (OTP Zalo).</p>
+        <PageDesc lead="Chọn lớp, ghi nhận đã đóng, đồng ý ảnh cho nhiều lead rồi chốt một lần.">Mỗi dòng xử lý độc lập — dòng lỗi không chặn dòng khác. Sau chốt, tài khoản phụ huynh ở trạng thái <b>chờ kích hoạt</b> (OTP Zalo).</PageDesc>
       </div>
       <form className="flex flex-wrap gap-2 items-center">
         <select name="center" defaultValue={sp.center ?? ""} className="input max-w-xs"><option value="">Mọi cơ sở</option>{ref.centers.map((c) => <option key={c.id} value={c.id}>{c.code} — {c.name}</option>)}</select>
