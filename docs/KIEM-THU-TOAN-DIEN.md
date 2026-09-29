@@ -153,6 +153,25 @@ Chạy lại nguyên `scripts/kiem-thu/kich-ban-vai-tro.ps1` trong một tiến 
 dòng `PASS` / `FAIL` và gom vào cùng bảng tổng hợp. Xem `docs/KIEM-THU-VAI-TRO.md` cho
 chi tiết 94 bước.
 
+### Bộ E — Tấn công mở rộng + hồi quy đợt B
+
+CSRF (Origin / Sec-Fetch chéo trang), token phiên giả (JWT tự ký), chèn SQL qua ô tìm kiếm,
+lỗi không lộ SQL / đường dẫn máy chủ, thân yêu cầu quá lớn, giả `X-Forwarded-For` để lách
+trần tần suất, cách ly tài chính chéo trung tâm, và trung tâm tạm ngừng chỉ đọc — không ghi.
+Chạy riêng: `-Only tan-cong`.
+
+### Bộ F — IDOR truy cập trực tiếp + leo quyền ghi
+
+- **IDOR:** lấy id THẬT của SATA (qua tài khoản quản lý cơ sở SATA), rồi mở `.get(id)` học viên /
+  lead / lớp / buổi học bằng tài khoản trung tâm khác (FR_HUE) → phải bị chặn (kiểm quyền ở
+  từng bản ghi: `assertTenant` + `requirePermission`, không chỉ lọc danh sách).
+- **Leo quyền ghi:** vai trò thấp (giáo viên, tư vấn, quản lý cơ sở) gọi thủ tục chỉ Hội sở /
+  quản trị (`system.grantRole`, `system.setLock`, `admin.saveSettings`, `tenants.provision`,
+  `content.planAccessDecide`) → phải 403.
+- "Bị chặn" = gọi thất bại VÀ mã lỗi là quyền/không-tìm-thấy (không phải lỗi hệ thống 500). Các
+  bài ghi phải gửi **payload hợp lệ** để chạm đúng bước kiểm quyền, không dừng ở lỗi định dạng.
+Chạy chung với `-Only tan-cong`.
+
 ## 4. Cách đọc báo cáo
 
 Báo cáo Markdown ở `-Out` có 8 mục:
