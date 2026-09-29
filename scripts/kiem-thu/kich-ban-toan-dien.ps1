@@ -1306,11 +1306,16 @@ if ($Only -eq "tat-ca" -or $Only -eq "tan-cong") {
   $r = Mu "system.setLock" @{ userId = (Def $uidTe "00000000-0000-0000-0000-000000000001"); lock = $true; reason = "kiem thu" } $S
   T "F" "F06 leo thang: tu van khoa tai khoan nguoi khac -> bi chan" (BiChan $r) "FORBIDDEN" ("ok=" + $r.ok + " ma=" + $r.errCode)
 
-  $r = Mu "admin.saveSettings" @{ company = @{ name = "Hijack" } } $TE
-  T "F" "F07 leo thang: giao vien luu cau hinh he thong -> bi chan" (BiChan $r) "FORBIDDEN" ("ok=" + $r.ok + " ma=" + $r.errCode)
+  # Payload HOP LE de yeu cau di qua buoc kiem dinh dang, cham dung buoc kiem QUYEN
+  $cauHinhHl = @{ brandName = "x"; legalName = "x"; hotline = "0900000000"; supportEmail = "a@b.test"; website = "https://x.test"; headOfficeAddress = "x"; taxCode = "0"; receiptFooter = "x"; zaloOaId = "x"; timezone = "Asia/Ho_Chi_Minh"; parentAppUrl = "https://x.test" }
+  $r = Mu "admin.saveSettings" $cauHinhHl $TE
+  T "F" "F07 leo thang: giao vien luu cau hinh he thong -> 403 (khong phai loi dinh dang)" ($r.errCode -eq "FORBIDDEN") "FORBIDDEN" ("ok=" + $r.ok + " ma=" + $r.errCode)
 
-  $r = Mu "tenants.provision" @{ code = "HACK1"; name = "x"; modelTenantId = "00000000-0000-0000-0000-000000000001" } $M
-  T "F" "F08 leo thang: quan ly co so nhan ban trung tam -> bi chan" (BiChan $r) "FORBIDDEN" ("ok=" + $r.ok + " ma=" + $r.errCode)
+  $srcTenant = (@(Rows (Q "tenants.list" $null $A).data.items) | Select-Object -First 1).id
+  if ($srcTenant) {
+    $r = Mu "tenants.provision" @{ sourceTenantId = $srcTenant; code = "HACK1"; name = "Trung tam gia mao" } $M
+    T "F" "F08 leo thang: quan ly co so nhan ban trung tam -> 403 (khong phai loi dinh dang)" ($r.errCode -eq "FORBIDDEN") "FORBIDDEN" ("ok=" + $r.ok + " ma=" + $r.errCode)
+  } else { Skip "F" "F08 leo thang provision" "khong lay duoc tenant nguon" }
 
   # --- F10. Giao vien duyet chinh yeu cau xem giao an (can plan_access:approve) ---
   $r = Mu "content.planAccessDecide" @{ id = "00000000-0000-0000-0000-0000000000ff"; action = "approve" } $TE
