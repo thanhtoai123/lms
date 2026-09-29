@@ -1267,9 +1267,19 @@ if ($Only -eq "tat-ca" -or $Only -eq "tan-cong") {
   if ((-not $meFr.ok) -or ($null -eq $meFr.data)) {
     Skip "F" "F01-F04 IDOR truy cap truc tiep cheo tenant" "khong co tai khoan FR_HUE dang hoat dong"
   } else {
-    $sid = (@(Rows (Q "students.list" @{ page = 1 } $A).data.items) | Select-Object -First 1).id
-    $lid = (@(Rows (Q "admissions.leads.inbox" @{ scope = "all" } $A).data.items) | Select-Object -First 1).id
-    $cid = (@(Rows (Q "schedule.classOptions" $null $A).data) | Select-Object -First 1).id
+    # Lay id tu QUAN LY CO SO SATA (chi thay du lieu SATA) -> nguoi FR_HUE mo la CHEO TENANT that su
+    $sid = (@(Rows (Q "students.list" @{ page = 1 } $M).data.items) | Select-Object -First 1).id
+    $lid = (@(Rows (Q "admissions.leads.inbox" @{ scope = "all" } $M).data.items) | Select-Object -First 1).id
+    # Lop SATA co it nhat mot buoi hoc (duyet vai lop dau)
+    $cid = $null; $ssid = $null
+    foreach ($opt in @(Rows (Q "schedule.classOptions" $null $M).data)) {
+      $kl = (Q "academics.classes.get" @{ id = $opt.id } $M).data
+      if ($kl -and $kl.PSObject.Properties["sessions"]) {
+        $bh = @(Rows $kl.sessions) | Select-Object -First 1
+        if ($bh -and $bh.id) { $cid = $opt.id; $ssid = $bh.id; break }
+      }
+      if (-not $cid) { $cid = $opt.id }
+    }
 
     if ($sid) {
       $r = Q "students.get" @{ id = $sid } $frF
@@ -1284,15 +1294,11 @@ if ($Only -eq "tat-ca" -or $Only -eq "tan-cong") {
     if ($cid) {
       $r = Q "academics.classes.get" @{ id = $cid } $frF
       T "F" "F03 IDOR: nguoi FR_HUE mo lop SATA bang id -> bi chan" (BiChan $r) "FORBIDDEN / NOT_FOUND" ("ok=" + $r.ok + " ma=" + $r.errCode)
-      # buoi hoc dau tien cua lop (neu getClass tra ve sessions)
-      $klass = (Q "academics.classes.get" @{ id = $cid } $A).data
-      $ses = $null
-      if ($klass -and $klass.PSObject.Properties["sessions"]) { $ses = (@(Rows $klass.sessions) | Select-Object -First 1) }
-      if ($ses -and $ses.id) {
-        $r = Q "academics.sessions.get" @{ id = $ses.id } $frF
-        T "F" "F04 IDOR: nguoi FR_HUE mo buoi hoc SATA bang id -> bi chan" (BiChan $r) "FORBIDDEN / NOT_FOUND" ("ok=" + $r.ok + " ma=" + $r.errCode)
-      } else { Skip "F" "F04 IDOR buoi hoc" "khong lay duoc id buoi hoc" }
-    } else { Skip "F" "F03-F04 IDOR lop / buoi" "khong lay duoc id lop SATA" }
+    } else { Skip "F" "F03 IDOR lop" "khong lay duoc id lop SATA" }
+    if ($ssid) {
+      $r = Q "academics.sessions.get" @{ id = $ssid } $frF
+      T "F" "F04 IDOR: nguoi FR_HUE mo buoi hoc SATA bang id -> bi chan" (BiChan $r) "FORBIDDEN / NOT_FOUND" ("ok=" + $r.ok + " ma=" + $r.errCode)
+    } else { Skip "F" "F04 IDOR buoi hoc" "khong lay duoc id buoi hoc SATA" }
   }
 
   # --- F05-F09. Leo quyen: vai tro thap goi thu tuc ghi chi danh cho Hoi so / quan tri ---
