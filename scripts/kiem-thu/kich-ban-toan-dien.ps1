@@ -1248,13 +1248,80 @@ if ($Only -eq "tat-ca" -or $Only -eq "tan-cong") {
   # --- E24. Theo dõi lỗi máy chủ có mặt ở trang Vận hành (B5) ----------------
   $ops = Q "system.ops" $null $A
   T "E" "E24 trang Van hanh co bang loi may chu" ($ops.ok -and ($null -ne $ops.data.PSObject.Properties["loiMayChu"])) "co truong loiMayChu" ("ok=" + $ops.ok)
+
+  Write-Host ""
+  Write-Host "===== BO F — IDOR TRUY CAP TRUC TIEP + LEO QUYEN GHI =====" -ForegroundColor Cyan
+
+  # "Bi chan" = goi that bai VA la loi quyen/khong-tim-thay (khong phai loi he thong 500)
+  function BiChan($r) {
+    if ($r.ok) { return $false }
+    $c = [string]$r.errCode
+    return ($c -eq "FORBIDDEN" -or $c -eq "NOT_FOUND" -or $c -eq "UNAUTHORIZED")
+  }
+  # Tai khoan ben nhuong quyen FR_HUE dang hoat dong (khac tenant voi SATA)
+  $frF = $FR
+  $meFr = Q "auth.me" $null $frF
+  if ((-not $meFr.ok) -or ($null -eq $meFr.data)) { $frF = $FR2; $meFr = Q "auth.me" $null $frF }
+
+  # --- F01-F04. IDOR: lay id THAT cua SATA (quan tri), roi mo .get(id) o tai khoan khac tenant ---
+  if ((-not $meFr.ok) -or ($null -eq $meFr.data)) {
+    Skip "F" "F01-F04 IDOR truy cap truc tiep cheo tenant" "khong co tai khoan FR_HUE dang hoat dong"
+  } else {
+    $sid = (@(Rows (Q "students.list" @{ page = 1 } $A).data.items) | Select-Object -First 1).id
+    $lid = (@(Rows (Q "admissions.leads.inbox" @{ scope = "all" } $A).data.items) | Select-Object -First 1).id
+    $cid = (@(Rows (Q "schedule.classOptions" $null $A).data) | Select-Object -First 1).id
+
+    if ($sid) {
+      $r = Q "students.get" @{ id = $sid } $frF
+      T "F" "F01 IDOR: nguoi FR_HUE mo ho so hoc vien SATA bang id -> bi chan" (BiChan $r) "FORBIDDEN / NOT_FOUND" ("ok=" + $r.ok + " ma=" + $r.errCode)
+    } else { Skip "F" "F01 IDOR hoc vien" "khong lay duoc id hoc vien SATA" }
+
+    if ($lid) {
+      $r = Q "admissions.leads.get" @{ id = $lid } $frF
+      T "F" "F02 IDOR: nguoi FR_HUE mo lead SATA bang id -> bi chan" (BiChan $r) "FORBIDDEN / NOT_FOUND" ("ok=" + $r.ok + " ma=" + $r.errCode)
+    } else { Skip "F" "F02 IDOR lead" "khong lay duoc id lead SATA" }
+
+    if ($cid) {
+      $r = Q "academics.classes.get" @{ id = $cid } $frF
+      T "F" "F03 IDOR: nguoi FR_HUE mo lop SATA bang id -> bi chan" (BiChan $r) "FORBIDDEN / NOT_FOUND" ("ok=" + $r.ok + " ma=" + $r.errCode)
+      # buoi hoc dau tien cua lop (neu getClass tra ve sessions)
+      $klass = (Q "academics.classes.get" @{ id = $cid } $A).data
+      $ses = $null
+      if ($klass -and $klass.PSObject.Properties["sessions"]) { $ses = (@(Rows $klass.sessions) | Select-Object -First 1) }
+      if ($ses -and $ses.id) {
+        $r = Q "academics.sessions.get" @{ id = $ses.id } $frF
+        T "F" "F04 IDOR: nguoi FR_HUE mo buoi hoc SATA bang id -> bi chan" (BiChan $r) "FORBIDDEN / NOT_FOUND" ("ok=" + $r.ok + " ma=" + $r.errCode)
+      } else { Skip "F" "F04 IDOR buoi hoc" "khong lay duoc id buoi hoc" }
+    } else { Skip "F" "F03-F04 IDOR lop / buoi" "khong lay duoc id lop SATA" }
+  }
+
+  # --- F05-F09. Leo quyen: vai tro thap goi thu tuc ghi chi danh cho Hoi so / quan tri ---
+  $meTe = Q "auth.me" $null $TE
+  $uidTe = $null
+  if ($meTe.ok -and $meTe.data -and $meTe.data.user) { $uidTe = $meTe.data.user.id }
+
+  $r = Mu "system.grantRole" @{ userId = (Def $uidTe "00000000-0000-0000-0000-000000000001"); role = "SUPER_ADMIN"; centerId = $null } $TE
+  T "F" "F05 leo thang: giao vien tu cap vai tro SUPER_ADMIN -> bi chan" (BiChan $r) "FORBIDDEN" ("ok=" + $r.ok + " ma=" + $r.errCode)
+
+  $r = Mu "system.setLock" @{ userId = (Def $uidTe "00000000-0000-0000-0000-000000000001"); lock = $true; reason = "kiem thu" } $S
+  T "F" "F06 leo thang: tu van khoa tai khoan nguoi khac -> bi chan" (BiChan $r) "FORBIDDEN" ("ok=" + $r.ok + " ma=" + $r.errCode)
+
+  $r = Mu "admin.saveSettings" @{ company = @{ name = "Hijack" } } $TE
+  T "F" "F07 leo thang: giao vien luu cau hinh he thong -> bi chan" (BiChan $r) "FORBIDDEN" ("ok=" + $r.ok + " ma=" + $r.errCode)
+
+  $r = Mu "tenants.provision" @{ code = "HACK1"; name = "x"; modelTenantId = "00000000-0000-0000-0000-000000000001" } $M
+  T "F" "F08 leo thang: quan ly co so nhan ban trung tam -> bi chan" (BiChan $r) "FORBIDDEN" ("ok=" + $r.ok + " ma=" + $r.errCode)
+
+  # --- F10. Giao vien duyet chinh yeu cau xem giao an (can plan_access:approve) ---
+  $r = Mu "content.planAccessDecide" @{ id = "00000000-0000-0000-0000-0000000000ff"; action = "approve" } $TE
+  T "F" "F10 leo thang: giao vien tu duyet yeu cau xem giao an -> bi chan" (BiChan $r) "FORBIDDEN" ("ok=" + $r.ok + " ma=" + $r.errCode)
 }
 
 # =========================================================================== #
 #  TỔNG HỢP + BÁO CÁO                                                         #
 # =========================================================================== #
-$boTen = @{ A = "Bao mat"; B = "Cach ly trung tam (tenant)"; C = "Mot cham (Viec hom nay)"; D = "Nghiep vu theo vai tro"; E = "Tan cong mo rong + hoi quy dot B" }
-$boThuTu = @("A", "B", "C", "D", "E")
+$boTen = @{ A = "Bao mat"; B = "Cach ly trung tam (tenant)"; C = "Mot cham (Viec hom nay)"; D = "Nghiep vu theo vai tro"; E = "Tan cong mo rong + hoi quy dot B"; F = "IDOR + leo quyen ghi" }
+$boThuTu = @("A", "B", "C", "D", "E", "F")
 
 $tongPass = @($script:results | Where-Object { $_.status -eq "PASS" }).Count
 $tongFail = @($script:results | Where-Object { $_.status -eq "FAIL" }).Count
