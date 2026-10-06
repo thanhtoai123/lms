@@ -57,7 +57,7 @@ export default async function PrepPage({ params }: { params: Promise<{ id: strin
       <div className="min-w-0 space-y-4">
       {/* Bài học */}
       <section className="card space-y-3 p-4" aria-label="Bài học">
-        <h2 className="flex items-center gap-2 font-bold"><BookOpen className="h-5 w-5 text-brand-600" aria-hidden />{d.lesson.sequenceNo ? `Bài ${d.lesson.sequenceNo}: ` : ""}{d.lesson.title ?? "Chưa gắn bài giảng"}</h2>
+        <h2 className="flex items-start gap-2 font-bold"><BookOpen className="mt-0.5 h-5 w-5 shrink-0 text-brand-600" aria-hidden />{d.lesson.sequenceNo ? `Bài ${d.lesson.sequenceNo}: ` : ""}{d.lesson.title ?? "Chưa gắn bài giảng"}</h2>
         {d.lesson.objectives && (
           <div>
             <div className="mb-1 flex items-center gap-1 text-[13px] font-semibold uppercase tracking-wide text-ink-600"><Target className="h-4 w-4" aria-hidden />Mục tiêu</div>
@@ -72,7 +72,7 @@ export default async function PrepPage({ params }: { params: Promise<{ id: strin
         )}
         {d.previous && (
           <div className="rounded-xl bg-black/[0.03] p-3 text-[14px]">
-            <div className="font-semibold">Buổi trước · {d.previous.label} · {fmtDate(d.previous.date)}{d.previous.absent ? ` · vắng ${d.previous.absent}` : ""}</div>
+            <div className="font-semibold">Buổi trước · {d.previous.label} · {fmtDate(d.previous.date)}{d.previous.absent ? <span className="whitespace-nowrap"> · vắng {d.previous.absent}</span> : null}</div>
             {d.previous.note && <p className="mt-1 text-ink-600">{d.previous.note}</p>}
           </div>
         )}
@@ -93,7 +93,7 @@ export default async function PrepPage({ params }: { params: Promise<{ id: strin
             {d.documents.map((x) => (
               <li key={x.id}>
                 <Link href={x.href} className="flex min-h-11 items-center justify-between gap-2 py-2">
-                  <span className="min-w-0"><span className="block truncate font-semibold text-brand-600">{x.title}</span><span className="block text-[13px] text-ink-600">{x.category} · {x.kindLabel}{x.forLesson ? " · của bài này" : " · chung của khoá"}</span></span>
+                  <span className="min-w-0"><span className="block truncate font-semibold text-brand-600">{x.title}</span><span className="block text-[13px] text-ink-600">{x.category} · {x.kindLabel}<span className="whitespace-nowrap">{x.forLesson ? " · của bài này" : " · chung của khoá"}</span></span></span>
                 </Link>
               </li>
             ))}

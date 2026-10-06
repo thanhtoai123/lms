@@ -38,11 +38,10 @@ export function SessionCard({ s, highlight, compact, showDate = true }: { s: Car
         {/* Nhãn trạng thái rớt xuống dưới tiêu đề khi thẻ hẹp — không bao giờ bẻ chữ trong nhãn */}
         <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1.5">
           <div className="min-w-0 flex-1 basis-44">
-            <div className="flex flex-wrap items-center gap-x-1.5 text-[13px] text-ink-600">
+            <div className="flex flex-wrap items-center gap-x-2 text-[13px] text-ink-600">
               <Clock className="h-3.5 w-3.5 shrink-0" aria-hidden />
-              {showDate && <span className="whitespace-nowrap">{WEEKDAY_VI[weekdayOf(s.date)]} {fmtDate(s.date)} ·</span>}
-              <span className="whitespace-nowrap">{fmtTime(s.startTime)}–{fmtTime(s.endTime)}</span>
-              <span className="whitespace-nowrap">· {s.roomCode ?? "—"}</span>
+              {showDate && <span className="whitespace-nowrap font-medium">{WEEKDAY_VI[weekdayOf(s.date)]} {fmtDate(s.date)}</span>}
+              <span className="whitespace-nowrap">{fmtTime(s.startTime)}–{fmtTime(s.endTime)} · {s.roomCode ?? "—"}</span>
             </div>
             <div className="truncate font-semibold">{s.className}</div>
             <div className="line-clamp-2 text-[14px] text-ink-600">{s.label}{s.topic ? ` · ${s.topic}` : ""}</div>

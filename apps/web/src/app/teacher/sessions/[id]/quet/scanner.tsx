@@ -71,7 +71,7 @@ export function Scanner({ sessionId }: { sessionId: string }) {
       <Link href={`/teacher/sessions/${sessionId}`} className="text-sm text-brand-600">← Về buổi học</Link>
       <div className="card p-4">
         <h1 className="font-bold">Quét thẻ điểm danh</h1>
-        {d && <p className="text-sm text-ink-600">{d.classCode} · {d.label} · {present}/{d.roster.length} đã có mặt</p>}
+        {d && <p className="text-sm text-ink-600">{d.classCode} · {d.label} · <span className="whitespace-nowrap">{present}/{d.roster.length} đã có mặt</span></p>}
       </div>
       {supported === false && <div className="card border-amber-200 bg-amber-50 p-3 text-sm">Trình duyệt này chưa hỗ trợ quét bằng camera — dùng Chrome trên Android, hoặc nhập mã in dưới thẻ.</div>}
       {supported && (

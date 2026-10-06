@@ -47,13 +47,13 @@ export default async function TeacherToday() {
           <h2 className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[15px] font-bold text-red-700">
             Cần chốt ngay <span className="chip bg-red-100 text-red-700">{data.overdue.length}</span>
           </h2>
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">{data.overdue.map((s) => <SessionCard key={s.id} s={s} highlight />)}</div>
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,19rem),1fr))] gap-3">{data.overdue.map((s) => <SessionCard key={s.id} s={s} highlight />)}</div>
         </section>
       )}
 
       <section className="order-3 space-y-2">
         <h2 className="text-[15px] font-bold">Hôm nay</h2>
-        {data.todays.length === 0 ? <Empty>Hôm nay bạn không có buổi dạy.</Empty> : <div className="grid grid-cols-1 gap-3 md:grid-cols-2">{data.todays.map((s) => <SessionCard key={s.id} s={s} showDate={false} />)}</div>}
+        {data.todays.length === 0 ? <Empty>Hôm nay bạn không có buổi dạy.</Empty> : <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,19rem),1fr))] gap-3">{data.todays.map((s) => <SessionCard key={s.id} s={s} showDate={false} />)}</div>}
       </section>
 
       <section className="order-5 space-y-2">
@@ -62,7 +62,7 @@ export default async function TeacherToday() {
           <Link href="/teacher/lich" className="inline-flex min-h-11 items-center text-[14px] font-semibold text-brand-600">Cả lịch dạy →</Link>
         </div>
         {/* Chỉ vài buổi gần nhất — lịch đầy đủ ở mục Lịch dạy */}
-        {data.upcoming.length === 0 ? <Empty>Không có buổi dạy trong 7 ngày tới.</Empty> : <div className="grid grid-cols-1 gap-3 md:grid-cols-2">{data.upcoming.slice(0, 4).map((s) => <SessionCard key={s.id} s={s} />)}</div>}
+        {data.upcoming.length === 0 ? <Empty>Không có buổi dạy trong 7 ngày tới.</Empty> : <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,19rem),1fr))] gap-3">{data.upcoming.slice(0, 4).map((s) => <SessionCard key={s.id} s={s} />)}</div>}
       </section>
       </div>
       <div className="contents xl:block xl:space-y-6">

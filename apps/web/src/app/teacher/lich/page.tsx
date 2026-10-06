@@ -112,7 +112,7 @@ export default async function TeacherSchedule({ searchParams }: { searchParams: 
           return (
             <section key={x} aria-label={`${WEEKDAY_VI[weekdayOf(x)]} ${dm(x)}`} className="space-y-2">
               <h2 className={`text-[15px] font-bold ${isToday ? "text-brand-700" : ""}`}>{WEEKDAY_VI[weekdayOf(x)]} {dm(x)}{isToday ? " · hôm nay" : ""}</h2>
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">{list.map((s) => <SessionCard key={s.id} s={s} showDate={false} highlight={s.status === "in_progress"} />)}</div>
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,19rem),1fr))] gap-3">{list.map((s) => <SessionCard key={s.id} s={s} showDate={false} highlight={s.status === "in_progress"} />)}</div>
             </section>
           );
         })}

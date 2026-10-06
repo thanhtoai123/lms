@@ -213,7 +213,7 @@ export function SessionWorkflow({ sessionId }: { sessionId: string }) {
       {/* Bước 1: Điểm danh */}
       <section id="diem-danh" className="card scroll-mt-20 p-4 space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="font-bold">Điểm danh <span className="text-ink-400 font-normal text-sm">({present}/{roster.length} có mặt)</span>
+          <h2 className="font-bold">Điểm danh <span className="whitespace-nowrap text-ink-400 font-normal text-sm">({present}/{roster.length} có mặt)</span>
             {!attendanceSaved && roster.length > 0 && !isFuture && <span className="chip ml-1.5 bg-amber-100 align-middle text-[11px] text-amber-900">Chưa lưu</span>}
           </h2>
           {s.date === s.today && <Link href={`/teacher/sessions/${sessionId}/quet`} className="text-xs font-semibold text-brand-600 underline">Quét thẻ QR</Link>}
@@ -221,7 +221,7 @@ export function SessionWorkflow({ sessionId }: { sessionId: string }) {
             <button className="btn-ghost !px-2 !py-1 text-xs" onClick={() => markAll("present")} disabled={busy || s.status === "completed"}>Tất cả có mặt</button>
           </div>
         </div>
-        {evalManaged && <p className="text-xs text-ink-400">Nhận xét từng em viết ở <a href="#phieu-nhan-xet" className="font-semibold text-brand-600">phiếu nhận xét bên dưới ↓</a></p>}
+        {evalManaged && <p className="text-xs text-ink-400">Nhận xét từng em viết ở <a href="#phieu-nhan-xet" className="whitespace-nowrap font-semibold text-brand-600">phiếu nhận xét bên dưới ↓</a></p>}
         <ul className="divide-y divide-black/5">
           {roster.map((r) => {
             const v = effective[r.enrollmentId]!;
@@ -357,7 +357,7 @@ export function SessionWorkflow({ sessionId }: { sessionId: string }) {
 
       {/* Quy trình sau buổi */}
       <section className="card p-4 space-y-2">
-        <h2 className="font-bold">Quy trình sau buổi <span className="text-xs font-normal text-ink-400">(mục * bắt buộc trước khi hoàn tất)</span></h2>
+        <h2 className="font-bold">Quy trình sau buổi <span className="whitespace-nowrap text-xs font-normal text-ink-400">(mục * bắt buộc trước khi hoàn tất)</span></h2>
         <ul className="space-y-1 text-sm">
           {(s.completion ?? []).map((c) => (
             <li key={c.key} className={c.done ? "text-green-800" : c.required ? "text-ink-900" : "text-ink-600"}>
