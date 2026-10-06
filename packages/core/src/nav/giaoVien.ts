@@ -43,6 +43,8 @@ export const TEACHER_MORE_SKIP = [
   "/viec-hom-nay", "/curriculums", "/courses", "/lo-trinh", "/documents",
   // Hồ sơ học tập toàn trung tâm cần quyền xem học bạ đầy đủ — giáo viên chỉ có học bạ lớp mình (Lớp của tôi → Học bạ lớp)
   "/ho-so-hoc-tap",
+  // Đã có sẵn ở thanh trên: chuông thông báo (→ Thông báo) và menu người dùng (Hồ sơ / Bảo mật tài khoản)
+  "/thong-bao", "/tai-khoan", "/bao-mat",
 ] as const;
 
 /** Danh sách "Thêm": các nhóm menu đã lọc quyền, bỏ mục trùng mục chính; nhóm rỗng bị bỏ */

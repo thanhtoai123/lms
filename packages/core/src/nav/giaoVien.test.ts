@@ -33,7 +33,7 @@ test("Thêm của giáo viên: có bài tập, tin nhắn; không có Dashboard 
   const nav = filterMenu(ADMIN_MENU, (p) => hasPermission(actor, p), (p) => { const c = centersWith(actor, p); return c === null || c.length > 0; });
   const hrefs = teacherMoreGroups(nav).flatMap((g) => g.items.map((i) => i.href));
   for (const h of ["/assignments", "/tin-nhan", "/huong-dan"]) assert.ok(hrefs.includes(h), h);
-  for (const h of ["/dashboard", "/classes", "/cham-cong/lich-ca", "/ho-so-hoc-tap"]) assert.ok(!hrefs.includes(h), h);
+  for (const h of ["/dashboard", "/classes", "/cham-cong/lich-ca", "/ho-so-hoc-tap", "/thong-bao", "/tai-khoan", "/bao-mat"]) assert.ok(!hrefs.includes(h), h);
   // Việc văn phòng / danh mục của bộ phận đào tạo không nằm trong "Thêm" của giáo viên; "Tài liệu lớp tôi" (dành riêng cho GV) vẫn còn
   for (const h of ["/viec-hom-nay", "/curriculums", "/courses", "/lo-trinh", "/documents"]) assert.ok(!hrefs.includes(h), h);
   assert.ok(hrefs.includes("/teaching-materials"));
