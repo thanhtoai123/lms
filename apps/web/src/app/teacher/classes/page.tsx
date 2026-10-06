@@ -25,11 +25,11 @@ export default async function MyClasses() {
             <div className="flex justify-between gap-2">
               <div className="min-w-0">
                 <div className="truncate font-semibold">{c.name}</div>
-                <div className="text-[13px] text-ink-600">{c.code} · {c.centerCode} · {c.schedule ?? "chưa có lịch"}</div>
+                <div className="flex flex-wrap gap-x-1.5 text-[13px] text-ink-600"><span className="whitespace-nowrap">{c.code} ·</span><span className="whitespace-nowrap">{c.centerCode} ·</span><span>{c.schedule ?? "chưa có lịch"}</span></div>
               </div>
               {c.overdue > 0 && <span className="chip h-fit bg-red-100 text-red-700">{c.overdue} quá hạn</span>}
             </div>
-            <div className="mt-2 flex justify-between text-[13px] text-ink-600"><span>{c.enrolled}/{c.capacity} HV</span><span>{c.sessionsDone}/{c.sessionsTotal} buổi{c.percent !== null ? ` · ${c.percent}%` : ""}</span></div>
+            <div className="mt-2 flex justify-between gap-2 text-[13px] text-ink-600"><span className="whitespace-nowrap">{c.enrolled}/{c.capacity} HV</span><span className="whitespace-nowrap">{c.sessionsDone}/{c.sessionsTotal} buổi{c.percent !== null ? ` · ${c.percent}%` : ""}</span></div>
             <div className="mt-1 h-2 rounded-full bg-black/5" role="progressbar" aria-label={`Tiến độ lớp ${c.code}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={c.percent ?? 0}>
               <div className="h-2 rounded-full bg-brand-500" style={{ width: `${c.percent ?? 0}%` }} />
             </div>

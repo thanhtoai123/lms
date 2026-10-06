@@ -35,9 +35,15 @@ export function SessionCard({ s, highlight, compact, showDate = true }: { s: Car
   return (
     <div className={`card overflow-hidden ${highlight ? "border-brand-500/40 ring-2 ring-brand-100" : ""} ${huy ? "opacity-60" : ""}`}>
       <Link href={`/teacher/sessions/${s.id}`} className={`block ${compact ? "p-3" : "p-4"}`}>
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex items-center gap-1 text-[13px] text-ink-600"><Clock className="h-3.5 w-3.5 shrink-0" aria-hidden />{showDate ? `${WEEKDAY_VI[weekdayOf(s.date)]} ${fmtDate(s.date)} · ` : ""}{fmtTime(s.startTime)}–{fmtTime(s.endTime)} · {s.roomCode ?? "—"}</div>
+        {/* Nhãn trạng thái rớt xuống dưới tiêu đề khi thẻ hẹp — không bao giờ bẻ chữ trong nhãn */}
+        <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1.5">
+          <div className="min-w-0 flex-1 basis-44">
+            <div className="flex flex-wrap items-center gap-x-1.5 text-[13px] text-ink-600">
+              <Clock className="h-3.5 w-3.5 shrink-0" aria-hidden />
+              {showDate && <span className="whitespace-nowrap">{WEEKDAY_VI[weekdayOf(s.date)]} {fmtDate(s.date)} ·</span>}
+              <span className="whitespace-nowrap">{fmtTime(s.startTime)}–{fmtTime(s.endTime)}</span>
+              <span className="whitespace-nowrap">· {s.roomCode ?? "—"}</span>
+            </div>
             <div className="truncate font-semibold">{s.className}</div>
             <div className="line-clamp-2 text-[14px] text-ink-600">{s.label}{s.topic ? ` · ${s.topic}` : ""}</div>
           </div>
@@ -48,22 +54,22 @@ export function SessionCard({ s, highlight, compact, showDate = true }: { s: Car
         </div>
         {!compact && (
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[13px] text-ink-600">
-            <span className="inline-flex items-center gap-1"><UsersRound className="h-4 w-4" aria-hidden />Sĩ số {s.enrolled} · {s.attended}/{s.enrolled} đã điểm danh</span>
+            <span className="inline-flex items-center gap-1 whitespace-nowrap"><UsersRound className="h-4 w-4" aria-hidden />Sĩ số {s.enrolled} · {s.attended}/{s.enrolled} đã điểm danh</span>
             {s.isOverdue && <span className="chip bg-red-100 text-red-700">Quá hạn</span>}
-            {s.nextStep && !s.isOverdue && <span className="font-semibold text-brand-600">{BUOC[s.nextStep] ?? "Hoàn tất →"}</span>}
+            {s.nextStep && !s.isOverdue && <span className="whitespace-nowrap font-semibold text-brand-600">{BUOC[s.nextStep] ?? "Hoàn tất →"}</span>}
           </div>
         )}
       </Link>
       {!huy && (
         <div className="grid grid-cols-2 border-t border-black/5 text-[14px] font-semibold">
           {pb ? (
-            <Link href={pb.href} className={`flex min-h-11 items-center justify-center gap-2 hover:bg-brand-50 ${pb.locked ? "text-ink-600" : "text-primary"}`} title={pb.locked ? "Giáo án chỉ mở trong ca dạy — hoặc xin quản lý duyệt" : undefined}>
+            <Link href={pb.href} className={`flex min-h-11 items-center justify-center gap-2 whitespace-nowrap px-2 hover:bg-brand-50 ${pb.locked ? "text-ink-600" : "text-primary"}`} title={pb.locked ? "Giáo án chỉ mở trong ca dạy — hoặc xin quản lý duyệt" : undefined}>
               {pb.locked ? <Lock className="h-4 w-4" aria-hidden /> : <MonitorPlay className="h-4 w-4" aria-hidden />}{pb.label}
             </Link>
           ) : (
-            <span className="flex min-h-11 items-center justify-center gap-2 text-[13px] font-normal text-ink-600" title="Bài của buổi này chưa có giáo án — báo bộ phận đào tạo">Chưa có giáo án</span>
+            <span className="flex min-h-11 items-center justify-center gap-2 whitespace-nowrap text-[13px] font-normal text-ink-600" title="Bài của buổi này chưa có giáo án — báo bộ phận đào tạo">Chưa có giáo án</span>
           )}
-          <Link href={`/teacher/sessions/${s.id}/chuan-bi`} className="flex min-h-11 items-center justify-center gap-2 border-l border-black/5 text-primary hover:bg-brand-50"><BookOpen className="h-4 w-4" aria-hidden />Chuẩn bị</Link>
+          <Link href={`/teacher/sessions/${s.id}/chuan-bi`} className="flex min-h-11 items-center justify-center gap-2 whitespace-nowrap border-l border-black/5 px-2 text-primary hover:bg-brand-50"><BookOpen className="h-4 w-4" aria-hidden />Chuẩn bị</Link>
         </div>
       )}
     </div>

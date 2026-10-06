@@ -29,8 +29,8 @@ function MiniSession({ s }: { s: CardRow }) {
             <Link href={pb.href} className={`flex min-h-9 items-center justify-center gap-1 hover:bg-brand-50 ${pb.locked ? "text-ink-600" : "text-primary"}`} title={pb.label}>
               {pb.locked ? <Lock className="h-3.5 w-3.5" aria-hidden /> : <MonitorPlay className="h-3.5 w-3.5" aria-hidden />}Giáo án
             </Link>
-          ) : <span className="flex min-h-9 items-center justify-center text-[11px] text-ink-600">Chưa có GA</span>}
-          <Link href={`/teacher/sessions/${s.id}/chuan-bi`} className="flex min-h-9 items-center justify-center border-l border-black/5 text-primary hover:bg-brand-50">Chuẩn bị</Link>
+          ) : <span className="flex min-h-9 items-center justify-center whitespace-nowrap text-[11px] text-ink-600">Chưa có GA</span>}
+          <Link href={`/teacher/sessions/${s.id}/chuan-bi`} className="flex min-h-9 items-center justify-center whitespace-nowrap border-l border-black/5 text-primary hover:bg-brand-50">Chuẩn bị</Link>
         </div>
       )}
     </div>
@@ -84,14 +84,14 @@ export default async function TeacherSchedule({ searchParams }: { searchParams: 
       )}
 
       {/* Máy tính: 7 cột */}
-      <div className="hidden gap-2 lg:grid lg:grid-cols-7">
+      <div className="hidden gap-2 xl:grid xl:grid-cols-7">
         {days.map((x) => {
           const list = byDay.get(x) ?? [];
           const isToday = x === today;
           return (
             <section key={x} aria-label={`${WEEKDAY_VI[weekdayOf(x)]} ${dm(x)}`} className={`min-h-40 rounded-xl p-2 ${isToday ? "bg-brand-50 ring-2 ring-brand-200" : "bg-black/[0.03]"}`}>
-              <h2 className={`mb-2 flex items-baseline justify-between px-1 text-[13px] font-bold ${isToday ? "text-brand-700" : "text-ink-600"}`}>
-                <span>{WEEKDAY_VI[weekdayOf(x)]}</span><span className="tabular-nums">{dm(x)}{isToday ? " · hôm nay" : ""}</span>
+              <h2 className={`mb-2 flex flex-wrap items-baseline justify-between gap-x-2 px-1 text-[13px] font-bold ${isToday ? "text-brand-700" : "text-ink-600"}`} title={isToday ? "Hôm nay" : undefined}>
+                <span className="whitespace-nowrap">{WEEKDAY_VI[weekdayOf(x)]}</span><span className="whitespace-nowrap tabular-nums">{dm(x)}</span>
               </h2>
               <div className="space-y-2">
                 {list.length ? list.map((s) => <MiniSession key={s.id} s={s} />) : <p className="px-1 text-[12px] text-ink-600">Không có buổi</p>}
@@ -102,7 +102,7 @@ export default async function TeacherSchedule({ searchParams }: { searchParams: 
       </div>
 
       {/* Điện thoại / máy tính bảng: theo ngày */}
-      <div className="space-y-4 lg:hidden">
+      <div className="space-y-4 xl:hidden">
         {days.map((x) => {
           const list = byDay.get(x) ?? [];
           const isToday = x === today;
@@ -112,7 +112,7 @@ export default async function TeacherSchedule({ searchParams }: { searchParams: 
           return (
             <section key={x} aria-label={`${WEEKDAY_VI[weekdayOf(x)]} ${dm(x)}`} className="space-y-2">
               <h2 className={`text-[15px] font-bold ${isToday ? "text-brand-700" : ""}`}>{WEEKDAY_VI[weekdayOf(x)]} {dm(x)}{isToday ? " · hôm nay" : ""}</h2>
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">{list.map((s) => <SessionCard key={s.id} s={s} showDate={false} highlight={s.status === "in_progress"} />)}</div>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">{list.map((s) => <SessionCard key={s.id} s={s} showDate={false} highlight={s.status === "in_progress"} />)}</div>
             </section>
           );
         })}

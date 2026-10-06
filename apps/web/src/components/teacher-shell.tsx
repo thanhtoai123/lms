@@ -31,7 +31,7 @@ function Sidebar({ groups, activeHref }: { groups: SidebarGroup[]; activeHref: s
   });
   return (
     <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-r border-black/5 bg-white lg:flex print:hidden" aria-label="Menu giáo viên">
-      <Link href="/teacher" className="flex h-16 shrink-0 items-center px-5 text-[17px] font-bold text-brand-600">Sata Robo <span className="ml-1.5 rounded bg-brand-50 px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-brand-700">Giáo viên</span></Link>
+      <Link href="/teacher" className="flex h-16 shrink-0 items-center whitespace-nowrap px-5 text-[17px] font-bold text-brand-600">Sata Robo <span className="ml-1.5 rounded bg-brand-50 px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-brand-700">Giáo viên</span></Link>
       <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 pb-4 text-[14px]">
         {groups.map((g, gi) => {
           const open = !g.label || !closed.includes(g.label) || g.items.some((i) => i.href === activeHref);
@@ -49,7 +49,7 @@ function Sidebar({ groups, activeHref }: { groups: SidebarGroup[]; activeHref: s
                     return (
                       <li key={i.href}>
                         <Link href={i.href} aria-current={on ? "page" : undefined}
-                          className={`flex min-h-10 items-center gap-3 rounded-xl px-3 font-semibold transition-colors ${on ? "bg-brand-50 text-brand-700" : "text-ink-600 hover:bg-black/[0.04] hover:text-foreground"}`}>
+                          className={`flex min-h-10 items-center gap-3 whitespace-nowrap rounded-xl px-3 font-semibold transition-colors ${on ? "bg-brand-50 text-brand-700" : "text-ink-600 hover:bg-black/[0.04] hover:text-foreground"}`}>
                           <NavIcon name={i.icon} />{i.label}
                         </Link>
                       </li>
@@ -111,7 +111,7 @@ export function TeacherShell({ nav, me, canAdmin, idleMinutes = null, children }
                 <button type="button" onClick={() => setUserOpen((v) => !v)} aria-expanded={userOpen} aria-label="Tài khoản của tôi"
                   className="flex min-h-11 items-center gap-2 rounded-lg px-1.5 hover:bg-black/[0.04]">
                   <span className="grid size-8 shrink-0 place-items-center rounded-full bg-primary text-[13px] font-bold text-primary-foreground">{me.initials}</span>
-                  <span className="hidden max-w-[180px] truncate text-[14px] font-semibold sm:block">{me.fullName}</span>
+                  <span className="hidden max-w-[180px] truncate whitespace-nowrap text-[14px] font-semibold sm:block">{me.fullName}</span>
                   <ChevronDown className={`h-4 w-4 text-ink-600 transition-transform ${userOpen ? "rotate-180" : ""}`} aria-hidden />
                 </button>
                 {userOpen && <button type="button" tabIndex={-1} aria-hidden className="fixed inset-0 z-30 cursor-default" onClick={() => setUserOpen(false)} />}

@@ -40,11 +40,11 @@ export default async function TeacherToday() {
       <NowCard rows={[...data.todays, ...data.upcoming]} initial={gioVietNam()} />
 
       {/* Điện thoại: một cột theo thứ tự việc gấp (order-*). Màn rộng: trái = buổi dạy, phải = phiếu + phản hồi */}
-      <div className={`flex flex-col gap-6 ${hasSide ? "lg:grid lg:grid-cols-3 lg:items-start" : ""}`}>
-      <div className={hasSide ? "contents lg:col-span-2 lg:block lg:space-y-6" : "contents"}>
+      <div className={`flex flex-col gap-6 ${hasSide ? "xl:grid xl:grid-cols-3 xl:items-start" : ""}`}>
+      <div className={hasSide ? "contents xl:col-span-2 xl:block xl:space-y-6" : "contents"}>
       {data.overdue.length > 0 && (
         <section className="order-1 space-y-2">
-          <h2 className="flex items-center gap-2 text-[15px] font-bold text-red-700">
+          <h2 className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[15px] font-bold text-red-700">
             Cần chốt ngay <span className="chip bg-red-100 text-red-700">{data.overdue.length}</span>
           </h2>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">{data.overdue.map((s) => <SessionCard key={s.id} s={s} highlight />)}</div>
@@ -65,17 +65,17 @@ export default async function TeacherToday() {
         {data.upcoming.length === 0 ? <Empty>Không có buổi dạy trong 7 ngày tới.</Empty> : <div className="grid grid-cols-1 gap-3 md:grid-cols-2">{data.upcoming.slice(0, 4).map((s) => <SessionCard key={s.id} s={s} />)}</div>}
       </section>
       </div>
-      <div className="contents lg:block lg:space-y-6">
+      <div className="contents xl:block xl:space-y-6">
       {sheets && sheets.total > 0 && (
         <section className="order-2 space-y-2" aria-label="Phiếu cần hoàn thiện">
-          <h2 className="flex items-center gap-2 text-[15px] font-bold">
+          <h2 className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[15px] font-bold">
             Phiếu cần hoàn thiện <span className="chip bg-amber-100 text-amber-800">{sheets.total}</span>
             {sheets.overdue > 0 && <span className="chip bg-red-100 text-red-700">{sheets.overdue} quá hạn</span>}
           </h2>
           <div className="card divide-y divide-black/5">
             {sheets.items.map((p) => (
-              <Link key={p.sessionId} href={`/teacher/sessions/${p.sessionId}#can-hoan-thien`} className="flex min-h-11 items-center justify-between gap-3 p-3 hover:bg-black/[0.02]">
-                <div className="min-w-0">
+              <Link key={p.sessionId} href={`/teacher/sessions/${p.sessionId}#can-hoan-thien`} className="flex min-h-11 flex-wrap items-center justify-between gap-x-3 gap-y-1 p-3 hover:bg-black/[0.02]">
+                <div className="min-w-0 flex-1 basis-48">
                   <div className="truncate font-semibold">{p.className} · {p.label}</div>
                   <div className="text-[13px] text-ink-600">{fmtDate(p.date)} · {p.missing} học viên chưa có phiếu</div>
                 </div>
@@ -91,14 +91,14 @@ export default async function TeacherToday() {
 
       {trial && trial.total > 0 && (
         <section className="order-3 space-y-2" aria-label="Học thử chờ đánh giá">
-          <h2 className="flex items-center gap-2 text-[15px] font-bold">
+          <h2 className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[15px] font-bold">
             <FlaskConical className="h-4 w-4 text-brand-600" aria-hidden /> Học thử chờ đánh giá <span className="chip bg-amber-100 text-amber-800">{trial.total}</span>
             {trial.overdue > 0 && <span className="chip bg-red-100 text-red-700">{trial.overdue} quá 48 giờ</span>}
           </h2>
           <div className="card divide-y divide-black/5">
             {trial.items.map((t) => (
-              <div key={t.id} className="flex min-h-11 items-center justify-between gap-3 p-3">
-                <div className="min-w-0">
+              <div key={t.id} className="flex min-h-11 flex-wrap items-center justify-between gap-x-3 gap-y-1 p-3">
+                <div className="min-w-0 flex-1 basis-40">
                   <div className="truncate font-semibold">{t.childName}</div>
                   <div className="truncate text-[13px] text-ink-600">{[t.classLabel, t.centerCode, t.hasDraft ? "có bản nháp" : null].filter(Boolean).join(" · ")}</div>
                 </div>
@@ -112,7 +112,7 @@ export default async function TeacherToday() {
 
       {fb && fb.items.length > 0 && (
         <section className="order-4 space-y-2" aria-label="Phản hồi mới của phụ huynh">
-          <h2 className="flex items-center gap-2 text-[15px] font-bold">
+          <h2 className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[15px] font-bold">
             <MessageCircle className="h-4 w-4 text-brand-600" aria-hidden /> Phản hồi của phụ huynh
             {freshFb > 0 && <span className="chip bg-brand-100 text-brand-700">{freshFb} mới</span>}
             {fb.counts.concern > 0 && <span className="chip bg-accent-100 text-accent-700">😟 {fb.counts.concern} cần trao đổi</span>}
