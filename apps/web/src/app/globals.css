@@ -168,7 +168,7 @@ main [data-nw] { white-space: nowrap; }
 /* Thanh tab (liên kết có gạch chân dưới): một dòng, màn hẹp thì cuộn ngang thay vì ép chữ rớt dòng */
 main a.border-b-2 { white-space: nowrap; }
 main div:has(> a.border-b-2) { overflow-x: auto; scrollbar-width: none; }
-main summary, main td button { white-space: nowrap; }
+main summary.inline-flex, main td button { white-space: nowrap; }
 
 /* Tiêu đề bảng: bản gốc là chữ đậm, giãn chữ, màu chữ chính */
 .admin-scope thead th {

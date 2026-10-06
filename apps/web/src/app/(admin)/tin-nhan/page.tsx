@@ -62,7 +62,7 @@ export default async function MessagesPage({ searchParams }: { searchParams: Pro
         <Link href={q({ mine: "1" })} className={`chip ${sp.mine ? "bg-brand-100 text-brand-700" : "bg-slate-100"}`}>Của tôi {d.counts?.mine ?? 0}</Link>
         <Link href={q({ flagged: "1" })} className={`chip ${sp.flagged ? "bg-red-100 text-red-700" : "bg-slate-100"}`}>Gắn cờ {d.counts?.flagged ?? 0}</Link>
         <Link href={q({ view: view === "chua_gan_lead" ? undefined : "chua_gan_lead" })} className={`chip ${view === "chua_gan_lead" ? "bg-amber-100 text-amber-800" : "bg-slate-100"}`}>Chưa gắn lead {d.counts?.chuaGanLead ?? 0}</Link>
-        <form className="flex gap-1" action="/tin-nhan">
+        <form className="flex flex-wrap gap-1" action="/tin-nhan">
           <select name="channel" defaultValue={channel ?? ""} className="input !w-auto !py-1 !text-xs"><option value="">Mọi kênh</option>{MSG_CHANNELS.map((c) => <option key={c} value={c}>{MSG_CHANNEL_VI[c]}</option>)}</select>
           <select name="status" defaultValue={status ?? ""} className="input !w-auto !py-1 !text-xs"><option value="">Đang mở</option>{CONV_STATUSES.map((s) => <option key={s} value={s}>{CONV_STATUS_VI[s]}</option>)}</select>
           <input name="q" defaultValue={sp.q} placeholder="Tìm…" className="input !w-40 !py-1 !text-xs" />
