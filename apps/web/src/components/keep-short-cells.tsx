@@ -2,7 +2,7 @@
 import { useEffect } from "react";
 
 /** Ô bảng có mọi dòng chữ ngắn hơn ngưỡng này thì không được xuống dòng giữa chừng */
-const MAX_LINE = 34;
+const MAX_LINE = 48;
 
 /** Độ dài dòng chữ dài nhất trong ô: ô có thẻ con thì xét từng đoạn chữ, ô chỉ có chữ thì xét cả chuỗi */
 function longestLine(cell: HTMLElement) {
