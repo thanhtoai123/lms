@@ -3,6 +3,8 @@ import { useEffect } from "react";
 
 /** Ô bảng có mọi dòng chữ ngắn hơn ngưỡng này thì không được xuống dòng giữa chừng */
 const MAX_LINE = 48;
+/** Thành phần con (tên, mã, nhãn) ngắn hơn ngưỡng này cũng không được xuống dòng */
+const LEAF_MAX = 40;
 
 /** Độ dài dòng chữ dài nhất trong ô: ô có thẻ con thì xét từng đoạn chữ, ô chỉ có chữ thì xét cả chuỗi */
 function longestLine(cell: HTMLElement) {
@@ -36,7 +38,11 @@ export function KeepShortCells() {
       raf = 0;
       for (const cell of root.querySelectorAll<HTMLElement>("td:not([data-nw-done])")) {
         cell.setAttribute("data-nw-done", "");
-        if (longestLine(cell) <= MAX_LINE) cell.setAttribute("data-nw", "");
+        if (longestLine(cell) <= MAX_LINE) { cell.setAttribute("data-nw", ""); continue; }
+        // Ô có đoạn dài: vẫn giữ nguyên một dòng cho từng thành phần ngắn (tên, mã, nhãn) bên trong
+        for (const leaf of cell.querySelectorAll<HTMLElement>("a, span, div, b, strong")) {
+          if (leaf.children.length === 0 && (leaf.textContent ?? "").trim().length <= LEAF_MAX) leaf.setAttribute("data-nw", "");
+        }
       }
     };
     const schedule = () => { if (!raf) raf = requestAnimationFrame(mark); };

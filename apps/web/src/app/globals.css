@@ -164,7 +164,10 @@ body {
 /* Bảng không ép cột hẹp làm chữ rớt dòng: tiêu đề cột luôn một dòng; ô chữ ngắn do KeepShortCells đánh dấu data-nw.
    Bảng nằm trong khung cuộn ngang nên màn hẹp cuộn thay vì bẻ chữ. */
 main th { white-space: nowrap; }
-main td[data-nw] { white-space: nowrap; }
+main [data-nw] { white-space: nowrap; }
+/* Thanh tab (liên kết có gạch chân dưới): một dòng, màn hẹp thì cuộn ngang thay vì ép chữ rớt dòng */
+main a.border-b-2 { white-space: nowrap; }
+main div:has(> a.border-b-2) { overflow-x: auto; scrollbar-width: none; }
 main summary, main td button { white-space: nowrap; }
 
 /* Tiêu đề bảng: bản gốc là chữ đậm, giãn chữ, màu chữ chính */

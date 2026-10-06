@@ -53,7 +53,7 @@ export function Kpi({ label, value, hint, tone = "default" }: { label: string; v
   const color = { default: "text-ink-900", good: "text-green-700", warn: "text-amber-700", bad: "text-red-700", brand: "text-brand-600" }[tone];
   return (
     <div className="card p-4">
-      <div className="text-xs text-ink-400">{label}</div>
+      <div className="truncate whitespace-nowrap text-xs text-ink-400" title={typeof label === "string" ? label : undefined}>{label}</div>
       <div className={`mt-1 text-2xl font-bold tabular-nums ${color}`}>{value}</div>
       {hint && <div className="mt-0.5 text-xs text-ink-600">{hint}</div>}
     </div>
