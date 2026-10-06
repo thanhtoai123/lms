@@ -6,7 +6,7 @@ import { addDays, hasRole } from "@satarobo/core";
 import { router, protectedProcedure } from "../trpc";
 import { listSessions, todayISO } from "../services/sessions";
 import { listClasses } from "../services/classes";
-import { teacherFeedbackFeed, sessionExtras, sessionPrep, classInsights, withPlans } from "../services/teacherHub";
+import { teacherFeedbackFeed, sessionExtras, sessionPrep, classInsights, myStudents, withPlans } from "../services/teacherHub";
 
 const uuid = z.string().uuid();
 
@@ -66,5 +66,11 @@ export const teacherRouter = router({
   classInsights: protectedProcedure.query(async ({ ctx }) => {
     const t = await myTeacherId(ctx);
     return classInsights(ctx, t.id);
+  }),
+
+  /** Học viên của tôi: danh sách phẳng (tìm / lọc theo lớp, trạng thái, nguy cơ) */
+  myStudents: protectedProcedure.query(async ({ ctx }) => {
+    const t = await myTeacherId(ctx);
+    return myStudents(ctx, t.id);
   }),
 });

@@ -23,7 +23,7 @@ export function teacherTabOf(pathname: string): TeacherTab {
   const p = pathname.split(/[?#]/)[0] || "/";
   if (p === "/teacher" || under(p, "/teacher/sessions")) return "today";
   if (under(p, "/teacher/lich")) return "schedule";
-  if (under(p, "/teacher/classes") || under(p, "/teacher/giao-an") || under(p, "/classes") || under(p, "/report-cards") || under(p, "/hoc-ba-moc")) return "classes";
+  if (under(p, "/teacher/classes") || under(p, "/teacher/giao-an") || under(p, "/teacher/hoc-vien") || under(p, "/classes") || under(p, "/report-cards") || under(p, "/hoc-ba-moc")) return "classes";
   if (under(p, "/cham-cong")) return "timesheet";
   return "more";
 }

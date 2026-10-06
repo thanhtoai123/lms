@@ -16,6 +16,7 @@ test("teacherTabOf: mỗi mục chính sáng đúng trang của nó", () => {
   assert.equal(teacherTabOf("/teacher/them"), "more");
   assert.equal(teacherTabOf("/teacher/lich?tuan=2026-09-28"), "schedule");
   assert.equal(teacherTabOf("/teacher/giao-an/abc"), "classes");
+  assert.equal(teacherTabOf("/teacher/hoc-vien"), "classes");
   assert.equal(teacherTabOf("/assignments"), "more");
   assert.equal(teacherTabOf("/classesx"), "more");
   assert.equal(teacherTabOf("/teacherx"), "more");

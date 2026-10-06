@@ -270,6 +270,62 @@ export async function classInsights(ctx: ProtectedContext, teacherId: string) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Học viên của tôi: danh sách phẳng mọi học viên các lớp mình phụ trách   */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Mỗi dòng = một ghi danh đang học / học thử ở lớp đang chạy hoặc đang tuyển của giáo viên:
+ * chuyên cần 120 ngày gần nhất (có mặt+trễ / đã điểm danh), điểm trung bình phiếu buổi đã phát hành (thang 1–4),
+ * mức nguy cơ (cùng quy tắc "Lớp của tôi"). Không trả sức khoẻ / liên hệ — chỉ dữ liệu giảng dạy.
+ */
+export async function myStudents(ctx: ProtectedContext, teacherId: string) {
+  const all = await listClasses(ctx, { teacherId });
+  const cls = all.filter((c) => c.status === "running" || c.status === "recruiting");
+  const ids = cls.map((c) => c.id);
+  if (!ids.length) return { classes: [] as { id: string; code: string; name: string }[], students: [] as MyStudentRow[] };
+  const today = todayISO();
+  const enrs = await ctx.db.select({ id: enrollments.id, classId: enrollments.classId, studentId: students.id, code: students.code, fullName: students.fullName, nickname: students.nickname, grade: students.grade, status: enrollments.status })
+    .from(enrollments).innerJoin(students, eq(students.id, enrollments.studentId))
+    .where(and(inArray(enrollments.classId, ids), inArray(enrollments.status, ["active", "trial"])))
+    .orderBy(asc(students.fullName));
+  const enrIds = enrs.map((e) => e.id);
+  let att: { enrollmentId: string; status: string }[] = [];
+  let sheets: { enrollmentId: string; snapshot: unknown }[] = [];
+  if (enrIds.length) {
+    [att, sheets] = await Promise.all([
+      ctx.db.select({ enrollmentId: attendance.enrollmentId, status: attendance.status })
+        .from(attendance).innerJoin(sessions, eq(sessions.id, attendance.sessionId))
+        .where(and(inArray(attendance.enrollmentId, enrIds), gte(sessions.date, addDays(today, -120)))).orderBy(asc(sessions.date), asc(sessions.startTime)),
+      ctx.db.select({ enrollmentId: sessionEvaluations.enrollmentId, snapshot: sessionEvaluations.snapshot })
+        .from(sessionEvaluations).innerJoin(sessions, eq(sessions.id, sessionEvaluations.sessionId))
+        .where(and(inArray(sessionEvaluations.enrollmentId, enrIds), eq(sessionEvaluations.status, "published"), gte(sessions.date, addDays(today, -120)))).orderBy(asc(sessions.date)),
+    ]);
+  }
+  const clsById = new Map(cls.map((c) => [c.id, c]));
+  const rows: MyStudentRow[] = enrs.map((e) => {
+    const a = att.filter((x) => x.enrollmentId === e.id).map((x) => x.status);
+    const present = a.filter((x) => x === "present" || x === "late" || x === "makeup").length;
+    const avgs = sheets.filter((x) => x.enrollmentId === e.id).map((x) => (isSessionEvalSnapshot(x.snapshot) ? sessionAverage(x.snapshot) : null)).filter((v): v is number => v !== null);
+    const risk = studentRisk({ recent: a, averages: avgs });
+    const c = clsById.get(e.classId)!;
+    return {
+      enrollmentId: e.id, studentId: e.studentId, code: e.code, fullName: e.fullName, nickname: e.nickname, grade: e.grade,
+      trial: e.status === "trial", classId: c.id, classCode: c.code, className: c.name,
+      attendancePct: a.length ? Math.round((present / a.length) * 100) : null, sessionsMarked: a.length,
+      avg: avgs.length ? Math.round((avgs.reduce((s, v) => s + v, 0) / avgs.length) * 10) / 10 : null,
+      riskLevel: risk.level, riskReasons: risk.reasons,
+    };
+  });
+  return { classes: cls.map((c) => ({ id: c.id, code: c.code, name: c.name })), students: rows };
+}
+
+export interface MyStudentRow {
+  enrollmentId: string; studentId: string; code: string | null; fullName: string; nickname: string | null; grade: number | null; trial: boolean;
+  classId: string; classCode: string; className: string; attendancePct: number | null; sessionsMarked: number; avg: number | null;
+  riskLevel: "high" | "watch" | null; riskReasons: string[];
+}
+
+/* ------------------------------------------------------------------ */
 /* Giáo án gắn vào buổi dạy (nút "Mở giáo án" trên thẻ buổi)            */
 /* ------------------------------------------------------------------ */
 
