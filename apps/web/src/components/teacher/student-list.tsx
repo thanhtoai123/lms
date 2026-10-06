@@ -40,7 +40,7 @@ export function StudentList({ classes, rows }: { classes: { id: string; code: st
       <Link href={`/students/${r.studentId}`} className="flex min-h-14 items-center justify-between gap-3 py-2">
         <span className="min-w-0">
           <span className="block truncate font-semibold">{r.fullName}{r.nickname ? <span className="font-normal text-ink-600"> · {r.nickname}</span> : null}</span>
-          <span className="block truncate text-[13px] text-ink-600">{[r.code, !group || lop ? null : r.classCode, r.grade ? `Lớp ${r.grade}` : null].filter(Boolean).join(" · ")}</span>
+          <span className="block truncate text-[13px] text-ink-600">{[r.code, group || lop ? null : r.classCode, r.grade ? `Lớp ${r.grade}` : null].filter(Boolean).join(" · ")}</span>
           {r.riskLevel && <span className="block truncate text-[13px] text-amber-800">{r.riskReasons.join(" · ")}</span>}
         </span>
         <span className="flex shrink-0 flex-col items-end gap-1 text-[13px]">
