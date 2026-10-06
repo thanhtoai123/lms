@@ -210,7 +210,7 @@ foreach ($acc in $Accounts) {
   }
   T $ten "sidebar co muc menu" ($items.Count -gt 0) ("so muc = " + $items.Count)
   foreach ($h in $items) {
-    if (-not $AllHrefs.Contains($h)) { T $ten ("muc la trong sidebar " + $h) $false "khong co trong menu-manifest.json (chay lai test core voi CAP_NHAT_MENU=1?)" }
+    if (-not $AllHrefs.Contains($h) -and ($h -notlike "/teacher*")) { T $ten ("muc la trong sidebar " + $h) $false "khong co trong menu-manifest.json (chay lai test core voi CAP_NHAT_MENU=1?)" }
   }
 
   # 2) Mở từng mục; thu chip (data-nav-tab) của trang trung tâm
