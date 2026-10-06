@@ -7,10 +7,10 @@ const TABS = [
   { key: "giao-an", label: "Giáo án của tôi", href: "/teacher/giao-an" },
 ] as const;
 
-/** Chip đầu trang của mục "Lớp của tôi": Lớp · Học viên · Ảnh lớp · Giáo án (cùng kiểu dải chip của khu quản trị) */
+/** Chip đầu trang của mục "Lớp của tôi" (điện thoại / máy tính bảng); từ 1024px đã có menu trái nên ẩn */
 export function ClassTabs({ active }: { active: (typeof TABS)[number]["key"] }) {
   return (
-    <nav aria-label="Lớp của tôi" className="flex gap-1.5 overflow-x-auto pb-1">
+    <nav aria-label="Lớp của tôi" className="flex gap-1.5 overflow-x-auto pb-1 lg:hidden">
       {TABS.map((t) => {
         const on = t.key === active;
         return (
