@@ -112,6 +112,34 @@ export function CancelOrder({ orderId }: { orderId: string }) {
   );
 }
 
+/** Đổi phương thức thanh toán của đơn (lý do bắt buộc; mã QR cũ bị thu hồi) */
+export function ChangePaymentMethod({ orderId, currentId, methods }: { orderId: string; currentId: string; methods: { id: string; name: string }[] }) {
+  const trpc = useTRPC();
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const others = methods.filter((m) => m.id !== currentId);
+  const [methodId, setMethodId] = useState(others[0]?.id ?? "");
+  const [reason, setReason] = useState("");
+  const [err, setErr] = useState<string | null>(null);
+  const m = useMutation(trpc.finance.updateOrderPaymentMethod.mutationOptions({ onSuccess: () => { setOpen(false); setReason(""); setErr(null); router.refresh(); }, onError: (e) => setErr(e.message) }));
+  if (others.length === 0) return null;
+  if (!open) return <button className="btn-ghost !min-h-9 text-xs" onClick={() => setOpen(true)}>Đổi phương thức</button>;
+  return (
+    <div className="mt-2 space-y-2 rounded-xl border border-black/10 p-3">
+      <select className="input" aria-label="Phương thức mới" value={methodId} onChange={(e) => setMethodId(e.target.value)}>
+        {others.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
+      </select>
+      <input className="input" placeholder="Lý do đổi (bắt buộc, ≥ 5 ký tự)" value={reason} onChange={(e) => setReason(e.target.value)} />
+      <p className="text-xs text-ink-600">Mã QR đang dùng sẽ bị thu hồi — xuất lại mã mới sau khi đổi. Khoản đã thu giữ nguyên phương thức cũ.</p>
+      <Err text={err} />
+      <div className="flex gap-2">
+        <button className="btn-primary" disabled={m.isPending || !methodId || reason.trim().length < 5} onClick={() => m.mutate({ orderId, paymentMethodId: methodId, reason: reason.trim() })}>{m.isPending ? "Đang lưu…" : "Lưu"}</button>
+        <button className="btn-ghost" onClick={() => { setOpen(false); setErr(null); }}>Bỏ qua</button>
+      </div>
+    </div>
+  );
+}
+
 /** Gửi email đơn hàng cho khách (mẫu ORDER_CREATED, vào hàng đợi email) */
 export function SendOrderEmail({ orderId, customerEmail }: { orderId: string; customerEmail: string | null }) {
   const trpc = useTRPC();

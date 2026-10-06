@@ -1047,6 +1047,36 @@ export async function updateOrderNotes(ctx: ProtectedContext, input: { id: strin
   return { ok: true };
 }
 
+/**
+ * Đổi phương thức thanh toán của đơn (VD: chuyển từ tiền mặt sang chuyển khoản CS khác).
+ * Chỉ đơn còn mở; phương thức phải đang bật, đúng cơ sở, áp dụng cho loại đơn.
+ * Mã QR đang hiệu lực trỏ về tài khoản cũ nên bị thu hồi — xuất lại mã mới theo phương thức mới.
+ * Khoản thu đã ghi nhận giữ nguyên phương thức của chính khoản đó.
+ */
+export async function updateOrderPaymentMethod(ctx: ProtectedContext, input: { orderId: string; paymentMethodId: string; reason: string }) {
+  const o = await loadOrder(ctx, input.orderId, "finance:create");
+  const reason = reasonOrThrow(input.reason);
+  if (o.status === "cancelled" || o.status === "refunded") throw bad("Đơn đã đóng — không đổi được phương thức");
+  if (o.paymentMethodId === input.paymentMethodId) throw bad("Đơn đang dùng phương thức này rồi");
+  const method = await ctx.db.query.paymentMethods.findFirst({ where: eq(paymentMethods.id, input.paymentMethodId) });
+  if (!method || !method.isActive) throw bad("Phương thức thanh toán không hợp lệ");
+  if (method.centerId && method.centerId !== o.centerId) throw bad("Phương thức thanh toán thuộc cơ sở khác");
+  if (!method.allowFor.includes(o.type)) throw bad("Phương thức này không áp dụng cho loại đơn này");
+  const old = o.paymentMethodId ? await ctx.db.query.paymentMethods.findFirst({ where: eq(paymentMethods.id, o.paymentMethodId), columns: { name: true } }) : null;
+  const revoked = await ctx.db.transaction(async (txx) => {
+    const tx = txx as unknown as Db;
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${"order:" + o.id}))`);
+    await tx.update(orders).set({ paymentMethodId: method.id }).where(eq(orders.id, o.id));
+    const qrs = await tx.update(paymentQrCodes)
+      .set({ status: "revoked", revokedReason: `Đổi phương thức thanh toán sang ${method.name}` })
+      .where(and(eq(paymentQrCodes.orderId, o.id), eq(paymentQrCodes.status, "active"))).returning({ id: paymentQrCodes.id });
+    await tx.insert(orderEvents).values({ orderId: o.id, event: "method_changed", note: `${old?.name ?? "—"} → ${method.name}: ${reason}${qrs.length ? ` · thu hồi ${qrs.length} mã QR cũ` : ""}`, actorId: ctx.user.id });
+    await writeAudit(tx, { actorId: ctx.user.id, action: "UPDATE", module: "finance", entity: "orders", entityId: o.id, before: { paymentMethodId: o.paymentMethodId }, after: { paymentMethodId: method.id }, reason, ip: ctx.ip });
+    return qrs.length;
+  });
+  return { ok: true, revokedQr: revoked };
+}
+
 /** Xem CCCD / địa chỉ đầy đủ — chỉ kế toán, bắt buộc lý do, ghi nhật ký */
 export async function revealCustomerPrivate(ctx: ProtectedContext, input: { id: string; reason: string }) {
   const o = await loadOrder(ctx, input.id, "finance:confirm");

@@ -92,6 +92,8 @@ export const financeRouter = router({
     .input(z.object({ orderId: uuid, to: z.string().trim().email("Email không hợp lệ").max(200).nullish().or(z.literal("")) }))
     .mutation(({ ctx, input }) => F.sendOrderEmail(ctx, { orderId: input.orderId, to: input.to || null })),
   updateOrderNotes: protectedProcedure.input(z.object({ id: uuid, internalNote: ntext(1000), customerNote: ntext(1000), remindDays: z.number().int().min(0).max(30).optional() })).mutation(({ ctx, input }) => F.updateOrderNotes(ctx, input)),
+  /** Đổi phương thức thanh toán của đơn (lý do ≥5 ký tự; thu hồi mã QR cũ) */
+  updateOrderPaymentMethod: protectedProcedure.input(z.object({ orderId: uuid, paymentMethodId: uuid, reason: z.string().max(300) })).mutation(({ ctx, input }) => F.updateOrderPaymentMethod(ctx, input)),
   revealCustomer: protectedProcedure.input(z.object({ id: uuid, reason: z.string().max(300) })).mutation(({ ctx, input }) => F.revealCustomerPrivate(ctx, input)),
 
   // Kế hoạch thanh toán (Đợt 2 — mục 5)
