@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { hasPermission, type Actor } from "@satarobo/core";
 import { getServerCaller } from "@/lib/trpc/server";
 import { fmtDate, Empty } from "@/components/ui";
 import { CLASS_STATUSES, CLASS_STATUS_VI as STATUS_VI, type ClassStatus } from "@satarobo/core";
@@ -19,7 +20,8 @@ export default async function ClassesPage({ searchParams }: { searchParams: Prom
   const sp = await searchParams;
   const uuidOr = (v?: string) => (v && /^[0-9a-f-]{36}$/i.test(v) ? v : undefined);
   const status = CLASS_STATUSES.includes(sp.status as ClassStatus) ? (sp.status as ClassStatus) : undefined;
-  const { caller } = await getServerCaller();
+  const { caller, ctx } = await getServerCaller();
+  const canCreate = !!ctx.actor && hasPermission(ctx.actor as Actor, "class:create");
   const [rows, ref, approvals] = await Promise.all([
     caller.academics.classes.list({ q: sp.q || undefined, status, centerId: uuidOr(sp.center), courseId: uuidOr(sp.course), teacherId: uuidOr(sp.teacher), classGroupId: uuidOr(sp.group) }),
     caller.academics.classes.referenceData(),
@@ -34,7 +36,7 @@ export default async function ClassesPage({ searchParams }: { searchParams: Prom
         <div className="flex gap-2">
           {pending > 0 && <Link href="/classes?status=pending_approval" className="btn-ghost">Chờ duyệt <span className="chip ml-1 bg-amber-100 text-amber-800">{pending}</span></Link>}
           <Link href="/classes/kiem-tra-lich" className="btn-ghost">Kiểm tra lịch buổi</Link>
-          <Link href="/classes/new" className="btn-primary">+ Mở lớp mới</Link>
+          {canCreate && <Link href="/classes/new" className="btn-primary">+ Mở lớp mới</Link>}
         </div>
       </div>
       <form className="flex flex-wrap gap-2">

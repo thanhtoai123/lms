@@ -49,7 +49,7 @@ function Sidebar({ groups, activeHref }: { groups: SidebarGroup[]; activeHref: s
                     const on = i.href === activeHref;
                     return (
                       <li key={i.href}>
-                        <Link href={i.href} aria-current={on ? "page" : undefined}
+                        <Link href={i.href} data-nav-href={i.href} aria-current={on ? "page" : undefined}
                           className={`flex min-h-10 items-center gap-3 whitespace-nowrap rounded-xl px-3 font-semibold transition-colors ${on ? "bg-brand-50 text-brand-700" : "text-ink-600 hover:bg-black/[0.04] hover:text-foreground"}`}>
                           <NavIcon name={i.icon} />{i.label}
                         </Link>

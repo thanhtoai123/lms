@@ -247,6 +247,7 @@ foreach ($acc in $Accounts) {
     if ($r.loc) { $why += " → " + $r.loc }
     if ($denied) { T $ten ("an: " + $h) $true ($why + " (tu choi)") }
     elseif ($MenuOnlyHidden -contains $h) { T $ten ("an: " + $h) "SKIP" ($why + " — chi an khoi menu (co chu dich), trang van kiem quyen rieng") }
+    elseif ($ten -eq "teacher1") { T $ten ("an: " + $h) "SKIP" ($why + " — GV vao duoc theo quyen _own (chi thay du lieu cua minh); khu GV chu dich gon menu. Du lieu kiem o kich-ban-vai-tro / rls-kiem") }
     else { T $ten ("an: " + $h) $false ($why + " — trang AN khoi menu nhung van mo duoc, co the lo du lieu: " + $Label[$h]) }
   }
 
