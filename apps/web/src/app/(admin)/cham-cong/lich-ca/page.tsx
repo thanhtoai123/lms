@@ -38,14 +38,17 @@ export default async function MyShiftsPage({ searchParams }: { searchParams: Pro
 
       <section className="card p-4">
         <h2 className="mb-2 font-semibold">Lịch ca 2 tuần</h2>
-        <div className="-mx-1 overflow-x-auto px-1 pb-1">
-        <div className="grid min-w-[560px] grid-cols-7 gap-1 text-xs">
+        {/* Điện thoại: mỗi ngày một dòng (không phải cuộn ngang, không bị cắt cột); từ sm: lưới 7 cột theo tuần */}
+        <div className="-mx-1 px-1 pb-1 sm:overflow-x-auto">
+        <div className="grid grid-cols-1 gap-1 text-xs sm:min-w-[560px] sm:grid-cols-7">
           {d.weeks.map((c) => (
-            <div key={c.date} className={`rounded-lg border p-1.5 ${c.date === d.today ? "border-brand-400 bg-brand-50" : "border-black/5"}`}>
-              <div className="text-ink-400">{wdOf(c.date)} {dmy(c.date).slice(0, 5)}</div>
-              {c.shift ? <div className="font-medium">{c.shift.code} <span className="font-normal tabular-nums">{c.shift.clock}</span></div> : <div className="text-ink-300">Nghỉ</div>}
-              {c.holidayName && <div className="text-violet-700">{c.holidayName}</div>}
-              {c.requests.filter((r) => r.kind === "leave" && r.status !== "cancelled").map((r) => <div key={r.id} className="text-sky-700">Nghỉ phép {r.status === "pending" ? "(chờ)" : ""}</div>)}
+            <div key={c.date} className={`flex items-center justify-between gap-3 rounded-lg border p-1.5 sm:block ${c.date === d.today ? "border-brand-400 bg-brand-50" : "border-black/5"}`}>
+              <div className="text-ink-400">{wdOf(c.date)} {dmy(c.date).slice(0, 5)}{c.date === d.today && <span className="ml-1 font-semibold text-brand-700 sm:hidden">· hôm nay</span>}</div>
+              <div className="text-right sm:text-left">
+                {c.shift ? <div className="font-medium">{c.shift.code} <span className="font-normal tabular-nums">{c.shift.clock}</span></div> : <div className="text-ink-300">Nghỉ</div>}
+                {c.holidayName && <div className="text-violet-700">{c.holidayName}</div>}
+                {c.requests.filter((r) => r.kind === "leave" && r.status !== "cancelled").map((r) => <div key={r.id} className="text-sky-700">Nghỉ phép {r.status === "pending" ? "(chờ)" : ""}</div>)}
+              </div>
             </div>
           ))}
         </div>

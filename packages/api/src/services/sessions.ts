@@ -1,6 +1,6 @@
-import { and, eq, inArray, sql, asc, gte, lte } from "drizzle-orm";
+import { and, eq, inArray, ne, sql, asc, gte, lte } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
-import { sessions, classes, enrollments, attendance, students, teachers, rooms, centers, lessons, curricula, trialBookings, leads, sessionMedia, assignments, users } from "@satarobo/db";
+import { sessions, classes, enrollments, attendance, students, teachers, rooms, centers, lessons, documents, curricula, trialBookings, leads, sessionMedia, assignments, users } from "@satarobo/db";
 import {
   transition, nextStep, isOverdue, OPEN_STATUSES, toISODate, addDays, clampPageSize, visibleCenterIds, detectRisks, riskFrom, missingRequiredChecklist, sessionLabel, SESSION_CHECKLIST,
   completionBlockers, completionChecklist,
@@ -73,6 +73,11 @@ export async function getSessionDetail(ctx: ProtectedContext, sessionId: string)
   const [room] = s.session.roomId ? await ctx.db.select({ code: rooms.code, name: rooms.name }).from(rooms).where(eq(rooms.id, s.session.roomId)) : [null];
   const [teacher] = s.session.teacherId ? await ctx.db.select({ id: teachers.id, fullName: teachers.fullName }).from(teachers).where(eq(teachers.id, s.session.teacherId)) : [null];
   const [lesson] = s.session.lessonId ? await ctx.db.select({ title: lessons.title, objectives: lessons.objectives, isReportCardMilestone: lessons.isReportCardMilestone }).from(lessons).where(eq(lessons.id, s.session.lessonId)) : [null];
+  // Loại giáo án đang dùng của bài (cùng điều kiện với withPlans ở teacherHub) — để ẩn nút "Mở giáo án" khi chưa có
+  const [planDoc] = s.session.lessonId
+    ? await ctx.db.select({ kind: documents.kind }).from(documents)
+      .where(and(eq(documents.lessonId, s.session.lessonId), eq(documents.category, "lesson_plan"), ne(documents.status, "archived"), sql`${documents.currentVersion} > 0`)).limit(1)
+    : [null];
 
   const trialGuests = await ctx.db
     .select({ id: trialBookings.id, childName: trialBookings.childName, status: trialBookings.status, note: trialBookings.note, resultNote: trialBookings.resultNote, parentName: leads.parentName })
@@ -116,6 +121,7 @@ export async function getSessionDetail(ctx: ProtectedContext, sessionId: string)
     room: room ?? null,
     teacher: teacher ?? null,
     lesson: lesson ?? null,
+    plan: (planDoc ? (planDoc.kind === "scorm" ? "scorm" : "pdf") : null) as "scorm" | "pdf" | null,
     roster,
     enrolledCount: roster.length,
     attendanceCount: completionInput.attendanceCount,

@@ -29,10 +29,18 @@ export function teacherTabOf(pathname: string): TeacherTab {
 }
 
 /**
- * Mục menu KHÔNG đưa vào "Thêm": đã là mục chính (Lớp học → Lớp của tôi, Ca & công → Chấm công),
- * hoặc là màn số liệu quản trị không dành cho giáo viên (Dashboard).
+ * Mục menu KHÔNG đưa vào "Thêm":
+ *  - đã là mục chính: Lớp học → Lớp của tôi, Ca & công → Chấm công;
+ *  - màn số liệu quản trị không dành cho giáo viên: Dashboard;
+ *  - việc của văn phòng, trùng hoặc không hợp với giáo viên: "Việc hôm nay" (hộp việc lead / phiếu thu / đơn — giáo viên đã có
+ *    trang Hôm nay), danh mục Chương trình học · Khoá học · Lộ trình (bộ phận đào tạo quản; giáo viên xem bài của mình ở
+ *    "Giáo án của tôi") và Kho tài liệu giảng dạy (đã có "Tài liệu lớp tôi" riêng cho giáo viên).
+ * Chỉ ẩn khỏi danh sách cho gọn — quyền và trang vẫn do máy chủ kiểm như cũ.
  */
-export const TEACHER_MORE_SKIP = ["/dashboard", "/classes", "/cham-cong/lich-ca"] as const;
+export const TEACHER_MORE_SKIP = [
+  "/dashboard", "/classes", "/cham-cong/lich-ca",
+  "/viec-hom-nay", "/curriculums", "/courses", "/lo-trinh", "/documents",
+] as const;
 
 /** Danh sách "Thêm": các nhóm menu đã lọc quyền, bỏ mục trùng mục chính; nhóm rỗng bị bỏ */
 export function teacherMoreGroups(nav: NavGroup[]): { label: string; items: NavItem[] }[] {

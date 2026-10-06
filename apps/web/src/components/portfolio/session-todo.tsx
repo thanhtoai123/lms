@@ -24,6 +24,8 @@ export interface LiveSheet {
   mediaIds: string[];
 }
 
+/** Quá ngần này học viên còn thiếu thì chỉ hiện một dòng tóm tắt thay vì liệt kê từng tên */
+const MANY = 4;
 const STORE_KEY = "sr-buoi-can-hoan-thien";
 function readOpen(): boolean {
   try { return localStorage.getItem(STORE_KEY) !== "0"; } catch { return true; }
@@ -135,14 +137,19 @@ export function SessionTodo({
                       {!it.required && <span className="ml-1 text-[11px] text-ink-400">(tính vào tỷ lệ đạt chuẩn)</span>}
                       {it.hint && <span className="ml-1 text-[11px] text-ink-400">· {it.hint}</span>}
                     </button>
-                    {!it.ok && it.missing.length > 0 && (
+                    {!it.ok && it.missing.length > MANY && (
+                      /* Thiếu nhiều (thường là cả lớp): liệt kê hết tên chỉ gây nhiễu — một dòng bấm để bắt đầu */
+                      <button type="button" onClick={() => onJump(it.target, it.missing[0]!.id)} className="mt-0.5 text-left text-[11px] text-amber-900 underline decoration-dotted underline-offset-2 hover:text-brand-600">
+                        Còn {it.missing.length} học viên — bắt đầu từ {it.missing[0]!.name}
+                      </button>
+                    )}
+                    {!it.ok && it.missing.length > 0 && it.missing.length <= MANY && (
                       <div className="mt-0.5 flex flex-wrap gap-1">
-                        {it.missing.slice(0, 12).map((m) => (
+                        {it.missing.map((m) => (
                           <button key={m.id} type="button" onClick={() => onJump(it.target, m.id)} className="chip cursor-pointer bg-amber-50 px-2 py-0.5 text-[11px] text-amber-900 hover:bg-amber-100">
                             {m.name}
                           </button>
                         ))}
-                        {it.missing.length > 12 && <span className="text-[11px] text-ink-400">và {it.missing.length - 12} học viên khác</span>}
                       </div>
                     )}
                   </div>

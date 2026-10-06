@@ -41,7 +41,10 @@ export function SessionCard({ s, highlight, compact, showDate = true }: { s: Car
             <div className="truncate font-semibold">{s.className}</div>
             <div className="line-clamp-2 text-[14px] text-ink-600">{s.label}{s.topic ? ` · ${s.topic}` : ""}</div>
           </div>
-          <StatusChip status={s.status} />
+          {/* Đã ghi điểm danh cho một số em (vd. quét QR) nhưng chưa bấm chốt bước → "Đang điểm danh", không phải "Chưa điểm danh" */}
+          {(s.status === "scheduled" || s.status === "in_progress") && s.attended > 0
+            ? <span className="chip bg-amber-100 text-amber-800">Đang điểm danh</span>
+            : <StatusChip status={s.status} />}
         </div>
         {!compact && (
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[13px] text-ink-600">

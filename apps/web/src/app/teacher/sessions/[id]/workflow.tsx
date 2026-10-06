@@ -46,6 +46,8 @@ export function SessionWorkflow({ sessionId }: { sessionId: string }) {
   useEffect(() => { if (q.data) saveLocal(`session:${sessionId}`, q.data); }, [q.data, sessionId]);
   const [note, setNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [okMsg, setOkMsg] = useState<{ where: "dd" | "nx"; text: string } | null>(null);
+  const flashOk = (where: "dd" | "nx", text: string) => { setOkMsg({ where, text }); window.setTimeout(() => setOkMsg(null), 4000); };
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: trpc.academics.sessions.get.queryKey({ id: sessionId }) });
@@ -129,11 +131,13 @@ export function SessionWorkflow({ sessionId }: { sessionId: string }) {
       return;
     }
     dropLocal(`draft:${sessionId}`);
+    flashOk("dd", "Đã lưu điểm danh");
     if (submit) await transition.mutateAsync({ sessionId, event: "submit_attendance" }).catch(onErr);
   };
   const submitNote = async () => {
     const text = (note ?? s.sessionNote ?? "").trim();
     await saveNote.mutateAsync({ sessionId, note: text });
+    flashOk("nx", "Đã lưu nhận xét");
     if (s.status === "attendance_done") await transition.mutateAsync({ sessionId, event: "submit_notes" }).catch(onErr);
   };
   const complete = () => transition.mutate({ sessionId, event: "complete" });
@@ -143,13 +147,17 @@ export function SessionWorkflow({ sessionId }: { sessionId: string }) {
   const isFuture = s.date > s.today;
   const step = s.status === "scheduled" || s.status === "in_progress" ? 1 : s.status === "attendance_done" ? 2 : s.status === "notes_done" ? 3 : 4;
   const present = Object.values(effective).filter((v) => v.status === "present" || v.status === "late" || v.status === "makeup").length;
+  // "Có mặt" chỉ là gợi ý mặc định cho tới khi bấm Lưu — nói rõ để GV không tưởng đã ghi nhận
+  const attendanceSaved = roster.length > 0 && roster.every((r) => !!r.attendanceStatus);
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Link href="/teacher" className="inline-flex min-h-11 items-center text-sm text-ink-600">← Hôm nay</Link>
         <div className="flex flex-wrap gap-2">
-          {s.lessonId && <Link href={`/teacher/giao-an/${s.lessonId}?buoi=${sessionId}`} className="btn-primary min-h-11">Mở giáo án</Link>}
+          {s.lessonId && (s.plan
+            ? <Link href={`/teacher/giao-an/${s.lessonId}?buoi=${sessionId}`} className="btn-primary min-h-11">Mở giáo án</Link>
+            : <span className="inline-flex min-h-11 items-center rounded-xl border border-dashed border-black/15 px-3 text-xs text-ink-400" title="Bộ phận đào tạo chưa tải giáo án cho bài này">Chưa có giáo án</span>)}
           <Link href={`/teacher/sessions/${sessionId}/chuan-bi`} className="btn-ghost min-h-11">Chuẩn bị</Link>
         </div>
       </div>
@@ -205,12 +213,15 @@ export function SessionWorkflow({ sessionId }: { sessionId: string }) {
       {/* Bước 1: Điểm danh */}
       <section id="diem-danh" className="card scroll-mt-20 p-4 space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="font-bold">Điểm danh <span className="text-ink-400 font-normal text-sm">({present}/{roster.length} có mặt)</span></h2>
+          <h2 className="font-bold">Điểm danh <span className="text-ink-400 font-normal text-sm">({present}/{roster.length} có mặt)</span>
+            {!attendanceSaved && roster.length > 0 && !isFuture && <span className="chip ml-1.5 bg-amber-100 align-middle text-[11px] text-amber-900">Chưa lưu</span>}
+          </h2>
           {s.date === s.today && <Link href={`/teacher/sessions/${sessionId}/quet`} className="text-xs font-semibold text-brand-600 underline">Quét thẻ QR</Link>}
           <div className="flex gap-1">
             <button className="btn-ghost !px-2 !py-1 text-xs" onClick={() => markAll("present")} disabled={busy || s.status === "completed"}>Tất cả có mặt</button>
           </div>
         </div>
+        {evalManaged && <p className="text-xs text-ink-400">Nhận xét từng em viết ở <a href="#phieu-nhan-xet" className="font-semibold text-brand-600">phiếu nhận xét bên dưới ↓</a></p>}
         <ul className="divide-y divide-black/5">
           {roster.map((r) => {
             const v = effective[r.enrollmentId]!;
@@ -233,7 +244,7 @@ export function SessionWorkflow({ sessionId }: { sessionId: string }) {
                     ))}
                   </div>
                   {evalManaged && !isAbsent(v.status) ? (
-                    <a href="#phieu-nhan-xet" className="mt-1 block truncate text-xs text-ink-400 hover:text-brand-600">{r.studentRemark ? `Nhận xét: ${r.studentRemark}` : "Nhận xét ở phiếu nhận xét buổi bên dưới ↓"}</a>
+                    r.studentRemark ? <a href="#phieu-nhan-xet" className="mt-1 block truncate text-xs text-ink-400 hover:text-brand-600">Nhận xét: {r.studentRemark}</a> : null
                   ) : (
                     <input
                       className="mt-1 w-full bg-transparent text-xs text-ink-600 outline-none placeholder:text-ink-400"
@@ -266,6 +277,7 @@ export function SessionWorkflow({ sessionId }: { sessionId: string }) {
             );
           })}
         </ul>
+        {okMsg?.where === "dd" && <p role="status" className="text-center text-sm font-semibold text-green-700">✓ {okMsg.text}</p>}
         {s.status !== "completed" && (
           <button className="btn-primary w-full" onClick={submitAttendance} disabled={busy || isFuture || roster.length === 0}>
             {record.isPending ? "Đang lưu…" : step === 1 ? "Lưu điểm danh" : "Cập nhật điểm danh"}
@@ -323,6 +335,7 @@ export function SessionWorkflow({ sessionId }: { sessionId: string }) {
           onChange={(e) => setNote(e.target.value)}
           disabled={step < 2 || s.status === "completed"}
         />
+        {okMsg?.where === "nx" && <p role="status" className="text-center text-sm font-semibold text-green-700">✓ {okMsg.text}</p>}
         {s.status !== "completed" && (
           <button className="btn-primary w-full" onClick={submitNote} disabled={busy || step < 2 || (note ?? s.sessionNote ?? "").trim().length < 10}>
             {saveNote.isPending ? "Đang lưu…" : "Lưu nhận xét"}
