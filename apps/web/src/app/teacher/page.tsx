@@ -97,16 +97,16 @@ export default async function TeacherToday() {
           </h2>
           <div className="card divide-y divide-black/5">
             {trial.items.map((t) => (
-              <Link key={t.id} href={t.href} className="flex min-h-11 items-center justify-between gap-3 p-3 hover:bg-black/[0.02]">
+              <div key={t.id} className="flex min-h-11 items-center justify-between gap-3 p-3">
                 <div className="min-w-0">
                   <div className="truncate font-semibold">{t.childName}</div>
                   <div className="truncate text-[13px] text-ink-600">{[t.classLabel, t.centerCode, t.hasDraft ? "có bản nháp" : null].filter(Boolean).join(" · ")}</div>
                 </div>
                 <span className={`chip shrink-0 ${t.overdue ? "bg-red-100 text-red-700" : "bg-amber-50 text-amber-800"}`}>{t.hoursAgo >= 48 ? `${Math.floor(t.hoursAgo / 24)} ngày trước` : `${t.hoursAgo} giờ trước`}</span>
-              </Link>
+              </div>
             ))}
           </div>
-          {trial.total > trial.items.length && <p className="text-[13px] text-ink-600">Còn {trial.total - trial.items.length} học viên thử khác chờ phiếu.</p>}
+          <p className="text-[13px] text-ink-600">Buổi học thử đã qua 24 giờ mà chưa gửi phiếu cho phụ huynh. Phiếu do quản lý / tư vấn cơ sở mở và gửi — hãy nhắn nhận xét của bạn về bé cho họ.{trial.total > trial.items.length ? ` Còn ${trial.total - trial.items.length} bé khác.` : ""}</p>
         </section>
       )}
 
