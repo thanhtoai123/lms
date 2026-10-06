@@ -6,7 +6,8 @@ import { addDays, hasRole } from "@satarobo/core";
 import { router, protectedProcedure } from "../trpc";
 import { listSessions, todayISO } from "../services/sessions";
 import { listClasses } from "../services/classes";
-import { teacherFeedbackFeed, sessionExtras, sessionPrep, classInsights, myStudents, withPlans } from "../services/teacherHub";
+import { pendingTrialReports } from "../services/trialReports";
+import { teacherFeedbackFeed, sessionExtras, sessionPrep, classInsights, myStudents, myPhotos, withPlans } from "../services/teacherHub";
 
 const uuid = z.string().uuid();
 
@@ -66,6 +67,30 @@ export const teacherRouter = router({
   classInsights: protectedProcedure.query(async ({ ctx }) => {
     const t = await myTeacherId(ctx);
     return classInsights(ctx, t.id);
+  }),
+
+  /** Học thử chờ phiếu đánh giá (buổi thử đã qua 24 giờ chưa gửi phụ huynh); `null` nếu không có quyền với nhóm việc này */
+  trialPending: protectedProcedure.query(async ({ ctx }) => {
+    const res = await pendingTrialReports(ctx, { limit: 6 }).catch(() => null);
+    if (!res) return null;
+    return {
+      total: res.total, overdue: res.overdue,
+      items: res.items.map((r) => {
+        const day = r.sessionAt.toLocaleDateString("sv-SE", { timeZone: "Asia/Ho_Chi_Minh" });
+        return {
+          id: `${r.kind}:${r.sourceId}`, childName: r.childName, classLabel: r.classLabel, centerCode: r.centerCode, hasDraft: r.hasDraft, day,
+          hoursAgo: Math.floor((Date.now() - r.sessionAt.getTime()) / 3_600_000),
+          overdue: Date.now() - r.sessionAt.getTime() > 48 * 3_600_000,
+          href: r.kind === "booking" ? `/lop-trial/buoi-le?from=${day}&to=${day}&pdg=${r.sourceId}` : `/lop-trial/${r.trialClassId ?? ""}?pdg=${r.sourceId}`,
+        };
+      }),
+    };
+  }),
+
+  /** Ảnh các buổi mình dạy (60 ngày), gom theo buổi, kèm trạng thái duyệt */
+  myPhotos: protectedProcedure.query(async ({ ctx }) => {
+    const t = await myTeacherId(ctx);
+    return myPhotos(ctx, t.id);
   }),
 
   /** Học viên của tôi: danh sách phẳng (tìm / lọc theo lớp, trạng thái, nguy cơ) */

@@ -3,10 +3,11 @@ import Link from "next/link";
 const TABS = [
   { key: "lop", label: "Lớp của tôi", href: "/teacher/classes" },
   { key: "hoc-vien", label: "Học viên", href: "/teacher/hoc-vien" },
+  { key: "anh-lop", label: "Ảnh lớp", href: "/teacher/anh-lop" },
   { key: "giao-an", label: "Giáo án của tôi", href: "/teacher/giao-an" },
 ] as const;
 
-/** Chip đầu trang của mục "Lớp của tôi": Lớp · Học viên · Giáo án (cùng kiểu dải chip của khu quản trị) */
+/** Chip đầu trang của mục "Lớp của tôi": Lớp · Học viên · Ảnh lớp · Giáo án (cùng kiểu dải chip của khu quản trị) */
 export function ClassTabs({ active }: { active: (typeof TABS)[number]["key"] }) {
   return (
     <nav aria-label="Lớp của tôi" className="flex gap-1.5 overflow-x-auto pb-1">

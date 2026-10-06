@@ -20,6 +20,7 @@ import {
   type SessionKind, type SessionReaction, type DocKind, type DocCategory,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
+import { signedMediaUrl } from "../storage";
 import { tenantCond } from "./tenantScope";
 import { loadSessionForAuth, todayISO } from "./sessions";
 import { sessionEvaluationBoard } from "./sessionEvaluations";
@@ -323,6 +324,56 @@ export interface MyStudentRow {
   enrollmentId: string; studentId: string; code: string | null; fullName: string; nickname: string | null; grade: number | null; trial: boolean;
   classId: string; classCode: string; className: string; attendancePct: number | null; sessionsMarked: number; avg: number | null;
   riskLevel: "high" | "watch" | null; riskReasons: string[];
+}
+
+/* ------------------------------------------------------------------ */
+/* Ảnh lớp của tôi: ảnh các buổi mình dạy, theo buổi, kèm trạng thái duyệt  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Ảnh trong 60 ngày của các buổi mình phụ trách (dạy chính / GV lớp / trợ giảng), gom theo buổi, mới nhất trước.
+ * Giáo viên chỉ có quyền ghi ảnh (`media:write_own`) nên màn này đọc theo đúng phạm vi "của tôi" và KHÔNG trả
+ * thông tin đồng ý của phụ huynh hay tên học viên bị chặn — chỉ số lượng gắn thẻ + trạng thái duyệt + lý do loại.
+ */
+export async function myPhotos(ctx: ProtectedContext, teacherId: string) {
+  requirePermission(ctx, "media:write", { ownerIds: [teacherId] });
+  const today = todayISO();
+  const rows = await ctx.db
+    .select({
+      id: sessionMedia.id, objectKey: sessionMedia.objectKey, caption: sessionMedia.caption, status: sessionMedia.status, isClassWide: sessionMedia.isClassWide,
+      tagged: sessionMedia.taggedStudentIds, rejectReason: sessionMedia.rejectReason, createdAt: sessionMedia.createdAt,
+      sessionId: sessions.id, date: sessions.date, seq: sessions.sequenceNo, kind: sessions.kind, originalSeq: sessions.originalSequenceNo,
+      classId: classes.id, classCode: classes.code, className: classes.name,
+    })
+    .from(sessionMedia)
+    .innerJoin(sessions, eq(sessions.id, sessionMedia.sessionId))
+    .innerJoin(classes, eq(classes.id, sessions.classId))
+    .where(and(
+      or(eq(sessions.teacherId, teacherId), eq(classes.leadTeacherId, teacherId), eq(classes.assistantTeacherId, teacherId))!,
+      gte(sessions.date, addDays(today, -60)),
+      tenantCond(ctx, classes),
+    ))
+    .orderBy(desc(sessions.date), desc(sessionMedia.createdAt))
+    .limit(300);
+  const groups = new Map<string, {
+    sessionId: string; date: string; label: string; classId: string; classCode: string; className: string;
+    counts: { library: number; pending: number; approved: number; rejected: number };
+    photos: { id: string; url: string; caption: string | null; status: string; classWide: boolean; taggedCount: number; rejectReason: string | null }[];
+  }>();
+  for (const r of rows) {
+    let g = groups.get(r.sessionId);
+    if (!g) {
+      g = { sessionId: r.sessionId, date: r.date, label: sessionLabel(r.seq, r.kind as SessionKind, r.originalSeq), classId: r.classId, classCode: r.classCode, className: r.className, counts: { library: 0, pending: 0, approved: 0, rejected: 0 }, photos: [] };
+      groups.set(r.sessionId, g);
+    }
+    if (r.status in g.counts) g.counts[r.status as keyof typeof g.counts]++;
+    g.photos.push({ id: r.id, url: signedMediaUrl(r.objectKey, 3600), caption: r.caption, status: r.status, classWide: r.isClassWide, taggedCount: r.tagged.length, rejectReason: r.rejectReason });
+  }
+  const sessionsList = [...groups.values()];
+  return {
+    sessions: sessionsList,
+    totals: sessionsList.reduce((t, g) => ({ library: t.library + g.counts.library, pending: t.pending + g.counts.pending, approved: t.approved + g.counts.approved, rejected: t.rejected + g.counts.rejected }), { library: 0, pending: 0, approved: 0, rejected: 0 }),
+  };
 }
 
 /* ------------------------------------------------------------------ */

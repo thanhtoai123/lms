@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { MessageCircle } from "lucide-react";
+import { FlaskConical, MessageCircle } from "lucide-react";
 import { getServerCaller } from "@/lib/trpc/server";
 import { fmtDate, Empty, WEEKDAY_VI } from "@/components/ui";
 import { SessionCard } from "@/components/teacher/session-card";
@@ -17,12 +17,13 @@ export default async function TeacherToday() {
     return <Empty>{(e as Error).message}. Tài khoản này chưa gắn hồ sơ giáo viên — hãy đăng nhập bằng tài khoản GV hoặc sang <Link className="underline" href="/dashboard">Trang quản trị</Link>.</Empty>;
   }
   // Phiếu nhận xét còn thiếu của buổi mình đã dạy, kèm hạn theo chuẩn hồ sơ học tập của cơ sở
-  const [sheets, fb] = await Promise.all([
+  const [sheets, fb, trial] = await Promise.all([
     caller.academics.evaluations.pending({ limit: 10 }).catch(() => null),
     caller.teacher.feedback({ days: 14, limit: 8 }).catch(() => null),
+    caller.teacher.trialPending().catch(() => null),
   ]);
   const freshFb = fb?.items.filter((x) => x.fresh).length ?? 0;
-  const hasSide = (!!sheets && sheets.total > 0) || (!!fb && fb.items.length > 0);
+  const hasSide = (!!sheets && sheets.total > 0) || (!!fb && fb.items.length > 0) || (!!trial && trial.total > 0);
 
   return (
     <div className="space-y-6">
@@ -85,6 +86,27 @@ export default async function TeacherToday() {
             ))}
           </div>
           {sheets.total > sheets.items.length && <p className="text-[13px] text-ink-600">Còn {sheets.total - sheets.items.length} buổi khác — hoàn thiện các buổi trên trước.</p>}
+        </section>
+      )}
+
+      {trial && trial.total > 0 && (
+        <section className="order-3 space-y-2" aria-label="Học thử chờ đánh giá">
+          <h2 className="flex items-center gap-2 text-[15px] font-bold">
+            <FlaskConical className="h-4 w-4 text-brand-600" aria-hidden /> Học thử chờ đánh giá <span className="chip bg-amber-100 text-amber-800">{trial.total}</span>
+            {trial.overdue > 0 && <span className="chip bg-red-100 text-red-700">{trial.overdue} quá 48 giờ</span>}
+          </h2>
+          <div className="card divide-y divide-black/5">
+            {trial.items.map((t) => (
+              <Link key={t.id} href={t.href} className="flex min-h-11 items-center justify-between gap-3 p-3 hover:bg-black/[0.02]">
+                <div className="min-w-0">
+                  <div className="truncate font-semibold">{t.childName}</div>
+                  <div className="truncate text-[13px] text-ink-600">{[t.classLabel, t.centerCode, t.hasDraft ? "có bản nháp" : null].filter(Boolean).join(" · ")}</div>
+                </div>
+                <span className={`chip shrink-0 ${t.overdue ? "bg-red-100 text-red-700" : "bg-amber-50 text-amber-800"}`}>{t.hoursAgo >= 48 ? `${Math.floor(t.hoursAgo / 24)} ngày trước` : `${t.hoursAgo} giờ trước`}</span>
+              </Link>
+            ))}
+          </div>
+          {trial.total > trial.items.length && <p className="text-[13px] text-ink-600">Còn {trial.total - trial.items.length} học viên thử khác chờ phiếu.</p>}
         </section>
       )}
 
