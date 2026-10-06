@@ -3,7 +3,7 @@ import { and, eq, inArray, sql, desc, asc, isNull, or, ilike, lte, gte, type SQL
 import { TRPCError } from "@trpc/server";
 import {
   emailTemplates, emailLogs, otpRequests, userGroups, userGroupMembers, userGroupPermissions, regions, webhookEvents, appSettings,
-  users, userRoles, userNotifications, centers, staff, students, classes, bankTransactions, parentNotifications, outbox, tenants,
+  users, userRoles, userNotifications, centers, staff, students, classes, bankTransactions, paymentMethods, parentNotifications, outbox, tenants,
   type Database,
 } from "@satarobo/db";
 import {
@@ -620,6 +620,10 @@ export async function integrations(ctx: ProtectedContext) {
   const zt = await trangThaiTokenZalo(ctx.db as never);
   const zaloToken = zt.usable;
   const [bank] = await ctx.db.select({ last: sql<string | null>`max(${bankTransactions.receivedAt})::text`, n24: sql<number>`count(*) filter (where ${bankTransactions.receivedAt} > now() - interval '24 hours')::int` }).from(bankTransactions).where(eq(bankTransactions.source, "sepay"));
+  // Tài khoản nhận tiền: tài khoản mẫu (seed) hoặc số toàn chữ số 0 làm mã QR trỏ về nơi không có thật
+  const bankMethods = await ctx.db.select({ name: paymentMethods.name, accountNo: paymentMethods.accountNo, accountName: paymentMethods.accountName })
+    .from(paymentMethods).where(and(eq(paymentMethods.isActive, true), eq(paymentMethods.kind, "bank_transfer"), tenantCond(ctx, paymentMethods)));
+  const sampleBank = bankMethods.filter((m) => /^0+$/.test((m.accountNo ?? "").replace(/\D/g, "")) || /\(MAU\)|\(MẪU\)|\bTEST\b/i.test(m.accountName ?? ""));
   const [wh] = await ctx.db.select({ failed: sql<number>`count(*) filter (where ${webhookEvents.status} = 'failed')::int`, rejected24: sql<number>`count(*) filter (where ${webhookEvents.status} = 'rejected' and ${webhookEvents.receivedAt} > now() - interval '24 hours')::int` }).from(webhookEvents);
   const [em] = await ctx.db.select({ queued: sql<number>`count(*) filter (where ${emailLogs.status} = 'queued')::int`, failed: sql<number>`count(*) filter (where ${emailLogs.status} = 'failed')::int`, sent7: sql<number>`count(*) filter (where ${emailLogs.status} = 'sent' and ${emailLogs.sentAt} > now() - interval '7 days')::int` }).from(emailLogs);
   const [zn] = await ctx.db.select({ queued: sql<number>`count(*) filter (where ${parentNotifications.channel} = 'zns' and ${parentNotifications.status} = 'queued')::int` }).from(parentNotifications);
@@ -629,8 +633,8 @@ export async function integrations(ctx: ProtectedContext) {
   const pu = await pushOverview(ctx.db);
   type Item = { key: string; name: string; purpose: string; status: "ok" | "warn" | "off"; details: string[]; env: string[]; href?: string; test?: "email" | "zns" | "sms" | null };
   const items: Item[] = [
-    { key: "sepay", name: "SePay", purpose: "Biến động số dư → tự khớp đơn", status: e.SEPAY_API_KEY ? (wh?.rejected24 ? "warn" : "ok") : "off", env: ["SEPAY_API_KEY"], href: "/bien-dong-so-du",
-      details: [`Webhook: /api/webhooks/sepay`, `Lần nhận gần nhất: ${bank?.last ?? "chưa có"}`, `24h: ${bank?.n24 ?? 0} giao dịch · bị từ chối ${wh?.rejected24 ?? 0}`] },
+    { key: "sepay", name: "SePay", purpose: "Biến động số dư → tự khớp đơn", status: e.SEPAY_API_KEY ? (wh?.rejected24 || sampleBank.length || !bankMethods.length ? "warn" : "ok") : "off", env: ["SEPAY_API_KEY"], href: "/bien-dong-so-du",
+      details: [`Webhook: /api/webhooks/sepay`, bankMethods.length ? `Tài khoản nhận đang bật: ${bankMethods.length}${sampleBank.length ? ` — ${sampleBank.length} là tài khoản MẪU (${sampleBank.map((m) => m.name).join(", ")}): sửa ở Phương thức thanh toán trước khi thu tiền thật` : ""}` : "Chưa có phương thức chuyển khoản nào đang bật — chưa xuất được mã QR", `Lần nhận gần nhất: ${bank?.last ?? "chưa có"}`, `24h: ${bank?.n24 ?? 0} giao dịch · bị từ chối ${wh?.rejected24 ?? 0}`] },
     { key: "email", name: "Email (Resend)", purpose: "Phiếu thu, nhắc học phí, đặt lại mật khẩu", status: e.RESEND_API_KEY ? (em?.failed ? "warn" : "ok") : "off", env: ["RESEND_API_KEY", "EMAIL_FROM"], href: "/email-logs",
       details: [`Người gửi: ${e.EMAIL_FROM ?? "Sata Robo <no-reply@satarobo.vn>"}`, `7 ngày: ${em?.sent7 ?? 0} đã gửi · chờ ${em?.queued ?? 0} · lỗi ${em?.failed ?? 0}`] },
     { key: "zns", name: "Zalo ZNS / SMS", purpose: "Thông báo & OTP qua Zalo, SMS dự phòng", status: ds.zns.mode === "live" ? (e.ZALO_ZNS_TOKEN ? "ok" : "warn") : ds.zns.mode === "sandbox" ? "warn" : "off", env: ["ZALO_ZNS_TOKEN", "ZNS_API_URL", "SMS_API_URL", "SMS_API_KEY"], href: "/cau-hinh-van-hanh?tab=zalo",

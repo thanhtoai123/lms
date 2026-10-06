@@ -43,6 +43,11 @@ import {
   type Weekday, type AttendanceStatus, type Role, type ClassStatus, type LeadStatus,
 } from "@satarobo/core";
 
+// Dữ liệu mẫu có tài khoản ngân hàng giả, tài khoản đăng nhập thử, học viên giả: tuyệt đối không nạp vào CSDL chạy thật.
+if (process.env.NODE_ENV === "production" && process.env.ALLOW_SEED_PRODUCTION !== "1") {
+  console.error("Từ chối: seed chỉ dùng cho môi trường phát triển / kiểm thử (NODE_ENV=production). Đặt ALLOW_SEED_PRODUCTION=1 nếu thật sự muốn chạy (không khuyến nghị).");
+  process.exit(1);
+}
 const db = createDb();
 
 /* ------------------------------------------------------------------ */
