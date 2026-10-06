@@ -93,7 +93,7 @@ export default async function PrepPage({ params }: { params: Promise<{ id: strin
             {d.documents.map((x) => (
               <li key={x.id}>
                 <Link href={x.href} className="flex min-h-11 items-center justify-between gap-2 py-2">
-                  <span className="min-w-0"><span className="block truncate font-semibold text-brand-600">{x.title}</span><span className="block text-[13px] text-ink-600">{x.category} · {x.kindLabel}<span className="whitespace-nowrap">{x.forLesson ? " · của bài này" : " · chung của khoá"}</span></span></span>
+                  <span className="min-w-0"><span className="block truncate font-semibold text-brand-600">{x.title}</span><span className="block text-[13px] text-ink-600"><span className="whitespace-nowrap">{x.category}</span> <span className="whitespace-nowrap">· {x.kindLabel}</span> <span className="whitespace-nowrap">{x.forLesson ? " · của bài này" : " · chung của khoá"}</span></span></span>
                 </Link>
               </li>
             ))}
