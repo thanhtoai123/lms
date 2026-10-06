@@ -44,8 +44,8 @@ export function KenhCaNhanCard({ nicks, goc, canEdit }: { nicks: NickKhaiBao[]; 
 
   return (
     <div className="card border-l-4 border-l-violet-400 p-4">
-      <div className="flex items-start justify-between gap-2">
-        <div>
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
           <h2 className="font-semibold">Zalo cá nhân (công cụ ngoài)</h2>
           <p className="text-xs text-ink-600">Nhận hội thoại và trạng thái nick từ ZCRM, đồng bộ lịch hẹn, trả lời qua API của ZCRM. Hệ thống không tự đăng nhập Zalo.</p>
         </div>

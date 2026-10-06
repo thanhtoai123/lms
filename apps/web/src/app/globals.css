@@ -165,6 +165,7 @@ body {
    Bảng nằm trong khung cuộn ngang nên màn hẹp cuộn thay vì bẻ chữ. */
 main th { white-space: nowrap; }
 main td[data-nw] { white-space: nowrap; }
+main summary, main td button { white-space: nowrap; }
 
 /* Tiêu đề bảng: bản gốc là chữ đậm, giãn chữ, màu chữ chính */
 .admin-scope thead th {

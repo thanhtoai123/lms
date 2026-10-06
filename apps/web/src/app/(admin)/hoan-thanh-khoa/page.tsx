@@ -25,7 +25,7 @@ export default async function CompletionPage({ searchParams }: { searchParams: P
       />
       {proposals && (
         <section className="card space-y-3 p-4">
-          <h2 className="font-bold">Đề xuất chờ duyệt {proposals.length > 0 && <span className="chip ml-1 bg-amber-100 text-amber-800">{proposals.length}</span>}</h2>
+          <h2 className="whitespace-nowrap font-bold">Đề xuất chờ duyệt {proposals.length > 0 && <span className="chip ml-1 bg-amber-100 text-amber-800">{proposals.length}</span>}</h2>
           <ProposalQueue items={proposals} />
         </section>
       )}
