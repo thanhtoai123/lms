@@ -11,6 +11,7 @@ import { NotificationBell } from "@/components/notification-bell";
 import { IdleGuard } from "@/components/idle-guard";
 import { OfflineSync } from "@/components/offline-sync";
 import { ToastProvider } from "@/components/toast";
+import { KeepShortCells } from "@/components/keep-short-cells";
 
 type Me = { fullName: string; email: string; initials: string };
 
@@ -140,6 +141,7 @@ export function TeacherShell({ nav, me, canAdmin, idleMinutes = null, children }
         <OfflineSync />
         <IdleGuard minutes={idleMinutes} />
         <main id="main" tabIndex={-1} className="mx-auto w-full max-w-6xl flex-1 px-4 py-4 pb-28 outline-none sm:px-6 md:py-6 md:pb-10 lg:px-8 print:p-0">
+          <KeepShortCells />
           <Suspense fallback={null}><HubTabs item={active} pathname={pathname} /></Suspense>
           {children}
         </main>

@@ -161,6 +161,11 @@ body {
 .admin-scope [class~="divide-black/5"] > *,
 .admin-scope [class~="divide-black/10"] > * { border-color: var(--border); }
 
+/* Bảng không ép cột hẹp làm chữ rớt dòng: tiêu đề cột luôn một dòng; ô chữ ngắn do KeepShortCells đánh dấu data-nw.
+   Bảng nằm trong khung cuộn ngang nên màn hẹp cuộn thay vì bẻ chữ. */
+main th { white-space: nowrap; }
+main td[data-nw] { white-space: nowrap; }
+
 /* Tiêu đề bảng: bản gốc là chữ đậm, giãn chữ, màu chữ chính */
 .admin-scope thead th {
   font-weight: 700;

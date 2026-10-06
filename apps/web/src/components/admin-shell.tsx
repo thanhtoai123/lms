@@ -22,6 +22,7 @@ import { IdleGuard } from "@/components/idle-guard";
 import { CommandPalette, rememberPage } from "@/components/command-palette";
 import { ToastProvider } from "@/components/toast";
 import { ShortcutHelp } from "@/components/shortcuts";
+import { KeepShortCells } from "@/components/keep-short-cells";
 
 type Me = { fullName: string; email: string; roleLabel: string; initials: string; isTeacher?: boolean };
 
@@ -406,6 +407,7 @@ export function AdminShell({ nav, me, roles, canRunWorker, idleMinutes = null, c
           </div>
         </header>
         <main id="main" tabIndex={-1} className="flex-1 overflow-y-auto p-4 outline-none sm:p-6 print:overflow-visible">
+          <KeepShortCells />
           <Suspense fallback={null}><HubTabs item={active} pathname={pathname} /></Suspense>
           {children}
         </main>
