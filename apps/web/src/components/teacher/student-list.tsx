@@ -1,5 +1,4 @@
 "use client";
-import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Search } from "lucide-react";
 
@@ -37,7 +36,8 @@ export function StudentList({ classes, rows }: { classes: { id: string; code: st
 
   const row = (r: StudentRow) => (
     <li key={r.enrollmentId}>
-      <Link href={`/students/${r.studentId}`} className="flex min-h-14 items-center justify-between gap-3 py-2">
+      {/* Chỉ xem: hồ sơ học viên đầy đủ (liên hệ phụ huynh…) là việc của văn phòng, giáo viên không mở được */}
+      <div className="flex min-h-14 items-center justify-between gap-3 py-2">
         <span className="min-w-0">
           <span className="block truncate font-semibold">{r.fullName}{r.nickname ? <span className="font-normal text-ink-600"> · {r.nickname}</span> : null}</span>
           <span className="block truncate text-[13px] text-ink-600">{[r.code, group || lop ? null : r.classCode, r.grade ? `Lớp ${r.grade}` : null].filter(Boolean).join(" · ")}</span>
@@ -50,7 +50,7 @@ export function StudentList({ classes, rows }: { classes: { id: string; code: st
           </span>
           <span className="text-ink-600">{r.attendancePct !== null ? `CC ${r.attendancePct}%` : "Chưa có điểm danh"}{r.avg !== null ? ` · TB ${r.avg}` : ""}</span>
         </span>
-      </Link>
+      </div>
     </li>
   );
 

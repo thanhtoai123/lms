@@ -32,6 +32,7 @@ export function teacherTabOf(pathname: string): TeacherTab {
  * Mục menu KHÔNG đưa vào "Thêm":
  *  - đã là mục chính: Lớp học → Lớp của tôi, Ca & công → Chấm công;
  *  - màn số liệu quản trị không dành cho giáo viên: Dashboard;
+ *  - Hồ sơ học tập toàn trung tâm (giáo viên bấm vào sẽ báo không có quyền);
  *  - việc của văn phòng, trùng hoặc không hợp với giáo viên: "Việc hôm nay" (hộp việc lead / phiếu thu / đơn — giáo viên đã có
  *    trang Hôm nay), danh mục Chương trình học · Khoá học · Lộ trình (bộ phận đào tạo quản; giáo viên xem bài của mình ở
  *    "Giáo án của tôi") và Kho tài liệu giảng dạy (đã có "Tài liệu lớp tôi" riêng cho giáo viên).
@@ -40,6 +41,8 @@ export function teacherTabOf(pathname: string): TeacherTab {
 export const TEACHER_MORE_SKIP = [
   "/dashboard", "/classes", "/cham-cong/lich-ca",
   "/viec-hom-nay", "/curriculums", "/courses", "/lo-trinh", "/documents",
+  // Hồ sơ học tập toàn trung tâm cần quyền xem học bạ đầy đủ — giáo viên chỉ có học bạ lớp mình (Lớp của tôi → Học bạ lớp)
+  "/ho-so-hoc-tap",
 ] as const;
 
 /** Danh sách "Thêm": các nhóm menu đã lọc quyền, bỏ mục trùng mục chính; nhóm rỗng bị bỏ */
@@ -92,7 +95,6 @@ export function teacherSidebar(nav: NavGroup[]): SidebarGroup[] {
       label: "Học viên & học bạ",
       items: [
         { label: "Học viên", href: "/teacher/hoc-vien", icon: "graduation-cap", match: ["/students"] },
-        ...opt("Học bạ", "folder-check", hasAny("/ho-so-hoc-tap", "/report-cards"), ["/ho-so-hoc-tap", "/report-cards", "/hoc-ba-moc"]),
         ...opt("Hoàn thành khoá", "award", hasAny("/hoan-thanh-khoa"), ["/hoan-thanh-khoa"]),
         { label: "Ảnh lớp", href: "/teacher/anh-lop", icon: "image" },
       ],

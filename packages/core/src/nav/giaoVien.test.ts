@@ -28,12 +28,12 @@ test("mục chính: 5 mục, đường dẫn không trùng", () => {
   assert.equal(new Set(TEACHER_PRIMARY.map((t) => t.href)).size, 5);
 });
 
-test("Thêm của giáo viên: có học bạ, bài tập, tin nhắn; không có Dashboard / Lớp học / Ca & công", () => {
+test("Thêm của giáo viên: có bài tập, tin nhắn; không có Dashboard / Lớp học / Ca & công / Hồ sơ học tập (giáo viên không đủ quyền)", () => {
   const actor = { userId: "u", personId: null, assignments: [{ role: "TEACHER", centerId: "c1" }], extraPermissions: [] } as unknown as Actor;
   const nav = filterMenu(ADMIN_MENU, (p) => hasPermission(actor, p), (p) => { const c = centersWith(actor, p); return c === null || c.length > 0; });
   const hrefs = teacherMoreGroups(nav).flatMap((g) => g.items.map((i) => i.href));
-  for (const h of ["/ho-so-hoc-tap", "/assignments", "/tin-nhan", "/huong-dan"]) assert.ok(hrefs.includes(h), h);
-  for (const h of ["/dashboard", "/classes", "/cham-cong/lich-ca"]) assert.ok(!hrefs.includes(h), h);
+  for (const h of ["/assignments", "/tin-nhan", "/huong-dan"]) assert.ok(hrefs.includes(h), h);
+  for (const h of ["/dashboard", "/classes", "/cham-cong/lich-ca", "/ho-so-hoc-tap"]) assert.ok(!hrefs.includes(h), h);
   // Việc văn phòng / danh mục của bộ phận đào tạo không nằm trong "Thêm" của giáo viên; "Tài liệu lớp tôi" (dành riêng cho GV) vẫn còn
   for (const h of ["/viec-hom-nay", "/curriculums", "/courses", "/lo-trinh", "/documents"]) assert.ok(!hrefs.includes(h), h);
   assert.ok(hrefs.includes("/teaching-materials"));
