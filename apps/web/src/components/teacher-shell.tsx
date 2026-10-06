@@ -1,12 +1,12 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ArrowLeftRight, BookOpen, CalendarCheck, CalendarDays, ChevronDown, Clock, LayoutGrid, LogOut, ShieldCheck, UserRound, type LucideIcon } from "lucide-react";
-import { activeNavItem, TEACHER_PRIMARY, teacherTabOf, type TeacherTab } from "@satarobo/core";
+import { activeNavItem, TEACHER_PRIMARY, teacherTabOf, teacherSidebar, sidebarActiveHref, type SidebarGroup, type TeacherTab } from "@satarobo/core";
 import type { NavGroup } from "@/lib/admin-nav";
-import { HubTabs } from "@/components/admin-shell";
+import { HubTabs, NavIcon } from "@/components/admin-shell";
 import { NotificationBell } from "@/components/notification-bell";
 import { IdleGuard } from "@/components/idle-guard";
 import { OfflineSync } from "@/components/offline-sync";
@@ -16,6 +16,55 @@ type Me = { fullName: string; email: string; initials: string };
 
 const ICON: Record<TeacherTab, LucideIcon> = { today: CalendarCheck, schedule: CalendarDays, classes: BookOpen, timesheet: Clock, more: LayoutGrid };
 
+const SIDEBAR_KEY = "teacher-sidebar-closed";
+
+/** Menu trái (từ 1024px): nhóm gấp / mở được, nhớ trạng thái gấp theo trình duyệt */
+function Sidebar({ groups, activeHref }: { groups: SidebarGroup[]; activeHref: string | null }) {
+  const [closed, setClosed] = useState<string[]>([]);
+  useEffect(() => {
+    try { const raw = localStorage.getItem(SIDEBAR_KEY); if (raw) setClosed(JSON.parse(raw) as string[]); } catch {}
+  }, []);
+  const toggle = (label: string) => setClosed((c) => {
+    const next = c.includes(label) ? c.filter((x) => x !== label) : [...c, label];
+    try { localStorage.setItem(SIDEBAR_KEY, JSON.stringify(next)); } catch {}
+    return next;
+  });
+  return (
+    <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-r border-black/5 bg-white lg:flex print:hidden" aria-label="Menu giáo viên">
+      <Link href="/teacher" className="flex h-16 shrink-0 items-center px-5 text-[17px] font-bold text-brand-600">Sata Robo <span className="ml-1.5 rounded bg-brand-50 px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-brand-700">Giáo viên</span></Link>
+      <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 pb-4 text-[14px]">
+        {groups.map((g, gi) => {
+          const open = !g.label || !closed.includes(g.label) || g.items.some((i) => i.href === activeHref);
+          return (
+            <div key={g.label ?? `g${gi}`} className={g.label ? "pt-3" : ""}>
+              {g.label && (
+                <button type="button" onClick={() => toggle(g.label!)} aria-expanded={open} className="flex min-h-9 w-full items-center justify-between px-3 text-[11px] font-semibold uppercase tracking-wide text-ink-600 hover:text-foreground">
+                  {g.label}<ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? "" : "-rotate-90"}`} aria-hidden />
+                </button>
+              )}
+              {open && (
+                <ul className="space-y-0.5">
+                  {g.items.map((i) => {
+                    const on = i.href === activeHref;
+                    return (
+                      <li key={i.href}>
+                        <Link href={i.href} aria-current={on ? "page" : undefined}
+                          className={`flex min-h-10 items-center gap-3 rounded-xl px-3 font-semibold transition-colors ${on ? "bg-brand-50 text-brand-700" : "text-ink-600 hover:bg-black/[0.04] hover:text-foreground"}`}>
+                          <NavIcon name={i.icon} />{i.label}
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          );
+        })}
+      </nav>
+    </aside>
+  );
+}
+
 /**
  * KHUNG GIAO DIỆN GIÁO VIÊN — một khung cho MỌI trang giáo viên dùng, kể cả các trang nghiệp vụ
  * chung (chấm công, học bạ, bài tập, tài liệu, tin nhắn…): giáo viên không bị đẩy qua lại giữa
@@ -23,7 +72,8 @@ const ICON: Record<TeacherTab, LucideIcon> = { today: CalendarCheck, schedule: C
  *
  * 5 mục chính: Hôm nay · Lịch dạy · Lớp của tôi · Chấm công · Thêm (mọi chức năng khác theo quyền).
  * - Điện thoại (< 768px): thanh đáy kiểu ứng dụng.
- * - Máy tính bảng / máy tính: 5 mục nằm trên thanh đầu, bỏ thanh đáy, nội dung rộng tới 72rem.
+ * - Máy tính bảng (768–1023px): 5 mục nằm trên thanh đầu, bỏ thanh đáy.
+ * - Máy tính (≥ 1024px): menu trái cố định (nhóm Giảng dạy · Học viên & học bạ · Ca & chấm công…), thanh đầu chỉ còn chuông + tài khoản.
  */
 export function TeacherShell({ nav, me, canAdmin, idleMinutes = null, children }: { nav: NavGroup[]; me: Me; canAdmin: boolean; idleMinutes?: number | null; children: React.ReactNode }) {
   const pathname = usePathname() ?? "";
@@ -31,15 +81,19 @@ export function TeacherShell({ nav, me, canAdmin, idleMinutes = null, children }
   useEffect(() => setUserOpen(false), [pathname]);
   const tab = teacherTabOf(pathname);
   const active = activeNavItem(pathname, nav.flatMap((g) => g.items));
+  const sidebar = useMemo(() => teacherSidebar(nav), [nav]);
+  const sidebarActive = sidebarActiveHref(pathname, sidebar);
 
   return (
     <ToastProvider>
-      <div className="flex min-h-dvh flex-col bg-surface text-[15px]">
+      <div className="flex min-h-dvh bg-surface text-[15px]">
         <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-2 focus:top-2 focus:z-50 focus:rounded focus:bg-card focus:px-3 focus:py-2">Bỏ qua điều hướng</a>
+        <Sidebar groups={sidebar} activeHref={sidebarActive} />
+        <div className="flex min-h-dvh min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-30 border-b border-black/5 bg-surface/90 backdrop-blur print:hidden" style={{ paddingTop: "env(safe-area-inset-top)" }}>
           <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-2 sm:px-6 lg:px-8">
-            <Link href="/teacher" className="flex min-h-11 shrink-0 items-center font-bold text-brand-600">Sata Robo · GV</Link>
-            <nav aria-label="Điều hướng giáo viên" className="hidden items-center gap-1 md:flex">
+            <Link href="/teacher" className="flex min-h-11 shrink-0 items-center font-bold text-brand-600 lg:hidden">Sata Robo · GV</Link>
+            <nav aria-label="Điều hướng giáo viên" className="hidden items-center gap-1 md:flex lg:hidden">
               {TEACHER_PRIMARY.map((t) => {
                 const Icon = ICON[t.key];
                 const on = tab === t.key;
@@ -103,6 +157,7 @@ export function TeacherShell({ nav, me, canAdmin, idleMinutes = null, children }
             })}
           </div>
         </nav>
+        </div>
       </div>
     </ToastProvider>
   );

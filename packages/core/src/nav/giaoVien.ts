@@ -51,6 +51,73 @@ export function teacherMoreGroups(nav: NavGroup[]): { label: string; items: NavI
 }
 
 /* ------------------------------------------------------------------ */
+/* Sidebar trái (máy tính ≥ 1024px) — cùng bố cục site giáo viên gốc      */
+/* ------------------------------------------------------------------ */
+
+export interface SidebarItem { label: string; href: string; icon: string; /** tiền tố đường dẫn con cũng tô sáng mục này */ match?: string[] }
+export interface SidebarGroup { label: string | null; items: SidebarItem[] }
+
+/**
+ * Menu trái: Tổng quan · Giảng dạy · Học viên & học bạ · Ca & chấm công · Học thử.
+ * Mục của giao diện giáo viên luôn có; mục lấy từ menu chung (bài tập, tài liệu, tin nhắn, học bạ, hoàn thành khoá,
+ * học bù, học thử) chỉ hiện khi người dùng CÓ QUYỀN — `nav` là cây menu đã lọc quyền. Nhóm rỗng bị bỏ.
+ * Mọi chức năng còn lại vẫn ở "Thêm".
+ */
+export function teacherSidebar(nav: NavGroup[]): SidebarGroup[] {
+  const all = nav.flatMap((g) => g.items);
+  const has = (href: string) => all.some((i) => i.href === href || (i.tabs ?? []).some((t) => t.href === href));
+  const hasAny = (...hrefs: string[]) => hrefs.find(has);
+  const opt = (label: string, icon: string, href: string | undefined, match?: string[]): SidebarItem[] => (href ? [{ label, href, icon, match }] : []);
+  const groups: SidebarGroup[] = [
+    { label: null, items: [{ label: "Tổng quan", href: "/teacher", icon: "layout-dashboard", match: ["/teacher/sessions"] }] },
+    {
+      label: "Giảng dạy",
+      items: [
+        { label: "Lớp của tôi", href: "/teacher/classes", icon: "users", match: ["/classes"] },
+        { label: "Lịch làm việc", href: "/teacher/lich", icon: "calendar-days" },
+        { label: "Giáo án", href: "/teacher/giao-an", icon: "book-open" },
+        ...opt("Bài tập", "notebook-pen", hasAny("/assignments"), ["/assignments"]),
+        ...opt("Tài liệu", "presentation", hasAny("/teaching-materials"), ["/teaching-materials"]),
+        ...opt("Tin nhắn", "message-circle", hasAny("/tin-nhan"), ["/tin-nhan"]),
+      ],
+    },
+    {
+      label: "Học thử",
+      items: [
+        ...opt("Lớp trial", "flask-conical", hasAny("/lop-trial"), ["/lop-trial"]),
+        ...opt("Học bù", "refresh-cw", hasAny("/hoc-bu"), ["/hoc-bu"]),
+      ],
+    },
+    {
+      label: "Học viên & học bạ",
+      items: [
+        { label: "Học viên", href: "/teacher/hoc-vien", icon: "graduation-cap", match: ["/students"] },
+        ...opt("Học bạ", "folder-check", hasAny("/ho-so-hoc-tap", "/report-cards"), ["/ho-so-hoc-tap", "/report-cards", "/hoc-ba-moc"]),
+        ...opt("Hoàn thành khoá", "award", hasAny("/hoan-thanh-khoa"), ["/hoan-thanh-khoa"]),
+        { label: "Ảnh lớp", href: "/teacher/anh-lop", icon: "image" },
+      ],
+    },
+    { label: "Ca & chấm công", items: [{ label: "Chấm công", href: "/cham-cong/lich-ca", icon: "clock", match: ["/cham-cong", "/don-tu"] }] },
+    { label: null, items: [{ label: "Thêm chức năng", href: "/teacher/them", icon: "layout-dashboard" }] },
+  ];
+  return groups.filter((g) => g.items.length > 0);
+}
+
+/** Mục sidebar đang sáng: khớp tiền tố dài nhất (Tổng quan chỉ khớp đúng /teacher + các tiền tố khai báo) */
+export function sidebarActiveHref(pathname: string, groups: readonly SidebarGroup[]): string | null {
+  const p = pathname.split(/[?#]/)[0] || "/";
+  let best: { href: string; len: number } | null = null;
+  for (const g of groups) for (const i of g.items) {
+    const prefixes = [i.href, ...(i.match ?? [])];
+    for (const x of prefixes) {
+      const hit = i.href === "/teacher" && x === "/teacher" ? p === "/teacher" : p === x || p.startsWith(`${x}/`);
+      if (hit && (!best || x.length > best.len)) best = { href: i.href, len: x.length };
+    }
+  }
+  return best?.href ?? null;
+}
+
+/* ------------------------------------------------------------------ */
 /* Buổi nổi bật: đang dạy / buổi tiếp theo                              */
 /* ------------------------------------------------------------------ */
 

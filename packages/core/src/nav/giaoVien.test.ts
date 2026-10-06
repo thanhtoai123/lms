@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { teacherTabOf, teacherMoreGroups, TEACHER_PRIMARY, buoiNoiBat, thoiLuongVi, dauTuan, phutTrongNgay, gioVietNam } from "./giaoVien.js";
+import { teacherTabOf, teacherMoreGroups, teacherSidebar, sidebarActiveHref, TEACHER_PRIMARY, buoiNoiBat, thoiLuongVi, dauTuan, phutTrongNgay, gioVietNam } from "./giaoVien.js";
 import { ADMIN_MENU, filterMenu } from "./menu.js";
 import { hasPermission, centersWith, type Actor } from "../policy/policy.js";
 
@@ -92,4 +92,27 @@ test("buoiNoiBat: buổi hôm nay hết giờ chưa chốt → cần chốt; nh�
   assert.equal(r2?.kind === "sap-toi" && r2.session.id, "b");
   const r3 = buoiNoiBat([B("a", "2026-09-27", "09:45", "11:15", "completed")], "2026-09-27", phutTrongNgay("16:00"));
   assert.equal(r3, null);
+});
+
+test("sidebar giáo viên: mục chung chỉ hiện khi có quyền, nhóm rỗng bị bỏ", () => {
+  const none = teacherSidebar([]);
+  const labels = (g: ReturnType<typeof teacherSidebar>) => g.flatMap((x) => x.items.map((i) => i.label));
+  assert.deepEqual(labels(none), ["Tổng quan", "Lớp của tôi", "Lịch làm việc", "Giáo án", "Học viên", "Ảnh lớp", "Chấm công", "Thêm chức năng"]);
+  assert.ok(!none.some((g) => g.label === "Học thử"), "không có quyền học thử thì không có nhóm Học thử");
+  const withPerm = teacherSidebar([{ key: "x", label: "x", roles: [], items: [{ label: "Bài tập về nhà", href: "/assignments" }, { label: "Học bù", href: "/hoc-bu" }] }]);
+  assert.ok(labels(withPerm).includes("Bài tập") && labels(withPerm).includes("Học bù"));
+  assert.ok(withPerm.some((g) => g.label === "Học thử"));
+});
+
+test("sidebarActiveHref: khớp tiền tố dài nhất, Tổng quan chỉ đúng trang chủ + buổi dạy", () => {
+  const g = teacherSidebar([]);
+  assert.equal(sidebarActiveHref("/teacher", g), "/teacher");
+  assert.equal(sidebarActiveHref("/teacher/sessions/abc/quet", g), "/teacher");
+  assert.equal(sidebarActiveHref("/teacher/classes", g), "/teacher/classes");
+  assert.equal(sidebarActiveHref("/classes/xyz", g), "/teacher/classes");
+  assert.equal(sidebarActiveHref("/teacher/hoc-vien", g), "/teacher/hoc-vien");
+  assert.equal(sidebarActiveHref("/teacher/anh-lop", g), "/teacher/anh-lop");
+  assert.equal(sidebarActiveHref("/cham-cong/lich-ca?period=2026-09", g), "/cham-cong/lich-ca");
+  assert.equal(sidebarActiveHref("/teacher/them", g), "/teacher/them");
+  assert.equal(sidebarActiveHref("/dashboard", g), null);
 });
