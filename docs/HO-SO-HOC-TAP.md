@@ -389,3 +389,24 @@ Mô tả mức chỉ giúp chấm nhất quán khi mọi GV **hiểu mô tả gi
 6. **Theo dõi**: quý sau so tỷ lệ đồng thuận; kết hợp bảng *Quản lý hồ sơ học tập* theo GV để phát hiện GV luôn chấm lệch cao / thấp so với lớp cùng khoá.
 
 Phiếu đã phát hành giữ bản chụp mô tả mức cũ — thay đổi sau hiệu chuẩn chỉ áp cho phiếu mới.
+
+## 17. Tiêu chí theo chương trình & buổi học kèm ảnh trong học bạ (07/10/2026)
+
+Yêu cầu của chủ dự án: *"tiêu chí học bạ cần cấu hình linh động theo từng chương trình… trong list học bạ, mỗi buổi có kèm hình ảnh"*.
+
+**Hiện trạng tìm được khi rà soát:** tiêu chí đã thuộc về từng khoá (`competency_criteria.course_id`) và có hộp "Tiêu chí đánh giá" (4 mức có mô tả), nhưng
+(1) còn một trang cũ `/report-cards/criteria` chỉ sửa tên, ghi "chấm 1–5" — hai nơi cấu hình lệch nhau;
+(2) chỉ có MỘT bộ mẫu (robotics), khoá nào cũng phải dựng lại từ đầu; không sao chép được giữa các chương trình;
+(3) học bạ mốc chỉ có điểm tổng hợp, không liệt kê từng buổi và ảnh của buổi.
+
+**Đã làm**
+
+- `/report-cards/criteria` thành màn **"Tiêu chí theo chương trình"**: mỗi chương trình một thẻ (số tiêu chí, nhóm, bao nhiêu tiêu chí đã viết mô tả 4 mức, mốc học bạ, số phiếu đã phát hành), nút mở hộp cấu hình, chọn khoá tiếp theo. Chương trình chưa cấu hình được cảnh báo rõ. API cũ `learning.criteria/upsertCriterion/moveCriterion` (chỉ tên, thang 1–5) bỏ; còn một đường duy nhất `portfolio.criteria.*`.
+- **4 bộ mẫu** (`packages/core/src/portfolio/templates.ts`): Robotics & lập trình robot (8 tiêu chí), Lập trình Scratch/Python (6), STEAM cho bé nhỏ 5–8 tuổi (5), AI & dữ liệu (6) — đều có 4 mô tả hành vi mỗi tiêu chí, có kiểm thử hợp lệ.
+- Trong hộp cấu hình: **"Thêm tiêu chí từ bộ mẫu / chương trình khác"** — chọn bộ mẫu hoặc sao chép từ khoá khác (kèm nhóm, mô tả, 4 mô tả mức). Chỉ **thêm tiêu chí chưa có** (trùng tên bỏ qua) nên bấm lại không nhân đôi, không đụng tiêu chí đã có điểm. Quyền sửa: `course:update`; ghi nhật ký trong transaction.
+- **Buổi học kèm ảnh trong học bạ mốc** (`MilestoneSessionView`, `milestone-sessions.tsx`): mỗi buổi của giai đoạn một dòng — ngày, bài học, kết quả mục tiêu, điểm TB — kèm tối đa 4 ảnh (3 khi in), nhãn "Của bé" / "Cả lớp", bấm mở ảnh lớn. Hiện ở: học bạ in riêng `/hoc-ba-moc/<id>`, hồ sơ học tập / cổng phụ huynh / link chia sẻ (thu gọn mở sẵn; bản in cả hồ sơ ẩn mục này vì phiếu từng buổi ngay sau đã có ảnh), màn viết học bạ `/report-cards/<ghi danh>/<buổi>` (để giáo viên nhìn lại buổi học khi viết nhận xét), và **Tra cứu học viên** (mỗi học bạ có dòng xổ "Các buổi & ảnh").
+- Quy tắc ảnh giữ nguyên: chỉ ảnh đã duyệt, gắn thẻ bé hoặc cả lớp, và chỉ khi phụ huynh đang đồng ý đăng ảnh (kiểm lại mỗi lần hiển thị); giáo viên đã chọn tay ảnh cho phiếu thì theo lựa chọn đó (`pickSheetMedia`).
+
+**Giới hạn đã biết / để sau**: thang 4 mức và tên 4 mức ("Đang làm quen … Vượt mong đợi") vẫn dùng chung mọi chương trình; thẻ nổi bật và trọng số tiêu chí chưa tuỳ biến theo chương trình. Quản lý cơ sở (chỉ có `course:read`) xem được tiêu chí nhưng không sửa — việc sửa thuộc Đào tạo / quản trị.
+
+**Kiểm thử**: `packages/core/src/portfolio/templates.test.ts` (5 ca): mọi bộ mẫu qua `validateCriterion`, thêm chỉ tiêu chí chưa có, chọn ảnh theo buổi, gom buổi theo khoảng mốc. Lõi 752/752 đạt.
