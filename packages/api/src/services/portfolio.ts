@@ -26,6 +26,7 @@ import {
   inPortfolioScope, normalizePortfolioScope, validatePortfolioScope, portfolioScopeLabel, portfolioScopeQuery, clampPortfolioShareDays,
   portfolioShareExpiresAt, portfolioShareState, portfolioPath, portfolioShareMessage, isMilestoneAggregate, authorize,
   PORTFOLIO_TOKEN_RE, PORTFOLIO_SHARE_SCOPE_VI, PORTFOLIO_SHARE_STATE_VI, ENROLLMENT_STATUS_VI,
+  pickSheetMedia, milestoneSessionsFromSheets, type MilestoneSessionView,
   type PortfolioScope, type PortfolioView, type PortfolioCourseView, type SessionSheetView, type MilestoneCardView,
   type PortfolioCertificate, type EnrollmentStatus, type PortfolioShareState,
   certificateVerifyPath, isCertificateSnapshot,
@@ -135,9 +136,7 @@ export async function buildPortfolio(db: Db, studentId: string, scopeIn: Portfol
       const snap = r.snapshot;
       const own = allMedia.filter((m) => m.sessionId === r.sessionId);
       // GV chọn tay thì theo đúng lựa chọn; nếu không: ưu tiên ảnh CÓ GẮN THẺ CON rồi tới ảnh cả lớp, tối đa 4
-      const chosen = (r.mediaIds ?? []).length
-        ? own.filter((m) => (r.mediaIds ?? []).includes(m.id))
-        : [...own.filter((m) => !m.classWide), ...own.filter((m) => m.classWide)].slice(0, 4);
+      const chosen = pickSheetMedia(own, r.mediaIds);
       return {
         id: r.id, status: r.status, revision: r.revision, publishedAt: iso(r.publishedAt), snapshot: snap,
         objectiveResult: r.objectiveResult, highlights: r.highlights ?? [], productNote: r.productNote, remark: r.remark,
@@ -159,6 +158,8 @@ export async function buildPortfolio(db: Db, studentId: string, scopeIn: Portfol
           }),
           average: c.averageScore == null ? null : Number(c.averageScore),
           teacherComment: c.teacherComment, strengths: c.strengths, improvements: c.improvements, aggregate: agg,
+          // Các buổi của giai đoạn + ảnh từng buổi (học bạ cũ chưa có số liệu giai đoạn thì không liệt kê)
+          sessions: agg ? milestoneSessionsFromSheets(sheets, agg.period) : [],
           className: e.className, courseName: e.courseName, studentName: st.fullName, authorName: c.authorName ?? null,
         };
       });
@@ -462,9 +463,39 @@ export async function getMilestoneCardView(ctx: ProtectedContext, reportCardId: 
     }),
     average: r.card.averageScore == null ? null : Number(r.card.averageScore),
     teacherComment: r.card.teacherComment, strengths: r.card.strengths, improvements: r.card.improvements, aggregate: agg,
+    sessions: agg ? await milestoneSessionLog(ctx.db, { enrollmentId: r.card.enrollmentId, studentId: r.studentId, fromSeq: agg.period.fromSeq, toSeq: agg.period.toSeq }) : [],
     className: r.className, courseName: r.courseName, studentName: r.studentName, authorName: r.authorName ?? null,
     center: { name: r.centerName, address: r.centerAddress, phone: r.centerPhone },
   };
+}
+
+/**
+ * Các buổi của một mốc học bạ, mỗi buổi kèm ảnh: phiếu buổi ĐÃ PHÁT HÀNH của ghi danh có số buổi trong [fromSeq, toSeq].
+ * Ảnh = ảnh đã duyệt có gắn thẻ bé hoặc ảnh cả lớp, CHỈ khi phụ huynh đang đồng ý đăng ảnh (kiểm lại mỗi lần gọi);
+ * GV đã chọn tay ảnh cho phiếu thì theo đúng lựa chọn. Người gọi chịu trách nhiệm kiểm quyền xem học viên.
+ */
+export async function milestoneSessionLog(
+  db: Database | ProtectedContext["db"],
+  input: { enrollmentId: string; studentId: string; fromSeq: number; toSeq: number },
+): Promise<MilestoneSessionView[]> {
+  const d = asDb(db);
+  const rows = await d
+    .select({ sessionId: sessionEvaluations.sessionId, mediaIds: sessionEvaluations.mediaIds, objectiveResult: sessionEvaluations.objectiveResult, snapshot: sessionEvaluations.snapshot, date: sessions.date, seq: sessions.sequenceNo })
+    .from(sessionEvaluations).innerJoin(sessions, eq(sessions.id, sessionEvaluations.sessionId))
+    .where(and(eq(sessionEvaluations.enrollmentId, input.enrollmentId), eq(sessionEvaluations.status, "published")))
+    .orderBy(asc(sessions.date), asc(sessions.startTime));
+  const inPeriod = rows.flatMap((r) => (isSessionEvalSnapshot(r.snapshot) && r.snapshot.context.sequenceNo >= input.fromSeq && r.snapshot.context.sequenceNo <= input.toSeq ? [{ ...r, snap: r.snapshot }] : []));
+  if (!inPeriod.length) return [];
+  const media = (await evidenceMedia(d, inPeriod.map((r) => r.sessionId), [input.studentId])).get(input.studentId) ?? [];
+  return inPeriod.map((r) => {
+    const snap = r.snap;
+    const chosen = pickSheetMedia(media.filter((m) => m.sessionId === r.sessionId), r.mediaIds);
+    return {
+      seq: snap.context.sequenceNo, date: snap.context.date, label: snap.context.label, makeup: snap.context.makeup, lessonTitle: snap.context.lessonTitle,
+      objectiveResult: r.objectiveResult, average: sessionAverage(snap),
+      media: chosen.map((m) => ({ id: m.id, url: m.url, caption: m.caption, date: m.date, classWide: m.classWide })),
+    };
+  });
 }
 
 /** Trang in nội bộ cho bộ xuất PDF (đã xác thực bằng chữ ký HMAC ở trang) */

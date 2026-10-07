@@ -1,7 +1,9 @@
+import { Fragment } from "react";
 import Link from "next/link";
 import { getServerCaller } from "@/lib/trpc/server";
 import { PageHeader, ReportCardChip, fmtDate } from "@/components/admin-ui";
 import { Empty } from "@/components/ui";
+import { MilestoneSessions } from "@/components/portfolio/milestone-sessions";
 import { StudentChooser } from "./student-chooser";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -54,7 +56,8 @@ export async function LookupView({ student }: { student?: string }) {
                 </thead>
                 <tbody className="divide-y divide-black/5">
                   {book.cards.map((c) => (
-                    <tr key={c.id}>
+                    <Fragment key={c.id}>
+                    <tr>
                       <td className="p-3"><Link href={`/report-cards/${c.enrollmentId}/${c.seq}`} className="font-semibold text-brand-600">{c.label}</Link>{c.publishedAt ? <div className="text-[11px] text-ink-400">gửi PH {fmtDate(c.publishedAt)}</div> : null}</td>
                       <td className="p-3 text-xs">{c.className}<div className="font-mono text-[10px] text-ink-400">{c.classCode} · {c.courseCode}</div></td>
                       <td className="p-3 text-xs">{c.authorName ?? "—"}</td>
@@ -62,6 +65,17 @@ export async function LookupView({ student }: { student?: string }) {
                       <td className="p-3"><ReportCardChip status={c.status} /></td>
                       <td className="p-3 text-right"><Link href={`/hoc-ba-moc/${c.id}`} className="text-xs text-brand-600">In</Link></td>
                     </tr>
+                    {c.sessions.length > 0 && (
+                      <tr>
+                        <td colSpan={6} className="px-3 pb-3 pt-0">
+                          <details className="rounded-xl bg-black/[0.03] p-2">
+                            <summary className="cursor-pointer text-xs font-semibold text-brand-600">Các buổi & ảnh trong học bạ này ({c.sessions.length} buổi · {c.sessions.filter((x) => x.media.length > 0).length} có ảnh)</summary>
+                            <div className="mt-2"><MilestoneSessions sessions={c.sessions} dense /></div>
+                          </details>
+                        </td>
+                      </tr>
+                    )}
+                    </Fragment>
                   ))}
                 </tbody>
               </table>

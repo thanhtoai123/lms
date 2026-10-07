@@ -12,13 +12,13 @@
  */
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
-import { competencyCriteria, courses, curricula, lessons, lessonFocusCriteria } from "@satarobo/db";
+import { competencyCriteria, courses, curricula, lessons, lessonFocusCriteria, sessionEvaluations } from "@satarobo/db";
 import {
-  authorize, validateCriterion, normalizeLevelDescriptors, rubricLevelsFor, CRITERIA_TEMPLATE_ROBOTICS, CURRICULUM_STATUS_VI,
+  authorize, validateCriterion, normalizeLevelDescriptors, rubricLevelsFor, CRITERIA_TEMPLATE_SETS, criteriaTemplateById, newCriteriaOnly, reportCardMilestones, CURRICULUM_STATUS_VI,
   type CurriculumStatus,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
-import { assertTenant } from "./tenantScope";
+import { assertTenant, tenantCond } from "./tenantScope";
 import { writeAudit } from "./audit";
 
 type Db = ProtectedContext["db"];
@@ -69,7 +69,57 @@ export async function courseCriteriaBoard(ctx: ProtectedContext, input: { course
     curricula: curs.map((c) => ({ id: c.id, label: `${c.name} · v${c.version} · ${CURRICULUM_STATUS_VI[c.status as CurriculumStatus] ?? c.status}` })),
     curriculumId: cur?.id ?? null,
     lessons: ls.map((l) => ({ ...l, focusIds: focusBy.get(l.id) ?? [] })),
-    template: CRITERIA_TEMPLATE_ROBOTICS.map((t) => ({ ...t, levelDescriptors: [...t.levelDescriptors] })),
+    /** Các bộ mẫu theo chương trình (tên, đối tượng, danh sách tiêu chí) */
+    templates: CRITERIA_TEMPLATE_SETS.map((t) => ({ id: t.id, name: t.name, audience: t.audience, criteria: t.criteria.map((c) => ({ name: c.name, groupName: c.groupName })) })),
+    /** Chương trình khác đã có tiêu chí — để sao chép sang khoá này */
+    copyFrom: await copySources(ctx, course.id),
+  };
+}
+
+async function copySources(ctx: ProtectedContext, exceptCourseId: string) {
+  const rows = await ctx.db
+    .select({ id: courses.id, code: courses.code, name: courses.name, n: sql<number>`count(${competencyCriteria.id}) filter (where ${competencyCriteria.isActive})::int` })
+    .from(courses).innerJoin(competencyCriteria, eq(competencyCriteria.courseId, courses.id))
+    .where(and(tenantCond(ctx, courses), sql`${courses.id} <> ${exceptCourseId}`))
+    .groupBy(courses.id, courses.code, courses.name)
+    .orderBy(asc(courses.code));
+  return rows.filter((r) => r.n > 0).map((r) => ({ id: r.id, label: `${r.code} — ${r.name} (${r.n} tiêu chí)` }));
+}
+
+/**
+ * Tổng quan "Tiêu chí theo chương trình": mỗi khoá một dòng — số tiêu chí đang dùng, các nhóm, đã khai mô tả mức chưa,
+ * mốc học bạ, số phiếu buổi đã phát hành. Xem: `course:read` hoặc `report_card:read`; sửa: `course:update`.
+ */
+export async function criteriaOverview(ctx: ProtectedContext) {
+  const canRead = authorize(ctx.actor, "course:read").allowed || authorize(ctx.actor, "report_card:read").allowed;
+  if (!canRead) requirePermission(ctx, "course:read");
+  const [cs, cr, used] = await Promise.all([
+    ctx.db.select({ id: courses.id, code: courses.code, name: courses.name, level: courses.level, totalSessions: courses.totalSessions, nextCourseId: courses.nextCourseId })
+      .from(courses).where(and(eq(courses.isActive, true), tenantCond(ctx, courses))).orderBy(asc(courses.code)),
+    ctx.db.select({ id: competencyCriteria.id, courseId: competencyCriteria.courseId, name: competencyCriteria.name, groupName: competencyCriteria.groupName, isActive: competencyCriteria.isActive, levelDescriptors: competencyCriteria.levelDescriptors })
+      .from(competencyCriteria).orderBy(asc(competencyCriteria.sortOrder), asc(competencyCriteria.createdAt)),
+    ctx.db.select({ courseId: sessionEvaluations.courseId, n: sql<number>`count(*)::int` }).from(sessionEvaluations).where(eq(sessionEvaluations.status, "published")).groupBy(sessionEvaluations.courseId),
+  ]);
+  const usedBy = new Map(used.map((u) => [u.courseId, u.n]));
+  return {
+    canEdit: authorize(ctx.actor, "course:update").allowed,
+    canSetNext: authorize(ctx.actor, "report_card:configure").allowed,
+    courses: cs.map((c) => {
+      const mine = cr.filter((x) => x.courseId === c.id);
+      const active = mine.filter((x) => x.isActive);
+      return {
+        id: c.id, code: c.code, name: c.name, level: c.level, nextCourseId: c.nextCourseId,
+        milestones: reportCardMilestones(c.totalSessions),
+        activeCount: active.length,
+        pausedCount: mine.length - active.length,
+        groups: [...new Set(active.map((x) => x.groupName).filter((g): g is string => !!g))],
+        names: active.map((x) => x.name),
+        customLevels: active.filter((x) => normalizeLevelDescriptors(x.levelDescriptors)).length,
+        sheetsPublished: usedBy.get(c.id) ?? 0,
+      };
+    }),
+    allCourses: cs.map((c) => ({ id: c.id, code: c.code, name: c.name })),
+    templates: CRITERIA_TEMPLATE_SETS.map((t) => ({ id: t.id, name: t.name, audience: t.audience, count: t.criteria.length })),
   };
 }
 
@@ -137,23 +187,59 @@ export async function reorderCriteria(ctx: ProtectedContext, input: { courseId: 
   return { ok: true };
 }
 
-/** "Áp dụng bộ mẫu": chỉ cho khoá CHƯA có tiêu chí nào (tránh nhân đôi / lẫn với tiêu chí đang có học bạ) */
-export async function applyCriteriaTemplate(ctx: ProtectedContext, input: { courseId: string }) {
+/**
+ * "Áp dụng bộ mẫu" theo chương trình: khoá chưa có tiêu chí → thêm cả bộ; khoá đã có → chỉ thêm tiêu chí CHƯA CÓ (trùng tên bỏ qua)
+ * nên áp nhiều lần không nhân đôi, và không đụng tiêu chí đang có điểm. Tiêu chí mới chỉ xuất hiện ở phiếu buổi sau đó.
+ */
+export async function applyCriteriaTemplate(ctx: ProtectedContext, input: { courseId: string; templateId?: string | null }) {
   requirePermission(ctx, "course:update");
   const course = await loadCourse(ctx, input.courseId);
+  const tpl = criteriaTemplateById(input.templateId);
+  if (!tpl) throw bad("Không có bộ mẫu này");
   return ctx.db.transaction(async (txx) => {
     const tx = asDb(txx);
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${"criteria:" + course.id}))`);
-    const [n] = await tx.select({ n: sql<number>`count(*)::int` }).from(competencyCriteria).where(eq(competencyCriteria.courseId, course.id));
-    if ((n?.n ?? 0) > 0) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Khoá đã có tiêu chí — bộ mẫu chỉ áp cho khoá chưa có tiêu chí (sửa từng tiêu chí ở danh sách)" });
-    const rows = await tx.insert(competencyCriteria).values(CRITERIA_TEMPLATE_ROBOTICS.map((t, i) => ({
-      courseId: course.id, name: t.name, groupName: t.groupName, description: t.description, levelDescriptors: [...t.levelDescriptors], sortOrder: i + 1, isActive: true,
+    const have = await tx.select({ name: competencyCriteria.name }).from(competencyCriteria).where(eq(competencyCriteria.courseId, course.id));
+    const add = newCriteriaOnly(have.map((h) => h.name), tpl.criteria);
+    if (add.length === 0) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Khoá đã có đủ các tiêu chí của bộ mẫu này" });
+    const [m] = await tx.select({ n: sql<number>`coalesce(max(${competencyCriteria.sortOrder}), 0)::int` }).from(competencyCriteria).where(eq(competencyCriteria.courseId, course.id));
+    const base = m?.n ?? 0;
+    const rows = await tx.insert(competencyCriteria).values(add.map((t, i) => ({
+      courseId: course.id, name: t.name, groupName: t.groupName, description: t.description, levelDescriptors: [...t.levelDescriptors], sortOrder: base + i + 1, isActive: true,
     }))).returning({ id: competencyCriteria.id });
     await writeAudit(tx, {
       actorId: ctx.user.id, action: "CREATE", module: "academics", entity: "competency_criteria", entityId: course.id,
-      after: { template: "robotics", count: rows.length, names: CRITERIA_TEMPLATE_ROBOTICS.map((t) => t.name) }, reason: "Áp dụng bộ mẫu tiêu chí robotics / lập trình", ip: ctx.ip, tenantId: course.tenantId,
+      after: { template: tpl.id, count: rows.length, skipped: tpl.criteria.length - rows.length, names: add.map((t) => t.name) }, reason: `Áp dụng bộ mẫu tiêu chí "${tpl.name}"`, ip: ctx.ip, tenantId: course.tenantId,
     });
-    return { created: rows.length };
+    return { created: rows.length, skipped: tpl.criteria.length - rows.length };
+  });
+}
+
+/** Sao chép tiêu chí đang dùng (kèm nhóm, mô tả, 4 mô tả mức) từ chương trình khác sang khoá này; trùng tên thì bỏ qua */
+export async function copyCriteriaFrom(ctx: ProtectedContext, input: { courseId: string; fromCourseId: string }) {
+  requirePermission(ctx, "course:update");
+  if (input.courseId === input.fromCourseId) throw bad("Chọn chương trình khác để sao chép");
+  const [course, from] = await Promise.all([loadCourse(ctx, input.courseId), loadCourse(ctx, input.fromCourseId)]);
+  return ctx.db.transaction(async (txx) => {
+    const tx = asDb(txx);
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${"criteria:" + course.id}))`);
+    const [src, have] = await Promise.all([
+      tx.select().from(competencyCriteria).where(and(eq(competencyCriteria.courseId, from.id), eq(competencyCriteria.isActive, true))).orderBy(asc(competencyCriteria.sortOrder), asc(competencyCriteria.createdAt)),
+      tx.select({ name: competencyCriteria.name }).from(competencyCriteria).where(eq(competencyCriteria.courseId, course.id)),
+    ]);
+    if (src.length === 0) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Chương trình nguồn chưa có tiêu chí đang dùng" });
+    const add = newCriteriaOnly(have.map((h) => h.name), src);
+    if (add.length === 0) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Khoá đã có đủ các tiêu chí của chương trình nguồn" });
+    const [m] = await tx.select({ n: sql<number>`coalesce(max(${competencyCriteria.sortOrder}), 0)::int` }).from(competencyCriteria).where(eq(competencyCriteria.courseId, course.id));
+    const base = m?.n ?? 0;
+    const rows = await tx.insert(competencyCriteria).values(add.map((t, i) => ({
+      courseId: course.id, name: t.name, groupName: t.groupName, description: t.description, levelDescriptors: normalizeLevelDescriptors(t.levelDescriptors), sortOrder: base + i + 1, isActive: true,
+    }))).returning({ id: competencyCriteria.id });
+    await writeAudit(tx, {
+      actorId: ctx.user.id, action: "CREATE", module: "academics", entity: "competency_criteria", entityId: course.id,
+      after: { copiedFrom: from.id, count: rows.length, skipped: src.length - rows.length, names: add.map((t) => t.name) }, reason: `Sao chép tiêu chí từ ${from.code}`, ip: ctx.ip, tenantId: course.tenantId,
+    });
+    return { created: rows.length, skipped: src.length - rows.length };
   });
 }
 

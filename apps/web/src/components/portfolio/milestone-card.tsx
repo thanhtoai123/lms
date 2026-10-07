@@ -6,8 +6,14 @@
 import { Award, CalendarCheck, Sparkles, Sprout, Target, Heart } from "lucide-react";
 import { type MilestoneCardView } from "@satarobo/core";
 import { BrandHeader, RubricBar, TrendChip, fmtDay, num1, pct } from "./parts";
+import { MilestoneSessions } from "./milestone-sessions";
 
-export function MilestoneCard({ card, standalone = false }: { card: MilestoneCardView; standalone?: boolean }) {
+export function MilestoneCard({ card, standalone = false, printSessions = true }: {
+  card: MilestoneCardView;
+  standalone?: boolean;
+  /** false = không in danh sách buổi kèm ảnh (hồ sơ nhiều trang đã có phiếu từng buổi kèm ảnh ngay sau) */
+  printSessions?: boolean;
+}) {
   const a = card.aggregate;
   const judged = a ? a.objective.achieved + a.objective.partial + a.objective.notYet : 0;
   const title = `Học bạ · ${card.label}`;
@@ -54,6 +60,8 @@ export function MilestoneCard({ card, standalone = false }: { card: MilestoneCar
             {a.topHighlights.map((h) => <span key={h.label} className="chip bg-accent-100 font-semibold text-accent-700">{h.label} × {h.count}</span>)}
           </section>
         )}
+
+        {card.sessions && card.sessions.length > 0 && <MilestoneSessions sessions={card.sessions} printable={printSessions} collapsible={!printSessions} />}
 
         {card.teacherComment && (
           <section className="hs-avoid rounded-xl border-l-4 border-accent-500 bg-accent-50/60 p-3">

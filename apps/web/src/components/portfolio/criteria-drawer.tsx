@@ -55,7 +55,6 @@ function CriteriaDrawer({ courseId, courseLabel, curriculumId, onClose }: { cour
   const onError = (e: { message: string }) => setMsg({ ok: false, text: e.message });
   const save = useMutation(trpc.portfolio.criteria.save.mutationOptions({ onSuccess: () => { setEdit(null); setMsg({ ok: true, text: "Đã lưu tiêu chí — áp dụng cho phiếu mới." }); refresh(); }, onError }));
   const reorder = useMutation(trpc.portfolio.criteria.reorder.mutationOptions({ onSuccess: () => { setMsg(null); refresh(); }, onError }));
-  const apply = useMutation(trpc.portfolio.criteria.applyTemplate.mutationOptions({ onSuccess: (r) => { setMsg({ ok: true, text: `Đã áp dụng bộ mẫu: ${r.created} tiêu chí. Sửa lại cho phù hợp khoá nếu cần.` }); refresh(); }, onError }));
   const d = q.data;
 
   const move = (i: number, dir: -1 | 1) => {
@@ -83,16 +82,9 @@ function CriteriaDrawer({ courseId, courseLabel, curriculumId, onClose }: { cour
             </div>
 
             {d.criteria.length === 0 && (
-              <div className="rounded-xl border border-dashed border-black/15 p-3 text-sm">
-                <p>Khoá chưa có tiêu chí — phiếu buổi đang dùng bộ mặc định 4 tiêu chí (không có mô tả mức riêng).</p>
-                <p className="mt-1 text-xs text-ink-600">Bộ mẫu gợi ý robotics / lập trình: {d.template.map((t) => t.name).join(" · ")}.</p>
-                {d.canEdit && (
-                  <button type="button" className="btn-primary mt-2" disabled={apply.isPending} onClick={() => apply.mutate({ courseId })}>
-                    {apply.isPending ? "Đang áp dụng…" : `Áp dụng bộ mẫu (${d.template.length} tiêu chí)`}
-                  </button>
-                )}
-              </div>
+              <p className="rounded-xl border border-dashed border-black/15 p-3 text-sm">Chương trình này chưa có tiêu chí — phiếu buổi đang dùng bộ mặc định 4 tiêu chí (không có mô tả mức riêng). Chọn một bộ mẫu hoặc sao chép từ chương trình khác bên dưới, rồi chỉnh cho đúng chương trình.</p>
             )}
+            {d.canEdit && !edit && <StarterPicker d={d} courseId={courseId} onDone={(text) => { setMsg({ ok: true, text }); refresh(); }} onError={onError} defaultOpen={d.criteria.length === 0} />}
 
             {edit && !edit.id && <CriterionEditor draft={edit} setDraft={setEdit} errs={errs} pending={save.isPending} onSave={() => save.mutate({ courseId, id: edit.id, name: edit.name, groupName: edit.groupName || null, description: edit.description || null, levelDescriptors: edit.levels, isActive: edit.isActive })} onCancel={() => setEdit(null)} />}
 
@@ -225,5 +217,45 @@ function LessonRow({ lesson, criteria, curriculumId, canEdit, onDone, onError }:
         {criteria.length === 0 && <span className="text-xs text-ink-400">Thêm tiêu chí cho khoá để chọn trọng tâm.</span>}
       </div>
     </li>
+  );
+}
+
+/**
+ * Khởi tạo / bổ sung tiêu chí cho chương trình: chọn một bộ mẫu theo loại chương trình, hoặc sao chép từ chương trình khác.
+ * Chỉ THÊM tiêu chí chưa có (trùng tên bỏ qua) nên bấm lại không nhân đôi, không đụng tiêu chí đang có điểm.
+ */
+function StarterPicker({ d, courseId, onDone, onError, defaultOpen }: { d: BoardData; courseId: string; onDone: (text: string) => void; onError: (e: { message: string }) => void; defaultOpen: boolean }) {
+  const trpc = useTRPC();
+  const [tpl, setTpl] = useState(d.templates[0]?.id ?? "robotics");
+  const [from, setFrom] = useState(d.copyFrom[0]?.id ?? "");
+  const text = (r: { created: number; skipped: number }) => `Đã thêm ${r.created} tiêu chí${r.skipped ? ` (${r.skipped} tiêu chí đã có nên bỏ qua)` : ""}. Sửa lại cho phù hợp chương trình nếu cần — áp cho phiếu buổi mới.`;
+  const apply = useMutation(trpc.portfolio.criteria.applyTemplate.mutationOptions({ onSuccess: (r) => onDone(text(r)), onError }));
+  const copy = useMutation(trpc.portfolio.criteria.copyFrom.mutationOptions({ onSuccess: (r) => onDone(text(r)), onError }));
+  const picked = d.templates.find((t) => t.id === tpl);
+  return (
+    <details className="rounded-xl border border-black/10 p-3 text-sm" open={defaultOpen}>
+      <summary className="cursor-pointer font-semibold text-brand-600">Thêm tiêu chí từ bộ mẫu / chương trình khác</summary>
+      <div className="mt-3 space-y-3">
+        <div className="space-y-1.5">
+          <label className="block text-xs font-semibold text-ink-600">Bộ mẫu theo loại chương trình
+            <select className="input mt-1 text-sm" value={tpl} onChange={(e) => setTpl(e.target.value)}>
+              {d.templates.map((t) => <option key={t.id} value={t.id}>{t.name} — {t.criteria.length} tiêu chí</option>)}
+            </select>
+          </label>
+          {picked && <p className="text-xs text-ink-600">{picked.audience}. Gồm: {picked.criteria.map((c) => c.name).join(" · ")}.</p>}
+          <button type="button" className="btn-primary" disabled={apply.isPending} onClick={() => apply.mutate({ courseId, templateId: tpl })}>{apply.isPending ? "Đang thêm…" : "Thêm bộ mẫu này"}</button>
+        </div>
+        {d.copyFrom.length > 0 && (
+          <div className="space-y-1.5 border-t border-black/5 pt-3">
+            <label className="block text-xs font-semibold text-ink-600">Sao chép từ chương trình khác
+              <select className="input mt-1 text-sm" value={from} onChange={(e) => setFrom(e.target.value)}>
+                {d.copyFrom.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+              </select>
+            </label>
+            <button type="button" className="btn-ghost" disabled={copy.isPending || !from} onClick={() => copy.mutate({ courseId, fromCourseId: from })}>{copy.isPending ? "Đang sao chép…" : "Sao chép tiêu chí"}</button>
+          </div>
+        )}
+      </div>
+    </details>
   );
 }

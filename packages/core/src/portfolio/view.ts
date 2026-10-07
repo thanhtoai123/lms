@@ -33,6 +33,20 @@ export interface SessionSheetView {
   center: { name: string; address: string | null; phone: string | null } | null;
 }
 
+/** Một buổi trong giai đoạn của học bạ mốc, kèm ảnh của buổi đó (ảnh đã duyệt, đã kiểm đồng ý đăng ảnh) */
+export interface MilestoneSessionView {
+  seq: number;
+  /** Ngày buổi học, ISO yyyy-mm-dd */
+  date: string;
+  label: string;
+  makeup: boolean;
+  lessonTitle: string | null;
+  objectiveResult: ObjectiveResult | null;
+  /** Điểm trung bình các tiêu chí của phiếu buổi (thang 4) */
+  average: number | null;
+  media: PortfolioMedia[];
+}
+
 export interface MilestoneCardView {
   id: string;
   milestoneSeq: number;
@@ -45,6 +59,8 @@ export interface MilestoneCardView {
   strengths: string | null;
   improvements: string | null;
   aggregate: MilestoneAggregate | null;
+  /** Các buổi trong giai đoạn của mốc, mỗi buổi kèm ảnh (có thể vắng ở dữ liệu cũ) */
+  sessions?: MilestoneSessionView[];
   className: string | null;
   courseName: string | null;
   studentName: string;
@@ -139,4 +155,30 @@ export function pairSheets<T>(items: readonly T[]): T[][] {
   const out: T[][] = [];
   for (let i = 0; i < items.length; i += 2) out.push(items.slice(i, i + 2));
   return out;
+}
+
+/** Số ảnh tối đa hiện cho mỗi buổi */
+export const SESSION_MEDIA_MAX = 4;
+
+/**
+ * Chọn ảnh hiện trong phiếu / học bạ của một buổi: GV chọn tay thì theo đúng lựa chọn (giữ thứ tự ảnh của buổi);
+ * không chọn thì ưu tiên ảnh CÓ GẮN THẺ CON rồi tới ảnh cả lớp, tối đa `max`.
+ */
+export function pickSheetMedia<M extends { id: string; classWide: boolean }>(own: readonly M[], chosenIds: readonly string[] | null | undefined, max = SESSION_MEDIA_MAX): M[] {
+  if (chosenIds && chosenIds.length) {
+    const want = new Set(chosenIds);
+    return own.filter((m) => want.has(m.id)).slice(0, Math.max(max, chosenIds.length));
+  }
+  return [...own.filter((m) => !m.classWide), ...own.filter((m) => m.classWide)].slice(0, max);
+}
+
+/** Các buổi của một mốc: phiếu buổi có số buổi trong [fromSeq, toSeq], xếp theo ngày rồi số buổi */
+export function milestoneSessionsFromSheets(sheets: readonly SessionSheetView[], period: { fromSeq: number; toSeq: number }): MilestoneSessionView[] {
+  return sheets
+    .filter((s) => s.snapshot.context.sequenceNo >= period.fromSeq && s.snapshot.context.sequenceNo <= period.toSeq)
+    .map((s) => ({
+      seq: s.snapshot.context.sequenceNo, date: s.snapshot.context.date, label: s.snapshot.context.label, makeup: s.snapshot.context.makeup,
+      lessonTitle: s.snapshot.context.lessonTitle, objectiveResult: s.objectiveResult, average: s.average, media: s.media,
+    }))
+    .sort((a, b) => (a.date === b.date ? a.seq - b.seq : a.date < b.date ? -1 : 1));
 }

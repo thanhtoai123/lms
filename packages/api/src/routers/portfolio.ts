@@ -88,7 +88,9 @@ const criteriaRouter = router({
     }))
     .mutation(({ ctx, input }) => C.saveCriterion(ctx, input)),
   reorder: protectedProcedure.input(z.object({ courseId: uuid, ids: z.array(uuid).min(1).max(50) })).mutation(({ ctx, input }) => C.reorderCriteria(ctx, input)),
-  applyTemplate: protectedProcedure.input(z.object({ courseId: uuid })).mutation(({ ctx, input }) => C.applyCriteriaTemplate(ctx, input)),
+  applyTemplate: protectedProcedure.input(z.object({ courseId: uuid, templateId: z.string().max(40).nullish() })).mutation(({ ctx, input }) => C.applyCriteriaTemplate(ctx, input)),
+  copyFrom: protectedProcedure.input(z.object({ courseId: uuid, fromCourseId: uuid })).mutation(({ ctx, input }) => C.copyCriteriaFrom(ctx, input)),
+  overview: protectedProcedure.query(({ ctx }) => C.criteriaOverview(ctx)),
   setFocus: protectedProcedure.input(z.object({ lessonId: uuid, criterionIds: z.array(uuid).max(4, "Chọn tối đa 4 tiêu chí trọng tâm") })).mutation(({ ctx, input }) => C.setLessonFocus(ctx, input)),
 });
 

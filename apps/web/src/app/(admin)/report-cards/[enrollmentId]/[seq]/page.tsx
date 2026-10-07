@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { centersWith, hasPermission, type Actor } from "@satarobo/core";
 import { getServerCaller } from "@/lib/trpc/server";
 import { ReportCardChip } from "@/components/admin-ui";
+import { MilestoneSessions } from "@/components/portfolio/milestone-sessions";
 import { ReportCardEditor } from "./editor";
 
 export const dynamic = "force-dynamic";
@@ -34,6 +35,12 @@ export default async function ReportCardPage({ params }: { params: Promise<{ enr
         </div>
       </header>
       {d.card?.status === "returned" && d.card.returnReason && <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">Giáo vụ trả lại: {d.card.returnReason}</div>}
+      {d.sessionLog.length > 0 && (
+        <section className="card p-4">
+          <MilestoneSessions sessions={d.sessionLog} dense />
+          <p className="mt-2 text-[11px] text-ink-400">Ảnh lấy từ ảnh lớp đã duyệt, chỉ hiện khi phụ huynh đồng ý đăng ảnh. Đây là các buổi giai đoạn buổi {d.aggregate.period.fromSeq}–{d.aggregate.period.toSeq}; phụ huynh sẽ thấy danh sách này trong học bạ.</p>
+        </section>
+      )}
       <ReportCardEditor
         enrollmentId={enrollmentId}
         seq={n}

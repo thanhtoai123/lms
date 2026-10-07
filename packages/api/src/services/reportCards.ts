@@ -20,52 +20,13 @@ import { consumedSql } from "./students";
 import { todayISO } from "./sessions";
 import { createCourseCertificate } from "./certificates";
 import { loadStandards, milestoneDueDateSql } from "./portfolioStandardConfig";
+import { milestoneSessionLog } from "./portfolio";
 
 type Db = ProtectedContext["db"];
 
 /* ------------------------------------------------------------------ */
-/* Tiêu chí năng lực theo khoá                                         */
+/* Khoá tiếp theo (lộ trình). Tiêu chí năng lực theo khoá: services/criteria.ts */
 /* ------------------------------------------------------------------ */
-
-export async function criteriaByCourse(ctx: ProtectedContext) {
-  requirePermission(ctx, "report_card:read", {});
-  const [cs, cr] = await Promise.all([
-    ctx.db.select({ id: courses.id, code: courses.code, name: courses.name, totalSessions: courses.totalSessions, nextCourseId: courses.nextCourseId }).from(courses).where(and(eq(courses.isActive, true), tenantCond(ctx, courses))).orderBy(asc(courses.code)),
-    ctx.db.select().from(competencyCriteria).orderBy(asc(competencyCriteria.sortOrder), asc(competencyCriteria.createdAt)),
-  ]);
-  return cs.map((c) => ({ ...c, milestones: reportCardMilestones(c.totalSessions), criteria: cr.filter((x) => x.courseId === c.id) }));
-}
-
-export async function upsertCriterion(ctx: ProtectedContext, input: { id?: string; courseId: string; name: string; description?: string | null; isActive?: boolean }) {
-  requirePermission(ctx, "report_card:configure", {});
-  return ctx.db.transaction(async (tx) => {
-    let row;
-    if (input.id) {
-      [row] = await tx.update(competencyCriteria).set({ name: input.name.trim(), description: input.description ?? null, ...(input.isActive !== undefined ? { isActive: input.isActive } : {}), updatedAt: new Date() }).where(eq(competencyCriteria.id, input.id)).returning();
-    } else {
-      const [m] = await tx.select({ n: sql<number>`coalesce(max(${competencyCriteria.sortOrder}), 0)::int` }).from(competencyCriteria).where(eq(competencyCriteria.courseId, input.courseId));
-      [row] = await tx.insert(competencyCriteria).values({ courseId: input.courseId, name: input.name.trim(), description: input.description ?? null, sortOrder: (m?.n ?? 0) + 1 }).returning();
-    }
-    if (!row) throw new TRPCError({ code: "NOT_FOUND" });
-    await writeAudit(tx as unknown as Db, { actorId: ctx.user.id, action: input.id ? "UPDATE" : "CREATE", module: "report_cards", entity: "competency_criteria", entityId: row.id, after: input, ip: ctx.ip });
-    return row;
-  });
-}
-
-export async function moveCriterion(ctx: ProtectedContext, input: { id: string; direction: "up" | "down" }) {
-  requirePermission(ctx, "report_card:configure", {});
-  const cur = await ctx.db.query.competencyCriteria.findFirst({ where: eq(competencyCriteria.id, input.id) });
-  if (!cur) throw new TRPCError({ code: "NOT_FOUND" });
-  const list = await ctx.db.select().from(competencyCriteria).where(eq(competencyCriteria.courseId, cur.courseId)).orderBy(asc(competencyCriteria.sortOrder), asc(competencyCriteria.createdAt));
-  const i = list.findIndex((x) => x.id === cur.id);
-  const j = input.direction === "up" ? i - 1 : i + 1;
-  if (j < 0 || j >= list.length) return { ok: true };
-  [list[i], list[j]] = [list[j]!, list[i]!];
-  await ctx.db.transaction(async (tx) => {
-    for (const [k, c] of list.entries()) await tx.update(competencyCriteria).set({ sortOrder: k + 1 }).where(eq(competencyCriteria.id, c.id));
-  });
-  return { ok: true };
-}
 
 export async function setNextCourse(ctx: ProtectedContext, input: { courseId: string; nextCourseId: string | null }) {
   requirePermission(ctx, "report_card:configure", {});
@@ -275,6 +236,8 @@ export async function getReportCard(ctx: ProtectedContext, input: { enrollmentId
   // Học bạ tạo sau khi có phiếu buổi chấm theo rubric 4 mức; học bạ cũ giữ thang 5
   const scale = card ? card.rubricScale : RUBRIC_SCALE;
   const aggregate = await milestoneAggregateFor(ctx.db, { enrollmentId: e.id, classId: c.id, courseId: c.courseId, curriculumId: c.curriculumId, totalSessions: c.totalSessions, milestoneSeq: input.milestoneSeq });
+  // Các buổi của giai đoạn kèm ảnh từng buổi — để GV / giáo vụ nhìn lại buổi học khi viết nhận xét
+  const sessionLog = await milestoneSessionLog(ctx.db, { enrollmentId: e.id, studentId: e.studentId, fromSeq: aggregate.period.fromSeq, toSeq: aggregate.period.toSeq });
   const prefill: Record<string, number> = {};
   if (scale === RUBRIC_SCALE) for (const x of aggregate.criteria) if (x.suggested != null) prefill[x.key] = x.suggested;
   return {
@@ -290,6 +253,7 @@ export async function getReportCard(ctx: ProtectedContext, input: { enrollmentId
     scale,
     /** Số liệu tổng hợp trực tiếp từ phiếu buổi đã phát hành (điền sẵn khi mở học bạ) */
     aggregate,
+    sessionLog,
     /** Bản chụp số liệu lúc lưu học bạ gần nhất */
     savedAggregate: card && isMilestoneAggregate(card.aggregate) ? card.aggregate : null,
     /** Điểm gợi ý theo tiêu chí (chỉ khi thang 4 — cùng thang với phiếu buổi) */
@@ -389,7 +353,7 @@ export async function studentReportBook(ctx: ProtectedContext, studentId: string
   if (!st) throw new TRPCError({ code: "NOT_FOUND" });
   requirePermission(ctx, "report_card:read", { centerId: st.homeCenterId });
   const cards = await ctx.db
-    .select({ id: reportCards.id, seq: reportCards.milestoneSeq, status: reportCards.status, averageScore: reportCards.averageScore, rubricScale: reportCards.rubricScale, teacherComment: reportCards.teacherComment, strengths: reportCards.strengths, improvements: reportCards.improvements, publishedAt: reportCards.publishedAt, updatedAt: reportCards.updatedAt, enrollmentId: enrollments.id, classCode: classes.code, className: classes.name, courseCode: courses.code, authorName: users.fullName })
+    .select({ id: reportCards.id, seq: reportCards.milestoneSeq, status: reportCards.status, averageScore: reportCards.averageScore, rubricScale: reportCards.rubricScale, teacherComment: reportCards.teacherComment, strengths: reportCards.strengths, improvements: reportCards.improvements, publishedAt: reportCards.publishedAt, updatedAt: reportCards.updatedAt, aggregate: reportCards.aggregate, enrollmentId: enrollments.id, classCode: classes.code, className: classes.name, courseCode: courses.code, authorName: users.fullName })
     .from(reportCards)
     .innerJoin(enrollments, eq(enrollments.id, reportCards.enrollmentId))
     .innerJoin(classes, eq(classes.id, enrollments.classId))
@@ -407,9 +371,14 @@ export async function studentReportBook(ctx: ProtectedContext, studentId: string
     .select({ id: courseCompletions.id, grade: courseCompletions.grade, certificateNo: courseCompletions.certificateNo, issuedAt: courseCompletions.issuedAt, courseCode: courses.code, courseName: courses.name })
     .from(courseCompletions).innerJoin(enrollments, eq(enrollments.id, courseCompletions.enrollmentId)).innerJoin(courses, eq(courses.id, courseCompletions.courseId))
     .where(and(eq(enrollments.studentId, studentId), eq(courseCompletions.status, "approved"), isNull(courseCompletions.revokedAt)));
+  // Mỗi học bạ kèm các buổi của giai đoạn + ảnh từng buổi (cần số liệu giai đoạn đã chụp lúc lưu học bạ)
+  const logs = await Promise.all(cards.map(async (c) => {
+    const agg = isMilestoneAggregate(c.aggregate) ? c.aggregate : null;
+    return agg ? milestoneSessionLog(ctx.db, { enrollmentId: c.enrollmentId, studentId, fromSeq: agg.period.fromSeq, toSeq: agg.period.toSeq }) : [];
+  }));
   return {
     student: { id: st.id, fullName: st.fullName, code: st.code, grade: st.grade },
-    cards: cards.map((c) => ({ ...c, label: milestoneLabel(c.seq), scores: scores.filter((s) => s.reportCardId === c.id) })),
+    cards: cards.map(({ aggregate: _agg, ...c }, i) => ({ ...c, label: milestoneLabel(c.seq), scores: scores.filter((s) => s.reportCardId === c.id), sessions: logs[i] ?? [] })),
     completions,
   };
 }

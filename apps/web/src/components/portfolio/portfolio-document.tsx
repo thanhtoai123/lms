@@ -147,7 +147,7 @@ export function PortfolioDocument({ view, actions }: { view: PortfolioView; acti
             )}
           </div>
 
-          {c.milestones.map((m) => <MilestoneCard key={m.id} card={m} />)}
+          {c.milestones.map((m) => <MilestoneCard key={m.id} card={m} printSessions={false} />)}
 
           {c.sheets.length > 0 && (
             <div className="space-y-3 print:space-y-0">

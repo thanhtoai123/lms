@@ -1,24 +1,36 @@
 import Link from "next/link";
-import { hasPermission, type Actor } from "@satarobo/core";
 import { getServerCaller } from "@/lib/trpc/server";
 import { PageHeader } from "@/components/admin-ui";
-import { CourseCriteria } from "./editor";
+import { Empty } from "@/components/ui";
+import { CourseCriteriaCard } from "./overview";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Tiêu chí học bạ" };
+export const metadata = { title: "Tiêu chí theo chương trình" };
 
 export default async function CriteriaPage() {
-  const { caller, ctx } = await getServerCaller();
-  const courses = await caller.learning.criteria();
-  const canEdit = hasPermission(ctx.actor as Actor, "report_card:configure");
+  const { caller } = await getServerCaller();
+  const o = await caller.portfolio.criteria.overview();
+  const none = o.courses.filter((c) => c.activeCount === 0).length;
   return (
     <div className="space-y-4">
-      <PageHeader title="Cấu hình tiêu chí năng lực" desc="Mỗi khoá một bộ tiêu chí chấm 1–5 cho học bạ. Tắt tiêu chí thay vì xoá để giữ lịch sử điểm." actions={<Link href="/ho-so-hoc-tap?xem=hoc-ba-moc" className="btn-ghost">← Học bạ mốc</Link>} />
-      <div className="grid gap-4 lg:grid-cols-2">
-        {courses.map((c) => (
-          <CourseCriteria key={c.id} canEdit={canEdit} course={{ id: c.id, code: c.code, name: c.name, nextCourseId: c.nextCourseId, milestones: c.milestones }} criteria={c.criteria.map((x) => ({ id: x.id, name: x.name, description: x.description, isActive: x.isActive }))} allCourses={courses.map((x) => ({ id: x.id, code: x.code, name: x.name }))} />
-        ))}
-      </div>
+      <PageHeader
+        title="Tiêu chí theo chương trình"
+        desc="Mỗi chương trình (khoá) có bộ tiêu chí đánh giá riêng, 4 mức có mô tả hành vi. Giáo viên chấm từng buổi theo bộ này và học bạ mốc tự tổng hợp từ đó. Sửa ở đây chỉ áp cho phiếu mới — phiếu đã phát hành giữ nguyên."
+        actions={<Link href="/ho-so-hoc-tap?xem=hoc-ba-moc" className="btn-ghost">← Học bạ mốc</Link>}
+      />
+      {none > 0 && (
+        <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          {none} chương trình chưa có tiêu chí riêng — đang dùng bộ mặc định 4 tiêu chí chung. Mở từng chương trình để chọn bộ mẫu phù hợp (robotics, lập trình, STEAM cho bé nhỏ, AI & dữ liệu) hoặc sao chép từ chương trình khác.
+        </p>
+      )}
+      {!o.canEdit && <p className="rounded-xl bg-black/[0.04] p-3 text-sm text-ink-600">Bạn chỉ xem được. Người có quyền quản lý khoá học (Đào tạo, quản trị) mới sửa được tiêu chí.</p>}
+      {o.courses.length === 0 ? <Empty>Chưa có chương trình nào đang mở.</Empty> : (
+        <div className="grid gap-4 lg:grid-cols-2">
+          {o.courses.map((c) => (
+            <CourseCriteriaCard key={c.id} course={c} allCourses={o.allCourses} canEdit={o.canEdit} canSetNext={o.canSetNext} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

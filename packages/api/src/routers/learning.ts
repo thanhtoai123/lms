@@ -13,12 +13,7 @@ const completionItem = z.object({
 });
 
 export const learningRouter = router({
-  // Tiêu chí năng lực
-  criteria: protectedProcedure.query(({ ctx }) => RC.criteriaByCourse(ctx)),
-  upsertCriterion: protectedProcedure
-    .input(z.object({ id: uuid.optional(), courseId: uuid, name: z.string().min(2, "Tên tiêu chí tối thiểu 2 ký tự").max(120), description: z.string().max(300).nullish(), isActive: z.boolean().optional() }))
-    .mutation(({ ctx, input }) => RC.upsertCriterion(ctx, input)),
-  moveCriterion: protectedProcedure.input(z.object({ id: uuid, direction: z.enum(["up", "down"]) })).mutation(({ ctx, input }) => RC.moveCriterion(ctx, input)),
+  // Khoá tiếp theo (tiêu chí năng lực: portfolio.criteria.*)
   setNextCourse: protectedProcedure.input(z.object({ courseId: uuid, nextCourseId: uuid.nullable() })).mutation(({ ctx, input }) => RC.setNextCourse(ctx, input)),
 
   // Học bạ
