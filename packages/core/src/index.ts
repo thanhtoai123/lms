@@ -94,5 +94,6 @@ export * from "./security/duongNoiBo.js";
 export * from "./security/urlCongNoi.js";
 export * from "./reliability/retry.js";
 export * from "./nav/menu.js";
+export * from "./nav/modules.js";
 export * from "./nav/giaoVien.js";
 export * from "./nav/moTa.js";

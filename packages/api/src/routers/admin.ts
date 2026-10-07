@@ -4,6 +4,7 @@ import { router, protectedProcedure } from "../trpc";
 import * as A from "../services/admin";
 import * as Z from "../services/zaloToken";
 import * as B from "../services/brand";
+import * as MOD from "../services/modules";
 
 const uuid = z.string().uuid();
 const eventKey = z.enum(EMAIL_EVENT_KEYS as [EmailEvent, ...EmailEvent[]]);
@@ -67,4 +68,11 @@ export const adminRouter = router({
     .mutation(({ ctx, input }) => B.saveBrandColors(ctx, input)),
   resetBrandColors: protectedProcedure.mutation(({ ctx }) => B.resetBrandColors(ctx)),
   removeBrandLogo: protectedProcedure.mutation(({ ctx }) => B.removeBrandLogo(ctx)),
+  // Bật / tắt module (ẩn nhóm ít dùng khỏi menu — không xoá dữ liệu)
+  modules: protectedProcedure.query(({ ctx }) => MOD.modulesForAdmin(ctx)),
+  /** Chỉ trạng thái bật / tắt để dựng menu — mọi nhân sự cần, không lộ gì nhạy cảm */
+  moduleState: protectedProcedure.query(({ ctx }) => MOD.getModules(ctx.db)),
+  saveModules: protectedProcedure
+    .input(z.object({ state: z.record(z.string().max(40), z.boolean()) }))
+    .mutation(({ ctx, input }) => MOD.saveModules(ctx, input)),
 });

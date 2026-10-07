@@ -4,6 +4,7 @@ import { NoAccess, PageHeader } from "@/components/admin-ui";
 import { dtVN } from "@/components/care-ui";
 import { SettingsForm } from "./form";
 import { BrandForm } from "./brand-form";
+import { ModulesForm } from "./modules-form";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Cài đặt hệ thống" };
@@ -11,7 +12,7 @@ export const metadata = { title: "Cài đặt hệ thống" };
 export default async function SettingsPage() {
   const { caller, ctx } = await getServerCaller();
   if (!ctx.actor || !hasPermission(ctx.actor as Actor, "system:read")) return <NoAccess title="Cài đặt hệ thống" perm="system:read" />;
-  const [d, br] = await Promise.all([caller.admin.settings(), caller.admin.brand()]);
+  const [d, br, mods] = await Promise.all([caller.admin.settings(), caller.admin.brand(), caller.admin.modules()]);
   return (
     <div className="space-y-4">
       <PageHeader title="Cài đặt hệ thống" desc={`Thông tin pháp nhân, liên hệ và nội dung in trên phiếu thu / email.${d.updatedAt ? ` Cập nhật ${dtVN(d.updatedAt)}${d.updatedBy ? ` bởi ${d.updatedBy}` : ""}.` : ""}`} />
@@ -20,6 +21,11 @@ export default async function SettingsPage() {
         initial={br.brand}
         canEdit={br.canEdit}
         updatedLine={br.updatedAt ? `Cập nhật ${dtVN(br.updatedAt)}${br.updatedBy ? ` bởi ${br.updatedBy}` : ""}.` : ""}
+      />
+      <ModulesForm
+        initial={mods.modules}
+        canEdit={mods.canEdit}
+        updatedLine={mods.updatedAt ? `Cập nhật ${dtVN(mods.updatedAt)}${mods.updatedBy ? ` bởi ${mods.updatedBy}` : ""}.` : ""}
       />
       <SettingsForm initial={d.settings} canEdit={d.canEdit} />
     </div>

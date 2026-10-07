@@ -1,6 +1,6 @@
 import "server-only";
 import { cookies, headers } from "next/headers";
-import { centersWith, filterMenu, hasPermission, normalizeIdle, pageAllowed, pagePermLabel, ROLE_LABEL_VI, STAFF_ROLES, type Actor, type Role } from "@satarobo/core";
+import { applyModules, centersWith, filterMenu, hasPermission, normalizeIdle, pageAllowed, pagePermLabel, ROLE_LABEL_VI, STAFF_ROLES, type Actor, type Role } from "@satarobo/core";
 import { getServerCaller } from "@/lib/trpc/server";
 import { ADMIN_NAV } from "@/lib/admin-nav";
 import { IDLE_COOKIE } from "@/lib/auth-session";
@@ -31,7 +31,10 @@ export async function loadShell() {
   const can = (p: Parameters<typeof hasPermission>[1]) => hasPermission(actor, p);
   // Quyền đầy đủ (không tính `_own`) ở ít nhất một cơ sở — cho các mục `strict` của menu
   const strictCan = (p: Parameters<typeof hasPermission>[1]) => { const c = centersWith(actor, p); return c === null || c.length > 0; };
-  const nav = filterMenu(ADMIN_NAV, can, strictCan);
+  // Module tắt (Cài đặt → Bật / tắt module) chỉ ẩn khỏi MENU; hàng rào trang bên dưới vẫn dùng cây đầy đủ
+  const modState = await caller.admin.moduleState().catch(() => null);
+  const filtered = filterMenu(ADMIN_NAV, can, strictCan);
+  const nav = modState ? applyModules(filtered, modState, roles) : filtered;
   // Hàng rào trang: mở thẳng URL của mục menu đã bị ẩn với vai trò này → báo "chưa có quyền".
   const path = (await headers()).get(PATH_REQUEST_HEADER) ?? "";
   const blocked = path ? pageAllowed(ADMIN_NAV, path, can, strictCan) === false : false;

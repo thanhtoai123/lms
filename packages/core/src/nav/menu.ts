@@ -30,6 +30,8 @@ export interface NavTab {
   menuOnly?: boolean;
   /** true = trang cần quyền ĐẦY ĐỦ, không chấp nhận biến thể `_own` (xem `strictCan`) */
   strict?: boolean;
+  /** Thuộc module có thể bật / tắt (xem `nav/modules.ts`) — module tắt thì chip ẩn khỏi menu (trang vẫn mở được bằng đường dẫn) */
+  module?: string;
 }
 
 export interface NavItem {
@@ -54,6 +56,8 @@ export interface NavItem {
   menuOnly?: boolean;
   /** Xem NavTab.strict */
   strict?: boolean;
+  /** Xem NavTab.module */
+  module?: string;
 }
 
 export interface NavGroup {
@@ -196,7 +200,7 @@ export const ADMIN_MENU: NavGroup[] = [
         ],
       },
       { label: "Hoàn thành khoá & chứng nhận", href: "/hoan-thanh-khoa", icon: "award", perm: "enrollment:read" },
-      { label: "SataCoin", href: "/satacoin", icon: "coins", perm: "coin:read", desc: "Sổ xu thưởng: thưởng theo hạn mức, thu hồi có lý do, đổi quà qua duyệt." },
+      { label: "SataCoin", href: "/satacoin", icon: "coins", module: "satacoin", perm: "coin:read", desc: "Sổ xu thưởng: thưởng theo hạn mức, thu hồi có lý do, đổi quà qua duyệt." },
     ],
   },
   {
@@ -330,7 +334,7 @@ export const ADMIN_MENU: NavGroup[] = [
         ],
       },
       { label: "Duyệt đơn từ", href: "/don-tu", icon: "clipboard-list", perm: "timesheet:read", desc: "10 loại đơn; duyệt là áp ngay lên lịch ca và công." },
-      { label: "Tuyển dụng", href: "/jobs", icon: "briefcase", perm: "recruit:read" },
+      { label: "Tuyển dụng", href: "/jobs", icon: "briefcase", module: "recruitment", perm: "recruit:read" },
     ],
   },
   {
@@ -381,14 +385,14 @@ export const ADMIN_MENU: NavGroup[] = [
     roles: ["HO_MARKETING"],
     items: [
       {
-        label: "Website", href: "/news", icon: "newspaper",
+        label: "Website", href: "/news", icon: "newspaper", module: "marketing",
         tabs: [
           { label: "Tin tức", href: "/news", perm: "site:read" },
           { label: "Nội dung trang", href: "/site-content", perm: "site:read" },
         ],
       },
       {
-        label: "Marketing", href: "/marketing", icon: "chart-line", keywords: "tracking funnel utm pixel",
+        label: "Marketing", href: "/marketing", icon: "chart-line", module: "marketing", keywords: "tracking funnel utm pixel",
         tabs: [
           { label: "Tracking", href: "/marketing", perm: "marketing:read" },
           { label: "Funnel", href: "/marketing/funnel", perm: "marketing:read" },
@@ -413,7 +417,7 @@ export const ADMIN_MENU: NavGroup[] = [
         label: "Tổ chức & nhượng quyền", href: "/to-chuc", icon: "network",
         tabs: [
           { label: "Cây tổ chức", href: "/to-chuc", perm: "system:read" },
-          { label: "Nhượng quyền", href: "/nhuong-quyen", perm: "tenant:read" },
+          { label: "Nhượng quyền", href: "/nhuong-quyen", perm: "tenant:read", module: "franchise" },
         ],
       },
       {
@@ -458,7 +462,7 @@ export const ADMIN_MENU: NavGroup[] = [
         ],
       },
       {
-        label: "Go-live", href: "/go-live", icon: "rocket", keywords: "pilot",
+        label: "Go-live", href: "/go-live", icon: "rocket", module: "golive", keywords: "pilot",
         tabs: [
           { label: "Go-live cơ sở", href: "/go-live", perm: "cutover:read" },
           { label: "Sau go-live", href: "/bao-cao/sau-go-live", perm: ["report:read", "cutover:read"], menuOnly: true },
