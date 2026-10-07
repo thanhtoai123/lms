@@ -1,19 +1,27 @@
 import { Suspense } from "react";
-import type { Viewport } from "next";
+import type { Metadata, Viewport } from "next";
+import { loadBrand } from "@/lib/brand";
 import { getDb } from "@satarobo/db";
 import { familyChildren, parentUnread } from "@satarobo/api";
 import { PhServiceWorker } from "@/components/ph/sw-register";
 import { PhSidebar, PhTopbar } from "@/components/ph/nav";
 import { currentParent } from "@/lib/parent-session";
 
-export const metadata = {
-  title: "Sata Robo — Phụ huynh",
-  robots: { index: false },
-  manifest: "/ph/manifest.webmanifest",
-  appleWebApp: { capable: true, title: "Sata Robo", statusBarStyle: "default" as const },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const b = await loadBrand();
+  return {
+    title: `${b.name} — Phụ huynh`,
+    robots: { index: false },
+    manifest: "/ph/manifest.webmanifest",
+    appleWebApp: { capable: true, title: b.name, statusBarStyle: "default" },
+    ...(b.hasLogo ? { icons: { icon: b.logoUrl, apple: b.logoUrl } } : {}),
+  };
+}
 
-export const viewport: Viewport = { themeColor: "#610b8a", width: "device-width", initialScale: 1, viewportFit: "cover" };
+export async function generateViewport(): Promise<Viewport> {
+  const b = await loadBrand();
+  return { themeColor: b.primary, width: "device-width", initialScale: 1, viewportFit: "cover" };
+}
 export const dynamic = "force-dynamic";
 
 /**

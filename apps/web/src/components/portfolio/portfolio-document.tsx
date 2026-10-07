@@ -10,6 +10,7 @@
  * Không hook, không mã chỉ-máy-chủ → render được ở cả hai phía.
  */
 import { Award, CalendarCheck, GraduationCap, Image as ImageIcon, MapPin, Route, School, Sparkles } from "lucide-react";
+import { BrandLogo, BrandName } from "@/components/brand";
 import { pairSheets, type PortfolioView, type PortfolioAttendance } from "@satarobo/core";
 import { CenterFooter, fmtDay, num1, pct } from "./parts";
 import { ProgressLine, RadarChart } from "./charts";
@@ -26,10 +27,9 @@ export function PortfolioDocument({ view, actions }: { view: PortfolioView; acti
         <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-accent-500/25" aria-hidden />
         <div className="pointer-events-none absolute -bottom-20 -left-10 h-64 w-64 rounded-full bg-white/5" aria-hidden />
         <div className="relative flex items-center gap-3">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/icon.svg" alt="" width={56} height={56} className="h-14 w-14 rounded-2xl bg-white/10" />
+          <BrandLogo size={56} onColor rounded="rounded-2xl" />
           <div>
-            <div className="text-2xl font-extrabold tracking-tight">Sata Robo</div>
+            <div className="text-2xl font-extrabold tracking-tight"><BrandName /></div>
             <div className="text-xs text-white/75">Giáo dục STEM · Robotics</div>
           </div>
         </div>

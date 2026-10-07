@@ -12,6 +12,7 @@ import { IdleGuard } from "@/components/idle-guard";
 import { OfflineSync } from "@/components/offline-sync";
 import { ToastProvider } from "@/components/toast";
 import { KeepShortCells } from "@/components/keep-short-cells";
+import { BrandLogo, BrandName } from "@/components/brand";
 
 type Me = { fullName: string; email: string; initials: string };
 
@@ -32,7 +33,7 @@ function Sidebar({ groups, activeHref }: { groups: SidebarGroup[]; activeHref: s
   });
   return (
     <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-r border-black/5 bg-white lg:flex print:hidden" aria-label="Menu giáo viên">
-      <Link href="/teacher" className="flex h-16 shrink-0 items-center whitespace-nowrap px-5 text-[17px] font-bold text-brand-600">Sata Robo <span className="ml-1.5 rounded bg-brand-50 px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-brand-700">Giáo viên</span></Link>
+      <Link href="/teacher" className="flex h-16 shrink-0 items-center whitespace-nowrap px-5 text-[17px] font-bold text-brand-600"><BrandLogo size={30} className="mr-2" /><BrandName /> <span className="ml-1.5 rounded bg-brand-50 px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-brand-700">Giáo viên</span></Link>
       <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 pb-4 text-[14px]">
         {groups.map((g, gi) => {
           const open = !g.label || !closed.includes(g.label) || g.items.some((i) => i.href === activeHref);
@@ -93,7 +94,7 @@ export function TeacherShell({ nav, me, canAdmin, idleMinutes = null, children }
         <div className="flex min-h-dvh min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-30 border-b border-black/5 bg-surface/90 backdrop-blur print:hidden" style={{ paddingTop: "env(safe-area-inset-top)" }}>
           <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-2 sm:px-6 lg:px-8">
-            <Link href="/teacher" className="flex min-h-11 shrink-0 items-center font-bold text-brand-600 lg:hidden">Sata Robo · GV</Link>
+            <Link href="/teacher" className="flex min-h-11 shrink-0 items-center font-bold text-brand-600 lg:hidden"><BrandLogo size={26} className="mr-1.5" /><BrandName /> · GV</Link>
             <nav aria-label="Điều hướng giáo viên" className="hidden items-center gap-1 md:flex lg:hidden">
               {TEACHER_PRIMARY.map((t) => {
                 const Icon = ICON[t.key];

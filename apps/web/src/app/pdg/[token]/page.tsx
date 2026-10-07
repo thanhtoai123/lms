@@ -1,4 +1,5 @@
 import { headers } from "next/headers";
+import { BrandLogo, BrandName } from "@/components/brand";
 import { getDb } from "@satarobo/db";
 import { publicTrialReport, type PublicTrialReportResult } from "@satarobo/api";
 import { TRIAL_REPORT_TOKEN_RE } from "@satarobo/core";
@@ -58,9 +59,8 @@ function Friendly({ state }: { state: Exclude<State, { state: "ok" }> }) {
   return (
     <div className="mx-auto max-w-md overflow-hidden rounded-2xl border border-border bg-card text-center shadow-sm">
       <div className="bg-gradient-to-br from-primary to-primary-darker px-5 py-4 text-white">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/icon.svg" alt="" width={40} height={40} className="mx-auto h-10 w-10 rounded-xl" />
-        <div className="mt-1 text-lg font-extrabold">Sata Robo</div>
+        <BrandLogo size={40} onColor rounded="rounded-xl" className="mx-auto" />
+        <div className="mt-1 text-lg font-extrabold"><BrandName /></div>
       </div>
       <div className="space-y-2 p-6">
         <h1 className="text-lg font-bold text-foreground">{title}</h1>

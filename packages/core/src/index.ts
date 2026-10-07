@@ -71,6 +71,7 @@ export * from "./migration/pilot.js";
 export * from "./migration/training.js";
 export * from "./system/ops.js";
 export * from "./system/pii.js";
+export * from "./system/brand.js";
 export * from "./system/notifications.js";
 export * from "./org/tree.js";
 export * from "./org/tenant.js";

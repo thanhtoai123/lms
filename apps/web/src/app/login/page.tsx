@@ -7,6 +7,7 @@ import { createServerClient } from "@supabase/ssr";
 import { devActorAllowed, DEV_ACTOR_HEADER, duongNoiBo } from "@satarobo/core";
 import { ACCESS_COOKIE, REFRESH_COOKIE, IDLE_COOKIE, SEEN_COOKIE, clientMeta, cookieOptions, seenCookieOptions } from "@/lib/auth-session";
 import { sharedRateLimited } from "@/lib/route-ctx";
+import { BrandLogo, BrandName, BrandWordmark } from "@/components/brand";
 
 export const metadata = { title: "Đăng nhập quản trị" };
 
@@ -92,19 +93,19 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   return (
     <main className="grid min-h-dvh bg-surface lg:grid-cols-2">
       <section className="relative hidden overflow-hidden bg-brand-600 p-12 text-white lg:flex lg:flex-col lg:justify-between">
-        <div className="text-2xl font-extrabold tracking-tight">SataRobo <span className="text-sm font-medium text-white/70">Admin</span></div>
+        <div className="flex items-center gap-3 text-2xl font-extrabold tracking-tight"><BrandLogo size={44} onColor rounded="rounded-xl" /><span><BrandName /> <span className="text-sm font-medium text-white/70">Admin</span></span></div>
         <div className="max-w-md space-y-4">
-          <h2 className="text-3xl font-bold leading-tight">Hệ thống quản trị trung tâm Sata Robo</h2>
+          <h2 className="text-3xl font-bold leading-tight">Hệ thống quản trị trung tâm <BrandName /></h2>
           <p className="text-white/80">Tuyển sinh, lớp học, học viên, tài chính và nhân sự trong một nơi — dữ liệu giới hạn theo cơ sở và vai trò của bạn.</p>
         </div>
-        <div className="text-xs text-white/60">© 2026 Sata Robo · Dữ liệu cá nhân được bảo vệ theo Luật Bảo vệ dữ liệu cá nhân 2025</div>
+        <div className="text-xs text-white/60">© 2026 <BrandName /> · Dữ liệu cá nhân được bảo vệ theo Luật Bảo vệ dữ liệu cá nhân 2025</div>
         <div className="pointer-events-none absolute -right-24 -top-24 h-96 w-96 rounded-full bg-white/10" aria-hidden />
         <div className="pointer-events-none absolute -bottom-32 right-24 h-72 w-72 rounded-full bg-white/5" aria-hidden />
       </section>
 
       <section className="flex items-center justify-center p-6">
         <div className="w-full max-w-sm">
-          <div className="mb-8 lg:hidden text-center text-2xl font-extrabold tracking-tight"><span className="text-brand-600">Sata</span>Robo <span className="text-sm font-medium text-ink-400">Admin</span></div>
+          <div className="mb-8 flex items-center justify-center gap-2 lg:hidden"><BrandWordmark size={36} textClass="text-2xl" /><span className="mt-1 text-sm font-medium text-ink-400">Admin</span></div>
           <h1 className="text-2xl font-bold">Đăng nhập quản trị</h1>
           <p className="mb-6 mt-1 text-sm text-ink-600">Dùng tài khoản nhân sự được cấp để vào khu quản trị.</p>
 

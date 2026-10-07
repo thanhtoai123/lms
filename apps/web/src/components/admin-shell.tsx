@@ -23,6 +23,7 @@ import { CommandPalette, rememberPage } from "@/components/command-palette";
 import { ToastProvider } from "@/components/toast";
 import { ShortcutHelp } from "@/components/shortcuts";
 import { KeepShortCells } from "@/components/keep-short-cells";
+import { BrandName, BrandWordmark } from "@/components/brand";
 
 type Me = { fullName: string; email: string; roleLabel: string; initials: string; isTeacher?: boolean };
 
@@ -197,7 +198,7 @@ export function AdminShell({ nav, me, roles, canRunWorker, idleMinutes = null, c
   const sidebar = (
     <div className="flex h-full flex-col">
       <Link href="/viec-hom-nay" className="flex h-16 shrink-0 items-center gap-2 border-b border-border px-6">
-        <span className="text-xl font-extrabold tracking-tight"><span className="text-primary">Sata</span><span className="text-foreground">Robo</span></span>
+        <BrandWordmark />
         <span className="mt-1 text-[11px] font-medium text-muted-foreground">Admin</span>
       </Link>
       <div className="shrink-0 px-4 pt-3" role="search">
@@ -304,7 +305,7 @@ export function AdminShell({ nav, me, roles, canRunWorker, idleMinutes = null, c
         )}
       </nav>
       <div className="shrink-0 border-t border-border p-4 text-xs text-muted-foreground">
-        <div className="font-medium text-foreground">Sata Robo Admin</div>
+        <div className="font-medium text-foreground"><BrandName /> Admin</div>
         <div>Ghim mục hay dùng bằng biểu tượng ghim · Ctrl K để tìm nhanh</div>
       </div>
     </div>

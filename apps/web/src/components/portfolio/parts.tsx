@@ -4,6 +4,7 @@
  * lẫn trình duyệt (xem trước trong drawer).
  */
 import { TrendingDown, TrendingUp, Minus } from "lucide-react";
+import { BrandLogo, BrandName } from "@/components/brand";
 import { RUBRIC_LEVELS, TREND_VI, scoreLabel, type RubricLevel, type Trend } from "@satarobo/core";
 
 export const TZ = "Asia/Ho_Chi_Minh";
@@ -111,9 +112,8 @@ export function BrandHeader({ title, sub, right }: { title: string; sub?: React.
     <header className="hs-avoid bg-gradient-to-br from-primary to-primary-darker px-5 py-4 text-white print:px-4 print:py-3">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/icon.svg" alt="" width={32} height={32} className="h-8 w-8 rounded-lg bg-white/10" />
-          <span className="text-base font-extrabold tracking-tight">Sata Robo</span>
+          <BrandLogo size={32} onColor />
+          <span className="text-base font-extrabold tracking-tight"><BrandName /></span>
         </div>
         {right}
       </div>

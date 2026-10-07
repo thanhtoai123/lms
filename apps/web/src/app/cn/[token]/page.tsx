@@ -1,4 +1,5 @@
 import { headers } from "next/headers";
+import { BrandLogo, BrandName } from "@/components/brand";
 import { BadgeCheck, CircleX, ExternalLink } from "lucide-react";
 import { getDb } from "@satarobo/db";
 import { publicCertificate, type PublicCertificateResult } from "@satarobo/api";
@@ -33,10 +34,9 @@ export default async function VerifyCertificatePage({ params }: { params: Promis
     <main className="min-h-screen bg-gradient-to-b from-brand-50 to-background px-3 py-6 sm:px-4 sm:py-10">
       <div className="mx-auto max-w-xl overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
         <div className="flex items-center gap-3 bg-gradient-to-br from-primary to-primary-darker px-5 py-4 text-white">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/icon.svg" alt="" width={40} height={40} className="h-10 w-10 rounded-xl" />
+          <BrandLogo size={40} onColor rounded="rounded-xl" />
           <div>
-            <div className="text-lg font-extrabold">Sata Robo</div>
+            <div className="text-lg font-extrabold"><BrandName /></div>
             <div className="text-xs text-white/80">Xác thực giấy chứng nhận</div>
           </div>
         </div>

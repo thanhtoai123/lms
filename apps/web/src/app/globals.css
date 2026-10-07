@@ -7,6 +7,21 @@
    app giáo viên và cổng phụ huynh dùng chung một bảng màu.
    ───────────────────────────────────────────────────────────────────────── */
 :root {
+  /* Thang màu thương hiệu mặc định. Bị ghi đè bởi /api/public/brand/theme.css khi Quản trị hệ thống đổi màu. */
+  --brand-50: #f7f0fb;
+  --brand-100: #ecdcf5;
+  --brand-200: #dbbdea;
+  --brand-300: #c496db;
+  --brand-400: #9a45c4;
+  --brand-500: #7a1aa8;
+  --brand-900: #2a1243;
+  --accent-50: #fff7ed;
+  --accent-100: #ffedd5;
+  --accent-200: #fed7aa;
+  --accent-500: #ff8f2d;
+  --accent-600: #f8903b;
+  --accent-700: #b45309;
+
   --background: #fff;
   --foreground: #0a0a0a;
   --card: #fff;
@@ -83,9 +98,22 @@
 
   /* Thang brand-* cũ vẫn giữ tên (hàng trăm chỗ đang dùng) nhưng neo vào
      biến của bản gốc — cùng một màu tím #610b8a. */
+  --color-brand-50: var(--brand-50);
+  --color-brand-100: var(--brand-100);
+  --color-brand-200: var(--brand-200);
+  --color-brand-300: var(--brand-300);
+  --color-brand-400: var(--brand-400);
+  --color-brand-500: var(--brand-500);
   --color-brand-600: var(--primary);
   --color-brand-700: var(--primary-dark);
   --color-brand-800: var(--primary-darker);
+  --color-brand-900: var(--brand-900);
+  --color-accent-50: var(--accent-50);
+  --color-accent-100: var(--accent-100);
+  --color-accent-200: var(--accent-200);
+  --color-accent-500: var(--accent-500);
+  --color-accent-600: var(--accent-600);
+  --color-accent-700: var(--accent-700);
 
   /* Chữ: neo vào bộ trung tính của bản gốc thay cho xám ngả tím trước đây.
      ink-400 gộp về --muted-foreground: xám cũ #8b86a0 quá nhạt, đọc không nổi. */
@@ -95,27 +123,11 @@
 }
 
 @theme {
-  /* Thang tím đầy đủ — trước đây thiếu 200/300/400/800/900 nên các lớp đó
-     không sinh ra CSS nào và chữ bị rơi về màu thừa kế. */
-  --color-brand-50: #f7f0fb;
-  --color-brand-100: #ecdcf5;
-  --color-brand-200: #dbbdea;
-  --color-brand-300: #c496db;
-  --color-brand-400: #9a45c4;
-  --color-brand-500: #7a1aa8;
-  --color-brand-900: #2a1243;
+  /* Thang brand-* và accent-* nay nằm trong khối @theme inline phía trên (đọc từ biến CSS để đổi được theo nhận diện thương hiệu). */
   --color-surface: #fafaf8;
   --color-ok: #16a34a;
   --color-warn: #d97706;
   --color-danger: #dc2626;
-
-  /* Thang cam nhấn */
-  --color-accent-50: #fff7ed;
-  --color-accent-100: #ffedd5;
-  --color-accent-200: #fed7aa;
-  --color-accent-500: #ff8f2d;
-  --color-accent-600: #f8903b;
-  --color-accent-700: #b45309;
 
   /* Bo góc theo bản gốc: --radius = .625rem, sm .6× · md .8× · lg 1× · xl 1.4× */
   --radius-sm: 0.375rem;

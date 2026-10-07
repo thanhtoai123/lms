@@ -8,6 +8,7 @@
  * Thiết kế mobile-first; khi in: khổ A4 một trang (xem `TrialReportPrintStyle`),
  * giữ màu nền, không cắt khối ngang trang, ẩn nút bấm.
  */
+import { BrandLogo, BrandName } from "@/components/brand";
 import {
   CalendarDays, Cake, CircleCheck, Circle, GraduationCap, Hash, Heart, Lightbulb, MapPin, Phone, Puzzle, Route, Sparkles, Sprout, Trophy, UserRound,
 } from "lucide-react";
@@ -125,9 +126,8 @@ export function TrialReportSheet({
       <header className="pdg-block relative bg-gradient-to-br from-primary to-primary-darker px-5 pb-5 pt-4 text-white print:px-4 print:pb-3 print:pt-3">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/icon.svg" alt="" width={36} height={36} className="h-9 w-9 rounded-xl bg-white/10" />
-            <span className="text-lg font-extrabold tracking-tight">Sata Robo</span>
+            <BrandLogo size={36} onColor rounded="rounded-xl" />
+            <span className="text-lg font-extrabold tracking-tight"><BrandName /></span>
           </div>
           {draft && (
             <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider">

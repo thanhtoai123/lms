@@ -3,6 +3,7 @@ import { EMAIL_EVENT_KEYS, EMAIL_STATUSES, OTP_STATUSES, OTP_PURPOSES, WEBHOOK_S
 import { router, protectedProcedure } from "../trpc";
 import * as A from "../services/admin";
 import * as Z from "../services/zaloToken";
+import * as B from "../services/brand";
 
 const uuid = z.string().uuid();
 const eventKey = z.enum(EMAIL_EVENT_KEYS as [EmailEvent, ...EmailEvent[]]);
@@ -59,4 +60,11 @@ export const adminRouter = router({
     }))
     .mutation(({ ctx, input }) => A.saveSettings(ctx, input)),
   publicSettings: protectedProcedure.query(({ ctx }) => A.publicSettings(ctx)),
+  // Nhận diện thương hiệu: màu chủ đạo / màu nhấn / logo (logo tải lên qua /api/content/brand-logo)
+  brand: protectedProcedure.query(({ ctx }) => B.brandForAdmin(ctx)),
+  saveBrandColors: protectedProcedure
+    .input(z.object({ primary: z.string().max(9), accent: z.string().max(9) }))
+    .mutation(({ ctx, input }) => B.saveBrandColors(ctx, input)),
+  resetBrandColors: protectedProcedure.mutation(({ ctx }) => B.resetBrandColors(ctx)),
+  removeBrandLogo: protectedProcedure.mutation(({ ctx }) => B.removeBrandLogo(ctx)),
 });
