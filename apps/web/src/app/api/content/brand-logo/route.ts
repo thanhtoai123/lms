@@ -13,7 +13,7 @@ export async function POST(req: Request) {
   if (!(file instanceof File)) return Response.json({ ok: false, error: "Chọn tệp logo" }, { status: 400 });
   try {
     const r = await uploadBrandLogo(ctx, { mime: file.type, bytes: new Uint8Array(await file.arrayBuffer()) });
-    return Response.json({ ok: true, ...r });
+    return Response.json(r);
   } catch (e) {
     return Response.json({ ok: false, error: clientSafeMessage(e) }, { status: errorStatus(e) });
   }
