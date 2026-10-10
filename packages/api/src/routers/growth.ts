@@ -31,7 +31,7 @@ export const landingRouter = router({
   create: protectedProcedure.input(z.object({ title: s(150), slug: s(60), templateKey: s(60) })).mutation(({ ctx, input }) => L.createLandingPage(ctx, input)),
   saveDraft: protectedProcedure
     .input(z.object({ id: uuid, version: z.number().int().min(1), title: s(150), slug: s(60).optional(), variant: s(20), seoTitle: s(70).optional(), seoDescription: s(170).optional(), seoImage: s(500).optional(), doc: z.unknown() }))
-    .mutation(({ ctx, input }) => L.saveLandingDraft(ctx, input)),
+    .mutation(({ ctx, input }) => L.saveLandingDraft(ctx, { ...input, doc: input.doc })),
   publish: protectedProcedure.input(z.object({ id: uuid })).mutation(({ ctx, input }) => L.publishLandingPage(ctx, input)),
   unpublish: protectedProcedure.input(z.object({ id: uuid })).mutation(({ ctx, input }) => L.unpublishLandingPage(ctx, input)),
   archive: protectedProcedure.input(z.object({ id: uuid, archived: z.boolean() })).mutation(({ ctx, input }) => L.archiveLandingPage(ctx, input)),

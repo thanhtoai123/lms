@@ -1,6 +1,6 @@
 "use client";
 
-import { SECTION_DEFS, validImage, validUrl, type LField, type LandingSection } from "@satarobo/core";
+import { SECTION_DEFS, validUrl, type LField, type LandingSection } from "@satarobo/core";
 import { ImageUpload } from "@/components/image-upload";
 
 /** Một ô nhập theo định nghĩa trường (chữ, đoạn, liên kết, ảnh) — kiểm tra nhanh ngay tại chỗ, kiểm tra đủ khi Xuất bản */
@@ -9,7 +9,7 @@ export function FieldInput({ f, value, onChange, disabled }: { f: LField; value:
     if (disabled) return <div className="text-sm">{f.label}{value ? <img src={value} alt="" className="mt-1 max-h-24 rounded" /> : <span className="text-ink-600"> — chưa có</span>}</div>;
     return <ImageUpload label={`${f.label}${f.required ? " *" : ""}`} value={value} onChange={onChange} />;
   }
-  const bad = value && ((f.type === "url" && !validUrl(value)) || (f.type === "image" && !validImage(value)));
+  const bad = value && f.type === "url" && !validUrl(value);
   return (
     <label className="block text-sm">
       <span className="font-medium">{f.label}{f.required && <span className="text-red-700"> *</span>}</span>{" "}
