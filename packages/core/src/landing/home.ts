@@ -51,13 +51,12 @@ export const HOME_PAGE = {
             { value: "4,9/5", label: "Điểm đánh giá của phụ huynh" },
           ],
         }),
-        sec("features", "features", { title: "Vì sao phụ huynh chọn Sata Robo", intro: "Năm điều chúng tôi làm để con vừa vui, vừa thật sự học được." }, {
+        sec("features", "features", { title: "Vì sao phụ huynh chọn Sata Robo", intro: "Bốn điều chúng tôi làm để con vừa vui, vừa thật sự học được." }, {
           items: [
             { title: "Lớp nhỏ, kèm từng em", text: "Mỗi lớp tối đa 12 học viên nên giáo viên nhìn thấy từng bé đang vướng ở đâu và hướng dẫn kịp thời." },
             { title: "Học thử 1-1 trước khi quyết định", text: "Bé làm bài kiểm tra đầu vào 45 phút rồi học 1-1 cùng giáo viên 90 phút. Ba mẹ xem con học thật, rồi mới chọn lộ trình." },
             { title: "Có sản phẩm, có buổi trình bày", text: "Bé lắp ráp và lập trình robot thật. Cuối mỗi 12 buổi, bé thuyết trình sản phẩm của mình trước phụ huynh." },
             { title: "Lộ trình từ lớp 1 đến lớp 8", text: "Mỗi bé học đúng cấp độ của mình; các gói lớp 3–8 có thêm phần AI." },
-            { title: "Học tại trung tâm hoặc online", text: "Hai cơ sở tại Đà Nẵng và lớp online, để gia đình chọn hình thức hợp với lịch của bé." },
           ],
         }),
         sec("programs", "programs", { title: "Các khoá học", intro: "Học tại trung tâm hoặc học online. Giáo viên sẽ gợi ý khoá phù hợp sau buổi học thử." }, {
@@ -78,7 +77,6 @@ export const HOME_PAGE = {
             { title: "Đúng cấp độ của từng bé", text: "Kiểm tra đầu vào để xếp lớp, không để bé học quá dễ hay quá khó." },
             { title: "Thực hành robot thật", text: "Mỗi buổi bé tự tay lắp ráp, lập trình và thử robot của mình." },
             { title: "Nhận xét sau buổi học", text: "Phụ huynh nhận xét của giáo viên sau từng buổi và học bạ theo mốc." },
-            { title: "Giáo viên đồng hành", text: "Lớp nhỏ để giáo viên có thời gian trao đổi riêng với từng bé và từng gia đình." },
           ],
         }),
         sec("features", "hanh-trang", { title: "Hành trang con mang theo", intro: "Robot chỉ là phương tiện; điều ở lại với con là cách nghĩ và làm việc." }, {
