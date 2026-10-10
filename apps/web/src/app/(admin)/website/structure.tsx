@@ -44,9 +44,10 @@ export function WebsiteStructure({ canEdit, chrome, counts, missingDemo, pages }
 
   const by = new Map(pages.map((p) => [p.slug, p]));
   const set = <K extends keyof SiteChrome>(k: K, v: SiteChrome[K]) => { setC((s) => ({ ...s, [k]: v })); setDirty(true); };
-  const setRow = <K extends "nav" | "links" | "addresses">(k: K, i: number, patch: Partial<SiteChrome[K][number]>) =>
-    set(k, (c[k] as Record<string, string>[]).map((r, j) => (j === i ? { ...r, ...patch } : r)) as SiteChrome[K]);
-  const del = (k: "nav" | "links" | "addresses", i: number) => set(k, (c[k] as unknown[]).filter((_, j) => j !== i) as never);
+  type ListKey = "nav" | "links" | "addresses";
+  const setRow = (k: ListKey, i: number, patch: Record<string, string>) =>
+    set(k, (c[k] as readonly object[]).map((r, j) => (j === i ? { ...r, ...patch } : r)) as never);
+  const del = (k: ListKey, i: number) => set(k, (c[k] as readonly object[]).filter((_, j) => j !== i) as never);
 
   return (
     <div className="space-y-6">
@@ -167,20 +168,23 @@ export function WebsiteStructure({ canEdit, chrome, counts, missingDemo, pages }
   );
 }
 
-function RowList<T extends Record<string, string>>({ title, rows, max, canEdit, a, b, aLabel, bLabel, onChange, onDel, onAdd }: {
-  title: string; rows: T[]; max: number; canEdit: boolean; a: keyof T & string; b: keyof T & string; aLabel: string; bLabel: string;
-  onChange: (i: number, p: Partial<T>) => void; onDel: (i: number) => void; onAdd: () => void;
+function RowList({ title, rows, max, canEdit, a, b, aLabel, bLabel, onChange, onDel, onAdd }: {
+  title: string; rows: readonly object[]; max: number; canEdit: boolean; a: string; b: string; aLabel: string; bLabel: string;
+  onChange: (i: number, p: Record<string, string>) => void; onDel: (i: number) => void; onAdd: () => void;
 }) {
   return (
     <fieldset className="space-y-2">
       <legend className="text-sm font-medium">{title}</legend>
-      {rows.map((r, i) => (
-        <div key={i} className="grid gap-2 sm:grid-cols-[1fr_2fr_auto]">
-          <input className="input" aria-label={aLabel} placeholder={aLabel} maxLength={200} value={r[a]} disabled={!canEdit} onChange={(e) => onChange(i, { [a]: e.target.value } as Partial<T>)} />
-          <input className="input" aria-label={bLabel} placeholder={bLabel} maxLength={400} value={r[b]} disabled={!canEdit} onChange={(e) => onChange(i, { [b]: e.target.value } as Partial<T>)} />
-          {canEdit && <button type="button" className="btn-ghost" onClick={() => onDel(i)}>Xoá</button>}
-        </div>
-      ))}
+      {rows.map((row, i) => {
+        const r = row as Record<string, string>;
+        return (
+          <div key={i} className="grid gap-2 sm:grid-cols-[1fr_2fr_auto]">
+            <input className="input" aria-label={aLabel} placeholder={aLabel} maxLength={200} value={r[a] ?? ""} disabled={!canEdit} onChange={(e) => onChange(i, { [a]: e.target.value })} />
+            <input className="input" aria-label={bLabel} placeholder={bLabel} maxLength={400} value={r[b] ?? ""} disabled={!canEdit} onChange={(e) => onChange(i, { [b]: e.target.value })} />
+            {canEdit && <button type="button" className="btn-ghost" onClick={() => onDel(i)}>Xoá</button>}
+          </div>
+        );
+      })}
       {canEdit && rows.length < max && <button type="button" className="btn-ghost" onClick={onAdd}>+ Thêm dòng</button>}
     </fieldset>
   );
