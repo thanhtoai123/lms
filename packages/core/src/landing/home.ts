@@ -12,6 +12,7 @@
  * giá trị cho gia đình → hành trang cho con → kêu gọi → lộ trình theo lớp → cách bắt đầu → hệ sinh thái → phản hồi phụ huynh → đội ngũ → học viên
  * → hỏi đáp → form. CHỈ học cấu trúc, không chép chữ và không chép các khẳng định của Teky (số 1, chứng chỉ quốc tế, ưu đãi theo tuần…).
  * Ba phần chưa có dữ liệu thật (phản hồi, đội ngũ, học viên tiêu biểu) là chữ mẫu có "[DEMO]"; hệ thống cảnh báo khi xuất bản còn chữ này.
+ * Ảnh: bộ minh hoạ vector gốc (bé + robot) ở apps/web/public/anh-site — không phải ảnh người thật; thay bằng ảnh thật của lớp khi có.
  * Hệ thống chỉ có một form mỗi trang nên các nút "Học thử" ở nhiều phần đều cuộn tới form cuối trang.
  *
  * Mỗi lần cải tiến: sửa chữ trong Website → Landing page → "Trang chủ" rồi Xuất bản; hoặc sửa ở đây cho lần dựng sau.
@@ -22,6 +23,9 @@ function sec(type: SectionType, id: string, data: Record<string, string> = {}, l
   const s = emptySection(type, id);
   return { ...s, enabled, data: { ...s.data, ...data }, lists: { ...s.lists, ...lists } };
 }
+
+/** Ảnh minh hoạ vector gốc, đi kèm ứng dụng (apps/web/public/anh-site). Thay bằng ảnh thật của lớp học khi có, qua Website → Landing page. */
+const ART = "/anh-site";
 
 export const HOME_PAGE = {
   slug: "trang-chu",
@@ -42,6 +46,7 @@ export const HOME_PAGE = {
           subtitle: "Lớp tối đa 12 bé, giáo viên kèm từng em. Con tự tay lắp ráp và lập trình robot thật; ba mẹ nhìn thấy con tiến bộ qua từng buổi học.",
           primaryLabel: "Đặt buổi học thử 1-1 miễn phí", primaryUrl: "#dang-ky",
           secondaryLabel: "Đăng ký tư vấn", secondaryUrl: "#dang-ky",
+          image: `${ART}/hero-be-robot.svg`,
         }, { badges: [{ text: "2 cơ sở tại Đà Nẵng và lớp Online" }, { text: "Lớp tối đa 12 học viên" }, { text: "Học thử 1-1 miễn phí" }] }),
         sec("stats", "stats", { title: "" }, {
           items: [
@@ -61,9 +66,9 @@ export const HOME_PAGE = {
         }),
         sec("programs", "programs", { title: "Các khoá học", intro: "Học tại trung tâm hoặc học online. Giáo viên sẽ gợi ý khoá phù hợp sau buổi học thử." }, {
           items: [
-            { name: "Lập trình Robot chuyên sâu", badge: "Tại trung tâm", text: "Lắp ráp và lập trình robot theo lộ trình, từ làm quen đến nâng cao. Học cùng giáo viên trong lớp nhỏ.", meta: "Lớp 1–8", price: "", url: "#dang-ky", linkLabel: "Đặt học thử", image: "" },
-            { name: "Luyện thi cuộc thi Robotics", badge: "Tại trung tâm", text: "Ôn luyện bài bản cho cuộc thi Sáng tạo Robotics 2026, thực hành trên RoboSim cùng giáo viên.", meta: "Lớp 3–8", price: "", url: "#dang-ky", linkLabel: "Đặt học thử", image: "" },
-            { name: "Luyện thi RoboSim online", badge: "Học online", text: "Tự học linh hoạt trên nền tảng SataWorld, có hướng dẫn giải đề vòng loại 2026.", meta: "Lớp 3–8", price: "", url: "#dang-ky", linkLabel: "Tư vấn khoá online", image: "" },
+            { name: "Lập trình Robot chuyên sâu", badge: "Tại trung tâm", text: "Lắp ráp và lập trình robot theo lộ trình, từ làm quen đến nâng cao. Học cùng giáo viên trong lớp nhỏ.", meta: "Lớp 1–8", price: "", url: "#dang-ky", linkLabel: "Đặt học thử", image: `${ART}/khoa-lap-trinh-robot.svg` },
+            { name: "Luyện thi cuộc thi Robotics", badge: "Tại trung tâm", text: "Ôn luyện bài bản cho cuộc thi Sáng tạo Robotics 2026, thực hành trên RoboSim cùng giáo viên.", meta: "Lớp 3–8", price: "", url: "#dang-ky", linkLabel: "Đặt học thử", image: `${ART}/khoa-luyen-thi.svg` },
+            { name: "Luyện thi RoboSim online", badge: "Học online", text: "Tự học linh hoạt trên nền tảng SataWorld, có hướng dẫn giải đề vòng loại 2026.", meta: "Lớp 3–8", price: "", url: "#dang-ky", linkLabel: "Tư vấn khoá online", image: `${ART}/khoa-hoc-online.svg` },
           ],
         }),
         sec("cta", "uu-dai", {
@@ -77,6 +82,14 @@ export const HOME_PAGE = {
             { title: "Đúng cấp độ của từng bé", text: "Kiểm tra đầu vào để xếp lớp, không để bé học quá dễ hay quá khó." },
             { title: "Thực hành robot thật", text: "Mỗi buổi bé tự tay lắp ráp, lập trình và thử robot của mình." },
             { title: "Nhận xét sau buổi học", text: "Phụ huynh nhận xét của giáo viên sau từng buổi và học bạ theo mốc." },
+          ],
+        }),
+        sec("gallery", "buoi-hoc", { title: "Một buổi học ở Sata Robo" }, {
+          items: [
+            { image: `${ART}/canh-lap-rap.svg`, caption: "Lắp ráp: bé tự tay ghép robot của mình (hình minh hoạ)" },
+            { image: `${ART}/canh-lap-trinh.svg`, caption: "Lập trình: viết chương trình điều khiển robot (hình minh hoạ)" },
+            { image: `${ART}/canh-thu-robot.svg`, caption: "Thử robot: chạy thử, sửa lỗi, chạy lại (hình minh hoạ)" },
+            { image: `${ART}/canh-thuyet-trinh.svg`, caption: "Trình bày: giới thiệu sản phẩm trước phụ huynh (hình minh hoạ)" },
           ],
         }),
         sec("features", "hanh-trang", { title: "Hành trang con mang theo", intro: "Robot chỉ là phương tiện; điều ở lại với con là cách nghĩ và làm việc." }, {

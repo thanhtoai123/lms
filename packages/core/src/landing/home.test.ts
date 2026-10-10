@@ -19,7 +19,7 @@ test("trang chủ: đường dẫn hợp lệ, xuất bản được, chỉ cả
 
 test("trang chủ: theo thứ tự các phần của trang mẫu (hero → số liệu → … → hỏi đáp → form)", () => {
   const ids = doc().sections.map((s) => s.id);
-  const order = ["hero", "stats", "features", "programs", "uu-dai", "gia-tri", "hanh-trang", "ket-luan", "lo-trinh", "steps", "he-sinh-thai", "phan-hoi", "doi-ngu", "hoc-vien", "faq", "form"];
+  const order = ["hero", "stats", "features", "programs", "uu-dai", "gia-tri", "buoi-hoc", "hanh-trang", "ket-luan", "lo-trinh", "steps", "he-sinh-thai", "phan-hoi", "doi-ngu", "hoc-vien", "faq", "form"];
   assert.deepEqual(ids.filter((i) => order.includes(i)), order);
   assert.equal(ids[0], "header");
   assert.equal(ids[ids.length - 1], "footer");
@@ -60,4 +60,21 @@ test("trang chủ: có đủ thông tin thật để liên hệ", () => {
 
 test("trang chủ: tiêu đề SEO ≤ 70, mô tả ≤ 170 ký tự", () => {
   assert.ok(HOME_PAGE.seoTitle.length <= 70 && HOME_PAGE.seoDescription.length <= 170);
+});
+
+test("trang chủ: ảnh minh hoạ hợp lệ, có đủ file trong apps/web/public/anh-site và mô tả ghi rõ là hình minh hoạ", async () => {
+  const { existsSync } = await import("node:fs");
+  const { validImage } = await import("./model.js");
+  const imgs: string[] = [];
+  for (const s of doc().sections) {
+    if (s.data.image) imgs.push(s.data.image);
+    for (const rows of Object.values(s.lists)) for (const r of rows) if (r.image) imgs.push(r.image);
+  }
+  assert.equal(imgs.length, 8);
+  for (const u of imgs) {
+    assert.ok(validImage(u), u);
+    assert.ok(existsSync(new URL(`../../../../apps/web/public${u}`, import.meta.url)), u);
+  }
+  const g = doc().sections.find((s) => s.id === "buoi-hoc")!;
+  assert.ok((g.lists.items ?? []).every((r) => /minh hoạ/.test(r.caption ?? "")));
 });

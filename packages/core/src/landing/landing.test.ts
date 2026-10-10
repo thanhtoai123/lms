@@ -15,6 +15,7 @@ test("liên kết và ảnh: chỉ nhận dạng an toàn", () => {
   for (const bad of ["javascript:alert(1)", "data:text/html,x", "//evil.com", "http://x.vn", "/a b", "https://x.vn/\"onload=1", "vbscript:x"]) assert.ok(!validUrl(bad), bad);
   assert.ok(validImage("/api/public/site-media/abc-1.png"));
   assert.ok(validImage("https://cdn.example.com/a.jpg"));
+  assert.ok(validImage("/anh-site/hero-be-robot.svg") && !validImage("/anh-site/../etc/passwd") && !validImage("/anh-site/a.svg/../../x") && !validImage("/anh-site/x.html"));
   assert.ok(!validImage("javascript:1") && !validImage("/etc/passwd") && !validImage("http://x.vn/a.jpg"));
 });
 

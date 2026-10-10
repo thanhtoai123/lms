@@ -154,7 +154,8 @@ export function validUrl(v: string): boolean {
   return /^(https:\/\/|\/|#|tel:|mailto:)[^\s"'<>\\]*$/.test(v) && !/^\/\//.test(v);
 }
 export function validImage(v: string): boolean {
-  return /^(\/api\/public\/site-media\/[A-Za-z0-9._-]+|https:\/\/[^\s"'<>\\]+)$/.test(v);
+  // Thư viện ảnh website, ảnh minh hoạ đi kèm ứng dụng (apps/web/public/anh-site), hoặc https
+  return /^(\/api\/public\/site-media\/[A-Za-z0-9._-]+|\/anh-site\/[a-z0-9-]+\.(svg|png|jpg|webp)|https:\/\/[^\s"'<>\\]+)$/.test(v);
 }
 
 export function fieldsOf(def: SectionDef, listKey: string): LField[] {
