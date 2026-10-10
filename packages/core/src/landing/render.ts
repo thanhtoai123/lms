@@ -240,19 +240,19 @@ export function landingCss(): string {
 .lp{--lp-ink:#1d1730;--lp-mut:#5b5470;--lp-line:rgba(29,23,48,.1);--lp-bg:#fff;--lp-alt:var(--brand-50,#f7f1fb);--lp-r:18px;color:var(--lp-ink);background:var(--lp-bg);font-family:var(--font-be-vietnam),system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.6;font-size:16px;-webkit-text-size-adjust:100%}
 .lp *,.lp *::before,.lp *::after{box-sizing:border-box}
 .lp img{max-width:100%;height:auto;display:block}
-.lp h1,.lp h2,.lp h3{line-height:1.2;margin:0;letter-spacing:-.01em;text-wrap:balance}
-.lp p{margin:0}
-.lp a{color:inherit}
-.lp ul,.lp ol{list-style:none;margin:0;padding:0}
+:where(.lp) :where(h1,h2,h3){line-height:1.2;margin:0;letter-spacing:-.01em;text-wrap:balance}
+:where(.lp) p{margin:0}
+:where(.lp) a{color:inherit}
+:where(.lp) :where(ul,ol){list-style:none;margin:0;padding:0}
 .lp-wrap{width:100%;max-width:1120px;margin:0 auto;padding:0 20px}
 .lp-sec{padding:64px 0}
 .lp-alt{background:var(--lp-alt)}
 .lp-head{max-width:720px;margin:0 0 32px}
 .lp-head h2{font-size:clamp(1.55rem,3.2vw,2.2rem)}
 .lp-head p{margin-top:10px;color:var(--lp-mut);font-size:1.05rem}
-.lp-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:12px 22px;border-radius:999px;font-weight:700;font-size:1rem;text-decoration:none;white-space:nowrap;transition:transform .15s,box-shadow .15s,background .15s;border:2px solid transparent}
+.lp-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:12px 22px;border-radius:999px;font-weight:700;font-size:1rem;text-decoration:none;text-align:center;max-width:100%;transition:transform .15s,box-shadow .15s,background .15s;border:2px solid transparent}
 .lp-btn:focus-visible,.lp a:focus-visible,.lp summary:focus-visible{outline:3px solid var(--accent,#f59e0b);outline-offset:2px}
-.lp-btn-sm{min-height:40px;padding:8px 16px;font-size:.92rem}
+.lp-btn-sm{min-height:40px;padding:8px 16px;font-size:.92rem;white-space:nowrap}
 .lp-btn-primary{background:var(--primary,#610b8a);color:var(--primary-foreground,#fff);box-shadow:0 6px 18px -8px var(--primary,#610b8a)}
 .lp-btn-primary:hover{background:var(--primary-dark,#4a0869);transform:translateY(-1px)}
 .lp-btn-ghost{background:transparent;color:var(--primary-ink,var(--primary,#610b8a));border-color:currentColor}
@@ -334,7 +334,7 @@ export function landingCss(): string {
 .lp-form-in .lp-head{margin-bottom:20px}
 .lp-form-card{background:#fff;border:1px solid var(--lp-line);border-radius:calc(var(--lp-r) + 4px);padding:6px;box-shadow:0 20px 50px -28px rgba(29,23,48,.4)}
 .lp-form-card>p{padding:16px 16px 0;color:var(--lp-mut)}
-.lp-form-card>.lp-btn{margin:16px}
+.lp-form-card>.lp-btn{margin:16px;max-width:calc(100% - 32px)}
 .lp-prose{max-width:760px;color:var(--lp-ink)}
 .lp-prose p,.lp-prose ul,.lp-prose ol{margin:0 0 14px}
 .lp-prose ul{list-style:disc;padding-left:22px}

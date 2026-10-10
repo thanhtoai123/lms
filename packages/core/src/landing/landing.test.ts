@@ -184,3 +184,10 @@ test("nền xen kẽ theo thứ tự hiển thị (không dựa vào CSS nth-of-
   content.forEach((c, i) => assert.equal(c.includes("lp-alt"), i % 2 === 1, `khối nội dung #${i}: ${c}`));
   assert.ok(!landingCss().includes("nth-of-type"));
 });
+
+test("CSS: liên kết trong .lp không đè màu chữ của nút (độ đặc hiệu thấp)", () => {
+  const css = landingCss();
+  assert.ok(css.includes(":where(.lp) a{color:inherit}"));
+  assert.ok(!/^\.lp a\{color:inherit\}/m.test(css));
+  assert.ok(css.includes(":where(.lp) :where(ul,ol)"), "reset danh sách không được đè margin của lớp riêng");
+});

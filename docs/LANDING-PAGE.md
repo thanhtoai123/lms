@@ -62,3 +62,14 @@ Màu lấy tự động từ **Cài đặt hệ thống → Nhận diện thươ
 - Khối “Chương trình” tự lấy từ danh sách khoá / giá thật trong hệ thống (hiện nhập tay).
 - Thử nghiệm A/B hai phiên bản; xem trước trước khi xuất bản bằng liên kết riêng.
 - Xuất ZIP kèm ảnh (hiện tệp HTML trỏ ảnh về hệ thống).
+
+## Trang chủ người dùng (bản chữ "kaizen")
+
+Nội dung trang chủ nằm ở `packages/core/src/landing/home.ts` (`HOME_PAGE`), dựa trên satarobo.vn. Tạo bản nháp bằng `pnpm db:seed-home`
+(chỉ tạo NHÁP đường dẫn `trang-chu`, không xuất bản, không ghi đè nếu đã có). Quản trị vào Website → Landing page → xem trước, sửa chữ, **Xuất bản**
+thì khách chưa đăng nhập vào `/` sẽ thấy trang này.
+
+Nguyên tắc chữ: giữ thông tin thật của trang cũ (2 cơ sở, hotline, chương trình, học thử 1-1 = 45 phút kiểm tra đầu vào + 90 phút học, lớp ≤ 12 bé);
+bỏ phần lặp (20 thẻ phản hồi lặp 4 lần, hai danh sách chân trang) và chữ giữ chỗ (0+, ≤0, 0.000.000đ); không viết các khẳng định đang mâu thuẫn hoặc chưa có
+nguồn (độc quyền / duy nhất tại Đà Nẵng, tư vấn 24/7, ban tổ chức cuộc thi, hạn hoàn tiền Sata8). Số liệu 1000+ / 98% / 50+ / 4,9/5 giữ như trang cũ theo
+quyết định của chủ dự án — chủ dự án chịu trách nhiệm số đúng. Trang chủ KHÔNG nêu chính sách hoàn tiền. Phản hồi phụ huynh tắt cho tới khi có lời thật được phép đăng.
