@@ -2,12 +2,13 @@ import { and, desc, eq, ne, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { landingPages, landingPageHistory, users, type Database } from "@satarobo/db";
 import {
-  HOME_SLUG, LANDING_TEMPLATES, hasPermission, LANDING_VARIANTS, landingTemplateByKey, normalizeLanding, validImage, validSlug, validateLanding,
+  LANDING_TEMPLATES, sitePathOf, hasPermission, LANDING_VARIANTS, landingTemplateByKey, normalizeLanding, validImage, validSlug, validateLanding,
   type LandingDoc, type LandingVariant,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { writeAudit } from "./audit";
 import { tenantSql } from "./tenantScope";
+import { getSiteChrome } from "./siteChrome";
 
 /**
  * Landing page theo khối — dịch vụ quản trị + đọc công khai (docs/LANDING-PAGE.md).
@@ -73,7 +74,8 @@ export async function listLandingPages(ctx: ProtectedContext, input: { archived?
   // 30 ngày gần nhất: lượt xem (theo đường dẫn) và lead (theo trang đích của lead)
   const views = (await ctx.db.execute(sql`
     select path as k, count(*)::int as n from track_events
-    where event = 'page_view' and created_at > now() - interval '30 days' and (path like '/lp/%' or path = '/')
+    where event = 'page_view' and created_at > now() - interval '30 days'
+      and (path like '/lp/%' or path in ('/', '/gioi-thieu', '/khoa-hoc', '/lien-he') or path like '/khoa-hoc/%' or path like '/chinh-sach/%')
     group by path`)) as unknown as Cnt[];
   const leadRows = (await ctx.db.execute(sql`
     select substring(l.landing_page from '/lp/([a-z0-9-]+)') as k, count(*)::int as n from leads l
@@ -86,10 +88,11 @@ export async function listLandingPages(ctx: ProtectedContext, input: { archived?
     const live = r.status === "published";
     return {
       id: r.id, slug: r.slug, title: r.title, template: r.template, variant: variantOf(r.variant), status: r.status,
-      path: r.slug === HOME_SLUG ? "/" : `/lp/${r.slug}`,
+      path: sitePathOf(r.slug) ?? `/lp/${r.slug}`,
+      isSite: sitePathOf(r.slug) !== null,
       version: r.version, publishedVersion: r.publishedVersion, publishedAt: r.publishedAt, updatedAt: r.updatedAt, updatedBy: byName,
       hasUnpublished: live && !same(draftSnapshot(r), pub),
-      views30: v.get(r.slug === HOME_SLUG ? "/" : `/lp/${r.slug}`) ?? 0,
+      views30: v.get(sitePathOf(r.slug) ?? `/lp/${r.slug}`) ?? 0,
       leads30: ld.get(r.slug) ?? 0,
     };
   });
@@ -106,7 +109,10 @@ export async function getLandingPage(ctx: ProtectedContext, id: string) {
   const check1 = check(draft, r.slug);
   return {
     id: r.id, slug: r.slug, status: r.status, template: r.template, version: r.version, publishedVersion: r.publishedVersion, publishedAt: r.publishedAt,
-    path: r.slug === HOME_SLUG ? "/" : `/lp/${r.slug}`,
+    path: sitePathOf(r.slug) ?? `/lp/${r.slug}`,
+    isSite: sitePathOf(r.slug) !== null,
+    /** Khung chung của website (chỉ trang thuộc website): đầu / chân trang hiển thị lấy từ đây, không từ khối của trang */
+    siteChrome: sitePathOf(r.slug) !== null ? await getSiteChrome(ctx.db) : null,
     canRename: r.publishedVersion === 0,
     draft,
     hasUnpublished: live && !same(draft, publishedSnapshot(r.published)),
@@ -188,7 +194,7 @@ export async function publishLandingPage(ctx: ProtectedContext, input: { id: str
     await tx.update(landingPages).set({ published: snap, status: "published", publishedVersion, publishedAt: now, updatedBy: ctx.user.id, updatedAt: now }).where(eq(landingPages.id, cur.id));
     await tx.insert(landingPageHistory).values({ pageId: cur.id, version: publishedVersion, snapshot: snap, createdBy: ctx.user.id });
     await writeAudit(tx as unknown as Db, { actorId: ctx.user.id, action: "UPDATE", module: "site", entity: "landing_page", entityId: cur.id, after: { event: "publish", slug: cur.slug, publishedVersion }, ip: ctx.ip });
-    return { publishedVersion, path: cur.slug === HOME_SLUG ? "/" : `/lp/${cur.slug}`, warnings: c.warnings };
+    return { publishedVersion, path: sitePathOf(cur.slug) ?? `/lp/${cur.slug}`, warnings: c.warnings };
   });
 }
 

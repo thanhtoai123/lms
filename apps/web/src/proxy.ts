@@ -24,7 +24,7 @@ import { ACCESS_COOKIE, IDLE_COOKIE, REFRESH_COOKIE, SEEN_COOKIE, cookieOptions,
  * Đây cũng là NƠI DUY NHẤT gắn header bảo mật cho phản hồi trang, vì CSP có **nonce sinh
  * theo từng yêu cầu** nên không đặt tĩnh trong `next.config.ts` được.
  */
-const PUBLIC = [/^\/login(\/|$)/, /^\/quen-mat-khau(\/|$)/, /^\/dat-mat-khau(\/|$)/, /^\/ks(\/|$)/, /^\/pdg(\/|$)/, /^\/hs(\/|$)/, /^\/cn(\/|$)/, /^\/in-ho-so(\/|$)/, /^\/bt(\/|$)/, /^\/lp(\/|$)/, /^\/tin-tuc(\/|$)/, /^\/gioi-thieu(\/|$)/, /^\/logout(\/|$)/, /^\/dang-ky(\/|$)/, /^\/tuyen-dung(\/|$)/, /^\/tn(\/|$)/, /^\/ph(\/|$)/, /^\/tra-cuu-hoa-don(\/|$)/, /^\/api\//, /^\/_next\//, /^\/manifest\.webmanifest$/, /^\/favicon/, /\.(?:png|jpg|jpeg|svg|ico|webp|txt|xml)$/];
+const PUBLIC = [/^\/login(\/|$)/, /^\/quen-mat-khau(\/|$)/, /^\/dat-mat-khau(\/|$)/, /^\/ks(\/|$)/, /^\/pdg(\/|$)/, /^\/hs(\/|$)/, /^\/cn(\/|$)/, /^\/in-ho-so(\/|$)/, /^\/bt(\/|$)/, /^\/lp(\/|$)/, /^\/tin-tuc(\/|$)/, /^\/gioi-thieu(\/|$)/, /^\/khoa-hoc(\/|$)/, /^\/lien-he(\/|$)/, /^\/chinh-sach(\/|$)/, /^\/logout(\/|$)/, /^\/dang-ky(\/|$)/, /^\/tuyen-dung(\/|$)/, /^\/tn(\/|$)/, /^\/ph(\/|$)/, /^\/tra-cuu-hoa-don(\/|$)/, /^\/api\//, /^\/_next\//, /^\/manifest\.webmanifest$/, /^\/favicon/, /\.(?:png|jpg|jpeg|svg|ico|webp|txt|xml)$/];
 
 function laMienHocLieu(req: NextRequest) {
   const nguon = scormNguon({ SCORM_ORIGIN: process.env.SCORM_ORIGIN });

@@ -22,6 +22,7 @@ export default async function LandingEditPage({ params }: { params: Promise<{ id
       page={{
         id: page.id, slug: page.slug, status: page.status, path: page.path, version: page.version, publishedVersion: page.publishedVersion,
         publishedAt: page.publishedAt ? page.publishedAt.toISOString() : null, canRename: page.canRename, canEdit: page.canEdit, hasUnpublished: page.hasUnpublished,
+        isSite: page.isSite, siteChrome: page.isSite ? page.siteChrome : null,
         draft: page.draft,
         history: page.history.map((h) => ({ version: h.version, createdAt: h.createdAt.toISOString(), byName: h.byName })),
       }}

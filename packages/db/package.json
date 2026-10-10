@@ -20,6 +20,7 @@
     "seed-media": "tsx src/seed-media.ts",
     "seed-landing": "tsx src/seed-landing.ts",
     "seed-home": "tsx src/seed-home.ts",
+    "seed-site": "tsx src/seed-site.ts",
     "reset": "tsx src/reset.ts",
     "apply-sql": "tsx src/apply-sql.ts",
     "test": "echo 'no tests in db'",

@@ -1,22 +1,33 @@
-import Link from "next/link";
+import { getDb } from "@satarobo/db";
+import { getSiteChrome } from "@satarobo/api";
+import { buildPalette, chromeSections, landingCss, renderFooterHtml, renderHeaderHtml, rootClass, type RenderCtx } from "@satarobo/core";
+import { loadBrand } from "@/lib/brand";
 
-/** Khung trang công khai (tin tức, giới thiệu) */
-export function PublicShell({ children }: { children: React.ReactNode }) {
+/**
+ * Khung trang công khai của website (Tin tức, Tuyển dụng, Đăng ký học thử, tra cứu…): cùng đầu / chân trang với các trang dựng khối,
+ * lấy từ khung chung (Website → Cấu trúc & khung). Đầu / chân trang dùng CSS của landing, phần giữa giữ kiểu giao diện của ứng dụng.
+ */
+export async function PublicShell({ children, narrow = false }: { children: React.ReactNode; narrow?: boolean }) {
+  const [chrome, brand] = await Promise.all([getSiteChrome(getDb()).catch(() => null), loadBrand()]);
+  const palette = buildPalette({ primary: brand.primary, accent: brand.accent });
+  const ctx: RenderCtx = { slug: "site", variant: "classic", mode: "page", homeHref: "/", brand: { name: brand.name, logoUrl: brand.logoUrl, palette } };
+  const parts = chrome ? chromeSections(chrome) : null;
+  // `display: contents` để đầu trang vẫn dính trên cùng khi cuộn, còn biến màu vẫn kế thừa xuống
+  const wrap = { display: "contents" } as const;
   return (
-    <div className="min-h-dvh bg-surface">
-      <header className="border-b border-black/5 bg-white">
-        <div className="mx-auto flex max-w-4xl items-center justify-between gap-3 px-4 py-3">
-          <Link href="/tin-tuc" className="flex items-center gap-2 font-bold text-brand-600"><span className="grid h-8 w-8 place-items-center rounded-xl bg-brand-500 text-white">S</span> Sata Robo</Link>
-          <nav className="flex gap-4 text-sm">
-            <Link href="/gioi-thieu" className="hover:text-brand-600">Giới thiệu</Link>
-            <Link href="/tin-tuc" className="hover:text-brand-600">Tin tức</Link>
-            <Link href="/tuyen-dung" className="hover:text-brand-600">Tuyển dụng</Link>
-            <Link href="/dang-ky" className="btn-primary !py-1.5">Học thử miễn phí</Link>
-          </nav>
+    <div className="flex min-h-dvh flex-col bg-surface">
+      {parts && (
+        <div className={rootClass("classic")} style={{ ...(palette as unknown as React.CSSProperties), ...wrap }}>
+          <style dangerouslySetInnerHTML={{ __html: landingCss() }} />
+          <div style={wrap} dangerouslySetInnerHTML={{ __html: renderHeaderHtml(parts.header, ctx) }} />
         </div>
-      </header>
-      <main className="mx-auto max-w-4xl px-4 py-8">{children}</main>
-      <footer className="border-t border-black/5 py-6 text-center text-xs text-ink-400">© Sata Robo · <a href="https://satarobo.vn/chinh-sach-bao-mat" className="underline">Chính sách bảo mật</a></footer>
+      )}
+      <main className={`mx-auto w-full flex-1 px-4 py-8 ${narrow ? "max-w-md" : "max-w-4xl"}`}>{children}</main>
+      {parts && (
+        <div className={rootClass("classic")} style={{ ...(palette as unknown as React.CSSProperties), ...wrap }}>
+          <div style={wrap} dangerouslySetInnerHTML={{ __html: renderFooterHtml(parts.footer, ctx) }} />
+        </div>
+      )}
     </div>
   );
 }

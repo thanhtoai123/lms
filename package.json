@@ -22,6 +22,7 @@
   "db:seed-media": "pnpm --filter @satarobo/db seed-media",
     "db:seed-landing": "pnpm --filter @satarobo/db seed-landing",
     "db:seed-home": "pnpm --filter @satarobo/db seed-home",
+    "db:seed-site": "pnpm --filter @satarobo/db seed-site",
     "db:reset": "pnpm --filter @satarobo/db reset",
     "db:apply-sql": "pnpm --filter @satarobo/db apply-sql",
     "db:studio": "pnpm --filter @satarobo/db studio",

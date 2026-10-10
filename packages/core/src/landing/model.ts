@@ -161,7 +161,7 @@ export function fieldsOf(def: SectionDef, listKey: string): LField[] {
   return def.lists.find((l) => l.key === listKey)?.fields ?? [];
 }
 
-const clean = (v: unknown, max: number): string => (typeof v === "string" ? v.replace(/\r\n?/g, "\n").replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, "").trim().slice(0, max) : "");
+export const cleanText = (v: unknown, max: number): string => (typeof v === "string" ? v.replace(/\r\n?/g, "\n").replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, "").trim().slice(0, max) : "");
 
 function newId(type: string, n: number): string { return `${type}-${n}`; }
 
@@ -190,14 +190,14 @@ export function normalizeLanding(raw: unknown): LandingDoc {
     seenId.add(id);
     const dataIn = s.data && typeof s.data === "object" ? (s.data as Record<string, unknown>) : {};
     const data: Record<string, string> = {};
-    for (const f of def.fields) data[f.key] = clean(dataIn[f.key], f.max);
+    for (const f of def.fields) data[f.key] = cleanText(dataIn[f.key], f.max);
     const listsIn = s.lists && typeof s.lists === "object" ? (s.lists as Record<string, unknown>) : {};
     const lists: Record<string, Record<string, string>[]> = {};
     for (const l of def.lists) {
       const rows = Array.isArray(listsIn[l.key]) ? (listsIn[l.key] as unknown[]) : [];
       lists[l.key] = rows.slice(0, l.max).filter((x) => x && typeof x === "object").map((x) => {
         const row: Record<string, string> = {};
-        for (const f of l.fields) row[f.key] = clean((x as Record<string, unknown>)[f.key], f.max);
+        for (const f of l.fields) row[f.key] = cleanText((x as Record<string, unknown>)[f.key], f.max);
         return row;
       });
     }
@@ -225,7 +225,7 @@ export function rowsOf(s: LandingSection, listKey: string): Record<string, strin
   return (s.lists[listKey] ?? []).filter((row) => l.fields.every((f) => !f.required || (row[f.key] ?? "").trim() !== ""));
 }
 
-const PLACEHOLDER_RE = /(^|[^\d.,])0(\.0{3})+(?!\d)|lorem ipsum|\bxxx+\b|\btodo\b|\bđang cập nhật\b/i;
+const PLACEHOLDER_RE = /(^|[^\d.,])0(\.0{3})+(?!\d)|lorem ipsum|\bxxx+\b|\btodo\b|\bđang cập nhật\b|\[demo\]/i;
 const ZERO_STAT_RE = /^\s*0\s*[+%]?\s*$/;
 
 export interface LandingCheck { errors: string[]; warnings: string[] }
@@ -261,7 +261,7 @@ export function validateLanding(doc: LandingDoc, meta: { title: string; slug: st
 
     // Cảnh báo chữ giữ chỗ / số liệu 0
     const texts: string[] = [...Object.values(s.data), ...Object.values(s.lists).flatMap((rows) => rows.flatMap((r) => Object.values(r)))];
-    if (texts.some((x) => PLACEHOLDER_RE.test(x))) warnings.push(`${where}: còn chữ giữ chỗ (vd 0.000.000đ, “đang cập nhật”, lorem) — nên thay bằng nội dung thật`);
+    if (texts.some((x) => PLACEHOLDER_RE.test(x))) warnings.push(`${where}: còn chữ giữ chỗ (vd [DEMO], 0.000.000đ, “đang cập nhật”, lorem) — nên thay bằng nội dung thật`);
     if (s.type === "stats" && rowsOf(s, "items").some((r) => ZERO_STAT_RE.test(r.value ?? ""))) warnings.push(`${where}: có con số là 0 — hãy nhập số thật hoặc xoá dòng đó`);
   }
   return { errors, warnings };

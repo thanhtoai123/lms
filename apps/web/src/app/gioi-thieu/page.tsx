@@ -3,11 +3,21 @@ import { getDb } from "@satarobo/db";
 import { publicSite } from "@satarobo/api";
 import { PublicShell } from "@/components/public-shell";
 import { SiteTracker } from "@/components/site-tracker";
+import { LandingPage, landingMetadata } from "@/components/landing/landing-page";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Giới thiệu — Sata Robo" };
 
-export default async function AboutPage() {
+const SLUG = "gioi-thieu";
+
+export async function generateMetadata() {
+  const m = await landingMetadata(SLUG);
+  return Object.keys(m).length ? m : { title: "Giới thiệu — Sata Robo" };
+}
+
+/** Giới thiệu: trang dựng khối "gioi-thieu" nếu đã xuất bản; chưa có thì giữ trang chữ cũ (Website → Nội dung trang). */
+export default async function AboutPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const built = await LandingPage({ slug: SLUG, searchParams: await searchParams });
+  if (built) return built;
   const s = await publicSite(getDb(), "about");
   return (
     <PublicShell>

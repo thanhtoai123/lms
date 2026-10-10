@@ -385,8 +385,9 @@ export const ADMIN_MENU: NavGroup[] = [
     roles: ["HO_MARKETING"],
     items: [
       {
-        label: "Website", href: "/landing", icon: "newspaper", keywords: "landing page trang chu tao trang dang ky hoc thu",
+        label: "Website", href: "/website", icon: "newspaper", keywords: "website cau truc khung menu chan trang landing page trang chu tao trang dang ky hoc thu khoa hoc chinh sach",
         tabs: [
+          { label: "Cấu trúc & khung", href: "/website", perm: "site:read", desc: "Sơ đồ trang, menu và chân trang dùng chung, tạo trang demo." },
           { label: "Landing page", href: "/landing", perm: "site:read", desc: "Dựng landing theo khối + mẫu, xuất bản, tải HTML." },
           { label: "Tin tức", href: "/news", perm: "site:read" },
           { label: "Nội dung trang", href: "/site-content", perm: "site:read" },

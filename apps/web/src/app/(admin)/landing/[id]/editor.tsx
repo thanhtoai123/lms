@@ -4,8 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import {
-  LANDING_VARIANTS, SECTION_DEFS, SECTION_TYPES, VARIANT_LABEL, buildPalette, emptySection, normalizeLanding, renderStandalone, validateLanding,
-  type LandingDoc, type LandingSection, type LandingVariant, type SectionType,
+  LANDING_VARIANTS, SECTION_DEFS, SECTION_TYPES, VARIANT_LABEL, applyChrome, buildPalette, emptySection, normalizeLanding, renderStandalone, validateLanding,
+  type LandingDoc, type LandingSection, type LandingVariant, type SectionType, type SiteChrome,
 } from "@satarobo/core";
 import { useTRPC } from "@/lib/trpc/client";
 import { FieldInput, SectionForm } from "./section-form";
@@ -14,6 +14,8 @@ type Brand = { name: string; primary: string; accent: string; logoUrl: string };
 type PageData = {
   id: string; slug: string; status: string; path: string; version: number; publishedVersion: number; publishedAt: string | null;
   canRename: boolean; canEdit: boolean; hasUnpublished: boolean;
+  /** Trang thuộc website: đầu / chân trang lấy từ khung chung */
+  isSite: boolean; siteChrome: SiteChrome | null;
   draft: { title: string; variant: LandingVariant; seoTitle: string; seoDescription: string; seoImage: string; doc: LandingDoc };
   history: { version: number; createdAt: string; byName: string | null }[];
 };
@@ -51,8 +53,8 @@ export function LandingEditor({ page, brand }: { page: PageData; brand: Brand })
   const check = useMemo(() => validateLanding(doc, { title, slug }), [doc, title, slug]);
   const palette = useMemo(() => buildPalette({ primary: brand.primary, accent: brand.accent }), [brand.primary, brand.accent]);
   const previewHtml = useMemo(
-    () => renderStandalone(doc, { slug, variant, mode: "export", brand: { name: brand.name, logoUrl: brand.logoUrl, palette } }, { title }),
-    [doc, slug, variant, title, brand.name, brand.logoUrl, palette],
+    () => renderStandalone(page.siteChrome ? applyChrome(doc, page.siteChrome) : doc, { slug, variant, mode: "export", homeHref: page.siteChrome ? "/" : undefined, brand: { name: brand.name, logoUrl: brand.logoUrl, palette } }, { title }),
+    [doc, slug, variant, title, brand.name, brand.logoUrl, palette, page.siteChrome],
   );
 
   const selected = doc.sections.find((s) => s.id === sel) ?? null;
@@ -161,11 +163,12 @@ export function LandingEditor({ page, brand }: { page: PageData; brand: Brand })
               {doc.sections.map((s) => {
                 const def = SECTION_DEFS[s.type];
                 const i = mid.findIndex((x) => x.id === s.id);
+                const shared = page.isSite && !!def.fixed;
                 return (
                   <div key={s.id} className={`group flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm ${sel === s.id ? "bg-brand-100" : "hover:bg-black/5"}`}>
-                    <input type="checkbox" checked={s.enabled} disabled={!canEdit} aria-label={`Hiện khối ${def.label}`} onChange={(e) => updateSection({ ...s, enabled: e.target.checked })} />
+                    <input type="checkbox" checked={shared ? true : s.enabled} disabled={!canEdit || shared} aria-label={`Hiện khối ${def.label}`} onChange={(e) => updateSection({ ...s, enabled: e.target.checked })} />
                     <button type="button" className={`min-w-0 flex-1 truncate text-left ${s.enabled ? "" : "text-ink-600 line-through"}`} onClick={() => setSel(s.id)}>
-                      {def.label}
+                      {def.label}{shared && <span className="ml-1 text-[11px] text-ink-600">· dùng chung</span>}
                     </button>
                     {canEdit && !def.fixed && (
                       <span className="flex shrink-0 gap-0.5">
@@ -188,7 +191,15 @@ export function LandingEditor({ page, brand }: { page: PageData; brand: Brand })
             </nav>
 
             <div className="card p-4">
-              {selected
+              {selected && page.isSite && SECTION_DEFS[selected.type].fixed
+                ? (
+                  <div className="space-y-2 text-sm">
+                    <h3 className="font-semibold">{SECTION_DEFS[selected.type].label} — dùng chung toàn website</h3>
+                    <p className="text-ink-600">Đầu trang (logo, menu, điện thoại, nút) và chân trang (địa chỉ, liên hệ, chính sách) được sửa MỘT lần cho mọi trang của website, nên không sửa ở từng trang.</p>
+                    <a href="/website#khung" className="btn-ghost inline-block !py-1.5">Sửa khung chung →</a>
+                  </div>
+                )
+                : selected
                 ? <SectionForm key={selected.id} section={selected} disabled={!canEdit} onChange={updateSection} />
                 : <p className="text-sm text-ink-600">Chọn một khối ở bên trái để sửa nội dung.</p>}
             </div>
@@ -199,10 +210,10 @@ export function LandingEditor({ page, brand }: { page: PageData; brand: Brand })
             <div className="mt-3 grid gap-3 md:grid-cols-2">
               <label className="block text-sm">Đường dẫn
                 <div className="mt-1 flex items-center gap-1">
-                  <span className="text-ink-600">{page.slug === "trang-chu" ? "/" : "/lp/"}</span>
-                  <input className="input" value={slug} maxLength={60} disabled={!canEdit || !page.canRename} onChange={(e) => { setSlug(e.target.value.toLowerCase()); touch(); }} />
+                  <span className="text-ink-600">{page.isSite ? page.path : "/lp/"}</span>
+                  {!page.isSite && <input className="input" value={slug} maxLength={60} disabled={!canEdit || !page.canRename} onChange={(e) => { setSlug(e.target.value.toLowerCase()); touch(); }} />}
                 </div>
-                <span className="text-xs text-ink-600">{page.canRename ? "Đổi được cho tới lần xuất bản đầu tiên." : "Đã xuất bản nên khoá đường dẫn (tránh gãy liên kết). Muốn đổi: nhân bản sang đường dẫn mới."}</span>
+                <span className="text-xs text-ink-600">{page.isSite ? "Đường dẫn của trang website được cố định theo cấu trúc, không đổi ở đây." : page.canRename ? "Đổi được cho tới lần xuất bản đầu tiên." : "Đã xuất bản nên khoá đường dẫn (tránh gãy liên kết). Muốn đổi: nhân bản sang đường dẫn mới."}</span>
               </label>
               <label className="block text-sm">Kiểu giao diện
                 <select className="input mt-1" value={variant} disabled={!canEdit} onChange={(e) => { setVariant(e.target.value as LandingVariant); touch(); }}>

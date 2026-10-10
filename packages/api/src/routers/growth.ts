@@ -4,6 +4,7 @@ import { router, protectedProcedure } from "../trpc";
 import * as G from "../services/growth";
 import * as C from "../services/compliance";
 import * as L from "../services/landing";
+import * as W from "../services/website";
 
 const uuid = z.string().uuid();
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -39,6 +40,14 @@ export const landingRouter = router({
   restore: protectedProcedure.input(z.object({ id: uuid, version: z.number().int().min(1) })).mutation(({ ctx, input }) => L.restoreLandingVersion(ctx, input)),
   /** Bản đang công khai, để route tải tệp HTML dựng file */
   exportData: protectedProcedure.input(z.object({ id: uuid })).query(({ ctx, input }) => L.landingForExport(ctx, input.id)),
+});
+
+/** Cấu trúc website: sơ đồ trang, khung chung (menu / chân trang), tạo trang demo */
+export const websiteRouter = router({
+  overview: protectedProcedure.query(({ ctx }) => W.websiteOverview(ctx)),
+  saveChrome: protectedProcedure.input(z.object({ chrome: z.unknown() })).mutation(({ ctx, input }) => W.saveSiteChrome(ctx, { chrome: input.chrome })),
+  createDemo: protectedProcedure.input(z.object({ slugs: z.array(s(60)).max(20).optional() }).default({})).mutation(({ ctx, input }) => W.createDemoPages(ctx, input)),
+  createPage: protectedProcedure.input(z.object({ group: z.enum(["course", "policy"]), name: s(150), slug: s(60).default("") })).mutation(({ ctx, input }) => W.createSitePage(ctx, input)),
 });
 
 export const marketingRouter = router({

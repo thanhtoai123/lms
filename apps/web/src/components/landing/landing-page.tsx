@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { getDb } from "@satarobo/db";
-import { publicLanding } from "@satarobo/api";
+import { getSiteChrome, publicLanding } from "@satarobo/api";
+import { applyChrome, isSiteSlug } from "@satarobo/core";
 import { loadBrand } from "@/lib/brand";
 import { LandingView } from "./landing-view";
 
@@ -9,11 +10,14 @@ const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) 
 
 /** Trang công khai của một landing đã xuất bản; null nếu chưa có / chưa xuất bản (để gọi notFound hoặc chuyển hướng) */
 export async function LandingPage({ slug, searchParams }: { slug: string; searchParams: SP }) {
-  const [page, brand] = await Promise.all([publicLanding(getDb(), slug).catch(() => null), loadBrand()]);
+  const site = isSiteSlug(slug);
+  const [page, brand, chrome] = await Promise.all([publicLanding(getDb(), slug).catch(() => null), loadBrand(), site ? getSiteChrome(getDb()).catch(() => null) : null]);
   if (!page) return null;
   return (
     <LandingView
-      doc={page.doc}
+      // Trang thuộc website: đầu / chân trang lấy từ khung chung (Website → Cấu trúc & khung), không từ khối của trang
+      doc={chrome ? applyChrome(page.doc, chrome) : page.doc}
+      homeHref={chrome ? "/" : undefined}
       variant={page.variant}
       slug={page.slug}
       brand={{ name: brand.name, primary: brand.primary, accent: brand.accent, logoUrl: brand.logoUrl }}

@@ -9,7 +9,7 @@ export interface LandingBrand { name: string; primary: string; accent: string; l
  * Hiển thị landing: HTML do `renderParts` (core) sinh ra từ dữ liệu đã kiểm + form đăng ký (thành phần React).
  * Dùng chung cho trang công khai và khung xem trước trong quản trị. Không có hook — chạy được ở máy chủ.
  */
-export function LandingView({ doc, variant, slug, brand, utm, preview }: {
+export function LandingView({ doc, variant, slug, brand, utm, preview, homeHref }: {
   doc: LandingDoc;
   variant: LandingVariant;
   slug: string;
@@ -17,9 +17,11 @@ export function LandingView({ doc, variant, slug, brand, utm, preview }: {
   utm: { utm_source: string; utm_medium: string; utm_campaign: string; ref?: string };
   /** Xem trước trong quản trị: không ghi lượt xem, không gắn UTM */
   preview?: boolean;
+  /** Liên kết của logo (trang thuộc website dùng "/") */
+  homeHref?: string;
 }) {
   const palette = buildPalette({ primary: brand.primary, accent: brand.accent });
-  const parts = renderParts(doc, { slug, variant, mode: "page", brand: { name: brand.name, logoUrl: brand.logoUrl, palette } });
+  const parts = renderParts(doc, { slug, variant, mode: "page", homeHref, brand: { name: brand.name, logoUrl: brand.logoUrl, palette } });
   const hasForm = parts.some((p) => p.kind === "form");
   return (
     <div className={rootClass(variant)} style={palette as unknown as React.CSSProperties}>

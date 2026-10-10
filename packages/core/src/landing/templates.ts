@@ -4,6 +4,7 @@
  * Nội dung mẫu cố ý KHÔNG có con số thành tích, giá, phần thưởng hay lời của phụ huynh: những thứ đó phải do trung tâm
  * nhập số THẬT (khối trống tự ẩn). Chỉ có câu chữ mô tả chung, sửa thoải mái.
  */
+import { SITE_TEMPLATES } from "../site/demo.js";
 import { emptySection, type LandingDoc, type LandingSection, type LandingVariant, type SectionType } from "./model.js";
 
 export interface LandingTemplate {
@@ -124,6 +125,9 @@ export const LANDING_TEMPLATES: readonly LandingTemplate[] = [
   },
 ];
 
+/** Mẫu trang con của website (khu "Cấu trúc website"): không hiện trong hộp "Tạo landing" nhưng dùng được khi tạo trang theo khoá mẫu */
+const SITE_AS_TEMPLATES: readonly LandingTemplate[] = SITE_TEMPLATES.map((t) => ({ key: t.template, label: t.label, desc: t.desc, variant: t.variant, build: t.build }));
+
 export function landingTemplateByKey(key: string | null | undefined): LandingTemplate | null {
-  return LANDING_TEMPLATES.find((t) => t.key === key) ?? null;
+  return LANDING_TEMPLATES.find((t) => t.key === key) ?? SITE_AS_TEMPLATES.find((t) => t.key === key) ?? null;
 }

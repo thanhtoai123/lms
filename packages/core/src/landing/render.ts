@@ -23,6 +23,8 @@ export interface RenderCtx {
   mode: "page" | "export";
   /** Chỉ cho export: địa chỉ hệ thống (https://…, không dấu / cuối) để liên kết / ảnh nội bộ và form trỏ về đúng */
   baseUrl?: string;
+  /** Liên kết của logo / tên thương hiệu ở đầu trang. Mặc định "#top" (cuộn lên đầu trang); trang con của website dùng "/" */
+  homeHref?: string;
 }
 
 /**
@@ -66,6 +68,10 @@ function head(s: LandingSection, ctx: RenderCtx, extra = ""): string {
 const wrap = (s: LandingSection, cls: string, inner: string, id?: string) =>
   `<section class="lp-sec ${cls}" id="${escHtml(id ?? s.type)}"><div class="lp-wrap">${inner}</div></section>`;
 
+/** Đầu trang dựng từ một khối header (dùng cho trang không phải trang dựng khối) */
+export function renderHeaderHtml(s: LandingSection, ctx: RenderCtx): string { return renderHeader(s, ctx); }
+export function renderFooterHtml(s: LandingSection, ctx: RenderCtx): string { return renderFooter(s, ctx); }
+
 function renderHeader(s: LandingSection, ctx: RenderCtx): string {
   const nav = rowsOf(s, "nav").map((r) => `<a href="${escHtml(href(ctx, r.href ?? ""))}">${escHtml(r.label ?? "")}</a>`).join("");
   const phone = d(s, "phone");
@@ -73,7 +79,7 @@ function renderHeader(s: LandingSection, ctx: RenderCtx): string {
   const tel = phone ? `<a class="lp-tel" href="tel:${escHtml(phone.replace(/[^\d+]/g, ""))}">${escHtml(phone)}</a>` : "";
   const cta = btn(ctx, d(s, "ctaLabel"), d(s, "ctaUrl"), "primary", "lp-btn-sm");
   return `<header class="lp-top"><div class="lp-wrap lp-top-in">`
-    + `<a class="lp-brand" href="#top">${logo}<span>${escHtml(ctx.brand.name)}</span></a>`
+    + `<a class="lp-brand" href="${escHtml(ctx.homeHref ?? "#top")}">${logo}<span>${escHtml(ctx.brand.name)}</span></a>`
     + (nav ? `<nav class="lp-nav" aria-label="Menu">${nav}</nav>` : "")
     + `<div class="lp-top-r">${tel}${cta}</div>`
     + (nav ? `<details class="lp-menu"><summary aria-label="Mở menu">☰</summary><nav>${nav}</nav></details>` : "")
