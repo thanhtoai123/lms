@@ -20,6 +20,7 @@
     "db:migrate": "pnpm --filter @satarobo/db migrate",
     "db:seed": "pnpm --filter @satarobo/db seed",
   "db:seed-media": "pnpm --filter @satarobo/db seed-media",
+    "db:seed-landing": "pnpm --filter @satarobo/db seed-landing",
     "db:reset": "pnpm --filter @satarobo/db reset",
     "db:apply-sql": "pnpm --filter @satarobo/db apply-sql",
     "db:studio": "pnpm --filter @satarobo/db studio",

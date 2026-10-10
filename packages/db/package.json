@@ -18,6 +18,7 @@
     "studio": "drizzle-kit studio",
     "seed": "tsx src/seed.ts",
     "seed-media": "tsx src/seed-media.ts",
+    "seed-landing": "tsx src/seed-landing.ts",
     "reset": "tsx src/reset.ts",
     "apply-sql": "tsx src/apply-sql.ts",
     "test": "echo 'no tests in db'",
