@@ -72,4 +72,13 @@ thì khách chưa đăng nhập vào `/` sẽ thấy trang này.
 Nguyên tắc chữ: giữ thông tin thật của trang cũ (2 cơ sở, hotline, chương trình, học thử 1-1 = 45 phút kiểm tra đầu vào + 90 phút học, lớp ≤ 12 bé);
 bỏ phần lặp (20 thẻ phản hồi lặp 4 lần, hai danh sách chân trang) và chữ giữ chỗ (0+, ≤0, 0.000.000đ); không viết các khẳng định đang mâu thuẫn hoặc chưa có
 nguồn (độc quyền / duy nhất tại Đà Nẵng, tư vấn 24/7, ban tổ chức cuộc thi, hạn hoàn tiền Sata8). Số liệu 1000+ / 98% / 50+ / 4,9/5 giữ như trang cũ theo
-quyết định của chủ dự án — chủ dự án chịu trách nhiệm số đúng. Trang chủ KHÔNG nêu chính sách hoàn tiền. Phản hồi phụ huynh tắt cho tới khi có lời thật được phép đăng.
+quyết định của chủ dự án — chủ dự án chịu trách nhiệm số đúng. Trang chủ KHÔNG nêu chính sách hoàn tiền. Phản hồi phụ huynh tắt cho tới khi có lời thật được phép đăng — **đã đổi (10/10/2026)**: xem mục dưới.
+
+### Bố cục theo trang mẫu edtech.teky.edu.vn (10/10/2026)
+
+Thứ tự các phần học theo trang đích của Teky (15 phần, nhiều nút "Học thử miễn phí"): hero → 4 số liệu → vì sao chọn → khoá học → suất học thử → giá trị cho gia đình
+→ hành trang cho con → kêu gọi → lộ trình theo cấp lớp → cách bắt đầu → hệ sinh thái → phản hồi phụ huynh → đội ngũ giáo viên → học viên tiêu biểu → hỏi đáp → form.
+Chỉ học **cấu trúc**; không chép chữ và không chép khẳng định của Teky (số 1, chứng chỉ quốc tế, đại diện độc quyền, ưu đãi theo tuần…). Hệ thống chỉ có một form
+mỗi trang nên mọi nút "Học thử / Đăng ký" cuộn tới form cuối trang.
+Ba khối **phản hồi phụ huynh, đội ngũ giáo viên, học viên tiêu biểu** là chữ mẫu có "[DEMO]" (xuất bản sẽ có cảnh báo). Thay bằng nội dung thật, đã được đồng ý đăng.
+Nạp lại bản nháp bằng chữ mới: `pnpm db:seed-home --lam-moi` (chỉ khi trang chưa xuất bản).

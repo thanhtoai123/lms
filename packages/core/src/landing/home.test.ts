@@ -7,11 +7,41 @@ import { renderBody } from "./render.js";
 
 const doc = () => normalizeLanding(HOME_PAGE.build());
 
-test("trang chủ: đường dẫn hợp lệ, xuất bản được, không cảnh báo", () => {
+const DEMO_IDS = ["phan-hoi", "doi-ngu", "hoc-vien"];
+
+test("trang chủ: đường dẫn hợp lệ, xuất bản được, chỉ cảnh báo đúng 3 khối chữ mẫu", () => {
   assert.equal(validSlug(HOME_PAGE.slug), null);
   const r = validateLanding(doc(), { title: HOME_PAGE.title, slug: HOME_PAGE.slug });
   assert.deepEqual(r.errors, []);
-  assert.deepEqual(r.warnings.filter((w) => !/Phản hồi/i.test(w)), []);
+  assert.equal(r.warnings.length, DEMO_IDS.length);
+  assert.ok(r.warnings.every((w) => /\[DEMO\]/.test(w)));
+});
+
+test("trang chủ: theo thứ tự các phần của trang mẫu (hero → số liệu → … → hỏi đáp → form)", () => {
+  const ids = doc().sections.map((s) => s.id);
+  const order = ["hero", "stats", "features", "programs", "uu-dai", "gia-tri", "hanh-trang", "ket-luan", "lo-trinh", "steps", "he-sinh-thai", "phan-hoi", "doi-ngu", "hoc-vien", "faq", "form"];
+  assert.deepEqual(ids.filter((i) => order.includes(i)), order);
+  assert.equal(ids[0], "header");
+  assert.equal(ids[ids.length - 1], "footer");
+});
+
+test("trang chủ: chữ [DEMO] chỉ nằm ở 3 khối chưa có dữ liệu thật; các khối còn lại là chữ thật", () => {
+  for (const s of doc().sections) {
+    const has = /\[demo\]/i.test(JSON.stringify(s));
+    assert.equal(has, DEMO_IDS.includes(s.id), s.id);
+    if (DEMO_IDS.includes(s.id)) assert.ok(s.enabled, s.id);
+  }
+});
+
+test("trang chủ: mọi nút kêu gọi đều dẫn tới form cuối trang hoặc gọi điện (chỉ một form mỗi trang)", () => {
+  const urls: string[] = [];
+  for (const s of doc().sections) {
+    for (const k of ["primaryUrl", "secondaryUrl", "ctaUrl"]) if (s.data[k]) urls.push(s.data[k]!);
+    for (const rows of Object.values(s.lists)) for (const r of rows) if (r.url) urls.push(r.url);
+  }
+  assert.ok(urls.length >= 8);
+  assert.ok(urls.every((u) => u === "#dang-ky" || u.startsWith("tel:")), urls.join(" "));
+  assert.equal(doc().sections.filter((s) => s.type === "form").length, 1);
 });
 
 test("trang chủ: chuẩn hoá không làm mất chữ (không bị cắt vì quá giới hạn)", () => {
