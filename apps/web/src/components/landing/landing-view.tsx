@@ -22,7 +22,7 @@ export function LandingView({ doc, variant, slug, brand, utm, preview }: {
   const parts = renderParts(doc, { slug, variant, mode: "page", brand: { name: brand.name, logoUrl: brand.logoUrl, palette } });
   const hasForm = parts.some((p) => p.kind === "form");
   return (
-    <div className={rootClass(variant)} style={palette as React.CSSProperties}>
+    <div className={rootClass(variant)} style={palette as unknown as React.CSSProperties}>
       <style dangerouslySetInnerHTML={{ __html: landingCss() }} />
       {parts.map((p, i) =>
         p.kind === "html"

@@ -1,4 +1,4 @@
-import { and, desc, eq, ne, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, ne, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { landingPages, landingPageHistory, users, type Database } from "@satarobo/db";
 import {
@@ -77,7 +77,7 @@ export async function listLandingPages(ctx: ProtectedContext, input: { archived?
     group by path`)) as unknown as Cnt[];
   const leadRows = (await ctx.db.execute(sql`
     select substring(l.landing_page from '/lp/([a-z0-9-]+)') as k, count(*)::int as n from leads l
-    where l.landing_page ~ '/lp/[a-z0-9-]+' and l.created_at > now() - interval '30 days' and ${tenantSql(ctx, "l") as SQL}
+    where l.landing_page ~ '/lp/[a-z0-9-]+' and l.created_at > now() - interval '30 days' and ${tenantSql(ctx, "l")}
     group by 1`)) as unknown as Cnt[];
   const v = new Map(views.map((x) => [x.k, x.n]));
   const ld = new Map(leadRows.map((x) => [x.k, x.n]));

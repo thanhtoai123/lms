@@ -20,7 +20,7 @@ export interface ModuleDef {
 }
 
 export const MODULES: readonly ModuleDef[] = [
-  { key: "marketing", label: "Website & marketing", desc: "Tin tức, nội dung website, theo dõi nguồn khách (tracking, funnel).", defaultOn: false, ownerRoles: ["HO_MARKETING"] },
+  { key: "marketing", label: "Marketing (theo dõi nguồn khách)", desc: "Tracking, funnel theo chiến dịch. Landing page và tin tức website luôn hiện.", defaultOn: false, ownerRoles: ["HO_MARKETING"] },
   { key: "franchise", label: "Nhượng quyền", desc: "Quản lý đối tác nhượng quyền (nhiều pháp nhân). Một pháp nhân duy nhất thì không cần.", defaultOn: false },
   { key: "recruitment", label: "Tuyển dụng", desc: "Tin tuyển dụng, ứng viên, phỏng vấn.", defaultOn: false },
   { key: "satacoin", label: "SataCoin", desc: "Sổ xu thưởng cho học viên. Bật khi trung tâm chạy chương trình thưởng.", defaultOn: false },

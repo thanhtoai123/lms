@@ -24,8 +24,8 @@ test("module tắt: ẩn mục, chip và nhóm rỗng; bật lại thì đủ nh
   const full = filterMenu(ADMIN_MENU, allow);
   const off = applyModules(full, normalizeModules(undefined), ["SUPER_ADMIN"]);
   const hrefs = allMenuHrefs(off);
-  for (const h of ["/satacoin", "/jobs", "/nhuong-quyen", "/marketing", "/news", "/go-live"]) assert.ok(!hrefs.includes(h), h);
-  assert.ok(!off.some((g) => g.key === "web"), "nhóm Website & marketing rỗng phải bỏ");
+  for (const h of ["/satacoin", "/jobs", "/nhuong-quyen", "/marketing", "/go-live"]) assert.ok(!hrefs.includes(h), h);
+  for (const h of ["/landing", "/news"]) assert.ok(hrefs.includes(h), `${h} luôn hiện dù tắt Marketing`);
   assert.ok(hrefs.includes("/to-chuc"), "Cây tổ chức còn dù tắt Nhượng quyền");
   const on = applyModules(full, Object.fromEntries(MODULES.map((m) => [m.key, true])), ["SUPER_ADMIN"]);
   assert.deepEqual(allMenuHrefs(on), allMenuHrefs(full));

@@ -174,3 +174,13 @@ test("CSS và biến màu", () => {
   const st = paletteStyle({ "--primary": "#610b8a", "--bad key": "x", "--x": "red;background:url(javascript:1)" });
   assert.ok(st.includes("--primary:#610b8a") && !st.includes("bad key") && !st.includes(";background"));
 });
+
+test("nền xen kẽ theo thứ tự hiển thị (không dựa vào CSS nth-of-type)", () => {
+  const doc = normalizeLanding(landingTemplateByKey("phu-huynh-tin-cay")!.build());
+  const html = renderBody(doc, ctx());
+  const secs = [...html.matchAll(/<section class="(lp-sec[^"]*)"/g)].map((m) => m[1]!);
+  const content = secs.filter((c) => !/lp-hero|lp-cta/.test(c));
+  assert.ok(content.length >= 4);
+  content.forEach((c, i) => assert.equal(c.includes("lp-alt"), i % 2 === 1, `khối nội dung #${i}: ${c}`));
+  assert.ok(!landingCss().includes("nth-of-type"));
+});
