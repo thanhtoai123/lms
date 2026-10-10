@@ -17,7 +17,7 @@ import { careRouter } from "./routers/care";
 import { adminRouter } from "./routers/admin";
 import { inventoryRouter, coinRouter } from "./routers/inventory";
 import { contentRouter } from "./routers/content";
-import { siteRouter, marketingRouter, complianceRouter } from "./routers/growth";
+import { siteRouter, landingRouter, marketingRouter, complianceRouter } from "./routers/growth";
 import { recruitRouter, messagingRouter, affiliateRouter } from "./routers/outreach";
 import { invoiceRouter, cardRouter } from "./routers/billing";
 import { migrationRouter, cutoverRouter, deliveryRouter, pilotRouter, readinessRouter, opsConfigRouter } from "./routers/golive";
@@ -54,6 +54,7 @@ export const appRouter = router({
   coin: coinRouter,
   content: contentRouter,
   site: siteRouter,
+  landing: landingRouter,
   marketing: marketingRouter,
   compliance: complianceRouter,
   recruit: recruitRouter,
@@ -97,6 +98,7 @@ export { uploadPlan, sweepStuckPlanVersions, planFileStream } from "./services/l
 export { publicHomework, submitPublicHomework, staffSubmit, remindDueHomework } from "./services/assignments";
 export { publicPosts, publicPost, publicSite, publicTrackingConfig, recordTrack, uploadSiteMedia, publishDuePosts, SITE_MEDIA_MAX } from "./services/growth";
 export { retentionSweep } from "./services/compliance";
+export { publicLanding } from "./services/landing";
 export { getBrand, publicBrand, readBrandLogo, uploadBrandLogo } from "./services/brand";
 export { publicJobs, publicJob, applyToJob, candidateRetention, CV_MAX_BYTES } from "./services/recruit";
 export { portalThread, portalPost, ingestExternal, ingestExternalOutbound, parseMessengerPayload, parseZaloPayload, metaSignatureOk, zaloSignatureOk } from "./services/messaging";

@@ -95,5 +95,8 @@ export * from "./security/urlCongNoi.js";
 export * from "./reliability/retry.js";
 export * from "./nav/menu.js";
 export * from "./nav/modules.js";
+export * from "./landing/model.js";
+export * from "./landing/templates.js";
+export * from "./landing/render.js";
 export * from "./nav/giaoVien.js";
 export * from "./nav/moTa.js";

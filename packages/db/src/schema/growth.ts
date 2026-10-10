@@ -53,6 +53,45 @@ export const siteBlockHistory = pgTable("site_block_history", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [uniqueIndex("site_block_history_uq").on(t.page, t.version)]);
 
+/**
+ * Landing page theo khối (docs/LANDING-PAGE.md). `draft` = bản đang soạn; `published` = ảnh chụp lúc xuất bản
+ * ({ title, variant, seoTitle, seoDescription, seoImage, doc }) — trang công khai chỉ đọc `published`, nên sửa nháp
+ * không làm đổi trang đang chạy cho tới khi bấm Xuất bản. Nội dung là chữ / ảnh / liên kết đã kiểm (core/landing).
+ */
+export const landingPages = pgTable("landing_pages", {
+  id: id(),
+  slug: text("slug").notNull().unique(),
+  title: text("title").notNull(),
+  /** Mẫu dùng để khởi tạo (chỉ để biết nguồn gốc) */
+  template: text("template").notNull().default("phu-huynh-tin-cay"),
+  variant: text("variant").notNull().default("classic"),
+  seoTitle: text("seo_title"),
+  seoDescription: text("seo_description"),
+  seoImage: text("seo_image"),
+  draft: jsonb("draft").$type<unknown>().notNull(),
+  published: jsonb("published").$type<unknown>(),
+  /** draft = chưa / không còn công khai · published = đang công khai · archived = ẩn khỏi danh sách */
+  status: text("status").notNull().default("draft"),
+  /** Tăng mỗi lần lưu nháp — chống ghi đè khi hai người cùng sửa */
+  version: integer("version").notNull().default(1),
+  /** Số lần đã xuất bản (= số phiên bản trong lịch sử) */
+  publishedVersion: integer("published_version").notNull().default(0),
+  publishedAt: timestamp("published_at", { withTimezone: true }),
+  createdBy: uuid("created_by").references(() => users.id),
+  updatedBy: uuid("updated_by").references(() => users.id),
+  ...timestamps,
+}, (t) => [index("landing_pages_status_idx").on(t.status)]);
+
+/** Mỗi lần xuất bản giữ một bản để xem lại / khôi phục vào nháp */
+export const landingPageHistory = pgTable("landing_page_history", {
+  id: id(),
+  pageId: uuid("page_id").notNull().references(() => landingPages.id, { onDelete: "cascade" }),
+  version: integer("version").notNull(),
+  snapshot: jsonb("snapshot").$type<unknown>().notNull(),
+  createdBy: uuid("created_by").references(() => users.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [uniqueIndex("landing_page_history_uq").on(t.pageId, t.version)]);
+
 /** Ảnh công khai của website */
 export const siteMedia = pgTable("site_media", {
   id: id(),

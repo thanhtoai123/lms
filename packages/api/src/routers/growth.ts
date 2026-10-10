@@ -3,6 +3,7 @@ import { POST_STATUSES, POST_CATEGORIES, CHANNELS, DSR_TYPES, DSR_STATUSES, SUBJ
 import { router, protectedProcedure } from "../trpc";
 import * as G from "../services/growth";
 import * as C from "../services/compliance";
+import * as L from "../services/landing";
 
 const uuid = z.string().uuid();
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -20,6 +21,24 @@ export const siteRouter = router({
   saveBlock: protectedProcedure.input(z.object({ page: z.enum(SITE_PAGE_KEYS as [string, ...string[]]), data: z.record(z.string(), s(10_000)), version: z.number().int().min(0) })).mutation(({ ctx, input }) => G.saveSiteBlock(ctx, input)),
   restoreBlock: protectedProcedure.input(z.object({ page: z.enum(SITE_PAGE_KEYS as [string, ...string[]]), version: z.number().int().min(1) })).mutation(({ ctx, input }) => G.restoreSiteBlock(ctx, input)),
   media: protectedProcedure.query(({ ctx }) => G.listSiteMedia(ctx)),
+});
+
+/** Landing page theo khối (docs/LANDING-PAGE.md) */
+export const landingRouter = router({
+  templates: protectedProcedure.query(({ ctx }) => L.landingTemplates(ctx)),
+  list: protectedProcedure.input(z.object({ archived: z.boolean().optional() }).default({})).query(({ ctx, input }) => L.listLandingPages(ctx, input)),
+  get: protectedProcedure.input(z.object({ id: uuid })).query(({ ctx, input }) => L.getLandingPage(ctx, input.id)),
+  create: protectedProcedure.input(z.object({ title: s(150), slug: s(60), templateKey: s(60) })).mutation(({ ctx, input }) => L.createLandingPage(ctx, input)),
+  saveDraft: protectedProcedure
+    .input(z.object({ id: uuid, version: z.number().int().min(1), title: s(150), slug: s(60).optional(), variant: s(20), seoTitle: s(70).optional(), seoDescription: s(170).optional(), seoImage: s(500).optional(), doc: z.unknown() }))
+    .mutation(({ ctx, input }) => L.saveLandingDraft(ctx, input)),
+  publish: protectedProcedure.input(z.object({ id: uuid })).mutation(({ ctx, input }) => L.publishLandingPage(ctx, input)),
+  unpublish: protectedProcedure.input(z.object({ id: uuid })).mutation(({ ctx, input }) => L.unpublishLandingPage(ctx, input)),
+  archive: protectedProcedure.input(z.object({ id: uuid, archived: z.boolean() })).mutation(({ ctx, input }) => L.archiveLandingPage(ctx, input)),
+  duplicate: protectedProcedure.input(z.object({ id: uuid, title: s(150), slug: s(60) })).mutation(({ ctx, input }) => L.duplicateLandingPage(ctx, input)),
+  restore: protectedProcedure.input(z.object({ id: uuid, version: z.number().int().min(1) })).mutation(({ ctx, input }) => L.restoreLandingVersion(ctx, input)),
+  /** Bản đang công khai, để route tải tệp HTML dựng file */
+  exportData: protectedProcedure.input(z.object({ id: uuid })).query(({ ctx, input }) => L.landingForExport(ctx, input.id)),
 });
 
 export const marketingRouter = router({
