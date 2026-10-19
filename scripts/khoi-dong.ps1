@@ -1,5 +1,5 @@
 ﻿<#
-  Khoi dong toan bo he thong Sata Robo tren may phat trien — mot lenh duy nhat.
+  Khoi dong toan bo he thong TH STEAM Academy tren may phat trien — mot lenh duy nhat.
 
   Cach dung:   pnpm khoi-dong
   Hoac:        powershell -ExecutionPolicy Bypass -File .\scripts\khoi-dong.ps1
@@ -59,7 +59,7 @@ Write-Host 'Tien trinh da dung. Xem $f' -ForegroundColor Red
   Set-Content -Path (Join-Path $LogDir (($tieuDe -replace '[^A-Za-z]', '') + ".pid")) -Value $pr.Id -Encoding ASCII
 }
 
-Noi "== Khoi dong he thong Sata Robo ==" "Cyan"
+Noi "== Khoi dong he thong TH STEAM Academy ==" "Cyan"
 Noi ("Thu muc: " + $R)
 
 # --- 1. Docker ---------------------------------------------------------------
@@ -111,8 +111,9 @@ if ($dangChay) {
 } else {
   Noi "Dang khoi dong may chu web..." "Yellow"
   # Cua so cu cua lan truoc (tien trinh node da chet nhung cua so cmd con mo) -> dong di cho gon
-  DongCuaSoCu "Sata Robo dev server"
-  MoCuaSoGhiLog "Sata Robo dev server" "pnpm --filter @satarobo/web dev" "web.log" "--max-old-space-size=3072"
+  DongCuaSoCu "Sata Robo dev server"   # ten cua so cu truoc khi doi thuong hieu
+  DongCuaSoCu "TH STEAM dev server"
+  MoCuaSoGhiLog "TH STEAM dev server" "pnpm --filter @satarobo/web dev" "web.log" "--max-old-space-size=3072"
   for ($i = 0; $i -lt 48; $i++) {
     Start-Sleep -Seconds 5
     try { $x = Invoke-WebRequest ($BaseUrl + "/login") -UseBasicParsing -TimeoutSec 8; if ($x.StatusCode -eq 200) { $dangChay = $true; break } } catch { }
@@ -131,11 +132,12 @@ if ($coWorker) {
   Noi "Worker viec nen: da chay san" "Green"
 } else {
   DongCuaSoCu "Sata Robo worker"
-  MoCuaSoGhiLog "Sata Robo worker" "pnpm worker" "worker.log" "--max-old-space-size=768"
+  DongCuaSoCu "TH STEAM worker"
+  MoCuaSoGhiLog "TH STEAM worker" "pnpm worker" "worker.log" "--max-old-space-size=768"
   # Worker chet ngay khi vua len (thieu bien moi truong, loi ket noi...) thi bao luon, dung de im lang
   Start-Sleep -Seconds 12
   $conSong = @(Get-CimInstance Win32_Process -Filter "Name='node.exe'" -ErrorAction SilentlyContinue | Where-Object { $_.CommandLine -like "*worker.ts*" }).Count -gt 0
-  if ($conSong) { Noi "Worker viec nen: da khoi dong (cua so 'Sata Robo worker', nhat ky logs\worker.log)" "Green" }
+  if ($conSong) { Noi "Worker viec nen: da khoi dong (cua so 'TH STEAM worker', nhat ky logs\worker.log)" "Green" }
   else { Noi "Worker viec nen KHONG chay duoc — xem logs\worker.log" "Red" }
 }
 
@@ -145,6 +147,6 @@ Noi "Tai khoan mau (khong can mat khau, chi o che do phat trien):" "Gray"
 Noi "  superadmin@example.test      Quan tri toi cao" "Gray"
 Noi "  manager.cs1@example.test     Quan ly co so 1" "Gray"
 Noi "  giamdoc@satarobo-hue.test    Giam doc trung tam nhuong quyen" "Gray"
-Noi "Tat he thong: dong 2 cua so 'Sata Robo dev server' va 'Sata Robo worker'; 'docker compose stop' neu muon tat CSDL." "Gray"
+Noi "Tat he thong: dong 2 cua so 'TH STEAM dev server' va 'TH STEAM worker'; 'docker compose stop' neu muon tat CSDL." "Gray"
 
 if (-not $KhongMoTrinhDuyet) { Start-Process ($BaseUrl + "/login") }

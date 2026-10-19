@@ -220,7 +220,7 @@ function PathDrawer({ value, options, onClose, onSaved }: { value: FormState; op
             className="input min-h-20"
             value={v.criteriaText}
             maxLength={600}
-            placeholder="Ví dụ: Hoàn thành 2 khoá bắt buộc Sata1 và Sata4, chuyên cần từ 80%, hoàn thành dự án cuối khoá."
+            placeholder="Ví dụ: Hoàn thành 2 năm học bắt buộc ROBO-TH-N1 và ROBO-TH-N2, báo cáo đủ 6 học phần."
             onChange={(e) => setV({ ...v, criteriaText: e.target.value })}
           />
           <span className="mt-0.5 block text-right text-[11px] text-muted-foreground">{v.criteriaText.length}/600</span>

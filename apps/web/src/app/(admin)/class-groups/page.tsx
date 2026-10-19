@@ -16,7 +16,7 @@ export default async function ClassGroupsPage({ searchParams }: { searchParams: 
     <div className="space-y-4">
       <PageHeader
         title="Nhóm lớp"
-        desc="Gom nhiều lớp thành một nhóm (khối) để lọc và báo cáo — ví dụ “Sata4 hè 2026 CS1”. Nhóm không gắn cơ sở dùng chung toàn hệ thống. Chọn nhóm cho từng lớp ở trang chi tiết lớp; nhóm còn lớp thì không xoá được."
+        desc="Gom nhiều lớp thành một nhóm (khối) để lọc và báo cáo — ví dụ “ROBO-TH-N1 khai giảng 11/2026”. Nhóm không gắn cơ sở dùng chung toàn hệ thống. Chọn nhóm cho từng lớp ở trang chi tiết lớp; nhóm còn lớp thì không xoá được."
       />
       <form className="flex gap-2">
         <select name="center" defaultValue={sp.center ?? ""} className="input max-w-[260px]">
