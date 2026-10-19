@@ -15,7 +15,7 @@ export default async function CriteriaPage() {
     <div className="space-y-4">
       <PageHeader
         title="Tiêu chí theo chương trình"
-        desc="Mỗi chương trình (khoá) có bộ tiêu chí đánh giá riêng, 4 mức có mô tả hành vi. Giáo viên chấm từng buổi theo bộ này và học bạ mốc tự tổng hợp từ đó. Sửa ở đây chỉ áp cho phiếu mới — phiếu đã phát hành giữ nguyên."
+        desc="Mỗi chương trình (khoá) có bộ tiêu chí đánh giá riêng, 3 mức Cần cố gắng · Đạt · Tốt có mô tả hành vi (chuẩn TH STEAM: 6 năng lực + 3 phẩm chất). Giáo viên chấm từng buổi theo bộ này và học bạ mốc tự tổng hợp từ đó. Sửa ở đây chỉ áp cho phiếu mới — phiếu đã phát hành giữ nguyên."
         actions={<Link href="/ho-so-hoc-tap?xem=hoc-ba-moc" className="btn-ghost">← Học bạ mốc</Link>}
       />
       {none > 0 && (

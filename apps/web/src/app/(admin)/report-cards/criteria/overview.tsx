@@ -38,7 +38,7 @@ export function CourseCriteriaCard({ course: c, allCourses, canEdit, canSetNext 
           </div>
           <p className="text-xs text-ink-600">
             {c.groups.length > 0 ? `${c.groups.length} nhóm: ${c.groups.join(" · ")}. ` : ""}
-            {c.customLevels}/{c.activeCount} tiêu chí có mô tả 4 mức riêng{c.pausedCount ? ` · ${c.pausedCount} ngưng dùng` : ""}.
+            {c.customLevels}/{c.activeCount} tiêu chí có mô tả 3 mức riêng{c.pausedCount ? ` · ${c.pausedCount} ngưng dùng` : ""}.
           </p>
           {needsLevels && <p className="text-xs text-amber-900">Tiêu chí chưa có mô tả mức đang dùng mô tả mặc định theo tên — nên viết mô tả riêng để giáo viên chấm nhất quán.</p>}
         </div>
@@ -50,7 +50,7 @@ export function CourseCriteriaCard({ course: c, allCourses, canEdit, canSetNext 
         <span className="text-xs text-ink-400">{c.sheetsPublished > 0 ? `${c.sheetsPublished} phiếu buổi đã phát hành` : "Chưa có phiếu buổi"}</span>
         <CriteriaButton variant="button" courseId={c.id} courseLabel={`${c.code} — ${c.name}`} />
       </div>
-      {!canEdit && configured && <p className="text-[11px] text-ink-400">Mở để xem mô tả 4 mức của từng tiêu chí.</p>}
+      {!canEdit && configured && <p className="text-[11px] text-ink-400">Mở để xem mô tả 3 mức (Cần cố gắng · Đạt · Tốt) của từng tiêu chí.</p>}
 
       <div className="flex flex-wrap items-center gap-2 border-t border-black/5 pt-3 text-sm">
         <span className="whitespace-nowrap text-ink-600">Khoá tiếp theo gợi ý:</span>

@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
-import { averageScore, scoreLabel, TREND_VI, type ReportCardStatus, type MilestoneAggregate } from "@satarobo/core";
+import { averageScore, scoreLabel, TREND_VI, RUBRIC_SCALE, type ReportCardStatus, type MilestoneAggregate } from "@satarobo/core";
 import { useTRPC } from "@/lib/trpc/client";
 import { ErrorBox, OkBox } from "@/components/admin-ui";
 
@@ -55,7 +55,7 @@ export function ReportCardEditor({
         <section className="card space-y-2 p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="font-bold">Tổng hợp từ phiếu nhận xét buổi <span className="text-sm font-normal text-ink-400">(buổi {aggregate.period.fromSeq}–{aggregate.period.toSeq})</span></h2>
-            {editable && scale === 4 && Object.keys(prefill).length > 0 && <button type="button" className="btn-ghost !py-1 text-xs" onClick={applyPrefill}>Điền lại theo phiếu buổi</button>}
+            {editable && scale === RUBRIC_SCALE && Object.keys(prefill).length > 0 && <button type="button" className="btn-ghost !py-1 text-xs" onClick={applyPrefill}>Điền lại theo phiếu buổi</button>}
           </div>
           <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
             <div className="rounded-lg bg-brand-50 p-2"><div className="text-[11px] text-ink-600">Phiếu buổi</div><b>{aggregate.sessions}</b></div>
@@ -65,7 +65,7 @@ export function ReportCardEditor({
           </div>
           {aggregate.topHighlights.length > 0 && <p className="text-xs text-ink-600">Nổi bật: {aggregate.topHighlights.map((h) => `${h.label} (${h.count})`).join(", ")}</p>}
           {aggregate.sessions === 0 && <p className="text-xs text-amber-800">Chưa có phiếu nhận xét buổi nào được phát hành trong giai đoạn này — chấm tay như trước.</p>}
-          {scale === 5 && <p className="text-xs text-ink-600">Học bạ này tạo trước khi có phiếu buổi nên giữ thang 5 mức; số liệu trên chỉ để tham khảo.</p>}
+          {scale !== RUBRIC_SCALE && <p className="text-xs text-ink-600">Học bạ này tạo trước khi đổi sang thang {RUBRIC_SCALE} mức nên giữ thang {scale} mức; số liệu phiếu buổi trên chỉ để tham khảo.</p>}
           {(suggestedComment || aggregate.remarkSuggestions.length > 0) && editable && (
             <div className="space-y-1 rounded-lg border border-dashed border-brand-300 p-2 text-xs">
               <div className="font-semibold text-ink-600">Gợi ý nhận xét (chạm để chèn vào nhận xét chung)</div>
