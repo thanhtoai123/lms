@@ -39,7 +39,7 @@ const asDb = (d: unknown) => d as Db;
 const appUrl = () => (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
 const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null);
 /** Nền dựng sẵn khi trung tâm chưa có mẫu nào */
-const BUILTIN_BG = "builtin/sata-mac-dinh.svg";
+const BUILTIN_BG = "builtin/th-steam-mac-dinh.svg";
 const OPEN_ENROLLMENT = ["trial", "active", "paused"];
 
 /* ------------------------------------------------------------------ */
@@ -93,7 +93,7 @@ export type CertificateTemplateView = ReturnType<typeof templateView>;
 /** Mẫu ảo khi trung tâm chưa có mẫu nào (không lưu) */
 function virtualTemplate(): CertificateTemplateView {
   return {
-    id: "", name: "Mẫu mặc định Sata Robo (A4 ngang)", orientation: "landscape", backgroundKey: BUILTIN_BG, backgroundUrl: backgroundUrlOf(BUILTIN_BG),
+    id: "", name: "Mẫu mặc định TH STEAM Academy (A4 ngang)", orientation: "landscape", backgroundKey: BUILTIN_BG, backgroundUrl: backgroundUrlOf(BUILTIN_BG),
     widthPx: 3508, heightPx: 2480, fields: defaultTemplateFields("landscape"), isDefault: true, isActive: true, updatedAt: null,
   };
 }
@@ -447,10 +447,10 @@ function newVerifyToken(): string {
 }
 
 async function issuerNameOf(db: Db, tenantId: string | null): Promise<string> {
-  if (!tenantId) return "Sata Robo";
+  if (!tenantId) return "TH STEAM Academy";
   const [t] = await db.select({ name: tenants.name, legalName: tenants.legalName, isDefault: tenants.isDefault }).from(tenants).where(eq(tenants.id, tenantId)).limit(1);
-  if (!t) return "Sata Robo";
-  return t.legalName?.trim() || (t.isDefault ? "Sata Robo" : t.name);
+  if (!t) return "TH STEAM Academy";
+  return t.legalName?.trim() || (t.isDefault ? "TH STEAM Academy" : t.name);
 }
 
 /** Sinh số chứng nhận tiếp theo cho (cơ sở, năm) — gọi TRONG transaction, có khoá tư vấn chống trùng */
@@ -516,7 +516,7 @@ export async function issuePathCertificates(ctx: ProtectedContext, input: { path
         achievement: { name: p.name, description: p.description, criteriaText: p.criteriaText },
         courses: t.courses.filter((c) => c.state === "completed").map((c) => ({ code: c.code, name: c.name })),
         issuedAt: now, grade: avg === null || !Number.isFinite(avg) ? null : gradeFromAverage(avg),
-        center: { name: center?.name ?? "Sata Robo", address: center?.address ?? null, phone: center?.phone ?? null },
+        center: { name: center?.name ?? "TH STEAM Academy", address: center?.address ?? null, phone: center?.phone ?? null },
         issuerName, template: { fields },
       });
       const [row] = await tx.insert(certificates).values({

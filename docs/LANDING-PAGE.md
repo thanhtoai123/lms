@@ -63,7 +63,15 @@ Màu lấy tự động từ **Cài đặt hệ thống → Nhận diện thươ
 - Thử nghiệm A/B hai phiên bản; xem trước trước khi xuất bản bằng liên kết riêng.
 - Xuất ZIP kèm ảnh (hiện tệp HTML trỏ ảnh về hệ thống).
 
-## Trang chủ người dùng (bản chữ "kaizen")
+## Trang chủ TH STEAM Academy (19/10/2026)
+
+Trang chủ viết lại cho TH STEAM Academy (`HOME_PAGE`, `template = "trang-chu-thsteam"`), giữ bố cục theo trang mẫu Teky nhưng toàn bộ chữ lấy từ
+danh mục chương trình chuẩn và bộ nhận diện: 4 chuyên ngành, học online qua ClassIn, lớp 6–8 học sinh, buổi 90 phút, 6 năng lực + 3 phẩm chất,
+buổi báo cáo mỗi 15 buổi, giảng viên Thầy Phan Thành Toại, 4 bước đăng ký, hỏi đáp theo điều khoản đăng ký học. Không có số liệu thành tích, không
+ghi "miễn phí", không nêu học phí; phản hồi phụ huynh tắt. Nút chính màu Cosmic Gold chữ navy theo bộ nhận diện. Nạp / xuất bản: `pnpm db:seed-thsteam`.
+Các mục dưới đây là lịch sử bản Sata Robo trước đó.
+
+## Trang chủ người dùng (bản chữ "kaizen" — Sata Robo, đã thay)
 
 Nội dung trang chủ nằm ở `packages/core/src/landing/home.ts` (`HOME_PAGE`), dựa trên satarobo.vn. Tạo bản nháp bằng `pnpm db:seed-home`
 (chỉ tạo NHÁP đường dẫn `trang-chu`, không xuất bản, không ghi đè nếu đã có). Quản trị vào Website → Landing page → xem trước, sửa chữ, **Xuất bản**

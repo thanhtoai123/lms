@@ -3,7 +3,7 @@ import { publicInvoiceLookup } from "@satarobo/api";
 import { PublicShell } from "@/components/public-shell";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Tra cứu hoá đơn — Sata Robo", robots: { index: false } };
+export const metadata = { title: "Tra cứu hoá đơn — TH STEAM Academy", robots: { index: false } };
 const vnd = (n: number) => `${Math.round(n).toLocaleString("vi-VN")}đ`;
 
 export default async function LookupPage({ searchParams }: { searchParams: Promise<{ ma?: string }> }) {

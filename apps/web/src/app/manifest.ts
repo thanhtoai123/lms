@@ -8,10 +8,10 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
     short_name: b.name,
     start_url: "/teacher",
     display: "standalone",
-    background_color: "#fafaf8",
+    background_color: "#ffffff",
     theme_color: b.primary,
     icons: b.hasLogo
       ? [{ src: b.logoUrl, sizes: "any", purpose: "any" }]
-      : [{ src: "/icon.svg", sizes: "any", type: "image/svg+xml" }],
+      : [{ src: "/thsteam/app-icon.svg", sizes: "any", type: "image/svg+xml" }],
   };
 }

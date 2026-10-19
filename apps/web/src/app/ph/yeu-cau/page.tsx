@@ -9,7 +9,7 @@ import { CancelRequestButton } from "@/components/ph/actions";
 import { AskForm } from "../tin-nhan/client";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Yêu cầu của tôi — Sata Robo", robots: { index: false } };
+export const metadata = { title: "Yêu cầu của tôi — TH STEAM Academy", robots: { index: false } };
 
 const STATUS_STYLE: Record<string, string> = {
   new: "bg-primary-soft text-primary",

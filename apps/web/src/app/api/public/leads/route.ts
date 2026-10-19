@@ -9,7 +9,7 @@ import { sharedRateLimited } from "@/lib/route-ctx";
  * Bảo vệ: honeypot field `website`, rate-limit theo IP dùng chung mọi bản sao (bảng rate_limits), CORS chỉ domain cho phép.
  */
 
-const ALLOWED_ORIGINS = (process.env.PUBLIC_FORM_ORIGINS ?? "https://satarobo.vn,http://localhost:3000").split(",").map((s) => s.trim());
+const ALLOWED_ORIGINS = (process.env.PUBLIC_FORM_ORIGINS ?? "https://thsteam.edu.vn,https://www.thsteam.edu.vn,http://localhost:3000").split(",").map((s) => s.trim());
 
 function cors(origin: string | null) {
   const ok = origin && ALLOWED_ORIGINS.includes(origin);

@@ -2,7 +2,8 @@
  * HỌC BẠ MỐC TỰ TỔNG HỢP từ các phiếu buổi đã phát hành (đánh giá hình thành → tổng kết).
  *
  * Phiếu buổi là dữ liệu gốc. Khi mở học bạ mốc (vd buổi 5, buổi 12), hệ thống tính sẵn:
- *  - điểm từng tiêu chí = trung bình các phiếu buổi trong giai đoạn (từ sau mốc trước đến mốc này),
+ *  - điểm từng tiêu chí = trung bình các phiếu buổi trong giai đoạn (từ sau mốc trước đến mốc này) — điểm đã QUY VỀ
+ *    thang hiện hành (`snapshotScoresOnScale`) để trộn được phiếu cũ thang 4 với phiếu thang 3,
  *    làm tròn 1 chữ số; tiêu chí không có dữ liệu thì bỏ qua;
  *  - xu hướng so với giai đoạn trước: tăng / giữ / giảm với ngưỡng ±0,3;
  *  - chuyên cần, tỷ lệ đạt mục tiêu bài, thẻ nổi bật xuất hiện nhiều nhất, gợi ý nhận xét.
@@ -11,6 +12,8 @@
 import { RUBRIC_SCALE, LEGACY_SCORE_SCALE, type ObjectiveResult } from "./rubric.js";
 
 export const TREND_THRESHOLD = 0.3;
+/** Ngưỡng "cần luyện thêm" của điểm trung bình trên thang hiện hành */
+export const LOW_AVERAGE = RUBRIC_SCALE === 3 ? 1.8 : 2.5;
 export type Trend = "up" | "flat" | "down";
 export const TREND_VI: Record<Trend, string> = { up: "Tiến bộ", flat: "Ổn định", down: "Cần chú ý" };
 
@@ -34,7 +37,7 @@ export function trendOf(current: number | null | undefined, previous: number | n
   return "flat";
 }
 
-/** Quy điểm về thang 5 để trộn học bạ cũ (thang 5) với học bạ mới (thang 4) khi tính xếp loại cuối khoá */
+/** Quy điểm về thang 5 để trộn học bạ cũ (thang 5), học bạ thang 4 và học bạ thang 3 khi tính xếp loại cuối khoá */
 export function normalizeTo5(score: number, scale: number = RUBRIC_SCALE): number {
   if (scale === LEGACY_SCORE_SCALE || scale <= 1) return score;
   return round1(1 + ((score - 1) * (LEGACY_SCORE_SCALE - 1)) / (scale - 1));
@@ -57,6 +60,7 @@ export function milestonePeriod(milestones: readonly number[], seq: number): { f
 export interface EvalForAggregate {
   date: string;
   sequenceNo: number;
+  /** Điểm theo tiêu chí, ĐÃ quy về thang hiện hành (dùng `snapshotScoresOnScale`) */
   scores: Record<string, number | null | undefined>;
   objectiveResult: ObjectiveResult | null;
   highlights: readonly string[];
@@ -194,7 +198,8 @@ export function suggestMilestoneComment(a: MilestoneAggregate, studentName?: str
   if (a.topHighlights.length) parts.push(`Điểm nổi bật: ${a.topHighlights.map((h) => h.label.toLowerCase()).join(", ")}.`);
   const ups = a.criteria.filter((c) => c.trend === "up").map((c) => c.label);
   if (ups.length) parts.push(`Tiến bộ rõ ở ${ups.join(", ")}.`);
-  const low = a.criteria.filter((c) => c.average != null && c.average < 2.5).map((c) => c.label);
+  // Dưới mức "Đạt" của thang hiện hành (thang 3: trung bình < 1,8 — phần lớn các buổi ở mức Cần cố gắng)
+  const low = a.criteria.filter((c) => c.average != null && c.average < LOW_AVERAGE).map((c) => c.label);
   if (low.length) parts.push(`Cần luyện thêm: ${low.join(", ")}.`);
   const text = parts.join(" ");
   return text.charAt(0).toUpperCase() + text.slice(1);

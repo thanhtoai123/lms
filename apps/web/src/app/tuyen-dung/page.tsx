@@ -6,7 +6,7 @@ import { PublicShell } from "@/components/public-shell";
 import { SiteTracker } from "@/components/site-tracker";
 
 export const revalidate = 120;
-export const metadata = { title: "Tuyển dụng — Sata Robo", description: "Cơ hội việc làm tại hệ thống giáo dục STEM Sata Robo." };
+export const metadata = { title: "Tuyển dụng — TH STEAM Academy", description: "Cơ hội việc làm tại hệ thống giáo dục STEM TH STEAM Academy." };
 
 function salaryLabel(j: { salaryText: string | null; salaryMin: number | null; salaryMax: number | null }) {
   if (j.salaryText) return j.salaryText;
@@ -22,7 +22,7 @@ export default async function JobsPublicPage() {
     <PublicShell>
       <SiteTracker />
       <h1 className="text-2xl font-bold">Tuyển dụng</h1>
-      <p className="mt-1 text-sm text-ink-600">Cùng Sata Robo truyền cảm hứng khoa học – công nghệ cho trẻ em.</p>
+      <p className="mt-1 text-sm text-ink-600">Cùng TH STEAM Academy truyền cảm hứng khoa học – công nghệ cho trẻ em.</p>
       {items.length === 0 ? <div className="card mt-6 p-6 text-center text-sm text-ink-600">Hiện chưa có vị trí đang tuyển. Vui lòng quay lại sau.</div> : (
         <ul className="mt-6 grid gap-3 sm:grid-cols-2">
           {items.map((j) => (

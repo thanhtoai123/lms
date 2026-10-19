@@ -32,7 +32,7 @@ export default async function CardsPage({ searchParams }: { searchParams: Promis
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 print:grid-cols-3 print:gap-2">
           {cards.map((c) => (
             <div key={c.id} className="card flex flex-col items-center break-inside-avoid p-3 text-center print:border print:border-black/30 print:shadow-none">
-              <div className="text-xs font-semibold uppercase tracking-wide text-brand-600">Sata Robo</div>
+              <div className="text-xs font-semibold uppercase tracking-wide text-brand-600">TH STEAM Academy</div>
               <div className="w-40 [&_svg]:h-auto [&_svg]:w-full" dangerouslySetInnerHTML={{ __html: c.svg }} />
               <div className="font-semibold">{c.fullName}</div>
               <div className="font-mono text-[11px] text-ink-600">{c.code ?? ""}{c.classCode ? ` · ${c.classCode}` : ""}</div>

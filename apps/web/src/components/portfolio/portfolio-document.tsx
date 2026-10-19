@@ -11,7 +11,7 @@
  */
 import { Award, CalendarCheck, GraduationCap, Image as ImageIcon, MapPin, Route, School, Sparkles } from "lucide-react";
 import { BrandLogo, BrandName } from "@/components/brand";
-import { pairSheets, type PortfolioView, type PortfolioAttendance } from "@satarobo/core";
+import { pairSheets, type PortfolioView, type PortfolioAttendance, RUBRIC_SCALE } from "@satarobo/core";
 import { CenterFooter, fmtDay, num1, pct } from "./parts";
 import { ProgressLine, RadarChart } from "./charts";
 import { SessionSheet } from "./session-sheet";
@@ -74,7 +74,7 @@ export function PortfolioDocument({ view, actions }: { view: PortfolioView; acti
                 {c.classCode} · {c.centerName} · {fmtDay(c.from) ?? "—"}{c.to ? ` → ${fmtDay(c.to)}` : " → nay"}
               </div>
               <div className="mt-0.5 text-xs text-foreground/80">
-                {c.sheets.length} phiếu buổi · {c.milestones.length} học bạ · chuyên cần {pct(c.attendance.rate)}{c.average != null ? ` · điểm TB ${num1(c.average)}/4` : ""}
+                {c.sheets.length} phiếu buổi · {c.milestones.length} học bạ · chuyên cần {pct(c.attendance.rate)}{c.average != null ? ` · điểm TB ${num1(c.average)}/${RUBRIC_SCALE}` : ""}
                 {c.certificate && <> · <b className="text-accent-700">Chứng nhận {c.certificate.certificateNo}</b></>}
               </div>
             </li>
@@ -129,7 +129,7 @@ export function PortfolioDocument({ view, actions }: { view: PortfolioView; acti
               <div className="text-right text-sm">
                 <div>Chuyên cần <b className="text-primary">{pct(c.attendance.rate)}</b></div>
                 <div className="text-xs text-muted-foreground">{c.attendance.present + c.attendance.late + c.attendance.makeup}/{c.attendance.total} buổi có mặt</div>
-                {c.average != null && <div className="text-xs text-muted-foreground">Điểm TB các buổi {num1(c.average)}/4</div>}
+                {c.average != null && <div className="text-xs text-muted-foreground">Điểm TB các buổi {num1(c.average)}/{RUBRIC_SCALE}</div>}
               </div>
             </div>
             {c.radar.length > 0 && (
@@ -139,7 +139,7 @@ export function PortfolioDocument({ view, actions }: { view: PortfolioView; acti
                   {c.radar.map((r) => (
                     <li key={r.label} className="flex items-center justify-between gap-2 border-b border-dashed border-border pb-1">
                       <span>{r.label}</span>
-                      <b className="text-primary">{r.value != null ? `${num1(r.value)}/4` : "—"}</b>
+                      <b className="text-primary">{r.value != null ? `${num1(r.value)}/${RUBRIC_SCALE}` : "—"}</b>
                     </li>
                   ))}
                 </ul>

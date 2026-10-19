@@ -1,6 +1,7 @@
 /**
- * KHUNG WEBSITE — tạo các trang DEMO (Giới thiệu, Khoá học, 3 trang chi tiết khoá, Liên hệ, 2 trang chính sách)
- * từ packages/core/src/site/demo.ts. Mỗi khối có chữ "[DEMO]" để dễ thấy chỗ cần thay nội dung thật.
+ * KHUNG WEBSITE — tạo các trang con TH STEAM (Giới thiệu, Chương trình học, 4 trang chuyên ngành, Liên hệ, 2 trang chính sách)
+ * từ packages/core/src/site/demo.ts (nội dung dựng từ danh mục chương trình chuẩn). Chỉ "Chính sách bảo mật" là bản nháp có "[DEMO]".
+ * Muốn GHI ĐÈ các trang đã có bằng nội dung TH STEAM mới: dùng `pnpm db:seed-thsteam`.
  *
  *   pnpm db:seed-site              # môi trường dev: tạo VÀ xuất bản để xem đủ khung
  *   pnpm db:seed-site --draft      # chỉ tạo bản nháp
@@ -40,7 +41,7 @@ for (const p of SITE_DEMO_PAGES) {
   }).returning();
   if (publish && row) await db.insert(landingPageHistory).values({ pageId: row.id, version: 1, snapshot });
   made++;
-  console.log(`+ ${p.slug}: ${publish ? "đã xuất bản (DEMO)" : "nháp"}`);
+  console.log(`+ ${p.slug}: ${publish ? "đã xuất bản" : "nháp"}`);
 }
-console.log(`✓ Xong: tạo ${made}/${SITE_DEMO_PAGES.length} trang demo.${publish ? "" : " Vào Website → Cấu trúc & khung để xem và xuất bản."}`);
+console.log(`✓ Xong: tạo ${made}/${SITE_DEMO_PAGES.length} trang.${publish ? "" : " Vào Website → Cấu trúc & khung để xem và xuất bản."}`);
 process.exit(0);

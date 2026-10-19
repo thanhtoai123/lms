@@ -10,7 +10,7 @@
  *
  * Điều kiện phát hành / chặn hoàn tất đọc theo "Chuẩn hồ sơ học tập" (cấu hình vận hành nhóm "Hồ sơ học tập",
  * theo cơ sở): bắt buộc mục tiêu bài, bắt buộc sản phẩm, công tắc chặn (`sessionRequireEvaluations`).
- * Mặc định giữ nguyên hành vi cũ. Tiêu chí có mô tả 4 mức riêng + tiêu chí trọng tâm của bài (xếp lên đầu).
+ * Mặc định giữ nguyên hành vi cũ. Tiêu chí có mô tả 3 mức riêng + tiêu chí trọng tâm của bài (xếp lên đầu).
  *
  * Quyền: xem = `session:read` (GV: buổi mình dạy); điền / sửa = `session_note:write` (GV: `_own`).
  * Mọi truy vấn danh sách có `tenantCond`; nạp theo id có `assertTenant`; mọi thao tác ghi có

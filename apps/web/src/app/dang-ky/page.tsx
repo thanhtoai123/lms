@@ -1,12 +1,13 @@
 import { getDb } from "@satarobo/db";
 import { publicSite } from "@satarobo/api";
+import { TH_REGISTER_BLOCK } from "@satarobo/core";
 import { TrialForm } from "./form";
 import { SiteTracker } from "@/components/site-tracker";
 import { PublicShell } from "@/components/public-shell";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = { title: "Đặt buổi học thử 1-1 miễn phí" };
+export const metadata = { title: TH_REGISTER_BLOCK.title };
 
 /**
  * Trang form công khai. Gửi về /api/public/leads.
@@ -19,8 +20,8 @@ export default async function DangKyPage({ searchParams }: { searchParams: Promi
     <div className="mx-auto max-w-md">
       <div className="mb-6 text-center">
         <SiteTracker form />
-        <h1 className="text-2xl font-bold">{site.data.title || "Đặt buổi học thử 1-1 miễn phí"}</h1>
-        <p className="text-sm text-ink-600">{site.data.subtitle || "45 phút test năng lực + 90 phút học thử cùng giáo viên. 0 đồng, không ràng buộc."}</p>
+        <h1 className="text-2xl font-bold">{site.data.title || TH_REGISTER_BLOCK.title}</h1>
+        <p className="text-sm text-ink-600">{site.data.subtitle || TH_REGISTER_BLOCK.subtitle}</p>
       </div>
       <TrialForm thankYou={site.data.thankYou} utm={{ utm_source: sp.utm_source ?? "", utm_medium: sp.utm_medium ?? "", utm_campaign: sp.utm_campaign ?? "", ref: (sp.ref ?? "").slice(0, 20) }} />
     </div>

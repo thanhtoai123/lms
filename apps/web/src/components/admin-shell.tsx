@@ -198,7 +198,7 @@ export function AdminShell({ nav, me, roles, canRunWorker, idleMinutes = null, c
   const sidebar = (
     <div className="flex h-full flex-col">
       <Link href="/viec-hom-nay" className="flex h-16 shrink-0 items-center gap-2 border-b border-border px-6">
-        <BrandWordmark />
+        <BrandWordmark size={30} textClass="text-[15px]" />
         <span className="mt-1 text-[11px] font-medium text-muted-foreground">Admin</span>
       </Link>
       <div className="shrink-0 px-4 pt-3" role="search">

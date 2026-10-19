@@ -25,7 +25,7 @@ import { randomBytes } from "node:crypto";
 /** Token CỐ ĐỊNH, dễ nhớ của giấy chứng nhận mẫu — xem thử tại /cn/<token> (chỉ dữ liệu mẫu) */
 export const DEMO_CERTIFICATE_TOKEN = "xem-thu-giay-chung-nhan-sata-robo-mau";
 const PATH_CODE = "LT-ROBO-NT";
-const BUILTIN_BG = "builtin/sata-mac-dinh.svg";
+const BUILTIN_BG = "builtin/th-steam-mac-dinh.svg";
 type CourseRow = typeof courses.$inferSelect;
 type ClassRow = typeof classes.$inferSelect;
 
@@ -59,7 +59,7 @@ export async function seedCertificates(db: Database) {
     .where(and(eq(certificateTemplates.isDefault, true), eq(certificateTemplates.tenantId, courseTenant))).limit(1);
   if (!tpl) {
     [tpl] = await db.insert(certificateTemplates).values({
-      tenantId: courseTenant, name: "Mẫu mặc định Sata Robo (A4 ngang)", orientation: "landscape", backgroundKey: BUILTIN_BG,
+      tenantId: courseTenant, name: "Mẫu mặc định TH STEAM Academy (A4 ngang)", orientation: "landscape", backgroundKey: BUILTIN_BG,
       widthPx: 3508, heightPx: 2480, fields: seedFields(), isDefault: true, createdBy: issuedBy,
     }).returning();
   } else if (!Array.isArray(tpl.fields) || tpl.fields.length === 0) {
@@ -170,7 +170,7 @@ export async function seedCertificates(db: Database) {
       achievement: { name: path.name, description: path.description, criteriaText: path.criteriaText },
       courses: [{ code: sata1.code, name: sata1.name }, { code: sata4.code, name: sata4.name }],
       issuedAt: now, grade: "Giỏi",
-      center: { name: cs2.name, address: cs2.address, phone: cs2.phone }, issuerName: "Sata Robo", template: { fields },
+      center: { name: cs2.name, address: cs2.address, phone: cs2.phone }, issuerName: "TH STEAM Academy", template: { fields },
     }),
   });
   return { token: DEMO_CERTIFICATE_TOKEN as string | null, courseCertificates: courseRows.length, pathCode: PATH_CODE };

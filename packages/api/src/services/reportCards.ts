@@ -8,7 +8,7 @@ import {
   reportCardTransition, reportCardMilestones, milestoneLabel, validateReportCard, averageScore, gradeFromAverage, certificateNumber,
   completionCheck, completionTransition, validateCompletionInput, enrollmentTransition, visibleCenterIds, authorize,
   clampPageSize,
-  milestonePeriod, aggregateMilestone, suggestMilestoneComment, snapshotScores, isSessionEvalSnapshot, isMilestoneAggregate, tallyAttendance,
+  milestonePeriod, aggregateMilestone, suggestMilestoneComment, snapshotScoresOnScale, isSessionEvalSnapshot, isMilestoneAggregate, tallyAttendance,
   RUBRIC_SCALE,
   type ReportCardStatus, type CompletionStatus, type MilestoneAggregate, type EvalForAggregate,
 } from "@satarobo/core";
@@ -66,8 +66,9 @@ async function classMilestones(db: Db, c: { curriculumId: string | null; totalSe
 /* Học bạ mốc tự tổng hợp từ phiếu nhận xét buổi (hồ sơ học tập)        */
 /* ------------------------------------------------------------------ */
 
-/** Điểm tiêu chí quy về thang 5 trong SQL — trộn học bạ cũ (thang 5) với học bạ mới (thang 4) */
-export const SCORE_TO5_SQL = sql.raw("(case when rc.rubric_scale = 4 then 1 + (s.score - 1) * 4.0 / 3 else s.score end)");
+/** Điểm tiêu chí quy về thang 5 trong SQL — trộn học bạ cũ (thang 4, 5) với học bạ hiện hành (thang 3) */
+/** Quy điểm học bạ về thang 5 theo thang của từng học bạ (3 = hiện hành, 4 = cũ 09/2026, 5 = cũ trước nữa) */
+export const SCORE_TO5_SQL = sql.raw("(case when rc.rubric_scale between 2 and 4 then 1 + (s.score - 1) * 4.0 / (rc.rubric_scale - 1) else s.score end)");
 
 /**
  * Số liệu tổng hợp của một mốc học bạ từ các phiếu buổi ĐÃ PHÁT HÀNH trong giai đoạn
@@ -100,7 +101,7 @@ export async function milestoneAggregateFor(
     .innerJoin(sessions, eq(sessions.id, sessionEvaluations.sessionId))
     .where(and(eq(sessionEvaluations.enrollmentId, input.enrollmentId), eq(sessionEvaluations.status, "published"), lte(sessions.date, curTo), prevFrom ? gt(sessions.date, prevFrom) : sql`true`));
   const toAgg = (r: (typeof evalRows)[number]): EvalForAggregate => ({
-    date: r.date, sequenceNo: r.seq, scores: snapshotScores(isSessionEvalSnapshot(r.snapshot) ? r.snapshot : null),
+    date: r.date, sequenceNo: r.seq, scores: snapshotScoresOnScale(isSessionEvalSnapshot(r.snapshot) ? r.snapshot : null),
     objectiveResult: r.objectiveResult, highlights: r.highlights ?? [], remark: r.remark, productNote: r.productNote,
   });
   const inCur = (d: string) => (!curFrom || d > curFrom) && d <= curTo;
@@ -233,7 +234,7 @@ export async function getReportCard(ctx: ProtectedContext, input: { enrollmentId
     where a.enrollment_id = ${e.id} and s.sequence_no <= ${input.milestoneSeq}`)) as unknown as { total: number; attended: number }[];
   const att = attRows[0];
   const author = card?.authorId ? await ctx.db.query.users.findFirst({ where: eq(users.id, card.authorId), columns: { fullName: true } }) : null;
-  // Học bạ tạo sau khi có phiếu buổi chấm theo rubric 4 mức; học bạ cũ giữ thang 5
+  // Học bạ mới chấm theo thang hiện hành (3 mức Cần cố gắng / Đạt / Tốt); học bạ cũ giữ thang lúc tạo (4 hoặc 5)
   const scale = card ? card.rubricScale : RUBRIC_SCALE;
   const aggregate = await milestoneAggregateFor(ctx.db, { enrollmentId: e.id, classId: c.id, courseId: c.courseId, curriculumId: c.curriculumId, totalSessions: c.totalSessions, milestoneSeq: input.milestoneSeq });
   // Các buổi của giai đoạn kèm ảnh từng buổi — để GV / giáo vụ nhìn lại buổi học khi viết nhận xét
@@ -256,7 +257,7 @@ export async function getReportCard(ctx: ProtectedContext, input: { enrollmentId
     sessionLog,
     /** Bản chụp số liệu lúc lưu học bạ gần nhất */
     savedAggregate: card && isMilestoneAggregate(card.aggregate) ? card.aggregate : null,
-    /** Điểm gợi ý theo tiêu chí (chỉ khi thang 4 — cùng thang với phiếu buổi) */
+    /** Điểm gợi ý theo tiêu chí (chỉ khi học bạ cùng thang hiện hành với phiếu buổi) */
     prefill,
     suggestedComment: aggregate.sessions > 0 ? suggestMilestoneComment(aggregate, e.studentName) : null,
   };
@@ -465,7 +466,7 @@ export async function completionCandidates(ctx: ProtectedContext, classId: strin
     .select({
       enrollmentId: enrollments.id, status: enrollments.status, packageSessions: enrollments.packageSessions, consumed: consumedSql,
       studentId: students.id, fullName: students.fullName, code: students.code,
-      // Thang 5 chung: học bạ mới (thang 4) được quy đổi trước khi lấy trung bình để xếp loại cuối khoá
+      // Thang 5 chung: học bạ thang 3 / thang 4 được quy đổi trước khi lấy trung bình để xếp mức hoàn thành khoá
       avg: sql<string | null>`(select round(avg(${SCORE_TO5_SQL})::numeric, 1)::text from ${reportCardScores} s join ${reportCards} rc on rc.id = s.report_card_id where rc.enrollment_id = ${enrollments.id} and rc.status in ('approved','published'))`,
       completed: sql<boolean>`exists (select 1 from ${courseCompletions} cc where cc.enrollment_id = ${enrollments.id} and cc.status = 'approved' and cc.revoked_at is null)`,
       proposed: sql<boolean>`exists (select 1 from ${courseCompletions} cc where cc.enrollment_id = ${enrollments.id} and cc.status = 'proposed')`,

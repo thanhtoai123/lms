@@ -25,7 +25,7 @@ test("mẫu mặc định: 3 nhóm, 7 tiêu chí, mọi thang có thứ tự tă
     for (const l of c.levels) assert.doesNotMatch(l.label, /chưa tốt/i, "không dùng nhãn nặng nề");
   }
   const labels = (k: string) => criteria.find((c) => c.key === k)!.levels.map((l) => l.label);
-  assert.deepEqual(labels("grasp"), ["Cần hỗ trợ thêm", "Khá", "Tốt"]);
+  assert.deepEqual(labels("grasp"), ["Cần cố gắng", "Đạt", "Tốt"], "cùng thang với học bạ TH STEAM");
   assert.deepEqual(labels("speed"), ["Cần thêm thời gian", "Vừa", "Nhanh"]);
   assert.deepEqual(labels("interest"), ["Đang làm quen", "Thích", "Rất thích"]);
 });
@@ -148,6 +148,6 @@ test("token, đường dẫn và tin nhắn Zalo soạn sẵn", () => {
   assert.ok(!TRIAL_REPORT_TOKEN_RE.test("ngan"));
   assert.ok(!TRIAL_REPORT_TOKEN_RE.test(`${"a".repeat(40)}/../x`));
   assert.equal(trialReportPath("abc"), "/pdg/abc");
-  assert.equal(trialReportShareMessage("Bé Giang", "https://x/pdg/abc"), "Sata Robo gửi anh/chị kết quả buổi học thử của bé Giang: https://x/pdg/abc");
-  assert.equal(trialReportShareMessage(null, "L"), "Sata Robo gửi anh/chị kết quả buổi học thử của bé nhà mình: L");
+  assert.equal(trialReportShareMessage("Bé Giang", "https://x/pdg/abc"), "TH STEAM Academy gửi anh/chị kết quả buổi học thử của bé Giang: https://x/pdg/abc");
+  assert.equal(trialReportShareMessage(null, "L"), "TH STEAM Academy gửi anh/chị kết quả buổi học thử của bé nhà mình: L");
 });

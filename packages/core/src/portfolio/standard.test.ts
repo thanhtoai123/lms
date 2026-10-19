@@ -3,13 +3,16 @@ import assert from "node:assert/strict";
 import {
   DEFAULT_PORTFOLIO_STANDARD, standardFromOps, describeStandard, vnDateTime, sheetDeadline, milestoneDeadline, vnDateOf, fmtDeadlineVi,
   deadlineState, deadlineLabel, evaluateSheetCompliance, hasEvidence, sessionEvidenceViolation, portfolioComplianceScore,
-  normalizeLevelDescriptors, validateLevelDescriptors, validateCriterion, orderCriteriaWithFocus, CRITERIA_TEMPLATE_ROBOTICS,
+  normalizeLevelDescriptors, validateLevelDescriptors, validateCriterion, orderCriteriaWithFocus,
   sessionTodoList, SHEET_VIOLATION_CODES, SHEET_VIOLATION_VI, type PortfolioStandard, type SheetForCompliance, type TodoStudent,
 } from "./standard.js";
 import {
   rubricLevelsFor, buildSessionSnapshot, validateSessionEvaluation, sessionEvaluationReadiness, RUBRIC_LEVELS, type SessionEvalContext,
 } from "./rubric.js";
 import { OPS_DEFAULTS, OPS_GROUPS, resolveOps, validateOps } from "../system/ops.js";
+import { criteriaTemplateById } from "./templates.js";
+
+const TPL = criteriaTemplateById("robo-th")!.criteria;
 
 const std: PortfolioStandard = { ...DEFAULT_PORTFOLIO_STANDARD };
 const ctx: SessionEvalContext = {
@@ -151,36 +154,36 @@ test("điểm đạt chuẩn hồ sơ: trọng số, ngưỡng, bỏ phần khô
   assert.equal(withEv.evidencePct, 50);
 });
 
-/* --------------------------- Mô tả 4 mức, trọng tâm --------------------------- */
+/* --------------------------- Mô tả 3 mức, trọng tâm --------------------------- */
 
-test("kiểm tra 4 mô tả mức: đủ 4, không trùng, đủ dài, ngôn từ tích cực; bỏ trống cả 4 là hợp lệ", () => {
+test("kiểm tra 3 mô tả mức: đủ 3, không trùng, đủ dài, ngôn từ tích cực; bỏ trống tất cả là hợp lệ", () => {
   assert.deepEqual(validateLevelDescriptors(null), []);
-  assert.deepEqual(validateLevelDescriptors(["", " ", "", ""]), []);
-  assert.deepEqual(validateLevelDescriptors(CRITERIA_TEMPLATE_ROBOTICS[0]!.levelDescriptors), []);
-  assert.match(validateLevelDescriptors(["Mức một rõ ràng", "Mức hai rõ ràng", "Mức ba rõ ràng"])[0]!, /đúng 4/);
-  assert.ok(validateLevelDescriptors(["Mức một rõ ràng", "", "Mức ba rõ ràng", "Mức bốn rõ ràng"]).some((e) => /mức 2/.test(e)));
-  assert.ok(validateLevelDescriptors(["Giống nhau", "Giống nhau", "Mức ba rõ ràng", "Mức bốn rõ ràng"]).some((e) => /khác nhau/.test(e)));
-  assert.ok(validateLevelDescriptors(["abc", "Mức hai rõ ràng", "Mức ba rõ ràng", "Mức bốn rõ ràng"]).some((e) => /quá ngắn/.test(e)));
-  assert.ok(validateLevelDescriptors(["Bé còn kém phần này", "Mức hai rõ ràng", "Mức ba rõ ràng", "Mức bốn rõ ràng"]).some((e) => /tích cực/.test(e)));
-  assert.deepEqual(normalizeLevelDescriptors([" a ", "b", "c", "d"]), ["a", "b", "c", "d"]);
-  assert.equal(normalizeLevelDescriptors(["a", "b", "c"]), null);
-  assert.equal(normalizeLevelDescriptors(["a", "b", "c", 4]), null);
+  assert.deepEqual(validateLevelDescriptors(["", " ", ""]), []);
+  assert.deepEqual(validateLevelDescriptors(TPL[0]!.levelDescriptors), []);
+  assert.match(validateLevelDescriptors(["Mức một rõ ràng", "Mức hai rõ ràng", "Mức ba rõ ràng", "Mức bốn rõ ràng"])[0]!, /đúng 3/);
+  assert.ok(validateLevelDescriptors(["Mức một rõ ràng", "", "Mức ba rõ ràng"]).some((e) => /mức 2/.test(e)));
+  assert.ok(validateLevelDescriptors(["Giống nhau", "Giống nhau", "Mức ba rõ ràng"]).some((e) => /khác nhau/.test(e)));
+  assert.ok(validateLevelDescriptors(["abc", "Mức hai rõ ràng", "Mức ba rõ ràng"]).some((e) => /quá ngắn/.test(e)));
+  assert.ok(validateLevelDescriptors(["Bé còn kém phần này", "Mức hai rõ ràng", "Mức ba rõ ràng"]).some((e) => /tích cực/.test(e)));
+  assert.deepEqual(normalizeLevelDescriptors([" a ", "b", "c"]), ["a", "b", "c"]);
+  assert.equal(normalizeLevelDescriptors(["a", "b", "c", "d"]), null, "mô tả 4 mức cũ không dùng cho thang 3");
+  assert.equal(normalizeLevelDescriptors(["a", "b", 3]), null);
   assert.equal(normalizeLevelDescriptors({}), null);
   assert.ok(validateCriterion({ name: "ab" }).length > 0);
-  assert.deepEqual(validateCriterion({ name: "Lắp ráp", groupName: "Thiết kế & lắp ráp", levelDescriptors: null }), []);
+  assert.deepEqual(validateCriterion({ name: "Tư duy công nghệ", groupName: "Tư duy", levelDescriptors: null }), []);
 });
 
-test("bộ mẫu robotics: 6–8 tiêu chí, 3 nhóm, mỗi tiêu chí đủ 4 mô tả mức hợp lệ", () => {
-  assert.ok(CRITERIA_TEMPLATE_ROBOTICS.length >= 6 && CRITERIA_TEMPLATE_ROBOTICS.length <= 8);
-  assert.equal(new Set(CRITERIA_TEMPLATE_ROBOTICS.map((c) => c.groupName)).size, 3);
-  assert.equal(new Set(CRITERIA_TEMPLATE_ROBOTICS.map((c) => c.name)).size, CRITERIA_TEMPLATE_ROBOTICS.length);
-  for (const c of CRITERIA_TEMPLATE_ROBOTICS) assert.deepEqual(validateCriterion(c), [], c.name);
+test("bộ chuẩn TH STEAM: 9 tiêu chí (6 năng lực + 3 phẩm chất), 4 nhóm, mỗi tiêu chí đủ 3 mô tả mức hợp lệ", () => {
+  assert.equal(TPL.length, 9);
+  assert.deepEqual([...new Set(TPL.map((c) => c.groupName))], ["Tư duy", "Kỹ năng số", "Bản lĩnh", "Phẩm chất"]);
+  assert.equal(new Set(TPL.map((c) => c.name)).size, TPL.length);
+  for (const c of TPL) assert.deepEqual(validateCriterion(c), [], c.name);
 });
 
 test("mô tả mức khai riêng thắng mô tả theo từ khoá; bản chụp giữ nhóm + trọng tâm", () => {
-  const own = ["Một một một", "Hai hai hai", "Ba ba ba", "Bốn bốn bốn"];
-  assert.deepEqual(rubricLevelsFor("Tư duy lập trình", own).map((l) => l.hint), own);
-  assert.match(rubricLevelsFor("Tư duy lập trình", ["x"])[3]!.hint, /vòng lặp/, "sai hình dạng → dùng mô tả theo từ khoá");
+  const own = ["Một một một", "Hai hai hai", "Ba ba ba"];
+  assert.deepEqual(rubricLevelsFor("Tư duy công nghệ", own).map((l) => l.hint), own);
+  assert.match(rubricLevelsFor("Tư duy công nghệ", ["x"])[2]!.hint, /chiến lược/, "sai hình dạng → dùng mô tả theo từ khoá");
   assert.equal(rubricLevelsFor("Lạ", null)[0]!.hint, RUBRIC_LEVELS[0]!.hint);
   const snap = buildSessionSnapshot({
     criteria: orderCriteriaWithFocus([

@@ -5,6 +5,7 @@
  * Landing quảng cáo (/lp/…) giữ đầu / chân trang riêng.
  */
 import { emptySection, cleanText, validUrl, type LandingDoc, type LandingSection } from "../landing/model.js";
+import { TH_BRAND } from "../system/th-brand.js";
 
 export interface ChromeLink { label: string; href: string }
 export interface ChromeAddress { label: string; text: string }
@@ -23,26 +24,33 @@ export interface SiteChrome {
 
 export const CHROME_LIMITS = { nav: 6, addresses: 4, links: 12 } as const;
 
-/** Khung mặc định: thông tin liên hệ lấy từ trang hiện tại của trung tâm, menu trỏ tới các trang của website */
+/** Khung mặc định theo bộ nhận diện TH STEAM: hotline, website thật; học online nên không có địa chỉ cơ sở */
 export const DEFAULT_CHROME: SiteChrome = {
-  phone: "0837 312 860",
-  ctaLabel: "Học thử miễn phí",
+  phone: TH_BRAND.hotline,
+  ctaLabel: "Học trải nghiệm 1:1",
   ctaUrl: "/dang-ky",
   nav: [
     { label: "Giới thiệu", href: "/gioi-thieu" },
-    { label: "Khoá học", href: "/khoa-hoc" },
+    { label: "Chương trình", href: "/khoa-hoc" },
+    { label: "Học phí", href: "/khoa-hoc#hoc-phi" },
     { label: "Tin tức", href: "/tin-tuc" },
     { label: "Tuyển dụng", href: "/tuyen-dung" },
     { label: "Liên hệ", href: "/lien-he" },
   ],
-  tagline: "Học lập trình robot vui, hiểu bài, tự tin sáng tạo.",
-  email: "thongtin@satarobo.vn",
-  legal: "Công ty Cổ phần Công nghệ Giáo dục Sata Robo · Mã số doanh nghiệp 0402301783",
-  copyright: "© 2026 Sata Robo",
-  addresses: [{ label: "Cơ sở 1", text: "211 Nguyễn Hữu Thọ, Đà Nẵng" }, { label: "Cơ sở 2", text: "114 Hoàng Diệu, Đà Nẵng" }],
+  tagline: `${TH_BRAND.tagline} — ${TH_BRAND.taglineVi}. Robotics, AI, đồ họa và lập trình cho học sinh, học online cùng giáo viên qua ClassIn.`,
+  email: "",
+  legal: TH_BRAND.legalName,
+  copyright: `© 2026 ${TH_BRAND.name}`,
+  addresses: [
+    { label: "Hình thức học", text: "Online qua ClassIn · lớp nhóm 6–8 học sinh · 90 phút/buổi" },
+    { label: "Website", text: TH_BRAND.website },
+    { label: "Fanpage", text: TH_BRAND.fanpage },
+  ],
   links: [
+    { label: "Chương trình học", href: "/khoa-hoc" },
+    { label: "Đăng ký học trải nghiệm", href: "/dang-ky" },
+    { label: "Điều khoản đăng ký học", href: "/chinh-sach/dieu-khoan" },
     { label: "Chính sách bảo mật", href: "/chinh-sach/bao-mat" },
-    { label: "Điều khoản sử dụng", href: "/chinh-sach/dieu-khoan" },
   ],
 };
 

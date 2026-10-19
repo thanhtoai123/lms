@@ -1,5 +1,10 @@
 # Hồ sơ học tập — phiếu nhận xét từng buổi, học bạ mốc tự tổng hợp, PDF lưu trữ
 
+> **Cập nhật 19/10/2026 — chuẩn TH STEAM (docs/KHUNG-CHUONG-TRINH.md):** thang chấm đổi hẳn sang **3 mức Cần cố gắng · Đạt · Tốt**
+> ở mọi nơi (`RUBRIC_SCALE = 3`); bộ tiêu chí mặc định là **6 năng lực + 3 phẩm chất** với mô tả 3 mức theo từng chương trình;
+> mốc học bạ là **buổi 15 mỗi học phần** (15 / 30 / 45). Các đoạn dưới đây nói "4 mức / thang 4" là thiết kế trước đó — phiếu và học bạ
+> đã chấm thang 4 vẫn hiển thị đúng nhãn cũ, còn khi tổng hợp được quy đổi sang thang 3 (`convertScore`).
+
 Mục tiêu của chủ dự án: **sau mỗi buổi giáo viên đánh giá sẽ đổ ra được một phiếu đánh giá**, và các phiếu đó
 **lưu trữ lại dạng PDF để in hay chia sẻ toàn bộ lộ trình học của học viên**.
 

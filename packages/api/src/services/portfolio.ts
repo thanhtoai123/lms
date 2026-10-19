@@ -22,7 +22,7 @@ import {
   competencyCriteria, courseCompletions, portfolioShares, portfolioExports, studentGuardians, users, certificates as certificateBook, type Database,
 } from "@satarobo/db";
 import {
-  isSessionEvalSnapshot, sessionAverage, snapshotScores, progressSeries, tallyAttendance, sumAttendance, mean, milestoneLabel,
+  isSessionEvalSnapshot, sessionAverage, snapshotScoresOnScale, progressSeries, tallyAttendance, sumAttendance, mean, milestoneLabel,
   inPortfolioScope, normalizePortfolioScope, validatePortfolioScope, portfolioScopeLabel, portfolioScopeQuery, clampPortfolioShareDays,
   portfolioShareExpiresAt, portfolioShareState, portfolioPath, portfolioShareMessage, isMilestoneAggregate, authorize,
   PORTFOLIO_TOKEN_RE, PORTFOLIO_SHARE_SCOPE_VI, PORTFOLIO_SHARE_STATE_VI, ENROLLMENT_STATUS_VI,
@@ -178,7 +178,7 @@ export async function buildPortfolio(db: Db, studentId: string, scopeIn: Portfol
     // Mạng nhện: điểm trung bình từng tiêu chí trong khoá (theo nhãn trong bản chụp)
     const labels: { key: string; label: string }[] = [];
     for (const s of sheets) for (const c of s.snapshot.criteria) if (!labels.some((l) => l.key === c.key)) labels.push({ key: c.key, label: c.label });
-    const radar = labels.map((l) => ({ label: l.label, value: mean(sheets.map((s) => snapshotScores(s.snapshot)[l.key] ?? null)) }));
+    const radar = labels.map((l) => ({ label: l.label, value: mean(sheets.map((s) => snapshotScoresOnScale(s.snapshot)[l.key] ?? null)) }));
 
     const courseMedia = allMedia.filter((m) => sheetsRaw.some((r) => r.sessionId === m.sessionId) || attRows.some((a) => a.enrollmentId === e.id && a.sessionId === m.sessionId && inRange(e.id, a.date)));
     for (const m of courseMedia) {

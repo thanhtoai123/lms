@@ -155,7 +155,7 @@ export function BrandForm({ initial, canEdit, updatedLine }: { initial: Brand; c
           {canEdit && (
             <div className="flex flex-wrap items-center gap-2">
               <button type="button" className="btn-ghost" disabled={!valid} onClick={() => setAccent(suggestAccent(primary))}>Gợi ý màu nhấn hài hoà</button>
-              <button type="button" className="btn-ghost" disabled={pending} onClick={() => { if (window.confirm("Khôi phục tím + cam mặc định của Sata Robo?")) reset.mutate(); }}>Khôi phục mặc định</button>
+              <button type="button" className="btn-ghost" disabled={pending} onClick={() => { if (window.confirm("Khôi phục tím + cam mặc định của TH STEAM Academy?")) reset.mutate(); }}>Khôi phục mặc định</button>
             </div>
           )}
         </div>

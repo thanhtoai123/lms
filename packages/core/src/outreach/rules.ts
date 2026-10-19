@@ -91,7 +91,7 @@ export function validateScore(x: { score: number; result: InterviewResult; feedb
 /** Hồ sơ ứng viên không trúng tuyển: ẩn danh sau 12 tháng (đã nêu trong điều khoản ứng tuyển) */
 export const CANDIDATE_RETENTION_MONTHS = 12;
 export const RECRUIT_CONSENT_TEXT =
-  "Tôi đồng ý để Sata Robo xử lý thông tin và CV của tôi cho mục đích tuyển dụng; hồ sơ không trúng tuyển được lưu tối đa 12 tháng rồi xoá / ẩn danh.";
+  "Tôi đồng ý để TH STEAM Academy xử lý thông tin và CV của tôi cho mục đích tuyển dụng; hồ sơ không trúng tuyển được lưu tối đa 12 tháng rồi xoá / ẩn danh.";
 export function jobCode(year: number, seq: number): string {
   return `TD${String(year).slice(-2)}-${String(seq).padStart(3, "0")}`;
 }

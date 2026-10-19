@@ -379,8 +379,8 @@ export async function seedOrgUnitsFromCenters(ctx: ProtectedContext, input: { re
       return row!;
     };
 
-    const root = await ensure({ code: "ROOT", name: "Sata Robo", type: "root", parentPath: null, parentId: null });
-    const ho = await ensure({ code: "HO", name: "Hội sở Sata Robo", type: "ho", parentPath: root.path, parentId: root.id });
+    const root = await ensure({ code: "ROOT", name: "TH STEAM Academy", type: "root", parentPath: null, parentId: null });
+    const ho = await ensure({ code: "HO", name: "Hội sở TH STEAM Academy", type: "ho", parentPath: root.path, parentId: root.id });
 
     const rgs = await db.select().from(regions).orderBy(asc(regions.sortOrder), asc(regions.code));
     const regionUnit = new Map<string, typeof orgUnits.$inferSelect>();

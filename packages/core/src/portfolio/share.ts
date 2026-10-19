@@ -93,7 +93,7 @@ export function portfolioPath(token: string): string {
 
 export function portfolioShareMessage(studentName: string | null | undefined, link: string): string {
   const name = (studentName ?? "").trim();
-  return `Sata Robo gửi anh/chị hồ sơ học tập của ${name ? `bé ${name}` : "bé"} — xem và lưu PDF tại: ${link}`;
+  return `TH STEAM Academy gửi anh/chị hồ sơ học tập của ${name ? `bé ${name}` : "bé"} — xem và lưu PDF tại: ${link}`;
 }
 
 /** Chuỗi truy vấn chuẩn của một phạm vi (thứ tự cố định — dùng để ký HMAC trang in nội bộ) */

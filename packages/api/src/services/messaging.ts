@@ -253,7 +253,7 @@ export async function sendMessage(ctx: ProtectedContext, input: { id: string; bo
   });
   if (flags.length) await writeAudit(ctx.db, { actorId: ctx.user.id, action: "UPDATE", module: "message", entity: "messages", entityId: c.id, after: { flags }, reason: "Tin nhắn nhân viên bị gắn cờ", ip: ctx.ip });
   if (c.channel === "portal" && c.parentId) {
-    await ctx.db.insert(parentNotifications).values({ parentId: c.parentId, channel: "in_app", template: "MESSAGE_NEW", title: "Tin nhắn mới từ Sata Robo", body: preview(body), link: `/ph/tin-nhan?id=${c.id}`, status: "sent", sentAt: now, createdBy: ctx.user.id });
+    await ctx.db.insert(parentNotifications).values({ parentId: c.parentId, channel: "in_app", template: "MESSAGE_NEW", title: "Tin nhắn mới từ TH STEAM Academy", body: preview(body), link: `/ph/tin-nhan?id=${c.id}`, status: "sent", sentAt: now, createdBy: ctx.user.id });
   }
   return { status: d.status, error: d.error ?? null, tag: win.tag };
 }
@@ -316,7 +316,7 @@ export async function startParentConversation(ctx: ProtectedContext, input: { st
   }).returning({ id: conversations.id });
   await ctx.db.insert(messages).values({ conversationId: c!.id, direction: "out", body: input.body.trim(), senderUserId: ctx.user.id, status: "sent" });
   const link = `/tn/${token}`;
-  await ctx.db.insert(parentNotifications).values({ parentId: p.id, channel: "in_app", template: "MESSAGE_NEW", title: `Sata Robo: ${input.subject.trim()}`, body: preview(input.body), link, status: "sent", sentAt: now, createdBy: ctx.user.id });
+  await ctx.db.insert(parentNotifications).values({ parentId: p.id, channel: "in_app", template: "MESSAGE_NEW", title: `TH STEAM Academy: ${input.subject.trim()}`, body: preview(input.body), link, status: "sent", sentAt: now, createdBy: ctx.user.id });
   return { id: c!.id, link };
 }
 
@@ -348,7 +348,7 @@ export async function portalThread(db: Database, token: string) {
   const ctr = c.centerId ? await d.query.centers.findFirst({ where: eq(centers.id, c.centerId) }) : null;
   return {
     subject: c.subject, closed: c.status === "closed", teacher: t?.fullName ?? null, center: ctr?.name ?? null, parentName: c.displayName,
-    messages: msgs.map((m) => ({ mine: m.direction === "in", body: m.body, at: m.at, by: m.direction === "out" ? (m.by ?? "Sata Robo") : "Phụ huynh" })),
+    messages: msgs.map((m) => ({ mine: m.direction === "in", body: m.body, at: m.at, by: m.direction === "out" ? (m.by ?? "TH STEAM Academy") : "Phụ huynh" })),
   };
 }
 
@@ -703,7 +703,7 @@ export async function parentThread(database: Database, parentId: string, id: str
   await db.update(parentNotifications).set({ readAt: new Date(), status: "read" }).where(and(eq(parentNotifications.parentId, parentId), eq(parentNotifications.template, "MESSAGE_NEW"), isNull(parentNotifications.readAt), gte(parentNotifications.createdAt, c.createdAt)));
   const msgs = await db.select({ direction: messages.direction, body: messages.body, at: messages.createdAt, by: users.fullName }).from(messages).leftJoin(users, eq(users.id, messages.senderUserId))
     .where(and(eq(messages.conversationId, c.id), inArray(messages.direction, ["in", "out"]))).orderBy(asc(messages.createdAt)).limit(300);
-  return { id: c.id, subject: c.subject, closed: c.status === "closed", messages: msgs.map((m) => ({ mine: m.direction === "in", body: m.body, at: m.at, by: m.direction === "out" ? (m.by ?? "Sata Robo") : "Tôi" })) };
+  return { id: c.id, subject: c.subject, closed: c.status === "closed", messages: msgs.map((m) => ({ mine: m.direction === "in", body: m.body, at: m.at, by: m.direction === "out" ? (m.by ?? "TH STEAM Academy") : "Tôi" })) };
 }
 
 export async function parentPost(database: Database, parentId: string, id: string, body: string) {

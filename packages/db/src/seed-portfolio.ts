@@ -18,7 +18,7 @@ import {
 } from "./schema/index";
 import {
   buildSessionSnapshot, sessionLabel, aggregateMilestone, milestonePeriod, reportCardMilestones, tallyAttendance, snapshotScores,
-  DEFAULT_HIGHLIGHTS, addDays, toISODate, orderCriteriaWithFocus, CRITERIA_TEMPLATE_ROBOTICS,
+  DEFAULT_HIGHLIGHTS, addDays, toISODate, orderCriteriaWithFocus, rubricLevelsFor, RUBRIC_SCALE,
   type ObjectiveResult, type EvalForAggregate, type CriterionSource, type AttendanceStatus,
 } from "@satarobo/core";
 import type { Database } from "./index";
@@ -60,13 +60,13 @@ const REMARK = [
   "Con có nhiều ý tưởng sáng tạo khi trang trí và cải tiến mô hình.",
 ];
 
-/** Tên tiêu chí trong seed → tiêu chí của bộ mẫu robotics (mô tả 4 mức + nhóm) */
+/** Tên tiêu chí trong seed cũ → nhóm theo khung TH STEAM (mô tả 3 mức lấy theo từ khoá tên, `rubricLevelsFor`) */
 const SEED_CRITERIA_TEMPLATE: Record<string, string> = {
-  "Tư duy lập trình": "Tư duy lập trình",
-  "Lắp ráp & cơ khí": "Lắp ráp mô hình",
-  "Giải quyết vấn đề": "Gỡ lỗi & giải quyết vấn đề",
-  "Làm việc nhóm": "Hợp tác nhóm",
-  "Thuyết trình": "Trình bày sản phẩm",
+  "Tư duy lập trình": "Tư duy",
+  "Lắp ráp & cơ khí": "Kỹ năng số",
+  "Giải quyết vấn đề": "Tư duy",
+  "Làm việc nhóm": "Phẩm chất",
+  "Thuyết trình": "Bản lĩnh",
 };
 /** Tiêu chí trọng tâm của vài bài Sata4 (tên bài, tên tiêu chí) */
 const SEED_FOCUS: [string, string][] = [
@@ -80,14 +80,13 @@ const SEED_FOCUS: [string, string][] = [
   ["Thử thách sa hình & thuyết trình", "Thuyết trình"],
 ];
 
-/** Chuẩn hồ sơ: mô tả 4 mức + nhóm cho tiêu chí mẫu, tiêu chí trọng tâm theo bài. Chạy lại không nhân đôi */
+/** Chuẩn hồ sơ: mô tả 3 mức + nhóm cho tiêu chí mẫu, tiêu chí trọng tâm theo bài. Chạy lại không nhân đôi */
 export async function seedCriteriaStandard(db: Database) {
   let described = 0;
-  for (const [name, tplName] of Object.entries(SEED_CRITERIA_TEMPLATE)) {
-    const tpl = CRITERIA_TEMPLATE_ROBOTICS.find((t) => t.name === tplName);
-    if (!tpl) continue;
+  for (const [name, groupName] of Object.entries(SEED_CRITERIA_TEMPLATE)) {
+    const levels = rubricLevelsFor(name).map((l) => l.hint);
     const rows = await db.update(competencyCriteria)
-      .set({ groupName: tpl.groupName, levelDescriptors: [...tpl.levelDescriptors], description: tpl.description })
+      .set({ groupName, levelDescriptors: levels })
       .where(and(eq(competencyCriteria.name, name), sql`${competencyCriteria.levelDescriptors} is null`))
       .returning({ id: competencyCriteria.id });
     described += rows.length;
@@ -199,13 +198,17 @@ export async function seedPortfolio(db: Database, opts: { today?: string } = {})
       now: s.completedAt ?? new Date(`${s.date}T21:00:00+07:00`),
     });
     const scores: Record<string, number> = {};
+    const raw: Record<string, number> = {};
     for (const c of snapshotBase.criteria) {
       const offset = ((hash(`${a.enrollmentId}|${c.key}`) % 100) / 100 - 0.5) * 0.8; // thế mạnh / điểm yếu riêng từng tiêu chí
       const noise = (r() - 0.5) * 0.9;
-      scores[c.key] = Math.min(4, Math.max(1, Math.round(base + growth + offset + noise)));
+      // Mô phỏng trên thang 4 (base/growth đặt cho thang 4) rồi quy về thang hiện hành (3 mức)
+      const raw4 = Math.min(4, Math.max(1, base + growth + offset + noise));
+      raw[c.key] = raw4;
+      scores[c.key] = Math.min(RUBRIC_SCALE, Math.max(1, Math.round(1 + ((raw4 - 1) * (RUBRIC_SCALE - 1)) / 3)));
     }
     const snapshot = { ...snapshotBase, criteria: snapshotBase.criteria.map((c) => ({ ...c, value: scores[c.key] ?? null })) };
-    const vals = Object.values(scores);
+    const vals = Object.values(raw);
     const avg = vals.length ? vals.reduce((x, y) => x + y, 0) / vals.length : 2.5;
     const objectiveResult: ObjectiveResult = avg >= 2.9 || r() < 0.15 ? "achieved" : avg >= 2.1 ? "partial" : "not_yet";
     const highlights = DEFAULT_HIGHLIGHTS.filter(() => r() < 0.16).slice(0, 2);
@@ -266,7 +269,7 @@ export async function seedPortfolio(db: Database, opts: { today?: string } = {})
     const suggested = agg.criteria.filter((k) => k.suggested != null && k.criterionId);
     if (!suggested.length) continue;
     const avg = Math.round((suggested.reduce((x, k) => x + (k.suggested ?? 0), 0) / suggested.length) * 10) / 10;
-    await db.update(reportCards).set({ rubricScale: 4, aggregate: agg, averageScore: avg.toFixed(1) }).where(eq(reportCards.id, c.id));
+    await db.update(reportCards).set({ rubricScale: RUBRIC_SCALE, aggregate: agg, averageScore: avg.toFixed(1) }).where(eq(reportCards.id, c.id));
     touched.push(c.id);
     for (const k of suggested) scoreIns.push({ reportCardId: c.id, criterionId: k.criterionId!, score: k.suggested, comment: null });
     cardCount += 1;

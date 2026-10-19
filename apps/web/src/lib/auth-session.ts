@@ -93,7 +93,7 @@ export async function listFactors(accessToken: string): Promise<MfaFactor[] | nu
 }
 
 export async function enrollTotp(accessToken: string): Promise<{ id: string; qr: string; secret: string } | { error: string }> {
-  const r = await authFetch("factors", { method: "POST", token: accessToken, body: { factor_type: "totp", friendly_name: `Sata Robo ${new Date().toISOString().slice(0, 16)}` } });
+  const r = await authFetch("factors", { method: "POST", token: accessToken, body: { factor_type: "totp", friendly_name: `TH STEAM Academy ${new Date().toISOString().slice(0, 16)}` } });
   if (!r) return { error: "Không kết nối được máy chủ đăng nhập" };
   const j = (await r.json().catch(() => ({}))) as { id?: string; totp?: { qr_code?: string; secret?: string }; msg?: string; message?: string };
   if (!r.ok || !j.id || !j.totp?.qr_code) return { error: j.msg ?? j.message ?? `Lỗi ${r.status}` };

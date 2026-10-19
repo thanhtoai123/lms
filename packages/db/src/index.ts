@@ -7,6 +7,8 @@ export * from "./schema/index";
 export * from "./health";
 export * from "./rls";
 export * from "./metrics";
+export * from "./thsteam-sync";
+export * from "./thsteam-site";
 export { schema };
 
 export type Database = ReturnType<typeof createDb>;

@@ -35,7 +35,7 @@ export function pushPayload(n: { title: string; body: string; link: string | nul
   const safeLink = n.link && /^\/ph(\/|\?|$)/.test(n.link) ? n.link : null;
   const url = safeLink ?? ({ MESSAGE_NEW: "/ph/tin-nhan", TUITION_DUE: "/ph/hoc-phi", INVOICE_ISSUED: "/ph/hoc-phi" } as Record<string, string>)[n.template] ?? "/ph/thong-bao";
   const clip = (s: string, n2: number) => (s.length > n2 ? `${s.slice(0, n2 - 1)}…` : s);
-  return { title: clip(n.title.trim() || "Sata Robo", 60), body: clip(n.body.replace(/\s+/g, " ").trim(), 160), url, tag: `${n.template}:${n.id.slice(0, 8)}` };
+  return { title: clip(n.title.trim() || "TH STEAM Academy", 60), body: clip(n.body.replace(/\s+/g, " ").trim(), 160), url, tag: `${n.template}:${n.id.slice(0, 8)}` };
 }
 
 /** Kết quả gọi dịch vụ đẩy: 404/410 = đăng ký hết hạn (xoá), 429/5xx = thử lại */

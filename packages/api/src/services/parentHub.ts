@@ -18,7 +18,7 @@ import {
   assignments, submissions, orders, payments, type Database,
 } from "@satarobo/db";
 import {
-  sessionLabel, isSessionEvalSnapshot, sessionAverage, sheetGlance, pickLatestSheet, validateReaction, reactionPlan, reactionEditable, reactionOf,
+  sessionLabel, isSessionEvalSnapshot, sessionAverage, snapshotScale, sheetGlance, pickLatestSheet, validateReaction, reactionPlan, reactionEditable, reactionOf,
   sessionTone, withinMakeupWindow, validateParentRequest, requestCode, slaDue, PARENT_REQUEST_TYPE_VI, PARENT_REQUEST_STATUS_VI,
   COIN_REASON_VI, REDEMPTION_STATUS_VI, coinTier, availableBalance, pathProgress, buildJourney, certificateVerifyPath, isCertificateSnapshot,
   OBJECTIVE_RESULT_VI, SESSION_REACTION_VI, addDays, tomTatCon,
@@ -145,7 +145,7 @@ async function latestSheetOf(d: Db, studentId: string) {
   return {
     id: latest.id, sessionId: latest.sessionId, date: latest.date, label: snap.context.label || sessionLabel(latest.sequenceNo, "regular"),
     lessonTitle: snap.context.lessonTitle, teacherName: snap.context.teacherName, className: snap.context.className, makeup: !!snap.context.makeup,
-    criteria, glance: sheetGlance(criteria), average: sessionAverage(snap),
+    criteria, scale: snapshotScale(snap), glance: sheetGlance(criteria, snapshotScale(snap)), average: sessionAverage(snap),
     objective: latest.objectiveResult ? OBJECTIVE_RESULT_VI[latest.objectiveResult as ObjectiveResult] : null,
     highlights: latest.highlights ?? [], productNote: latest.productNote, remark: latest.remark,
     media: chosen.map((m) => ({ id: m.id, url: m.url, caption: m.caption, classWide: m.classWide })),
@@ -345,7 +345,7 @@ export async function hubSheets(db: Database, parentId: string, studentId: strin
       id: r.id, sessionId: r.sessionId, date: r.date,
       label: snap.context.label || sessionLabel(r.sequenceNo, r.kind as SessionKind),
       lessonTitle: snap.context.lessonTitle, teacherName: snap.context.teacherName, className: snap.context.className,
-      criteria, glance: sheetGlance(criteria),
+      criteria, scale: snapshotScale(snap), glance: sheetGlance(criteria, snapshotScale(snap)),
       objective: r.objectiveResult ? OBJECTIVE_RESULT_VI[r.objectiveResult as ObjectiveResult] : null,
       highlights: r.highlights ?? [], remark: r.remark, productNote: r.productNote,
     }];

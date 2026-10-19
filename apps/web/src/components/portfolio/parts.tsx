@@ -5,7 +5,7 @@
  */
 import { TrendingDown, TrendingUp, Minus } from "lucide-react";
 import { BrandLogo, BrandName } from "@/components/brand";
-import { RUBRIC_LEVELS, TREND_VI, scoreLabel, type RubricLevel, type Trend } from "@satarobo/core";
+import { RUBRIC_LEVELS, RUBRIC_SCALE, TREND_VI, scoreLabel, type RubricLevel, type Trend } from "@satarobo/core";
 
 export const TZ = "Asia/Ho_Chi_Minh";
 
@@ -31,7 +31,7 @@ export const num1 = (n: number | null | undefined) => (n == null ? "—" : n.toL
 
 /**
  * Màu theo nấc — nấc thấp dùng cam nhấn (tích cực, không đỏ), nấc cao dùng tím thương hiệu.
- * Mảng 4 phần tử cho thang 4; thang 5 quy về 4 màu gần nhất.
+ * Mảng 4 tông; thang 3 (hiện hành), thang 4 và thang 5 (học bạ cũ) đều quy về tông gần nhất.
  */
 const FILL = ["bg-accent-500", "bg-brand-300", "bg-brand-400", "bg-primary"] as const;
 const TEXT = ["text-accent-700", "text-brand-500", "text-brand-500", "text-primary"] as const;
@@ -42,11 +42,11 @@ function toneOf(idx: number, n: number) {
 }
 
 /**
- * Thanh nấc cho một tiêu chí (4 nấc với rubric mới, 5 nấc với học bạ cũ): các nấc tới mức đạt được tô màu,
+ * Thanh nấc cho một tiêu chí (3 nấc Cần cố gắng / Đạt / Tốt; học bạ cũ 4 hoặc 5 nấc): các nấc tới mức đạt được tô màu,
  * mức đạt được in đậm; dưới thanh là mô tả của mức (giúp ông bà đọc hiểu, không cần bảng tra).
  */
 export function RubricBar({
-  label, value, levels, scale = 4, hint = true, extra, dense = false,
+  label, value, levels, scale = RUBRIC_SCALE, hint = true, extra, dense = false,
 }: {
   label: string;
   value: number | null;
@@ -60,7 +60,7 @@ export function RubricBar({
 }) {
   const steps: RubricLevel[] = levels?.length
     ? levels.map((l) => ({ ...l }))
-    : scale === 4
+    : scale === RUBRIC_SCALE
       ? RUBRIC_LEVELS.map((l) => ({ ...l }))
       : Array.from({ length: scale }, (_, i) => ({ value: i + 1, label: scoreLabel(i + 1, scale), hint: "" }));
   const idx = value == null ? -1 : steps.findIndex((l) => l.value === value);
@@ -106,7 +106,7 @@ export function TrendChip({ trend, small = false }: { trend: Trend | null | unde
   );
 }
 
-/** Đầu trang in / đầu phiếu mang nhận diện Sata Robo */
+/** Đầu trang in / đầu phiếu mang nhận diện thương hiệu */
 export function BrandHeader({ title, sub, right }: { title: string; sub?: React.ReactNode; right?: React.ReactNode }) {
   return (
     <header className="hs-avoid bg-gradient-to-br from-primary to-primary-darker px-5 py-4 text-white print:px-4 print:py-3">
@@ -127,7 +127,7 @@ export function CenterFooter({ center }: { center: { name: string; address: stri
   if (!center) return null;
   return (
     <footer className="hs-avoid border-t border-border bg-muted/50 px-5 py-3 text-xs text-muted-foreground print:px-4 print:py-2">
-      <span className="font-bold text-foreground">Sata Robo · {center.name}</span>
+      <span className="font-bold text-foreground">TH STEAM Academy · {center.name}</span>
       {center.address && <span> · {center.address}</span>}
       {center.phone && <span> · {center.phone}</span>}
     </footer>

@@ -72,15 +72,19 @@ test("chọn phiếu gần nhất: theo ngày → số buổi → lúc phát hà
 });
 
 test("tóm tắt phiếu: trung bình, số tiêu chí đạt, mạnh nhất, cần luyện", () => {
-  const g = sheetGlance([{ label: "Lập trình", value: 4 }, { label: "Lắp ráp", value: 3 }, { label: "Trình bày", value: 2 }, { label: "Nhóm", value: null }]);
-  assert.equal(g.average, 3);
-  assert.equal(g.reached, 2);
+  const g = sheetGlance([{ label: "Lập trình", value: 3 }, { label: "Lắp ráp", value: 2 }, { label: "Trình bày", value: 1 }, { label: "Nhóm", value: null }]);
+  assert.equal(g.average, 2);
+  assert.equal(g.reached, 2, "Đạt trở lên");
   assert.equal(g.rated, 3);
   assert.equal(g.best, "Lập trình");
   assert.equal(g.practice, "Trình bày");
   const none = sheetGlance([{ label: "A", value: null }]);
   assert.equal(none.average, null);
-  assert.equal(sheetGlance([{ label: "A", value: 2 }]).best, null);
+  assert.equal(sheetGlance([{ label: "A", value: 1 }]).best, null);
+  // Phiếu cũ thang 4: Đạt = 3
+  const old = sheetGlance([{ label: "A", value: 4 }, { label: "B", value: 2 }], 4);
+  assert.equal(old.reached, 1);
+  assert.equal(old.practice, "B");
 });
 
 /* ---------------- Lịch tháng ---------------- */
@@ -205,7 +209,7 @@ test("nhiều con: chọn đúng con, không thuộc danh sách thì con đầu;
 /* ---------------- App giáo viên ---------------- */
 
 test("nguy cơ: vắng liên tiếp / vắng nhiều / mức giảm", () => {
-  assert.deepEqual(studentRisk({ recent: ["present", "present", "late"], averages: [3, 3, 3] }), { level: null, reasons: [] });
+  assert.deepEqual(studentRisk({ recent: ["present", "present", "late"], averages: [2.5, 2.5, 2.5] }), { level: null, reasons: [] });
   const streak = studentRisk({ recent: ["present", "absent_excused", "absent_unexcused"], averages: [] });
   assert.equal(streak.level, "high");
   assert.match(streak.reasons[0]!, /2 buổi liên tiếp/);
@@ -215,11 +219,12 @@ test("nguy cơ: vắng liên tiếp / vắng nhiều / mức giảm", () => {
   assert.equal(studentRisk({ recent: ["absent_excused", "present", "absent_excused", "present", null], averages: [] }).level, "watch");
   // Chỉ xét 6 buổi gần nhất
   assert.equal(studentRisk({ recent: ["absent_excused", "absent_excused", "absent_excused", "present", "present", "present", "present", "present", "present"], averages: [] }).level, null);
-  const drop = studentRisk({ recent: [], averages: [3.5, 3.5, 3.4, 2.8, 2.8, 2.9] });
+  const drop = studentRisk({ recent: [], averages: [2.8, 2.8, 2.7, 2.1, 2.1, 2.2] });
   assert.equal(drop.level, "high");
   assert.match(drop.reasons[0]!, /giảm rõ/);
-  assert.equal(studentRisk({ recent: [], averages: [3.4, 3.4, 3.4, 3.0, 3.1, 3.1] }).level, "watch");
-  assert.equal(studentRisk({ recent: [], averages: [1.5, 1.8] }).level, "watch");
+  assert.equal(studentRisk({ recent: [], averages: [2.7, 2.7, 2.7, 2.3, 2.4, 2.4] }).level, "watch");
+  assert.equal(studentRisk({ recent: [], averages: [1.2, 1.4] }).level, "watch", "phần lớn ở mức Cần cố gắng");
+  assert.equal(studentRisk({ recent: [], averages: [2, 2] }).level, null, "mức Đạt thì không báo");
 });
 
 test("học bạ mốc: đã tới hạn chưa viết / sắp tới", () => {

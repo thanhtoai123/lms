@@ -42,7 +42,7 @@ export async function getBrand(db: Db | import("@satarobo/db").Database): Promis
 /** Phần công khai (không cần đăng nhập): màu + có logo hay không + CSS đã dựng */
 export async function publicBrand(db: Db | import("@satarobo/db").Database) {
   const [b, g] = await Promise.all([getBrand(db), (db as Db).query.appSettings.findFirst({ where: eq(appSettings.key, "general") })]);
-  const name = String(((g?.value ?? {}) as { brandName?: string }).brandName ?? "").trim() || "Sata Robo";
+  const name = String(((g?.value ?? {}) as { brandName?: string }).brandName ?? "").trim() || "TH STEAM Academy";
   return { primary: b.primary, accent: b.accent, hasLogo: !!b.logoKey, version: b.version, name, css: brandCss(b) };
 }
 

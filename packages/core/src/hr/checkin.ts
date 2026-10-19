@@ -54,7 +54,7 @@ export type CheckinVerify =
  */
 export function verifyCheckinToken(secret: string, code: string, point: CheckinPointLite | null): CheckinVerify {
   const p = parseCheckinPayload(code);
-  if (!p) return { ok: false, reason: "Mã không phải mã chấm công Sata Robo", pointId: null };
+  if (!p) return { ok: false, reason: "Mã không phải mã chấm công TH STEAM Academy", pointId: null };
   const expect = checkinSig(secret, p.pointId, p.keyVersion);
   if (expect.length !== p.sig.length || !timingSafeEqual(Buffer.from(expect), Buffer.from(p.sig))) {
     return { ok: false, reason: "Mã chấm công không hợp lệ (sai chữ ký)", pointId: p.pointId };

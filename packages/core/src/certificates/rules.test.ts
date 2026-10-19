@@ -63,11 +63,12 @@ test("kiểm tra danh sách khoá của lộ trình và mã lộ trình", () => 
 test("số chứng nhận lộ trình CN-<mã cơ sở>-<yy>-<6 số>; số cũ SR- vẫn hợp lệ", () => {
   assert.equal(pathCertificateNumber("CS1", 2026, 12), "CN-CS1-26-000012");
   assert.equal(pathCertificateNumber("cs-đà nẵng", 2027, 1), "CN-CSDANANG-27-000001");
-  assert.equal(certificateCenterCode(""), "SR");
+  assert.equal(certificateCenterCode(""), "TH");
   assert.equal(certificatePrefix("CS2", 2026), "CN-CS2-26-");
   assert.ok(PATH_CERTIFICATE_NO_RE.test("CN-CS1-26-000012"));
   assert.ok(CERTIFICATE_NO_RE.test("CN-CS1-26-000012"));
-  assert.ok(CERTIFICATE_NO_RE.test(certificateNumber("SATA4", 2026, 7)));
+  assert.ok(CERTIFICATE_NO_RE.test(certificateNumber("ROBO-TH-N1", 2026, 7)));
+  assert.ok(CERTIFICATE_NO_RE.test("SR-SATA4-26-000007"), "số cũ SR- vẫn hợp lệ");
   assert.ok(!CERTIFICATE_NO_RE.test("CN-CS1-26-12"));
   assert.throws(() => pathCertificateNumber("CS1", 2026, 0));
   assert.throws(() => pathCertificateNumber("CS1", 2026, 1_000_000));
@@ -158,7 +159,7 @@ test("bản chụp chứng nhận: chụp mọi chữ đã in, kể cả ngườ
   assert.equal(s.signerName, "Trần Văn Mẫu");
   assert.equal(s.signerTitle, "Giám đốc trung tâm");
   assert.equal(s.customText, "Chúc mừng em!");
-  assert.equal(s.issuerName, "Sata Robo");
+  assert.equal(s.issuerName, "TH STEAM Academy");
   assert.match(s.criteriaText, /Lộ trình Robotics nền tảng/);
   assert.ok(isCertificateSnapshot(s));
   assert.ok(!isCertificateSnapshot({ v: 2 }));

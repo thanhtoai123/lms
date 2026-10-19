@@ -1,16 +1,17 @@
 /**
  * Mảnh giao diện nhỏ dùng chung của cổng phụ huynh (không hook — render được ở máy chủ).
- * Màu theo nhận diện Sata Robo: tím #610b8a cho mức đạt trở lên, cam #ff8f2d cho mức cần luyện thêm.
+ * Màu theo nhận diện thương hiệu: màu chủ đạo cho mức Đạt trở lên, màu nhấn cho mức Cần cố gắng.
  */
-import type { DayTone } from "@satarobo/core";
+import { RUBRIC_SCALE, scoreLabel, type DayTone } from "@satarobo/core";
 
-/** Thanh 4 nấc cho một tiêu chí rubric (1 Đang làm quen · 2 Cần hỗ trợ · 3 Đạt · 4 Vượt mong đợi) */
-export function LevelMeter({ value, label }: { value: number | null; label: string }) {
+/** Thanh nấc cho một tiêu chí (thang hiện hành: 1 Cần cố gắng · 2 Đạt · 3 Tốt); phiếu cũ truyền `scale` của phiếu */
+export function LevelMeter({ value, label, scale = RUBRIC_SCALE }: { value: number | null; label: string; scale?: number }) {
   const v = value ?? 0;
+  const ok = Math.ceil((scale + 1) / 2); // thang 3 → 2 (Đạt); thang 4 → 3 (Đạt)
   return (
-    <span className="inline-flex gap-1" role="img" aria-label={`${label}: ${value ? `mức ${value}/4` : "chưa chấm"}`}>
-      {[1, 2, 3, 4].map((n) => (
-        <span key={n} className={`h-2 w-5 rounded-full ${n <= v ? (v >= 3 ? "bg-primary" : "bg-accent-500") : "bg-black/10"}`} />
+    <span className="inline-flex gap-1" role="img" aria-label={`${label}: ${value ? scoreLabel(value, scale) : "chưa chấm"}`}>
+      {Array.from({ length: scale }, (_, i) => i + 1).map((n) => (
+        <span key={n} className={`h-2 w-5 rounded-full ${n <= v ? (v >= ok ? "bg-primary" : "bg-accent-500") : "bg-black/10"}`} />
       ))}
     </span>
   );

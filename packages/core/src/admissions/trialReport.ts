@@ -75,9 +75,10 @@ export interface TrialReportTemplate {
   groups: readonly TrialReportGroup[];
 }
 
+/** Cùng thang 3 mức với học bạ TH STEAM (Thông tư 27): Cần cố gắng · Đạt · Tốt */
 const STANDARD: readonly TrialReportLevel[] = [
-  { value: 1, label: "Cần hỗ trợ thêm" },
-  { value: 2, label: "Khá" },
+  { value: 1, label: "Cần cố gắng" },
+  { value: 2, label: "Đạt" },
   { value: 3, label: "Tốt" },
 ];
 const SPEED: readonly TrialReportLevel[] = [
@@ -96,7 +97,7 @@ const INTEREST: readonly TrialReportLevel[] = [
  * Mọi thang đều xếp tăng dần và dùng ngôn từ tích cực (không có "Chưa tốt").
  */
 export const TRIAL_REPORT_TEMPLATE: TrialReportTemplate = {
-  version: "2026.09",
+  version: "2026.10",
   groups: [
     {
       key: "tech",
@@ -412,5 +413,5 @@ export function trialReportPath(token: string): string {
 /** Tin nhắn soạn sẵn để dán vào Zalo */
 export function trialReportShareMessage(childName: string | null | undefined, link: string): string {
   const name = (childName ?? "").trim().replace(/^bé\s+/i, "");
-  return `Sata Robo gửi anh/chị kết quả buổi học thử của bé ${name || "nhà mình"}: ${link}`;
+  return `TH STEAM Academy gửi anh/chị kết quả buổi học thử của bé ${name || "nhà mình"}: ${link}`;
 }

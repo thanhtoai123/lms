@@ -21,7 +21,7 @@ export default async function CoursesPage({ searchParams }: { searchParams: Prom
       <PageHeader
         title="Khoá học"
         desc="Khoá dạy (chương trình): mã, độ tuổi, số buổi chuẩn, thời lượng, học phí niêm yết, khoá tiếp theo trong lộ trình. Lớp mới lấy số buổi chuẩn từ đây."
-        actions={<><Link href="/course-prerequisites" className="btn-ghost">Khoá tiên quyết</Link><Link href="/curriculums" className="btn-ghost">Giáo trình</Link></>}
+        actions={<><Link href="/khung-chuong-trinh" className="btn-ghost">Khung chương trình chuẩn</Link><Link href="/course-prerequisites" className="btn-ghost">Khoá tiên quyết</Link><Link href="/curriculums" className="btn-ghost">Giáo trình</Link></>}
       />
       {canEdit && <CourseEditor options={options} />}
       <form className="flex flex-wrap gap-2">

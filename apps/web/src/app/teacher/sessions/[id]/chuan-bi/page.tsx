@@ -17,7 +17,7 @@ const TONE: Record<PrepTone, string> = {
 
 /**
  * CHUẨN BỊ BUỔI DẠY — mở từ thẻ buổi trên trang chủ GV:
- * bài học, mục tiêu, học cụ, tiêu chí đánh giá (trọng tâm trước) kèm mô tả 4 mức (cùng dữ liệu khối "Buổi này cần hoàn thiện"),
+ * bài học, mục tiêu, học cụ, tiêu chí đánh giá (trọng tâm trước) kèm mô tả 3 mức (cùng dữ liệu khối "Buổi này cần hoàn thiện"),
  * tài liệu giảng dạy của bài, học viên cần lưu ý (sức khoẻ / dị ứng, vắng buổi trước, PH cần trao đổi, học thử, thẻ nổi bật).
  */
 export default async function PrepPage({ params }: { params: Promise<{ id: string }> }) {

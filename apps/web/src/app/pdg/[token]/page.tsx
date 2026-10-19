@@ -9,7 +9,7 @@ import { ParentActions } from "./actions";
 
 export const dynamic = "force-dynamic";
 export const metadata = {
-  title: { absolute: "Phiếu đánh giá buổi học thử — Sata Robo" },
+  title: { absolute: "Phiếu đánh giá buổi học thử — TH STEAM Academy" },
   robots: { index: false, follow: false, nocache: true },
   referrer: "no-referrer" as const,
 };

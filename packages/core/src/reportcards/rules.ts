@@ -1,5 +1,6 @@
 /**
- * Học bạ: mỗi kỳ (mặc định 12 buổi) có mốc nhận xét giữa kỳ (buổi 5) và cuối kỳ (buổi 12).
+ * Học bạ theo chuẩn TH STEAM: mỗi HỌC PHẦN 15 buổi kết thúc bằng buổi báo cáo (buổi 15) — đó là mốc học bạ.
+ * Một năm học 45 buổi = 3 học phần → 3 mốc (buổi 15, 30, 45); khoá luyện thi 30 buổi → 2 mốc.
  * GV viết → gửi duyệt → giáo vụ duyệt hoặc trả lại (kèm lý do) → gửi PH.
  */
 export const REPORT_CARD_STATUSES = ["draft", "submitted", "returned", "approved", "published"] as const;
@@ -39,9 +40,11 @@ export interface MilestonePolicy {
   termLength: number;
   checkpoints: number[]; // vị trí trong kỳ
 }
-export const DEFAULT_MILESTONES: MilestonePolicy = { termLength: 12, checkpoints: [5, 12] };
+/** Một học phần = 15 buổi; mốc học bạ là buổi báo cáo cuối học phần */
+export const MODULE_LENGTH = 15;
+export const DEFAULT_MILESTONES: MilestonePolicy = { termLength: MODULE_LENGTH, checkpoints: [MODULE_LENGTH] };
 
-/** Các buổi mốc học bạ của một khoá (vd 48 buổi → 5,12,17,24,29,36,41,48) */
+/** Các buổi mốc học bạ của một khoá (vd 45 buổi → 15, 30, 45). Khoá không chia hết 15 có thêm mốc ở buổi cuối */
 export function reportCardMilestones(totalSessions: number, p: MilestonePolicy = DEFAULT_MILESTONES): number[] {
   const out: number[] = [];
   for (let start = 0; start < totalSessions; start += p.termLength) {
@@ -50,6 +53,7 @@ export function reportCardMilestones(totalSessions: number, p: MilestonePolicy =
       if (seq <= totalSessions) out.push(seq);
     }
   }
+  if (totalSessions > 0 && !out.includes(totalSessions)) out.push(totalSessions);
   return out;
 }
 
@@ -62,6 +66,7 @@ export function milestoneInfo(seq: number, p: MilestonePolicy = DEFAULT_MILESTON
 
 export function milestoneLabel(seq: number, p: MilestonePolicy = DEFAULT_MILESTONES): string {
   const m = milestoneInfo(seq, p);
+  if (p.checkpoints.length === 1) return `Học phần ${m.term} · báo cáo (buổi ${seq})`;
   return `Kỳ ${m.term} · ${m.kind === "mid" ? "giữa kỳ" : "cuối kỳ"} (buổi ${seq})`;
 }
 
@@ -73,7 +78,7 @@ export interface ScoreInput { criterionId: string; score: number | null }
 
 /** Kiểm tra trước khi gửi duyệt: đủ điểm mọi tiêu chí đang dùng + nhận xét tối thiểu */
 /**
- * `scale`: thang điểm của học bạ — 5 với học bạ cũ, 4 với học bạ mốc tổng hợp từ phiếu buổi (rubric 4 mức).
+ * `scale`: thang điểm của học bạ — 3 với học bạ hiện hành (Cần cố gắng / Đạt / Tốt), 4 hoặc 5 với học bạ cũ.
  */
 export function validateReportCard(input: { scores: ScoreInput[]; activeCriteria: string[]; comment: string | null; scale?: number }, minComment = 20): string[] {
   const max = input.scale ?? SCORE_MAX;
@@ -94,18 +99,25 @@ export function averageScore(scores: (number | null)[]): number | null {
   return v.length ? Math.round((v.reduce((a, b) => a + b, 0) / v.length) * 10) / 10 : null;
 }
 
-/** Xếp loại cuối khoá từ điểm trung bình tiêu chí */
-export function gradeFromAverage(avg: number | null): string {
-  if (avg === null) return "Hoàn thành";
-  if (avg >= 4.5) return "Xuất sắc";
-  if (avg >= 3.5) return "Giỏi";
-  if (avg >= 2.5) return "Khá";
-  return "Hoàn thành";
+/**
+ * Mức hoàn thành khoá (năm học / khoá luyện thi), cùng cách gọi với Thông tư 27/2020/TT-BGDĐT:
+ * "Hoàn thành tốt" hoặc "Hoàn thành". Không xếp hạng "Xuất sắc / Giỏi / Khá".
+ */
+export const COMPLETION_GRADES = ["Hoàn thành tốt", "Hoàn thành"] as const;
+export type CompletionGrade = (typeof COMPLETION_GRADES)[number];
+
+/**
+ * Mức hoàn thành từ điểm trung bình tiêu chí ĐÃ QUY VỀ THANG 5 (`normalizeTo5`):
+ * ≥ 4,0 (≈ trung bình thang 3 từ 2,5 — đa số tiêu chí ở mức Tốt) → "Hoàn thành tốt"; còn lại "Hoàn thành".
+ */
+export function gradeFromAverage(avg: number | null): CompletionGrade {
+  if (avg === null || !Number.isFinite(avg)) return "Hoàn thành";
+  return avg >= 4 ? "Hoàn thành tốt" : "Hoàn thành";
 }
 
-/** Số chứng nhận: SR-SATA4-26-000123 */
+/** Số chứng nhận: TH-ROBO-TH-N1-26-000123 */
 export function certificateNumber(courseCode: string, year: number, seq: number): string {
-  return `SR-${courseCode.toUpperCase()}-${String(year).slice(-2)}-${String(seq).padStart(6, "0")}`;
+  return `TH-${courseCode.toUpperCase()}-${String(year).slice(-2)}-${String(seq).padStart(6, "0")}`;
 }
 
 /** Điều kiện hoàn thành khoá: còn đang học/học thử; cảnh báo nếu học chưa đủ gói */

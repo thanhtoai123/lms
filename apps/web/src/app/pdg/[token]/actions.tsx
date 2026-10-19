@@ -35,7 +35,7 @@ export function ParentActions({ token, phone, responded }: { token: string; phon
   return (
     <section className="rounded-2xl border border-primary/15 bg-gradient-to-br from-brand-50 to-accent-50 p-4" aria-label="Bước tiếp theo">
       <h2 className="text-base font-extrabold text-foreground">Anh/chị muốn tìm hiểu lộ trình cho bé?</h2>
-      <p className="mt-0.5 text-sm text-foreground/75">Tư vấn viên Sata Robo sẽ gọi lại để trao đổi chi tiết lịch học và lộ trình phù hợp.</p>
+      <p className="mt-0.5 text-sm text-foreground/75">Tư vấn viên TH STEAM Academy sẽ gọi lại để trao đổi chi tiết lịch học và lộ trình phù hợp.</p>
       <div className="mt-3 grid gap-2 sm:grid-cols-2">
         {done ? (
           <div role="status" className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-green-50 px-4 py-3 text-center text-sm font-bold text-green-800 ring-1 ring-green-200">

@@ -276,7 +276,7 @@ export async function classInsights(ctx: ProtectedContext, teacherId: string) {
 
 /**
  * Mỗi dòng = một ghi danh đang học / học thử ở lớp đang chạy hoặc đang tuyển của giáo viên:
- * chuyên cần 120 ngày gần nhất (có mặt+trễ / đã điểm danh), điểm trung bình phiếu buổi đã phát hành (thang 1–4),
+ * chuyên cần 120 ngày gần nhất (có mặt+trễ / đã điểm danh), điểm trung bình phiếu buổi đã phát hành (quy về thang hiện hành 1–3),
  * mức nguy cơ (cùng quy tắc "Lớp của tôi"). Không trả sức khoẻ / liên hệ — chỉ dữ liệu giảng dạy.
  */
 export async function myStudents(ctx: ProtectedContext, teacherId: string) {

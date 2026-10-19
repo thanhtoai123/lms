@@ -10,6 +10,7 @@
  */
 import type { ISODate } from "../types.js";
 import { addDays, weekdayOf } from "../dates.js";
+import { RUBRIC_SCALE } from "../portfolio/rubric.js";
 
 /* ------------------------------------------------------------------ */
 /* Phản hồi sau buổi                                                    */
@@ -108,18 +109,20 @@ export function pickLatestSheet<T extends SheetLike>(items: readonly T[]): T | n
 
 export interface SheetGlance {
   average: number | null;
-  /** Số tiêu chí đạt mức 3 trở lên */
+  /** Số tiêu chí từ mức Đạt trở lên */
   reached: number;
   rated: number;
-  /** Tiêu chí mạnh nhất (mức cao nhất, ≥ 3) */
+  /** Tiêu chí mạnh nhất (mức cao nhất, từ mức Đạt) */
   best: string | null;
-  /** Tiêu chí cần luyện thêm (mức thấp nhất, < 3) */
+  /** Tiêu chí cần luyện thêm (mức thấp nhất, dưới mức Đạt) */
   practice: string | null;
 }
 
 /** Tóm tắt nhanh một phiếu cho thẻ trang chủ phụ huynh */
-export function sheetGlance(criteria: readonly { label: string; value: number | null }[]): SheetGlance {
-  const rated = criteria.filter((c): c is { label: string; value: number } => typeof c.value === "number" && c.value >= 1 && c.value <= 4);
+export function sheetGlance(criteria: readonly { label: string; value: number | null }[], scale: number = RUBRIC_SCALE): SheetGlance {
+  // Mức "Đạt": thang 3 → 2, thang 4 cũ → 3
+  const ok = Math.ceil((scale + 1) / 2);
+  const rated = criteria.filter((c): c is { label: string; value: number } => typeof c.value === "number" && c.value >= 1 && c.value <= scale);
   if (!rated.length) return { average: null, reached: 0, rated: 0, best: null, practice: null };
   const avg = Math.round((rated.reduce((s, c) => s + c.value, 0) / rated.length) * 10) / 10;
   let hi = rated[0]!;
@@ -128,7 +131,7 @@ export function sheetGlance(criteria: readonly { label: string; value: number | 
     if (c.value > hi.value) hi = c;
     if (c.value < lo.value) lo = c;
   }
-  return { average: avg, reached: rated.filter((c) => c.value >= 3).length, rated: rated.length, best: hi.value >= 3 ? hi.label : null, practice: lo.value < 3 ? lo.label : null };
+  return { average: avg, reached: rated.filter((c) => c.value >= ok).length, rated: rated.length, best: hi.value >= ok ? hi.label : null, practice: lo.value < ok ? lo.label : null };
 }
 
 /* ------------------------------------------------------------------ */

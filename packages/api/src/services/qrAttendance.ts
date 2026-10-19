@@ -24,7 +24,7 @@ export async function scanCard(ctx: ProtectedContext, input: { sessionId: string
   if (s.session.date !== todayISO()) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Chỉ quét thẻ trong ngày diễn ra buổi học" });
   if (!["scheduled", "in_progress", "attendance_done"].includes(s.session.status)) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Buổi học đã chốt / huỷ — sửa điểm danh ở trang điểm danh" });
   const p = parseCardPayload(input.code);
-  if (!p) return { ok: false as const, reason: "Mã không phải thẻ học viên Sata Robo" };
+  if (!p) return { ok: false as const, reason: "Mã không phải thẻ học viên TH STEAM Academy" };
   const expect = cardSig(p.studentId, p.version);
   if (expect.length !== p.sig.length || !timingSafeEqual(Buffer.from(expect), Buffer.from(p.sig))) return { ok: false as const, reason: "Thẻ không hợp lệ (sai chữ ký)" };
   const st = await ctx.db.query.students.findFirst({ where: eq(students.id, p.studentId) });

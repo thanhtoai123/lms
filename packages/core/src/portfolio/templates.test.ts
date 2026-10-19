@@ -1,37 +1,38 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { CRITERIA_TEMPLATE_SETS, criteriaTemplateById, newCriteriaOnly } from "./templates.js";
-import { validateCriterion, CRITERIA_TEMPLATE_ROBOTICS } from "./standard.js";
+import { validateCriterion } from "./standard.js";
 import { pickSheetMedia, milestoneSessionsFromSheets, type SessionSheetView } from "./view.js";
 import { RUBRIC_VERSION } from "./rubric.js";
 
-test("mọi bộ mẫu theo chương trình đều hợp lệ: 4 mô tả mức, khác nhau, ngôn từ tích cực", () => {
-  assert.ok(CRITERIA_TEMPLATE_SETS.length >= 4);
+test("mọi bộ mẫu theo chương trình đều hợp lệ: 3 mô tả mức, khác nhau, ngôn từ tích cực", () => {
+  assert.equal(CRITERIA_TEMPLATE_SETS.length, 9, "mỗi chương trình chuẩn TH STEAM một bộ");
   const ids = CRITERIA_TEMPLATE_SETS.map((t) => t.id);
   assert.equal(new Set(ids).size, ids.length, "mã bộ mẫu không trùng");
   for (const set of CRITERIA_TEMPLATE_SETS) {
-    assert.ok(set.criteria.length >= 5 && set.criteria.length <= 10, `${set.id}: 5–10 tiêu chí`);
+    assert.equal(set.criteria.length, 9, `${set.id}: 6 năng lực + 3 phẩm chất`);
     const names = set.criteria.map((c) => c.name.toLowerCase());
     assert.equal(new Set(names).size, names.length, `${set.id}: tên tiêu chí không trùng`);
     for (const c of set.criteria) {
       assert.deepEqual(validateCriterion(c), [], `${set.id} / ${c.name}`);
-      assert.equal(c.levelDescriptors.length, 4);
+      assert.equal(c.levelDescriptors.length, 3);
       assert.ok(c.groupName.length > 0);
     }
   }
 });
 
-test("bộ mẫu mặc định là robotics và tra theo mã", () => {
-  assert.equal(criteriaTemplateById(null)?.criteria, CRITERIA_TEMPLATE_ROBOTICS);
-  assert.equal(criteriaTemplateById("steam-nhi")?.id, "steam-nhi");
+test("bộ mẫu mặc định là chương trình đầu danh mục và tra theo mã", () => {
+  assert.equal(criteriaTemplateById(null)?.id, "robo-th");
+  assert.equal(criteriaTemplateById("code-thcs1")?.id, "code-thcs1");
   assert.equal(criteriaTemplateById("khong-co"), null);
 });
 
 test("chỉ thêm tiêu chí chưa có — trùng tên (hoa thường, khoảng trắng) thì bỏ qua", () => {
-  const add = newCriteriaOnly(["Hợp tác nhóm", "  tư duy   lập trình "], CRITERIA_TEMPLATE_ROBOTICS);
-  assert.equal(add.length, CRITERIA_TEMPLATE_ROBOTICS.length - 2);
-  assert.ok(!add.some((c) => c.name === "Hợp tác nhóm" || c.name === "Tư duy lập trình"));
-  assert.equal(newCriteriaOnly(CRITERIA_TEMPLATE_ROBOTICS.map((c) => c.name), CRITERIA_TEMPLATE_ROBOTICS).length, 0);
+  const set = criteriaTemplateById("robo-th")!.criteria;
+  const add = newCriteriaOnly(["Chăm chỉ", "  tư duy   công nghệ "], set);
+  assert.equal(add.length, set.length - 2);
+  assert.ok(!add.some((c) => c.name === "Chăm chỉ" || c.name === "Tư duy công nghệ"));
+  assert.equal(newCriteriaOnly(set.map((c) => c.name), set).length, 0);
   // Bộ nguồn có hai tiêu chí cùng tên → chỉ lấy một
   assert.equal(newCriteriaOnly([], [{ name: "A" }, { name: "a " }]).length, 1);
 });

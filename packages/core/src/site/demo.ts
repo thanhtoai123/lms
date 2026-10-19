@@ -1,12 +1,22 @@
 /**
- * NỘI DUNG DEMO CỦA KHUNG WEBSITE — trang con có sẵn để xem bố cục và dùng làm chỗ bắt đầu.
+ * CÁC TRANG CON CỦA WEBSITE TH STEAM ACADEMY — Giới thiệu, Chương trình học, 4 trang chuyên ngành, Liên hệ, 2 trang chính sách.
  *
- * Mọi tiêu đề khối bắt đầu bằng "[DEMO]": khi Xuất bản, hệ thống nhắc "còn chữ giữ chỗ" cho từng khối cho tới khi
- * anh thay bằng nội dung thật (xoá chữ [DEMO]). Không có con số thành tích, giá, hay lời của phụ huynh trong nội dung demo.
+ * Nội dung THẬT, dựng từ danh mục chương trình chuẩn (curriculum/thsteam.ts) và bộ nhận diện (system/th-brand.ts) qua
+ * site/thsteam-content.ts — đổi chương trình / học phí ở danh mục thì dựng lại trang là khớp.
+ * Riêng "Chính sách bảo mật" là BẢN NHÁP (có chữ "[DEMO]"): hệ thống nhắc khi xuất bản cho tới khi người có thẩm quyền duyệt.
+ * Không có số thành tích, lời phụ huynh hay ảnh trẻ em thật; ảnh là minh hoạ vector đi kèm ứng dụng.
  * Đầu / chân trang lấy từ khung chung (chrome.ts) khi hiển thị, nên không cần sửa ở từng trang.
+ *
+ * Tên xuất `SITE_DEMO_PAGES` giữ nguyên để màn quản trị "tạo trang còn thiếu" và lệnh `pnpm db:seed-site` dùng tiếp.
  */
 import { emptySection, type LandingDoc, type LandingSection, type LandingVariant, type SectionType } from "../landing/model.js";
 import { applyChrome, DEFAULT_CHROME } from "./chrome.js";
+import { TH_BRAND } from "../system/th-brand.js";
+import { TH_DELIVERY, TH_PRICING, TH_TRACKS, TH_LEVEL_VI, ageRange, programSummary, thProgramsOfTrack, examCourseName, type ThTrack } from "../curriculum/thsteam.js";
+import {
+  TH_ART, TH_TRACK_PAGE, COMMON_FAQ, COMPETENCY_ITEMS, MODULE_STEPS, PARENT_ITEMS, PREPARE_TEXT, REPORT_STEPS, SESSION_STEPS, TEACHER, VIRTUE_TEXT,
+  clip, overviewLines, priceCards, programAnchor, programLabel, programMarkdown, telHref, termsMarkdown, trackAges, trackCards, trackLevels, trackYears, vnd,
+} from "./thsteam-content.js";
 
 type Row = Record<string, string>;
 function sec(type: SectionType, id: string, data: Row = {}, lists: Record<string, Row[]> = {}, enabled = true): LandingSection {
@@ -29,188 +39,268 @@ export interface SiteDemoPage {
 }
 
 const page = (middle: LandingSection[]): LandingDoc => applyChrome({ sections: middle }, DEFAULT_CHROME);
+const B = TH_BRAND.name;
 
-const CTA = (title: string) => sec("cta", "cta", { title, text: "Điền form để trung tâm gọi lại tư vấn trong giờ làm việc.", primaryLabel: "Đặt buổi học thử", primaryUrl: "/dang-ky", secondaryLabel: "Gọi hotline", secondaryUrl: "tel:0837312860" }, { points: [{ text: "Miễn phí" }, { text: "Không ràng buộc" }, { text: "Giáo viên tư vấn trực tiếp" }] });
+const CTA = (title: string, id = "cta") => sec("cta", id, {
+  title, text: "Con học một buổi 1:1 cùng giáo viên qua ClassIn, sau đó giáo viên tư vấn lộ trình phù hợp.",
+  primaryLabel: "Đăng ký học trải nghiệm 1:1", primaryUrl: "/dang-ky", secondaryLabel: `Gọi ${TH_BRAND.hotline}`, secondaryUrl: telHref,
+}, { points: [{ text: "Học online tại nhà" }, { text: "Lớp nhóm 6–8 học sinh" }, { text: "90 phút/buổi · 1 buổi/tuần" }] });
 
 /* --------------------------- Giới thiệu --------------------------- */
 const about: SiteDemoPage = {
   slug: "gioi-thieu", title: "Giới thiệu", template: "site-gioi-thieu", label: "Giới thiệu", variant: "classic",
-  desc: "Câu chuyện, giá trị, hành trình và đội ngũ của trung tâm.",
-  seoTitle: "Giới thiệu — Sata Robo", seoDescription: "Câu chuyện, giá trị và phương pháp học lập trình robot của Sata Robo tại Đà Nẵng.",
+  desc: "Câu chuyện thương hiệu, giá trị cốt lõi, chuẩn đào tạo và giảng viên.",
+  seoTitle: `Giới thiệu — ${B}`, seoDescription: `${B}: Robotics, AI, đồ họa và lập trình cho học sinh 8–18 tuổi, học online cùng giáo viên qua ClassIn.`,
   build: () => page([
     sec("hero", "hero", {
-      eyebrow: "Về chúng tôi", title: "[DEMO] Về Sata Robo",
-      subtitle: "Đoạn mở đầu giới thiệu ngắn gọn trung tâm là ai, dạy gì, dành cho ai. Thay bằng câu chuyện thật của trung tâm.",
-      primaryLabel: "Đặt buổi học thử", primaryUrl: "/dang-ky", secondaryLabel: "Xem các khoá học", secondaryUrl: "/khoa-hoc",
-    }, { badges: [] }),
-    sec("text", "story", {
-      title: "[DEMO] Câu chuyện của chúng tôi",
-      body: "Viết 2–3 đoạn ngắn: vì sao thành lập trung tâm, trung tâm tin vào điều gì, điều gì khác biệt.\n\n**Gợi ý:** kể bằng giọng gần gũi với phụ huynh, tránh liệt kê dài.\n\n- Ý thứ nhất\n- Ý thứ hai\n- Ý thứ ba",
+      eyebrow: `Về ${B} · ${TH_BRAND.tagline}`, title: "Thắp lửa đam mê công nghệ cho thế hệ trẻ",
+      subtitle: `${B} dạy Robotics, Trí tuệ nhân tạo, Thiết kế đồ họa và Lập trình cho học sinh. Mọi lớp học online qua ClassIn, giáo viên dạy trực tiếp, lớp nhỏ 6–8 học sinh.`,
+      primaryLabel: "Đăng ký học trải nghiệm 1:1", primaryUrl: "/dang-ky", secondaryLabel: "Xem chương trình học", secondaryUrl: "/khoa-hoc",
+      image: TH_ART.hero,
+    }, { badges: [{ text: "4 chuyên ngành" }, { text: "Tiểu học · THCS · THPT" }, { text: "Học online qua ClassIn" }] }),
+    sec("text", "cau-chuyen", {
+      title: "Ý nghĩa thương hiệu",
+      body: [
+        TH_BRAND.about,
+        "",
+        "- **Chữ T** là nền tảng công nghệ (Technology & Talent).",
+        "- **Chữ H** là con người và sự trưởng thành (Human, Horizon, Harmony). Hai cột là thầy và trò, gạch nối là tinh thần liên môn STEAM.",
+        "- **Quỹ đạo vàng** là con đường khám phá khoa học; **tên lửa** là khát vọng bứt phá; **ngôi sao** là đích đến: chứng nhận, thành tích, sự tự tin.",
+      ].join("\n"),
     }),
-    sec("features", "values", { title: "[DEMO] Giá trị cốt lõi", intro: "Ba điều trung tâm giữ vững trong mọi lớp học." }, {
+    sec("features", "gia-tri", { title: "Giá trị cốt lõi", intro: `${TH_BRAND.method}: con học bằng cách tự tay làm ra sản phẩm.` }, {
       items: [
-        { title: "Học qua làm", text: "Nội dung mẫu: mỗi bé tự tay làm ra sản phẩm sau buổi học." },
-        { title: "Lớp nhỏ, kèm sát", text: "Nội dung mẫu: giáo viên theo dõi từng bé để không ai bị bỏ lại." },
-        { title: "Phụ huynh đồng hành", text: "Nội dung mẫu: phụ huynh nhận nhận xét và theo dõi tiến bộ của con." },
+        { title: "Innovation — Đổi mới sáng tạo", text: "Mỗi học phần kết thúc bằng một dự án do con tự lên ý tưởng và xây dựng." },
+        { title: "Interdisciplinary — Tích hợp liên môn", text: "Robotics, AI, đồ họa và lập trình gắn với toán, khoa học, tiếng Anh và đời sống." },
+        { title: "Integrity & Excellence — Chính trực & Đỉnh cao", text: "Con tự làm sản phẩm của mình, dùng công nghệ trung thực và có trách nhiệm." },
       ],
     }),
-    sec("timeline", "journey", { title: "[DEMO] Hành trình phát triển", intro: "Các mốc chính của trung tâm (điền năm và sự kiện thật)." }, {
+    sec("features", "chuan", { title: "Bám sát chương trình giáo dục mới", intro: "Chương trình giúp con học trước, sâu hơn và làm quen sớm với nội dung ở trường." }, {
       items: [
-        { when: "[DEMO] Năm", what: "Mốc thứ nhất của trung tâm", where: "" },
-        { when: "[DEMO] Năm", what: "Mốc thứ hai của trung tâm", where: "" },
-        { when: "[DEMO] Năm", what: "Mốc thứ ba của trung tâm", where: "" },
+        { title: "GDPT 2018 · môn Tin học", text: "Các kiến thức tuần tự, lặp, rẽ nhánh, giải quyết vấn đề với công nghệ được con thực hành qua dự án." },
+        { title: "Thông tư 02/2025/TT-BGDĐT", text: "Khung năng lực số cho người học: 6 miền năng lực, trong đó có giải quyết vấn đề và ứng dụng AI." },
+        { title: "Quyết định 2422/QĐ-BGDĐT", text: "Học sinh phổ thông học AI 12 tiết mỗi năm từ năm học 2026–2027. Con làm quen sớm, nắm chắc hơn." },
       ],
     }),
-    sec("gallery", "gallery", { title: "[DEMO] Hình ảnh lớp học" }, { items: [] }, false),
-    sec("testimonials", "testimonials", { title: "[DEMO] Phụ huynh nói gì" }, { items: [] }, false),
-    CTA("[DEMO] Mời ba mẹ đến trải nghiệm một buổi học"),
+    sec("steps", "cach-hoc", { title: "Con học như thế nào", intro: TH_DELIVERY }, { items: MODULE_STEPS }),
+    sec("programs", "giang-vien", { title: "Giảng viên đào tạo", intro: "Người đồng hành cùng con." }, {
+      items: [{ name: TEACHER.name, badge: TEACHER.role, text: `${TEACHER.text} ${TEACHER.motto}`, meta: "Robotics · Tin học trẻ · KHKT · HKICO", price: "", url: "", linkLabel: "", image: "" }],
+    }),
+    sec("features", "dong-hanh", { title: "Đồng hành cùng phụ huynh", intro: "Bố mẹ biết con học gì, tiến bộ ra sao." }, { items: PARENT_ITEMS }),
+    sec("testimonials", "phan-hoi", { title: "Phụ huynh nói gì" }, { items: [] }, false),
+    CTA("Cho con trải nghiệm một buổi học 1:1"),
   ]),
 };
 
-/* --------------------------- Khoá học (danh sách) --------------------------- */
+/* --------------------------- Chương trình học (danh sách) --------------------------- */
 const courses: SiteDemoPage = {
-  slug: "khoa-hoc", title: "Khoá học", template: "site-khoa-hoc", label: "Danh sách khoá học", variant: "classic",
-  desc: "Tổng hợp các khoá học, mỗi khoá dẫn sang trang chi tiết.",
-  seoTitle: "Khoá học lập trình robot cho bé — Sata Robo", seoDescription: "Các khoá học lập trình robot, luyện thi RoboSim và học online của Sata Robo.",
+  slug: "khoa-hoc", title: "Chương trình học", template: "site-khoa-hoc", label: "Danh sách chương trình", variant: "classic",
+  desc: "4 chuyên ngành, lộ trình theo cấp học, học phí; mỗi chuyên ngành dẫn sang trang riêng.",
+  seoTitle: `Chương trình học Robotics, AI, đồ họa, lập trình — ${B}`.slice(0, 70),
+  seoDescription: "4 chuyên ngành cho học sinh Tiểu học, THCS, THPT: lộ trình năm học 45 buổi, luyện thi tự chọn, học phí năm học 2026–2027.",
   build: () => page([
     sec("hero", "hero", {
-      eyebrow: "Khoá học", title: "[DEMO] Các khoá học của Sata Robo",
-      subtitle: "Mô tả ngắn cách trung tâm chia khoá học (theo lớp, theo mục tiêu) để phụ huynh chọn nhanh.",
-      primaryLabel: "Đặt buổi học thử", primaryUrl: "/dang-ky", secondaryLabel: "", secondaryUrl: "",
-    }, { badges: [] }),
-    sec("programs", "programs", { title: "[DEMO] Chọn khoá học cho con", intro: "Mỗi thẻ dẫn tới trang chi tiết riêng. Thêm / bớt khoá ở khối này." }, {
-      items: [
-        { name: "Lập trình Robot", badge: "Tại trung tâm", text: "Nội dung mẫu: lắp ráp và lập trình robot theo lộ trình từng cấp độ.", meta: "Độ tuổi / lớp: điền thông tin", price: "", url: "/khoa-hoc/lap-trinh-robot", linkLabel: "Xem chi tiết", image: "" },
-        { name: "Luyện thi RoboSim", badge: "Luyện thi", text: "Nội dung mẫu: ôn luyện theo thể lệ cuộc thi, thực hành mô phỏng trên máy tính.", meta: "Độ tuổi / lớp: điền thông tin", price: "", url: "/khoa-hoc/luyen-thi-robosim", linkLabel: "Xem chi tiết", image: "" },
-        { name: "Học online", badge: "Online", text: "Nội dung mẫu: học từ xa linh hoạt, có giáo viên hướng dẫn.", meta: "Độ tuổi / lớp: điền thông tin", price: "", url: "/khoa-hoc/hoc-online", linkLabel: "Xem chi tiết", image: "" },
-      ],
+      eyebrow: "Chương trình học", title: "4 chuyên ngành, lộ trình rõ ràng theo cấp học",
+      subtitle: `Mỗi năm học 45 buổi = 3 học phần × 15 buổi, từ Basic (Nền tảng) → Advanced (Nâng cao) → Expert (Chuyên sâu). ${TH_DELIVERY}.`,
+      primaryLabel: "Đăng ký học trải nghiệm 1:1", primaryUrl: "/dang-ky", secondaryLabel: "Xem học phí", secondaryUrl: "/khoa-hoc#hoc-phi",
+      image: TH_ART.hero,
+    }, { badges: [{ text: "Tiểu học · 8–10 tuổi" }, { text: "THCS · 11–15 tuổi" }, { text: "THPT · 15–18 tuổi" }] }),
+    sec("programs", "chuyen-nganh", { title: "Chọn chuyên ngành cho con", intro: "Mỗi thẻ dẫn tới trang chi tiết: chương trình theo cấp học, nội dung từng học phần, luyện thi." }, { items: trackCards() }),
+    sec("text", "lo-trinh", { title: "Lộ trình 4 chuyên ngành theo cấp học", body: [...overviewLines(), "**1 năm học = 45 buổi · Luyện thi: tự chọn, học thêm sau năm học.**"].join("\n").trim() }),
+    sec("steps", "hoc-phan", { title: "Một học phần 15 buổi", intro: "Kết thúc bằng dự án do con tự làm và buổi báo cáo trước phụ huynh." }, { items: MODULE_STEPS }),
+    sec("steps", "buoi-hoc", { title: "Một buổi học 90 phút", intro: "Ít lý thuyết, nhiều thực hành." }, { items: SESSION_STEPS }),
+    sec("text", "hoc-phi", {
+      title: `Học phí năm học ${TH_PRICING.schoolYear}`,
+      body: `Học phí giống nhau ở cả 4 chuyên ngành. ${TH_PRICING.note} Phiếu đăng ký ghi rõ gói học, cấp độ, lịch học và giáo viên phụ trách.`,
     }),
-    sec("steps", "how", { title: "[DEMO] Chọn khoá học thế nào?", intro: "" }, {
+    sec("programs", "bang-gia", { title: "Bảng học phí", intro: "Chọn lớp nhóm hoặc kèm 1:1; combo 2 năm học được giảm nhiều hơn." }, { items: priceCards() }),
+    sec("faq", "faq", { title: "Câu hỏi về chương trình" }, {
       items: [
-        { title: "Học thử", text: "Bé học thử cùng giáo viên để biết mình hợp khoá nào." },
-        { title: "Tư vấn lộ trình", text: "Giáo viên gợi ý khoá và cấp độ phù hợp." },
-        { title: "Chọn lịch học", text: "Gia đình chọn cơ sở và khung giờ thuận tiện." },
-      ],
+        { q: "Con nên học chuyên ngành nào trước?", a: "Sau buổi học trải nghiệm 1:1, giáo viên gợi ý chuyên ngành và năm học phù hợp với độ tuổi, sở thích và nền tảng của con." },
+        ...COMMON_FAQ,
+      ].slice(0, 12),
     }),
-    sec("faq", "faq", { title: "[DEMO] Câu hỏi về khoá học" }, {
-      items: [
-        { q: "Bé nên học khoá nào trước?", a: "Nội dung mẫu: giáo viên sẽ tư vấn sau buổi học thử dựa trên độ tuổi và nền tảng của bé." },
-        { q: "Học phí các khoá ra sao?", a: "Nội dung mẫu: trung tâm gửi bảng học phí chi tiết khi tư vấn. Thay bằng chính sách học phí thật." },
-      ],
-    }),
-    CTA("[DEMO] Chưa biết chọn khoá nào? Học thử trước"),
+    CTA("Chưa biết chọn chuyên ngành nào? Học trải nghiệm trước"),
   ]),
 };
 
-/* --------------------------- Chi tiết khoá học --------------------------- */
-function course(slug: string, name: string, badge: string, templateKey: string, label: string): SiteDemoPage {
+/* --------------------------- Trang chuyên ngành --------------------------- */
+function trackFaq(t: ThTrack): Row[] {
+  const extra: Record<ThTrack["code"], Row> = {
+    ROBO: { q: "Có cần mua bộ robot không?", a: "Không. Con học với robot ảo trên máy tính (RoboSim, RoboVR), học ngay tại nhà." },
+    AI: { q: "Con dùng AI có an toàn không?", a: "Con học cách hỏi AI rõ ràng, kiểm chứng câu trả lời, giữ an toàn thông tin và tôn trọng bản quyền ngay từ học phần đầu tiên." },
+    DOHOA: { q: "Cần phần mềm gì?", a: "Tiểu học học Tinkercad của Autodesk (chạy trên trình duyệt); THCS học Adobe Photoshop. Giáo viên hướng dẫn cài đặt trước khi vào học." },
+    CODE: { q: "Con chưa biết lập trình có học được không?", a: "Được. Mỗi năm học bắt đầu từ học phần Basic (Nền tảng); 4 chặng nối tiếp từ Scratch ở tiểu học đến lập trình web ở THPT." },
+  };
+  const y = TH_PRICING.year;
+  return [
+    { q: "Con bao nhiêu tuổi thì học?", a: thProgramsOfTrack(t.code).map((p) => `${TH_LEVEL_VI[p.level]} ${ageRange(p.ageFrom, p.ageTo)}: ${p.name} (${p.years.length} năm học)`).join(". ") + "." },
+    extra[t.code],
+    { q: "Học phí bao nhiêu?", a: `Năm học ${TH_PRICING.schoolYear}: lớp nhóm 1 năm học (45 buổi) ${vnd(y.group.price)} (niêm yết ${vnd(y.group.list)}, giảm ${y.group.discountPct}%); kèm 1:1 ${vnd(y.oneToOne.price)}. Xem đủ bảng học phí ở trang Chương trình học.` },
+    { q: "Cần chuẩn bị gì để học?", a: PREPARE_TEXT },
+    COMMON_FAQ[2]!, COMMON_FAQ[3]!, COMMON_FAQ[5]!,
+  ];
+}
+
+function trackPage(t: ThTrack): SiteDemoPage {
+  const ps = thProgramsOfTrack(t.code);
+  const a = trackAges(t);
+  const contests = ps.flatMap((p) => p.contests.map((c) => ({ p, c })));
+  const notes = ps.map((p) => p.contestNote).filter((x): x is string => !!x);
   return {
-    slug, title: name, template: templateKey, label, variant: "classic",
-    desc: "Trang chi tiết một khoá học: mô tả, kết quả đạt được, lộ trình, hỏi đáp.",
-    seoTitle: `${name} — Sata Robo`, seoDescription: `Chi tiết khoá ${name} tại Sata Robo: nội dung, lộ trình và cách đăng ký học thử.`,
+    slug: TH_TRACK_PAGE[t.code].slug, title: t.name, template: "site-khoa-hoc-chi-tiet", label: "Trang một chuyên ngành", variant: "classic",
+    desc: "Trang một chuyên ngành: chương trình theo cấp học, nội dung từng học phần, luyện thi, hỏi đáp.",
+    seoTitle: `${t.name} — ${B}`.slice(0, 70),
+    seoDescription: clip(`${t.name} cho học sinh ${trackLevels(t)} (${ageRange(a.from, a.to)}): ${ps.map((p) => p.name).join("; ")}. Học online qua ClassIn.`, 170),
     build: () => page([
       sec("hero", "hero", {
-        eyebrow: `Khoá học · ${badge}`, title: `[DEMO] ${name}`,
-        subtitle: "Một đến hai câu nói khoá học này dành cho ai và giúp bé đạt được gì. Thay bằng mô tả thật.",
-        primaryLabel: "Đặt học thử", primaryUrl: "/dang-ky", secondaryLabel: "Xem các khoá khác", secondaryUrl: "/khoa-hoc",
-      }, { badges: [{ text: "Độ tuổi / lớp: điền thông tin" }, { text: "Thời lượng: điền thông tin" }, { text: "Hình thức: điền thông tin" }] }),
-      sec("features", "outcomes", { title: "[DEMO] Con học được gì", intro: "Các kết quả cụ thể bé đạt được sau khoá học." }, {
-        items: [
-          { title: "Kết quả thứ nhất", text: "Nội dung mẫu: mô tả một kỹ năng hoặc sản phẩm cụ thể." },
-          { title: "Kết quả thứ hai", text: "Nội dung mẫu: mô tả một kỹ năng hoặc sản phẩm cụ thể." },
-          { title: "Kết quả thứ ba", text: "Nội dung mẫu: mô tả một kỹ năng hoặc sản phẩm cụ thể." },
-          { title: "Kết quả thứ tư", text: "Nội dung mẫu: mô tả một kỹ năng hoặc sản phẩm cụ thể." },
-        ],
+        eyebrow: `Chuyên ngành · ${trackLevels(t)}`, title: t.name,
+        subtitle: `${t.tagline ?? ""} ${TH_DELIVERY}.`.trim(),
+        primaryLabel: "Đăng ký học trải nghiệm 1:1", primaryUrl: "/dang-ky", secondaryLabel: "Xem các chuyên ngành khác", secondaryUrl: "/khoa-hoc",
+        image: TH_ART[t.code],
+      }, { badges: [{ text: ageRange(a.from, a.to) }, { text: `${ps.length} chương trình · ${trackYears(t)} năm học` }, { text: "Lớp 6–8 học sinh hoặc kèm 1:1" }, { text: "90 phút/buổi · 1 buổi/tuần" }] }),
+      sec("programs", "chuong-trinh", { title: "Chương trình theo cấp học", intro: "Mỗi năm học 45 buổi = 3 học phần Basic → Advanced → Expert. Bấm vào chương trình để xem nội dung từng học phần." }, {
+        items: ps.map((p) => ({
+          name: programLabel(p), badge: TH_LEVEL_VI[p.level],
+          text: p.years.map((y) => `Năm ${y.no} (${ageRange(y.ageFrom, y.ageTo)}): ${y.title}.`).join(" "),
+          meta: clip(programSummary(p), 120), price: "", url: `#${programAnchor(p)}`, linkLabel: "Xem lộ trình", image: "",
+        })),
       }),
-      sec("steps", "path", { title: "[DEMO] Lộ trình học", intro: "Các giai đoạn của khoá, từ làm quen đến hoàn thành sản phẩm." }, {
-        items: [
-          { title: "Giai đoạn 1", text: "Nội dung mẫu: làm quen và nắm kiến thức nền." },
-          { title: "Giai đoạn 2", text: "Nội dung mẫu: thực hành và làm dự án nhỏ." },
-          { title: "Giai đoạn 3", text: "Nội dung mẫu: hoàn thiện sản phẩm và trình bày." },
-        ],
+      ...ps.map((p) => sec("text", programAnchor(p), { title: programLabel(p), body: programMarkdown(p) })),
+      sec("timeline", "luyen-thi", {
+        title: "Luyện thi (tự chọn)",
+        intro: clip(["Khóa luyện thi học thêm sau năm học tương ứng. Học phí chưa gồm lệ phí dự thi.", ...notes].join(" "), 300),
+      }, {
+        items: contests.map(({ p, c }) => ({ when: `Sau Năm ${c.afterYear} · ${TH_LEVEL_VI[p.level]}`, what: clip(`${examCourseName(p, c)} · ${c.sessions} buổi`, 160), where: clip(c.eligibility ?? "", 100) })),
       }),
-      sec("stats", "stats", { title: "" }, { items: [] }, false),
-      sec("faq", "faq", { title: "[DEMO] Hỏi đáp về khoá học" }, {
-        items: [
-          { q: "Khoá học này phù hợp với bé nào?", a: "Nội dung mẫu: nêu độ tuổi, lớp và nền tảng cần có." },
-          { q: "Mỗi buổi học diễn ra thế nào?", a: "Nội dung mẫu: mô tả một buổi học điển hình." },
-          { q: "Học phí và lịch khai giảng?", a: "Nội dung mẫu: trung tâm gửi bảng học phí và lịch khai giảng khi tư vấn." },
-        ],
-      }),
-      CTA("[DEMO] Cho con học thử khoá này"),
+      sec("features", "nang-luc", { title: "Đánh giá theo 6 năng lực + 3 phẩm chất", intro: VIRTUE_TEXT }, { items: COMPETENCY_ITEMS }),
+      sec("steps", "bao-cao", { title: "Buổi báo cáo · buổi 15 mỗi học phần", intro: "Cứ 15 buổi, bố mẹ thấy rõ con tiến bộ. Sau buổi báo cáo, gia đình nhận phiếu đánh giá, video báo cáo và chứng nhận học phần." }, { items: REPORT_STEPS }),
+      sec("faq", "faq", { title: `Hỏi đáp về ${t.name}` }, { items: trackFaq(t) }),
+      CTA(`Cho con học trải nghiệm ${t.name}`),
     ]),
   };
 }
-const courseRobot = course("khoa-hoc-lap-trinh-robot", "Lập trình Robot", "Tại trung tâm", "site-khoa-hoc-chi-tiet", "Chi tiết một khoá học");
-const courseRobosim = course("khoa-hoc-luyen-thi-robosim", "Luyện thi RoboSim", "Luyện thi", "site-khoa-hoc-chi-tiet", "Chi tiết một khoá học");
-const courseOnline = course("khoa-hoc-hoc-online", "Học online", "Online", "site-khoa-hoc-chi-tiet", "Chi tiết một khoá học");
+const trackPages = TH_TRACKS.map(trackPage);
 
 /* --------------------------- Liên hệ --------------------------- */
 const contact: SiteDemoPage = {
   slug: "lien-he", title: "Liên hệ", template: "site-lien-he", label: "Liên hệ", variant: "classic",
-  desc: "Cách liên hệ, giờ làm việc và form để lại thông tin.",
-  seoTitle: "Liên hệ — Sata Robo", seoDescription: "Địa chỉ cơ sở, hotline và form để lại thông tin để được Sata Robo tư vấn.",
+  desc: "Hotline, website, fanpage, cách phản ánh và form để lại thông tin.",
+  seoTitle: `Liên hệ — ${B}`, seoDescription: `Hotline ${TH_BRAND.hotline} · ${TH_BRAND.website}. Để lại thông tin để ${B} tư vấn lộ trình và hẹn buổi học trải nghiệm 1:1.`,
   build: () => page([
     sec("hero", "hero", {
-      eyebrow: "Liên hệ", title: "[DEMO] Liên hệ với Sata Robo",
-      subtitle: "Gọi hotline, nhắn Zalo hoặc để lại thông tin — trung tâm phản hồi trong giờ làm việc.",
-      primaryLabel: "Gọi 0837 312 860", primaryUrl: "tel:0837312860", secondaryLabel: "", secondaryUrl: "",
-    }, { badges: [] }),
-    sec("text", "visit", {
-      title: "[DEMO] Đến trung tâm",
-      body: "Địa chỉ các cơ sở nằm ở chân trang. Viết thêm hướng dẫn đường đi, chỗ gửi xe, mốc dễ nhận biết.\n\n**Giờ làm việc:** [DEMO] điền giờ làm việc thật.\n\n**Bản đồ:** dán liên kết bản đồ vào đây.",
+      eyebrow: "Liên hệ", title: `Liên hệ ${B}`,
+      subtitle: "Gọi hotline hoặc để lại thông tin, trung tâm liên hệ lại để tư vấn lộ trình và hẹn buổi học trải nghiệm 1:1 cho con.",
+      primaryLabel: `Gọi ${TH_BRAND.hotline}`, primaryUrl: telHref, secondaryLabel: "Đăng ký học trải nghiệm", secondaryUrl: "/dang-ky",
+    }, { badges: [{ text: `Hotline ${TH_BRAND.hotline}` }, { text: TH_BRAND.website }, { text: `Fanpage ${TH_BRAND.fanpage}` }] }),
+    sec("text", "kenh", {
+      title: "Kênh liên hệ",
+      body: [
+        `- **Hotline:** ${TH_BRAND.hotline}`,
+        `- **Website:** ${TH_BRAND.website}`,
+        `- **Fanpage:** ${TH_BRAND.fanpage}`,
+        "- **Học viên đang học:** nhắn trong nhóm Zalo của lớp.",
+        "",
+        `**Hình thức học:** ${TH_DELIVERY}. Con học tại nhà, không cần đến cơ sở.`,
+        "",
+        `**Phản ánh chất lượng:** qua Zalo lớp hoặc hotline ${TH_BRAND.hotline}. Trung tâm phản hồi trong 24 giờ, xử lý trong 5 ngày làm việc.`,
+      ].join("\n"),
     }),
-    sec("form", "form", { title: "Để lại thông tin", subtitle: "Trung tâm sẽ gọi lại tư vấn trong giờ làm việc.", thankYou: "Cảm ơn ba mẹ! Trung tâm sẽ gọi lại trong giờ làm việc." }),
-    sec("faq", "faq", { title: "[DEMO] Câu hỏi thường gặp" }, {
-      items: [
-        { q: "Bao lâu thì trung tâm phản hồi?", a: "Nội dung mẫu: nêu thời gian phản hồi thật của trung tâm." },
-        { q: "Có thể đến tham quan trước không?", a: "Nội dung mẫu: nêu cách hẹn lịch tham quan." },
-      ],
-    }),
+    sec("form", "form", { title: "Để lại thông tin", subtitle: "Trung tâm liên hệ lại để tư vấn lộ trình cho con.", thankYou: `Cảm ơn ba mẹ! ${B} sẽ liên hệ lại trong giờ làm việc.` }),
+    sec("faq", "faq", { title: "Câu hỏi thường gặp" }, { items: [COMMON_FAQ[0]!, COMMON_FAQ[1]!, COMMON_FAQ[2]!] }),
   ]),
 };
 
 /* --------------------------- Chính sách --------------------------- */
-function policy(slug: string, title: string, label: string, topic: string): SiteDemoPage {
-  const body = [
-    `**[DEMO] Văn bản mẫu — thay bằng ${topic} đã được người có thẩm quyền duyệt.**`,
-    "",
-    "## 1. Phạm vi áp dụng",
-    "Nêu văn bản này áp dụng cho ai, trong trường hợp nào.",
-    "",
-    "## 2. Nội dung chính",
-    "- Điểm thứ nhất",
-    "- Điểm thứ hai",
-    "- Điểm thứ ba",
-    "",
-    "## 3. Quyền và trách nhiệm",
-    "Nêu quyền và trách nhiệm của phụ huynh / học viên và của trung tâm.",
-    "",
-    "## 4. Liên hệ",
-    "Nêu cách liên hệ khi có thắc mắc hoặc khiếu nại.",
-  ].join("\n");
-  return {
-    slug, title, template: "site-chinh-sach", label, variant: "classic",
-    desc: "Trang văn bản chính sách: bảo mật, điều khoản…",
-    seoTitle: `${title} — Sata Robo`, seoDescription: `${title} của Sata Robo.`,
-    build: () => page([
-      sec("hero", "hero", { eyebrow: "Chính sách", title: `[DEMO] ${title}`, subtitle: "Cập nhật lần cuối: điền ngày.", primaryLabel: "Về trang chủ", primaryUrl: "/", secondaryLabel: "", secondaryUrl: "" }, { badges: [] }),
-      sec("text", "body", { title: "", body }),
-    ]),
-  };
-}
-const privacy = policy("chinh-sach-bao-mat", "Chính sách bảo mật", "Chính sách / điều khoản", "chính sách bảo mật");
-const terms = policy("chinh-sach-dieu-khoan", "Điều khoản sử dụng", "Chính sách / điều khoản", "điều khoản sử dụng");
+const terms: SiteDemoPage = {
+  slug: "chinh-sach-dieu-khoan", title: "Điều khoản đăng ký học", template: "site-chinh-sach", label: "Chính sách / điều khoản", variant: "classic",
+  desc: "Học phí, chương trình, quy chuẩn lớp online, học bù, bảo lưu, hoàn phí, phản ánh, hình ảnh của con.",
+  seoTitle: `Điều khoản đăng ký học — ${B}`, seoDescription: "Học phí, học bù, bảo lưu, chuyển nhượng, hoàn học phí và phản ánh chất lượng khi đăng ký học tại TH STEAM Academy.",
+  build: () => page([
+    sec("hero", "hero", { eyebrow: "Chính sách", title: "Điều khoản đăng ký học", subtitle: `Áp dụng từ năm học ${TH_PRICING.schoolYear}.`, primaryLabel: "Đăng ký học trải nghiệm 1:1", primaryUrl: "/dang-ky", secondaryLabel: "Về trang chủ", secondaryUrl: "/" }, { badges: [] }),
+    sec("text", "noi-dung", { title: "", body: termsMarkdown() }),
+  ]),
+};
 
-/** Các trang demo của khung website, đúng thứ tự sơ đồ */
-export const SITE_DEMO_PAGES: readonly SiteDemoPage[] = [about, courses, courseRobot, courseRobosim, courseOnline, contact, privacy, terms];
+/** Bản nháp chính sách bảo mật: nêu đúng dữ liệu form đang thu, cần người có thẩm quyền duyệt trước khi bỏ chữ [DEMO] */
+const privacy: SiteDemoPage = {
+  slug: "chinh-sach-bao-mat", title: "Chính sách bảo mật", template: "site-chinh-sach", label: "Chính sách / điều khoản", variant: "classic",
+  desc: "Cách trung tâm thu thập, sử dụng và bảo vệ thông tin của phụ huynh và học sinh.",
+  seoTitle: `Chính sách bảo mật — ${B}`, seoDescription: `Cách ${B} thu thập, sử dụng và bảo vệ thông tin của phụ huynh và học sinh.`,
+  build: () => page([
+    sec("hero", "hero", { eyebrow: "Chính sách", title: "Chính sách bảo mật", subtitle: "[DEMO] Bản nháp — cần người có thẩm quyền duyệt và ghi ngày hiệu lực trước khi công bố.", primaryLabel: "Về trang chủ", primaryUrl: "/", secondaryLabel: "", secondaryUrl: "" }, { badges: [] }),
+    sec("text", "noi-dung", {
+      title: "",
+      body: [
+        `${TH_BRAND.legalName} (${B}) tôn trọng và bảo vệ thông tin của phụ huynh và học sinh.`,
+        "",
+        "## 1. Thông tin trung tâm thu thập",
+        "- Khi đăng ký học trải nghiệm: họ tên phụ huynh, số điện thoại, tên con, lớp, trường và ghi chú do phụ huynh tự nhập.",
+        "- Trong quá trình học: chuyên cần, bài tập, sản phẩm, video buổi học, phiếu đánh giá và chứng nhận của con (hồ sơ công nghệ).",
+        "",
+        "## 2. Mục đích sử dụng",
+        "- Liên hệ tư vấn, xếp lớp, gửi lịch học và thông báo của lớp.",
+        "- Theo dõi, đánh giá việc học và báo cáo tiến bộ cho phụ huynh.",
+        "- Chỉ gửi thông tin ưu đãi, sự kiện khi phụ huynh đồng ý nhận; có thể hủy bất cứ lúc nào.",
+        "",
+        "## 3. Hình ảnh và video của con",
+        "- Dùng cho hồ sơ công nghệ của con.",
+        "- Chỉ dùng cho truyền thông khi phụ huynh đồng ý bằng văn bản.",
+        "",
+        "## 4. Chia sẻ và bảo vệ",
+        "- Không bán hoặc cho thuê thông tin cá nhân.",
+        "- Chỉ người phụ trách lớp, tư vấn và vận hành được xem thông tin cần cho công việc của mình.",
+        "- Thực hiện theo quy định pháp luật Việt Nam về bảo vệ dữ liệu cá nhân.",
+        "",
+        "## 5. Quyền của phụ huynh",
+        "Phụ huynh có thể đề nghị xem, sửa hoặc xóa thông tin, rút lại sự đồng ý nhận tin.",
+        "",
+        "## 6. Liên hệ",
+        `Hotline ${TH_BRAND.hotline} · ${TH_BRAND.website}.`,
+      ].join("\n"),
+    }),
+  ]),
+};
+
+/** Các trang con của website, đúng thứ tự sơ đồ */
+export const SITE_DEMO_PAGES: readonly SiteDemoPage[] = [about, courses, ...trackPages, contact, privacy, terms];
+/** Trang con có chữ "[DEMO]" (bản nháp cần duyệt) */
+export const SITE_DRAFT_SLUGS: readonly string[] = ["chinh-sach-bao-mat"];
+
+/* --------------------------- Mẫu tạo trang mới --------------------------- */
+/** Mẫu trang chi tiết cho chương trình / khoá mới (chưa có trong danh mục chuẩn): chữ mẫu có [DEMO] để nhắc thay */
+const courseTemplate: SiteDemoPage = {
+  slug: "", title: "", template: "site-khoa-hoc-chi-tiet", label: "Trang chi tiết một chương trình", variant: "classic",
+  desc: "Trang một chương trình / khoá học: mô tả, con học được gì, học phần, hỏi đáp.",
+  seoTitle: "", seoDescription: "",
+  build: () => page([
+    sec("hero", "hero", {
+      eyebrow: "Chương trình học", title: "[DEMO] Tên chương trình",
+      subtitle: `[DEMO] Một đến hai câu: chương trình dành cho ai, con làm được gì. ${TH_DELIVERY}.`,
+      primaryLabel: "Đăng ký học trải nghiệm 1:1", primaryUrl: "/dang-ky", secondaryLabel: "Xem các chuyên ngành", secondaryUrl: "/khoa-hoc",
+    }, { badges: [{ text: "[DEMO] Độ tuổi" }, { text: "[DEMO] Số năm học · số buổi" }, { text: "Học online qua ClassIn" }] }),
+    sec("features", "con-hoc", { title: "[DEMO] Con học được gì", intro: "Mỗi học phần một nhóm kỹ năng và một sản phẩm." }, {
+      items: [
+        { title: "[DEMO] Học phần 1 · Basic (Nền tảng)", text: "Con học … · Sản phẩm … · Con làm được …" },
+        { title: "[DEMO] Học phần 2 · Advanced (Nâng cao)", text: "Con học … · Sản phẩm … · Con làm được …" },
+        { title: "[DEMO] Học phần 3 · Expert (Chuyên sâu)", text: "Con học … · Sản phẩm … · Con làm được …" },
+      ],
+    }),
+    sec("steps", "hoc-phan", { title: "Một học phần 15 buổi", intro: "" }, { items: MODULE_STEPS }),
+    sec("faq", "faq", { title: "Hỏi đáp" }, { items: COMMON_FAQ.slice(0, 4) }),
+    CTA("Cho con học trải nghiệm chương trình này"),
+  ]),
+};
 
 /** Mẫu tạo trang mới trong khu quản trị (mỗi loại một mẫu): trang con của website */
 export const SITE_TEMPLATES: readonly SiteDemoPage[] = [
   { ...about, slug: "", title: "", template: "site-gioi-thieu" },
-  { ...courseRobot, slug: "", title: "", template: "site-khoa-hoc-chi-tiet", label: "Trang chi tiết một khoá học" },
-  { ...privacy, slug: "", title: "", template: "site-chinh-sach", label: "Trang chính sách / văn bản" },
+  courseTemplate,
+  { ...terms, slug: "", title: "", template: "site-chinh-sach", label: "Trang chính sách / văn bản" },
 ];
 
 export const siteDemoBySlug = (slug: string): SiteDemoPage | null => SITE_DEMO_PAGES.find((p) => p.slug === slug) ?? null;
 export const siteTemplateByKey = (key: string): SiteDemoPage | null => SITE_TEMPLATES.find((t) => t.template === key) ?? null;
+
+/** Trang cũ của khung website trước khi chuyển sang TH STEAM (để lệnh dọn dẹp ẩn đi, không xoá) */
+export const SITE_RETIRED_SLUGS: readonly string[] = ["khoa-hoc-lap-trinh-robot", "khoa-hoc-luyen-thi-robosim", "khoa-hoc-hoc-online"];

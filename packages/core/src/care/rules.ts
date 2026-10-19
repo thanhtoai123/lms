@@ -261,4 +261,4 @@ export function nextBirthday(dob: string, from: string): { date: string; age: nu
   return { date: d, age, daysUntil };
 }
 
-export const DEFAULT_BIRTHDAY_TEMPLATE = "Sata Robo chúc mừng sinh nhật {ten_hv}! Chúc con tuổi mới luôn vui khoẻ, sáng tạo và học thật giỏi. Thân mến gửi {ten_ph}.";
+export const DEFAULT_BIRTHDAY_TEMPLATE = "TH STEAM Academy chúc mừng sinh nhật {ten_hv}! Chúc con tuổi mới luôn vui khoẻ, sáng tạo và học thật giỏi. Thân mến gửi {ten_ph}.";

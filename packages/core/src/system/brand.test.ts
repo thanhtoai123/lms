@@ -30,11 +30,12 @@ test("màu chữ thương hiệu luôn đạt tương phản 4.5 trên nền tr�
   }
 });
 
-test("bảng màu mặc định khớp tím + cam hiện tại", () => {
+test("bảng màu mặc định = bộ nhận diện TH STEAM (Deep Ocean Blue + Cosmic Gold, nút vàng chữ navy)", () => {
   const p = buildPalette(BRAND_DEFAULT_COLORS);
-  assert.equal(p["--primary"], "#610b8a");
-  assert.equal(p["--accent"], "#ff8f2d");
+  assert.equal(p["--primary"], "#1d4ed8");
+  assert.equal(p["--accent"], "#f59e0b");
   assert.equal(p["--primary-foreground"], "#ffffff");
+  assert.equal(p["--accent-foreground"], "#0f172a", "chữ trên nút CTA vàng là Midnight Navy");
 });
 
 test("bảng màu: đủ biến, sắc thái nhạt dần, nền nhạt hơn nền đậm", () => {
@@ -50,7 +51,7 @@ test("màu không hợp lệ rơi về mặc định, không phát sinh CSS hỏ
   const css = brandCss({ primary: "javascript:alert(1)", accent: "}body{display:none" });
   assert.ok(css.startsWith("html:root,.admin-scope.admin-scope{"));
   assert.ok(!/javascript|display:none/.test(css));
-  assert.ok(css.includes("--primary:#610b8a"));
+  assert.ok(css.includes("--primary:#1d4ed8"));
 });
 
 test("kiểm tra đầu vào màu", () => {

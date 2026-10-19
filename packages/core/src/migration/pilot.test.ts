@@ -19,7 +19,7 @@ test("web push: endpoint, khoá, nội dung", () => {
   assert.equal(validPushKeys({ p256dh: "B".repeat(20), auth: "a".repeat(22) }), false);
   assert.equal(validPushKeys({ p256dh: "B".repeat(87), auth: "a+b/".repeat(6) }), false);
   const p = pushPayload({ title: "", body: "x ".repeat(200), link: "https://evil.com", template: "MESSAGE_NEW", id: "12345678-aaaa" });
-  assert.equal(p.title, "Sata Robo");
+  assert.equal(p.title, "TH STEAM Academy");
   assert.equal(p.body.length, 160);
   assert.equal(p.url, "/ph/tin-nhan");
   assert.equal(pushPayload({ title: "a", body: "b", link: "/ph/tin-nhan?id=1", template: "X", id: "1" }).url, "/ph/tin-nhan?id=1");

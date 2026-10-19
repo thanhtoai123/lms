@@ -1,8 +1,9 @@
 import type { Metadata, Viewport } from "next";
-import { Be_Vietnam_Pro } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 
-const beVietnam = Be_Vietnam_Pro({ subsets: ["latin", "vietnamese"], weight: ["400", "500", "600", "700", "800"], variable: "--font-be-vietnam", display: "swap" });
+// Phông duy nhất của bộ nhận diện TH STEAM (Bold 700 cho H1, SemiBold 600 cho H2/H3, Regular/Medium cho nội dung)
+const brandFont = Plus_Jakarta_Sans({ subsets: ["latin", "vietnamese"], weight: ["400", "500", "600", "700", "800"], variable: "--font-brand", display: "swap" });
 import { TRPCProvider } from "@/lib/trpc/client";
 import { BrandProvider } from "@/components/brand";
 import { loadBrand } from "@/lib/brand";
@@ -27,7 +28,7 @@ export async function generateViewport(): Promise<Viewport> {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const brand = await loadBrand();
   return (
-    <html lang="vi" className={`h-full ${beVietnam.variable}`}>
+    <html lang="vi" className={`h-full ${brandFont.variable}`}>
       <head>
         {/* Bảng màu thương hiệu do Quản trị hệ thống cấu hình (Cài đặt hệ thống → Nhận diện thương hiệu) */}
         {/* eslint-disable-next-line @next/next/no-css-tags */}

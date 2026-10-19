@@ -4,8 +4,8 @@ import {
   RUBRIC_LEVELS, RUBRIC_SCALE, DEFAULT_HIGHLIGHTS, OBJECTIVE_RESULTS, OBJECTIVE_RESULT_VI, scoreLabel, rubricLevelsFor,
   buildSessionSnapshot, applySessionScores, rebaseSnapshot, snapshotScores, missingSessionCriteria, sessionAverage, isSessionEvalSnapshot,
   validateSessionEvaluation, sessionEvaluationReadiness, evaluationBlockerMessage, isEvaluableAttendance, sanitizeHighlights, highlightOptions,
-  copyScoresToAll, sessionCriteriaFrom, DEFAULT_SESSION_CRITERIA,
-  type SessionEvalContext,
+  copyScoresToAll, sessionCriteriaFrom, DEFAULT_SESSION_CRITERIA, PREVIOUS_RUBRIC_SCALE, convertScore, snapshotScale, snapshotScoresOnScale, levelOfAverage,
+  type SessionEvalContext, type SessionEvalSnapshot,
 } from "./rubric.js";
 import {
   round1, mean, trendOf, normalizeTo5, milestonePeriod, aggregateMilestone, suggestMilestoneComment, isMilestoneAggregate,
@@ -37,34 +37,41 @@ const crit = [
 
 /* ------------------------------ Rubric ------------------------------ */
 
-test("rubric 4 mức có thứ tự, ngôn từ tích cực, mỗi mức có mô tả", () => {
-  assert.equal(RUBRIC_SCALE, 4);
-  assert.deepEqual(RUBRIC_LEVELS.map((l) => l.value), [1, 2, 3, 4]);
-  assert.deepEqual(RUBRIC_LEVELS.map((l) => l.label), ["Đang làm quen", "Cần hỗ trợ", "Đạt", "Vượt mong đợi"]);
+test("rubric 3 mức Cần cố gắng / Đạt / Tốt (TT 27), ngôn từ tích cực, mỗi mức có mô tả", () => {
+  assert.equal(RUBRIC_SCALE, 3);
+  assert.deepEqual(RUBRIC_LEVELS.map((l) => l.value), [1, 2, 3]);
+  assert.deepEqual(RUBRIC_LEVELS.map((l) => l.label), ["Cần cố gắng", "Đạt", "Tốt"]);
   for (const l of RUBRIC_LEVELS) {
     assert.ok(l.hint.length > 10, "mỗi mức phải có mô tả");
     assert.doesNotMatch(l.label, /kém|chưa tốt|yếu/i);
   }
-  const prog = rubricLevelsFor("Tư duy lập trình");
-  assert.equal(prog.length, 4);
-  assert.match(prog[3]!.hint, /vòng lặp/);
+  const prog = rubricLevelsFor("Tư duy công nghệ");
+  assert.equal(prog.length, 3);
+  assert.match(prog[2]!.hint, /chiến lược/);
+  assert.match(rubricLevelsFor("Trung thực")[2]!.hint, /nhận lỗi/);
   assert.equal(rubricLevelsFor("Tiêu chí lạ")[0]!.hint, RUBRIC_LEVELS[0]!.hint, "không khớp từ khoá → mô tả chung");
-  assert.equal(scoreLabel(4), "Vượt mong đợi");
+  assert.equal(scoreLabel(3), "Tốt");
+  assert.equal(scoreLabel(1), "Cần cố gắng");
+  assert.equal(scoreLabel(4, 4), "Vượt mong đợi", "phiếu cũ thang 4 vẫn đọc đúng nhãn");
   assert.equal(scoreLabel(5, 5), "Xuất sắc");
   assert.equal(scoreLabel(null), "Chưa chấm");
+  assert.equal(levelOfAverage(2.6), "Tốt");
+  assert.equal(levelOfAverage(1.4), "Cần cố gắng");
+  assert.equal(levelOfAverage(null), "Chưa chấm");
+  assert.equal(DEFAULT_SESSION_CRITERIA.length, 9, "6 năng lực + 3 phẩm chất");
   assert.equal(OBJECTIVE_RESULTS.length, 3);
   assert.ok(OBJECTIVE_RESULTS.every((o) => OBJECTIVE_RESULT_VI[o].length > 0));
 });
 
 test("snapshot chụp tiêu chí + mô tả mức + điểm + bối cảnh; điểm ngoài thang bị bỏ", () => {
-  const s = buildSessionSnapshot({ criteria: crit, scores: { c1: 3, c2: 9, c3: 2.5, bogus: 4 }, context: ctx, now: new Date("2026-09-20T05:00:00Z") });
-  assert.equal(s.scale, 4);
+  const s = buildSessionSnapshot({ criteria: crit, scores: { c1: 3, c2: 4, c3: 2.5, bogus: 3 }, context: ctx, now: new Date("2026-09-20T05:00:00Z") });
+  assert.equal(s.scale, 3);
   assert.equal(s.criteria.length, 3);
   assert.equal(s.criteria[0]!.value, 3);
-  assert.equal(s.criteria[1]!.value, null, "9 ngoài thang");
+  assert.equal(s.criteria[1]!.value, null, "4 ngoài thang 3");
   assert.equal(s.criteria[2]!.value, null, "không nhận số lẻ");
   assert.equal(s.criteria[0]!.description, "Viết chương trình điều khiển robot");
-  assert.equal(s.criteria[0]!.levels.length, 4);
+  assert.equal(s.criteria[0]!.levels.length, 3);
   assert.equal(s.context.lessonTitle, "Robot tránh vật cản");
   assert.equal(s.takenAt, "2026-09-20T05:00:00.000Z");
   assert.ok(isSessionEvalSnapshot(s));
@@ -76,30 +83,58 @@ test("snapshot chụp tiêu chí + mô tả mức + điểm + bối cảnh; đi�
 test("khoá chưa cấu hình tiêu chí → dùng bộ tiêu chí mặc định", () => {
   const c = sessionCriteriaFrom([]);
   assert.equal(c.length, DEFAULT_SESSION_CRITERIA.length);
-  const s = buildSessionSnapshot({ criteria: [], scores: { "mac-dinh:lap-trinh": 4 }, context: ctx });
-  assert.equal(s.criteria.find((x) => x.key === "mac-dinh:lap-trinh")!.value, 4);
+  const s = buildSessionSnapshot({ criteria: [], scores: { "mac-dinh:tu-duy-cong-nghe": 3 }, context: ctx });
+  assert.equal(s.criteria.find((x) => x.key === "mac-dinh:tu-duy-cong-nghe")!.value, 3);
   assert.equal(s.criteria.every((x) => x.criterionId === null), true);
 });
 
 test("đổi tiêu chí sau khi phát hành không làm đổi phiếu cũ; phát hành chụp lại bối cảnh mới nhưng giữ điểm", () => {
   const src = [{ id: "c1", name: "Tư duy lập trình" }];
-  const saved = buildSessionSnapshot({ criteria: src, scores: { c1: 4 }, context: ctx });
+  const saved = buildSessionSnapshot({ criteria: src, scores: { c1: 3 }, context: ctx });
   src[0]!.name = "Tên mới";
   assert.equal(saved.criteria[0]!.label, "Tư duy lập trình");
   const fresh = buildSessionSnapshot({ criteria: [{ id: "c1", name: "Tư duy lập trình" }, { id: "c9", name: "Tiêu chí mới" }], context: { ...ctx, lessonTitle: "Bài đã xác nhận" } });
   const re = rebaseSnapshot(saved, fresh);
   assert.equal(re.context.lessonTitle, "Bài đã xác nhận");
-  assert.deepEqual(snapshotScores(re), { c1: 4, c9: null });
+  assert.deepEqual(snapshotScores(re), { c1: 3, c9: null });
   assert.equal(rebaseSnapshot(null, fresh), fresh);
   const upd = applySessionScores(saved, { c1: 2 });
   assert.equal(upd.criteria[0]!.value, 2);
-  assert.equal(saved.criteria[0]!.value, 4, "không sửa bản chụp gốc");
-  assert.equal(applySessionScores(saved, {}).criteria[0]!.value, 4, "khoá không gửi thì giữ nguyên");
+  assert.equal(saved.criteria[0]!.value, 3, "không sửa bản chụp gốc");
+  assert.equal(applySessionScores(saved, {}).criteria[0]!.value, 3, "khoá không gửi thì giữ nguyên");
+});
+
+/** Phiếu cũ chấm thang 4 (trước 10/2026) */
+function oldSheet(scores: Record<string, number>): SessionEvalSnapshot {
+  return {
+    version: "2026.09", scale: 4, takenAt: "2026-09-01T00:00:00Z", context: ctx,
+    criteria: Object.entries(scores).map(([key, value]) => ({ key, criterionId: key, label: key, description: null, levels: [1, 2, 3, 4].map((v) => ({ value: v, label: String(v), hint: "" })), value })),
+  };
+}
+
+test("phiếu cũ thang 4: giữ nguyên khi hiển thị, quy về thang 3 khi tổng hợp; nháp cũ chuyển sang thang mới", () => {
+  assert.equal(convertScore(4, 4, 3), 3);
+  assert.equal(convertScore(1, 4, 3), 1);
+  assert.equal(convertScore(3, 4, 3), 2.3);
+  assert.equal(convertScore(2, 3, 3), 2);
+  assert.equal(convertScore(5, 4, 3), null, "ngoài thang gốc");
+  assert.equal(convertScore(null, 4, 3), null);
+  const old = oldSheet({ c1: 4, c2: 2 });
+  assert.equal(snapshotScale(old), PREVIOUS_RUBRIC_SCALE);
+  assert.equal(snapshotScale({}), 4, "bản chụp không ghi thang → thang 4");
+  assert.deepEqual(snapshotScores(old), { c1: 4, c2: 2 }, "điểm gốc giữ nguyên để in đúng phiếu cũ");
+  assert.deepEqual(snapshotScoresOnScale(old), { c1: 3, c2: 1.7 });
+  assert.equal(sessionAverage(old), 2.4, "(3 + 1,7) / 2 trên thang 3");
+  // Nháp cũ được chụp lại sang thang mới: làm tròn tới mức gần nhất
+  const fresh = buildSessionSnapshot({ criteria: [{ id: "c1", name: "c1" }, { id: "c2", name: "c2" }], context: ctx });
+  assert.deepEqual(snapshotScores(rebaseSnapshot(old, fresh)), { c1: 3, c2: 2 });
+  // Sửa điểm trên phiếu cũ vẫn theo thang của phiếu đó
+  assert.equal(applySessionScores(old, { c1: 4 }).criteria[0]!.value, 4);
 });
 
 test("điểm trung bình phiếu, thẻ nổi bật chỉ nhận danh sách cho phép", () => {
-  const s = buildSessionSnapshot({ criteria: crit, scores: { c1: 4, c2: 3, c3: 3 }, context: ctx });
-  assert.equal(sessionAverage(s), 3.3);
+  const s = buildSessionSnapshot({ criteria: crit, scores: { c1: 3, c2: 2, c3: 2 }, context: ctx });
+  assert.equal(sessionAverage(s), 2.3);
   assert.equal(sessionAverage(buildSessionSnapshot({ criteria: crit, context: ctx })), null);
   assert.deepEqual(sanitizeHighlights(["Sáng tạo", "Lạ", "Sáng tạo", " Kiên trì "]), ["Sáng tạo", "Kiên trì"]);
   assert.equal(DEFAULT_HIGHLIGHTS.length, 6);
@@ -116,13 +151,13 @@ test("kiểm tra phiếu: nháp cho thiếu, phát hành cần đủ tiêu chí 
   assert.equal(errs.length, 2);
   assert.match(errs[0]!, /Lắp ráp/);
   assert.match(errs[1]!, /mục tiêu bài/);
-  const full = buildSessionSnapshot({ criteria: crit, scores: { c1: 3, c2: 3, c3: 4 }, context: ctx });
+  const full = buildSessionSnapshot({ criteria: crit, scores: { c1: 3, c2: 3, c3: 2 }, context: ctx });
   assert.deepEqual(validateSessionEvaluation({ mode: "publish", snapshot: full, objectiveResult: "achieved" }), []);
   assert.equal(validateSessionEvaluation({ mode: "draft", snapshot: full, remark: "x".repeat(1001) }).length, 1);
 });
 
 test("điều kiện hoàn tất buổi: HV vắng không cần phiếu, HV có mặt thiếu phiếu bị nêu tên", () => {
-  const full = buildSessionSnapshot({ criteria: crit, scores: { c1: 3, c2: 3, c3: 4 }, context: ctx });
+  const full = buildSessionSnapshot({ criteria: crit, scores: { c1: 3, c2: 3, c3: 2 }, context: ctx });
   const half = buildSessionSnapshot({ criteria: crit, scores: { c1: 3 }, context: ctx });
   const r = sessionEvaluationReadiness([
     { name: "An", attendanceStatus: "present", evaluation: { status: "draft", snapshot: full, objectiveResult: "achieved" } },
@@ -181,9 +216,10 @@ test("làm tròn, trung bình, xu hướng với ngưỡng ±0,3, quy thang 5", 
   assert.equal(trendOf(2.7, 3.0), "down");
   assert.equal(trendOf(2.8, 3.0), "flat");
   assert.equal(trendOf(3, null), null);
-  assert.equal(normalizeTo5(4), 5);
+  assert.equal(normalizeTo5(3), 5, "Tốt (thang 3) = 5");
+  assert.equal(normalizeTo5(2), 3, "Đạt (thang 3) = 3");
   assert.equal(normalizeTo5(1), 1);
-  assert.equal(normalizeTo5(3), 3.7);
+  assert.equal(normalizeTo5(3, 4), 3.7, "học bạ cũ thang 4");
   assert.equal(normalizeTo5(4, 5), 4);
 });
 
@@ -195,29 +231,31 @@ test("giai đoạn của mốc: từ sau mốc trước đến mốc này, kèm 
 
 test("tổng hợp học bạ mốc: trung bình, xu hướng, bỏ tiêu chí trống, mục tiêu bài, thẻ nổi bật, gợi ý nhận xét", () => {
   const criteria = [{ key: "c1", criterionId: "c1", label: "Tư duy lập trình" }, { key: "c2", criterionId: "c2", label: "Lắp ráp" }, { key: "c3", criterionId: "c3", label: "Thuyết trình" }];
-  const previous = [ev("2026-08-01", 1, { c1: 2, c2: 3 }), ev("2026-08-08", 2, { c1: 3, c2: 3 })];
+  const previous = [ev("2026-08-01", 1, { c1: 1, c2: 3 }), ev("2026-08-08", 2, { c1: 2, c2: 3 })];
   const current = [
-    ev("2026-08-22", 7, { c1: 3, c2: 3 }, { highlights: ["Sáng tạo", "Kiên trì"], remark: "Con lắp nhanh", objectiveResult: "partial" }),
+    ev("2026-08-22", 7, { c1: 2, c2: 3 }, { highlights: ["Sáng tạo", "Kiên trì"], remark: "Con lắp nhanh", objectiveResult: "partial" }),
     ev("2026-08-15", 6, { c1: 3, c2: 2 }, { highlights: ["Sáng tạo"], remark: "Con hỏi nhiều", productNote: "Xe dò line" }),
-    ev("2026-08-29", 8, { c1: 4, c2: 3 }, { highlights: ["Giúp đỡ bạn", "Sáng tạo"], remark: "Con lắp nhanh" }),
+    ev("2026-08-29", 8, { c1: 3, c2: 3 }, { highlights: ["Giúp đỡ bạn", "Sáng tạo"], remark: "Con lắp nhanh" }),
   ];
   const a = aggregateMilestone({
     criteria, current, previous, attendance: { attended: 3, total: 4, absent: 1, excused: 0, makeup: 0 }, period: { fromSeq: 6, toSeq: 12 }, now: new Date("2026-09-01T00:00:00Z"),
   });
   const c1 = a.criteria.find((c) => c.key === "c1")!;
-  assert.equal(c1.average, 3.3);
-  assert.equal(c1.previousAverage, 2.5);
+  assert.equal(c1.average, 2.7);
+  assert.equal(c1.previousAverage, 1.5);
   assert.equal(c1.trend, "up");
   assert.equal(c1.suggested, 3);
   assert.equal(c1.count, 3);
   const c2 = a.criteria.find((c) => c.key === "c2")!;
   assert.equal(c2.average, 2.7);
+  assert.equal(c2.previousAverage, 3);
   assert.equal(c2.trend, "down");
   const c3 = a.criteria.find((c) => c.key === "c3")!;
   assert.equal(c3.average, null, "không có dữ liệu");
   assert.equal(c3.suggested, null);
   assert.equal(c3.trend, null);
-  assert.equal(a.overall.average, 3, "điểm chung bỏ qua tiêu chí trống: (3.3 + 2.7) / 2");
+  assert.equal(a.overall.average, 2.7, "điểm chung bỏ qua tiêu chí trống: (2.7 + 2.7) / 2");
+  assert.equal(a.scale, 3);
   assert.equal(a.sessions, 3);
   assert.deepEqual(a.period, { fromSeq: 6, toSeq: 12, fromDate: "2026-08-15", toDate: "2026-08-29" });
   assert.deepEqual(a.objective, { achieved: 2, partial: 1, notYet: 0, rate: 0.67 });
@@ -239,10 +277,11 @@ test("tổng hợp khi không có phiếu nào: không lỗi, mọi số null", 
   assert.deepEqual(a.topHighlights, []);
 });
 
-test("học bạ mốc mới chấm theo thang 4; học bạ cũ giữ thang 5", () => {
-  const scores = [{ criterionId: "a", score: 4 }, { criterionId: "b", score: 3 }];
-  assert.deepEqual(validateReportCard({ scores, activeCriteria: ["a", "b"], comment: "Con tiến bộ rõ, tập trung tốt trong giờ.", scale: 4 }), []);
-  assert.match(validateReportCard({ scores: [{ criterionId: "a", score: 5 }], activeCriteria: ["a"], comment: "Con tiến bộ rõ, tập trung tốt trong giờ.", scale: 4 })[0]!, /1 đến 4/);
+test("học bạ mốc mới chấm theo thang 3; học bạ cũ giữ thang của mình", () => {
+  const scores = [{ criterionId: "a", score: 3 }, { criterionId: "b", score: 2 }];
+  assert.deepEqual(validateReportCard({ scores, activeCriteria: ["a", "b"], comment: "Con tiến bộ rõ, tập trung tốt trong giờ.", scale: 3 }), []);
+  assert.match(validateReportCard({ scores: [{ criterionId: "a", score: 4 }], activeCriteria: ["a"], comment: "Con tiến bộ rõ, tập trung tốt trong giờ.", scale: 3 })[0]!, /1 đến 3/);
+  assert.deepEqual(validateReportCard({ scores: [{ criterionId: "a", score: 4 }], activeCriteria: ["a"], comment: "Con tiến bộ rõ, tập trung tốt trong giờ.", scale: 4 }), []);
   assert.deepEqual(validateReportCard({ scores: [{ criterionId: "a", score: 5 }], activeCriteria: ["a"], comment: "Con tiến bộ rõ, tập trung tốt trong giờ." }), []);
 });
 
@@ -303,7 +342,7 @@ test("dữ liệu biểu đồ tiến bộ: bỏ phiếu chưa chấm, xếp the
 });
 
 test("toạ độ biểu đồ đường nằm trong khung, điểm cao hơn thì y nhỏ hơn", () => {
-  const pts = progressSeries([{ date: "2026-09-01", sequenceNo: 1, average: 1 }, { date: "2026-09-08", sequenceNo: 2, average: 4 }]);
+  const pts = progressSeries([{ date: "2026-09-01", sequenceNo: 1, average: 1 }, { date: "2026-09-08", sequenceNo: 2, average: 3 }]);
   const c = lineChart(pts, { width: 200, height: 100, pad: 10 });
   assert.equal(c.dots.length, 2);
   assert.equal(c.dots[0]!.cy, 90);
@@ -311,7 +350,7 @@ test("toạ độ biểu đồ đường nằm trong khung, điểm cao hơn th�
   assert.equal(c.dots[0]!.cx, 10);
   assert.equal(c.dots[1]!.cx, 190);
   assert.match(c.path, /^M10 90 L190 10$/);
-  assert.equal(c.grid.length, 4);
+  assert.equal(c.grid.length, 3, "thang 3: lưới Cần cố gắng / Đạt / Tốt");
   const one = lineChart(pts.slice(0, 1), { width: 200, height: 100, pad: 10 });
   assert.equal(one.dots[0]!.cx, 100, "một điểm thì đặt giữa");
   assert.equal(lineChart([]).path, "");
@@ -320,11 +359,11 @@ test("toạ độ biểu đồ đường nằm trong khung, điểm cao hơn th�
 test("mạng nhện: đỉnh đầu tiên hướng lên, giá trị tối đa chạm vòng ngoài, thiếu dữ liệu về tâm", () => {
   const p = polarPoint(100, 100, 50, 0, 4);
   assert.deepEqual(p, { x: 100, y: 50 });
-  const r = radarChart([{ label: "A", value: 4 }, { label: "B", value: 2 }, { label: "C", value: null }], { size: 200, labelPad: 40 });
+  const r = radarChart([{ label: "A", value: 3 }, { label: "B", value: 2 }, { label: "C", value: null }], { size: 200, labelPad: 40 });
   assert.equal(r.points.length, 3);
   assert.deepEqual({ x: r.points[0]!.x, y: r.points[0]!.y }, { x: 100, y: 40 });
   assert.deepEqual({ x: r.points[2]!.x, y: r.points[2]!.y }, { x: 100, y: 100 });
-  assert.equal(r.rings.length, 4);
+  assert.equal(r.rings.length, 3);
   assert.equal(r.axes[0]!.anchor, "middle");
 });
 

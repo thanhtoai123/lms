@@ -7,60 +7,62 @@
    app giáo viên và cổng phụ huynh dùng chung một bảng màu.
    ───────────────────────────────────────────────────────────────────────── */
 :root {
+  /* Biến cũ còn được mẫu chứng nhận / landing đã lưu tham chiếu — trỏ về phông thương hiệu */
+  --font-be-vietnam: var(--font-brand);
   /* Thang màu thương hiệu mặc định. Bị ghi đè bởi /api/public/brand/theme.css khi Quản trị hệ thống đổi màu. */
-  --brand-50: #f7f0fb;
-  --brand-100: #ecdcf5;
-  --brand-200: #dbbdea;
-  --brand-300: #c496db;
-  --brand-400: #9a45c4;
-  --brand-500: #7a1aa8;
-  --brand-900: #2a1243;
-  --accent-50: #fff7ed;
-  --accent-100: #ffedd5;
-  --accent-200: #fed7aa;
-  --accent-500: #ff8f2d;
-  --accent-600: #f8903b;
-  --accent-700: #b45309;
+  --brand-50: #f1f4fd;
+  --brand-100: #dfe6fa;
+  --brand-200: #c0cdf4;
+  --brand-300: #8ea7ec;
+  --brand-400: #4f75e1;
+  --brand-500: #2f5cdb;
+  --brand-900: #08163c;
+  --accent-50: #fef9f0;
+  --accent-100: #fef1dd;
+  --accent-200: #fce2b6;
+  --accent-500: #f59e0b;
+  --accent-600: #e6950a;
+  --accent-700: #a16706;
 
   --background: #fff;
-  --foreground: #0a0a0a;
+  --foreground: #0f172a;
   --card: #fff;
-  --card-foreground: #0a0a0a;
-  --muted: #f5f5f5;
-  --muted-foreground: #737373;
-  --border: #e5e5e5;
+  --card-foreground: #0f172a;
+  --muted: #f8fafc;
+  --muted-foreground: #64748b;
+  --border: #e2e8f0;
   --ring: #a1a1a1;
   --destructive: #e40014;
-  --sidebar: #fafafa;
-  --sidebar-border: #e5e5e5;
+  --sidebar: #f8fafc;
+  --sidebar-border: #e2e8f0;
   --radius: 0.625rem;
 
-  /* Tím thương hiệu Sata Robo */
-  --primary: #610b8a;
+  /* Deep Ocean Blue — màu chủ đạo TH STEAM (chữ T, tên lửa) */
+  --primary: #1d4ed8;
   --primary-foreground: #fff;
-  --primary-dark: #4e237d;
-  --primary-darker: #3b1a5e;
-  --primary-soft: #610b8a1a;
-  --primary-soft-hover: #610b8a2e;
-  --primary-ink: #610b8a;
-  --primary-ink-hover: #4e237d;
+  --primary-dark: #173ead;
+  --primary-darker: #112f82;
+  --primary-soft: #1d4ed81a;
+  --primary-soft-hover: #1d4ed82e;
+  --primary-ink: #1d4ed8;
+  --primary-ink-hover: #173ead;
 
-  /* Cam nhấn (bản gốc dùng cho học viên và các điểm nhấn phụ) */
-  --accent: #ff8f2d;
-  --accent-dark: #f8903b;
-  --accent-soft: #ff8f2d1f;
-  --accent-ink: #b45309;
-  --accent-foreground: #241a2e;
+  /* Cosmic Gold — điểm nhấn, nút CTA (chữ navy trên nền vàng) */
+  --accent: #f59e0b;
+  --accent-dark: #dd8e0a;
+  --accent-soft: #f59e0b1f;
+  --accent-ink: #a16706;
+  --accent-foreground: #0f172a;
 
-  /* Màu vai của bản gốc */
-  --parent: #610c8d;
-  --student: #fd8f2d;
+  /* Màu vai: phụ huynh xanh dương, học viên xanh ngọc (Emerald Jade) */
+  --parent: #1d4ed8;
+  --student: #10b981;
 }
 
 /* Khu quản trị: bản gốc ghi đè vòng focus và màu chữ phụ */
 .admin-scope {
-  --ring: #610b8a;
-  --muted-foreground: #6c6c6c;
+  --ring: #1d4ed8;
+  --muted-foreground: #475569;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
@@ -97,7 +99,7 @@
   --color-accent-foreground: var(--accent-foreground);
 
   /* Thang brand-* cũ vẫn giữ tên (hàng trăm chỗ đang dùng) nhưng neo vào
-     biến của bản gốc — cùng một màu tím #610b8a. */
+     biến thương hiệu — Deep Ocean Blue #1D4ED8 của TH STEAM. */
   --color-brand-50: var(--brand-50);
   --color-brand-100: var(--brand-100);
   --color-brand-200: var(--brand-200);
@@ -135,7 +137,8 @@
   --radius-lg: 0.625rem;
   --radius-xl: 0.875rem;
 
-  --font-sans: var(--font-be-vietnam), "Be Vietnam Pro", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  /* Phông duy nhất của bộ nhận diện TH STEAM: Plus Jakarta Sans (đủ dấu tiếng Việt) */
+  --font-sans: var(--font-brand), "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
 html, body { height: 100%; }

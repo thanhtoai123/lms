@@ -8,7 +8,7 @@ import {
 
 test("mẫu email", () => {
   const r = fillTemplate(EMAIL_EVENTS.RECEIPT_ISSUED.subject, { so_phieu: "PT-CS1-26-000001" }, EMAIL_EVENTS.RECEIPT_ISSUED.vars);
-  assert.equal(r.text, "Sata Robo xác nhận thanh toán PT-CS1-26-000001");
+  assert.equal(r.text, "TH STEAM Academy xác nhận thanh toán PT-CS1-26-000001");
   assert.deepEqual(fillTemplate("Chào {ten} {x}", { ten: "An" }, ["ten"]), { text: "Chào An {x}", missing: ["x"], unknown: ["x"] });
   assert.deepEqual(templateVars("{a} {b} {a}"), ["a", "b"]);
   assert.deepEqual(validateEmailTemplate("TEST", "Email thử", "Xin chào {ten}, thử nghiệm."), []);

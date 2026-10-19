@@ -8,7 +8,7 @@ import { clientIp, sharedRateLimit } from "@/lib/route-ctx";
 
 export const dynamic = "force-dynamic";
 export const metadata = {
-  title: { absolute: "Xác thực giấy chứng nhận — Sata Robo" },
+  title: { absolute: "Xác thực giấy chứng nhận — TH STEAM Academy" },
   robots: { index: false, follow: false, nocache: true },
   referrer: "no-referrer" as const,
 };
@@ -43,7 +43,7 @@ export default async function VerifyCertificatePage({ params }: { params: Promis
         {s.state === "ok" ? <Verified cert={s.cert} /> : <Missing rateLimited={s.state === "rate_limited"} />}
       </div>
       <p className="mx-auto mt-4 max-w-xl px-2 text-center text-[11px] text-muted-foreground">
-        Giấy chứng nhận hoàn thành do trung tâm Sata Robo cấp cho học viên các khoá kỹ năng STEM / Robotics — không phải văn bằng,
+        Giấy chứng nhận hoàn thành do trung tâm TH STEAM Academy cấp cho học viên các khoá kỹ năng STEM / Robotics — không phải văn bằng,
         chứng chỉ thuộc hệ thống giáo dục quốc dân. Thông tin trên trang này được đối chiếu trực tiếp với sổ chứng nhận của trung tâm.
       </p>
     </main>

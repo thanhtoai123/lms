@@ -119,7 +119,7 @@ export const CERTIFICATE_KIND_VI: Record<CertificateKind, string> = { path: "Ho�
 /** Mã cơ sở trong số chứng nhận: chỉ chữ / số IN HOA (bỏ dấu, ký tự lạ) */
 export function certificateCenterCode(code: string | null | undefined): string {
   const c = (code ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/gi, "D").toUpperCase().replace(/[^A-Z0-9]/g, "");
-  return c.slice(0, 12) || "SR";
+  return c.slice(0, 12) || "TH";
 }
 
 /** Tiền tố số chứng nhận lộ trình của một cơ sở trong một năm: CN-CS1-26- */
@@ -134,8 +134,8 @@ export function pathCertificateNumber(centerCode: string, year: number, seq: num
 }
 
 export const PATH_CERTIFICATE_NO_RE = /^CN-[A-Z0-9]{1,12}-\d{2}-\d{6}$/;
-/** Số chứng nhận hợp lệ: dạng lộ trình (CN-…) hoặc dạng khoá cũ (SR-<mã khoá>-yy-nnnnnn) */
-export const CERTIFICATE_NO_RE = /^(CN-[A-Z0-9]{1,12}-\d{2}-\d{6}|SR-[A-Z0-9_-]{1,30}-\d{2}-\d{6})$/;
+/** Số chứng nhận hợp lệ: dạng lộ trình (CN-…), dạng khoá TH STEAM (TH-<mã khoá>-yy-nnnnnn) hoặc dạng khoá cũ (SR-…) */
+export const CERTIFICATE_NO_RE = /^(CN-[A-Z0-9]{1,12}-\d{2}-\d{6}|(?:TH|SR)-[A-Z0-9_-]{1,30}-\d{2}-\d{6})$/;
 
 /** Số thứ tự kế tiếp từ số lớn nhất đã cấp cùng tiền tố (null = chưa có) */
 export function nextCertificateSeq(maxNumber: string | null | undefined, prefix: string): number {
@@ -231,10 +231,10 @@ export const TEMPLATE_TEXT_FIELDS: readonly CertificateFieldKey[] = ["signerName
 
 export const TEMPLATE_FONTS = ["be-vietnam", "serif", "sans"] as const;
 export type TemplateFont = (typeof TEMPLATE_FONTS)[number];
-export const TEMPLATE_FONT_VI: Record<TemplateFont, string> = { "be-vietnam": "Be Vietnam Pro", serif: "Có chân (serif hệ thống)", sans: "Không chân (sans hệ thống)" };
+export const TEMPLATE_FONT_VI: Record<TemplateFont, string> = { "be-vietnam": "Plus Jakarta Sans (phông thương hiệu)", serif: "Có chân (serif hệ thống)", sans: "Không chân (sans hệ thống)" };
 /** Chỉ font đã có sẵn trong dự án / hệ điều hành — không nạp font ngoài (CSP) */
 export const TEMPLATE_FONT_CSS: Record<TemplateFont, string> = {
-  "be-vietnam": 'var(--font-be-vietnam), "Be Vietnam Pro", ui-sans-serif, system-ui, sans-serif',
+  "be-vietnam": 'var(--font-brand, var(--font-be-vietnam)), "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif',
   serif: '"Times New Roman", Times, "Noto Serif", Georgia, serif',
   sans: 'Arial, Helvetica, "Liberation Sans", sans-serif',
 };
@@ -276,13 +276,13 @@ const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n
 
 /** Bố cục mặc định (A4 ngang) — hợp với nền "để trống" giữa trang */
 export function defaultTemplateFields(orientation: TemplateOrientation = "landscape"): TemplateField[] {
-  const base = { enabled: true, bold: false, italic: false, color: "#241a2e", align: "center" as TemplateAlign, uppercase: false, font: "be-vietnam" as TemplateFont };
+  const base = { enabled: true, bold: false, italic: false, color: "#0f172a", align: "center" as TemplateAlign, uppercase: false, font: "be-vietnam" as TemplateFont };
   const L = orientation === "landscape";
   const f = (key: CertificateFieldKey, x: number, y: number, w: number, h: number, fontSize: number, extra: Partial<TemplateField> = {}): TemplateField =>
     ({ ...base, key, x, y, w, h, fontSize, ...extra });
   return [
-    f("studentName", 10, L ? 38 : 36, 80, L ? 10 : 7, L ? 34 : 30, { bold: true, color: "#610b8a", uppercase: true }),
-    f("pathName", 12, L ? 53 : 48, 76, L ? 7 : 5, L ? 20 : 18, { bold: true, color: "#3b1a5e" }),
+    f("studentName", 10, L ? 38 : 36, 80, L ? 10 : 7, L ? 34 : 30, { bold: true, color: "#14215a", uppercase: true }),
+    f("pathName", 12, L ? 53 : 48, 76, L ? 7 : 5, L ? 20 : 18, { bold: true, color: "#1e40af" }),
     f("criteriaText", 18, L ? 61 : 55, 64, L ? 9 : 8, 11, { italic: true, color: "#4b4453" }),
     f("grade", 30, L ? 71 : 64, 40, 4, 12, { enabled: false, prefix: "Xếp loại: " }),
     f("issuedDate", 55, L ? 76 : 76, 35, 4, 12, { dateFormat: "long", place: "", italic: true }),
@@ -436,7 +436,7 @@ export function buildCertificateSnapshot(input: {
     centerName: input.center.name,
     centerAddress: input.center.address ?? null,
     centerPhone: input.center.phone ?? null,
-    issuerName: (input.issuerName ?? "").trim() || "Sata Robo",
+    issuerName: (input.issuerName ?? "").trim() || "TH STEAM Academy",
     signerName: fieldText("signerName"),
     signerTitle: fieldText("signerTitle"),
     customText: fieldText("customText"),
@@ -459,7 +459,7 @@ export function sampleCertificateSnapshot(fields: readonly TemplateField[] = [],
     courses: [{ code: "SATA1", name: "Sata1" }, { code: "SATA4", name: "Sata4" }],
     issuedAt: now,
     grade: "Giỏi",
-    center: { name: "Sata Robo Cơ sở 1", address: null, phone: null },
+    center: { name: "TH STEAM Academy Cơ sở 1", address: null, phone: null },
     template: { fields },
   });
 }

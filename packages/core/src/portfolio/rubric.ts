@@ -1,14 +1,15 @@
 /**
  * PHIẾU NHẬN XÉT BUỔI HỌC — quy tắc thuần (không chạm CSDL, không dùng kiểu DOM).
  *
- * Sau mỗi buổi, giáo viên chấm nhanh từng học viên có mặt theo RUBRIC PHÂN TÍCH 4 MỨC
- * (analytic rubric — mỗi tiêu chí năng lực của khoá có 4 mức có thứ tự, có mô tả),
- * chọn kết quả mục tiêu bài, thẻ nổi bật, ghi sản phẩm + nhận xét. Khi hoàn tất buổi,
- * mọi phiếu nháp đủ điều kiện được phát hành cùng lúc và trở thành BẤT BIẾN.
+ * Sau mỗi buổi, giáo viên chấm nhanh từng học viên có mặt theo RUBRIC 3 MỨC của TH STEAM
+ * (Cần cố gắng · Đạt · Tốt — cùng thang đánh giá năng lực, phẩm chất của Thông tư 27/2020/TT-BGDĐT,
+ * phụ huynh dễ đối chiếu với học bạ ở trường), chọn kết quả mục tiêu bài, thẻ nổi bật, ghi sản phẩm + nhận xét.
+ * Khi hoàn tất buổi, mọi phiếu nháp đủ điều kiện được phát hành cùng lúc và trở thành BẤT BIẾN.
  *
  * Phiếu lưu một BẢN CHỤP (`SessionEvalSnapshot`) gồm tiêu chí + mô tả mức + điểm + bối cảnh buổi
- * (bài, mục tiêu, ngày, số buổi, GV) — đổi tiêu chí / giáo trình sau này không làm đổi phiếu cũ.
- * Xem docs/HO-SO-HOC-TAP.md.
+ * (bài, mục tiêu, ngày, số buổi, GV) và THANG của lúc chấm (`scale`) — đổi tiêu chí / giáo trình / thang sau này
+ * không làm đổi phiếu cũ. Phiếu cũ chấm thang 4 vẫn hiện đúng 4 mức đã chụp; khi TỔNG HỢP (trung bình, biểu đồ,
+ * học bạ mốc) mọi điểm được quy về thang hiện hành bằng `convertScore`. Xem docs/HO-SO-HOC-TAP.md.
  */
 
 export const SESSION_EVAL_STATUSES = ["draft", "published"] as const;
@@ -19,91 +20,83 @@ export const SESSION_EVAL_STATUS_VI: Record<SessionEvalStatus, string> = {
 };
 
 /** Phiên bản thang chấm — đổi mô tả mức thì tăng, phiếu cũ vẫn giữ bản chụp cũ */
-export const RUBRIC_VERSION = "2026.09";
-/** Thang của phiếu buổi và học bạ mốc mới */
-export const RUBRIC_SCALE = 4;
+export const RUBRIC_VERSION = "2026.10-thsteam";
+/** Thang hiện hành của phiếu buổi và học bạ mốc: 3 mức Cần cố gắng / Đạt / Tốt */
+export const RUBRIC_SCALE = 3;
+/** Thang 4 mức dùng trước 10/2026 (phiếu và học bạ cũ còn lưu thang này) */
+export const PREVIOUS_RUBRIC_SCALE = 4;
 /** Thang của học bạ cũ (trước khi có phiếu buổi) */
 export const LEGACY_SCORE_SCALE = 5;
 
 export interface RubricLevel {
-  /** 1 = thấp nhất … 4 = cao nhất */
+  /** 1 = thấp nhất … RUBRIC_SCALE = cao nhất */
   value: number;
   label: string;
   /** Mô tả ngắn — hiện dưới dạng gợi ý khi GV chấm và in trên phiếu */
   hint: string;
 }
 
-/** 4 mức có thứ tự, ngôn từ tích cực (không có "kém" / "chưa tốt") */
+/** 3 mức có thứ tự, ngôn từ tích cực (không có "kém" / "yếu") */
 export const RUBRIC_LEVELS: readonly RubricLevel[] = [
-  { value: 1, label: "Đang làm quen", hint: "Bé mới làm quen, cần thầy cô làm mẫu từng bước." },
-  { value: 2, label: "Cần hỗ trợ", hint: "Bé làm được khi có gợi ý, hướng dẫn thêm." },
-  { value: 3, label: "Đạt", hint: "Bé tự làm được theo yêu cầu của bài." },
-  { value: 4, label: "Vượt mong đợi", hint: "Bé làm tốt, sáng tạo thêm hoặc hướng dẫn được bạn." },
+  { value: 1, label: "Cần cố gắng", hint: "Con đang làm quen, cần thầy cô hướng dẫn và nhắc thêm." },
+  { value: 2, label: "Đạt", hint: "Con tự làm được theo yêu cầu của bài." },
+  { value: 3, label: "Tốt", hint: "Con làm tốt, chủ động sáng tạo thêm hoặc hỗ trợ được bạn." },
+];
+
+/** 4 mức cũ — chỉ để HIỂN THỊ phiếu / học bạ đã chấm thang 4 */
+export const PREVIOUS_RUBRIC_LEVELS: readonly RubricLevel[] = [
+  { value: 1, label: "Đang làm quen", hint: "" },
+  { value: 2, label: "Cần hỗ trợ", hint: "" },
+  { value: 3, label: "Đạt", hint: "" },
+  { value: 4, label: "Vượt mong đợi", hint: "" },
 ];
 
 export const RUBRIC_LABEL: Record<number, string> = Object.fromEntries(RUBRIC_LEVELS.map((l) => [l.value, l.label]));
 
-/** Nhãn điểm theo thang (4 = rubric mới, 5 = học bạ cũ) */
+/** Nhãn điểm theo thang (3 = hiện hành, 4 = thang cũ 10/2026, 5 = học bạ cũ) */
 export function scoreLabel(score: number | null | undefined, scale: number = RUBRIC_SCALE): string {
   if (score == null) return "Chưa chấm";
   if (scale === LEGACY_SCORE_SCALE) return ({ 1: "Cần cố gắng", 2: "Đang tiến bộ", 3: "Đạt", 4: "Tốt", 5: "Xuất sắc" } as Record<number, string>)[score] ?? String(score);
+  if (scale === PREVIOUS_RUBRIC_SCALE) return PREVIOUS_RUBRIC_LEVELS[score - 1]?.label ?? String(score);
   return RUBRIC_LABEL[score] ?? String(score);
 }
 
+/** Nhãn mức của một ĐIỂM TRUNG BÌNH trên thang hiện hành (vd 2,6 → "Tốt"): làm tròn tới mức gần nhất */
+export function levelOfAverage(avg: number | null | undefined, scale: number = RUBRIC_SCALE): string {
+  if (avg == null || !Number.isFinite(avg)) return "Chưa chấm";
+  const v = Math.min(scale, Math.max(1, Math.round(avg)));
+  return scoreLabel(v, scale);
+}
+
 /**
- * Mô tả 4 mức riêng cho các nhóm năng lực robotics hay gặp (Thiết kế – lắp ráp, Lập trình,
- * Giải quyết vấn đề, Hợp tác, Trình bày). Khớp theo từ khoá trong tên tiêu chí của khoá;
- * không khớp thì dùng mô tả chung ở `RUBRIC_LEVELS`.
+ * Quy một điểm từ thang `from` sang thang `to` theo tỷ lệ tuyến tính (1 ↦ 1, from ↦ to), 1 chữ số thập phân.
+ * Dùng khi trộn phiếu cũ thang 4 với phiếu mới thang 3. Điểm ngoài thang gốc → null.
  */
-const DESCRIPTOR_SETS: readonly { match: RegExp; hints: readonly [string, string, string, string] }[] = [
-  {
-    match: /lập trình|code|thuật toán|lap trinh/i,
-    hints: [
-      "Làm quen khối lệnh, cần thầy cô làm mẫu.",
-      "Ghép được chương trình theo mẫu khi có gợi ý.",
-      "Tự viết chương trình chạy đúng yêu cầu của bài.",
-      "Tự thêm vòng lặp / điều kiện, sửa lỗi và cải tiến chương trình.",
-    ],
-  },
-  {
-    match: /lắp ráp|cơ khí|thiết kế|mô hình|lap rap/i,
-    hints: [
-      "Làm quen chi tiết, cần hướng dẫn từng bước lắp.",
-      "Lắp được theo hình khi có trợ giúp.",
-      "Tự lắp mô hình chắc chắn, đúng hình mẫu.",
-      "Lắp nhanh, chắc chắn và tự cải tiến thiết kế.",
-    ],
-  },
-  {
-    match: /giải quyết|vấn đề|tư duy|sáng tạo|giai quyet/i,
-    hints: [
-      "Cần thầy cô gợi ý cách bắt đầu.",
-      "Thử được cách làm khi có gợi ý.",
-      "Tự tìm ra cách giải cho vấn đề của bài.",
-      "Đưa ra nhiều cách giải, thử – sai – cải tiến chủ động.",
-    ],
-  },
-  {
-    match: /nhóm|hợp tác|làm việc|nhom/i,
-    hints: [
-      "Đang làm quen làm việc cùng bạn.",
-      "Tham gia nhóm khi được nhắc.",
-      "Hợp tác tốt, chia sẻ việc với bạn.",
-      "Dẫn dắt nhóm, chủ động giúp bạn.",
-    ],
-  },
-  {
-    match: /thuyết trình|trình bày|giao tiếp|phát biểu|thuyet trinh/i,
-    hints: [
-      "Còn ngại chia sẻ trước lớp.",
-      "Trình bày được khi thầy cô hỏi gợi ý.",
-      "Tự tin giới thiệu sản phẩm của mình.",
-      "Trình bày rõ ràng, giải thích được cách hoạt động.",
-    ],
-  },
+export function convertScore(v: number | null | undefined, from: number, to: number = RUBRIC_SCALE): number | null {
+  if (typeof v !== "number" || !Number.isFinite(v) || v < 1 || v > from || from < 2) return null;
+  if (from === to) return v;
+  return Math.round((1 + ((v - 1) * (to - 1)) / (from - 1)) * 10) / 10;
+}
+
+/**
+ * Mô tả 3 mức mặc định cho 6 năng lực + 3 phẩm chất của khung TH STEAM, khớp theo từ khoá trong tên tiêu chí
+ * (khi khoá chưa khai mô tả riêng). Lấy từ bảng "Con thay đổi gì sau mỗi năm học" của bộ chương trình chuẩn:
+ * mức 1 ≈ trước khi học, mức 2 ≈ sau năm 1, mức 3 ≈ sau năm 2. Không khớp thì dùng mô tả chung ở `RUBRIC_LEVELS`.
+ */
+const DESCRIPTOR_SETS: readonly { match: RegExp; hints: readonly [string, string, string] }[] = [
+  { match: /tư duy công nghệ|lập trình|thuật toán|tu duy cong nghe/i, hints: ["Còn làm theo hướng dẫn từng bước.", "Tự chia bài toán thành các bước nhỏ.", "Tự lập chiến lược, tối ưu cách làm và thời gian."] },
+  { match: /phản biện|gỡ lỗi|giải quyết|phan bien/i, hints: ["Thường chấp nhận một đáp án, cần gợi ý khi gặp lỗi.", "Tự tìm lỗi khi sản phẩm chạy chưa đúng.", "So sánh nhiều cách giải và giải thích được lựa chọn."] },
+  { match: /vi tính|máy tính|thao tác|vi tinh/i, hints: ["Thao tác máy tính còn lúng túng.", "Dùng thành thạo phần mềm của bài và học online.", "Tự cài đặt, quản lý tệp, làm chủ phần mềm."] },
+  { match: /tiếng anh|thuật ngữ|tieng anh/i, hints: ["Chưa quen thuật ngữ tiếng Anh của phần mềm.", "Nhận biết các thuật ngữ chính của bài.", "Dùng giao diện tiếng Anh, đọc hiểu đề bài."] },
+  { match: /trình bày|tự tin|thuyết trình|trinh bay/i, hints: ["Còn ngại nói, ngại sai trước lớp.", "Tự giới thiệu sản phẩm của mình trước lớp.", "Báo cáo dự án mạch lạc trước phụ huynh, trả lời được câu hỏi."] },
+  { match: /tự chủ|hành vi số|kiên trì|tap trung|tự chu/i, hints: ["Dùng máy tính chủ yếu để giải trí, dễ mất tập trung.", "Tập trung, kiên trì sửa lỗi đến khi xong bài.", "Chủ động dùng máy tính an toàn để sáng tạo."] },
+  { match: /chăm chỉ|cham chi/i, hints: ["Học khi được nhắc.", "Đúng giờ, làm bài tập đầy đủ.", "Tự giác học và luyện thêm."] },
+  { match: /trách nhiệm|trach nhiem/i, hints: ["Còn bỏ dở khi gặp khó.", "Hoàn thành dự án đúng hạn.", "Chủ động hỗ trợ bạn trong nhóm."] },
+  { match: /trung thực|trung thuc/i, hints: ["Còn ngại thừa nhận lỗi.", "Tự làm sản phẩm của mình.", "Dám nhận lỗi, tôn trọng bài của bạn."] },
+  { match: /hợp tác|nhóm|hop tac/i, hints: ["Đang làm quen làm việc cùng bạn.", "Hợp tác, chia việc với bạn khi được phân công.", "Chủ động điều phối và hỗ trợ bạn trong nhóm."] },
 ];
 
-/** Mô tả mức khai riêng cho tiêu chí: đúng 4 chuỗi, không rỗng — sai hình dạng thì coi như chưa khai */
+/** Mô tả mức khai riêng cho tiêu chí: đúng RUBRIC_SCALE chuỗi, không rỗng — sai hình dạng thì coi như chưa khai */
 function ownDescriptors(x: readonly unknown[] | null | undefined): string[] | null {
   if (!Array.isArray(x) || x.length !== RUBRIC_SCALE) return null;
   const out = x.map((v) => (typeof v === "string" ? v.trim() : ""));
@@ -111,7 +104,7 @@ function ownDescriptors(x: readonly unknown[] | null | undefined): string[] | nu
 }
 
 /**
- * Mô tả 4 mức cho một tiêu chí — luôn đủ 4 mức, tăng dần.
+ * Mô tả các mức cho một tiêu chí — luôn đủ RUBRIC_SCALE mức, tăng dần.
  * Ưu tiên mô tả mức quản trị khai cho tiêu chí (`competency_criteria.level_descriptors`);
  * chưa khai thì khớp theo từ khoá trong tên; không khớp thì dùng mô tả chung.
  */
@@ -121,12 +114,17 @@ export function rubricLevelsFor(criterionName: string, descriptors?: readonly un
   return RUBRIC_LEVELS.map((l, i) => ({ value: l.value, label: l.label, hint: own ? own[i]! : set ? set.hints[i]! : l.hint }));
 }
 
-/** Tiêu chí mặc định khi khoá chưa cấu hình tiêu chí năng lực (hai nhóm Thiết kế & Lập trình + kỹ năng mềm) */
+/** Tiêu chí mặc định khi khoá chưa cấu hình tiêu chí: 6 năng lực + 3 phẩm chất của khung TH STEAM */
 export const DEFAULT_SESSION_CRITERIA: readonly { key: string; label: string }[] = [
-  { key: "mac-dinh:lap-rap", label: "Lắp ráp & thiết kế" },
-  { key: "mac-dinh:lap-trinh", label: "Tư duy lập trình" },
-  { key: "mac-dinh:giai-quyet", label: "Giải quyết vấn đề" },
-  { key: "mac-dinh:hop-tac", label: "Hợp tác & trình bày" },
+  { key: "mac-dinh:tu-duy-cong-nghe", label: "Tư duy công nghệ" },
+  { key: "mac-dinh:tu-duy-phan-bien", label: "Tư duy phản biện" },
+  { key: "mac-dinh:ky-nang-vi-tinh", label: "Kỹ năng vi tính" },
+  { key: "mac-dinh:tieng-anh", label: "Tiếng Anh chuyên ngành" },
+  { key: "mac-dinh:tu-tin", label: "Tự tin, trình bày" },
+  { key: "mac-dinh:tu-chu", label: "Tự chủ, hành vi số" },
+  { key: "mac-dinh:cham-chi", label: "Chăm chỉ" },
+  { key: "mac-dinh:trach-nhiem", label: "Trách nhiệm" },
+  { key: "mac-dinh:trung-thuc", label: "Trung thực" },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -188,7 +186,7 @@ export interface SessionEvalCriterion {
   label: string;
   description: string | null;
   levels: RubricLevel[];
-  /** Mức đã chấm (1–4); null = chưa chấm */
+  /** Mức đã chấm (1 → thang của bản chụp); null = chưa chấm */
   value: number | null;
   /** Nhóm tiêu chí (vd "Thiết kế & lắp ráp") — phiếu cũ không có */
   group?: string | null;
@@ -232,7 +230,7 @@ export interface CriterionSource {
   key?: string;
   name: string;
   description?: string | null;
-  /** Mô tả hành vi quan sát được cho 4 mức (mức 1 → 4) — `competency_criteria.level_descriptors` */
+  /** Mô tả hành vi quan sát được cho từng mức (mức 1 → RUBRIC_SCALE) — `competency_criteria.level_descriptors` */
   levelDescriptors?: readonly unknown[] | null;
   group?: string | null;
   /** Tiêu chí trọng tâm của bài đang dạy */
@@ -241,7 +239,13 @@ export interface CriterionSource {
 
 export type SessionScores = Record<string, number | null | undefined>;
 
-const validLevel = (v: unknown): v is number => typeof v === "number" && Number.isInteger(v) && v >= 1 && v <= RUBRIC_SCALE;
+const validLevel = (v: unknown, scale: number = RUBRIC_SCALE): v is number => typeof v === "number" && Number.isInteger(v) && v >= 1 && v <= scale;
+
+/** Thang của một bản chụp (bản chụp rất cũ không ghi thang → thang 4) */
+export function snapshotScale(snapshot: { scale?: unknown } | null | undefined): number {
+  const v = snapshot?.scale;
+  return typeof v === "number" && Number.isInteger(v) && v >= 2 && v <= 10 ? v : PREVIOUS_RUBRIC_SCALE;
+}
 
 /** Tiêu chí đưa vào phiếu: tiêu chí đang dùng của khoá; khoá chưa có tiêu chí thì dùng bộ mặc định */
 export function sessionCriteriaFrom(courseCriteria: readonly CriterionSource[]): CriterionSource[] {
@@ -281,7 +285,7 @@ export function applySessionScores(snapshot: SessionEvalSnapshot, scores: Sessio
     criteria: snapshot.criteria.map((c) => {
       if (!(c.key in scores)) return { ...c, levels: c.levels.map((l) => ({ ...l })) };
       const raw = scores[c.key];
-      return { ...c, levels: c.levels.map((l) => ({ ...l })), value: validLevel(raw) ? raw : null };
+      return { ...c, levels: c.levels.map((l) => ({ ...l })), value: validLevel(raw, snapshotScale(snapshot)) ? raw : null };
     }),
     context: { ...snapshot.context },
   };
@@ -293,13 +297,32 @@ export function applySessionScores(snapshot: SessionEvalSnapshot, scores: Sessio
  */
 export function rebaseSnapshot(old: SessionEvalSnapshot | null | undefined, fresh: SessionEvalSnapshot): SessionEvalSnapshot {
   if (!old) return fresh;
-  return applySessionScores(fresh, snapshotScores(old));
+  const from = snapshotScale(old);
+  if (from === fresh.scale) return applySessionScores(fresh, snapshotScores(old));
+  // Nháp chấm theo thang cũ: quy điểm sang thang mới rồi làm tròn tới mức gần nhất
+  const converted: SessionScores = {};
+  for (const [k, v] of Object.entries(snapshotScores(old))) {
+    const c = convertScore(v, from, fresh.scale);
+    converted[k] = c == null ? null : Math.min(fresh.scale, Math.max(1, Math.round(c)));
+  }
+  return applySessionScores(fresh, converted);
 }
 
-/** Đọc điểm từ bản chụp */
+/** Đọc điểm từ bản chụp (đúng thang của bản chụp) */
 export function snapshotScores(snapshot: SessionEvalSnapshot | null | undefined): Record<string, number | null> {
   const out: Record<string, number | null> = {};
   for (const c of snapshot?.criteria ?? []) out[c.key] = c.value ?? null;
+  return out;
+}
+
+/**
+ * Điểm của bản chụp QUY VỀ một thang (mặc định thang hiện hành) — dùng cho mọi phép tổng hợp
+ * (trung bình, biểu đồ, học bạ mốc) để trộn được phiếu cũ thang 4 với phiếu mới thang 3.
+ */
+export function snapshotScoresOnScale(snapshot: SessionEvalSnapshot | null | undefined, scale: number = RUBRIC_SCALE): Record<string, number | null> {
+  const from = snapshotScale(snapshot);
+  const out: Record<string, number | null> = {};
+  for (const c of snapshot?.criteria ?? []) out[c.key] = validLevel(c.value, from) ? convertScore(c.value, from, scale) : null;
   return out;
 }
 
@@ -308,9 +331,9 @@ export function missingSessionCriteria(snapshot: SessionEvalSnapshot | null | un
   return (snapshot?.criteria ?? []).filter((c) => c.value == null).map((c) => c.label);
 }
 
-/** Điểm trung bình các tiêu chí đã chấm của một phiếu (1 chữ số thập phân) */
+/** Điểm trung bình các tiêu chí đã chấm của một phiếu, QUY VỀ thang hiện hành (1 chữ số thập phân) */
 export function sessionAverage(snapshot: SessionEvalSnapshot | null | undefined): number | null {
-  const v = (snapshot?.criteria ?? []).map((c) => c.value).filter(validLevel);
+  const v = Object.values(snapshotScoresOnScale(snapshot)).filter((x): x is number => typeof x === "number");
   if (!v.length) return null;
   return Math.round((v.reduce((a, b) => a + b, 0) / v.length) * 10) / 10;
 }

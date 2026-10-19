@@ -25,7 +25,7 @@ export function SurveyForm({ token, questions }: { token: string; questions: Sur
       setBusy(false);
     }
   };
-  if (done) return <div className="card p-6 text-center text-lg">Cảm ơn anh/chị đã góp ý! 💙<div className="mt-2 text-sm text-ink-600">Sata Robo sẽ dùng ý kiến này để phục vụ bé tốt hơn.</div></div>;
+  if (done) return <div className="card p-6 text-center text-lg">Cảm ơn anh/chị đã góp ý! 💙<div className="mt-2 text-sm text-ink-600">TH STEAM Academy sẽ dùng ý kiến này để phục vụ bé tốt hơn.</div></div>;
   return (
     <div className="space-y-4">
       {questions.map((q, i) => (

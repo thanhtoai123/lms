@@ -16,7 +16,7 @@ export default async function NewSurveyPage() {
     <div className="max-w-3xl space-y-4">
       <Link href="/khao-sat" className="text-sm text-ink-600">← Khảo sát</Link>
       <PageHeader title="Tạo khảo sát" desc="Có sẵn 3 câu mẫu (NPS, giáo viên, góp ý). Lưu nháp rồi kích hoạt để gửi." />
-      <SurveyEditor locked={false} centers={ref.centers.map((c) => ({ id: c.id, code: c.code }))} initial={{ title: "", description: "Giúp Sata Robo phục vụ bé tốt hơn", centerId: ref.centers.length === 1 ? ref.centers[0]!.id : "", trigger: "manual", triggerValue: 4, questions: DEFAULT_QUESTIONS }} />
+      <SurveyEditor locked={false} centers={ref.centers.map((c) => ({ id: c.id, code: c.code }))} initial={{ title: "", description: "Giúp TH STEAM Academy phục vụ bé tốt hơn", centerId: ref.centers.length === 1 ? ref.centers[0]!.id : "", trigger: "manual", triggerValue: 4, questions: DEFAULT_QUESTIONS }} />
     </div>
   );
 }

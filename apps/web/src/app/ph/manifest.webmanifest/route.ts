@@ -3,7 +3,7 @@ import { loadBrand } from "@/lib/brand";
 /** Web App Manifest của cổng phụ huynh — tên + màu theo nhận diện thương hiệu, lối tắt tới các việc hay làm */
 export async function GET() {
   const b = await loadBrand();
-  const icon = b.hasLogo ? { src: b.logoUrl, sizes: "any" } : { src: "/icon.svg", sizes: "any", type: "image/svg+xml" };
+  const icon = b.hasLogo ? { src: b.logoUrl, sizes: "any" } : { src: "/thsteam/app-icon.svg", sizes: "any", type: "image/svg+xml" };
   const m = {
     id: "/ph",
     name: `${b.name} — Phụ huynh`,

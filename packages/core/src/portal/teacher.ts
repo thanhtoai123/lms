@@ -16,7 +16,7 @@ export interface StudentRisk {
 
 /**
  * @param recent  trạng thái điểm danh các buổi đã điểm danh, CŨ → MỚI (null = chưa điểm danh, bỏ qua)
- * @param averages điểm trung bình phiếu buổi đã phát hành (thang 1–4), CŨ → MỚI
+ * @param averages điểm trung bình phiếu buổi đã phát hành (đã quy về thang hiện hành 1–3), CŨ → MỚI
  */
 export function studentRisk(x: { recent: readonly (string | null | undefined)[]; averages: readonly number[] }): StudentRisk {
   const reasons: string[] = [];
@@ -41,7 +41,7 @@ export function studentRisk(x: { recent: readonly (string | null | undefined)[];
   }
   if (a.length >= 2) {
     const cur = avg(a.slice(-3))!;
-    if (cur < 2) { bump("watch"); reasons.push("Đang cần hỗ trợ nhiều (mức < 2)"); }
+    if (cur < 1.5) { bump("watch"); reasons.push("Đang cần hỗ trợ nhiều (phần lớn tiêu chí ở mức Cần cố gắng)"); }
   }
   const level: StudentRisk["level"] = hits.includes("high") ? "high" : hits.length ? "watch" : null;
   return { level, reasons };

@@ -10,7 +10,7 @@ import { PrintButton } from "@/components/portfolio/print-button";
 
 export const dynamic = "force-dynamic";
 export const metadata = {
-  title: { absolute: "Hồ sơ học tập — Sata Robo" },
+  title: { absolute: "Hồ sơ học tập — TH STEAM Academy" },
   robots: { index: false, follow: false, nocache: true },
   referrer: "no-referrer" as const,
 };

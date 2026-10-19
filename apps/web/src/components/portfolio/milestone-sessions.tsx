@@ -4,7 +4,7 @@
  * (máy chủ kiểm lại mỗi lần hiển thị). Không hook → render được ở máy chủ, dùng chung cho xem, in và cổng phụ huynh.
  */
 import { Camera, CalendarDays } from "lucide-react";
-import { OBJECTIVE_RESULT_VI, type MilestoneSessionView, type ObjectiveResult } from "@satarobo/core";
+import { OBJECTIVE_RESULT_VI, type MilestoneSessionView, type ObjectiveResult, RUBRIC_SCALE } from "@satarobo/core";
 import { fmtWeekday, num1 } from "./parts";
 
 const OBJ_TONE: Record<ObjectiveResult, string> = {
@@ -52,7 +52,7 @@ export function MilestoneSessions({ sessions, printable = true, dense = false, c
               </div>
               <div className="flex items-center gap-1.5">
                 {s.objectiveResult && <span className={`chip whitespace-nowrap px-2 py-0.5 text-[11px] font-bold ${OBJ_TONE[s.objectiveResult]}`}>{OBJECTIVE_RESULT_VI[s.objectiveResult]}</span>}
-                {s.average != null && <span className="chip whitespace-nowrap bg-primary/10 font-bold text-primary">TB {num1(s.average)}/4</span>}
+                {s.average != null && <span className="chip whitespace-nowrap bg-primary/10 font-bold text-primary">TB {num1(s.average)}/{RUBRIC_SCALE}</span>}
               </div>
             </div>
             {s.lessonTitle && <div className="mt-0.5 truncate pl-5 text-xs text-foreground/80">{s.lessonTitle}</div>}

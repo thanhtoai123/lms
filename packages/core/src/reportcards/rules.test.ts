@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   reportCardTransition, ReportCardTransitionError, reportCardMilestones, milestoneInfo, milestoneLabel, validateReportCard,
-  averageScore, gradeFromAverage, certificateNumber, completionCheck,
+  averageScore, gradeFromAverage, COMPLETION_GRADES, certificateNumber, completionCheck,
   completionTransition, CompletionTransitionError, certificateIssuable, validateCompletionInput, COMPLETION_STATUSES, COMPLETION_STATUS_VI,
 } from "./rules.js";
 import { consentCheck, isMediaOverdue, mediaObjectKey } from "../media/consent.js";
@@ -18,13 +18,19 @@ test("luồng học bạ: nháp → chờ duyệt → trả lại → gửi lạ
   assert.throws(() => reportCardTransition("draft", "approve"), ReportCardTransitionError);
 });
 
-test("mốc học bạ theo kỳ 12 buổi (buổi 5 và 12 mỗi kỳ)", () => {
-  assert.deepEqual(reportCardMilestones(12), [5, 12]);
-  assert.deepEqual(reportCardMilestones(48), [5, 12, 17, 24, 29, 36, 41, 48]);
-  assert.deepEqual(reportCardMilestones(8), [5]);
-  assert.deepEqual(milestoneInfo(17), { term: 2, kind: "mid" });
-  assert.deepEqual(milestoneInfo(24), { term: 2, kind: "end" });
-  assert.equal(milestoneLabel(5), "Kỳ 1 · giữa kỳ (buổi 5)");
+test("mốc học bạ = buổi báo cáo cuối mỗi học phần 15 buổi (TH STEAM)", () => {
+  assert.deepEqual(reportCardMilestones(45), [15, 30, 45], "năm học 3 học phần");
+  assert.deepEqual(reportCardMilestones(30), [15, 30], "khoá luyện thi 30 buổi");
+  assert.deepEqual(reportCardMilestones(15), [15]);
+  assert.deepEqual(reportCardMilestones(20), [15, 20], "khoá lẻ có thêm mốc ở buổi cuối");
+  assert.deepEqual(reportCardMilestones(0), []);
+  assert.deepEqual(milestoneInfo(30), { term: 2, kind: "end" });
+  assert.equal(milestoneLabel(15), "Học phần 1 · báo cáo (buổi 15)");
+  assert.equal(milestoneLabel(45), "Học phần 3 · báo cáo (buổi 45)");
+  // Chính sách khác vẫn dùng được (vd kỳ 12 buổi có giữa kỳ)
+  const old = { termLength: 12, checkpoints: [5, 12] };
+  assert.deepEqual(reportCardMilestones(24, old), [5, 12, 17, 24]);
+  assert.equal(milestoneLabel(17, old), "Kỳ 2 · giữa kỳ (buổi 17)");
 });
 
 test("kiểm tra học bạ trước khi gửi duyệt", () => {
@@ -37,11 +43,12 @@ test("kiểm tra học bạ trước khi gửi duyệt", () => {
 test("điểm trung bình, xếp loại, số chứng nhận, điều kiện hoàn thành", () => {
   assert.equal(averageScore([4, 5, null, 5]), 4.7);
   assert.equal(averageScore([null]), null);
-  assert.equal(gradeFromAverage(4.7), "Xuất sắc");
-  assert.equal(gradeFromAverage(3.6), "Giỏi");
-  assert.equal(gradeFromAverage(2.5), "Khá");
+  assert.equal(gradeFromAverage(5), "Hoàn thành tốt");
+  assert.equal(gradeFromAverage(4), "Hoàn thành tốt");
+  assert.equal(gradeFromAverage(3.9), "Hoàn thành");
   assert.equal(gradeFromAverage(null), "Hoàn thành");
-  assert.equal(certificateNumber("sata4", 2026, 12), "SR-SATA4-26-000012");
+  assert.deepEqual([...COMPLETION_GRADES], ["Hoàn thành tốt", "Hoàn thành"]);
+  assert.equal(certificateNumber("robo-th-n1", 2026, 12), "TH-ROBO-TH-N1-26-000012");
   assert.deepEqual(completionCheck({ status: "active", consumed: 48, packageSessions: 48 }), { ok: true, errors: [], warnings: [] });
   const early = completionCheck({ status: "active", consumed: 40, packageSessions: 48 });
   assert.equal(early.ok, true);

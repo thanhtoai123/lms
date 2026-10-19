@@ -247,6 +247,7 @@ export const ADMIN_MENU: NavGroup[] = [
     label: "Chương trình & học liệu",
     roles: ["TRAINING", "TEACHER", "ASSISTANT_TEACHER", "CENTER_CLASS_MANAGER"],
     items: [
+      { label: "Khung chương trình chuẩn", href: "/khung-chuong-trinh", icon: "layers", perm: "course:read", keywords: "th steam chuyen nganh nam hoc hoc phan luyen thi danh muc dong bo", desc: "4 chuyên ngành → chương trình theo cấp học → năm học 45 buổi → 3 học phần; trạng thái nạp và nút đồng bộ danh mục chuẩn." },
       {
         label: "Chương trình học", href: "/curriculums", icon: "book-marked", keywords: "giao an",
         tabs: [

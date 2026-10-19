@@ -1,7 +1,7 @@
 import { z } from "zod";
 import {
   OBJECTIVE_RESULTS, PORTFOLIO_SHARE_SCOPES, PORTFOLIO_SHARE_DAYS_MIN, PORTFOLIO_SHARE_DAYS_MAX, SESSION_EVAL_TEXT_MAX, HIGHLIGHT_MAX,
-  CRITERION_NAME_MAX, CRITERION_GROUP_MAX, LEVEL_DESCRIPTOR_MAX,
+  CRITERION_NAME_MAX, CRITERION_GROUP_MAX, LEVEL_DESCRIPTOR_MAX, RUBRIC_SCALE, PREVIOUS_RUBRIC_SCALE,
 } from "@satarobo/core";
 import { router, protectedProcedure } from "../trpc";
 import * as E from "../services/sessionEvaluations";
@@ -12,7 +12,8 @@ import * as S from "../services/portfolioStandard";
 const uuid = z.string().uuid();
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Ngày dạng YYYY-MM-DD");
 const text = z.string().max(SESSION_EVAL_TEXT_MAX, `Tối đa ${SESSION_EVAL_TEXT_MAX} ký tự`).nullish();
-const scores = z.record(z.string().max(80), z.number().int().min(1).max(4).nullable());
+// Thang hiện hành 3 mức; phiếu nháp cũ chấm thang 4 vẫn sửa được (lõi kiểm theo thang của từng bản chụp)
+const scores = z.record(z.string().max(80), z.number().int().min(1).max(Math.max(RUBRIC_SCALE, PREVIOUS_RUBRIC_SCALE)).nullable());
 const highlights = z.array(z.string().max(40)).max(HIGHLIGHT_MAX, `Chọn tối đa ${HIGHLIGHT_MAX} thẻ nổi bật`);
 
 /**
@@ -21,7 +22,7 @@ const highlights = z.array(z.string().max(40)).max(HIGHLIGHT_MAX, `Chọn tối 
  * Phát hành KHÔNG có thủ tục riêng: phiếu được phát hành cùng lúc khi hoàn tất buổi (academics.sessions.transition "complete").
  */
 export const sessionEvaluationsRouter = router({
-  /** Khối nhập liệu cho màn buổi học: tiêu chí, 4 mức, thẻ nổi bật, phiếu từng HV, điều kiện phát hành */
+  /** Khối nhập liệu cho màn buổi học: tiêu chí, 3 mức, thẻ nổi bật, phiếu từng HV, điều kiện phát hành */
   board: protectedProcedure.input(z.object({ sessionId: uuid })).query(({ ctx, input }) => E.sessionEvaluationBoard(ctx, input.sessionId)),
   /** Lưu nháp tự động (nhiều HV một lần); nhận xét đồng bộ sang attendance.student_remark */
   save: protectedProcedure
@@ -73,7 +74,7 @@ const filterInput = z.object({
   to: isoDate.nullish(),
 });
 
-/** Tiêu chí đánh giá (rubric 4 mức có mô tả) + tiêu chí trọng tâm theo bài — drawer ở trang Khoá học / Giáo trình */
+/** Tiêu chí đánh giá (rubric 3 mức có mô tả) + tiêu chí trọng tâm theo bài — drawer ở trang Khoá học / Giáo trình */
 const criteriaRouter = router({
   board: protectedProcedure.input(z.object({ courseId: uuid, curriculumId: uuid.nullish() })).query(({ ctx, input }) => C.courseCriteriaBoard(ctx, input)),
   save: protectedProcedure
@@ -83,7 +84,7 @@ const criteriaRouter = router({
       name: z.string().trim().min(3, "Tên tiêu chí tối thiểu 3 ký tự").max(CRITERION_NAME_MAX),
       groupName: z.string().max(CRITERION_GROUP_MAX).nullish(),
       description: z.string().max(500).nullish(),
-      levelDescriptors: z.array(z.string().max(LEVEL_DESCRIPTOR_MAX)).length(4, "Cần đúng 4 mô tả mức").nullish(),
+      levelDescriptors: z.array(z.string().max(LEVEL_DESCRIPTOR_MAX)).length(RUBRIC_SCALE, `Cần đúng ${RUBRIC_SCALE} mô tả mức`).nullish(),
       isActive: z.boolean().optional(),
     }))
     .mutation(({ ctx, input }) => C.saveCriterion(ctx, input)),

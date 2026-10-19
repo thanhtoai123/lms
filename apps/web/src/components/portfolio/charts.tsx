@@ -1,16 +1,16 @@
 /**
  * Biểu đồ của hồ sơ học tập — SVG thuần, không thư viện. Toạ độ tính ở packages/core (hàm thuần, có kiểm thử).
- * Màu cố định theo nhận diện (tím #610b8a, cam #ff8f2d) để bản in giống màn hình.
+ * Màu cố định theo nhận diện TH STEAM (Deep Ocean Blue #1D4ED8, Cosmic Gold #F59E0B) để bản in giống màn hình.
  */
-import { bucketSeries, lineChart, radarChart, type ProgressPoint } from "@satarobo/core";
+import { RUBRIC_SCALE, bucketSeries, lineChart, radarChart, type ProgressPoint } from "@satarobo/core";
 
-const PURPLE = "#610b8a";
-const ORANGE = "#ff8f2d";
+const PURPLE = "#1d4ed8";
+const ORANGE = "#f59e0b";
 const GRID = "#e9dcf2";
 const INK = "#6c6c6c";
 const LEVEL_SHORT = ["", "Làm quen", "Cần hỗ trợ", "Đạt", "Vượt"];
 
-/** Biểu đồ đường: điểm trung bình tiêu chí của từng phiếu buổi theo thời gian (thang 1–4) */
+/** Biểu đồ đường: điểm trung bình tiêu chí của từng phiếu buổi theo thời gian (thang 1–3: Cần cố gắng → Tốt) */
 export function ProgressLine({ points, title = "Tiến bộ theo buổi học" }: { points: readonly ProgressPoint[]; title?: string }) {
   const pts = bucketSeries(points, 24);
   if (pts.length < 2) {
@@ -19,7 +19,7 @@ export function ProgressLine({ points, title = "Tiến bộ theo buổi học" }
   const c = lineChart(pts, { width: 560, height: 190, pad: 30 });
   return (
     <figure className="hs-avoid">
-      <svg viewBox={`0 0 ${c.width} ${c.height}`} className="h-auto w-full" role="img" aria-label={`${title}: từ ${pts[0]!.average} lên ${pts[pts.length - 1]!.average} trên thang 4`}>
+      <svg viewBox={`0 0 ${c.width} ${c.height}`} className="h-auto w-full" role="img" aria-label={`${title}: từ ${pts[0]!.average} lên ${pts[pts.length - 1]!.average} trên thang ${RUBRIC_SCALE}`}>
         {c.grid.map((g) => (
           <g key={g.value}>
             <line x1={30} x2={c.width - 30} y1={g.y} y2={g.y} stroke={GRID} strokeWidth={1} />
@@ -41,7 +41,7 @@ export function ProgressLine({ points, title = "Tiến bộ theo buổi học" }
   );
 }
 
-/** Mạng nhện năng lực trung bình của một khoá (thang 1–4) */
+/** Mạng nhện năng lực trung bình của một khoá (thang 1–3) */
 export function RadarChart({ axes, size = 240 }: { axes: readonly { label: string; value: number | null }[]; size?: number }) {
   if (axes.length < 3) {
     return (
@@ -58,7 +58,7 @@ export function RadarChart({ axes, size = 240 }: { axes: readonly { label: strin
       <polygon points={r.polygon} fill={PURPLE} fillOpacity={0.22} stroke={PURPLE} strokeWidth={2} strokeLinejoin="round" />
       {r.points.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r={2.8} fill={ORANGE} />)}
       {r.axes.map((a, i) => (
-        <text key={`t${i}`} x={a.lx} y={a.ly} textAnchor={a.anchor} dominantBaseline="middle" fontSize={9.5} fill="#241a2e" fontWeight={600}>
+        <text key={`t${i}`} x={a.lx} y={a.ly} textAnchor={a.anchor} dominantBaseline="middle" fontSize={9.5} fill="#0f172a" fontWeight={600}>
           {a.label.length > 18 ? `${a.label.slice(0, 17)}…` : a.label}
           {a.value != null && <tspan fill={PURPLE}>{` ${a.value}`}</tspan>}
         </text>

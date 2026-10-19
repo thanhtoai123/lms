@@ -8,7 +8,7 @@ import { LevelMeter } from "@/components/ph/bits";
 import { Empty } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Nhận xét — Sata Robo" };
+export const metadata = { title: "Nhận xét — TH STEAM Academy" };
 
 const UUID = /^[0-9a-f-]{36}$/i;
 
@@ -75,7 +75,7 @@ export default async function SheetsPage({ searchParams }: { searchParams: Promi
                       <span className="block truncate">{c.label}</span>
                       {c.level && <span className="block text-[12px] text-ink-600">{c.level}</span>}
                     </span>
-                    <LevelMeter value={c.value} label={c.label} />
+                    <LevelMeter value={c.value} label={c.label} scale={s.scale} />
                   </li>
                 ))}
               </ul>

@@ -28,7 +28,7 @@ import {
   posts, siteBlocks, campaigns, campaignSpends, trackEvents, consentRecords, dataRequests, dataRequestEvents,
   jobPostings, candidates, candidateEvents, conversations, messages, affiliates,
 } from "./schema/index";
-import { TRIAL_REPORT_TEMPLATE, snapshotAnswers, trialReportCode, shareExpiresAt } from "@satarobo/core";
+import { TRIAL_REPORT_TEMPLATE, snapshotAnswers, trialReportCode, shareExpiresAt, TH_REGISTER_BLOCK } from "@satarobo/core";
 import { SHIFT_CATALOGUE, plannedMinutesOf, workSegments, COIN_RULE_DEFS, trialClassCode, trialClassName, attendanceModeOf, isLeaveShift, nominalMinutesOf, type PayMode, NOTIFICATION_TYPES, NOTIFICATION_GROUPS, buildPath, defaultTenantSettings } from "@satarobo/core";
 import { generateSessions, buildClassCode, buildStudentCode, toISODate, addDays, orderCode, receiptNumber, packagePrice, buildInstallmentPlan, computeCommission, describeRule, periodOf, transferMemo, vietQrImageUrl, fmtMin, hhmm, weekdayOf, leaveDays, requestCode, slaDue, SETTINGS_DEFAULTS, CONSENT_TEXT_VERSION, dsrCode, dsrDue } from "@satarobo/core";
 import { courseCompletions } from "./schema/index";
@@ -106,9 +106,9 @@ async function main() {
   await db
     .insert(tenants)
     .values([
-      { code: "SATA", name: "Sata Robo (chuỗi gốc)", type: "OWNED" as const, status: "active" as const, isDefault: true, note: "Tenant mặc định — mọi dữ liệu có trước khi bật nhượng quyền thuộc về đây" },
+      { code: "SATA", name: "TH STEAM Academy (chuỗi gốc)", type: "OWNED" as const, status: "active" as const, isDefault: true, note: "Tenant mặc định — mọi dữ liệu có trước khi bật nhượng quyền thuộc về đây" },
       {
-        code: "FR_HUE", name: "Sata Robo Huế (nhượng quyền)", type: "FRANCHISE" as const, status: "active" as const,
+        code: "FR_HUE", name: "TH STEAM Academy Huế (nhượng quyền)", type: "FRANCHISE" as const, status: "active" as const,
         legalName: "Công ty TNHH Giáo dục Sông Hương (mẫu)", taxCode: "3300999888", address: "12 Lê Lợi, Vĩnh Ninh, Huế",
         phone: "0234999888", email: "hue@nhuongquyen.test", contractNo: "NQ-2026-01", contractFrom: "2026-01-01", contractTo: "2031-01-01",
       },
@@ -148,7 +148,7 @@ async function main() {
    */
   const [csHue] = await db
     .insert(centers)
-    .values([{ tenantId: tFr.id, code: "HUE1", name: "Sata Robo Huế — Lê Lợi", address: "12 Lê Lợi, Vĩnh Ninh, Huế", phone: "0234999888" }])
+    .values([{ tenantId: tFr.id, code: "HUE1", name: "TH STEAM Academy Huế — Lê Lợi", address: "12 Lê Lợi, Vĩnh Ninh, Huế", phone: "0234999888" }])
     .returning();
   await db.insert(rooms).values([
     { tenantId: tFr.id, centerId: csHue!.id, code: "H101", name: "Phòng H101", capacity: 12, equipment: ["Máy chiếu", "Bảng trắng", "8 bộ kit Sata"] },
@@ -156,13 +156,13 @@ async function main() {
   // Quản trị của bên nhượng quyền: CHỜ KÍCH HOẠT — không có mật khẩu, tự kích hoạt qua luồng mời
   const [hueAdminU] = await db
     .insert(users)
-    .values([{ tenantId: tFr.id, email: "quantri@satarobo-hue.test", fullName: "Quản trị Sata Robo Huế", phone: "0905111222", isActive: false, lockedReason: "Chờ kích hoạt qua thư mời" }])
+    .values([{ tenantId: tFr.id, email: "quantri@satarobo-hue.test", fullName: "Quản trị TH STEAM Academy Huế", phone: "0905111222", isActive: false, lockedReason: "Chờ kích hoạt qua thư mời" }])
     .returning();
   await db.insert(userRoles).values([{ userId: hueAdminU!.id, role: "SUPER_ADMIN", centerId: null }]);
   // Tài khoản mẫu ĐANG HOẠT ĐỘNG của bên nhượng quyền — để thấy (và kiểm thử) được sự cách ly dữ liệu
   const [hueOwnerU] = await db
     .insert(users)
-    .values([{ tenantId: tFr.id, email: "giamdoc@satarobo-hue.test", fullName: "Giám đốc Sata Robo Huế", phone: "0905111888" }])
+    .values([{ tenantId: tFr.id, email: "giamdoc@satarobo-hue.test", fullName: "Giám đốc TH STEAM Academy Huế", phone: "0905111888" }])
     .returning();
   await db.insert(userRoles).values([{ userId: hueOwnerU!.id, role: "SUPER_ADMIN", centerId: null }]);
   const [hueCourse] = await db
@@ -720,12 +720,12 @@ async function main() {
     { centerId: cs1!.id, studentId: enrollA[2]!.studentId, parentId: parentRows[2]!.id, classId: classA!.id, sessionId: pastSess[2]?.id ?? null, teacherId: gv1!.id, rating: 2, teacherRating: 3, tags: ["facility", "schedule"], comment: "Lớp tan muộn 15 phút, phòng nóng (mẫu)", channel: "phone", careTaskId: ct!.id, createdBy: sale1U!.id },
   ]);
   const qs = [
-    { id: "nps", type: "nps" as const, label: "Anh/chị sẵn sàng giới thiệu Sata Robo cho bạn bè ở mức nào?", required: true },
+    { id: "nps", type: "nps" as const, label: "Anh/chị sẵn sàng giới thiệu TH STEAM Academy cho bạn bè ở mức nào?", required: true },
     { id: "gv", type: "rating" as const, label: "Mức hài lòng về giáo viên", required: true },
     { id: "kenh", type: "choice" as const, label: "Anh/chị muốn nhận thông tin qua kênh nào?", required: false, options: ["Zalo", "App", "Email"] },
     { id: "gopy", type: "text" as const, label: "Góp ý thêm", required: false },
   ];
-  const [sv] = await db.insert(surveys).values({ title: "Khảo sát sau buổi 4 (mẫu)", description: "Giúp Sata Robo phục vụ con tốt hơn", trigger: "session_n", triggerValue: 4, questions: qs, status: "active", createdBy: mgrU!.id }).returning();
+  const [sv] = await db.insert(surveys).values({ title: "Khảo sát sau buổi 4 (mẫu)", description: "Giúp TH STEAM Academy phục vụ con tốt hơn", trigger: "session_n", triggerValue: 4, questions: qs, status: "active", createdBy: mgrU!.id }).returning();
   await db.insert(surveys).values({ title: "Khảo sát cuối khoá (nháp)", trigger: "course_end", questions: qs.slice(0, 2), status: "draft", createdBy: mgrU!.id });
   const invRows = await db.insert(surveyInvites).values([0, 1, 2].map((i) => ({
     surveyId: sv!.id, parentId: parentRows[i]!.id, studentId: enrollA[i]!.studentId, enrollmentId: enrollA[i]!.id, centerId: cs1!.id,
@@ -796,7 +796,7 @@ async function main() {
 
   // ---- Cây tổ chức động (/to-chuc): dựng từ chính khu vực + cơ sở ở trên ----
   const [le] = await db.insert(legalEntities).values({
-    legalName: "Công ty Cổ phần Giáo dục Sata Robo (mẫu)", taxCode: "0401234567",
+    legalName: "Công ty Cổ phần Giáo dục TH STEAM Academy (mẫu)", taxCode: "0401234567",
     address: "211 Nguyễn Hữu Thọ, Đà Nẵng", representative: "Nguyễn Văn A (mẫu)",
   }).returning();
   const unitRow = (x: { code: string; name: string; type: "root" | "ho" | "region" | "center"; parentId: string | null; parentPath: string | null; centerId?: string; regionId?: string; address?: string | null; sortOrder?: number }) => ({
@@ -805,8 +805,8 @@ async function main() {
     relationshipType: "owned" as const, status: "active" as const, legalEntityId: le!.id,
     centerId: x.centerId ?? null, regionId: x.regionId ?? null, sortOrder: x.sortOrder ?? 0,
   });
-  const [uRoot] = await db.insert(orgUnits).values(unitRow({ code: "ROOT", name: "Sata Robo", type: "root", parentId: null, parentPath: null })).returning();
-  const [uHo] = await db.insert(orgUnits).values(unitRow({ code: "HO", name: "Hội sở Sata Robo", type: "ho", parentId: uRoot!.id, parentPath: uRoot!.path, address: "211 Nguyễn Hữu Thọ, Đà Nẵng" })).returning();
+  const [uRoot] = await db.insert(orgUnits).values(unitRow({ code: "ROOT", name: "TH STEAM Academy", type: "root", parentId: null, parentPath: null })).returning();
+  const [uHo] = await db.insert(orgUnits).values(unitRow({ code: "HO", name: "Hội sở TH STEAM Academy", type: "ho", parentId: uRoot!.id, parentPath: uRoot!.path, address: "211 Nguyễn Hữu Thọ, Đà Nẵng" })).returning();
   const [uRegion] = await db.insert(orgUnits).values(unitRow({ code: rg!.code, name: rg!.name, type: "region", parentId: uHo!.id, parentPath: uHo!.path, regionId: rg!.id })).returning();
   await db.insert(orgUnits).values([
     unitRow({ code: cs1!.code, name: cs1!.name, type: "center", parentId: uRegion!.id, parentPath: uRegion!.path, centerId: cs1!.id, address: cs1!.address }),
@@ -830,7 +830,7 @@ async function main() {
     { userId: mgrU!.id, title: "Đơn nghỉ phép chờ duyệt", body: "Giáo viên mẫu — nghỉ phép 1 ngày", link: "/don-tu?status=pending", priority: 2, type: "request.submitted", createdAt: new Date(Date.now() - 5 * 86400e3) },
   ]);
   await db.insert(emailLogs).values([
-    { toEmail: "ph.mau1@example.test", eventKey: "RECEIPT_ISSUED", subject: "Sata Robo xác nhận thanh toán PT-CS1-26-000001", body: "(mẫu)", status: "skipped", error: "Chưa cấu hình nhà cung cấp email (RESEND_API_KEY)", attempts: 1, createdAt: new Date(Date.now() - 86400e3) },
+    { toEmail: "ph.mau1@example.test", eventKey: "RECEIPT_ISSUED", subject: "TH STEAM Academy xác nhận thanh toán PT-CS1-26-000001", body: "(mẫu)", status: "skipped", error: "Chưa cấu hình nhà cung cấp email (RESEND_API_KEY)", attempts: 1, createdAt: new Date(Date.now() - 86400e3) },
     { toEmail: "sai-dia-chi", eventKey: "TEST", subject: "Email thử", body: "(mẫu)", status: "failed", error: "Địa chỉ email không hợp lệ", attempts: 3 },
   ]);
   await db.insert(otpRequests).values([
@@ -857,7 +857,7 @@ async function main() {
     { sku: "LK-BOARD", name: "Bo mạch điều khiển", type: "component", unit: "cái", reorderLevel: 5 },
     { sku: "KIT-SATA4", name: "Bộ học cụ Sata 4", type: "kit", unit: "bộ", courseId: sata4!.id, salePrice: 1_200_000, rentPrice: 150_000, deposit: 500_000, reorderLevel: 3 },
     { sku: "SP-ROBOT-MINI", name: "Robot mini lắp ráp", type: "product", unit: "hộp", salePrice: 350_000, reorderLevel: 5 },
-    { sku: "SP-BINH-NUOC", name: "Bình nước Sata Robo", type: "product", unit: "cái", salePrice: 90_000, reorderLevel: 10 },
+    { sku: "SP-BINH-NUOC", name: "Bình nước TH STEAM Academy", type: "product", unit: "cái", salePrice: 90_000, reorderLevel: 10 },
     { sku: "VT-PIN-AA", name: "Pin AA", type: "material", unit: "viên", reorderLevel: 50 },
   ]).returning();
   const it = (sku: string) => itemRows.find((x) => x.sku === sku)!;
@@ -888,8 +888,8 @@ async function main() {
 
   // ---- SataCoin (mẫu): quà, lịch sử xu, 1 yêu cầu đổi quà chờ duyệt ----
   const rw = await db.insert(rewardItems).values([
-    { name: "Sticker Sata Robo", cost: 20, sortOrder: 1 },
-    { name: "Bình nước Sata Robo", cost: 120, inventoryItemId: it("SP-BINH-NUOC").id, sortOrder: 2 },
+    { name: "Sticker TH STEAM Academy", cost: 20, sortOrder: 1 },
+    { name: "Bình nước TH STEAM Academy", cost: 120, inventoryItemId: it("SP-BINH-NUOC").id, sortOrder: 2 },
     { name: "Robot mini lắp ráp", cost: 400, inventoryItemId: it("SP-ROBOT-MINI").id, sortOrder: 3 },
   ]).returning();
   await db.insert(coinRules).values(
@@ -923,7 +923,7 @@ async function main() {
   }).returning();
   const planPdf = samplePdf([
     `Buoi ${lp.sequenceNo}: ${lp.title}`,
-    "Giao an mau cua he thong Sata Robo (du lieu thu nghiem)",
+    "Giao an mau cua he thong TH STEAM Academy (du lieu thu nghiem)",
     "1. On dinh lop va kiem tra hoc cu",
     "2. Gioi thieu bai - dat van de",
     "3. Lap mo hinh theo nhom",
@@ -1032,9 +1032,9 @@ async function main() {
     { slug: "uu-dai-thang-9", title: "Ưu đãi tháng 9", body: "Giảm học phí khi đăng ký trước ngày khai giảng (mẫu).", category: "promotion", status: "scheduled", publishAt: new Date(Date.now() + 3 * 86400e3), createdBy: mkU!.id },
   ]);
   await db.insert(siteBlocks).values([
-    { page: "home", data: { heroTitle: "Sata Robo — Học robot, yêu khoa học", heroSubtitle: "Lập trình & robotics cho trẻ 6–15 tuổi.", heroImage: "", ctaLabel: "Đăng ký học thử", ctaUrl: "/dang-ky" }, updatedBy: mkU!.id },
-    { page: "about", data: { title: "Về Sata Robo", body: "Sata Robo là hệ thống trung tâm STEM (nội dung mẫu).\n\n## Sứ mệnh\n\nGiúp trẻ tự tin sáng tạo với công nghệ.", image: "" }, updatedBy: mkU!.id },
-    { page: "register", data: { title: "Đăng ký học thử miễn phí", subtitle: "Để lại thông tin, tư vấn viên gọi lại trong 24 giờ.", thankYou: "Cảm ơn anh/chị! Sata Robo sẽ liên hệ sớm." }, updatedBy: mkU!.id },
+    { page: "home", data: { heroTitle: "TH STEAM Academy — Igniting Future Innovation", heroSubtitle: "Robotics, AI, đồ họa và lập trình online cho học sinh 8–18 tuổi.", heroImage: "", ctaLabel: "Đăng ký học trải nghiệm 1:1", ctaUrl: "/dang-ky" }, updatedBy: mkU!.id },
+    { page: "about", data: { title: "Về TH STEAM Academy", body: "TH STEAM Academy dạy Robotics, Trí tuệ nhân tạo, Thiết kế đồ họa và Lập trình online qua ClassIn.\n\n## Sứ mệnh\n\nThắp lửa đam mê công nghệ cho thế hệ trẻ Việt Nam.", image: "" }, updatedBy: mkU!.id },
+    { page: "register", data: { title: TH_REGISTER_BLOCK.title, subtitle: TH_REGISTER_BLOCK.subtitle, thankYou: TH_REGISTER_BLOCK.thankYou }, updatedBy: mkU!.id },
   ]);
   const monthStartISO = `${today.slice(0, 8)}01`;
   const [campHe, campGg] = await db.insert(campaigns).values([
@@ -1071,7 +1071,7 @@ async function main() {
   // ---- Tuyển dụng, hộp thư, nguồn giới thiệu, pilot chat (mẫu) ----
   const [job1] = await db.insert(jobPostings).values({
     code: `TD${today.slice(2, 4)}-001`, slug: `giao-vien-robotics-tieu-hoc-td${today.slice(2, 4)}-001`, title: "Giáo viên Robotics tiểu học", centerId: cs1!.id, department: "academic", employmentType: "part_time",
-    openings: 2, salaryText: "180–250k/buổi", description: "Dạy lắp ráp và lập trình robot cho học sinh 6–10 tuổi theo giáo trình Sata Robo.\n\n- 6–10 buổi/tuần\n- Được đào tạo trước khi nhận lớp",
+    openings: 2, salaryText: "180–250k/buổi", description: "Dạy lắp ráp và lập trình robot cho học sinh 6–10 tuổi theo giáo trình TH STEAM Academy.\n\n- 6–10 buổi/tuần\n- Được đào tạo trước khi nhận lớp",
     requirements: "Sinh viên / tốt nghiệp khối kỹ thuật hoặc sư phạm, yêu trẻ.", benefits: "Thưởng theo đánh giá phụ huynh.", deadline: addDays(today, 30), status: "open", openedAt: h(72), createdBy: hrU!.id,
   }).returning();
   const cands = await db.insert(candidates).values([
@@ -1097,7 +1097,7 @@ async function main() {
   await db.insert(appSettings).values({ key: "chat_pilot", value: { classIds: [classA!.id], startDate: addDays(today, -14), note: "Pilot tin nhắn PH lớp A (mẫu)" }, updatedBy: mgrU!.id });
 
   // ---- Hoá đơn điện tử: cấu hình mẫu (tắt; bật khi đã ký hợp đồng nhà cung cấp) ----
-  await db.insert(appSettings).values({ key: "einvoice", value: { enabled: false, provider: "sandbox", templateCode: "1", serial: `1C${String(new Date().getFullYear()).slice(-2)}TSR`, sellerName: "Công ty mẫu Sata Robo (dữ liệu mẫu)", sellerTaxCode: "0100000000", sellerAddress: "Địa chỉ mẫu", courseRate: "KCT", goodsRate: "10", autoDraft: true, autoIssue: false, startDate: null, lookupUrl: "/tra-cuu-hoa-don" }, updatedBy: adminU!.id });
+  await db.insert(appSettings).values({ key: "einvoice", value: { enabled: false, provider: "sandbox", templateCode: "1", serial: `1C${String(new Date().getFullYear()).slice(-2)}TSR`, sellerName: "Công ty mẫu TH STEAM Academy (dữ liệu mẫu)", sellerTaxCode: "0100000000", sellerAddress: "Địa chỉ mẫu", courseRate: "KCT", goodsRate: "10", autoDraft: true, autoIssue: false, startDate: null, lookupUrl: "/tra-cuu-hoa-don" }, updatedBy: adminU!.id });
 
   // ---- Một ca nghỉ học mẫu (cho báo cáo churn / cohort) ----
   const [wd] = await db.insert(enrollments).values({ studentId: studentRows[10]!.id, classId: classA!.id, packageSessions: 24, status: "withdrawn", enrolledAt: d(40), endedAt: d(8), endReason: "Học phí cao so với gia đình (mẫu)", createdBy: mgrU!.id }).returning();

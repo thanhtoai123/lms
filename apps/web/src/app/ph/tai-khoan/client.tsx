@@ -63,7 +63,7 @@ export function PushToggle({ publicKey, devices }: { publicKey: string | null; d
     void phSubscription().then((sub) => setOn(!!sub)).catch(() => setOn(false));
   }, [supported]);
   if (!publicKey) return <p className="text-[13px] text-ink-600">Trung tâm chưa bật thông báo đẩy.</p>;
-  if (!supported) return <p className="text-[13px] text-ink-600">Trình duyệt này chưa hỗ trợ. Trên iPhone: bấm Chia sẻ → “Thêm vào Màn hình chính”, mở Sata Robo từ màn hình chính rồi bật lại.</p>;
+  if (!supported) return <p className="text-[13px] text-ink-600">Trình duyệt này chưa hỗ trợ. Trên iPhone: bấm Chia sẻ → “Thêm vào Màn hình chính”, mở TH STEAM Academy từ màn hình chính rồi bật lại.</p>;
   const enable = async () => {
     setState("busy");
     setMsg("");

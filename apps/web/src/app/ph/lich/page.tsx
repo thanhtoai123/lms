@@ -9,7 +9,7 @@ import { AbsenceButton, MakeupButton } from "@/components/ph/actions";
 import { TONE_STYLE, ToneChip } from "@/components/ph/bits";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Lịch học — Sata Robo", robots: { index: false } };
+export const metadata = { title: "Lịch học — TH STEAM Academy", robots: { index: false } };
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const WD_SHORT = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];

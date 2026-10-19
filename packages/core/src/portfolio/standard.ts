@@ -296,9 +296,9 @@ export const CRITERION_NAME_MAX = 120;
 export const CRITERION_GROUP_MAX = 60;
 
 /** Gợi ý nhóm tiêu chí */
-export const CRITERION_GROUP_SUGGESTIONS: readonly string[] = ["Thiết kế & lắp ráp", "Lập trình & tư duy", "Kiến thức & kỹ năng", "Thái độ & kỹ năng mềm"];
+export const CRITERION_GROUP_SUGGESTIONS: readonly string[] = ["Tư duy", "Kỹ năng số", "Bản lĩnh", "Phẩm chất"];
 
-/** Đọc JSONB `level_descriptors`: đúng 4 chuỗi (cắt khoảng trắng); sai hình dạng → null */
+/** Đọc JSONB `level_descriptors`: đúng RUBRIC_SCALE chuỗi (cắt khoảng trắng); sai hình dạng → null */
 export function normalizeLevelDescriptors(x: unknown): string[] | null {
   if (!Array.isArray(x) || x.length !== RUBRIC_SCALE) return null;
   if (!x.every((v) => typeof v === "string")) return null;
@@ -306,7 +306,7 @@ export function normalizeLevelDescriptors(x: unknown): string[] | null {
   return out.every((v) => v.length > 0) ? out : null;
 }
 
-/** Kiểm tra 4 mô tả mức khi quản trị lưu tiêu chí; rỗng = hợp lệ. Cho phép bỏ trống cả 4 (dùng mô tả mặc định) */
+/** Kiểm tra mô tả các mức khi quản trị lưu tiêu chí; rỗng = hợp lệ. Cho phép bỏ trống tất cả (dùng mô tả mặc định) */
 export function validateLevelDescriptors(x: readonly string[] | null | undefined): string[] {
   if (x == null) return [];
   const t = x.map((v) => (v ?? "").trim());
@@ -345,93 +345,13 @@ export function orderCriteriaWithFocus<T extends { id: string | null }>(criteria
   return [...marked.filter((c) => c.focus), ...marked.filter((c) => !c.focus)];
 }
 
-/** Một tiêu chí trong bộ mẫu */
+/** Một tiêu chí trong bộ mẫu — `levelDescriptors` đủ RUBRIC_SCALE mô tả, mức 1 → cao nhất */
 export interface CriterionTemplate {
   name: string;
   groupName: string;
   description: string;
-  levelDescriptors: [string, string, string, string];
+  levelDescriptors: string[];
 }
-
-/**
- * BỘ MẪU GỢI Ý cho robotics / lập trình (8 tiêu chí, 3 nhóm): mô tả HÀNH VI QUAN SÁT ĐƯỢC cho từng mức,
- * ngôn từ tích cực — theo hai nhóm Thiết kế / Lắp ráp và Lập trình / Tư duy của nghiên cứu rubric robotics
- * (Frontiers in Education, 2024) + nhóm Thái độ & kỹ năng mềm.
- */
-export const CRITERIA_TEMPLATE_ROBOTICS: readonly CriterionTemplate[] = [
-  {
-    name: "Lắp ráp mô hình", groupName: "Thiết kế & lắp ráp", description: "Đọc hình hướng dẫn, chọn đúng chi tiết, lắp chắc chắn",
-    levelDescriptors: [
-      "Nhận biết được các chi tiết chính; lắp từng bước khi thầy cô làm mẫu bên cạnh.",
-      "Lắp được theo hình hướng dẫn khi được chỉ bước khó; mô hình còn lỏng một vài chỗ.",
-      "Tự đọc hình, lắp đúng và chắc chắn mô hình của bài trong thời gian buổi học.",
-      "Lắp nhanh, gọn, chắc chắn; tự kiểm tra và giúp bạn tìm chi tiết lắp sai.",
-    ],
-  },
-  {
-    name: "Thiết kế & cải tiến", groupName: "Thiết kế & lắp ráp", description: "Đề xuất, thử và cải tiến thiết kế cho mô hình",
-    levelDescriptors: [
-      "Làm theo mẫu có sẵn; bắt đầu nói được mô hình dùng để làm gì.",
-      "Đề xuất được một thay đổi nhỏ cho mô hình khi thầy cô gợi ý.",
-      "Tự đề xuất và thử một thay đổi giúp mô hình chạy tốt hơn.",
-      "Thử nhiều phương án, so sánh kết quả và giải thích vì sao chọn thiết kế cuối.",
-    ],
-  },
-  {
-    name: "Tư duy lập trình", groupName: "Lập trình & tư duy", description: "Ghép khối lệnh / viết chương trình theo yêu cầu bài",
-    levelDescriptors: [
-      "Kéo thả được khối lệnh đơn giản khi thầy cô làm mẫu từng bước.",
-      "Ghép được chương trình theo mẫu khi có gợi ý thứ tự lệnh.",
-      "Tự viết chương trình chạy đúng yêu cầu của bài.",
-      "Tự dùng vòng lặp / điều kiện để chương trình gọn hơn và làm thêm yêu cầu mở rộng.",
-    ],
-  },
-  {
-    name: "Gỡ lỗi & giải quyết vấn đề", groupName: "Lập trình & tư duy", description: "Tìm nguyên nhân khi robot chạy chưa đúng và sửa",
-    levelDescriptors: [
-      "Nhận ra robot chạy chưa đúng; cần thầy cô chỉ chỗ lỗi.",
-      "Tìm được lỗi khi thầy cô gợi ý nên kiểm tra phần nào.",
-      "Tự thử – sai để tìm và sửa lỗi của chương trình hoặc mô hình.",
-      "Giải thích được nguyên nhân lỗi, sửa gọn và chia sẻ cách sửa cho bạn.",
-    ],
-  },
-  {
-    name: "Cảm biến & điều khiển", groupName: "Lập trình & tư duy", description: "Hiểu và dùng cảm biến, động cơ trong bài",
-    levelDescriptors: [
-      "Gọi đúng tên cảm biến / động cơ của bài khi được hỏi.",
-      "Dùng được cảm biến theo chương trình mẫu có sẵn.",
-      "Tự dùng giá trị cảm biến để điều khiển robot theo yêu cầu bài.",
-      "Tự chỉnh ngưỡng cảm biến cho phù hợp sa bàn và giải thích cách robot phản ứng.",
-    ],
-  },
-  {
-    name: "Hợp tác nhóm", groupName: "Thái độ & kỹ năng mềm", description: "Chia việc, lắng nghe và hỗ trợ bạn",
-    levelDescriptors: [
-      "Đang làm quen làm việc cùng bạn; thường làm riêng phần của mình.",
-      "Tham gia việc chung khi được thầy cô nhắc và phân công.",
-      "Chủ động chia việc, lắng nghe ý kiến và cùng bạn hoàn thành sản phẩm.",
-      "Điều phối nhóm, động viên và hướng dẫn được bạn còn chậm.",
-    ],
-  },
-  {
-    name: "Trình bày sản phẩm", groupName: "Thái độ & kỹ năng mềm", description: "Giới thiệu sản phẩm, cách hoạt động trước lớp",
-    levelDescriptors: [
-      "Giới thiệu được tên sản phẩm khi thầy cô hỏi.",
-      "Kể được sản phẩm làm gì khi có câu hỏi gợi ý.",
-      "Tự tin giới thiệu sản phẩm và cách robot hoạt động trước lớp.",
-      "Trình bày mạch lạc, trả lời được câu hỏi của bạn và nêu ý tưởng cải tiến.",
-    ],
-  },
-  {
-    name: "Tập trung & kiên trì", groupName: "Thái độ & kỹ năng mềm", description: "Theo dõi bài, bền bỉ khi gặp khó",
-    levelDescriptors: [
-      "Tập trung trong thời gian ngắn; cần thầy cô nhắc quay lại bài.",
-      "Theo được phần lớn buổi học khi được nhắc; dễ nản khi gặp khó.",
-      "Tập trung suốt buổi và cố gắng hoàn thành bài dù gặp khó.",
-      "Bền bỉ thử nhiều cách tới khi xong, còn tự đặt thêm thử thách cho mình.",
-    ],
-  },
-];
 
 /* ------------------------------------------------------------------ */
 /* 6. Danh mục "Buổi này cần hoàn thiện" (màn giáo viên)               */

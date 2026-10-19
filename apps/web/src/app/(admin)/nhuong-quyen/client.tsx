@@ -444,7 +444,7 @@ export function NewTenantPanel({ templates }: { templates: Template[] }) {
                 <input className="input mt-1 w-full uppercase" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} maxLength={12} placeholder="FR_HUE" required />
               </label>
               <label className="text-sm">Tên trung tâm
-                <input className="input mt-1 w-full" value={name} onChange={(e) => setName(e.target.value)} maxLength={120} placeholder="Sata Robo Huế" required />
+                <input className="input mt-1 w-full" value={name} onChange={(e) => setName(e.target.value)} maxLength={120} placeholder="TH STEAM Academy Huế" required />
               </label>
               <label className="text-sm">Địa chỉ
                 <input className="input mt-1 w-full" value={address} onChange={(e) => setAddress(e.target.value)} maxLength={300} placeholder="12 Lê Lợi, Vĩnh Ninh, Huế" />
@@ -468,7 +468,7 @@ export function NewTenantPanel({ templates }: { templates: Template[] }) {
                 <input className="input mt-1 w-full uppercase" value={centerCode} onChange={(e) => setCenterCode(e.target.value.toUpperCase())} maxLength={20} placeholder="HUE1" required />
               </label>
               <label className="text-sm">Tên cơ sở đầu tiên
-                <input className="input mt-1 w-full" value={centerName} onChange={(e) => setCenterName(e.target.value)} maxLength={120} placeholder="Sata Robo Huế — Lê Lợi" required />
+                <input className="input mt-1 w-full" value={centerName} onChange={(e) => setCenterName(e.target.value)} maxLength={120} placeholder="TH STEAM Academy Huế — Lê Lợi" required />
               </label>
               <label className="text-sm">Email quản trị trung tâm
                 <input type="email" className="input mt-1 w-full" value={adminEmail} onChange={(e) => setAdminEmail(e.target.value)} maxLength={200} required />

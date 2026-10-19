@@ -210,7 +210,7 @@ export function StudentForm({ centers, initial, studentId, guardiansInitial, can
         </div>
       </Section>
 
-      <Section title="Thông tin Sata Robo">
+      <Section title="Thông tin TH STEAM Academy">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <div><label className="label">Cơ sở *</label><select className="input" required value={f.homeCenterId} onChange={set("homeCenterId")}>{centers.map((c) => <option key={c.id} value={c.id}>{c.code} — {c.name}</option>)}</select></div>
           <div>

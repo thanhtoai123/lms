@@ -535,6 +535,14 @@
       "tech": false,
       "items": [
         {
+          "label": "Khung chương trình chuẩn",
+          "href": "/khung-chuong-trinh",
+          "perm": [
+            "course:read"
+          ],
+          "tabs": []
+        },
+        {
           "label": "Chương trình học",
           "href": "/curriculums",
           "perm": [],

@@ -8,7 +8,7 @@ import { ShareLinkButton } from "@/components/ph/actions";
 import { CertificateSheet, CertificatePrintStyle } from "@/components/certificates/certificate-sheet";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Giấy chứng nhận — Sata Robo", robots: { index: false } };
+export const metadata = { title: "Giấy chứng nhận — TH STEAM Academy", robots: { index: false } };
 
 const UUID = /^[0-9a-f-]{36}$/i;
 

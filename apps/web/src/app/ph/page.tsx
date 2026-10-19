@@ -7,7 +7,7 @@ import { requireParent } from "@/lib/parent-session";
 import { PhMain, PhBlock, vndPh, dtPh, dayPh, todayPh } from "@/components/ph-ui";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Tổng quan — Sata Robo" };
+export const metadata = { title: "Tổng quan — TH STEAM Academy" };
 
 const UUID = /^[0-9a-f-]{36}$/i;
 

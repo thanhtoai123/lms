@@ -3,14 +3,14 @@
 /**
  * DRAWER "TIÊU CHÍ ĐÁNH GIÁ" — gắn vào trang Khoá học và trang Giáo trình (không thêm tab).
  *  - Theo khoá: sửa tiêu chí (tên, nhóm, mô tả, 4 ô MÔ TẢ HÀNH VI cho từng mức), sắp thứ tự, ngưng dùng;
- *    khoá chưa có tiêu chí → "Áp dụng bộ mẫu" robotics / lập trình (8 tiêu chí, mô tả 4 mức viết sẵn).
+ *    khoá chưa có tiêu chí → "Áp dụng bộ mẫu" theo chương trình TH STEAM (6 năng lực + 3 phẩm chất, mô tả 3 mức viết sẵn).
  *  - Theo bài của giáo trình: mục tiêu bài + chọn TIÊU CHÍ TRỌNG TÂM (tối đa 4; phiếu buổi đánh dấu và xếp lên đầu).
  * Phiếu đã phát hành giữ bản chụp riêng — sửa ở đây chỉ áp cho phiếu mới.
  */
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowDown, ArrowUp, ListChecks, Plus, Star } from "lucide-react";
-import { RUBRIC_LEVELS, CRITERION_GROUP_SUGGESTIONS, validateCriterion } from "@satarobo/core";
+import { RUBRIC_LEVELS, RUBRIC_SCALE, CRITERION_GROUP_SUGGESTIONS, validateCriterion } from "@satarobo/core";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
 import { Drawer } from "@/components/drawer";
@@ -20,10 +20,12 @@ type Crit = BoardData["criteria"][number];
 type Lesson = BoardData["lessons"][number];
 
 interface Draft { id?: string; name: string; groupName: string; description: string; levels: string[]; isActive: boolean }
-const blank = (): Draft => ({ name: "", groupName: "", description: "", levels: ["", "", "", ""], isActive: true });
+const emptyLevels = () => Array.from({ length: RUBRIC_SCALE }, () => "");
+const blank = (): Draft => ({ name: "", groupName: "", description: "", levels: emptyLevels(), isActive: true });
 const draftOf = (c: Crit): Draft => ({
   id: c.id, name: c.name, groupName: c.groupName ?? "", description: c.description ?? "",
-  levels: c.levelDescriptors ? [...c.levelDescriptors] : ["", "", "", ""], isActive: c.isActive,
+  // Mô tả 4 mức cũ không dùng cho thang 3 → để trống cho quản trị viết lại
+  levels: c.levelDescriptors?.length === RUBRIC_SCALE ? [...c.levelDescriptors] : emptyLevels(), isActive: c.isActive,
 });
 
 export function CriteriaButton({ courseId, courseLabel, curriculumId = null, variant = "link" }: {
@@ -69,7 +71,7 @@ function CriteriaDrawer({ courseId, courseLabel, curriculumId, onClose }: { cour
 
   return (
     <Drawer open onClose={onClose} width="lg" title={`Tiêu chí đánh giá · ${courseLabel}`}
-      desc="Mỗi tiêu chí có mô tả hành vi quan sát được cho 4 mức — giáo viên chấm nhất quán. Sửa ở đây áp cho phiếu mới; phiếu đã phát hành giữ nguyên.">
+      desc="Mỗi tiêu chí có mô tả hành vi quan sát được cho 3 mức Cần cố gắng / Đạt / Tốt — giáo viên chấm nhất quán. Sửa ở đây áp cho phiếu mới; phiếu đã phát hành giữ nguyên.">
       {q.isLoading && <p className="text-sm text-ink-400">Đang tải…</p>}
       {q.error && <p className="text-sm text-red-700">{q.error.message}</p>}
       {msg && <p className={`mb-3 rounded-xl p-2 text-sm ${msg.ok ? "bg-green-50 text-green-800" : "bg-red-50 text-red-700"}`}>{msg.text}</p>}
@@ -108,7 +110,7 @@ function CriteriaDrawer({ courseId, courseLabel, curriculumId, onClose }: { cour
                           </div>
                         )}
                       </div>
-                      <ol className="mt-2 grid gap-1 text-xs sm:grid-cols-2">
+                      <ol className="mt-2 grid gap-1 text-xs sm:grid-cols-3">
                         {c.effectiveLevels.map((h, k) => (
                           <li key={k} className="rounded-lg bg-black/[0.03] p-1.5"><b>{k + 1}. {RUBRIC_LEVELS[k]?.label}:</b> {h}</li>
                         ))}
@@ -151,12 +153,12 @@ function CriterionEditor({ draft, setDraft, errs, pending, onSave, onCancel }: {
       <div className="grid gap-2 sm:grid-cols-2">
         <label className="text-xs text-ink-600">Tên tiêu chí *<input className="input mt-1" maxLength={120} value={draft.name} onChange={(e) => set({ name: e.target.value })} /></label>
         <label className="text-xs text-ink-600">Nhóm
-          <input className="input mt-1" maxLength={60} list="nhom-tieu-chi" value={draft.groupName} onChange={(e) => set({ groupName: e.target.value })} placeholder="Thái độ & kỹ năng mềm" />
+          <input className="input mt-1" maxLength={60} list="nhom-tieu-chi" value={draft.groupName} onChange={(e) => set({ groupName: e.target.value })} placeholder="Tư duy · Kỹ năng số · Bản lĩnh · Phẩm chất" />
           <datalist id="nhom-tieu-chi">{CRITERION_GROUP_SUGGESTIONS.map((g) => <option key={g} value={g} />)}</datalist>
         </label>
       </div>
       <label className="block text-xs text-ink-600">Mô tả ngắn<input className="input mt-1" maxLength={500} value={draft.description} onChange={(e) => set({ description: e.target.value })} /></label>
-      <div className="grid gap-2 sm:grid-cols-2">
+      <div className="grid gap-2 sm:grid-cols-3">
         {RUBRIC_LEVELS.map((lv, i) => (
           <label key={lv.value} className="text-xs text-ink-600">Mức {lv.value} · {lv.label}
             <textarea className="input mt-1 min-h-16 text-sm" maxLength={300} value={draft.levels[i] ?? ""} placeholder="Hành vi quan sát được ở mức này…"
@@ -164,7 +166,7 @@ function CriterionEditor({ draft, setDraft, errs, pending, onSave, onCancel }: {
           </label>
         ))}
       </div>
-      <p className="text-[11px] text-ink-400">Mô tả điều bé LÀM ĐƯỢC ở mỗi mức, ngôn từ tích cực. Để trống cả 4 ô thì dùng mô tả mặc định theo tên tiêu chí.</p>
+      <p className="text-[11px] text-ink-400">Mô tả điều bé LÀM ĐƯỢC ở mỗi mức, ngôn từ tích cực. Để trống tất cả các ô thì dùng mô tả mặc định theo tên tiêu chí.</p>
       <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={draft.isActive} onChange={(e) => set({ isActive: e.target.checked })} /> Đang dùng (bỏ chọn = ngưng, phiếu mới không có tiêu chí này)</label>
       {errs.length > 0 && <ul className="rounded-xl bg-amber-50 p-2 text-xs text-amber-900">{errs.map((e) => <li key={e}>• {e}</li>)}</ul>}
       <div className="flex gap-2">

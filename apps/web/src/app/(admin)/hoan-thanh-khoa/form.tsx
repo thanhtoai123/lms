@@ -4,13 +4,15 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { useTRPC } from "@/lib/trpc/client";
+import { COMPLETION_GRADES } from "@satarobo/core";
 import { ErrorBox, OkBox } from "@/components/admin-ui";
 
 type Item = {
   enrollmentId: string; studentId: string; fullName: string; code: string | null; consumed: number; packageSessions: number;
   avg: number | null; suggestedGrade: string; ok: boolean; errors: string[]; warnings: string[]; proposed: boolean;
 };
-const GRADES = ["Xuất sắc", "Giỏi", "Khá", "Hoàn thành"];
+// Mức hoàn thành theo cách gọi của Thông tư 27: Hoàn thành tốt / Hoàn thành
+const GRADES: readonly string[] = COMPLETION_GRADES;
 
 /**
  * Hoàn thành khoá cho nhiều học viên một lần.

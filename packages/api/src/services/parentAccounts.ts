@@ -128,7 +128,7 @@ export async function resendActivationCodes(ctx: ProtectedContext, input: { pare
         .where(eq(parents.id, p.id));
       await tx.insert(parentNotifications).values({
         parentId: p.id, channel: "zns", template: "PARENT_ACTIVATION",
-        title: "Mã kích hoạt tài khoản phụ huynh Sata Robo",
+        title: "Mã kích hoạt tài khoản phụ huynh TH STEAM Academy",
         body: `Mã kích hoạt của anh/chị là ${code}, hiệu lực đến ${hetHan}. Vào ${ACTIVATION_URL} nhập số điện thoại và mã này để đặt mật khẩu.`,
         link: ACTIVATION_URL, status: "queued", createdBy: ctx.user.id,
       });

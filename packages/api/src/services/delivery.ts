@@ -228,7 +228,7 @@ export async function dispatchParentMessages(database: Database, opts: { limit?:
       }
     } else {
       const tpl = s.sms.templates[ev];
-      const text = tpl ? renderSms(tpl, vars) : { text: stripDiacritics(`Sata Robo: ${n.title}. ${n.body}`).slice(0, 300), missing: [] };
+      const text = tpl ? renderSms(tpl, vars) : { text: stripDiacritics(`TH STEAM Academy: ${n.title}. ${n.body}`).slice(0, 300), missing: [] };
       result = text.missing.length ? { ok: false, failure: { kind: "provider", code: "params" }, error: `Thiếu biến ${text.missing.join(", ")}` } : await sendSms(s.sms.mode, s.sms.brandname, to, text.text, n.id);
     }
     if (result.ok) {

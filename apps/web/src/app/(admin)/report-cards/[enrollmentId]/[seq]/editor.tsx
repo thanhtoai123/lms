@@ -15,7 +15,7 @@ export function ReportCardEditor({
   enrollmentId, seq, criteria, initial, canWrite, canApprove, scale = 5, aggregate = null, prefill = {}, suggestedComment = null,
 }: {
   enrollmentId: string; seq: number; criteria: Crit[]; initial: Init; canWrite: boolean; canApprove: boolean;
-  /** 4 = học bạ mốc tổng hợp từ phiếu buổi (rubric 4 mức); 5 = học bạ cũ */
+  /** 3 = học bạ hiện hành (Cần cố gắng / Đạt / Tốt) tổng hợp từ phiếu buổi; 4, 5 = học bạ cũ */
   scale?: number;
   aggregate?: MilestoneAggregate | null;
   prefill?: Record<string, number>;
@@ -61,7 +61,7 @@ export function ReportCardEditor({
             <div className="rounded-lg bg-brand-50 p-2"><div className="text-[11px] text-ink-600">Phiếu buổi</div><b>{aggregate.sessions}</b></div>
             <div className="rounded-lg bg-brand-50 p-2"><div className="text-[11px] text-ink-600">Chuyên cần</div><b>{aggregate.attendance.attended}/{aggregate.attendance.total}</b></div>
             <div className="rounded-lg bg-brand-50 p-2"><div className="text-[11px] text-ink-600">Đạt mục tiêu bài</div><b>{aggregate.objective.rate == null ? "—" : `${Math.round(aggregate.objective.rate * 100)}%`}</b></div>
-            <div className="rounded-lg bg-brand-50 p-2"><div className="text-[11px] text-ink-600">TB giai đoạn</div><b>{aggregate.overall.average ?? "—"}/4</b>{aggregate.overall.trend && <span className="ml-1 text-xs">({TREND_VI[aggregate.overall.trend]})</span>}</div>
+            <div className="rounded-lg bg-brand-50 p-2"><div className="text-[11px] text-ink-600">TB giai đoạn</div><b>{aggregate.overall.average ?? "—"}/{aggregate.scale}</b>{aggregate.overall.trend && <span className="ml-1 text-xs">({TREND_VI[aggregate.overall.trend]})</span>}</div>
           </div>
           {aggregate.topHighlights.length > 0 && <p className="text-xs text-ink-600">Nổi bật: {aggregate.topHighlights.map((h) => `${h.label} (${h.count})`).join(", ")}</p>}
           {aggregate.sessions === 0 && <p className="text-xs text-amber-800">Chưa có phiếu nhận xét buổi nào được phát hành trong giai đoạn này — chấm tay như trước.</p>}
@@ -86,7 +86,7 @@ export function ReportCardEditor({
                 <tr key={c.id} className={c.isActive ? "" : "opacity-60"}>
                   <td className="p-3 align-top">
                     <div className="font-medium">{c.name}</div>{c.description && <div className="text-xs text-ink-400">{c.description}</div>}
-                    {aggOf(c.id)?.average != null && <div className="mt-0.5 text-[11px] text-brand-700">TB phiếu buổi {aggOf(c.id)?.average}/4{aggOf(c.id)?.trend ? ` · ${TREND_VI[aggOf(c.id)!.trend!]}` : ""}</div>}
+                    {aggOf(c.id)?.average != null && <div className="mt-0.5 text-[11px] text-brand-700">TB phiếu buổi {aggOf(c.id)?.average}/{aggregate.scale}{aggOf(c.id)?.trend ? ` · ${TREND_VI[aggOf(c.id)!.trend!]}` : ""}</div>}
                   </td>
                   <td className="p-3">
                     <div className="flex flex-wrap gap-1">

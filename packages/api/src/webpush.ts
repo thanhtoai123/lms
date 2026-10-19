@@ -49,7 +49,7 @@ export function vapidKeysFromEnv(): VapidKeys | null {
   const publicKey = process.env.VAPID_PUBLIC_KEY;
   const privateKey = process.env.VAPID_PRIVATE_KEY;
   if (!publicKey || !privateKey) return null;
-  return { publicKey, privateKey, subject: process.env.VAPID_SUBJECT || "mailto:hotro@satarobo.vn" };
+  return { publicKey, privateKey, subject: process.env.VAPID_SUBJECT || "mailto:hotro@thsteam.edu.vn" };
 }
 
 /** Tạo cặp khoá VAPID (base64url: public 65 byte, private 32 byte) */

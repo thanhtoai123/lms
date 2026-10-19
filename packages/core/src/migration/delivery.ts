@@ -71,9 +71,9 @@ export const DELIVERY_DEFAULTS: DeliverySettings = {
   sms: {
     mode: "off", brandname: "", fallback: true,
     templates: {
-      OTP: "Ma xac thuc Sata Robo cua ban la {otp}. Hieu luc {phut} phut. Khong chia se ma nay cho bat ky ai.",
-      TUITION_DUE: "Sata Robo: Hoc phi cua be {ten_hv} con {so_tien}, han {han}. Chi tiet tren cong phu huynh.",
-      SESSION_REMINDER: "Sata Robo: Be {ten_hv} co buoi hoc lop {lop} luc {gio} ngay {ngay} tai {co_so}.",
+      OTP: "Ma xac thuc TH STEAM cua ban la {otp}. Hieu luc {phut} phut. Khong chia se ma nay cho bat ky ai.",
+      TUITION_DUE: "TH STEAM: Hoc phi cua be {ten_hv} con {so_tien}, han {han}. Chi tiet tren cong phu huynh.",
+      SESSION_REMINDER: "TH STEAM: Be {ten_hv} co buoi hoc lop {lop} luc {gio} ngay {ngay} tai {co_so}.",
     },
   },
   quietStart: "21:00",

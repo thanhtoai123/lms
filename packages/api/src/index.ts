@@ -11,6 +11,7 @@ import { scheduleRouter } from "./routers/schedule";
 import { learningRouter } from "./routers/learning";
 import { systemRouter, reportsRouter, trialsRouter } from "./routers/system";
 import { catalogRouter } from "./routers/catalog";
+import { thsteamRouter } from "./routers/thsteam";
 import { financeRouter } from "./routers/finance";
 import { hrRouter } from "./routers/hr";
 import { careRouter } from "./routers/care";
@@ -46,6 +47,7 @@ export const appRouter = router({
   system: systemRouter,
   reports: reportsRouter,
   catalog: catalogRouter,
+  thsteam: thsteamRouter,
   finance: financeRouter,
   hr: hrRouter,
   care: careRouter,

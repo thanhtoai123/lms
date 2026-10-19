@@ -1,7 +1,8 @@
 # Cấu trúc website công khai
 
-Khung website của Sata Robo: mọi trang công khai dựng bằng **bộ khối** (Website → Landing page), dùng chung **một đầu trang + một chân trang**.
-Nội dung hiện là bản **DEMO** (mỗi khối có chữ `[DEMO]`); thay chữ thật rồi bấm Xuất bản từng trang.
+Khung website của TH STEAM Academy: mọi trang công khai dựng bằng **bộ khối** (Website → Landing page), dùng chung **một đầu trang + một chân trang**.
+Nội dung là nội dung thật dựng từ danh mục chương trình chuẩn và bộ nhận diện (docs/KHUNG-CHUONG-TRINH.md, mục 4); chỉ
+**Chính sách bảo mật** còn là bản nháp có chữ `[DEMO]`. `pnpm db:seed-thsteam` ghi đè các trang bằng nội dung mới.
 
 ## Sơ đồ trang
 
@@ -10,7 +11,7 @@ Nội dung hiện là bản **DEMO** (mỗi khối có chữ `[DEMO]`); thay ch�
 | `/` | `trang-chu` | Trang chủ (khách chưa đăng nhập). Nội dung kaizen: `packages/core/src/landing/home.ts` |
 | `/gioi-thieu` | `gioi-thieu` | Giới thiệu |
 | `/khoa-hoc` | `khoa-hoc` | Danh sách khoá học |
-| `/khoa-hoc/<x>` | `khoa-hoc-<x>` | Chi tiết từng khoá (demo: `lap-trinh-robot`, `luyen-thi-robosim`, `hoc-online`) |
+| `/khoa-hoc/<x>` | `khoa-hoc-<x>` | Trang từng chuyên ngành: `robotics-ai`, `tri-tue-nhan-tao-ai`, `thiet-ke-do-hoa-ai`, `lap-trinh-ung-dung-ai` (trang khoá cũ của Sata Robo đã lưu trữ) |
 | `/lien-he` | `lien-he` | Liên hệ |
 | `/chinh-sach/<x>` | `chinh-sach-<x>` | Chính sách (demo: `bao-mat`, `dieu-khoan`) |
 | `/tin-tuc`, `/tuyen-dung`, `/dang-ky` | — | Trang hệ thống (quản lý ở Tin tức, Tuyển dụng, Nội dung trang) nhưng dùng cùng đầu/chân trang |

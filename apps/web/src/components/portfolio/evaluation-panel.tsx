@@ -17,8 +17,7 @@ import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, ChevronDown, ChevronUp, Copy, Printer, Sparkles, Star, Target } from "lucide-react";
 import {
-  OBJECTIVE_RESULTS, OBJECTIVE_RESULT_SHORT, OBJECTIVE_RESULT_VI, isEvaluableAttendance, type ObjectiveResult, type AttendanceStatus,
-} from "@satarobo/core";
+  OBJECTIVE_RESULTS, OBJECTIVE_RESULT_SHORT, OBJECTIVE_RESULT_VI, isEvaluableAttendance, type ObjectiveResult, type AttendanceStatus, RUBRIC_SCALE } from "@satarobo/core";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
 
@@ -396,7 +395,7 @@ function AmendBlock({ item, board, canAmend, onDone }: { item: Item; board: Boar
     return (
       <div className="space-y-1 text-sm">
         <ul className="grid gap-x-4 sm:grid-cols-2">
-          {labels.map((c) => <li key={c.key} className="flex justify-between gap-2"><span>{c.label}</span><b className="text-primary">{ev.scores[c.key] ?? "—"}/4</b></li>)}
+          {labels.map((c) => <li key={c.key} className="flex justify-between gap-2"><span>{c.label}</span><b className="text-primary">{ev.scores[c.key] ?? "—"}/{RUBRIC_SCALE}</b></li>)}
         </ul>
         {ev.objectiveResult && <div className="text-xs">{OBJECTIVE_RESULT_VI[ev.objectiveResult]}</div>}
         {ev.remark && <p className="text-xs text-ink-600">“{ev.remark}”</p>}

@@ -5,7 +5,7 @@ import { PhMain, PhPageHead, dtPh } from "@/components/ph-ui";
 import { Empty } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Bài tập — Sata Robo" };
+export const metadata = { title: "Bài tập — TH STEAM Academy" };
 
 const NHAN_TRANG_THAI: Record<string, { text: string; style: string }> = {
   assigned: { text: "Cần làm", style: "bg-amber-100 text-amber-900" },

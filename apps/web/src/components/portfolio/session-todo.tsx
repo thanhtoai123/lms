@@ -158,7 +158,7 @@ export function SessionTodo({
             ))}
           </ul>
 
-          {/* Tiêu chí đánh giá + mô tả 4 mức */}
+          {/* Tiêu chí đánh giá + mô tả 3 mức */}
           <div className="border-t border-black/5 pt-2">
             <button type="button" className="flex w-full items-center justify-between text-left text-sm font-semibold" onClick={() => setShowRubric((v) => !v)} aria-expanded={showRubric}>
               <span>Tiêu chí đánh giá của buổi ({board.criteria.length}){board.criteria.some((c) => c.focus) && <span className="ml-1 text-xs font-normal text-ink-600">· trọng tâm của bài xếp trước</span>}</span>

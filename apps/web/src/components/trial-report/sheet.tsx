@@ -242,7 +242,7 @@ export function TrialReportSheet({
 
       {/* Chân phiếu — thông tin cơ sở lấy từ bảng centers */}
       <footer className="pdg-block border-t border-border bg-muted/50 px-5 py-4 text-sm print:px-4 print:py-2">
-        <div className="font-bold text-foreground">Sata Robo · {report.center.name}</div>
+        <div className="font-bold text-foreground">TH STEAM Academy · {report.center.name}</div>
         <div className="mt-1 flex flex-col gap-1 text-muted-foreground sm:flex-row sm:flex-wrap sm:gap-x-4 print:flex-row print:gap-x-4">
           {report.center.address && <span className="inline-flex items-start gap-1.5"><MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />{report.center.address}</span>}
           {report.center.phone && <span className="inline-flex items-center gap-1.5"><Phone className="h-3.5 w-3.5 shrink-0" aria-hidden />{report.center.phone}</span>}

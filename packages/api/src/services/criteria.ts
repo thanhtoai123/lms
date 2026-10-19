@@ -1,5 +1,5 @@
 /**
- * TIÊU CHÍ ĐÁNH GIÁ (rubric có mô tả 4 mức) + TIÊU CHÍ TRỌNG TÂM THEO BÀI — quản trị ở drawer "Tiêu chí đánh giá"
+ * TIÊU CHÍ ĐÁNH GIÁ (rubric có mô tả 3 mức) + TIÊU CHÍ TRỌNG TÂM THEO BÀI — quản trị ở drawer "Tiêu chí đánh giá"
  * trên trang Khoá học / Giáo trình (docs/HO-SO-HOC-TAP.md, mục "Rubric có mô tả mức & tiêu chí trọng tâm").
  *
  * - Tiêu chí thuộc khoá (`competency_criteria`): tên, nhóm, mô tả, 4 mô tả mức, thứ tự, đang dùng / ngưng.

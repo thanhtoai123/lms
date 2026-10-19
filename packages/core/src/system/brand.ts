@@ -10,8 +10,10 @@
 
 export interface BrandColors { primary: string; accent: string }
 
-/** Tím + cam của Sata Robo — màu mặc định khi chưa cấu hình (khớp globals.css) */
-export const BRAND_DEFAULT_COLORS: BrandColors = { primary: "#610b8a", accent: "#ff8f2d" };
+/** Deep Ocean Blue + Cosmic Gold của TH STEAM Academy — màu mặc định khi chưa cấu hình (khớp globals.css) */
+export const BRAND_DEFAULT_COLORS: BrandColors = { primary: "#1d4ed8", accent: "#f59e0b" };
+/** Midnight Navy — chữ trên nền sáng và chữ trên nút màu nhấn (nút CTA vàng chữ navy) */
+export const BRAND_NAVY = "#0f172a";
 
 export const BRAND_LOGO_MAX = 1024 * 1024;
 export const BRAND_LOGO_MIME: Record<string, string> = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "image/svg+xml": "svg" };
@@ -103,7 +105,7 @@ export function buildPalette(colors: BrandColors): Record<string, string> {
     "--accent-dark": mix(a, "#000000", 0.1),
     "--accent-soft": alpha(a, 0.12),
     "--accent-ink": accentInk,
-    "--accent-foreground": readableOn(a, "#241a2e"),
+    "--accent-foreground": readableOn(a, BRAND_NAVY),
     "--accent-50": mix(a, "#ffffff", 0.94),
     "--accent-100": mix(a, "#ffffff", 0.86),
     "--accent-200": mix(a, "#ffffff", 0.7),

@@ -47,7 +47,7 @@ export default async function PlanViewPage({ params }: { params: Promise<{ lesso
         documentId={d.plan.documentId}
         lessonId={lessonId}
         streamPath={d.plan.streamPath}
-        watermark={watermarkText({ name: me?.user.fullName ?? "Sata Robo", contact: me?.user.email ?? null })}
+        watermark={watermarkText({ name: me?.user.fullName ?? "TH STEAM Academy", contact: me?.user.email ?? null })}
         canReport
       />
     </div>

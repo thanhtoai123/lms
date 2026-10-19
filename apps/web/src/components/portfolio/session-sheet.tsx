@@ -6,7 +6,7 @@
  * giống hệt lúc phát hành.
  */
 import { BookOpen, CalendarDays, Camera, Puzzle, Sparkles, Target, UserRound, Heart } from "lucide-react";
-import { OBJECTIVE_RESULT_VI, type ObjectiveResult, type SessionSheetView } from "@satarobo/core";
+import { OBJECTIVE_RESULT_VI, type ObjectiveResult, type SessionSheetView, RUBRIC_SCALE } from "@satarobo/core";
 import { BrandHeader, CenterFooter, RubricBar, fmtWeekday, num1 } from "./parts";
 
 const OBJ_TONE: Record<ObjectiveResult, string> = {
@@ -42,7 +42,7 @@ export function SessionSheet({
           </div>
           <div className="flex items-center gap-1.5">
             {c.makeup && <span className="chip bg-accent-500 font-bold text-white">Học bù</span>}
-            {sheet.average != null && <span className="chip bg-primary/10 font-bold text-primary">TB {num1(sheet.average)}/4</span>}
+            {sheet.average != null && <span className="chip bg-primary/10 font-bold text-primary">TB {num1(sheet.average)}/{RUBRIC_SCALE}</span>}
           </div>
         </div>
       ) : (

@@ -5,7 +5,7 @@ import { BRAND_DEFAULT_COLORS } from "@satarobo/core";
 
 export interface BrandInfo { primary: string; accent: string; name: string; logoUrl: string; hasLogo: boolean; version: number }
 
-const FALLBACK: BrandInfo = { ...BRAND_DEFAULT_COLORS, name: "Sata Robo", logoUrl: "/icon.svg", hasLogo: false, version: 0 };
+const FALLBACK: BrandInfo = { ...BRAND_DEFAULT_COLORS, name: "TH STEAM Academy", logoUrl: "/icon.svg", hasLogo: false, version: 0 };
 
 /** Thông tin nhận diện hiện hành (màu, tên, logo) cho trang máy chủ. Lỗi CSDL thì dùng mặc định — không làm sập trang. */
 export async function loadBrand(): Promise<BrandInfo> {

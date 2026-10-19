@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { Award, BadgeCheck, BookOpen, ChevronRight, Coins, FileDown, Printer, Route, ScrollText } from "lucide-react";
 import { getDb } from "@satarobo/db";
 import { ParentPortal, familyChildren, hubJourney } from "@satarobo/api";
-import { childShortName, type JourneyEntry } from "@satarobo/core";
+import { childShortName, type JourneyEntry, RUBRIC_SCALE } from "@satarobo/core";
 import { requireParent } from "@/lib/parent-session";
 import { PhMain, PhPageHead, ChildChips, PhSection, dtPh } from "@/components/ph-ui";
 import { ShareLinkButton } from "@/components/ph/actions";
@@ -45,7 +45,7 @@ export default async function ChildJourneyPage({ params }: { params: Promise<{ i
           <dl className="mt-3 grid grid-cols-4 gap-2 text-center">
             <div><dt className="text-[12px] text-ink-600">Khoá</dt><dd className="text-[20px] font-extrabold">{v.totals.courses}</dd></div>
             <div><dt className="text-[12px] text-ink-600">Phiếu</dt><dd className="text-[20px] font-extrabold">{v.totals.sheets}</dd></div>
-            <div><dt className="text-[12px] text-ink-600">TB /4</dt><dd className="text-[20px] font-extrabold">{v.totals.average ?? "—"}</dd></div>
+            <div><dt className="text-[12px] text-ink-600">TB /{RUBRIC_SCALE}</dt><dd className="text-[20px] font-extrabold">{v.totals.average ?? "—"}</dd></div>
             <div><dt className="text-[12px] text-ink-600">Chuyên cần</dt><dd className="text-[20px] font-extrabold">{v.attendance.rate === null ? "—" : `${Math.round(v.attendance.rate * 100)}%`}</dd></div>
           </dl>
           <div className="mt-4 grid grid-cols-2 gap-2">

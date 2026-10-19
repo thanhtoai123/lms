@@ -22,7 +22,7 @@ const COMMON = `
 }`;
 
 const DOC_CSS = `
-@page { size: A4; margin: 12mm 12mm 14mm; @bottom-right { content: "Trang " counter(page) " / " counter(pages); font-size: 9px; color: #6c6c6c; } @bottom-left { content: "Sata Robo · Hồ sơ học tập"; font-size: 9px; color: #6c6c6c; } }
+@page { size: A4; margin: 12mm 12mm 14mm; @bottom-right { content: "Trang " counter(page) " / " counter(pages); font-size: 9px; color: #6c6c6c; } @bottom-left { content: "TH STEAM Academy · Hồ sơ học tập"; font-size: 9px; color: #6c6c6c; } }
 @page :first { margin: 0; @bottom-right { content: none; } @bottom-left { content: none; } }
 @media print {
   html { font-size: 11px; }

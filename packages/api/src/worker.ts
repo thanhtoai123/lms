@@ -115,7 +115,7 @@ async function tick() {
   }
 }
 
-log.info(`Sata Robo worker started (every ${interval}ms)`);
+log.info(`TH STEAM Academy worker started (every ${interval}ms)`);
 while (running) {
   await tick();
   await new Promise((r) => setTimeout(r, interval));

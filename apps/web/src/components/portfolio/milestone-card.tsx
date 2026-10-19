@@ -1,6 +1,6 @@
 /**
  * HỌC BẠ MỐC — thẻ hiển thị dùng chung (hồ sơ học tập, cổng phụ huynh, trang in riêng một học bạ).
- * Học bạ mới (thang 4) kèm số liệu tổng hợp từ phiếu buổi: chuyên cần, tỷ lệ đạt mục tiêu bài,
+ * Học bạ mới (thang 3) kèm số liệu tổng hợp từ phiếu buổi: chuyên cần, tỷ lệ đạt mục tiêu bài,
  * xu hướng từng tiêu chí, thẻ nổi bật. Học bạ cũ (thang 5) vẫn hiển thị như trước.
  */
 import { Award, CalendarCheck, Sparkles, Sprout, Target, Heart } from "lucide-react";
@@ -33,7 +33,7 @@ export function MilestoneCard({ card, standalone = false, printSessions = true }
           <section className="hs-avoid grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="Tổng hợp giai đoạn">
             <Stat icon={CalendarCheck} label="Chuyên cần" value={`${a.attendance.attended}/${a.attendance.total}`} sub={`buổi ${a.period.fromSeq}–${a.period.toSeq}`} />
             <Stat icon={Target} label="Đạt mục tiêu bài" value={judged ? `${a.objective.achieved}/${judged}` : "—"} sub={pct(a.objective.rate)} />
-            <Stat icon={Sparkles} label="Điểm TB giai đoạn" value={a.overall.average != null ? `${num1(a.overall.average)}/4` : "—"} sub={<TrendChip trend={a.overall.trend} small />} />
+            <Stat icon={Sparkles} label="Điểm TB giai đoạn" value={a.overall.average != null ? `${num1(a.overall.average)}/${a.scale}` : "—"} sub={<TrendChip trend={a.overall.trend} small />} />
             <Stat icon={Sprout} label="Phiếu buổi" value={String(a.sessions)} sub="đã tổng hợp" />
           </section>
         )}

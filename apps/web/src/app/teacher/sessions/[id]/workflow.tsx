@@ -16,10 +16,10 @@ type Draft = Record<string, { status: AttendanceStatus; remark: string; rating: 
 const isAbsent = (s: AttendanceStatus) => s === "absent_excused" || s === "absent_unexcused";
 
 /**
- * Một màn hình, ba bước, không rời ngữ cảnh (đầu trang: khối "Buổi này cần hoàn thiện" — bài học, tiêu chí + mô tả 4 mức,
+ * Một màn hình, ba bước, không rời ngữ cảnh (đầu trang: khối "Buổi này cần hoàn thiện" — bài học, tiêu chí + mô tả 3 mức,
  * danh mục việc cần xong theo chuẩn hồ sơ học tập; bấm một dòng để cuộn tới đúng học viên):
  *   1. Điểm danh (chạm để xoay trạng thái, mặc định "có mặt")
- *   2. Nhận xét buổi (bắt buộc) + PHIẾU NHẬN XÉT từng HV có mặt (rubric 4 mức, tự lưu nháp)
+ *   2. Nhận xét buổi (bắt buộc) + PHIẾU NHẬN XÉT từng HV có mặt (rubric 3 mức Cần cố gắng / Đạt / Tốt, tự lưu nháp)
  *   3. Hoàn tất → trạng thái completed, phiếu nhận xét được phát hành cùng lúc, PH nhận thông báo (worker)
  */
 export function SessionWorkflow({ sessionId }: { sessionId: string }) {
@@ -185,7 +185,7 @@ export function SessionWorkflow({ sessionId }: { sessionId: string }) {
       {offlineSaved && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Điểm danh buổi này đã lưu trên máy, chờ gửi lên hệ thống.</div>}
       {error && <div className="rounded-xl bg-red-50 border border-red-200 p-3 text-sm text-red-700">{error}</div>}
 
-      {/* Buổi này cần hoàn thiện: bài học, tiêu chí + mô tả 4 mức, danh mục việc cần xong (chuẩn hồ sơ học tập) */}
+      {/* Buổi này cần hoàn thiện: bài học, tiêu chí + mô tả 3 mức, danh mục việc cần xong (chuẩn hồ sơ học tập) */}
       {!isFuture && s.status !== "cancelled" && s.status !== "rescheduled" && evalBoard.data && (
         <SessionTodo
           board={evalBoard.data}

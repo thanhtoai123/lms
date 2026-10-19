@@ -7,7 +7,7 @@ import { PhMain, PhPageHead, ChildChips, dayPh, todayPh } from "@/components/ph-
 import { Empty } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Hình ảnh lớp — Sata Robo" };
+export const metadata = { title: "Hình ảnh lớp — TH STEAM Academy" };
 
 const UUID = /^[0-9a-f-]{36}$/i;
 

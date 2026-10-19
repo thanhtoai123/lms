@@ -1,5 +1,6 @@
 /**
- * TRANG CHỦ NGƯỜI DÙNG — tạo BẢN NHÁP /trang-chu từ nội dung kaizen (packages/core/src/landing/home.ts).
+ * TRANG CHỦ NGƯỜI DÙNG — tạo BẢN NHÁP /trang-chu từ nội dung TH STEAM (packages/core/src/landing/home.ts).
+ * (Muốn ghi đè và xuất bản trang chủ đang công khai bằng bản TH STEAM: dùng `pnpm db:seed-thsteam`.)
  * Chỉ tạo NHÁP, không xuất bản; không ghi đè nếu đã có. Quản trị xem trước, sửa rồi bấm Xuất bản.
  *
  *   pnpm db:seed-home                # tạo nháp nếu chưa có

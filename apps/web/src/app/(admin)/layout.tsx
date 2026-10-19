@@ -25,7 +25,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   }
   const body = s.blocked ? <NoAccess title="Chưa có quyền" perm={s.blockedPerm} /> : children;
 
-  // `.admin-scope` là lớp bao của bản gốc: nó ghi đè bộ biến màu (tím #610b8a, vòng focus, chữ phụ,
+  // `.admin-scope` là lớp bao của bản gốc: nó ghi đè bộ biến màu (xanh #1D4ED8, vòng focus, chữ phụ,
   // mũi tên select) — xem globals.css. `contents` để lớp bao không xen vào bố cục.
   if (s.teacherMode) {
     return (

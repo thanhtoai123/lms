@@ -5,6 +5,8 @@
  * nhập số THẬT (khối trống tự ẩn). Chỉ có câu chữ mô tả chung, sửa thoải mái.
  */
 import { SITE_TEMPLATES } from "../site/demo.js";
+import { COMMON_FAQ, trackCards } from "../site/thsteam-content.js";
+import { TH_BRAND } from "../system/th-brand.js";
 import { emptySection, type LandingDoc, type LandingSection, type LandingVariant, type SectionType } from "./model.js";
 
 export interface LandingTemplate {
@@ -20,19 +22,13 @@ function sec(type: SectionType, id: string, data: Record<string, string> = {}, l
   return { ...s, enabled, data: { ...s.data, ...data }, lists: { ...s.lists, ...lists } };
 }
 
-const HEADER = (extraNav: Record<string, string>[] = []) => sec("header", "header", { ctaLabel: "Học thử miễn phí", ctaUrl: "#dang-ky" }, { nav: extraNav });
-const FOOTER = () => sec("footer", "footer", { tagline: "Học lập trình robot vui, hiểu bài, tự tin sáng tạo.", copyright: "" }, {
-  addresses: [],
-  links: [{ label: "Chính sách bảo mật", href: "https://satarobo.vn/chinh-sach-bao-mat" }],
+const HEADER = (extraNav: Record<string, string>[] = []) => sec("header", "header", { phone: TH_BRAND.hotline, ctaLabel: "Học trải nghiệm 1:1", ctaUrl: "#dang-ky" }, { nav: extraNav });
+const FOOTER = () => sec("footer", "footer", { tagline: `${TH_BRAND.tagline} — ${TH_BRAND.taglineVi}.`, phone: TH_BRAND.hotline, legal: TH_BRAND.legalName, copyright: `© 2026 ${TH_BRAND.name}` }, {
+  addresses: [{ label: "Hình thức học", text: "Online qua ClassIn" }],
+  links: [{ label: "Điều khoản đăng ký học", href: "/chinh-sach/dieu-khoan" }, { label: "Chính sách bảo mật", href: "/chinh-sach/bao-mat" }],
 });
 
-const FAQ_ITEMS = [
-  { q: "Con mấy tuổi có thể học?", a: "Chương trình dành cho bé từ lớp 1 trở lên. Khi học thử, giáo viên sẽ đánh giá để xếp bé vào cấp độ phù hợp." },
-  { q: "Học thử có mất phí không?", a: "Buổi học thử miễn phí, không ràng buộc đăng ký." },
-  { q: "Mỗi lớp có bao nhiêu bé?", a: "Lớp nhỏ để giáo viên theo sát từng bé. Số bé tối đa mỗi lớp được ghi rõ khi tư vấn." },
-  { q: "Làm sao theo dõi con học thế nào?", a: "Phụ huynh nhận nhận xét sau buổi học và học bạ theo mốc, kèm ảnh hoạt động của lớp (khi gia đình đồng ý)." },
-  { q: "Học phí và lịch khai giảng ở đâu?", a: "Trung tâm sẽ gửi bảng học phí, lịch học theo cơ sở sau khi gọi tư vấn." },
-];
+const FAQ_ITEMS = COMMON_FAQ.slice(0, 5);
 
 export const LANDING_TEMPLATES: readonly LandingTemplate[] = [
   {
@@ -42,36 +38,33 @@ export const LANDING_TEMPLATES: readonly LandingTemplate[] = [
       sections: [
         HEADER([{ label: "Cam kết", href: "#cam-ket" }, { label: "Khoá học", href: "#khoa-hoc" }, { label: "Hỏi đáp", href: "#hoi-dap" }]),
         sec("hero", "hero", {
-          eyebrow: "Học thử miễn phí", title: "Lập trình Robot cùng con từ tuổi tiểu học",
-          subtitle: "Lớp nhỏ, giáo viên theo sát từng bé. Con làm ra sản phẩm thật sau mỗi buổi và phụ huynh luôn biết con tiến bộ thế nào.",
-          primaryLabel: "Đặt buổi học thử", primaryUrl: "#dang-ky", secondaryLabel: "Xem khoá học", secondaryUrl: "#khoa-hoc",
-        }, { badges: [{ text: "Lớp nhỏ, theo sát từng bé" }, { text: "Học thử miễn phí" }, { text: "Nhận xét sau mỗi buổi" }] }),
+          eyebrow: "Học online qua ClassIn", title: "Con làm chủ công nghệ cùng giáo viên",
+          subtitle: "Lớp nhỏ 6–8 học sinh, giáo viên dạy trực tiếp. Mỗi học phần con tự làm dự án và báo cáo trước bố mẹ.",
+          primaryLabel: "Đăng ký học trải nghiệm 1:1", primaryUrl: "#dang-ky", secondaryLabel: "Xem chuyên ngành", secondaryUrl: "#khoa-hoc",
+        }, { badges: [{ text: "Lớp nhóm 6–8 học sinh" }, { text: "Học trải nghiệm 1:1" }, { text: "Báo cáo sau mỗi học phần" }] }),
         sec("stats", "stats", { title: "" }, { items: [] }, false),
         sec("features", "features", { title: "Vì sao phụ huynh chọn chúng tôi", intro: "Những điều chúng tôi cam kết với mỗi gia đình." }, {
           items: [
-            { title: "Lớp nhỏ, giáo viên theo sát", text: "Mỗi bé được hướng dẫn trực tiếp, không bị bỏ lại phía sau." },
-            { title: "Học qua làm, ra sản phẩm", text: "Lắp ráp và lập trình robot thật, bé tự tay hoàn thành dự án của mình." },
-            { title: "Phụ huynh nắm tiến bộ của con", text: "Nhận xét sau buổi học, học bạ theo mốc và ảnh hoạt động của lớp." },
-            { title: "Lộ trình rõ ràng", text: "Từ làm quen đến nâng cao, bé học đúng cấp độ của mình." },
+            { title: "Lớp nhỏ, giáo viên theo sát", text: "Lớp 6–8 học sinh, giáo viên sửa bài cho từng bạn." },
+            { title: "Học qua làm, ra sản phẩm", text: "Mỗi buổi con làm một sản phẩm; cuối học phần con tự làm dự án của mình." },
+            { title: "Phụ huynh nắm tiến bộ của con", text: "Nhóm Zalo lớp, hồ sơ công nghệ và phiếu đánh giá sau mỗi học phần." },
+            { title: "Lộ trình rõ ràng", text: "Mỗi năm học 3 học phần Basic → Advanced → Expert." },
           ],
         }),
         sec("programs", "programs", { title: "Chương trình học", intro: "Chọn hình thức phù hợp với con." }, {
-          items: [
-            { name: "Lập trình Robot", badge: "Học tại trung tâm", text: "Lắp ráp và lập trình robot cùng giáo viên, học theo lộ trình từng cấp độ.", meta: "", price: "", url: "#dang-ky", linkLabel: "Đặt học thử", image: "" },
-            { name: "Luyện thi RoboSim", badge: "Học online", text: "Ôn luyện theo thể lệ cuộc thi, thực hành mô phỏng robot trên máy tính.", meta: "", price: "", url: "#dang-ky", linkLabel: "Đặt học thử", image: "" },
-          ],
+          items: trackCards().map((c) => ({ ...c, url: "#dang-ky", linkLabel: "Đăng ký học trải nghiệm", image: "" })),
         }),
         sec("steps", "steps", { title: "Bắt đầu thế nào?", intro: "" }, {
           items: [
-            { title: "Để lại thông tin", text: "Trung tâm gọi lại tư vấn trong giờ làm việc." },
-            { title: "Học thử cùng giáo viên", text: "Bé trải nghiệm một buổi học thật, miễn phí." },
-            { title: "Xếp lớp phù hợp", text: "Gia đình chọn lịch và cấp độ sau khi xem bé học." },
+            { title: "Để lại thông tin", text: "Trung tâm liên hệ lại tư vấn trong giờ làm việc." },
+            { title: "Học trải nghiệm 1:1", text: "Con học một buổi 1:1 cùng giáo viên qua ClassIn." },
+            { title: "Xếp lớp phù hợp", text: "Gia đình chọn chương trình và lịch học sau buổi trải nghiệm." },
           ],
         }),
         sec("testimonials", "testimonials", { title: "Phụ huynh nói gì" }, { items: [] }, false),
-        sec("cta", "cta", { title: "Cho con trải nghiệm một buổi học thử", text: "Miễn phí, không ràng buộc. Giữ chỗ chỉ mất một phút.", primaryLabel: "Đặt buổi học thử", primaryUrl: "#dang-ky", secondaryLabel: "", secondaryUrl: "" }, { points: [{ text: "Miễn phí" }, { text: "Không ràng buộc" }, { text: "Giáo viên tư vấn trực tiếp" }] }),
+        sec("cta", "cta", { title: "Cho con học trải nghiệm 1:1 cùng giáo viên", text: "Giữ chỗ chỉ mất một phút.", primaryLabel: "Đăng ký học trải nghiệm", primaryUrl: "#dang-ky", secondaryLabel: "", secondaryUrl: "" }, { points: [{ text: "Học online tại nhà" }, { text: "Giáo viên tư vấn trực tiếp" }] }),
         sec("faq", "faq", { title: "Câu hỏi thường gặp" }, { items: FAQ_ITEMS }),
-        sec("form", "form", { title: "Đặt buổi học thử miễn phí", subtitle: "Để lại thông tin, trung tâm sẽ gọi lại sớm trong giờ làm việc.", thankYou: "Cảm ơn bạn! Trung tâm sẽ gọi lại trong giờ làm việc." }),
+        sec("form", "form", { title: "Đăng ký học trải nghiệm 1:1", subtitle: "Để lại thông tin, trung tâm sẽ liên hệ lại trong giờ làm việc.", thankYou: "Cảm ơn bạn! Trung tâm sẽ liên hệ lại trong giờ làm việc." }),
         FOOTER(),
       ],
     }),
@@ -83,17 +76,17 @@ export const LANDING_TEMPLATES: readonly LandingTemplate[] = [
       sections: [
         HEADER(),
         sec("hero", "hero", {
-          eyebrow: "Dành cho bé từ lớp 1", title: "Con học robot, mê sáng tạo",
-          subtitle: "Một buổi học thử miễn phí để xem con có hợp không.", primaryLabel: "Đặt buổi học thử", primaryUrl: "#dang-ky", secondaryLabel: "", secondaryUrl: "",
-        }, { badges: [{ text: "Miễn phí" }, { text: "Lớp nhỏ" }] }),
+          eyebrow: "Dành cho học sinh 8–18 tuổi", title: "Con học công nghệ, mê sáng tạo",
+          subtitle: "Một buổi học trải nghiệm 1:1 để xem con hợp chuyên ngành nào.", primaryLabel: "Đăng ký học trải nghiệm", primaryUrl: "#dang-ky", secondaryLabel: "", secondaryUrl: "",
+        }, { badges: [{ text: "Học online" }, { text: "Lớp nhỏ" }] }),
         sec("features", "features", { title: "Con nhận được gì", intro: "" }, {
           items: [
-            { title: "Tự tay làm robot", text: "Lắp ráp và lập trình, có sản phẩm mang về." },
+            { title: "Tự tay làm sản phẩm", text: "Robot ảo, game, app, thiết kế 3D… sau mỗi buổi học." },
             { title: "Tư duy và tự tin", text: "Học cách giải quyết vấn đề, trình bày ý tưởng." },
-            { title: "Ba mẹ yên tâm", text: "Nhận xét và ảnh lớp học sau mỗi buổi." },
+            { title: "Ba mẹ yên tâm", text: "Ảnh, video sản phẩm và nhận xét trong nhóm Zalo lớp." },
           ],
         }),
-        sec("form", "form", { title: "Đặt buổi học thử miễn phí", subtitle: "Trung tâm gọi lại để chọn giờ phù hợp.", thankYou: "Cảm ơn bạn! Trung tâm sẽ gọi lại sớm." }),
+        sec("form", "form", { title: "Đăng ký học trải nghiệm 1:1", subtitle: "Trung tâm liên hệ lại để chọn giờ phù hợp.", thankYou: "Cảm ơn bạn! Trung tâm sẽ liên hệ lại sớm." }),
         sec("faq", "faq", { title: "Ba mẹ hay hỏi" }, { items: FAQ_ITEMS.slice(0, 3) }),
         FOOTER(),
       ],
@@ -106,19 +99,19 @@ export const LANDING_TEMPLATES: readonly LandingTemplate[] = [
       sections: [
         HEADER(),
         sec("hero", "hero", {
-          eyebrow: "Sự kiện học thử", title: "Một buổi học robot cho bé — miễn phí",
+          eyebrow: "Sự kiện học trải nghiệm", title: "Một buổi học công nghệ cho con",
           subtitle: "Ghi rõ thời gian, địa điểm và ưu đãi (nếu có) của chiến dịch này ở đây.", primaryLabel: "Giữ chỗ ngay", primaryUrl: "#dang-ky", secondaryLabel: "", secondaryUrl: "",
         }, { badges: [] }),
         sec("timeline", "timeline", { title: "Lịch sự kiện", intro: "" }, { items: [] }, false),
         sec("steps", "steps", { title: "Tham gia thế nào?", intro: "" }, {
           items: [
             { title: "Giữ chỗ", text: "Điền form, trung tâm xác nhận qua điện thoại." },
-            { title: "Đến lớp", text: "Bé học thử cùng giáo viên, ba mẹ quan sát." },
-            { title: "Nhận tư vấn", text: "Trao đổi lộ trình phù hợp với bé." },
+            { title: "Vào lớp ClassIn", text: "Con học cùng giáo viên, ba mẹ quan sát." },
+            { title: "Nhận tư vấn", text: "Trao đổi lộ trình phù hợp với con." },
           ],
         }),
         sec("cta", "cta", { title: "Số chỗ có hạn — giữ chỗ cho con hôm nay", text: "", primaryLabel: "Giữ chỗ ngay", primaryUrl: "#dang-ky", secondaryLabel: "", secondaryUrl: "" }, { points: [] }),
-        sec("form", "form", { title: "Giữ chỗ học thử", subtitle: "", thankYou: "Cảm ơn bạn! Trung tâm sẽ gọi xác nhận sớm." }),
+        sec("form", "form", { title: "Giữ chỗ học trải nghiệm", subtitle: "", thankYou: "Cảm ơn bạn! Trung tâm sẽ gọi xác nhận sớm." }),
         FOOTER(),
       ],
     }),

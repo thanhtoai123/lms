@@ -8,7 +8,7 @@ import { PhMain, PhPageHead, PhSection, dtPh } from "@/components/ph-ui";
 import { Progress } from "@/components/ph/bits";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "SataCoin của con — Sata Robo", robots: { index: false } };
+export const metadata = { title: "SataCoin của con — TH STEAM Academy", robots: { index: false } };
 
 /**
  * SATACOIN CỦA CON (chỉ đọc): số xu, hạng, lịch sử, quà đổi được, yêu cầu đổi quà.

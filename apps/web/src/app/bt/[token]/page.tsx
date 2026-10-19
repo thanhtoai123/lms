@@ -3,7 +3,7 @@ import { publicHomework } from "@satarobo/api";
 import { HomeworkForm } from "./form";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Bài tập về nhà — Sata Robo", robots: { index: false } };
+export const metadata = { title: "Bài tập về nhà — TH STEAM Academy", robots: { index: false } };
 
 export default async function PublicHomeworkPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
@@ -12,7 +12,7 @@ export default async function PublicHomeworkPage({ params }: { params: Promise<{
   return (
     <main className="mx-auto min-h-screen max-w-xl px-4 py-8">
       <div className="mb-6 text-center">
-        <div className="text-sm font-semibold uppercase tracking-wide text-brand-600">Sata Robo · Bài tập về nhà</div>
+        <div className="text-sm font-semibold uppercase tracking-wide text-brand-600">TH STEAM Academy · Bài tập về nhà</div>
         {h.state === "open" && <h1 className="mt-1 text-xl font-bold">{h.title}</h1>}
       </div>
       {h.state === "not_found" ? <div className="card p-6 text-center">Liên kết bài tập không đúng. Anh/chị vui lòng kiểm tra lại tin nhắn từ trung tâm.</div> : (
