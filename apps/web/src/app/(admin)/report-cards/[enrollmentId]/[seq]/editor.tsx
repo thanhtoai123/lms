@@ -86,7 +86,7 @@ export function ReportCardEditor({
                 <tr key={c.id} className={c.isActive ? "" : "opacity-60"}>
                   <td className="p-3 align-top">
                     <div className="font-medium">{c.name}</div>{c.description && <div className="text-xs text-ink-400">{c.description}</div>}
-                    {aggOf(c.id)?.average != null && <div className="mt-0.5 text-[11px] text-brand-700">TB phiếu buổi {aggOf(c.id)?.average}/{aggregate.scale}{aggOf(c.id)?.trend ? ` · ${TREND_VI[aggOf(c.id)!.trend!]}` : ""}</div>}
+                    {aggOf(c.id)?.average != null && <div className="mt-0.5 text-[11px] text-brand-700">TB phiếu buổi {aggOf(c.id)?.average}/{aggregate?.scale ?? scale}{aggOf(c.id)?.trend ? ` · ${TREND_VI[aggOf(c.id)!.trend!]}` : ""}</div>}
                   </td>
                   <td className="p-3">
                     <div className="flex flex-wrap gap-1">
