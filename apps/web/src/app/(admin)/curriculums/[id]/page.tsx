@@ -18,10 +18,10 @@ export default async function CurriculumPage({ params }: { params: Promise<{ id:
   if (!c) notFound();
   return (
     <div className="space-y-4">
-      <Link href={`/curriculums?course=${c.courseId}`} className="text-sm text-ink-600">← Chương trình học</Link>
+      <Link href="/curriculums" className="text-sm text-ink-600">← Chương trình học</Link>
       <PageHeader
-        title={c.name}
-        desc={`${c.course?.code ?? ""} — ${c.course?.name ?? ""} · phiên bản ${c.version}${c.description ? ` · ${c.description}` : ""}`}
+        title={c.course?.name ?? c.name}
+        desc={`${c.course?.code ?? ""} · Giáo trình ${c.name} · phiên bản ${c.version}${c.description ? ` · ${c.description}` : ""}`}
         actions={<><CriteriaButton variant="button" courseId={c.courseId} courseLabel={`${c.course?.code ?? ""} — ${c.course?.name ?? ""}`} curriculumId={c.id} /><span className={`chip ${CUR_CHIP[c.status] ?? "bg-black/5"}`}>{c.statusLabel}</span></>}
       />
       <div className="grid gap-4 lg:grid-cols-3">

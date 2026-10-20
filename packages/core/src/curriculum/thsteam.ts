@@ -295,6 +295,10 @@ export interface ThCourseSpec {
   trackCode: ThTrackCode;
   yearNo: number | null;
   contestKey: string | null;
+  /** Chương trình: "Lập trình Robotics AI · Tiểu học 8–10 tuổi" */
+  programTitle: string;
+  /** Mô tả ngắn của giáo trình chuẩn (phân biệt được giữa các khoá) */
+  curriculumDescription: string;
   totalSessions: number;
   sessionMinutes: number;
   gradeFrom: number;
@@ -340,6 +344,8 @@ export function thCourseSpecs(): ThCourseSpec[] {
       const next = p.years[i + 1] ? yearCourseCode(p, p.years[i + 1]!.no) : null;
       out.push({
         code, slug: slugOf(code), name: yearCourseName(p, y), kind: "year", programCode: p.code, trackCode: p.track, yearNo: y.no, contestKey: null,
+        programTitle: programTitle(p),
+        curriculumDescription: `${programTitle(p)} · ${y.software} — ${y.modules.map((m) => moduleTitle(p, y, m)).join(" → ")} · ${TH_SESSIONS_PER_YEAR} buổi.`,
         totalSessions: TH_SESSIONS_PER_YEAR, sessionMinutes: TH_SESSION_MINUTES,
         gradeFrom: gradeOfAge(y.ageFrom), gradeTo: gradeOfAge(y.ageTo),
         level: `${TH_LEVEL_VI[p.level]} · ${ageRange(y.ageFrom, y.ageTo)} · Năm ${y.no}/${p.years.length}`,
@@ -358,6 +364,8 @@ export function thCourseSpecs(): ThCourseSpec[] {
       const y = p.years.find((x) => x.no === c.afterYear) ?? p.years[p.years.length - 1]!;
       out.push({
         code, slug: slugOf(code), name: examCourseName(p, c), kind: "exam", programCode: p.code, trackCode: p.track, yearNo: c.afterYear, contestKey: c.key,
+        programTitle: programTitle(p),
+        curriculumDescription: `${programTitle(p)} · ${c.short} — ${c.sessions} buổi, tự chọn sau năm ${c.afterYear}.`,
         totalSessions: c.sessions, sessionMinutes: TH_SESSION_MINUTES,
         gradeFrom: gradeOfAge(y.ageFrom), gradeTo: gradeOfAge(p.ageTo),
         level: `Luyện thi · tự chọn · sau năm ${c.afterYear}`,
@@ -389,6 +397,15 @@ export function thPathSpecs(): ThPathSpec[] {
       ...p.contests.map((c) => ({ code: examCourseCode(p, c), required: false })),
     ],
   }));
+}
+
+/**
+ * Nhãn khoá trong ô chọn: tên khoá + chương trình để phân biệt các khoá trùng tên ở hai cấp học
+ * ("Năm 1: Ứng dụng AI · Trí tuệ nhân tạo AI · Tiểu học 8–10 tuổi"). Khoá ngoài danh mục: "<mã> — <tên>".
+ */
+export function courseLabel(code: string, name: string): string {
+  const p = TH_PROGRAMS.find((x) => code === x.code || code.startsWith(`${x.code}-N`) || code.startsWith(`${x.code}-THI-`));
+  return p ? `${name} · ${programTitle(p)}` : `${code} — ${name}`;
 }
 
 /** Khoá học đang có trong CSDL thuộc danh mục chuẩn không (theo mã) */

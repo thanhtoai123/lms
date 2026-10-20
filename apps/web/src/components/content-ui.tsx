@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { DOC_KINDS, DOC_KIND_VI, DOC_CATEGORIES, DOC_CATEGORY_VI, DOC_AUDIENCES, DOC_AUDIENCE_VI, type DocKind, type DocCategory, type DocAudience } from "@satarobo/core";
+import { DOC_KINDS, DOC_KIND_VI, DOC_CATEGORIES, DOC_CATEGORY_VI, DOC_AUDIENCES, DOC_AUDIENCE_VI, type DocKind, type DocCategory, type DocAudience, courseLabel } from "@satarobo/core";
 import { useTRPC } from "@/lib/trpc/client";
 
 
@@ -45,7 +45,7 @@ export function DocForm({ doc, courses }: { doc?: DocDraft; courses: { id: strin
         <label className="col-span-2">Tiêu đề<input className="input mt-1 w-full" value={v.title} onChange={(e) => set("title", e.target.value)} maxLength={200} required /></label>
         <label>Loại<select className="input mt-1 w-full" value={v.kind} disabled={!!doc} onChange={(e) => set("kind", e.target.value as DocKind)}>{DOC_KINDS.map((k) => <option key={k} value={k}>{DOC_KIND_VI[k]}</option>)}</select></label>
         <label>Nhóm<select className="input mt-1 w-full" value={v.category} onChange={(e) => set("category", e.target.value as DocCategory)}>{DOC_CATEGORIES.map((k) => <option key={k} value={k}>{DOC_CATEGORY_VI[k]}</option>)}</select></label>
-        <label>Khoá học<select className="input mt-1 w-full" value={v.courseId} onChange={(e) => setV({ ...v, courseId: e.target.value, lessonId: null })}>{courses.map((c) => <option key={c.id} value={c.id}>{c.code} — {c.name}</option>)}</select></label>
+        <label>Khoá học<select className="input mt-1 w-full" value={v.courseId} onChange={(e) => setV({ ...v, courseId: e.target.value, lessonId: null })}>{courses.map((c) => <option key={c.id} value={c.id}>{courseLabel(c.code, c.name)}</option>)}</select></label>
         <label>Bài học<select className="input mt-1 w-full" value={v.lessonId ?? ""} onChange={(e) => set("lessonId", e.target.value || null)}><option value="">Chung cho cả khoá</option>{(lessonsQ.data ?? []).map((l) => <option key={l.id} value={l.id}>{l.curriculumStatus === "draft" ? "[nháp] " : ""}Bài {l.sequenceNo}: {l.title}</option>)}</select></label>
         <label className="col-span-2">Đối tượng xem<select className="input mt-1 w-full" value={v.audience} onChange={(e) => set("audience", e.target.value as DocAudience)}>{DOC_AUDIENCES.map((k) => <option key={k} value={k}>{DOC_AUDIENCE_VI[k]}</option>)}</select></label>
         {v.kind === "link" && <label className="col-span-2">Liên kết (https://)<input className="input mt-1 w-full" value={v.url ?? ""} onChange={(e) => set("url", e.target.value)} maxLength={1000} required /></label>}

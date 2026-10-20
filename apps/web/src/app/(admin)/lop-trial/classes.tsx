@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { useTRPC } from "@/lib/trpc/client";
-import { TRIAL_CLASS_STATUS_VI, type TrialClassStatus } from "@satarobo/core";
+import { TRIAL_CLASS_STATUS_VI, type TrialClassStatus, courseLabel } from "@satarobo/core";
 import { Empty } from "@/components/ui";
 import { ErrorBox, OkBox, fmtDate } from "@/components/admin-ui";
 
@@ -93,7 +93,7 @@ export function TrialClassList({ items, canManage, centers, courses }: { items: 
             <label className="text-xs text-ink-600">Khoá trải nghiệm
               <select className="input mt-1" value={draft.courseId} onChange={(e) => setDraft({ ...draft, courseId: e.target.value })}>
                 <option value="">— Chưa rõ —</option>
-                {courses.map((c) => <option key={c.id} value={c.id}>{c.code} — {c.name}</option>)}
+                {courses.map((c) => <option key={c.id} value={c.id}>{courseLabel(c.code, c.name)}</option>)}
               </select>
               <span className="mt-1 block text-[11px] text-ink-400">Chính là &quot;khoá quan tâm&quot; của khách.</span>
             </label>

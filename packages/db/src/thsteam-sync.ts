@@ -41,6 +41,9 @@ export interface ThSyncResult {
 
 type Tx = Parameters<Parameters<Database["transaction"]>[0]>[0];
 
+/** Mô tả chung của bản đồng bộ cũ (giống nhau ở mọi khoá) — gặp thì thay bằng mô tả riêng của khoá */
+const OLD_CURRICULUM_DESC = "Giáo trình chuẩn TH STEAM: mỗi học phần 15 buổi — buổi 5 ôn tập, buổi 13–14 dự án cuối học phần, buổi 15 báo cáo trước phụ huynh.";
+
 export async function defaultTenantId(db: Database | Tx): Promise<string> {
   const [t] = await db.select({ id: tenants.id }).from(tenants).where(eq(tenants.isDefault, true)).limit(1);
   if (!t) throw new Error("Chưa có trung tâm mặc định (tenants.is_default) — chạy pnpm db:seed trước");
@@ -79,14 +82,18 @@ export async function syncThSteamCatalog(db: Database, opts: ThSyncOptions = {})
       idByCode.set(s.code, courseId);
 
       // ---- Giáo trình + buổi ----
-      let [cur] = await tx.select({ id: curricula.id }).from(curricula).where(and(eq(curricula.courseId, courseId), eq(curricula.name, TH_CURRICULUM_NAME))).limit(1);
+      let [cur] = await tx.select({ id: curricula.id, description: curricula.description }).from(curricula).where(and(eq(curricula.courseId, courseId), eq(curricula.name, TH_CURRICULUM_NAME))).limit(1);
+      if (cur && cur.description !== s.curriculumDescription && (!cur.description || cur.description === OLD_CURRICULUM_DESC || cur.description.startsWith(s.programTitle))) {
+        // Mô tả do hệ thống sinh (chưa sửa tay) → cập nhật để phân biệt được giữa các khoá
+        await tx.update(curricula).set({ description: s.curriculumDescription, updatedAt: new Date() }).where(eq(curricula.id, cur.id));
+      }
       if (!cur) {
         // Giáo trình chuẩn là giáo trình đang dùng của khoá
         await tx.update(curricula).set({ isActive: false, status: "archived", updatedAt: new Date() }).where(eq(curricula.courseId, courseId));
         [cur] = await tx.insert(curricula).values({
           tenantId, courseId, name: TH_CURRICULUM_NAME, version: 1, status: "active", isActive: true, createdBy: actor,
-          description: "Giáo trình chuẩn TH STEAM: mỗi học phần 15 buổi — buổi 5 ôn tập, buổi 13–14 dự án cuối học phần, buổi 15 báo cáo trước phụ huynh.",
-        }).returning({ id: curricula.id });
+          description: s.curriculumDescription,
+        }).returning({ id: curricula.id, description: curricula.description });
       }
       const existing = await tx.select({ id: lessons.id, seq: lessons.sequenceNo, title: lessons.title }).from(lessons).where(eq(lessons.curriculumId, cur!.id));
       const bySeq = new Map(existing.map((l) => [l.seq, l]));

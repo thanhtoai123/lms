@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {
   TH_TRACKS, TH_PROGRAMS, TH_PRICING, TH_SESSIONS_PER_YEAR, thCourseSpecs, thPathSpecs, yearLessonPlan, examLessonPlan, parseSyllabus,
   programCriteria, sessionRole, gradeOfAge, programTitle, examCourseName, thProgram, TH_CRITERIA_ORDER,
-  TH_YEAR_NAMING, yearCourseCode, yearCourseName, moduleTitle,
+  TH_YEAR_NAMING, yearCourseCode, yearCourseName, moduleTitle, courseLabel,
 } from "./thsteam.js";
 import { validateCriterion } from "../portfolio/standard.js";
 import { reportCardMilestones } from "../reportcards/rules.js";
@@ -80,6 +80,12 @@ test("tên gọi chuẩn: Năm N: <động từ> <phần mềm> · HP n: <phần
     assert.ok(TH_YEAR_NAMING[yearCourseCode(p, y.no)], `${p.code} năm ${y.no}: thiếu tên phần mềm`);
     assert.match(yearCourseName(p, y), /^Năm \d: \S/);
   }
+  assert.equal(courseLabel("AI-TH-N1", "Năm 1: Ứng dụng AI"), "Năm 1: Ứng dụng AI · Trí tuệ nhân tạo AI · Tiểu học 8–10 tuổi");
+  assert.notEqual(courseLabel("AI-THCS-N1", "Năm 1: Ứng dụng AI"), courseLabel("AI-TH-N1", "Năm 1: Ứng dụng AI"), "trùng tên khoá vẫn phân biệt được");
+  assert.match(courseLabel("CODE-THCS2-THI-KHKT", "Luyện thi: KHKT (THCS 13–15)"), /THCS 13–15 tuổi$/);
+  assert.equal(courseLabel("LE-01", "Khoá lẻ"), "LE-01 — Khoá lẻ");
+  const descs = thCourseSpecs().map((c) => c.curriculumDescription);
+  assert.equal(new Set(descs).size, descs.length, "mô tả giáo trình mỗi khoá một khác");
   const specs = thCourseSpecs().filter((c) => c.kind === "year");
   assert.ok(specs.every((c) => /^Năm \d: /.test(c.name)), "khoá năm học dùng tên chuẩn");
 });

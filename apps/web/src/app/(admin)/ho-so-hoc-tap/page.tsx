@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { centersWith, hasPermission, type Actor } from "@satarobo/core";
+import { centersWith, hasPermission, type Actor, courseLabel } from "@satarobo/core";
 import { getServerCaller } from "@/lib/trpc/server";
 import { NoAccess, PageHeader } from "@/components/admin-ui";
 import { RememberFilters } from "@/components/remember-filters";
@@ -61,7 +61,7 @@ export default async function PortfolioCompliancePage({ searchParams }: { search
         </select>
         <select name="course" defaultValue={filter.courseId ?? ""} className="input max-w-[200px]" aria-label="Khoá học">
           <option value="">Mọi khoá</option>
-          {opts?.courses.map((c) => <option key={c.id} value={c.id}>{c.code} — {c.name}</option>)}
+          {opts?.courses.map((c) => <option key={c.id} value={c.id}>{courseLabel(c.code, c.name)}</option>)}
         </select>
         <select name="class" defaultValue={filter.classId ?? ""} className="input max-w-[200px]" aria-label="Lớp">
           <option value="">Mọi lớp</option>

@@ -1,5 +1,6 @@
 "use client";
 
+import { courseLabel } from "@satarobo/core";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -208,7 +209,7 @@ function PathDrawer({ value, options, onClose, onSaved }: { value: FormState; op
           <div className="mt-2 flex gap-2">
             <select className="input" value={pick} onChange={(e) => setPick(e.target.value)}>
               <option value="">— Thêm khoá —</option>
-              {available.map((c) => <option key={c.id} value={c.id}>{c.code} — {c.name}</option>)}
+              {available.map((c) => <option key={c.id} value={c.id}>{courseLabel(c.code, c.name)}</option>)}
             </select>
             <button type="button" className="btn-ghost shrink-0" disabled={!pick} onClick={add}>Thêm</button>
           </div>

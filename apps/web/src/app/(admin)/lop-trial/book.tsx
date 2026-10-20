@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useTRPC } from "@/lib/trpc/client";
-import { LEAD_STATUS_VI } from "@satarobo/core";
+import { LEAD_STATUS_VI, courseLabel } from "@satarobo/core";
 import { WEEKDAY_VI } from "@/components/ui";
 
 type Center = { id: string; code: string; name: string };
@@ -149,7 +149,7 @@ export function BookTrial({ centers, courses, initialLeadId }: { centers: Center
             <label className="text-xs text-ink-600">Khoá
               <select className="input mt-1" value={courseId} onChange={(e) => { setCourseId(e.target.value); setSessionId(null); }}>
                 <option value="">Mọi khoá</option>
-                {courses.map((c) => <option key={c.id} value={c.id}>{c.code} — {c.name}</option>)}
+                {courses.map((c) => <option key={c.id} value={c.id}>{courseLabel(c.code, c.name)}</option>)}
               </select>
             </label>
           </div>

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { centersWith, hasPermission, type Actor } from "@satarobo/core";
+import { centersWith, courseLabel, hasPermission, type Actor } from "@satarobo/core";
 import { redirect } from "next/navigation";
 import { getServerCaller } from "@/lib/trpc/server";
 import { NoAccess, PageHeader } from "@/components/admin-ui";
@@ -76,7 +76,7 @@ export default async function LessonPlanPage({ searchParams }: { searchParams: P
         <label className="text-xs font-semibold uppercase tracking-wide text-ink-600">
           Khoá học
           <div className="mt-1">
-            <PlanPicker name="khoa" value={courseId} placeholder="— Chọn khoá học —" options={courses.map((c) => ({ id: c.id, label: `${c.code} — ${c.name}` }))} />
+            <PlanPicker name="khoa" value={courseId} placeholder="— Chọn khoá học —" options={courses.map((c) => ({ id: c.id, label: courseLabel(c.code, c.name) }))} />
           </div>
         </label>
         <label className="text-xs font-semibold uppercase tracking-wide text-ink-600">

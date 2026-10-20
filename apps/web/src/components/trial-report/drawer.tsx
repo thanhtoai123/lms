@@ -7,8 +7,7 @@ import {
   TRIAL_READINESS, TRIAL_READINESS_VI, TRIAL_READINESS_HINT, TRIAL_REPORT_STATUS_VI, TRIAL_REPORT_COMMENT_MIN, TRIAL_REPORT_COMMENT_MAX,
   TRIAL_REPORT_NOTE_MAX, TRIAL_REPORT_LEVEL_MAX,
   applyValues, validateTrialReport, trialReportShareMessage,
-  type TrialReadiness, type TrialReportView, type TrialReportStatus,
-} from "@satarobo/core";
+  type TrialReadiness, type TrialReportView, type TrialReportStatus, courseLabel } from "@satarobo/core";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
 import { Drawer } from "@/components/drawer";
@@ -536,7 +535,7 @@ export function TrialReportDrawer({ source, reportId, onClose }: { source?: Tria
                     }}
                   >
                     <option value="">— Chưa chọn —</option>
-                    {d.courses.map((c) => <option key={c.id} value={c.id}>{c.code} — {c.name}</option>)}
+                    {d.courses.map((c) => <option key={c.id} value={c.id}>{courseLabel(c.code, c.name)}</option>)}
                   </select>
                 </label>
                 <label className="block text-xs text-muted-foreground">Cấp độ bắt đầu
@@ -556,7 +555,7 @@ export function TrialReportDrawer({ source, reportId, onClose }: { source?: Tria
               <h3 className="text-sm font-extrabold text-foreground">Bộ môn trải nghiệm</h3>
               <select className="input" value={form.courseId} onChange={(e) => set({ courseId: e.target.value })}>
                 <option value="">— Không ghi —</option>
-                {d.courses.map((c) => <option key={c.id} value={c.id}>{c.code} — {c.name}</option>)}
+                {d.courses.map((c) => <option key={c.id} value={c.id}>{courseLabel(c.code, c.name)}</option>)}
               </select>
               <p className="text-xs text-muted-foreground">Tên bé, ngày giờ buổi, giáo viên và cơ sở đã điền sẵn từ buổi học thử.</p>
             </section>
