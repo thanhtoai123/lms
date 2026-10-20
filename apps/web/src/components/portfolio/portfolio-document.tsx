@@ -42,7 +42,7 @@ export function PortfolioDocument({ view, actions }: { view: PortfolioView; acti
 
         <div className="relative mt-10 flex flex-col items-center gap-5 text-center sm:flex-row sm:items-end sm:text-left print:mt-20">
           <div className="rounded-full bg-gradient-to-br from-accent-500 to-[#d97706] p-1.5 shadow-lg">
-            <StudentAvatar src={view.student.avatarUrl} name={view.student.fullName} nickname={view.student.nickname} seed={view.student.code} size={136} className="ring-4 ring-navy" />
+            <StudentAvatar src={view.student.avatarUrl} name={view.student.fullName} nickname={view.student.nickname} seed={view.student.code} size={136} className="ring-4 ring-navy" eager />
           </div>
           <div className="min-w-0">
             <div className="text-xs font-bold uppercase tracking-[0.2em] text-accent-200">Học viên</div>
@@ -297,17 +297,17 @@ function CourseTrack({ c }: { c: TechCourseView }) {
         <ol className="mt-3 grid gap-2 sm:grid-cols-3 print:grid-cols-3">
           {c.modules.map((m) => {
             const pctDone = Math.round((m.sessionsDone / m.sessionsTotal) * 100);
-            const tone = m.status === "done" ? "border-[#a7f3d0] bg-[#f0fdf4]" : m.status === "in_progress" ? "border-[#bfdbfe] bg-[#eff6ff]" : "border-border bg-card";
+            const tone = m.status === "done" ? "border-[#a7f3d0] bg-[#f0fdf4]" : m.status === "waiting" ? "border-accent-500/50 bg-[#fffbeb]" : m.status === "in_progress" ? "border-[#bfdbfe] bg-[#eff6ff]" : "border-border bg-card";
             return (
               <li key={m.no} className={`hs-avoid flex flex-col rounded-xl border p-3 ${tone}`}>
                 <div className="flex items-center justify-between gap-1">
                   <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Học phần {m.no}</span>
-                  <span className={`text-[10px] font-bold ${m.status === "done" ? "text-[#047857]" : m.status === "in_progress" ? "text-primary" : "text-muted-foreground"}`}>{TECH_MODULE_STATUS_VI[m.status]}</span>
+                  <span className={`text-[10px] font-bold ${m.status === "done" ? "text-[#047857]" : m.status === "waiting" ? "text-[#b45309]" : m.status === "in_progress" ? "text-primary" : "text-muted-foreground"}`}>{TECH_MODULE_STATUS_VI[m.status]}</span>
                 </div>
                 <div className="mt-0.5 text-[13px] font-extrabold leading-snug text-foreground">{m.name}</div>
                 <div className="text-[11px] text-muted-foreground">{m.difficulty} · buổi {m.fromSeq}–{m.toSeq}</div>
                 <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-[#e2e8f0]" role="progressbar" aria-label={`Học phần ${m.no}: ${m.sessionsDone}/${m.sessionsTotal} buổi`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={pctDone}>
-                  <div className={`h-1.5 rounded-full ${m.status === "done" ? "bg-[#10b981]" : "bg-primary"}`} style={{ width: `${m.status === "done" ? 100 : pctDone}%` }} />
+                  <div className={`h-1.5 rounded-full ${m.status === "done" ? "bg-[#10b981]" : "bg-primary"}`} style={{ width: `${m.status === "done" ? 100 : Math.min(100, pctDone)}%` }} />
                 </div>
                 <div className="mt-1 flex items-center justify-between text-[11px] text-muted-foreground">
                   <span>{m.sessionsDone}/{m.sessionsTotal} buổi</span>

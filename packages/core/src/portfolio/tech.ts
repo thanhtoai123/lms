@@ -19,8 +19,9 @@ function specOf(code: string): ThCourseSpec | null {
   return SPECS.get(code) ?? null;
 }
 
-export type TechModuleStatus = "done" | "in_progress" | "upcoming";
-export const TECH_MODULE_STATUS_VI: Record<TechModuleStatus, string> = { done: "Đã báo cáo", in_progress: "Đang học", upcoming: "Sắp học" };
+/** done = đã có học bạ buổi báo cáo · waiting = học đủ 15 buổi, chờ thầy cô phát hành học bạ · in_progress · upcoming */
+export type TechModuleStatus = "done" | "waiting" | "in_progress" | "upcoming";
+export const TECH_MODULE_STATUS_VI: Record<TechModuleStatus, string> = { done: "Đã báo cáo", waiting: "Chờ học bạ", in_progress: "Đang học", upcoming: "Sắp học" };
 
 export interface TechModuleView {
   no: number;
@@ -126,7 +127,7 @@ function moduleViews(c: PortfolioCourseView, spec: ThCourseSpec, program: ThProg
     let done = 0;
     for (let k = fromSeq; k <= toSeq; k++) if (seqs.has(k)) done += 1;
     const card = c.milestones.find((x) => x.milestoneSeq === toSeq && x.publishedAt) ?? null;
-    const status: TechModuleStatus = card || finished ? "done" : done > 0 ? "in_progress" : "upcoming";
+    const status: TechModuleStatus = card || finished ? "done" : done >= TH_SESSIONS_PER_MODULE ? "waiting" : done > 0 ? "in_progress" : "upcoming";
     const level = card ? levelOf(onScale(card.average, card.scale)) : null;
     return {
       no: m.no, name: m.name, difficulty: TH_DIFFICULTY_VI[m.difficulty], learn: m.learn, product: m.product, canDo: m.canDo,

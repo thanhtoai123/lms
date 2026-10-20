@@ -43,6 +43,9 @@ test("hồ sơ công nghệ: khoá năm học → chương trình, 3 học phầ
   assert.equal(other.kind, "other");
   assert.equal(other.modules.length, 0);
   assert.equal(other.levelLabel, "Cơ bản");
+  // học đủ 15 buổi mà chưa có học bạ → chờ học bạ báo cáo
+  const w = techCourseView(course({ sheets: Array.from({ length: 15 }, (_, i) => sheet(i + 1)) }));
+  assert.equal(w.modules[0]!.status, "waiting");
 });
 
 test("bức tranh năng lực: 6 năng lực + 3 phẩm chất theo học bạ mới nhất, mô tả mức theo chương trình", () => {
