@@ -25,7 +25,7 @@ export default async function NewsIndex({ searchParams }: { searchParams: Promis
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
           {d.items.map((p) => (
             <Link key={p.slug} href={`/tin-tuc/${p.slug}`} className="card overflow-hidden transition hover:shadow-md">
-              {p.coverImage ? <img src={p.coverImage} alt="" className="aspect-video w-full object-cover" /> : <div className="grid aspect-video place-items-center bg-brand-50 text-3xl font-black text-brand-600">S</div>}
+              {p.coverImage ? <img src={p.coverImage} alt="" className="aspect-video w-full object-cover" /> : <div className="grid aspect-video place-items-center bg-brand-50"><img src="/thsteam/symbol.svg" alt="" className="h-16 w-auto" /></div>}
               <div className="space-y-1 p-4">
                 <div className="text-xs text-ink-400">{p.categoryLabel} · {p.publishedAt ? new Date(p.publishedAt).toLocaleDateString("vi-VN") : ""} · {p.minutes} phút đọc</div>
                 <h2 className="font-semibold">{p.title}</h2>
