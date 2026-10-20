@@ -5,8 +5,8 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { BrandLockup } from "@/components/brand";
 import {
-  Bell, BookOpen, CalendarDays, ClipboardList, Coins, GraduationCap, Home, Images, Menu, MessageCircle,
-  NotebookPen, Route, UserRound, Wallet, X, type LucideIcon,
+  Bell, BookOpen, CalendarDays, ClipboardList, Coins, GraduationCap, Home, Menu, MessageCircle,
+  UserRound, Wallet, X, type LucideIcon,
 } from "lucide-react";
 
 /**
@@ -38,16 +38,14 @@ export const PH_NAV_GROUPS: PhGroup[] = [
     items: [
       { href: "/ph", label: "Tổng quan", icon: Home, match: (p) => p === "/ph" },
       { href: "/ph/lich", label: "Lịch học", icon: CalendarDays, match: (p) => p.startsWith("/ph/lich") },
-      { href: "/ph/nhan-xet", label: "Nhận xét", icon: NotebookPen, match: (p) => p.startsWith("/ph/nhan-xet") },
       { href: "/ph/bai-tap", label: "Bài tập", icon: BookOpen, match: (p) => p.startsWith("/ph/bai-tap") },
-      { href: "/ph/hinh-anh", label: "Hình ảnh lớp", icon: Images, match: (p) => p.startsWith("/ph/hinh-anh") },
     ],
   },
   {
     title: "Học tập của con",
     items: [
-      { href: "/ph/be/:con", label: "Hành trình học", icon: Route, theoCon: true, match: (p) => /^\/ph\/be\/[^/]+$/.test(p) },
-      { href: "/ph/be/:con/ho-so", label: "Hồ sơ công nghệ", icon: GraduationCap, theoCon: true, match: (p) => p.includes("/ho-so") || p.includes("/chung-nhan") },
+      // Hồ sơ công nghệ = trang học tập duy nhất của con (đã gộp Hành trình học, Nhận xét, Hình ảnh lớp)
+      { href: "/ph/be/:con", label: "Hồ sơ công nghệ", icon: GraduationCap, theoCon: true, match: (p) => /^\/ph\/be\/[^/]+(\/ho-so|\/chung-nhan\/.*)?$/.test(p) },
       { href: "/ph/be/:con/xu", label: "TH Coin", icon: Coins, theoCon: true, match: (p) => p.endsWith("/xu") },
     ],
   },

@@ -90,7 +90,7 @@ export default async function ParentOverview({ searchParams }: { searchParams: P
                   </dl>
 
                   <div className="mt-3 grid grid-cols-2 gap-2">
-                    <Link href={`/ph/be/${k.id}/ho-so`} className="btn-ghost min-h-11 min-w-0 text-[14px]">Hồ sơ công nghệ</Link>
+                    <Link href={`/ph/be/${k.id}`} className="btn-ghost min-h-11 min-w-0 text-[14px]">Hồ sơ công nghệ</Link>
                     {dangXem ? (
                       <Link href={`/ph/lich?con=${k.id}`} className="btn-primary min-h-11 min-w-0 text-[14px]">Lịch học</Link>
                     ) : (
@@ -144,7 +144,7 @@ export default async function ParentOverview({ searchParams }: { searchParams: P
             </PhBlock>
 
             {f.sheet && (
-              <PhBlock title="Nhận xét mới nhất" action={{ href: "/ph/nhan-xet", label: "Tất cả" }}>
+              <PhBlock title="Nhận xét mới nhất" action={{ href: `/ph/be/${kidId}#chi-tiet`, label: "Tất cả" }}>
                 <article className="card space-y-2 p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -154,7 +154,7 @@ export default async function ParentOverview({ searchParams }: { searchParams: P
                     {f.sheet.glance.average !== null && (
                       <div className="shrink-0 rounded-2xl bg-primary-soft px-3 py-2 text-center text-primary">
                         <div className="text-[20px] font-extrabold leading-none">{f.sheet.glance.average}</div>
-                        <div className="text-[11px] font-semibold">/ 4</div>
+                        <div className="text-[11px] font-semibold">/ {f.sheet.scale}</div>
                       </div>
                     )}
                   </div>
@@ -166,7 +166,7 @@ export default async function ParentOverview({ searchParams }: { searchParams: P
                     </p>
                   )}
                   {f.sheet.remark && <blockquote className="border-l-4 border-primary/30 pl-3 text-[14px] italic">“{f.sheet.remark}”</blockquote>}
-                  <Link href="/ph/nhan-xet" className="inline-flex min-h-10 items-center text-[14px] font-semibold text-primary">Xem cả phiếu →</Link>
+                  <Link href={`/ph/be/${kidId}#phieu-${f.sheet.id}`} className="inline-flex min-h-10 items-center text-[14px] font-semibold text-primary">Xem cả phiếu →</Link>
                 </article>
               </PhBlock>
             )}
@@ -210,7 +210,7 @@ export default async function ParentOverview({ searchParams }: { searchParams: P
               <nav aria-label="Lối tắt" className="grid grid-cols-2 gap-3">
                 {[
                   { href: `/ph/lich?con=${kidId}`, icon: CalendarDays, title: "Lịch học", sub: f.attendance30.rate === null ? "Tháng này" : `Chuyên cần 30 ngày ${f.attendance30.rate}%` },
-                  { href: `/ph/be/${kidId}`, icon: Route, title: "Hành trình học", sub: "Khoá, học bạ, chứng nhận" },
+                  { href: `/ph/be/${kidId}`, icon: Route, title: "Hồ sơ công nghệ", sub: "Lộ trình, nhận xét, chứng nhận" },
                   { href: `/ph/be/${kidId}/xu`, icon: Coins, title: "TH Coin", sub: `${f.coins} xu` },
                   { href: "/ph/bai-tap", icon: BookOpen, title: "Bài tập", sub: f.homework.length ? `${f.homework.length} bài cần làm` : "Không có bài chờ" },
                 ].map((t) => (

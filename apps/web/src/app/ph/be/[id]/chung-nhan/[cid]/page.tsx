@@ -25,7 +25,7 @@ export default async function ParentCertificatePage({ params }: { params: Promis
   const verifyPath = new URL(c.verifyUrl).pathname;
   return (
     <>
-      <div className="print:hidden"><PhPageHead title="Giấy chứng nhận" back={{ href: `/ph/be/${id}`, label: "Hành trình học" }} /></div>
+      <div className="print:hidden"><PhPageHead title="Giấy chứng nhận" back={{ href: `/ph/be/${id}`, label: "Hồ sơ công nghệ" }} /></div>
       <PhMain className="cn-print-root space-y-4 print:p-0">
         <CertificatePrintStyle orientation={c.template.orientation} />
         <div className="cn-noprint space-y-2">

@@ -8,7 +8,7 @@ bảo mật ở đây siết hơn trang quản trị ở vài chỗ._
 
 Đăng nhập bằng một phụ huynh mẫu trên bản chạy nội bộ (0911000001, mã thử hiện trên giao diện ở
 môi trường phát triển) rồi đi hết các màn: Hôm nay · Lịch học (tháng/tuần) · Học phí · Yêu cầu ·
-Tin nhắn · Thông báo · Tài khoản · Hành trình học của con. Xem ở ba khổ: 375×812 (điện thoại),
+Tin nhắn · Thông báo · Tài khoản · Hồ sơ công nghệ của con (đã gộp Hành trình học, Nhận xét, Hình ảnh lớp — 20/10/2026). Xem ở ba khổ: 375×812 (điện thoại),
 768×1024 (máy tính bảng), 1440×900 (máy tính).
 
 Kết luận gọn: **nội dung đã đúng và đủ, khung hình thì chỉ có một khổ.**
@@ -128,12 +128,11 @@ Khung và trang Tổng quan **bám theo hệ cũ**; phần khác biệt đều l
 |---|---|
 | Tổng quan | `/ph` — thẻ "Các con của bạn" |
 | Lịch học | `/ph/lich` (tháng / tuần, xin nghỉ ngay trên buổi) |
-| Nhận xét | `/ph/nhan-xet` — mọi phiếu đã phát hành, kèm thanh 4 nấc từng tiêu chí |
+| Nhận xét | gộp vào **Hồ sơ công nghệ** `/ph/be/[id]#chi-tiet` (phiếu từng buổi, mới nhất ở trên); `/ph/nhan-xet` tự chuyển |
 | Bài tập | `/ph/bai-tap` — bài của cả các con, bài đang chờ lên đầu |
-| Hình ảnh lớp | `/ph/hinh-anh` — ảnh **đã duyệt**, gom theo buổi, tôn trọng đồng ý đăng ảnh |
-| Các con · Kết quả học tập · Bài thi | `/ph/be/[id]` — Hành trình học (khoá, mốc, chứng nhận) |
-| Học bạ | `/ph/be/[id]/ho-so` — học bạ năng lực, in được |
-| SataCoin | `/ph/be/[id]/xu` |
+| Hình ảnh lớp | gộp vào **Hồ sơ công nghệ** — mỗi phiếu buổi hiện đủ ảnh **đã duyệt** của buổi (tôn trọng đồng ý đăng ảnh); `/ph/hinh-anh` tự chuyển |
+| Các con · Kết quả học tập · Học bạ · Bài thi | `/ph/be/[id]` — **Hồ sơ công nghệ** (trang học tập duy nhất của con): ảnh đại diện, In / Lưu PDF, TH Coin, giấy chứng nhận (tải / in / chia sẻ / xác thực), thẻ QR điểm danh, rồi toàn bộ hồ sơ; `/ph/be/[id]/ho-so` tự chuyển |
+| TH Coin | `/ph/be/[id]/xu` |
 | Học phí & công nợ | `/ph/hoc-phi` — kèm ô tổng còn phải đóng và mã QR từng đơn |
 | Yêu cầu học bù | `/ph/yeu-cau` — xin nghỉ, học bù, hỏi đáp, huỷ yêu cầu |
 | Thông báo | `/ph/thong-bao` |

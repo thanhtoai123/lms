@@ -24,7 +24,12 @@ import { ProgressLine, RadarChart } from "./charts";
 import { SessionSheet } from "./session-sheet";
 import { MilestoneCard } from "./milestone-card";
 
-export function PortfolioDocument({ view, actions }: { view: PortfolioView; actions?: React.ReactNode }) {
+export function PortfolioDocument({ view, actions, portal = false }: {
+  view: PortfolioView;
+  actions?: React.ReactNode;
+  /** Cổng phụ huynh: phiếu từng buổi xếp MỚI NHẤT lên đầu trên màn hình (bản in giữ thứ tự thời gian) và hiện đủ ảnh của buổi */
+  portal?: boolean;
+}) {
   const tech = buildTechProfile(view);
   const period = view.period.from && view.period.to ? `${fmtDay(view.period.from)} – ${fmtDay(view.period.to)}` : null;
   const empty = view.totals.sheets === 0 && view.totals.milestones === 0 && view.certificates.length === 0;
@@ -170,7 +175,9 @@ export function PortfolioDocument({ view, actions }: { view: PortfolioView; acti
         </div>
       </section>
 
-      {/* 5. CHI TIẾT TỪNG KHOÁ */}
+      {/* 5. CHI TIẾT TỪNG KHOÁ — đích của liên kết "Nhận xét" / "Hình ảnh" (#chi-tiet, #phieu-<id>) */}
+      <div id="chi-tiet" className="scroll-mt-20" aria-hidden />
+      <div className={portal ? "flex flex-col-reverse gap-5 print:block" : "contents"}>
       {view.courses.filter((c) => c.sheets.length || c.milestones.length).map((c) => (
         <section key={c.enrollmentId} className="hs-course hs-break space-y-4" aria-label={`Khoá ${c.courseName}`}>
           <div className="hs-avoid rounded-2xl border border-border bg-card p-5 print:rounded-none print:border-0 print:p-0">
@@ -195,16 +202,20 @@ export function PortfolioDocument({ view, actions }: { view: PortfolioView; acti
 
           {c.sheets.length > 0 && (
             <div className="space-y-3 print:space-y-0">
-              <h3 className="hs-avoid text-sm font-bold uppercase tracking-wide text-muted-foreground print:hidden">Phiếu nhận xét từng buổi ({c.sheets.length})</h3>
-              {pairSheets(c.sheets).map((pair, i) => (
-                <div key={i} className="hs-pair space-y-3 print:space-y-3">
-                  {pair.map((s) => <SessionSheet key={s.id} sheet={s} variant="compact" />)}
-                </div>
-              ))}
+              <h3 className="hs-avoid text-sm font-bold uppercase tracking-wide text-muted-foreground print:hidden">Nhận xét từng buổi ({c.sheets.length}){portal ? " · mới nhất ở trên" : ""}</h3>
+              {/* Cổng phụ huynh: đảo thứ tự bằng CSS (column-reverse) chỉ trên màn hình — bản in vẫn theo thời gian, 2 phiếu / trang */}
+              <div className={portal ? "flex flex-col-reverse gap-3 print:block" : "space-y-3 print:space-y-0"}>
+                {pairSheets(c.sheets).map((pair, i) => (
+                  <div key={i} className={portal ? "hs-pair flex flex-col-reverse gap-3 print:block print:space-y-3" : "hs-pair space-y-3 print:space-y-3"}>
+                    {pair.map((s) => <SessionSheet key={s.id} sheet={s} variant="compact" allMedia={portal} />)}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </section>
       ))}
+      </div>
 
       <div className="overflow-hidden rounded-2xl border border-border print:rounded-none print:border-0">
         <CenterFooter center={view.center} />

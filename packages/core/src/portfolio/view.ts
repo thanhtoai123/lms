@@ -29,6 +29,8 @@ export interface SessionSheetView {
   productNote: string | null;
   remark: string | null;
   media: PortfolioMedia[];
+  /** Các ảnh còn lại của buổi (ngoài `media` đã chọn cho bản in) — cổng phụ huynh hiện đủ trên màn hình */
+  moreMedia?: PortfolioMedia[];
   average: number | null;
   center: { name: string; address: string | null; phone: string | null } | null;
 }

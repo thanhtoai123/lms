@@ -16,9 +16,11 @@ const OBJ_TONE: Record<ObjectiveResult, string> = {
 };
 
 export function SessionSheet({
-  sheet, variant = "full", showFooter = true,
+  sheet, variant = "full", showFooter = true, allMedia = false,
 }: {
   sheet: SessionSheetView;
+  /** Cổng phụ huynh: hiện ĐỦ ảnh của buổi trên màn hình (bản in vẫn giữ số ảnh gọn) */
+  allMedia?: boolean;
   /** full: phiếu riêng (có đầu phiếu thương hiệu); compact: trong hồ sơ (2 phiếu / trang A4) */
   variant?: "full" | "compact";
   showFooter?: boolean;
@@ -34,7 +36,7 @@ export function SessionSheet({
     </>
   );
   return (
-    <article className={`hs-sheet hs-avoid overflow-hidden rounded-2xl border border-border bg-card ${compact ? "" : "shadow-sm print:rounded-none print:border-0 print:shadow-none"}`}>
+    <article id={`phieu-${sheet.id}`} className={`hs-sheet scroll-mt-20 hs-avoid overflow-hidden rounded-2xl border border-border bg-card ${compact ? "" : "shadow-sm print:rounded-none print:border-0 print:shadow-none"}`}>
       {compact ? (
         <div className="hs-avoid flex flex-wrap items-center justify-between gap-2 border-b border-border bg-brand-50/70 px-4 py-2">
           <div className="flex min-w-0 items-center gap-2 text-sm font-bold text-primary">
@@ -98,15 +100,15 @@ export function SessionSheet({
           <Block icon={Heart} title="Nhận xét của giáo viên" text={sheet.remark} tint="bg-primary/10 text-primary" />
         )}
 
-        {sheet.media.length > 0 && (
+        {(sheet.media.length > 0 || (allMedia && (sheet.moreMedia?.length ?? 0) > 0)) && (
           <section className="hs-avoid" aria-label="Ảnh trong buổi">
             <div className="mb-1 flex items-center gap-1.5 text-xs font-bold text-muted-foreground"><Camera className="h-3.5 w-3.5" aria-hidden /> Hình ảnh trong buổi</div>
             {/* Màn hình: hiện tối đa 4 ảnh; bản in giữ 2 (compact) / 3 (full) để không vỡ trang A4 */}
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {sheet.media.slice(0, 4).map((m, i) => {
-                const inPrint = i < (compact ? 2 : 3);
+              {(allMedia ? [...sheet.media, ...(sheet.moreMedia ?? [])] : sheet.media.slice(0, 4)).map((m, i) => {
+                const inPrint = i < (compact ? 2 : 3) && i < sheet.media.length;
                 return (
-                  <figure key={m.id} className={`relative overflow-hidden rounded-lg border border-border bg-muted ${inPrint ? "" : "print:hidden"} ${i >= 3 ? "sm:hidden xl:block" : ""}`}>
+                  <figure key={m.id} className={`relative overflow-hidden rounded-lg border border-border bg-muted ${inPrint ? "" : "print:hidden"} ${!allMedia && i >= 3 ? "sm:hidden xl:block" : ""}`}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={m.url} alt={m.caption ?? (m.classWide ? "Ảnh cả lớp" : "Ảnh của con")} className={`w-full object-cover ${compact ? "h-24 print:h-20" : "h-32 sm:h-36 print:h-28"}`} loading="lazy" />
                     <span className={`absolute left-1.5 top-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold shadow-sm ${m.classWide ? "bg-black/55 text-white" : "bg-primary text-white"}`}>{m.classWide ? "Cả lớp" : "Của con"}</span>

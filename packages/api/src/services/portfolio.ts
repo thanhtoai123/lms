@@ -142,6 +142,7 @@ export async function buildPortfolio(db: Db, studentId: string, scopeIn: Portfol
         id: r.id, status: r.status, revision: r.revision, publishedAt: iso(r.publishedAt), snapshot: snap,
         objectiveResult: r.objectiveResult, highlights: r.highlights ?? [], productNote: r.productNote, remark: r.remark,
         media: chosen.map((m) => ({ id: m.id, url: m.url, caption: m.caption, date: m.date, classWide: m.classWide })),
+        moreMedia: own.filter((m) => !chosen.some((c) => c.id === m.id)).map((m) => ({ id: m.id, url: m.url, caption: m.caption, date: m.date, classWide: m.classWide })),
         average: sessionAverage(snap), center: centerView,
       };
     });
