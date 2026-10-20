@@ -110,9 +110,10 @@ export default async function MarketingPage({ searchParams }: { searchParams: Pr
                 <li>{d.settings.metaPixelId ? "✅" : "⚪"} Meta Pixel {d.settings.metaPixelId ? `(${d.settings.metaPixelId})` : "chưa gắn"}</li>
                 <li>{d.settings.capiConfigured ? "✅" : "⚪"} Meta Conversions API {d.settings.capiConfigured ? "đã có token" : "— đặt biến môi trường META_CAPI_TOKEN"}</li>
                 <li>{d.settings.ga4MeasurementId ? "✅" : "⚪"} GA4 {d.settings.ga4MeasurementId || "chưa gắn"}{d.settings.ga4ApiConfigured ? " · Measurement Protocol đã cấu hình" : ""}</li>
+                <li>{d.settings.googleAdsId ? "✅" : "⚪"} Google Ads {d.settings.googleAdsId ? `${d.settings.googleAdsId}${d.settings.googleAdsLeadLabel ? " · có nhãn chuyển đổi" : " · chưa có nhãn chuyển đổi"}` : "chưa gắn"}</li>
                 <li>{d.settings.trackingEnabled ? "✅" : "⛔"} Sự kiện first-party ({Object.values(d.events).reduce((a, e) => a + e.n, 0)} sự kiện trong kỳ)</li>
               </ul>
-              <TrackingSettings canEdit={d.settings.canConfigure} initial={{ metaPixelId: d.settings.metaPixelId, ga4MeasurementId: d.settings.ga4MeasurementId, trackingEnabled: d.settings.trackingEnabled, leadRetentionMonths: d.settings.leadRetentionMonths }} />
+              <TrackingSettings canEdit={d.settings.canConfigure} initial={{ metaPixelId: d.settings.metaPixelId, ga4MeasurementId: d.settings.ga4MeasurementId, googleAdsId: d.settings.googleAdsId, googleAdsLeadLabel: d.settings.googleAdsLeadLabel, trackingEnabled: d.settings.trackingEnabled, leadRetentionMonths: d.settings.leadRetentionMonths }} />
             </div>
           </Section>
           <Section title="Tạo link UTM">

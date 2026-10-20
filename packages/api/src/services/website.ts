@@ -2,7 +2,7 @@ import { and, desc, eq, inArray, like, ne, or, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { appSettings, jobPostings, landingPages, posts, users, type Database } from "@satarobo/db";
 import {
-  COURSE_PREFIX, POLICY_PREFIX, SITE_DEMO_PAGES, SITE_NODES, hasPermission, isSiteSlug, normalizeChrome, normalizeLanding, sitePathOf, siteGroupOf, slugify, validateChrome,
+  COURSE_PREFIX, POLICY_PREFIX, SITE_DEMO_PAGES, SITE_NODES, hasPermission, isAdsTemplate, isSiteSlug, normalizeChrome, normalizeLanding, sitePathOf, siteGroupOf, slugify, validateChrome,
   type SiteChrome,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
@@ -86,11 +86,12 @@ export async function createSitePage(ctx: ProtectedContext, input: { group: "cou
 /** Sơ đồ trang công khai (cho sitemap.xml): trang dựng khối đã xuất bản + bài tin tức + tin tuyển dụng đang mở */
 export async function publicSitemap(db: Database) {
   const d = db as unknown as ProtectedContext["db"];
-  const pages = await d.select({ slug: landingPages.slug, at: landingPages.publishedAt, up: landingPages.updatedAt }).from(landingPages).where(eq(landingPages.status, "published"));
+  const pages = await d.select({ slug: landingPages.slug, template: landingPages.template, at: landingPages.publishedAt, up: landingPages.updatedAt }).from(landingPages).where(eq(landingPages.status, "published"));
   const news = await d.select({ slug: posts.slug, at: posts.publishedAt }).from(posts).where(eq(posts.status, "published")).orderBy(desc(posts.publishedAt)).limit(500);
   const jobs = await d.select({ slug: jobPostings.slug }).from(jobPostings).where(eq(jobPostings.status, "open")).limit(200);
   return {
-    pages: pages.flatMap((p) => { const path = sitePathOf(p.slug); return path ? [{ path, lastModified: p.at ?? p.up }] : []; }),
+    // Trang website + landing quảng cáo chuẩn (mẫu "ads-…"); landing thử nghiệm / chiến dịch ngắn hạn khác không đưa vào
+    pages: pages.flatMap((p) => { const path = sitePathOf(p.slug) ?? (isAdsTemplate(p.template) ? `/lp/${p.slug}` : null); return path ? [{ path, lastModified: p.at ?? p.up }] : []; }),
     news: news.map((n) => ({ path: `/tin-tuc/${n.slug}`, lastModified: n.at })),
     jobs: jobs.map((j) => ({ path: `/tuyen-dung/${j.slug}`, lastModified: null as Date | null })),
   };

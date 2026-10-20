@@ -6,7 +6,7 @@ import { useMutation } from "@tanstack/react-query";
 import { CHANNELS, CHANNEL_VI, buildUtmUrl, type Channel } from "@satarobo/core";
 import { useTRPC } from "@/lib/trpc/client";
 
-export function TrackingSettings({ initial, canEdit }: { initial: { metaPixelId: string; ga4MeasurementId: string; trackingEnabled: boolean; leadRetentionMonths: number }; canEdit: boolean }) {
+export function TrackingSettings({ initial, canEdit }: { initial: { metaPixelId: string; ga4MeasurementId: string; googleAdsId: string; googleAdsLeadLabel: string; trackingEnabled: boolean; leadRetentionMonths: number }; canEdit: boolean }) {
   const trpc = useTRPC();
   const router = useRouter();
   const [v, setV] = useState(initial);
@@ -16,6 +16,11 @@ export function TrackingSettings({ initial, canEdit }: { initial: { metaPixelId:
       <label className="flex items-center gap-2"><input type="checkbox" checked={v.trackingEnabled} disabled={!canEdit} onChange={(e) => setV({ ...v, trackingEnabled: e.target.checked })} /> Ghi nhận sự kiện website (ẩn danh, không lưu IP)</label>
       <label className="block">Meta Pixel ID<input className="input mt-1" value={v.metaPixelId} disabled={!canEdit} onChange={(e) => setV({ ...v, metaPixelId: e.target.value.trim() })} placeholder="1234567890123456" /></label>
       <label className="block">GA4 Measurement ID<input className="input mt-1" value={v.ga4MeasurementId} disabled={!canEdit} onChange={(e) => setV({ ...v, ga4MeasurementId: e.target.value.trim().toUpperCase() })} placeholder="G-XXXXXXX" /></label>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <label className="block">Google Ads ID<input className="input mt-1" value={v.googleAdsId} disabled={!canEdit} onChange={(e) => setV({ ...v, googleAdsId: e.target.value.trim().toUpperCase() })} placeholder="AW-123456789" /></label>
+        <label className="block">Nhãn chuyển đổi “Đăng ký học thử”<input className="input mt-1" value={v.googleAdsLeadLabel} disabled={!canEdit} onChange={(e) => setV({ ...v, googleAdsLeadLabel: e.target.value.trim() })} placeholder="AbCdEfGhIj123" /></label>
+      </div>
+      <p className="text-xs text-ink-600">Landing quảng cáo tự gắn Meta Pixel (sự kiện Lead), GA4 (generate_lead) và chuyển đổi Google Ads khi phụ huynh gửi form thành công.</p>
       <label className="block">Thời hạn lưu lead không chuyển đổi (tháng)<input type="number" min={6} max={120} className="input mt-1 w-28" value={v.leadRetentionMonths} disabled={!canEdit} onChange={(e) => setV({ ...v, leadRetentionMonths: Number(e.target.value) })} /></label>
       {canEdit && <button className="btn-primary" disabled={m.isPending}>Lưu cấu hình</button>}
       {m.error && <p className="text-red-700">{m.error.message}</p>}

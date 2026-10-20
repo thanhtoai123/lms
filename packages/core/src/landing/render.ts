@@ -8,6 +8,7 @@
  */
 import { renderMarkdown } from "../growth/rules.js";
 import { rowsOf, sectionVisible, validImage, validUrl, type LandingDoc, type LandingSection, type LandingVariant } from "./model.js";
+import { mediaSize } from "./media.js";
 
 export interface RenderBrand {
   name: string;
@@ -34,7 +35,12 @@ export interface RenderCtx {
  * Phần "form" do thành phần React dựng khung (<section class="lp-sec lp-form" id="dang-ky"><div class="lp-wrap lp-form-in">…)
  * vì form tương tác không nằm trong chuỗi HTML; `head` là phần tiêu đề đã escape.
  */
-export type LandingPart = { kind: "html"; html: string } | { kind: "form"; sectionId: string; thankYou: string; head: string; alt: boolean };
+export type LandingPart =
+  | { kind: "html"; html: string }
+  /** `compact`: form gọn 4 ô (trang có khối "Mở đầu + form"); `interest`: chuyên ngành chọn sẵn */
+  | { kind: "form"; sectionId: string; thankYou: string; head: string; alt: boolean; compact: boolean; interest: string }
+  /** Khối "Mở đầu + form": `left` = cột chữ (đã escape), `pic` = ảnh, `formHead` = tiêu đề form */
+  | { kind: "leadHero"; sectionId: string; left: string; pic: string; formHead: string; thankYou: string; interest: string };
 
 export function escHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
@@ -51,6 +57,19 @@ function src(ctx: RenderCtx, v: string): string {
   if (!v || !validImage(v)) return "";
   if (ctx.mode === "export" && v.startsWith("/") && ctx.baseUrl) return ctx.baseUrl + v;
   return v;
+}
+/**
+ * Thẻ ảnh: có width/height (ảnh đi kèm ứng dụng) để không nhảy bố cục; ảnh đầu trang tải ngay + ưu tiên cao (LCP),
+ * ảnh còn lại tải lười.
+ */
+function imgTag(ctx: RenderCtx, v: string, alt: string, o: { eager?: boolean; cls?: string; sizes?: string } = {}): string {
+  const u = src(ctx, v);
+  if (!u) return "";
+  const dim = mediaSize(v);
+  return `<img${o.cls ? ` class="${o.cls}"` : ""} src="${escHtml(u)}" alt="${escHtml(alt)}"`
+    + (dim ? ` width="${dim[0]}" height="${dim[1]}"` : "")
+    + (o.eager ? ` fetchpriority="high"` : ` loading="lazy"`) + ` decoding="async"`
+    + (o.sizes ? ` sizes="${o.sizes}"` : "") + ` />`;
 }
 function external(h: string): string { return /^https:\/\//.test(h) ? ' target="_blank" rel="noopener"' : ""; }
 
@@ -103,7 +122,7 @@ function renderHero(s: LandingSection, ctx: RenderCtx): string {
     + `<div class="lp-actions">${btn(ctx, d(s, "primaryLabel"), d(s, "primaryUrl"), "primary")}${btn(ctx, d(s, "secondaryLabel"), d(s, "secondaryUrl"), "ghost")}</div>`
     + (badges ? `<ul class="lp-badges">${badges}</ul>` : "")
     + `</div>`;
-  const pic = im ? `<div class="lp-hero-pic"><img src="${escHtml(im)}" alt="${escHtml(d(s, "title"))}" /></div>` : "";
+  const pic = im ? `<div class="lp-hero-pic">${imgTag(ctx, d(s, "image"), d(s, "title"), { eager: true })}</div>` : "";
   return wrap(s, `lp-hero${im ? " has-pic" : ""}`, text1 + pic, "top");
 }
 
@@ -121,7 +140,7 @@ function renderPrograms(s: LandingSection, ctx: RenderCtx): string {
   const items = rowsOf(s, "items").map((r) => {
     const im = src(ctx, r.image ?? "");
     const link = r.url ? `<a class="lp-link" href="${escHtml(href(ctx, r.url))}" data-cta="1"${external(href(ctx, r.url))}>${escHtml(r.linkLabel || "Xem chi tiết")} →</a>` : "";
-    return `<li class="lp-card lp-prog">${im ? `<img src="${escHtml(im)}" alt="" loading="lazy" />` : ""}`
+    return `<li class="lp-card lp-prog">${im ? imgTag(ctx, r.image ?? "", r.name ?? "") : ""}`
       + (r.badge ? `<span class="lp-tag">${escHtml(r.badge)}</span>` : "")
       + `<h3>${escHtml(r.name ?? "")}</h3>`
       + (r.meta ? `<p class="lp-meta">${escHtml(r.meta)}</p>` : "")
@@ -158,7 +177,7 @@ function renderTimeline(s: LandingSection, ctx: RenderCtx): string {
 function renderGallery(s: LandingSection, ctx: RenderCtx): string {
   const items = rowsOf(s, "items").map((r) => {
     const im = src(ctx, r.image ?? "");
-    return im ? `<li><figure><img src="${escHtml(im)}" alt="${escHtml(r.caption ?? "")}" loading="lazy" />${r.caption ? `<figcaption>${escHtml(r.caption)}</figcaption>` : ""}</figure></li>` : "";
+    return im ? `<li><figure>${imgTag(ctx, r.image ?? "", r.caption ?? "")}${r.caption ? `<figcaption>${escHtml(r.caption)}</figcaption>` : ""}</figure></li>` : "";
   }).join("");
   return wrap(s, "lp-gallery", head(s, ctx) + `<ul class="lp-photos">${items}</ul>`, "hinh-anh");
 }
@@ -170,7 +189,89 @@ function renderFaq(s: LandingSection, ctx: RenderCtx): string {
 
 function renderText(s: LandingSection, ctx: RenderCtx): string {
   const im = src(ctx, d(s, "image"));
-  return wrap(s, "lp-text", head(s, ctx) + `<div class="lp-prose">${renderMarkdown(d(s, "body"))}</div>` + (im ? `<img class="lp-text-img" src="${escHtml(im)}" alt="" loading="lazy" />` : ""), s.id);
+  return wrap(s, "lp-text", head(s, ctx) + `<div class="lp-prose">${renderMarkdown(d(s, "body"))}</div>` + (im ? imgTag(ctx, d(s, "image"), d(s, "title"), { cls: "lp-text-img" }) : ""), s.id);
+}
+
+/* ---------------------------- khối cho landing quảng cáo ---------------------------- */
+
+function leadHeroLeft(s: LandingSection, ctx: RenderCtx): string {
+  const pts = rowsOf(s, "points").map((r) => `<li>${escHtml(r.text ?? "")}</li>`).join("");
+  const badges = rowsOf(s, "badges").map((r) => `<li>${escHtml(r.text ?? "")}</li>`).join("");
+  void ctx;
+  return `<div class="lp-hero-text">`
+    + (d(s, "eyebrow") ? `<p class="lp-eyebrow">${escHtml(d(s, "eyebrow"))}</p>` : "")
+    + `<h1>${escHtml(d(s, "title"))}</h1>`
+    + (d(s, "subtitle") ? `<p class="lp-lead">${text(d(s, "subtitle"))}</p>` : "")
+    + (pts ? `<ul class="lp-ticks">${pts}</ul>` : "")
+    + (badges ? `<ul class="lp-badges">${badges}</ul>` : "")
+    + `</div>`;
+}
+function leadHeroPic(s: LandingSection, ctx: RenderCtx): string {
+  return d(s, "image") ? `<div class="lp-hero-pic">${imgTag(ctx, d(s, "image"), d(s, "imageAlt") || d(s, "title"), { eager: true, sizes: "(max-width: 860px) 100vw, 560px" })}</div>` : "";
+}
+function leadFormHead(s: LandingSection): string {
+  return `<p class="lp-form-title">${escHtml(d(s, "formTitle"))}</p>${d(s, "formNote") ? `<p class="lp-form-note">${escHtml(d(s, "formNote"))}</p>` : ""}`;
+}
+/** Bản HTML tĩnh (xuất / kiểm thử): cột chữ + thẻ form dẫn về trang đăng ký của hệ thống */
+function renderLeadHeroStatic(s: LandingSection, ctx: RenderCtx, formInner: string): string {
+  return `<section class="lp-sec lp-hero lp-lead-hero" id="top"><div class="lp-wrap">${leadHeroLeft(s, ctx)}`
+    + `<div class="lp-hero-form" id="dang-ky-nhanh"><div class="lp-form-card">${leadFormHead(s)}${formInner}</div></div>${leadHeroPic(s, ctx)}</div></section>`;
+}
+
+function renderRoadmap(s: LandingSection, ctx: RenderCtx): string {
+  const items = rowsOf(s, "items").map((r, i) => `<li class="lp-road-step lp-road-${i % 3}">`
+    + `<span class="lp-road-no">${escHtml(r.step ?? "")}</span>`
+    + (r.tag ? `<span class="lp-tag">${escHtml(r.tag)}</span>` : "")
+    + `<h3>${escHtml(r.name ?? "")}</h3>`
+    + (r.meta ? `<p class="lp-meta">${escHtml(r.meta)}</p>` : "")
+    + (r.text ? `<p>${text(r.text)}</p>` : "") + `</li>`).join("");
+  return wrap(s, "lp-roadmap", head(s, ctx) + `<ol class="lp-road">${items}</ol>` + (d(s, "note") ? `<p class="lp-note">${escHtml(d(s, "note"))}</p>` : ""), "lo-trinh");
+}
+
+function renderTools(s: LandingSection, ctx: RenderCtx): string {
+  const items = rowsOf(s, "items").map((r) => `<li class="lp-card lp-tool"><figure>${imgTag(ctx, r.image ?? "", `${r.name ?? ""}${r.text ? ` — ${r.text}` : ""}`)}`
+    + (r.credit ? `<figcaption>${escHtml(r.credit)}</figcaption>` : "") + `</figure>`
+    + (r.tag ? `<span class="lp-tag">${escHtml(r.tag)}</span>` : "")
+    + `<h3>${escHtml(r.name ?? "")}</h3>` + (r.text ? `<p>${text(r.text)}</p>` : "") + `</li>`).join("");
+  return wrap(s, "lp-tools", head(s, ctx) + `<ul class="lp-grid lp-grid-tools">${items}</ul>`, s.id);
+}
+
+function renderSplit(s: LandingSection, ctx: RenderCtx, flip: boolean): string {
+  const pts = rowsOf(s, "points").map((r) => `<li>${escHtml(r.text ?? "")}</li>`).join("");
+  const body = `<div class="lp-split-text">`
+    + (d(s, "eyebrow") ? `<p class="lp-kicker">${escHtml(d(s, "eyebrow"))}</p>` : "")
+    + `<h2>${escHtml(d(s, "title"))}</h2>`
+    + (d(s, "body") ? `<p class="lp-split-body">${text(d(s, "body"))}</p>` : "")
+    + (pts ? `<ul class="lp-ticks">${pts}</ul>` : "")
+    + (d(s, "ctaLabel") && d(s, "ctaUrl") ? `<div class="lp-actions">${btn(ctx, d(s, "ctaLabel"), d(s, "ctaUrl"), "primary")}</div>` : "")
+    + `</div>`;
+  const pic = `<div class="lp-split-pic">${imgTag(ctx, d(s, "image"), d(s, "imageAlt") || d(s, "title"), { sizes: "(max-width: 860px) 100vw, 540px" })}</div>`;
+  return wrap(s, `lp-split${flip ? " lp-flip" : ""}`, `<div class="lp-split-in">${body}${pic}</div>`, s.id);
+}
+
+function renderTeacher(s: LandingSection, ctx: RenderCtx): string {
+  const pts = rowsOf(s, "points").map((r) => `<li><strong>${escHtml(r.title ?? "")}</strong>${r.text ? `<span>${escHtml(r.text)}</span>` : ""}</li>`).join("");
+  const tags = rowsOf(s, "tags").map((r) => `<li>${escHtml(r.text ?? "")}</li>`).join("");
+  const photo = d(s, "photo") ? `<figure class="lp-teacher-photo">${imgTag(ctx, d(s, "photo"), `${d(s, "name")}${d(s, "role") ? ` — ${d(s, "role")}` : ""}`)}<figcaption><strong>${escHtml(d(s, "name"))}</strong>${d(s, "role") ? `<span>${escHtml(d(s, "role"))}</span>` : ""}</figcaption></figure>` : "";
+  const cert = d(s, "certImage") ? `<figure class="lp-teacher-cert">${imgTag(ctx, d(s, "certImage"), d(s, "certCaption") || "Chứng chỉ giảng viên")}${d(s, "certCaption") ? `<figcaption>${escHtml(d(s, "certCaption"))}</figcaption>` : ""}</figure>` : "";
+  const mid = `<div class="lp-teacher-info">`
+    + (photo ? "" : `<h3>${escHtml(d(s, "name"))}</h3>`)
+    + (d(s, "bio") ? `<p>${text(d(s, "bio"))}</p>` : "")
+    + (pts ? `<ul class="lp-teacher-pts">${pts}</ul>` : "")
+    + (tags ? `<ul class="lp-badges">${tags}</ul>` : "")
+    + (d(s, "quote") ? `<blockquote>${text(d(s, "quote"))}</blockquote>` : "")
+    + `</div>`;
+  return wrap(s, "lp-teacher", head(s, ctx) + `<div class="lp-teacher-in">${photo}${mid}${cert}</div>`, "giang-vien");
+}
+
+/** Thanh gọi / đăng ký cố định ở cuối màn hình điện thoại (landing quảng cáo) */
+function renderStickyBar(doc: LandingDoc, ctx: RenderCtx): string {
+  const header = doc.sections.find((x) => x.type === "header" && x.enabled);
+  const phone = header ? d(header, "phone") : "";
+  void ctx;
+  return `<div class="lp-sticky" role="region" aria-label="Đăng ký nhanh">`
+    + (phone ? `<a class="lp-btn lp-btn-ghost" href="tel:${escHtml(phone.replace(/[^\d+]/g, ""))}" data-cta="1">Gọi ${escHtml(phone)}</a>` : "")
+    + `<a class="lp-btn lp-btn-primary" href="#dang-ky-nhanh" data-cta="1">Đăng ký học thử</a></div>`;
 }
 
 function renderFooter(s: LandingSection, ctx: RenderCtx): string {
@@ -210,7 +311,9 @@ export function renderParts(doc: LandingDoc, ctx: RenderCtx): LandingPart[] {
   };
   // Nền xen kẽ giữa các khối nội dung (tính bằng thứ tự hiển thị, không dựa vào CSS nth-of-type vì các phần nằm ở nhiều thẻ cha)
   let n = 0;
-  const CONTENT: ReadonlySet<string> = new Set(["stats", "features", "programs", "testimonials", "steps", "timeline", "gallery", "faq", "text", "form"]);
+  const CONTENT: ReadonlySet<string> = new Set(["stats", "features", "programs", "roadmap", "tools", "split", "teacher", "testimonials", "steps", "timeline", "gallery", "faq", "text", "form"]);
+  const lead = doc.sections.find((x) => x.type === "leadHero" && sectionVisible(x));
+  let flip = false;
   const alt = (html: string, on: boolean) => (on ? html.replace('class="lp-sec ', 'class="lp-sec lp-alt ') : html);
   for (const s of doc.sections) {
     if (!sectionVisible(s)) continue;
@@ -218,6 +321,14 @@ export function renderParts(doc: LandingDoc, ctx: RenderCtx): LandingPart[] {
     switch (s.type) {
       case "header": push(renderHeader(s, ctx)); break;
       case "hero": push(renderHero(s, ctx)); break;
+      case "leadHero":
+        if (ctx.mode === "page") parts.push({ kind: "leadHero", sectionId: s.id, left: leadHeroLeft(s, ctx), pic: leadHeroPic(s, ctx), formHead: leadFormHead(s), thankYou: d(s, "thankYou"), interest: d(s, "interest") });
+        else push(renderLeadHeroStatic(s, ctx, formExport(s, ctx)));
+        break;
+      case "roadmap": push(alt(renderRoadmap(s, ctx), isAlt)); break;
+      case "tools": push(alt(renderTools(s, ctx), isAlt)); break;
+      case "split": push(alt(renderSplit(s, ctx, flip), isAlt)); flip = !flip; break;
+      case "teacher": push(alt(renderTeacher(s, ctx), isAlt)); break;
       case "stats": push(alt(renderStats(s, ctx), isAlt)); break;
       case "features": push(alt(renderFeatures(s, ctx), isAlt)); break;
       case "programs": push(alt(renderPrograms(s, ctx), isAlt)); break;
@@ -228,9 +339,9 @@ export function renderParts(doc: LandingDoc, ctx: RenderCtx): LandingPart[] {
       case "gallery": push(alt(renderGallery(s, ctx), isAlt)); break;
       case "faq": push(alt(renderFaq(s, ctx), isAlt)); break;
       case "text": push(alt(renderText(s, ctx), isAlt)); break;
-      case "footer": push(renderFooter(s, ctx)); break;
+      case "footer": push((lead ? renderStickyBar(doc, ctx) : "") + renderFooter(s, ctx)); break;
       case "form":
-        if (ctx.mode === "page") parts.push({ kind: "form", sectionId: s.id, thankYou: d(s, "thankYou"), head: formHead(s), alt: isAlt });
+        if (ctx.mode === "page") parts.push({ kind: "form", sectionId: s.id, thankYou: d(s, "thankYou"), head: formHead(s), alt: isAlt, compact: !!lead, interest: lead ? d(lead, "interest") : "" });
         else push(alt(formOpen(s), isAlt) + formExport(s, ctx) + `</div></section>`);
         break;
     }
@@ -240,7 +351,11 @@ export function renderParts(doc: LandingDoc, ctx: RenderCtx): LandingPart[] {
 
 /** Toàn bộ nội dung trang (không gồm <html>); dùng cho export và kiểm thử */
 export function renderBody(doc: LandingDoc, ctx: RenderCtx): string {
-  return renderParts(doc, ctx).map((p) => (p.kind === "html" ? p.html : `<section class="lp-sec${p.alt ? " lp-alt" : ""} lp-form" id="dang-ky"><div class="lp-wrap lp-form-in">${p.head}<div class="lp-form-card" data-lp-form></div></div></section>`)).join("");
+  return renderParts(doc, ctx).map((p) => {
+    if (p.kind === "html") return p.html;
+    if (p.kind === "leadHero") return `<section class="lp-sec lp-hero lp-lead-hero" id="top"><div class="lp-wrap">${p.left}<div class="lp-hero-form" id="dang-ky-nhanh"><div class="lp-form-card">${p.formHead}<div data-lp-form></div></div></div>${p.pic}</div></section>`;
+    return `<section class="lp-sec${p.alt ? " lp-alt" : ""} lp-form" id="dang-ky"><div class="lp-wrap lp-form-in">${p.head}<div class="lp-form-card" data-lp-form></div></div></section>`;
+  }).join("");
 }
 
 export function paletteStyle(palette: Record<string, string>): string {
@@ -370,6 +485,74 @@ export function landingCss(): string {
 .lp-foot-links{display:flex;flex-direction:column;gap:8px;font-size:.95rem}
 .lp-legal{margin-top:24px!important;font-size:.85rem!important}
 .lp-copy{margin-top:12px!important;font-size:.85rem!important;border-top:1px solid rgba(255,255,255,.12);padding-top:14px}
+/* ---- Landing quảng cáo: mở đầu + form, lộ trình, công cụ, ảnh + nội dung, giảng viên, thanh đăng ký nhanh ---- */
+.lp-lead-hero{padding:40px 0 56px}
+.lp-lead-hero .lp-wrap{display:grid;grid-template-columns:1.08fr .92fr;grid-template-areas:"text form" "pic form";gap:20px 40px;align-items:start}
+.lp-lead-hero .lp-hero-text{grid-area:text}
+.lp-lead-hero .lp-hero-form{grid-area:form;position:relative}
+.lp-lead-hero .lp-hero-pic{grid-area:pic}
+.lp-lead-hero .lp-hero-pic img{aspect-ratio:4/3;box-shadow:0 24px 50px -30px rgba(15,23,42,.35)}
+.lp-lead-hero h1{font-size:clamp(1.9rem,4.4vw,3rem)}
+.lp-lead-hero .lp-form-card{padding:22px 20px 18px;border:2px solid var(--accent,#f59e0b);box-shadow:0 26px 60px -30px rgba(15,23,42,.45)}
+.lp-form-card>.lp-form-title,.lp-form-card>.lp-form-note{padding:0}
+.lp-form-title{font-size:1.3rem;font-weight:800;line-height:1.25;color:var(--lp-ink)}
+.lp-form-card>.lp-form-title{color:var(--lp-ink)}
+.lp-form-note{margin-top:6px!important;color:var(--lp-mut);font-size:.92rem}
+.lp-ticks{display:grid;gap:10px;margin-top:20px}
+.lp-ticks li{position:relative;padding-left:32px;font-weight:600}
+.lp-ticks li::before{content:"✓";position:absolute;left:0;top:1px;width:22px;height:22px;border-radius:50%;background:var(--success,#10b981);color:#fff;font-size:.8rem;display:grid;place-items:center;font-weight:800}
+.lp-kicker{font-size:.8rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#047857;margin-bottom:10px!important}
+.lp-note{margin-top:18px!important;color:var(--lp-mut);font-size:.95rem}
+.lp-road{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:18px;counter-reset:r}
+.lp-road-step{position:relative;background:#fff;border:1px solid var(--lp-line);border-top:6px solid var(--primary,#1d4ed8);border-radius:var(--lp-r);padding:20px;display:flex;flex-direction:column;gap:8px}
+.lp-road-1{border-top-color:var(--success,#10b981)}
+.lp-road-2{border-top-color:var(--accent,#f59e0b)}
+.lp-road-step:not(:last-child)::after{content:"→";position:absolute;right:-17px;top:42%;width:26px;height:26px;border-radius:50%;background:var(--primary,#1d4ed8);color:#fff;display:grid;place-items:center;font-weight:800;z-index:1}
+.lp-road-no{font-size:.8rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--primary-ink,var(--primary,#1d4ed8))}
+.lp-road-step h3{font-size:1.15rem}
+.lp-road-step p{color:var(--lp-mut)}
+.lp-grid-tools{grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+.lp-tool figure{margin:-24px -24px 6px}
+.lp-tool img{width:100%;aspect-ratio:16/10;object-fit:cover;border-radius:var(--lp-r) var(--lp-r) 0 0;border-bottom:1px solid var(--lp-line)}
+.lp-tool figcaption{font-size:.72rem;color:#64748b;padding:6px 24px 0}
+.lp-split-in{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center}
+.lp-flip .lp-split-pic{order:-1}
+.lp-split-text h2{font-size:clamp(1.55rem,3.2vw,2.2rem)}
+.lp-split-body{margin-top:12px!important;color:var(--lp-mut);font-size:1.05rem}
+.lp-split-pic img{width:100%;border-radius:calc(var(--lp-r) + 6px);aspect-ratio:4/3;object-fit:cover;box-shadow:0 24px 50px -32px rgba(15,23,42,.4)}
+.lp-teacher-in{display:grid;grid-template-columns:280px 1fr 300px;gap:32px;align-items:center}
+.lp-teacher-photo{margin:0;border-radius:calc(var(--lp-r) + 4px);overflow:hidden;background:#0f172a}
+.lp-teacher-photo img{width:100%;aspect-ratio:4/5;object-fit:cover}
+.lp-teacher-photo figcaption{padding:14px 18px;color:#fff;display:flex;flex-direction:column}
+.lp-teacher-photo figcaption span{color:#fcd34d;font-size:.9rem;font-weight:600}
+.lp-teacher-info>p{color:var(--lp-mut)}
+.lp-teacher-pts{display:grid;gap:12px;margin:16px 0}
+.lp-teacher-pts li{display:flex;flex-direction:column;padding-left:16px;border-left:4px solid var(--success,#10b981)}
+.lp-teacher-pts span{color:var(--lp-mut);font-size:.95rem}
+.lp-teacher-info blockquote{margin:18px 0 0;padding:16px 18px;background:#ecfdf5;border-left:6px solid var(--success,#10b981);border-radius:12px;font-weight:700}
+.lp-teacher-cert{margin:0}
+.lp-teacher-cert img{width:100%;border:1px solid var(--lp-line);border-radius:12px;background:#fff}
+.lp-teacher-cert figcaption{margin-top:8px;text-align:center;color:var(--lp-mut);font-size:.88rem}
+.lp-sticky{display:none}
+.lp-lead-form{display:grid;gap:12px;margin-top:14px;position:relative}
+.lp-f label{display:block;font-weight:700;font-size:.9rem;margin-bottom:4px;color:var(--lp-ink)}
+.lp-f input,.lp-f select{width:100%;min-height:48px;padding:10px 14px;border:1.5px solid #cbd5e1;border-radius:12px;font:inherit;font-size:1rem;background:#fff;color:var(--lp-ink)}
+.lp-f input:focus,.lp-f select:focus{outline:none;border-color:var(--primary,#1d4ed8);box-shadow:0 0 0 3px rgba(29,78,216,.18)}
+.lp-f input[aria-invalid="true"]{border-color:#b91c1c}
+.lp-f-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.lp-f-err{color:#b91c1c;font-size:.86rem;margin-top:4px!important}
+.lp-consent{display:flex;gap:8px;align-items:flex-start;font-size:.82rem;color:var(--lp-mut);line-height:1.45}
+.lp-consent input{margin-top:3px;width:18px;height:18px;flex:none;accent-color:var(--primary,#1d4ed8)}
+.lp-consent a{color:var(--primary-ink,var(--primary,#1d4ed8))}
+.lp-submit{width:100%;min-height:54px;font-size:1.05rem;cursor:pointer}
+.lp-submit:disabled{opacity:.7;cursor:progress}
+.lp-privacy{text-align:center;font-size:.78rem;color:#64748b}
+.lp-hp{position:absolute!important;left:-9999px;width:1px;height:1px;opacity:0}
+.lp-lead-done{padding:18px 6px 6px;display:grid;gap:8px}
+.lp-lead-done-title{font-size:1.25rem;font-weight:800;color:#047857}
+.lp-lead-done ul{list-style:disc;padding-left:20px;color:var(--lp-mut);display:grid;gap:4px}
+.lp-form .lp-form-card .lp-lead-form{padding:6px 16px 16px;margin-top:4px}
+@media (max-width:380px){.lp-f-row{grid-template-columns:1fr}}
 .lp--soft{--lp-bg:#f8fafc;--lp-alt:#ffffff;--lp-r:24px}
 .lp--soft .lp-hero{background:linear-gradient(180deg,#fef3c7,#f8fafc)}
 .lp--soft .lp-sec{padding:76px 0}
@@ -382,13 +565,25 @@ export function landingCss(): string {
 .lp--bold .lp-hero h1{font-size:clamp(2.2rem,5.6vw,3.9rem)}
 @media (max-width:860px){
  .lp-hero.has-pic .lp-wrap{grid-template-columns:1fr}
+ .lp-lead-hero{padding:24px 0 40px}
+ .lp-lead-hero .lp-wrap{grid-template-columns:1fr;grid-template-areas:"text" "form" "pic"}
+ .lp-lead-hero .lp-ticks{display:none}
+ .lp-lead-hero .lp-badges{margin-top:14px}
+ .lp-split-in,.lp-teacher-in{grid-template-columns:1fr;gap:24px}
+ .lp-flip .lp-split-pic{order:0}
+ .lp-teacher-photo{max-width:320px}
+ .lp-road-step:not(:last-child)::after{content:"↓";right:auto;left:50%;top:auto;bottom:-17px;transform:translateX(-50%)}
+ .lp-sticky{display:flex;gap:10px;position:fixed;left:0;right:0;bottom:0;z-index:30;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:rgba(255,255,255,.96);border-top:1px solid var(--lp-line);box-shadow:0 -8px 24px -12px rgba(15,23,42,.25)}
+ .lp-sticky .lp-btn{flex:1;min-height:46px;padding:10px 12px;font-size:.95rem;width:auto}
+ .lp:has(.lp-sticky){padding-bottom:72px}
+ .lp:has(.lp-sticky) .lp-top-r .lp-btn{display:none}
  .lp-nav,.lp-tel{display:none}
  .lp-menu{display:block}
  .lp-foot-grid{grid-template-columns:1fr}
  .lp-tl li{grid-template-columns:1fr;gap:4px}
  .lp-sec{padding:48px 0}
 }
-@media (max-width:480px){.lp-btn{width:100%}.lp-actions{flex-direction:column}.lp-top .lp-btn{width:auto}}
+@media (max-width:480px){.lp-brand img.lp-lockup{max-width:60vw}.lp-btn{width:100%}.lp-actions{flex-direction:column}.lp-top .lp-btn{width:auto}}
 @media (prefers-reduced-motion:reduce){.lp *{transition:none!important}}
 html{scroll-behavior:smooth}
 `;

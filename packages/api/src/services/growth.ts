@@ -234,8 +234,12 @@ export async function listSiteMedia(ctx: ProtectedContext) {
 /* Tracking & marketing                                                 */
 /* ------------------------------------------------------------------ */
 
-export interface MarketingSettings { metaPixelId: string; ga4MeasurementId: string; trackingEnabled: boolean; leadRetentionMonths: number }
-const MK_DEFAULTS: MarketingSettings = { metaPixelId: "", ga4MeasurementId: "", trackingEnabled: true, leadRetentionMonths: 24 };
+/**
+ * `googleAdsId` (AW-…) + `googleAdsLeadLabel`: chuyển đổi "Đăng ký học thử" của Google Ads — trang landing bắn
+ * `gtag('event','conversion',{send_to:'AW-…/nhãn'})` khi form gửi thành công.
+ */
+export interface MarketingSettings { metaPixelId: string; ga4MeasurementId: string; googleAdsId: string; googleAdsLeadLabel: string; trackingEnabled: boolean; leadRetentionMonths: number }
+const MK_DEFAULTS: MarketingSettings = { metaPixelId: "", ga4MeasurementId: "", googleAdsId: "", googleAdsLeadLabel: "", trackingEnabled: true, leadRetentionMonths: 24 };
 
 export async function getMarketingSettings(db: Db): Promise<MarketingSettings> {
   const r = await db.query.appSettings.findFirst({ where: eq(appSettings.key, "marketing") });
@@ -247,9 +251,13 @@ export async function saveMarketingSettings(ctx: ProtectedContext, input: Market
   const e: string[] = [];
   if (input.metaPixelId && !/^\d{10,20}$/.test(input.metaPixelId)) e.push("Meta Pixel ID gồm 10–20 chữ số");
   if (input.ga4MeasurementId && !/^G-[A-Z0-9]{6,12}$/.test(input.ga4MeasurementId)) e.push("GA4 Measurement ID dạng G-XXXXXXX");
+  const aw = (input.googleAdsId ?? "").trim(), awLabel = (input.googleAdsLeadLabel ?? "").trim();
+  if (aw && !/^AW-\d{6,14}$/.test(aw)) e.push("Google Ads ID dạng AW-123456789");
+  if (awLabel && !/^[A-Za-z0-9_-]{6,40}$/.test(awLabel)) e.push("Nhãn chuyển đổi Google Ads chỉ gồm chữ, số, - và _ (6–40 ký tự)");
+  if (awLabel && !aw) e.push("Nhập Google Ads ID trước khi nhập nhãn chuyển đổi");
   if (!Number.isInteger(input.leadRetentionMonths) || input.leadRetentionMonths < 6 || input.leadRetentionMonths > 120) e.push("Thời hạn lưu lead 6–120 tháng");
   if (e.length) throw bad(e);
-  const v: MarketingSettings = { metaPixelId: input.metaPixelId.trim(), ga4MeasurementId: input.ga4MeasurementId.trim(), trackingEnabled: !!input.trackingEnabled, leadRetentionMonths: input.leadRetentionMonths };
+  const v: MarketingSettings = { metaPixelId: input.metaPixelId.trim(), ga4MeasurementId: input.ga4MeasurementId.trim(), googleAdsId: aw, googleAdsLeadLabel: awLabel, trackingEnabled: !!input.trackingEnabled, leadRetentionMonths: input.leadRetentionMonths };
   await ctx.db.insert(appSettings).values({ key: "marketing", value: v as unknown as Record<string, unknown>, updatedBy: ctx.user.id })
     .onConflictDoUpdate({ target: appSettings.key, set: { value: v as unknown as Record<string, unknown>, updatedBy: ctx.user.id, updatedAt: new Date() } });
   await writeAudit(ctx.db, { actorId: ctx.user.id, action: "UPDATE", module: "marketing", entity: "app_settings", entityId: null, after: v, ip: ctx.ip });
@@ -259,7 +267,7 @@ export async function saveMarketingSettings(ctx: ProtectedContext, input: Market
 /** Công khai: cấu hình tracking cho website (không lộ bí mật) */
 export async function publicTrackingConfig(db: Database) {
   const s = await getMarketingSettings(asDb(db));
-  return { trackingEnabled: s.trackingEnabled, metaPixelId: s.metaPixelId || null, ga4MeasurementId: s.ga4MeasurementId || null };
+  return { trackingEnabled: s.trackingEnabled, metaPixelId: s.metaPixelId || null, ga4MeasurementId: s.ga4MeasurementId || null, googleAdsId: s.googleAdsId || null, googleAdsLeadLabel: s.googleAdsLeadLabel || null };
 }
 
 export async function recordTrack(db: Database, input: { event: string; anonId: string; path: string; utmSource?: string | null; utmMedium?: string | null; utmCampaign?: string | null; referrer?: string | null; leadId?: string | null }) {

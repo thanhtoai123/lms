@@ -196,3 +196,12 @@ test("HSTS_MAX_AGE rác thì quay về mặc định 2 năm", () => {
     assert.equal(securityHeaderOptions({ HSTS_MAX_AGE: v }).hstsMaxAge, undefined, `giá trị ${v}`);
   }
 });
+
+test("thẻ đo lường quảng cáo: connect-src có GA4 / Meta / Google Ads; tắt được bằng adsTags:false", () => {
+  const d = directives(buildCsp({ nonce: "abcdefghijklmnopqrstuv" }));
+  for (const h of ["https://*.google-analytics.com", "https://connect.facebook.net", "https://www.googleadservices.com"]) assert.ok(d["connect-src"]!.includes(h), h);
+  assert.ok(d["frame-src"]!.includes("https://td.doubleclick.net"));
+  const off = directives(buildCsp({ nonce: "abcdefghijklmnopqrstuv", adsTags: false }));
+  assert.ok(!off["connect-src"]!.includes("https://connect.facebook.net"));
+  assert.ok(!off["script-src"]!.includes("https://www.googletagmanager.com"));
+});

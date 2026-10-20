@@ -107,5 +107,8 @@ export * from "./site/chrome.js";
 export * from "./site/demo.js";
 export { TH_REGISTER_BLOCK, TH_TRACK_PAGE, TH_ART } from "./site/thsteam-content.js";
 export * from "./landing/render.js";
+export * from "./landing/media.js";
+export * from "./landing/seo.js";
+export * from "./landing/ads.js";
 export * from "./nav/giaoVien.js";
 export * from "./nav/moTa.js";

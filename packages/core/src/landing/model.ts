@@ -15,7 +15,7 @@ export type LFieldType = "text" | "textarea" | "url" | "image";
 export interface LField { key: string; label: string; type: LFieldType; max: number; required?: boolean; hint?: string }
 export interface LList { key: string; label: string; addLabel: string; max: number; min?: number; fields: LField[]; hint?: string }
 
-export const SECTION_TYPES = ["header", "hero", "stats", "features", "programs", "testimonials", "cta", "steps", "timeline", "gallery", "faq", "form", "text", "footer"] as const;
+export const SECTION_TYPES = ["header", "hero", "leadHero", "stats", "features", "programs", "roadmap", "tools", "split", "teacher", "testimonials", "cta", "steps", "timeline", "gallery", "faq", "form", "text", "footer"] as const;
 export type SectionType = (typeof SECTION_TYPES)[number];
 
 export interface SectionDef {
@@ -49,6 +49,46 @@ export const SECTION_DEFS: Record<SectionType, SectionDef> = {
     desc: "Tiêu đề lớn, mô tả, hai nút và ảnh. Khối đầu tiên phụ huynh nhìn thấy.",
     fields: [t("eyebrow", "Dòng nhỏ phía trên", 80), t("title", "Tiêu đề lớn", 140, { required: true }), ta("subtitle", "Mô tả ngắn", 400), t("primaryLabel", "Nút chính", 40, { required: true }), u("primaryUrl", "Liên kết nút chính", { required: true }), t("secondaryLabel", "Nút phụ", 40), u("secondaryUrl", "Liên kết nút phụ"), img("image", "Ảnh")],
     lists: [{ key: "badges", label: "Điểm tin cậy (chip)", addLabel: "Thêm điểm", max: 4, fields: [t("text", "Nội dung", 70, { required: true })], hint: "Ví dụ: Lớp 6–8 học sinh · Học online qua ClassIn" }],
+  },
+  leadHero: {
+    type: "leadHero", label: "Mở đầu + form đăng ký (quảng cáo)", single: true,
+    desc: "Dành cho landing chạy quảng cáo: tiêu đề chứa từ khoá, 3–5 lợi ích, form 4 ô ngay màn hình đầu (điện thoại: form nằm ngay dưới tiêu đề).",
+    fields: [
+      t("eyebrow", "Dòng nhỏ phía trên", 80), t("title", "Tiêu đề lớn (H1, có từ khoá)", 120, { required: true }), ta("subtitle", "Mô tả ngắn", 300),
+      img("image", "Ảnh minh hoạ"), t("imageAlt", "Mô tả ảnh (alt, có từ khoá)", 160),
+      t("formTitle", "Tiêu đề form", 80, { required: true }), t("formNote", "Dòng nhỏ dưới tiêu đề form", 140),
+      t("interest", "Chuyên ngành chọn sẵn trong form", 60, { hint: "Robotics AI / Trí tuệ nhân tạo AI / Thiết kế đồ họa AI / Lập trình AI — để trống: phụ huynh tự chọn" }),
+      t("thankYou", "Lời cảm ơn sau khi gửi", 300),
+    ],
+    lists: [
+      { key: "points", label: "Lợi ích (dấu ✓)", addLabel: "Thêm lợi ích", max: 5, fields: [t("text", "Nội dung", 110, { required: true })] },
+      { key: "badges", label: "Điểm tin cậy (chip)", addLabel: "Thêm điểm", max: 4, fields: [t("text", "Nội dung", 60, { required: true })] },
+    ],
+  },
+  roadmap: {
+    type: "roadmap", label: "Lộ trình học", desc: "Các chặng nối tiếp: năm học, học phần, luyện thi. Hiện như mũi tên từ trái sang phải.",
+    fields: [t("title", "Tiêu đề", 120, { required: true }), ta("intro", "Mô tả", 300), t("note", "Ghi chú dưới lộ trình", 200)],
+    lists: [{ key: "items", label: "Chặng", addLabel: "Thêm chặng", max: 6, fields: [t("step", "Nhãn chặng (vd Năm 1)", 30, { required: true }), t("name", "Tên", 80, { required: true }), t("meta", "Độ tuổi · số buổi", 80), ta("text", "Con học / làm được", 300), t("tag", "Nhãn phụ (vd Tự chọn)", 30)] }],
+    needs: "items",
+  },
+  tools: {
+    type: "tools", label: "Phần mềm / công cụ con học", desc: "Ảnh chụp phần mềm thật kèm tên, mô tả và ghi nguồn ảnh.",
+    fields: [t("title", "Tiêu đề", 120, { required: true }), ta("intro", "Mô tả", 300)],
+    lists: [{ key: "items", label: "Công cụ", addLabel: "Thêm công cụ", max: 8, fields: [img("image", "Ảnh", { required: true }), t("name", "Tên phần mềm", 60, { required: true }), ta("text", "Con làm gì với phần mềm này", 240), t("credit", "Nguồn ảnh", 120, { hint: "vd Ảnh: Autodesk Tinkercad" }), t("tag", "Nhãn (vd Năm 1 · 8–9 tuổi)", 40)] }],
+    needs: "items",
+  },
+  split: {
+    type: "split", label: "Ảnh + nội dung", desc: "Ảnh một bên, tiêu đề + nội dung + các ý ✓ một bên. Các khối liền nhau tự đổi bên.",
+    fields: [t("eyebrow", "Dòng nhỏ phía trên", 60), t("title", "Tiêu đề", 120, { required: true }), ta("body", "Nội dung", 800), img("image", "Ảnh", { required: true }), t("imageAlt", "Mô tả ảnh (alt)", 160), t("ctaLabel", "Chữ nút", 40), u("ctaUrl", "Liên kết nút")],
+    lists: [{ key: "points", label: "Các ý (dấu ✓)", addLabel: "Thêm ý", max: 6, fields: [t("text", "Nội dung", 160, { required: true })] }],
+  },
+  teacher: {
+    type: "teacher", label: "Giảng viên", desc: "Ảnh, tên, vai trò, kinh nghiệm, chứng chỉ (chỉ thông tin thật).",
+    fields: [t("title", "Tiêu đề", 120, { required: true }), t("name", "Họ tên", 80, { required: true }), t("role", "Vai trò", 120), img("photo", "Ảnh chân dung"), ta("bio", "Giới thiệu", 600), ta("quote", "Triết lý / câu nói", 240), img("certImage", "Ảnh chứng chỉ"), t("certCaption", "Chú thích chứng chỉ", 160)],
+    lists: [
+      { key: "points", label: "Điểm nổi bật", addLabel: "Thêm điểm", max: 5, fields: [t("title", "Tiêu đề", 80, { required: true }), t("text", "Mô tả", 200)] },
+      { key: "tags", label: "Đội tuyển / lĩnh vực (chip)", addLabel: "Thêm chip", max: 8, fields: [t("text", "Nội dung", 40, { required: true })] },
+    ],
   },
   stats: {
     type: "stats", label: "Số liệu nổi bật", desc: "Dải 3–6 con số. Chỉ nhập số THẬT; để trống thì khối tự ẩn.",
@@ -154,8 +194,8 @@ export function validUrl(v: string): boolean {
   return /^(https:\/\/|\/|#|tel:|mailto:)[^\s"'<>\\]*$/.test(v) && !/^\/\//.test(v);
 }
 export function validImage(v: string): boolean {
-  // Thư viện ảnh website, ảnh minh hoạ đi kèm ứng dụng (apps/web/public/anh-site), hoặc https
-  return /^(\/api\/public\/site-media\/[A-Za-z0-9._-]+|\/anh-site\/[a-z0-9-]+\.(svg|png|jpg|webp)|https:\/\/[^\s"'<>\\]+)$/.test(v);
+  // Thư viện ảnh website, ảnh đi kèm ứng dụng (apps/web/public: anh-site, lp-anh, thsteam), hoặc https
+  return /^(\/api\/public\/site-media\/[A-Za-z0-9._-]+|\/(anh-site|lp-anh|lp-anh\/that|thsteam)\/[a-z0-9-]+\.(svg|png|jpg|webp)|https:\/\/[^\s"'<>\\]+)$/.test(v);
 }
 
 export function fieldsOf(def: SectionDef, listKey: string): LField[] {
@@ -242,8 +282,9 @@ export function validateLanding(doc: LandingDoc, meta: { title: string; slug: st
   if (slugErr) errors.push(slugErr);
   if (meta.title.trim().length < 3) errors.push("Tên trang tối thiểu 3 ký tự");
   const visible = doc.sections.filter(sectionVisible);
-  if (!visible.some((s) => s.type === "hero")) errors.push("Cần bật khối Mở đầu (Hero)");
-  if (!visible.some((s) => s.type === "form" || s.type === "hero" || s.type === "cta")) errors.push("Trang cần có form hoặc nút kêu gọi để phụ huynh đăng ký");
+  if (!visible.some((s) => s.type === "hero" || s.type === "leadHero")) errors.push("Cần bật khối Mở đầu (Hero)");
+  if (!visible.some((s) => s.type === "form" || s.type === "hero" || s.type === "leadHero" || s.type === "cta")) errors.push("Trang cần có form hoặc nút kêu gọi để phụ huynh đăng ký");
+  if (visible.some((s) => s.type === "hero") && visible.some((s) => s.type === "leadHero")) warnings.push("Trang có cả Mở đầu (Hero) và Mở đầu + form — chỉ nên giữ một tiêu đề lớn (H1)");
 
   for (const s of doc.sections) {
     if (!s.enabled) continue;

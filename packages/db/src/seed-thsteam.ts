@@ -58,7 +58,8 @@ console.log(`✓ Tiêu chí học bạ: thêm ${r.criteria.created}, điền mô
 console.log(keepOld ? "= Giữ danh mục cũ đang bán (--giu-cu)" : `✓ Ngừng bán danh mục cũ: ${r.retired.courses} khoá, ${r.retired.packages} gói, ${r.retired.paths} lộ trình (không xoá)`);
 
 // ---- Website ----
-const w = await syncThSteamWebsite(db, { publish: publishSite });
+const w = await syncThSteamWebsite(db, { publish: publishSite, forceAds: process.argv.includes("--lp-moi") });
 console.log(`✓ Website: khung đầu / chân trang TH STEAM · tạo ${w.created.length}, cập nhật ${w.updated.length} trang${publishSite ? ` · đã xuất bản ${w.published.length}` : " (chỉ NHÁP — vào Website để xem và Xuất bản)"} · lưu trữ ${w.archived.length} trang cũ`);
+if (w.kept.length) console.log(`  = Landing quảng cáo đã sửa tay, giữ nguyên: ${w.kept.join(", ")} (thêm --lp-moi để dựng lại)`);
 console.log("  ! Chính sách bảo mật là BẢN NHÁP có chữ [DEMO] — cần người có thẩm quyền duyệt rồi sửa trong Website → Landing page.");
 process.exit(0);

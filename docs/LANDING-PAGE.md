@@ -90,3 +90,48 @@ Chỉ học **cấu trúc**; không chép chữ và không chép khẳng định
 mỗi trang nên mọi nút "Học thử / Đăng ký" cuộn tới form cuối trang.
 Ba khối **phản hồi phụ huynh, đội ngũ giáo viên, học viên tiêu biểu** là chữ mẫu có "[DEMO]" (xuất bản sẽ có cảnh báo). Thay bằng nội dung thật, đã được đồng ý đăng.
 Nạp lại bản nháp bằng chữ mới: `pnpm db:seed-home --lam-moi` (chỉ khi trang chưa xuất bản).
+
+## Landing chạy quảng cáo (20/10/2026)
+
+Năm trang dựng sẵn từ danh mục chương trình chuẩn (`packages/core/src/landing/ads.ts`), xuất bản khi chạy `pnpm db:seed-thsteam`:
+
+| Đường dẫn | Nhóm quảng cáo | Từ khoá chính |
+| --- | --- | --- |
+| `/lp/hoc-cong-nghe-online` | Thương hiệu / chung | khóa học công nghệ cho trẻ em, học lập trình cho trẻ online |
+| `/lp/robotics-ai-cho-tre` | Robotics AI 8–10 tuổi | khóa học robotics cho trẻ em, học lập trình robot online |
+| `/lp/tri-tue-nhan-tao-ai-cho-hoc-sinh` | AI 8–14 tuổi | khóa học AI cho học sinh, học trí tuệ nhân tạo cho trẻ em |
+| `/lp/thiet-ke-do-hoa-ai-cho-hoc-sinh` | Đồ họa 3D, Photoshop | học thiết kế đồ họa cho học sinh, khóa học photoshop cho học sinh |
+| `/lp/lap-trinh-ai-cho-tre-em` | Lập trình 8–18 tuổi | khóa học lập trình cho trẻ em, học scratch / python online |
+
+**Bố cục:** Mở đầu + form 4 ô (H1 chứa từ khoá; điện thoại: form ngay dưới tiêu đề) → Vì sao chọn → Lộ trình → Con học gì từng năm
+→ Phần mềm thật (ảnh chụp có ghi nguồn) → Học online trực tiếp → Học phần 15 buổi → Dải kêu gọi → Báo cáo cuối khoá → 6 năng lực
+→ Đồng hành phụ huynh → Giảng viên → Bắt đầu thế nào → Hỏi đáp → Form cuối trang → Chân trang. Trên điện thoại có thanh
+"Gọi / Đăng ký học thử" cố định ở đáy màn hình.
+
+**Khối mới** (dùng được cho mọi landing trong Website → Landing page): Mở đầu + form (quảng cáo), Lộ trình học, Phần mềm / công cụ,
+Ảnh + nội dung, Giảng viên. Trang có khối "Mở đầu + form" thì form cuối trang cũng dùng form gọn.
+
+**Form gọn:** Họ tên phụ huynh · SĐT/Zalo (kiểm số Việt Nam) · Lớp của con · Chuyên ngành quan tâm (trang chuyên ngành chọn sẵn) ·
+ô đồng ý xử lý dữ liệu (bắt buộc, không đánh dấu sẵn — Nghị định 13/2023). Lead vào CRM kèm UTM, trang đích đầy đủ (gclid, fbclid,
+utm_term, utm_content nằm trong `landing_page`), mã sự kiện; chuyên ngành và từ khoá ghi vào ghi chú lead.
+
+**SEO:** title ≤ 60 ký tự, description 120–160 ký tự, canonical, Open Graph + Twitter với ảnh 1200×630 (`/lp-anh/og-*.png`),
+một H1, ảnh có width/height + alt, ảnh đầu trang tải ưu tiên, còn lại tải lười. JSON-LD: EducationalOrganization, WebPage,
+BreadcrumbList, FAQPage, Course (Google đã ngừng hiện thẻ khoá học từ 09/2025 và chỉ hiện FAQ cho một số trang chính phủ / y tế —
+dữ liệu vẫn giúp máy tìm kiếm hiểu trang). Các landing `ads-*` có trong `sitemap.xml`.
+
+**Đo lường quảng cáo:** Marketing → Cấu hình tracking: Meta Pixel ID, GA4 Measurement ID, Google Ads ID (AW-…) + nhãn chuyển đổi.
+Có ID thì trang công khai tự gắn thẻ (đoạn mồi có nonce CSP); form gửi thành công bắn `Lead` (Meta), `generate_lead` (GA4) và
+`conversion` (Google Ads) cùng một `eventID`. CSP đã mở connect-src / frame-src cho Google, Meta (tắt bằng `adsTags:false`).
+Meta Conversions API phía máy chủ chưa làm.
+
+**Ảnh:** tranh minh hoạ vector (`apps/web/public/lp-anh/*.svg`, sinh bằng `gen/art_lp*.py`; nhân vật vẽ, không phải ảnh trẻ em
+thật); ảnh chụp phần mềm lấy từ bộ slide chương trình, ghi nguồn dưới mỗi ảnh (`/lp-anh/that/*.webp`): Scratch (AGPL-3.0),
+Roblox Creator Docs (CC BY 4.0), MIT App Inventor (Apache-2.0), Raspberry Pi/Thonny (CC BY-SA 4.0), MDN (CC BY-SA 2.5),
+Bootstrap (MIT), WordPress (GPL-2.0) — giấy phép mở; ảnh của Autodesk Tinkercad, Adobe, WhalesBot, CreatiCode và ảnh thể lệ
+Cuộc thi Sáng tạo Robotics là ảnh giới thiệu của chủ sở hữu — nên xin phép hoặc thay bằng ảnh chụp màn hình lớp học của trung tâm
+trước khi chạy quảng cáo lớn. Ảnh và chứng chỉ của giảng viên do trung tâm cung cấp. Kích thước ảnh: `landing/media.ts`
+(sinh bằng `gen/media_manifest.py`).
+
+**Sửa nội dung:** sửa trong Website → Landing page rồi Xuất bản. Trang đã sửa tay sẽ KHÔNG bị `db:seed-thsteam` ghi đè;
+muốn dựng lại từ danh mục: `pnpm db:seed-thsteam -- --lp-moi`.

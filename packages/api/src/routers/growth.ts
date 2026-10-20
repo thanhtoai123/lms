@@ -53,7 +53,7 @@ export const websiteRouter = router({
 export const marketingRouter = router({
   overview: protectedProcedure.input(z.object({ ...range, centerId: uuid.optional() }).default({})).query(({ ctx, input }) => G.marketingOverview(ctx, input)),
   saveSettings: protectedProcedure
-    .input(z.object({ metaPixelId: s(20), ga4MeasurementId: s(20), trackingEnabled: z.boolean(), leadRetentionMonths: z.number().int() }))
+    .input(z.object({ metaPixelId: s(20), ga4MeasurementId: s(20), googleAdsId: z.string().max(20).default(""), googleAdsLeadLabel: z.string().max(60).default(""), trackingEnabled: z.boolean(), leadRetentionMonths: z.number().int() }))
     .mutation(({ ctx, input }) => G.saveMarketingSettings(ctx, input)),
   campaigns: protectedProcedure.input(z.object({ ...range, activeOnly: z.boolean().optional() }).default({})).query(({ ctx, input }) => G.listCampaigns(ctx, input)),
   upsertCampaign: protectedProcedure

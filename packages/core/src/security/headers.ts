@@ -72,6 +72,8 @@ export interface CspOptions {
   dev?: boolean;
   /** Miền Supabase (REST + realtime) cho `connect-src` */
   supabaseUrl?: string | null;
+  /** Cho phép thẻ đo lường quảng cáo (Meta Pixel, GA4, Google Ads) gửi sự kiện. Mặc định BẬT; `false` để tắt hẳn */
+  adsTags?: boolean;
   /**
    * `'strict-dynamic'`: script đã được tin (mang nonce) được phép nạp tiếp script con.
    * Next.js nạp các mảnh JS (chunk) bằng cách tự tạo thẻ `<script>` lúc chạy — không có
@@ -113,6 +115,18 @@ const clean = (s?: string | null) =>
  */
 const STYLE_UNSAFE_INLINE = "'unsafe-inline'";
 
+/**
+ * Thẻ đo lường quảng cáo trên landing (Meta Pixel, GA4, Google Ads) — chỉ tải khi Quản trị đã nhập ID ở Marketing.
+ * Script nạp qua đoạn mồi có nonce nên `'strict-dynamic'` đã cho phép; host liệt kê ở script-src chỉ có tác dụng khi tắt
+ * strict-dynamic (CSP_STRICT_DYNAMIC=0). connect-src / frame-src cần để thẻ gửi sự kiện về máy chủ của họ.
+ */
+export const ADS_TAG_SCRIPT_SRC = ["https://www.googletagmanager.com", "https://connect.facebook.net", "https://www.googleadservices.com"] as const;
+export const ADS_TAG_CONNECT_SRC = [
+  "https://*.google-analytics.com", "https://*.analytics.google.com", "https://www.googletagmanager.com", "https://www.google.com",
+  "https://googleads.g.doubleclick.net", "https://www.googleadservices.com", "https://connect.facebook.net", "https://www.facebook.com",
+] as const;
+export const ADS_TAG_FRAME_SRC = ["https://td.doubleclick.net", "https://www.googletagmanager.com"] as const;
+
 /** Dựng chuỗi CSP cho một yêu cầu */
 export function buildCsp(o: CspOptions = {}): string {
   const nonce = isValidNonce(o.nonce) ? o.nonce : null;
@@ -124,11 +138,14 @@ export function buildCsp(o: CspOptions = {}): string {
   if (nonce && strictDynamic) script.push("'strict-dynamic'");
   if (o.allowUnsafeInlineScripts) script.push("'unsafe-inline'");
   if (o.dev) script.push("'unsafe-eval'");
+  // Không có nonce thì đoạn mồi của thẻ đo lường không chạy được — không mở thêm host nào
+  if (nonce && o.adsTags !== false) script.push(...ADS_TAG_SCRIPT_SRC);
   script.push(...clean(o.extraScriptSrc));
 
   const supabase = (o.supabaseUrl ?? "").trim();
   const connect = ["'self'"];
   if (supabase) connect.push(supabase, supabase.replace(/^https:/, "wss:"));
+  if (o.adsTags !== false) connect.push(...ADS_TAG_CONNECT_SRC);
   connect.push(...clean(o.extraConnectSrc));
 
   const directives: [string, string[]][] = [
@@ -145,7 +162,7 @@ export function buildCsp(o: CspOptions = {}): string {
     ["font-src", ["'self'", "data:"]],
     ["connect-src", connect],
     ["worker-src", ["'self'", "blob:"]],
-    ["frame-src", ["'self'", "https://www.youtube-nocookie.com", "https://drive.google.com", ...clean(o.extraFrameSrc)]],
+    ["frame-src", ["'self'", "https://www.youtube-nocookie.com", "https://drive.google.com", ...(o.adsTags !== false ? ADS_TAG_FRAME_SRC : []), ...clean(o.extraFrameSrc)]],
     ["media-src", ["'self'", "blob:"]],
     ["manifest-src", ["'self'"]],
     // Máy phát triển chạy http: nâng mọi yêu cầu lên https là làm hỏng khung nhúng http (ZCRM ở
