@@ -55,6 +55,26 @@ Chuyên ngành (4) → Chương trình theo cấp học (9) → Năm học = kho
 - Học online qua ClassIn, lớp nhóm 6–8 học sinh hoặc kèm 1:1, 90 phút/buổi, 1 buổi/tuần.
 - Khoá luyện thi: tên "Luyện thi: <cuộc thi>", 15 buổi (Robotics, AI, Đồ họa) hoặc 30 buổi (Lập trình) — đúng như bộ slide.
 
+### Tên gọi chuẩn trong hệ thống quản trị
+
+| Cấp | Mẫu | Ví dụ |
+| --- | --- | --- |
+| Khoá năm học | `Năm N: <động từ> <phần mềm>` | Năm 1: Lập trình RoboSim · Năm 2: Lập trình RoboVR · Năm 1: Thiết kế Tinkercad · Năm 1: Ứng dụng AI |
+| Học phần | `HP n: <phần mềm> Basic / Advanced / Expert` | HP1: RoboSim Basic · HP2: RoboSim Advanced · HP3: RoboSim Expert |
+| Buổi (trong học phần) | 1–4, 6–12: `Dự án sáng tạo 1…11` · 5: `Ôn tập & kiểm tra` · 13: `Dự án cuối khoá` · 14: `Demo cuối khoá` · 15: `Báo cáo cuối khoá` | HP2 · Dự án sáng tạo 3 · HP1 · Báo cáo cuối khoá |
+
+Bảng động từ + phần mềm từng năm: `TH_YEAR_NAMING` (`packages/core/src/curriculum/thsteam.ts`). Tên mô tả trên slide
+("Lập trình robot ảo với RoboSim", "Làm quen robot ảo"…) vẫn giữ làm **nội dung**: mục tiêu buổi, hồ sơ công nghệ, website.
+
+### Học liệu từng buổi
+
+Trang **Học liệu buổi học** (`/scorm?khoa=&buoi=`, mở từ menu hoặc nút "Học liệu buổi →" ở từng bài trong giáo trình):
+
+- **Giáo án**: một bản đang dùng — gói SCORM (.zip, ≤200MB) hoặc slide PDF (≤100MB); đẩy bản mới tự thay sau khi xử lý xong.
+- **Tài liệu đính kèm**: kéo thả nhiều tệp một lần (Word, PDF, PowerPoint, Excel, ảnh bài tập, MP4/MP3, ZIP, Scratch .sb3; ≤50MB/tệp)
+  hoặc thêm liên kết. Mỗi tệp thành một tài liệu gắn đúng buổi, nhóm chọn sẵn theo đuôi tệp, có thể phát hành ngay.
+  Tài liệu đã phát hành hiện cho giáo viên trong **Chuẩn bị buổi dạy**; tài liệu "Giáo viên + học viên / phụ huynh" đính kèm được khi giao bài tập về nhà.
+
 ### Trong CSDL
 
 Khoá khớp với danh mục qua **mã khoá** (không thêm cột):
@@ -66,10 +86,10 @@ Khoá khớp với danh mục qua **mã khoá** (không thêm cột):
 
 `syncThSteamCatalog` (`packages/db/src/thsteam-sync.ts`, dùng chung cho lệnh và nút "Đồng bộ danh mục chuẩn"):
 
-- Khoá: tạo / cập nhật tên, mô tả, số buổi, lớp ở trường (6 tuổi = lớp 1), học phí niêm yết; nối **khoá tiếp theo** Năm 1 → Năm 2.
-- Giáo trình "Chuẩn TH STEAM 2026–2027" là giáo trình đang dùng; đủ 45 buổi với tên buổi theo học phần
-  ("HP1 · Basic — Làm quen robot ảo · bài 1", "Ôn tập", "Dự án cuối học phần", "Báo cáo học phần"), buổi 15/30/45 đánh dấu mốc học bạ.
-  Buổi đã có chỉ được cập nhật chữ, không xoá.
+- Khoá: tạo / cập nhật tên (tên chuẩn ở trên), mô tả, số buổi, lớp ở trường (6 tuổi = lớp 1), học phí niêm yết; nối **khoá tiếp theo** Năm 1 → Năm 2.
+- Giáo trình "Chuẩn TH STEAM 2026–2027" là giáo trình đang dùng; đủ 45 buổi với tên buổi chuẩn ("HP1 · Dự án sáng tạo 1" …
+  "HP3 · Báo cáo cuối khoá"), buổi 15/30/45 đánh dấu mốc học bạ. Buổi đã có chỉ được cập nhật chữ, không xoá.
+  Khi tên buổi đổi: chủ đề các buổi dạy còn giữ đúng tên cũ và tiêu đề giáo án tự sinh ("Buổi N — …") đổi theo; chủ đề đã sửa tay được giữ.
 - Tiêu chí học bạ: thêm tiêu chí còn thiếu; mô tả 3 mức chỉ điền khi tiêu chí chưa có mô tả đúng thang (không đè chỉnh sửa tay).
 - Gói học phí (lớp nhóm, kèm 1:1) và lộ trình chứng nhận cho từng chương trình (năm học bắt buộc, luyện thi tự chọn).
 - Tuỳ chọn "ngừng bán" khoá / gói / lộ trình ngoài danh mục: chỉ đặt `is_active = false`, lớp và học bạ cũ vẫn xem được.

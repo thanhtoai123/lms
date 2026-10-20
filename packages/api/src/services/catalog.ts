@@ -334,6 +334,9 @@ export async function getCurriculum(ctx: ProtectedContext, id: string) {
     .select({
       id: lessons.id, sequenceNo: lessons.sequenceNo, title: lessons.title, objectives: lessons.objectives, materials: lessons.materials, isReportCardMilestone: lessons.isReportCardMilestone,
       used: sql<number>`(select count(*)::int from ${sessions} s where s.lesson_id = ${sql.raw('"lessons"."id"')})`,
+      /** Học liệu buổi: giáo án (SCORM / PDF) đang có + số tài liệu đính kèm chưa lưu trữ */
+      planKind: sql<string | null>`(select d.kind::text from documents d where d.lesson_id = ${sql.raw('"lessons"."id"')} and d.category = 'lesson_plan' and d.status <> 'archived' and d.current_version > 0 limit 1)`,
+      docs: sql<number>`(select count(*)::int from documents d where d.lesson_id = ${sql.raw('"lessons"."id"')} and d.category <> 'lesson_plan' and d.status <> 'archived')`,
     })
     .from(lessons).where(eq(lessons.curriculumId, id)).orderBy(asc(lessons.sequenceNo));
   const usedBy = await ctx.db.select({ id: classes.id, code: classes.code, status: classes.status }).from(classes)

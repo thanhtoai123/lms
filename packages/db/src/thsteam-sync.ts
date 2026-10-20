@@ -13,7 +13,7 @@
  *    lớp và học bạ cũ vẫn xem được.
  */
 import { and, eq, inArray, notInArray } from "drizzle-orm";
-import { tenants, courses, coursePackages, curricula, lessons, competencyCriteria, learningPaths, learningPathCourses } from "./schema/index";
+import { tenants, courses, coursePackages, curricula, lessons, competencyCriteria, learningPaths, learningPathCourses, sessions, documents } from "./schema/index";
 import { thCourseSpecs, thPathSpecs, newCriteriaOnly, normalizeLevelDescriptors, TH_PRICING } from "@satarobo/core";
 import type { Database } from "./index";
 
@@ -31,6 +31,8 @@ export interface ThSyncResult {
   tenantId: string;
   courses: { created: number; updated: number };
   lessons: { created: number; updated: number };
+  /** Buổi dạy / giáo án đổi tên theo tên buổi mới */
+  renamed: { sessions: number; plans: number };
   criteria: { created: number; filled: number };
   packages: { created: number; updated: number };
   paths: { created: number; updated: number };
@@ -52,7 +54,7 @@ export async function syncThSteamCatalog(db: Database, opts: ThSyncOptions = {})
     const specs = thCourseSpecs();
     const r: ThSyncResult = {
       tenantId,
-      courses: { created: 0, updated: 0 }, lessons: { created: 0, updated: 0 }, criteria: { created: 0, filled: 0 },
+      courses: { created: 0, updated: 0 }, lessons: { created: 0, updated: 0 }, renamed: { sessions: 0, plans: 0 }, criteria: { created: 0, filled: 0 },
       packages: { created: 0, updated: 0 }, paths: { created: 0, updated: 0 }, retired: { courses: 0, packages: 0, paths: 0 },
     };
     const idByCode = new Map<string, string>();
@@ -86,13 +88,25 @@ export async function syncThSteamCatalog(db: Database, opts: ThSyncOptions = {})
           description: "Giáo trình chuẩn TH STEAM: mỗi học phần 15 buổi — buổi 5 ôn tập, buổi 13–14 dự án cuối học phần, buổi 15 báo cáo trước phụ huynh.",
         }).returning({ id: curricula.id });
       }
-      const existing = await tx.select({ id: lessons.id, seq: lessons.sequenceNo }).from(lessons).where(eq(lessons.curriculumId, cur!.id));
-      const bySeq = new Map(existing.map((l) => [l.seq, l.id]));
+      const existing = await tx.select({ id: lessons.id, seq: lessons.sequenceNo, title: lessons.title }).from(lessons).where(eq(lessons.curriculumId, cur!.id));
+      const bySeq = new Map(existing.map((l) => [l.seq, l]));
       const fresh = [];
       for (const l of s.lessons) {
         const v = { title: l.title, objectives: l.objectives, materials: l.materials, isReportCardMilestone: l.milestone };
-        const id = bySeq.get(l.seq);
-        if (id) { await tx.update(lessons).set({ ...v, updatedAt: new Date() }).where(eq(lessons.id, id)); r.lessons.updated += 1; }
+        const old = bySeq.get(l.seq);
+        if (old) {
+          await tx.update(lessons).set({ ...v, updatedAt: new Date() }).where(eq(lessons.id, old.id));
+          r.lessons.updated += 1;
+          if (old.title !== l.title) {
+            // Đổi tên buổi: chủ đề các buổi dạy còn giữ tên cũ và tiêu đề giáo án tự sinh ("Buổi N — …") đổi theo
+            const t = await tx.update(sessions).set({ topic: l.title, updatedAt: new Date() })
+              .where(and(eq(sessions.lessonId, old.id), eq(sessions.topic, old.title))).returning({ id: sessions.id });
+            r.renamed.sessions += t.length;
+            const d = await tx.update(documents).set({ title: `Buổi ${l.seq} — ${l.title}`, updatedAt: new Date() })
+              .where(and(eq(documents.lessonId, old.id), eq(documents.category, "lesson_plan"), eq(documents.title, `Buổi ${l.seq} — ${old.title}`))).returning({ id: documents.id });
+            r.renamed.plans += d.length;
+          }
+        }
         else fresh.push({ curriculumId: cur!.id, sequenceNo: l.seq, ...v });
       }
       if (fresh.length) { await tx.insert(lessons).values(fresh); r.lessons.created += fresh.length; }

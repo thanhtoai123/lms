@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Các mảnh tương tác của trang "SCORM / Giáo án buổi học".
+ * Các mảnh tương tác của trang "Học liệu buổi học" (phần giáo án).
  * Trang chính dựng ở máy chủ; ở đây chỉ những gì cần trình duyệt: chọn khoá / buổi,
  * đẩy tệp kèm phần trăm, và các nút một chạm (dọn bản lỗi, gỡ, dùng lại bản cũ).
  */

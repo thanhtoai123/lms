@@ -18,7 +18,9 @@ export default async function DocumentDetail({ params }: { params: Promise<{ id:
   const hasContent = d.kind === "link" ? !!d.url : d.currentVersion > 0;
   return (
     <div className="space-y-4">
-      <Link href={d.kind === "scorm" ? "/scorm" : "/documents"} className="text-sm text-ink-600">← {d.kind === "scorm" ? "Bài giảng tương tác" : "Tài liệu giảng dạy"}</Link>
+      {d.lessonId
+        ? <Link href={`/scorm?khoa=${d.courseId}&buoi=${d.lessonId}`} className="text-sm text-ink-600">← Học liệu buổi {d.lessonSeq ?? ""}{d.lessonTitle ? `: ${d.lessonTitle}` : ""}</Link>
+        : <Link href={d.kind === "scorm" ? "/scorm" : "/documents"} className="text-sm text-ink-600">← {d.kind === "scorm" ? "Bài giảng tương tác" : "Tài liệu giảng dạy"}</Link>}
       <PageHeader
         title={d.title}
         desc={`${d.courseCode} — ${d.courseName}${d.lessonSeq ? ` · Bài ${d.lessonSeq}: ${d.lessonTitle}` : " · dùng chung cả khoá"} · ${d.categoryLabel} · ${d.audience === "student" ? "GV + HV/PH xem được" : "chỉ giáo viên"}`}

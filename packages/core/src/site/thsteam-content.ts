@@ -6,7 +6,7 @@
  * Số buổi, độ tuổi, tên cuộc thi, học phí đọc thẳng từ danh mục để website luôn khớp với hệ thống.
  */
 import {
-  TH_PRICING, TH_PROGRAMS, TH_TRACKS, TH_LEVEL_VI, TH_SESSIONS_PER_YEAR, TH_DIFFICULTY_VI, ageRange, examCourseName, thProgramsOfTrack,
+  TH_PRICING, TH_PROGRAMS, TH_TRACKS, TH_LEVEL_VI, TH_SESSIONS_PER_YEAR, TH_DIFFICULTY_PLAIN, ageRange, yearCourseName, moduleTitle, examCourseName, thProgramsOfTrack,
   type ThProgram, type ThSchoolLevel, type ThTrack, type ThTrackCode,
 } from "../curriculum/thsteam.js";
 import { TH_BRAND } from "../system/th-brand.js";
@@ -136,10 +136,10 @@ export const SESSION_STEPS: Row[] = [
 
 /** Cấu trúc học phần 15 buổi */
 export const MODULE_STEPS: Row[] = [
-  { title: "Buổi 1–4 và 6–12 · Học và làm dự án", text: "Mỗi buổi con học một kiến thức mới và làm một sản phẩm." },
-  { title: "Buổi 5 · Ôn tập", text: "Củng cố kiến thức, hoàn thiện sản phẩm cùng giáo viên." },
-  { title: "Buổi 13–14 · Dự án cuối học phần", text: "Con tự lên ý tưởng, xây dựng và trình diễn (demo)." },
-  { title: "Buổi 15 · Báo cáo học phần", text: "Con báo cáo dự án trước phụ huynh, nhận phiếu đánh giá." },
+  { title: "Buổi 1–4 và 6–12 · Dự án sáng tạo", text: "Mỗi buổi con học một kiến thức mới và làm một sản phẩm." },
+  { title: "Buổi 5 · Ôn tập & kiểm tra", text: "Củng cố kiến thức, kiểm tra giữa học phần, hoàn thiện sản phẩm cùng giáo viên." },
+  { title: "Buổi 13–14 · Dự án & demo cuối khoá", text: "Con tự lên ý tưởng, xây dựng và trình diễn (demo) dự án cuối khoá." },
+  { title: "Buổi 15 · Báo cáo cuối khoá", text: "Con báo cáo dự án trước phụ huynh, nhận phiếu đánh giá." },
 ];
 
 /** Buổi báo cáo (buổi 15) — 4 bước */
@@ -244,10 +244,10 @@ export function termsMarkdown(): string {
 export function programMarkdown(p: ThProgram): string {
   const out: string[] = [];
   for (const y of p.years) {
-    out.push(`## Năm ${y.no} · ${y.title} (${ageRange(y.ageFrom, y.ageTo)})`);
+    out.push(`## ${yearCourseName(p, y)} · ${y.title} (${ageRange(y.ageFrom, y.ageTo)})`);
     out.push(`**Phần mềm:** ${y.software} · ${TH_SESSIONS_PER_YEAR} buổi = 3 học phần × 15 buổi.${y.featuredProjects.length ? ` **Dự án tiêu biểu:** ${y.featuredProjects.join("; ")}.` : ""}`);
     out.push("");
-    for (const m of y.modules) out.push(`- **Học phần ${m.no} · ${TH_DIFFICULTY_VI[m.difficulty]} — ${m.name}.** Con học: ${m.learn}. Sản phẩm: ${m.product}. Con làm được: ${m.canDo}`);
+    for (const m of y.modules) out.push(`- **${moduleTitle(p, y, m)} (${TH_DIFFICULTY_PLAIN[m.difficulty]}) — ${m.name}.** Con học: ${m.learn}. Sản phẩm: ${m.product}. Con làm được: ${m.canDo}`);
     out.push("");
   }
   if (p.contests.length) {

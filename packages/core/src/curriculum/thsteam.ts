@@ -37,6 +37,7 @@ export const TH_LEVEL_COLOR: Record<ThSchoolLevel, { fg: string; bg: string }> =
   thpt: { fg: "#0F172A", bg: "#E2E8F0" },
 };
 export const TH_DIFFICULTY_VI: Record<ThDifficulty, string> = { basic: "Basic (Nền tảng)", advanced: "Advanced (Nâng cao)", expert: "Expert (Chuyên sâu)" };
+export const TH_DIFFICULTY_PLAIN: Record<ThDifficulty, string> = { basic: "Nền tảng", advanced: "Nâng cao", expert: "Chuyên sâu" };
 export const TH_DIFFICULTY_SHORT: Record<ThDifficulty, string> = { basic: "Basic", advanced: "Advanced", expert: "Expert" };
 /** Tên ngắn của chuyên ngành (nhãn, chip) */
 export const TH_TRACK_SHORT: Record<ThTrackCode, string> = { ROBO: "Robotics AI", AI: "Trí tuệ nhân tạo AI", DOHOA: "Đồ họa AI", CODE: "Lập trình AI" };
@@ -44,11 +45,11 @@ export const TH_TRACK_SHORT: Record<ThTrackCode, string> = { ROBO: "Robotics AI"
 /** Vai trò từng buổi trong một học phần 15 buổi */
 export type ThSessionRole = "learn" | "review" | "project" | "demo" | "report";
 export const TH_SESSION_ROLE_VI: Record<ThSessionRole, string> = {
-  learn: "Học và làm dự án",
-  review: "Ôn tập",
-  project: "Dự án cuối học phần",
-  demo: "Dự án cuối học phần · demo",
-  report: "Báo cáo học phần",
+  learn: "Dự án sáng tạo",
+  review: "Ôn tập & kiểm tra",
+  project: "Dự án cuối khoá",
+  demo: "Demo cuối khoá",
+  report: "Báo cáo cuối khoá",
 };
 /** Buổi thứ `k` (1–15) của học phần làm gì */
 export function sessionRole(k: number): ThSessionRole {
@@ -109,6 +110,51 @@ export function examCourseName(p: ThProgram, c: ThContest): string {
 export function programTitle(p: ThProgram): string {
   return `${thTrack(p.track)?.name ?? p.track} · ${TH_LEVEL_VI[p.level]} ${ageRange(p.ageFrom, p.ageTo)}`;
 }
+/* ------------------------------------------------------------------ */
+/* Tên gọi chuẩn: năm học, học phần, buổi                              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Tên gọi trong hệ thống quản trị (khoá học, học phần, buổi) theo phần mềm học của từng năm:
+ *   Năm học  →  "Năm 1: Lập trình RoboSim"
+ *   Học phần →  "HP1: RoboSim Basic" · "HP2: RoboSim Advanced" · "HP3: RoboSim Expert"
+ * Tên mô tả trên slide ("Lập trình robot ảo với RoboSim", "Làm quen robot ảo"…) giữ làm NỘI DUNG giới thiệu.
+ * Khoá: `<mã chương trình>-N<năm>`.
+ */
+export const TH_YEAR_NAMING: Readonly<Record<string, { verb: string; tool: string }>> = {
+  "ROBO-TH-N1": { verb: "Lập trình", tool: "RoboSim" },
+  "ROBO-TH-N2": { verb: "Lập trình", tool: "RoboVR" },
+  "AI-TH-N1": { verb: "Ứng dụng", tool: "AI" },
+  "AI-THCS-N1": { verb: "Ứng dụng", tool: "AI" },
+  "DOHOA-TH-N1": { verb: "Thiết kế", tool: "Tinkercad" },
+  "DOHOA-THCS-N1": { verb: "Thiết kế", tool: "Photoshop" },
+  "CODE-TH-N1": { verb: "Lập trình", tool: "Scratch" },
+  "CODE-TH-N2": { verb: "Lập trình", tool: "CreatiCode AI" },
+  "CODE-THCS1-N1": { verb: "Lập trình", tool: "Roblox Studio" },
+  "CODE-THCS1-N2": { verb: "Lập trình", tool: "App Inventor" },
+  "CODE-THCS2-N1": { verb: "Lập trình", tool: "Python" },
+  "CODE-THCS2-N2": { verb: "Lập trình", tool: "Web" },
+  "CODE-THPT-N1": { verb: "Lập trình", tool: "Web Full-stack" },
+  "CODE-THPT-N2": { verb: "Lập trình", tool: "WordPress" },
+};
+
+function naming(p: ThProgram, y: ThYear): { verb: string; tool: string } {
+  return TH_YEAR_NAMING[yearCourseCode(p, y.no)] ?? { verb: "Học", tool: y.software };
+}
+/** Phần mềm học của năm (tên ngắn): "RoboSim" */
+export function yearTool(p: ThProgram, y: ThYear): string {
+  return naming(p, y).tool;
+}
+/** Tên khoá năm học: "Năm 1: Lập trình RoboSim" */
+export function yearCourseName(p: ThProgram, y: ThYear): string {
+  const n = naming(p, y);
+  return `Năm ${y.no}: ${n.verb} ${n.tool}`;
+}
+/** Tên học phần: "HP1: RoboSim Basic" */
+export function moduleTitle(p: ThProgram, y: ThYear, m: { no: number; difficulty: ThDifficulty }): string {
+  return `HP${m.no}: ${naming(p, y).tool} ${TH_DIFFICULTY_SHORT[m.difficulty]}`;
+}
+
 export function programSummary(p: ThProgram): string {
   const n = p.years.length;
   return `${n} năm học · ${n * TH_SESSIONS_PER_YEAR} buổi · ${p.years.map((y) => y.software).join(" → ")}`;
@@ -130,33 +176,37 @@ export interface ThLessonSpec {
   role: ThSessionRole | "exam";
 }
 
+/**
+ * Tên buổi chuẩn trong học phần thứ `hp`: "HP1 · Dự án sáng tạo 3", "HP1 · Ôn tập & kiểm tra", "HP1 · Dự án cuối khoá",
+ * "HP1 · Demo cuối khoá", "HP1 · Báo cáo cuối khoá". `k` là buổi thứ mấy của học phần (1–15).
+ */
+export function sessionTitle(hp: number, k: number): string {
+  const role = sessionRole(k);
+  const base = TH_SESSION_ROLE_VI[role];
+  if (role !== "learn") return `HP${hp} · ${base}`;
+  const n = k < 5 ? k : k - 1; // buổi 1–4 → 1–4; buổi 6–12 → 5–11
+  return `HP${hp} · ${base} ${n}`;
+}
+
 /** 45 buổi của một năm học: 3 học phần × 15 buổi theo cấu trúc chuẩn */
 export function yearLessonPlan(y: ThYear): ThLessonSpec[] {
   const out: ThLessonSpec[] = [];
   for (const m of y.modules) {
-    let lessonNo = 0;
     for (let k = 1; k <= TH_SESSIONS_PER_MODULE; k += 1) {
       const role = sessionRole(k);
       const seq = (m.no - 1) * TH_SESSIONS_PER_MODULE + k;
-      const head = `HP${m.no} · ${TH_DIFFICULTY_SHORT[m.difficulty]} — `;
-      let title: string;
+      const title = sessionTitle(m.no, k);
       let objectives: string;
       if (role === "learn") {
-        lessonNo += 1;
-        title = `${head}${m.name} · bài ${lessonNo}`;
-        objectives = `Con học: ${m.learn}. Mỗi buổi học một kiến thức mới và làm một sản phẩm.`;
+        objectives = `${m.name}. Con học: ${m.learn}. Mỗi buổi học một kiến thức mới và làm một sản phẩm.`;
       } else if (role === "review") {
-        title = `${head}Ôn tập`;
-        objectives = "Củng cố kiến thức, hoàn thiện sản phẩm cùng giáo viên.";
+        objectives = "Ôn tập, củng cố kiến thức và kiểm tra giữa học phần; hoàn thiện sản phẩm cùng giáo viên.";
       } else if (role === "project") {
-        title = `${head}Dự án cuối học phần: lên ý tưởng`;
-        objectives = `Con tự lên ý tưởng và bắt đầu xây dựng dự án. Gợi ý sản phẩm: ${m.product}.`;
+        objectives = `Con tự lên ý tưởng và bắt đầu xây dựng dự án cuối khoá. Gợi ý sản phẩm: ${m.product}.`;
       } else if (role === "demo") {
-        title = `${head}Dự án cuối học phần: hoàn thiện và demo`;
-        objectives = `Con hoàn thiện và trình diễn (demo) dự án. Mục tiêu: ${m.canDo}.`;
+        objectives = `Con hoàn thiện và trình diễn (demo) dự án cuối khoá. Mục tiêu: ${m.canDo}.`;
       } else {
-        title = `${head}Báo cáo học phần trước phụ huynh`;
-        objectives = "Con trình bày ý tưởng, vận hành sản phẩm, trả lời câu hỏi; giáo viên nhận xét. Phụ huynh nhận phiếu đánh giá 6 năng lực + 3 phẩm chất.";
+        objectives = "Con báo cáo dự án cuối khoá trước phụ huynh: trình bày ý tưởng, vận hành sản phẩm, trả lời câu hỏi; giáo viên nhận xét. Phụ huynh nhận phiếu đánh giá 6 năng lực + 3 phẩm chất.";
       }
       out.push({ seq, title, objectives, materials: y.software, milestone: role === "report", module: m.no, role });
     }
@@ -289,14 +339,14 @@ export function thCourseSpecs(): ThCourseSpec[] {
       const code = yearCourseCode(p, y.no);
       const next = p.years[i + 1] ? yearCourseCode(p, p.years[i + 1]!.no) : null;
       out.push({
-        code, slug: slugOf(code), name: y.title, kind: "year", programCode: p.code, trackCode: p.track, yearNo: y.no, contestKey: null,
+        code, slug: slugOf(code), name: yearCourseName(p, y), kind: "year", programCode: p.code, trackCode: p.track, yearNo: y.no, contestKey: null,
         totalSessions: TH_SESSIONS_PER_YEAR, sessionMinutes: TH_SESSION_MINUTES,
         gradeFrom: gradeOfAge(y.ageFrom), gradeTo: gradeOfAge(y.ageTo),
         level: `${TH_LEVEL_VI[p.level]} · ${ageRange(y.ageFrom, y.ageTo)} · Năm ${y.no}/${p.years.length}`,
         description: [
-          `${programTitle(p)} — năm học ${y.no}: ${y.software}.`,
+          `${programTitle(p)} — năm học ${y.no}: ${y.title} (${y.software}).`,
           y.tools,
-          y.modules.map((m) => `Học phần ${m.no} · ${TH_DIFFICULTY_VI[m.difficulty]}: ${m.name}.`).join(" "),
+          y.modules.map((m) => `${moduleTitle(p, y, m)} (${TH_DIFFICULTY_PLAIN[m.difficulty]}) — ${m.name}.`).join(" "),
           y.featuredProjects.length ? `Dự án tiêu biểu: ${y.featuredProjects.join(", ")}.` : null,
           TH_DELIVERY + ".",
         ].filter(Boolean).join(" "),

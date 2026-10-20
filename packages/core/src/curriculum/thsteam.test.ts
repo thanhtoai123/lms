@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   TH_TRACKS, TH_PROGRAMS, TH_PRICING, TH_SESSIONS_PER_YEAR, thCourseSpecs, thPathSpecs, yearLessonPlan, examLessonPlan, parseSyllabus,
   programCriteria, sessionRole, gradeOfAge, programTitle, examCourseName, thProgram, TH_CRITERIA_ORDER,
+  TH_YEAR_NAMING, yearCourseCode, yearCourseName, moduleTitle,
 } from "./thsteam.js";
 import { validateCriterion } from "../portfolio/standard.js";
 import { reportCardMilestones } from "../reportcards/rules.js";
@@ -53,9 +54,34 @@ test("kế hoạch 45 buổi: buổi 5 ôn tập, 13–14 dự án, 15 báo cáo
   assert.deepEqual(plan.filter((l) => l.milestone).map((l) => l.seq), [15, 30, 45]);
   assert.deepEqual(plan.filter((l) => l.milestone).map((l) => l.seq), reportCardMilestones(45), "trùng mốc học bạ của hệ thống");
   assert.deepEqual(plan.filter((l) => l.role === "review").map((l) => l.seq), [5, 20, 35]);
-  assert.match(plan[0]!.title, /^HP1 · Basic — Làm quen robot ảo · bài 1$/);
-  assert.match(plan[44]!.title, /HP3 · Expert — Báo cáo học phần/);
+  const t = (seq: number) => plan[seq - 1]!.title;
+  assert.equal(t(1), "HP1 · Dự án sáng tạo 1");
+  assert.equal(t(4), "HP1 · Dự án sáng tạo 4");
+  assert.equal(t(5), "HP1 · Ôn tập & kiểm tra");
+  assert.equal(t(6), "HP1 · Dự án sáng tạo 5");
+  assert.equal(t(12), "HP1 · Dự án sáng tạo 11");
+  assert.equal(t(13), "HP1 · Dự án cuối khoá");
+  assert.equal(t(14), "HP1 · Demo cuối khoá");
+  assert.equal(t(15), "HP1 · Báo cáo cuối khoá");
+  assert.equal(t(16), "HP2 · Dự án sáng tạo 1");
+  assert.equal(t(45), "HP3 · Báo cáo cuối khoá");
+  assert.match(plan[0]!.objectives, /^Làm quen robot ảo\./, "tên mô tả của học phần giữ làm nội dung");
   assert.equal(new Set(plan.map((l) => l.title)).size, 45, "tên buổi không trùng");
+});
+
+test("tên gọi chuẩn: Năm N: <động từ> <phần mềm> · HP n: <phần mềm> Basic/Advanced/Expert", () => {
+  const robo = thProgram("ROBO-TH")!;
+  assert.equal(yearCourseName(robo, robo.years[0]!), "Năm 1: Lập trình RoboSim");
+  assert.equal(yearCourseName(robo, robo.years[1]!), "Năm 2: Lập trình RoboVR");
+  assert.deepEqual(robo.years[0]!.modules.map((m) => moduleTitle(robo, robo.years[0]!, m)), ["HP1: RoboSim Basic", "HP2: RoboSim Advanced", "HP3: RoboSim Expert"]);
+  const dh = thProgram("DOHOA-TH")!;
+  assert.equal(yearCourseName(dh, dh.years[0]!), "Năm 1: Thiết kế Tinkercad");
+  for (const p of TH_PROGRAMS) for (const y of p.years) {
+    assert.ok(TH_YEAR_NAMING[yearCourseCode(p, y.no)], `${p.code} năm ${y.no}: thiếu tên phần mềm`);
+    assert.match(yearCourseName(p, y), /^Năm \d: \S/);
+  }
+  const specs = thCourseSpecs().filter((c) => c.kind === "year");
+  assert.ok(specs.every((c) => /^Năm \d: /.test(c.name)), "khoá năm học dùng tên chuẩn");
 });
 
 test("kế hoạch khoá luyện thi đọc từ đề cương 'Buổi a–b: …', mốc mỗi 15 buổi", () => {

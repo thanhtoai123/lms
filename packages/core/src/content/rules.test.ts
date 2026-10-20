@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {
   fileExt, validateDocFile, safeFileName, validateDocument, docTransition, embedUrl, parseScormManifest, normalizeZipPath, scormStatusFromCmi, parseScormTime,
   mergeScormStatus, validateAssignment, submissionTransition, validateGrade, validateSubmission, assignmentStats, earnsCoin, proposalTransition, validateProposal,
-  changedFields, proposalConflict,
+  changedFields, proposalConflict, guessDocCategory, titleFromFileName,
 } from "./rules.js";
 
 test("tài liệu: tệp, tiêu đề, trạng thái", () => {
@@ -115,4 +115,17 @@ test("đề xuất giáo án", () => {
   assert.ok(validateProposal({ type: "objectives", reason: "ngắn", patch: {}, current: cur }).length === 2);
   assert.deepEqual(validateProposal({ type: "timing", reason: "Bài này cần 2 buổi mới dạy hết nội dung", patch: {}, current: cur }), []);
   assert.deepEqual(proposalConflict(cur, { ...cur, objectives: "Đã sửa" }, ["objectives", "title"]), ["objectives"]);
+});
+
+test("tải nhiều tệp cho một buổi: đoán nhóm theo đuôi, tiêu đề từ tên tệp, nhận Word/ảnh cũ", () => {
+  assert.equal(guessDocCategory("Phieu bai tap 1.docx"), "worksheet");
+  assert.equal(guessDocCategory("anh-de-bai.PNG"), "worksheet");
+  assert.equal(guessDocCategory("slide.pptx"), "slides");
+  assert.equal(guessDocCategory("mau.sb3"), "program");
+  assert.equal(guessDocCategory("huong-dan.mp4"), "video");
+  assert.equal(titleFromFileName("Phieu_bai_tap  buoi 3.docx"), "Phieu bai tap buoi 3");
+  assert.equal(titleFromFileName(".pdf"), "Tài liệu");
+  assert.equal(validateDocFile("de-bai.doc", 1000, "file"), null);
+  assert.equal(validateDocFile("hinh.gif", 1000, "file"), null);
+  assert.match(validateDocFile("virus.exe", 1000, "file")!, /Không nhận/);
 });

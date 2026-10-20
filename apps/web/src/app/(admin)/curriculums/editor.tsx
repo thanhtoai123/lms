@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { useTRPC } from "@/lib/trpc/client";
@@ -37,7 +38,7 @@ export function NewCurriculum({ courses }: { courses: { id: string; code: string
   );
 }
 
-type Lesson = { id: string; sequenceNo: number; title: string; objectives: string | null; materials: string | null; isReportCardMilestone: boolean; used: number };
+type Lesson = { id: string; sequenceNo: number; title: string; objectives: string | null; materials: string | null; isReportCardMilestone: boolean; used: number; planKind?: string | null; docs?: number };
 
 export function CurriculumEditor({ c }: { c: { id: string; courseId: string; name: string; description: string | null; status: string; canEdit: boolean; readiness: string[]; lessons: Lesson[]; courseSessions: number } }) {
   const trpc = useTRPC();
@@ -115,7 +116,12 @@ export function CurriculumEditor({ c }: { c: { id: string; courseId: string; nam
                     <div className="text-sm"><span className="mr-1 font-mono text-xs text-ink-400">#{l.sequenceNo}</span><b>{l.title}</b>{l.isReportCardMilestone && <span className="chip ml-1 bg-violet-100 text-violet-800">Mốc học bạ</span>}</div>
                     {l.objectives && <div className="whitespace-pre-wrap text-xs text-ink-600">{l.objectives}</div>}
                     {l.materials && <div className="text-xs text-ink-400">Học cụ: {l.materials}</div>}
-                    {l.used > 0 && <div className="text-[11px] text-ink-400">Đang gắn {l.used} buổi học</div>}
+                    <div className="mt-1 flex flex-wrap items-center gap-1 text-[11px]">
+                      <span className={`chip ${l.planKind ? "bg-green-600/10 text-green-700" : "bg-amber-50 text-amber-800"}`}>{l.planKind === "scorm" ? "Giáo án SCORM ✓" : l.planKind ? "Giáo án PDF ✓" : "Chưa có giáo án"}</span>
+                      {(l.docs ?? 0) > 0 && <span className="chip bg-brand-600/10 text-brand-600">{l.docs} tài liệu đính kèm</span>}
+                      <Link href={`/scorm?khoa=${c.courseId}&buoi=${l.id}`} className="font-semibold text-brand-600 hover:underline">Học liệu buổi →</Link>
+                      {l.used > 0 && <span className="text-ink-400">· đang gắn {l.used} buổi học</span>}
+                    </div>
                   </div>
                   {canWriteLessons && (
                     <div className="flex shrink-0 gap-1 text-xs">

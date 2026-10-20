@@ -37,9 +37,25 @@ export const DOC_FILE_TYPES: Record<string, string> = {
   pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
   docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp",
-  mp4: "video/mp4", zip: "application/zip", sb3: "application/octet-stream", txt: "text/plain",
+  doc: "application/msword", ppt: "application/vnd.ms-powerpoint", xls: "application/vnd.ms-excel",
+  png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp", gif: "image/gif",
+  mp4: "video/mp4", mp3: "audio/mpeg", zip: "application/zip", sb3: "application/octet-stream", txt: "text/plain",
 };
+
+/** Chọn sẵn nhóm tài liệu theo đuôi tệp khi tải nhiều tệp cho một buổi (người dùng vẫn đổi được) */
+export function guessDocCategory(fileName: string): DocCategory {
+  const ext = fileExt(fileName);
+  if (ext === "pptx" || ext === "ppt") return "slides";
+  if (ext === "mp4" || ext === "mp3") return "video";
+  if (ext === "sb3" || ext === "zip") return "program";
+  return "worksheet";
+}
+
+/** Tiêu đề gợi ý từ tên tệp: bỏ đuôi, đổi gạch nối / gạch dưới thành khoảng trắng */
+export function titleFromFileName(fileName: string): string {
+  const t = fileName.replace(/\.[^.]+$/, "").replace(/[_]+/g, " ").replace(/\s+/g, " ").trim();
+  return (t || "Tài liệu").slice(0, 200);
+}
 export const DOC_MAX_BYTES = 50 * 1024 * 1024;
 export const SCORM_MAX_BYTES = 200 * 1024 * 1024;
 export const SCORM_MAX_FILES = 3000;

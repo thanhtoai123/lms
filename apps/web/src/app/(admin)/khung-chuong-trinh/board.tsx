@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import {
   TH_TRACKS, TH_LEVEL_VI, TH_LEVEL_COLOR, TH_DIFFICULTY_VI, TH_PRICING, TH_DELIVERY, TH_SESSIONS_PER_YEAR, TH_CRITERIA_ORDER,
-  ageRange, examCourseCode, examCourseName, thProgramsOfTrack, thCourseSpecs, yearCourseCode, type ThTrackCode,
+  ageRange, examCourseCode, examCourseName, thProgramsOfTrack, thCourseSpecs, yearCourseCode, yearCourseName, moduleTitle, sessionTitle, type ThTrackCode,
 } from "@satarobo/core";
 import { useTRPC } from "@/lib/trpc/client";
 
@@ -39,7 +39,7 @@ export function CatalogBoard({ state, otherActiveCourses, canSync }: { state: St
 
   const sync = useMutation(trpc.thsteam.sync.mutationOptions({
     onSuccess: (r) => {
-      setMsg(`Đã đồng bộ: khoá tạo ${r.courses.created} / cập nhật ${r.courses.updated} · buổi tạo ${r.lessons.created} / cập nhật ${r.lessons.updated} · tiêu chí thêm ${r.criteria.created} · gói học phí tạo ${r.packages.created} / cập nhật ${r.packages.updated} · lộ trình ${r.paths.created + r.paths.updated}${retire ? ` · ngừng bán ${r.retired.courses} khoá ngoài danh mục` : ""}.`);
+      setMsg(`Đã đồng bộ: khoá tạo ${r.courses.created} / cập nhật ${r.courses.updated} · buổi tạo ${r.lessons.created} / cập nhật ${r.lessons.updated}${r.renamed.sessions + r.renamed.plans ? ` (đổi tên ${r.renamed.sessions} buổi dạy, ${r.renamed.plans} giáo án)` : ""} · tiêu chí thêm ${r.criteria.created} · gói học phí tạo ${r.packages.created} / cập nhật ${r.packages.updated} · lộ trình ${r.paths.created + r.paths.updated}${retire ? ` · ngừng bán ${r.retired.courses} khoá ngoài danh mục` : ""}.`);
       router.refresh();
     },
     onError: (e) => setMsg(e.message),
@@ -55,6 +55,18 @@ export function CatalogBoard({ state, otherActiveCourses, canSync }: { state: St
         <div className="card p-4"><div className="text-xs text-ink-400">Đã nạp vào hệ thống</div><div className="text-2xl font-bold tabular-nums">{loaded}/{specs.length}</div><div className="text-xs text-ink-400">Đủ buổi và tiêu chí: {full}</div></div>
         <div className="card p-4"><div className="text-xs text-ink-400">Hình thức</div><div className="text-sm font-medium">{TH_DELIVERY}</div></div>
         <div className="card p-4"><div className="text-xs text-ink-400">Học phí {TH_PRICING.schoolYear} · 1 năm học</div><div className="text-sm"><b>{vnd(TH_PRICING.year.group.price)}</b> lớp nhóm · <b>{vnd(TH_PRICING.year.oneToOne.price)}</b> kèm 1:1</div><div className="text-xs text-ink-400">Combo 2 năm: {vnd(TH_PRICING.combo.group.price)} · Luyện thi {vnd(TH_PRICING.exam[15]!.group)} (15 buổi) / {vnd(TH_PRICING.exam[30]!.group)} (30 buổi)</div></div>
+      </div>
+
+      <div className="card p-4 text-sm">
+        <div className="font-semibold">Tên buổi chuẩn trong mỗi học phần (15 buổi)</div>
+        <ol className="mt-2 grid gap-1 text-xs text-ink-600 sm:grid-cols-3 lg:grid-cols-5">
+          {Array.from({ length: 15 }, (_, i) => i + 1).map((k) => (
+            <li key={k} className={`rounded-lg border px-2 py-1 ${k === 5 ? "border-amber-300 bg-amber-50" : k >= 13 ? "border-emerald-300 bg-emerald-50" : "border-black/5"}`}>
+              <b className="tabular-nums">Buổi {k}</b> · {sessionTitle(1, k).replace(/^HP1 · /, "")}{k === 15 ? " · mốc học bạ" : ""}
+            </li>
+          ))}
+        </ol>
+        <p className="mt-2 text-xs text-ink-400">Tên trong giáo trình có tiền tố học phần, ví dụ “HP2 · Dự án sáng tạo 3”. Khoá năm học: “Năm 1: Lập trình RoboSim”; học phần: “HP1: RoboSim Basic”.</p>
       </div>
 
       {canSync && (
@@ -96,15 +108,16 @@ export function CatalogBoard({ state, otherActiveCourses, canSync }: { state: St
             return (
               <div key={y.no} className="rounded-xl border border-black/5">
                 <div className="flex flex-wrap items-center gap-2 border-b border-black/5 bg-slate-50 px-3 py-2 text-sm">
-                  <b>Năm {y.no}</b><span>{y.title}</span><span className="text-xs text-ink-400">{ageRange(y.ageFrom, y.ageTo)} · {y.software}</span>
+                  <b>{yearCourseName(p, y)}</b><span className="text-ink-600">{y.title}</span><span className="text-xs text-ink-400">{ageRange(y.ageFrom, y.ageTo)} · {y.software}</span>
                   <Link href={`/courses?q=${code}`} className="font-mono text-xs text-brand-600 hover:underline">{code}</Link>
                   <span className="ml-auto"><CourseState code={code} sessions={TH_SESSIONS_PER_YEAR} state={state} /></span>
                 </div>
                 <div className="grid gap-px bg-black/5 md:grid-cols-3">
                   {y.modules.map((m) => (
                     <div key={m.no} className="space-y-1 bg-white p-3 text-sm">
-                      <div className="text-xs font-semibold uppercase tracking-wide text-ink-400">Học phần {m.no} · {TH_DIFFICULTY_VI[m.difficulty]} · buổi {(m.no - 1) * 15 + 1}–{m.no * 15}</div>
-                      <div className="font-semibold">{m.name}</div>
+                      <div className="text-xs font-semibold uppercase tracking-wide text-ink-400">{TH_DIFFICULTY_VI[m.difficulty]} · buổi {(m.no - 1) * 15 + 1}–{m.no * 15}</div>
+                      <div className="font-semibold">{moduleTitle(p, y, m)}</div>
+                      <div className="text-ink-600">{m.name}</div>
                       <div><span className="text-ink-400">Con học: </span>{m.learn}</div>
                       <div><span className="text-ink-400">Sản phẩm: </span>{m.product}</div>
                       <div><span className="text-ink-400">Con làm được: </span>{m.canDo}</div>

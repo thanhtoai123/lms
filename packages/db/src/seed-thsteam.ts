@@ -53,7 +53,7 @@ const certs = await db.update(certificateTemplates).set({ backgroundKey: TH_BRAN
 const r = await syncThSteamCatalog(db, { tenantId, retireOthers: !keepOld });
 
 console.log(`✓ Nhận diện: ${TH_BRAND.name} · ${TH_BRAND.hotline} · ${TH_BRAND.website} · màu ${BRAND_DEFAULT_COLORS.primary} + ${BRAND_DEFAULT_COLORS.accent} · ${certs.length} mẫu chứng nhận đổi nền`);
-console.log(`✓ Khoá học: tạo ${r.courses.created}, cập nhật ${r.courses.updated} · buổi: tạo ${r.lessons.created}, cập nhật ${r.lessons.updated}`);
+console.log(`✓ Khoá học: tạo ${r.courses.created}, cập nhật ${r.courses.updated} · buổi: tạo ${r.lessons.created}, cập nhật ${r.lessons.updated} · đổi tên theo buổi: ${r.renamed.sessions} buổi dạy, ${r.renamed.plans} giáo án`);
 console.log(`✓ Tiêu chí học bạ: thêm ${r.criteria.created}, điền mô tả ${r.criteria.filled} · gói học phí: tạo ${r.packages.created}, cập nhật ${r.packages.updated} · lộ trình: tạo ${r.paths.created}, cập nhật ${r.paths.updated}`);
 console.log(keepOld ? "= Giữ danh mục cũ đang bán (--giu-cu)" : `✓ Ngừng bán danh mục cũ: ${r.retired.courses} khoá, ${r.retired.packages} gói, ${r.retired.paths} lộ trình (không xoá)`);
 

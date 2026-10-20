@@ -4,22 +4,24 @@ import { redirect } from "next/navigation";
 import { getServerCaller } from "@/lib/trpc/server";
 import { NoAccess, PageHeader } from "@/components/admin-ui";
 import { PlanActions, PlanPicker, PlanUpload } from "@/components/lesson-plan-ui";
+import { LessonMaterials, type LessonDoc } from "@/components/lesson-materials";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "SCORM / Giáo án buổi học" };
+export const metadata = { title: "Học liệu buổi học" };
 
 type SP = { khoa?: string; buoi?: string };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
- * GIÁO ÁN CỦA TỪNG BUỔI HỌC — chọn khoá → buổi → xem / thay giáo án.
- * Mỗi buổi giữ đúng một giáo án (slide PDF hoặc gói SCORM), cả hai chiếu cùng một khung.
+ * HỌC LIỆU CỦA TỪNG BUỔI HỌC — chọn khoá → buổi → giáo án + tài liệu đính kèm.
+ * Mỗi buổi giữ đúng một giáo án (slide PDF hoặc gói SCORM), cả hai chiếu cùng một khung; kèm theo bao nhiêu tài liệu
+ * cũng được (Word, PDF, ảnh bài tập, slide, video, .sb3…).
  * Lựa chọn nằm trên URL (?khoa=&buoi=) nên dán link cho đồng nghiệp là mở đúng buổi đó.
  */
 export default async function LessonPlanPage({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
   const { caller, ctx } = await getServerCaller();
-  if (!ctx.actor || !hasPermission(ctx.actor as Actor, "document:read")) return <NoAccess title="SCORM / Giáo án buổi học" perm="document:read" />;
+  if (!ctx.actor || !hasPermission(ctx.actor as Actor, "document:read")) return <NoAccess title="Học liệu buổi học" perm="document:read" />;
   const courseId = sp.khoa && UUID.test(sp.khoa) ? sp.khoa : "";
   // Giáo viên (chỉ `document:read_own`): trang quản lý giáo án không dành cho họ → Giáo án của tôi
   const full = centersWith(ctx.actor as Actor, "document:read");
@@ -31,6 +33,16 @@ export default async function LessonPlanPage({ searchParams }: { searchParams: P
   const plan = lessonId ? await caller.content.plan({ lessonId }) : null;
   // Nhật ký mở + thao tác nghi vấn sao chép (chỉ người được sửa học liệu mới xem được)
   const report = lessonId && plan?.canEdit ? await caller.content.planAccessReport({ lessonId }) : null;
+  // Tài liệu đính kèm của buổi (ngoài giáo án)
+  const docs = lessonId && plan ? await caller.content.documents({ lessonId }).catch(() => null) : null;
+  const attached: LessonDoc[] = (docs?.items ?? []).filter((d) => d.category !== "lesson_plan").map((d) => ({
+    id: d.id, title: d.title, kind: d.kind as LessonDoc["kind"], category: d.category as LessonDoc["category"], categoryLabel: d.categoryLabel, audience: d.audience as LessonDoc["audience"],
+    status: d.status, statusLabel: d.statusLabel, fileName: d.fileName, sizeBytes: d.sizeBytes, currentVersion: d.currentVersion, url: d.url, hasContent: d.hasContent,
+  }));
+  const list = lessons?.items ?? [];
+  const at = list.findIndex((l) => l.id === lessonId);
+  const prevL = at > 0 ? list[at - 1]! : null;
+  const nextL = at >= 0 && at < list.length - 1 ? list[at + 1]! : null;
   const q = (over: SP) => {
     const p = new URLSearchParams();
     const k = over.khoa ?? courseId;
@@ -43,11 +55,13 @@ export default async function LessonPlanPage({ searchParams }: { searchParams: P
   return (
     <div className="space-y-4">
       <PageHeader
-        title="SCORM / Giáo án buổi học"
-        desc="Giáo án của từng buổi: một buổi giữ đúng một bản đang dùng — slide PDF hoặc gói SCORM."
+        title="Học liệu buổi học"
+        desc="Mỗi buổi: một giáo án đang dùng (gói SCORM hoặc slide PDF) + tài liệu đính kèm (Word, PDF, ảnh bài tập, slide, video, .sb3…)."
         help={
           <div className="space-y-1">
-          <p>Chọn <b>khoá học</b> → <b>buổi học</b> để xem hoặc đổi giáo án. Mỗi buổi chỉ giữ 1 giáo án: đẩy bản mới sẽ thay bản cũ <b>sau khi xử lý xong</b>, nên buổi dạy không bao giờ trống giữa chừng.</p>
+          <p>Chọn <b>khoá học</b> → <b>buổi học</b> để xem hoặc đổi giáo án và tài liệu đính kèm. Tên buổi theo chuẩn: <i>HP1 · Dự án sáng tạo 1…11</i>, <i>Ôn tập &amp; kiểm tra</i> (buổi 5), <i>Dự án cuối khoá</i> (13), <i>Demo cuối khoá</i> (14), <i>Báo cáo cuối khoá</i> (15).</p>
+          <p><b>Tài liệu đính kèm</b>: kéo thả nhiều tệp một lần — mỗi tệp thành một tài liệu của buổi, có thể phát hành ngay; giáo viên thấy trong Chuẩn bị buổi dạy.</p>
+          <p> Mỗi buổi chỉ giữ 1 giáo án: đẩy bản mới sẽ thay bản cũ <b>sau khi xử lý xong</b>, nên buổi dạy không bao giờ trống giữa chừng.</p>
           <p>Gói SCORM là tệp <b>.zip</b> có <code className="font-mono text-xs">imsmanifest.xml</code> (SCORM 1.2 hoặc 2004), tối đa 200MB. Slide là tệp <b>.pdf</b>, tối đa 100MB.</p>
           <p>Bản tải lên bị kẹt quá 15 phút coi như hỏng — bấm <b>Dọn bản lỗi</b> rồi đẩy lại, không cần gọi kỹ thuật.</p>
           <p><b>Chiếu bài mà không cho quay màn hình:</b> mở bằng ứng dụng <b>Trình chiếu an toàn</b> (thư mục <code className="font-mono text-xs">tools/trinh-chieu</code>) — cửa sổ đó hiện <b>màn đen</b> trong mọi phần mềm quay/chụp và chia sẻ màn hình. Mở bằng trình duyệt thì chỉ có chữ mờ + nhật ký, trình duyệt không chặn được phần mềm quay.</p>
@@ -74,7 +88,7 @@ export default async function LessonPlanPage({ searchParams }: { searchParams: P
               placeholder={courseId ? "— Chọn buổi học —" : "— Chọn khoá học trước —"}
               otherName="khoa"
               otherValue={courseId}
-              options={(lessons?.items ?? []).map((l) => ({ id: l.id, label: `Buổi ${l.sequenceNo}: ${l.title}${l.hasPlan ? "" : " · chưa có giáo án"}` }))}
+              options={(lessons?.items ?? []).map((l) => ({ id: l.id, label: `Buổi ${l.sequenceNo}: ${l.title}${l.hasPlan ? "" : " · chưa có giáo án"}${l.docs ? ` · ${l.docs} tài liệu` : ""}` }))}
             />
           </div>
         </label>
@@ -92,12 +106,17 @@ export default async function LessonPlanPage({ searchParams }: { searchParams: P
       </div>
 
       {!lessonId || !plan ? (
-        <div className="card p-6 text-sm text-ink-600">Chọn khoá học và buổi học để xem giáo án.</div>
+        <div className="card p-6 text-sm text-ink-600">Chọn khoá học và buổi học để xem giáo án và tài liệu đính kèm.</div>
       ) : (
+        <>
         <div className="card space-y-3 p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="font-semibold">Giáo án — Buổi {plan.lesson.sequenceNo}: {plan.lesson.title}</h2>
-            <Link href={q({ buoi: lessonId })} className="btn-ghost !py-1">Làm mới</Link>
+            <div className="flex flex-wrap gap-2">
+              {prevL && <Link href={q({ buoi: prevL.id })} className="btn-ghost !py-1" title={prevL.title}>← Buổi {prevL.sequenceNo}</Link>}
+              {nextL && <Link href={q({ buoi: nextL.id })} className="btn-ghost !py-1" title={nextL.title}>Buổi {nextL.sequenceNo} →</Link>}
+              <Link href={q({ buoi: lessonId })} className="btn-ghost !py-1">Làm mới</Link>
+            </div>
           </div>
 
           {plan.plan ? (
@@ -187,6 +206,14 @@ export default async function LessonPlanPage({ searchParams }: { searchParams: P
             </details>
           )}
         </div>
+        <LessonMaterials
+          courseId={plan.lesson.courseId}
+          lessonId={lessonId}
+          lessonLabel={`Buổi ${plan.lesson.sequenceNo}: ${plan.lesson.title}`}
+          docs={attached}
+          canEdit={!!docs?.canEdit}
+        />
+        </>
       )}
     </div>
   );

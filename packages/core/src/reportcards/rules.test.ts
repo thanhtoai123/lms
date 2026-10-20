@@ -25,8 +25,8 @@ test("mốc học bạ = buổi báo cáo cuối mỗi học phần 15 buổi (T
   assert.deepEqual(reportCardMilestones(20), [15, 20], "khoá lẻ có thêm mốc ở buổi cuối");
   assert.deepEqual(reportCardMilestones(0), []);
   assert.deepEqual(milestoneInfo(30), { term: 2, kind: "end" });
-  assert.equal(milestoneLabel(15), "Học phần 1 · báo cáo (buổi 15)");
-  assert.equal(milestoneLabel(45), "Học phần 3 · báo cáo (buổi 45)");
+  assert.equal(milestoneLabel(15), "HP1 · Báo cáo cuối khoá (buổi 15)");
+  assert.equal(milestoneLabel(45), "HP3 · Báo cáo cuối khoá (buổi 45)");
   // Chính sách khác vẫn dùng được (vd kỳ 12 buổi có giữa kỳ)
   const old = { termLength: 12, checkpoints: [5, 12] };
   assert.deepEqual(reportCardMilestones(24, old), [5, 12, 17, 24]);

@@ -8,7 +8,7 @@
  *     chương trình đó (bảng "Con thay đổi gì sau mỗi năm học").
  *   - Sản phẩm thầy cô ghi ở các buổi (đếm cho bìa); từng sản phẩm hiện ở phần chi tiết từng buổi.
  */
-import { TH_CRITERIA_ORDER, TH_DIFFICULTY_VI, TH_LEVEL_VI, TH_SESSIONS_PER_MODULE, TH_TRACK_SHORT, ageRange, programTitle, thCourseSpecs, thProgram, type ThCourseSpec } from "../curriculum/thsteam.js";
+import { TH_CRITERIA_ORDER, TH_DIFFICULTY_VI, TH_LEVEL_VI, TH_SESSIONS_PER_MODULE, TH_TRACK_SHORT, ageRange, moduleTitle, programTitle, thCourseSpecs, thProgram, type ThCourseSpec } from "../curriculum/thsteam.js";
 import type { ThProgram } from "../curriculum/thsteam-types.js";
 import { RUBRIC_LABEL, RUBRIC_SCALE, convertScore, rubricLevelsFor } from "./rubric.js";
 import type { MilestoneCardView, PortfolioCourseView, PortfolioView } from "./view.js";
@@ -25,6 +25,9 @@ export const TECH_MODULE_STATUS_VI: Record<TechModuleStatus, string> = { done: "
 
 export interface TechModuleView {
   no: number;
+  /** Tên chuẩn: "HP1: RoboSim Basic" */
+  title: string;
+  /** Tên mô tả nội dung (theo slide): "Làm quen robot ảo" */
   name: string;
   difficulty: string;
   learn: string;
@@ -131,7 +134,7 @@ function moduleViews(c: PortfolioCourseView, spec: ThCourseSpec, program: ThProg
     const status: TechModuleStatus = card || finished ? "done" : done >= TH_SESSIONS_PER_MODULE ? "waiting" : done > 0 ? "in_progress" : "upcoming";
     const level = card ? levelOf(onScale(card.average, card.scale)) : null;
     return {
-      no: m.no, name: m.name, difficulty: TH_DIFFICULTY_VI[m.difficulty], learn: m.learn, product: m.product, canDo: m.canDo,
+      no: m.no, title: moduleTitle(program, year, m), name: m.name, difficulty: TH_DIFFICULTY_VI[m.difficulty], learn: m.learn, product: m.product, canDo: m.canDo,
       fromSeq, toSeq, sessionsDone: done, sessionsTotal: TH_SESSIONS_PER_MODULE, status,
       level, levelLabel: level ? RUBRIC_LABEL[level] ?? null : null, reportDate: card?.publishedAt ?? null,
     };

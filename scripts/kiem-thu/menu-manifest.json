@@ -612,7 +612,7 @@
               ]
             },
             {
-              "label": "SCORM / giáo án buổi học",
+              "label": "Học liệu buổi học",
               "href": "/scorm",
               "perm": [
                 "document:read"

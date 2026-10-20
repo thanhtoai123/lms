@@ -84,6 +84,7 @@ export async function planLessons(ctx: ProtectedContext, input: { courseId: stri
     curriculumName: curricula.name,
     planKind: documents.kind,
     planVersion: documents.currentVersion,
+    docs: sql<number>`(select count(*)::int from documents x where x.lesson_id = ${lessons.id} and x.category <> 'lesson_plan' and x.status <> 'archived')`,
   })
     .from(lessons)
     .innerJoin(curricula, eq(curricula.id, lessons.curriculumId))
@@ -97,6 +98,8 @@ export async function planLessons(ctx: ProtectedContext, input: { courseId: stri
     title: r.title,
     hasPlan: !!r.planKind && (r.planVersion ?? 0) > 0,
     planKind: (r.planKind === "scorm" ? "scorm" : r.planKind ? "pdf" : null) as PlanFileKind | null,
+    /** Số tài liệu đính kèm của buổi (Word, PDF, ảnh bài tập…) */
+    docs: r.docs,
   }));
   // Giáo viên: trạng thái mở giáo án từng buổi (trong ca / đã duyệt / chờ duyệt / khoá) — 2 truy vấn cả danh sách
   const briefs = await planAccessBriefs(ctx, items.filter((l) => l.hasPlan).map((l) => l.id));

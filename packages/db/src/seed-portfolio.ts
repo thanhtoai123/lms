@@ -69,14 +69,14 @@ const SEED_CRITERIA_TEMPLATE: Record<string, string> = {
 };
 /** Tiêu chí trọng tâm của vài bài Robotics Tiểu học (tên bài, tên tiêu chí) */
 const SEED_FOCUS: [string, string][] = [
-  ["HP1 · Basic — Làm quen robot ảo · bài 1", "Kỹ năng vi tính"],
-  ["HP1 · Basic — Làm quen robot ảo · bài 3", "Tư duy công nghệ"],
-  ["HP1 · Basic — Ôn tập", "Tư duy phản biện"],
-  ["HP1 · Basic — Dự án cuối học phần: lên ý tưởng", "Tư duy công nghệ"],
-  ["HP1 · Basic — Dự án cuối học phần: hoàn thiện và demo", "Trách nhiệm"],
-  ["HP1 · Basic — Báo cáo học phần trước phụ huynh", "Tự tin, trình bày"],
-  ["HP2 · Advanced — Robot biết cảm nhận · bài 1", "Tư duy công nghệ"],
-  ["HP2 · Advanced — Báo cáo học phần trước phụ huynh", "Tự tin, trình bày"],
+  ["HP1 · Dự án sáng tạo 1", "Kỹ năng vi tính"],
+  ["HP1 · Dự án sáng tạo 3", "Tư duy công nghệ"],
+  ["HP1 · Ôn tập & kiểm tra", "Tư duy phản biện"],
+  ["HP1 · Dự án cuối khoá", "Tư duy công nghệ"],
+  ["HP1 · Demo cuối khoá", "Trách nhiệm"],
+  ["HP1 · Báo cáo cuối khoá", "Tự tin, trình bày"],
+  ["HP2 · Dự án sáng tạo 1", "Tư duy công nghệ"],
+  ["HP2 · Báo cáo cuối khoá", "Tự tin, trình bày"],
 ];
 
 /** Chuẩn hồ sơ: mô tả 3 mức + nhóm cho tiêu chí mẫu, tiêu chí trọng tâm theo bài. Chạy lại không nhân đôi */
@@ -96,6 +96,7 @@ export async function seedCriteriaStandard(db: Database) {
     select l.id, cc.id
       from ${lessons} l
       join curricula cu on cu.id = l.curriculum_id
+      join courses co on co.id = cu.course_id and co.code = 'ROBO-TH-N1'
       join ${competencyCriteria} cc on cc.course_id = cu.course_id and cc.is_active
      where (l.title, cc.name) in (${pairs})
     on conflict (lesson_id, criterion_id) do nothing
