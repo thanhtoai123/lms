@@ -40,7 +40,9 @@ await db.insert(appSettings).values({ key: "general", value: general }).onConfli
 // ---- Màu thương hiệu + gỡ logo cũ (dùng biểu tượng TH mặc định /icon.svg) ----
 const b = await db.query.appSettings.findFirst({ where: eq(appSettings.key, "brand") });
 const prev = (b?.value ?? {}) as { version?: number };
-const brand = { ...BRAND_DEFAULT_COLORS, logoKey: null, logoMime: null, version: (Number(prev.version) || 0) + 1 };
+// Số phiên bản dùng làm khoá bộ đệm (theme.css?v=…, logo?v=…, cache 1 năm). Sau khi xoá sạch CSDL, đếm lại từ 1 sẽ trùng
+// bản cũ trình duyệt còn giữ (màu / logo cũ) → lấy theo thời gian để không bao giờ trùng.
+const brand = { ...BRAND_DEFAULT_COLORS, logoKey: null, logoMime: null, version: Math.max((Number(prev.version) || 0) + 1, Math.floor(Date.now() / 1000)) };
 await db.insert(appSettings).values({ key: "brand", value: brand }).onConflictDoUpdate({ target: appSettings.key, set: { value: brand, updatedAt: new Date() } });
 
 // ---- Nền giấy chứng nhận mặc định ----
