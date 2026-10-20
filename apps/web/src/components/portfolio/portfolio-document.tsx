@@ -5,19 +5,19 @@
  *   1. Bìa: logo, ảnh đại diện + tên con, chương trình & năm học, số liệu chính.
  *   2. Năng lực & phẩm chất: 6 năng lực (Tư duy · Kỹ năng số · Bản lĩnh) + 3 phẩm chất, thang Tốt / Đạt / Cần cố gắng,
  *      kèm "con làm được" theo đúng chương trình; biểu đồ năng lực.
- *   3. Lộ trình học tập: từng năm học → 3 học phần × 15 buổi (buổi 15 báo cáo trước phụ huynh); mỗi học phần ghi
- *      sản phẩm của học phần (theo chương trình) và "Con đã làm" (sản phẩm thầy cô ghi ở các buổi + ảnh) — không lặp
- *      thành mục riêng; danh sách đầy đủ nằm ở phần chi tiết.
+ *   3. Lộ trình học tập: chỉ thể hiện LỘ TRÌNH và TIẾN TRÌNH — từng năm học → 3 học phần × 15 buổi (buổi 15 báo cáo
+ *      trước phụ huynh): tiến độ, trạng thái, mức của báo cáo học phần, sản phẩm & mục tiêu theo chương trình.
+ *      Sản phẩm con làm từng buổi và ảnh nằm ở phần chi tiết (không lặp ở đây).
  *   4. Thầy cô nhận xét (báo cáo học phần mới nhất) · Chuyên cần · Chứng nhận · Biểu đồ tiến bộ.
  *   5. Chi tiết từng khoá: học bạ các buổi báo cáo + phiếu nhận xét từng buổi (bản in 2 phiếu / trang).
  * Không hook, không mã chỉ-máy-chủ → render được ở cả hai phía.
  */
-import { Award, BookOpenCheck, CalendarCheck, MessageSquareQuote, Rocket, Route, School, Sparkles, Star } from "lucide-react";
+import { Award, BookOpenCheck, CalendarCheck, MessageSquareQuote, Route, School, Sparkles, Star } from "lucide-react";
 import { BrandLockup } from "@/components/brand";
 import { StudentAvatar } from "@/components/student-avatar";
 import {
   buildTechProfile, pairSheets, RUBRIC_LEVELS, RUBRIC_SCALE, TECH_MODULE_STATUS_VI, TH_DELIVERY,
-  type CompetencyGroup, type PortfolioAttendance, type PortfolioMedia, type PortfolioView, type TechCourseView, type TechMade,
+  type CompetencyGroup, type PortfolioAttendance, type PortfolioView, type TechCourseView,
 } from "@satarobo/core";
 import { CenterFooter, LEVEL_TONE, LevelChip, fmtDay, num1, pct } from "./parts";
 import { ProgressLine, RadarChart } from "./charts";
@@ -285,7 +285,6 @@ function CourseTrack({ c }: { c: TechCourseView }) {
                   <div><dt className="inline font-semibold text-foreground">Sản phẩm của học phần: </dt><dd className="inline text-foreground/80">{m.product}</dd></div>
                   <div><dt className="inline font-semibold text-foreground">Mục tiêu: </dt><dd className="inline text-foreground/80">{m.canDo}</dd></div>
                 </dl>
-                <MadeList made={m.made} photos={m.photos} />
               </li>
             );
           })}
@@ -295,32 +294,8 @@ function CourseTrack({ c }: { c: TechCourseView }) {
           <div className="h-2 rounded-full bg-primary" style={{ width: `${Math.min(100, Math.round((c.sessionsDone / total) * 100))}%` }} />
         </div>
       ) : null}
-      {c.modules.length === 0 && <MadeList made={c.made} photos={c.photos} />}
       {c.certificateNo && <p className="mt-2 text-xs font-semibold text-accent-700">Giấy chứng nhận số {c.certificateNo}</p>}
     </li>
-  );
-}
-
-/** "Con đã làm": sản phẩm thầy cô ghi ở các buổi (mới nhất trước) + tối đa 2 ảnh — xem đủ ở phần chi tiết từng buổi */
-function MadeList({ made, photos }: { made: TechMade[]; photos: PortfolioMedia[] }) {
-  if (!made.length && !photos.length) return null;
-  return (
-    <div className="mt-2 rounded-lg bg-white/70 p-2 ring-1 ring-black/5">
-      <div className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-accent-700"><Rocket className="h-3.5 w-3.5" aria-hidden />Con đã làm</div>
-      {made.length > 0 && (
-        <ul className="mt-1 space-y-0.5 text-[12px] leading-snug text-foreground">
-          {made.map((x, i) => <li key={i}>• {x.text} <span className="text-[11px] text-muted-foreground">({x.label})</span></li>)}
-        </ul>
-      )}
-      {photos.length > 0 && (
-        <div className="mt-1.5 grid grid-cols-2 gap-1.5">
-          {photos.map((ph) => (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img key={ph.id} src={ph.url} alt={ph.caption ?? (ph.classWide ? "Ảnh cả lớp" : "Ảnh của con")} className="h-16 w-full rounded-md object-cover print:h-20" loading="lazy" />
-          ))}
-        </div>
-      )}
-    </div>
   );
 }
 

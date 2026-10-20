@@ -10,9 +10,9 @@
 >   **Bìa** (logo, ảnh đại diện + tên con, chương trình, năm học, phần mềm, số học phần đã báo cáo / sản phẩm đã làm / chuyên cần / chứng nhận) →
 >   **Năng lực & phẩm chất của con** (Tư duy · Kỹ năng số · Bản lĩnh · Phẩm chất, mỗi tiêu chí một mức Tốt / Đạt / Cần cố gắng kèm "con làm được"
 >   lấy từ bảng "Con thay đổi gì" của đúng chương trình; nguồn = báo cáo học phần mới nhất, chưa có thì trung bình phiếu buổi; kèm *biểu đồ năng lực*) →
->   **Lộ trình học tập** (mỗi năm học 3 học phần × 15 buổi: tiến độ, trạng thái Đã báo cáo / Chờ báo cáo / Đang học / Sắp học, mức của báo cáo
->   học phần, *sản phẩm của học phần* + *mục tiêu* theo chương trình, và **"Con đã làm"** — tối đa 3 sản phẩm thầy cô ghi ở các buổi của học phần
->   + 2 ảnh; không có mục "Sản phẩm" riêng để khỏi lặp với phần chi tiết) → **Thầy cô nhận xét · Chuyên cần · Chứng nhận · Biểu đồ tiến bộ** →
+>   **Lộ trình học tập** — chỉ thể hiện lộ trình và tiến trình: mỗi năm học 3 học phần × 15 buổi với tiến độ, trạng thái Đã báo cáo /
+>   Chờ báo cáo / Đang học / Sắp học, mức của báo cáo học phần, *sản phẩm của học phần* + *mục tiêu* theo chương trình (sản phẩm con làm
+>   từng buổi và ảnh chỉ ở phần chi tiết, không lặp) → **Thầy cô nhận xét · Chuyên cần · Chứng nhận · Biểu đồ tiến bộ** →
 >   **Chi tiết từng khoá** (báo cáo học phần + phiếu nhận xét từng buổi, bản in 2 phiếu / trang).
 > - Từ ngữ cho phụ huynh: "con" (không "bé"), "Biểu đồ năng lực" (không "mạng nhện"), "Mức trung bình" (không viết tắt "TB"),
 >   "Giai đoạn", "Lớp ở trường", "Vắng không phép".
