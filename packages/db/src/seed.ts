@@ -1,13 +1,14 @@
 /**
- * Seed dữ liệu mẫu (KHÔNG dùng dữ liệu thật): 2 cơ sở, 3 khoá, giáo trình 12 bài,
- * 3 GV, 2 lớp có lịch, 16 học viên, buổi học sinh từ lịch, vài buổi đã điểm danh.
+ * Seed dữ liệu mẫu TH STEAM Academy (KHÔNG dùng dữ liệu thật): MỘT trung tâm học online qua ClassIn,
+ * danh mục chương trình chuẩn (4 chuyên ngành, năm học 45 buổi, luyện thi), giáo viên / học viên / phụ huynh tên giả,
+ * lớp online có lịch, buổi học sinh từ lịch, điểm danh, học bạ thang 3 mức, tài chính, tuyển sinh, nhân sự.
  * Chạy: pnpm db:seed
  */
 import "./env";
 import { createHash } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { createDb } from "./index";
 import {
   tenants, tenantSettings,
@@ -28,7 +29,8 @@ import {
   posts, siteBlocks, campaigns, campaignSpends, trackEvents, consentRecords, dataRequests, dataRequestEvents,
   jobPostings, candidates, candidateEvents, conversations, messages, affiliates,
 } from "./schema/index";
-import { TRIAL_REPORT_TEMPLATE, snapshotAnswers, trialReportCode, shareExpiresAt, TH_REGISTER_BLOCK } from "@satarobo/core";
+import { TRIAL_REPORT_TEMPLATE, snapshotAnswers, trialReportCode, shareExpiresAt, TH_REGISTER_BLOCK, TH_BRAND, DEFAULT_TENANT_CODE, RUBRIC_SCALE, convertScore, thCourseSpecs, thProgram, TH_TRACK_SHORT, transferMemo as thTransferMemo } from "@satarobo/core";
+import { syncThSteamCatalog } from "./thsteam-sync";
 import { SHIFT_CATALOGUE, plannedMinutesOf, workSegments, COIN_RULE_DEFS, trialClassCode, trialClassName, attendanceModeOf, isLeaveShift, nominalMinutesOf, type PayMode, NOTIFICATION_TYPES, NOTIFICATION_GROUPS, buildPath, defaultTenantSettings } from "@satarobo/core";
 import { generateSessions, buildClassCode, buildStudentCode, toISODate, addDays, orderCode, receiptNumber, packagePrice, buildInstallmentPlan, computeCommission, describeRule, periodOf, transferMemo, vietQrImageUrl, fmtMin, hhmm, weekdayOf, leaveDays, requestCode, slaDue, SETTINGS_DEFAULTS, CONSENT_TEXT_VERSION, dsrCode, dsrDue } from "@satarobo/core";
 import { courseCompletions } from "./schema/index";
@@ -93,96 +95,65 @@ function samplePdf(lines: string[]): Buffer {
 }
 
 /** Token CỐ ĐỊNH, dễ nhớ của phiếu đánh giá học thử mẫu — xem thử tại /pdg/<token> (chỉ dữ liệu mẫu) */
-const DEMO_TRIAL_REPORT_TOKEN = "xem-thu-phieu-danh-gia-sata-robo-mau";
+const DEMO_TRIAL_REPORT_TOKEN = "xem-thu-phieu-danh-gia-th-steam-mau";
 
 async function main() {
   console.log("Seeding…");
 
   /* ---- Trung tâm (tenant) ----------------------------------------------
-   * Chuỗi gốc `SATA` giữ toàn bộ dữ liệu mẫu như trước (một tenant OWNED → hệ thống chạy y như cũ).
-   * Thêm MỘT bên nhượng quyền mẫu `FR_HUE` với dữ liệu riêng để thấy rõ cách ly:
-   * Hội sở chuỗi chỉ thấy số liệu tổng hợp, PII bị che (xem packages/core/src/org/tenant.ts).
+   * TH STEAM Academy là MỘT trung tâm, học online qua ClassIn: một tenant OWNED, một "cơ sở" online, không có
+   * địa chỉ học trực tiếp. Tính năng nhượng quyền / nhiều cơ sở vẫn giữ nguyên trong hệ thống (tạo ở /nhuong-quyen, /centers khi cần).
    */
   await db
     .insert(tenants)
-    .values([
-      { code: "SATA", name: "TH STEAM Academy (chuỗi gốc)", type: "OWNED" as const, status: "active" as const, isDefault: true, note: "Tenant mặc định — mọi dữ liệu có trước khi bật nhượng quyền thuộc về đây" },
-      {
-        code: "FR_HUE", name: "TH STEAM Academy Huế (nhượng quyền)", type: "FRANCHISE" as const, status: "active" as const,
-        legalName: "Công ty TNHH Giáo dục Sông Hương (mẫu)", taxCode: "3300999888", address: "12 Lê Lợi, Vĩnh Ninh, Huế",
-        phone: "0234999888", email: "hue@nhuongquyen.test", contractNo: "NQ-2026-01", contractFrom: "2026-01-01", contractTo: "2031-01-01",
-      },
-    ])
+    .values([{ code: DEFAULT_TENANT_CODE, name: TH_BRAND.name, legalName: TH_BRAND.legalName, phone: TH_BRAND.hotline, type: "OWNED" as const, status: "active" as const, isDefault: true, note: "Trung tâm mặc định — TH STEAM Academy" }])
     .onConflictDoNothing({ target: tenants.code });
-  const tSata = (await db.query.tenants.findFirst({ where: eq(tenants.code, "SATA") }))!;
-  const tFr = (await db.query.tenants.findFirst({ where: eq(tenants.code, "FR_HUE") }))!;
-  await db
-    .insert(tenantSettings)
-    .values([
-      { tenantId: tSata.id, ...defaultTenantSettings("OWNED") },
-      // Bên nhượng quyền: Hội sở KHÔNG thấy PII, KHÔNG thấy chi tiết tài chính, không chuyển học viên liên trung tâm
-      { tenantId: tFr.id, ...defaultTenantSettings("FRANCHISE") },
-    ])
-    .onConflictDoNothing({ target: tenantSettings.tenantId });
+  const tTh = (await db.query.tenants.findFirst({ where: eq(tenants.isDefault, true) }))!;
+  await db.update(tenants).set({ name: TH_BRAND.name, legalName: TH_BRAND.legalName, phone: TH_BRAND.hotline }).where(eq(tenants.id, tTh.id));
+  await db.insert(tenantSettings).values([{ tenantId: tTh.id, ...defaultTenantSettings("OWNED") }]).onConflictDoNothing({ target: tenantSettings.tenantId });
 
-  const [cs1, cs2] = await db
+  const [cs1] = await db
     .insert(centers)
-    .values([
-      { tenantId: tSata.id, code: "CS1", name: "Cơ sở 1 — Nguyễn Hữu Thọ", address: "211 Nguyễn Hữu Thọ, Đà Nẵng" },
-      { tenantId: tSata.id, code: "CS2", name: "Cơ sở 2 — Hoàng Diệu", address: "114 Hoàng Diệu, Hải Châu, Đà Nẵng" },
-    ])
+    .values([{ tenantId: tTh.id, code: "ONL", name: "TH STEAM Academy Online", address: "Học online qua ClassIn", phone: TH_BRAND.hotline }])
     .returning();
+  /** Chỉ MỘT trung tâm: các khối dữ liệu mẫu trước đây chia hai cơ sở nay dùng chung trung tâm online */
+  const cs2 = cs1;
 
+  // Phòng học = phòng ClassIn (lớp nhóm 6–8 học sinh)
+  const CI_EQUIP = ["ClassIn", "Bảng trắng điện tử", "Ghi hình buổi học"];
   const roomRows = await db
     .insert(rooms)
     .values([
-      { centerId: cs1!.id, code: "101", name: "Phòng 101", capacity: 12, equipment: ["Máy chiếu", "Bảng trắng", "8 bộ kit Sata"] },
-      { centerId: cs1!.id, code: "LAB1", name: "Lab 1", capacity: 10, equipment: ["TV 55\"", "10 laptop", "Máy in 3D"] },
-      { centerId: cs2!.id, code: "P302", name: "Phòng 302", capacity: 12, equipment: ["TV 43\"", "Bảng trắng"] },
-      { centerId: cs2!.id, code: "P303", name: "Phòng 303 (đang sửa điều hoà)", capacity: 10, equipment: ["Bảng trắng"], status: "maintenance" as const, isActive: false },
+      { centerId: cs1!.id, code: "CI01", name: "Phòng ClassIn 01", capacity: 8, equipment: CI_EQUIP },
+      { centerId: cs1!.id, code: "CI02", name: "Phòng ClassIn 02", capacity: 8, equipment: CI_EQUIP },
+      { centerId: cs1!.id, code: "CI03", name: "Phòng ClassIn 03", capacity: 8, equipment: CI_EQUIP },
+      { centerId: cs1!.id, code: "CI99", name: "Phòng ClassIn dự phòng (đang kiểm tra)", capacity: 8, equipment: ["ClassIn"], status: "maintenance" as const, isActive: false },
     ])
     .returning();
 
-  /* ---- Dữ liệu riêng của bên nhượng quyền mẫu (tenant FR_HUE) ----------
-   * Cố ý có PII (tên, SĐT, email) để kiểm chứng: người của chuỗi nhìn vào chỉ thấy bản đã che.
-   */
-  const [csHue] = await db
-    .insert(centers)
-    .values([{ tenantId: tFr.id, code: "HUE1", name: "TH STEAM Academy Huế — Lê Lợi", address: "12 Lê Lợi, Vĩnh Ninh, Huế", phone: "0234999888" }])
-    .returning();
-  await db.insert(rooms).values([
-    { tenantId: tFr.id, centerId: csHue!.id, code: "H101", name: "Phòng H101", capacity: 12, equipment: ["Máy chiếu", "Bảng trắng", "8 bộ kit Sata"] },
-  ]);
-  // Quản trị của bên nhượng quyền: CHỜ KÍCH HOẠT — không có mật khẩu, tự kích hoạt qua luồng mời
-  const [hueAdminU] = await db
-    .insert(users)
-    .values([{ tenantId: tFr.id, email: "quantri@satarobo-hue.test", fullName: "Quản trị TH STEAM Academy Huế", phone: "0905111222", isActive: false, lockedReason: "Chờ kích hoạt qua thư mời" }])
-    .returning();
-  await db.insert(userRoles).values([{ userId: hueAdminU!.id, role: "SUPER_ADMIN", centerId: null }]);
-  // Tài khoản mẫu ĐANG HOẠT ĐỘNG của bên nhượng quyền — để thấy (và kiểm thử) được sự cách ly dữ liệu
-  const [hueOwnerU] = await db
-    .insert(users)
-    .values([{ tenantId: tFr.id, email: "giamdoc@satarobo-hue.test", fullName: "Giám đốc TH STEAM Academy Huế", phone: "0905111888" }])
-    .returning();
-  await db.insert(userRoles).values([{ userId: hueOwnerU!.id, role: "SUPER_ADMIN", centerId: null }]);
-  const [hueCourse] = await db
-    .insert(courses)
-    .values([{ tenantId: tFr.id, code: "SATA4", name: "Sata 4 — Robotics cơ bản", slug: "sata-4-hue", gradeFrom: 3, gradeTo: 5, totalSessions: 12, sessionMinutes: 90, listPrice: "4800000", level: "Cơ bản" }])
-    .returning();
-  await db.insert(leads).values([
-    { tenantId: tFr.id, centerId: csHue!.id, status: "new", parentName: "Nguyễn Thị Hoài Hương", phone: "0905111333", phoneNormalized: "84905111333", email: "hoaihuong@gmail.com", childName: "Bé Khánh Hà", childGrade: 3, source: "web-form", interestedCourseId: hueCourse!.id },
-    { tenantId: tFr.id, centerId: csHue!.id, status: "contacted", parentName: "Trần Quốc Việt", phone: "0905111444", phoneNormalized: "84905111444", email: "quocviet.tran@gmail.com", childName: "Bé Gia Bảo", childGrade: 4, source: "referral" },
-  ]);
+  /* ---- Danh mục chương trình chuẩn TH STEAM (khoá, giáo trình 45 buổi, tiêu chí học bạ, gói học phí, lộ trình) ---- */
+  await syncThSteamCatalog(db, { tenantId: tTh.id });
+  const courseByCode = async (code: string) => {
+    const [c] = await db.select().from(courses).where(and(eq(courses.tenantId, tTh.id), eq(courses.code, code))).limit(1);
+    if (!c) throw new Error(`Thiếu khoá chuẩn ${code}`);
+    return c;
+  };
+  const activeCurriculum = async (courseId: string) => {
+    const [c] = await db.select().from(curricula).where(and(eq(curricula.courseId, courseId), eq(curricula.isActive, true))).limit(1);
+    if (!c) throw new Error("Thiếu giáo trình chuẩn");
+    return c;
+  };
+  const lessonsOf = (curriculumId: string) => db.select().from(lessons).where(eq(lessons.curriculumId, curriculumId)).orderBy(asc(lessons.sequenceNo));
 
   // ---- Users & roles ----
   const [adminU, mgrU, t1U, t2U, t3U, sale1U, sale2U] = await db
     .insert(users)
     .values([
       { email: "superadmin@example.test", fullName: "Quản trị hệ thống" },
-      { email: "manager.cs1@example.test", fullName: "Quản lý CS1" },
-      { email: "teacher1@satarobo.vn", fullName: "GV Minh (mẫu)" },
-      { email: "teacher2@satarobo.vn", fullName: "GV Lan (mẫu)" },
-      { email: "teacher3@satarobo.vn", fullName: "GV Hùng (mẫu)" },
+      { email: "manager.cs1@example.test", fullName: "Quản lý trung tâm (mẫu)" },
+      { email: "teacher1@example.test", fullName: "GV Minh (mẫu)" },
+      { email: "teacher2@example.test", fullName: "GV Lan (mẫu)" },
+      { email: "teacher3@example.test", fullName: "GV Hùng (mẫu)" },
       { email: "sale1.cs1@example.test", fullName: "Tư vấn Hoa (mẫu)" },
       { email: "sale2.cs1@example.test", fullName: "Tư vấn Nam (mẫu)" },
     ])
@@ -207,46 +178,26 @@ async function main() {
     ])
     .returning();
 
-  // ---- Courses & curriculum ----
-  const [sata4, sata6, sata1Row] = await db
-    .insert(courses)
-    .values([
-      { code: "SATA4", name: "Sata4 — Bứt Phá Giới Hạn", slug: "sata4", gradeFrom: 3, gradeTo: 4, totalSessions: 48, listPrice: "9600000" },
-      { code: "SATA6", name: "Sata6 — Chinh Phục AI", slug: "sata6", gradeFrom: 5, gradeTo: 6, totalSessions: 48, listPrice: "10800000" },
-      { code: "SATA1", name: "Sata1 — Luyện thi RoboSim", slug: "sata1", gradeFrom: 3, gradeTo: 8, totalSessions: 12, listPrice: "3600000" },
-    ])
-    .returning();
-
-  // ---- Gói bán cho khách (course_packages) ----
-  await db.insert(coursePackages).values([
-    { courseId: sata4!.id, code: "SATA4-48", name: "Sata4 trọn khoá 48 buổi", level: "Cơ bản", sessions: 48, listPrice: 9_600_000, salePrice: 8_640_000, description: "Học đủ 48 buổi, tặng bộ học cụ mang về (dữ liệu mẫu)", isFeatured: true, sortOrder: 1 },
-    { courseId: sata4!.id, code: "SATA4-24", name: "Sata4 học phần 24 buổi", level: "Cơ bản", sessions: 24, listPrice: 4_992_000, description: "Đóng theo nửa khoá (dữ liệu mẫu)", sortOrder: 2 },
-    { courseId: sata6!.id, code: "SATA6-48", name: "Sata6 trọn khoá 48 buổi", level: "Nâng cao", sessions: 48, listPrice: 10_800_000, salePrice: 9_990_000, description: "Chinh phục AI — trọn khoá (dữ liệu mẫu)", isFeatured: true, sortOrder: 1 },
-    { courseId: sata1Row!.id, code: "SATA1-12", name: "Sata1 luyện thi 12 buổi", level: "Luyện thi", sessions: 12, listPrice: 3_600_000, description: "Gói luyện thi RoboSim ngắn hạn (dữ liệu mẫu)", sortOrder: 1 },
-  ]);
-
-  const [cur4] = await db.insert(curricula).values({ courseId: sata4!.id, name: "Sata4 v1 (2026)" }).returning();
-  const lessonTitles = [
-    "Làm quen bộ kit & an toàn lab", "Cảm biến siêu âm & đo khoảng cách", "Động cơ DC & điều khiển bánh xe",
-    "Dò đường bằng cảm biến hồng ngoại", "Vòng lặp & rẽ nhánh", "Robot tránh vật cản", "Lắp ráp khung gầm nâng cao",
-    "Cánh tay robot & servo", "Lập trình theo kịch bản", "Dự án nhóm: robot phân loại", "Gỡ lỗi & tối ưu", "Thử thách sa hình & thuyết trình",
-  ];
-  const lessonRows = await db
-    .insert(lessons)
-    .values(lessonTitles.map((title, i) => ({ curriculumId: cur4!.id, sequenceNo: i + 1, title, isReportCardMilestone: i + 1 === 5 || i + 1 === 12 })))
-    .returning();
+  // ---- Khoá học chuẩn dùng cho dữ liệu mẫu: Robotics AI Năm 1 → Năm 2, Luyện thi: Sáng tạo Robotics ----
+  const robo1 = await courseByCode("ROBO-TH-N1");
+  const robo2 = await courseByCode("ROBO-TH-N2");
+  const cur4 = await activeCurriculum(robo1.id);
+  const cur6 = await activeCurriculum(robo2.id);
+  const lessonRows = await lessonsOf(cur4.id);
+  const lessons6 = await lessonsOf(cur6.id);
+  const lessonTitles = lessonRows.map((l) => l.title);
 
   // ---- Classes with schedules ----
   const today = toISODate(new Date());
-  const startA = addDays(today, -28); // đã học ~4 tuần
+  const startA = addDays(today, -112); // 1 buổi/tuần, đã học ~16 tuần → qua buổi 15 (báo cáo học phần 1)
   const startB = addDays(today, 3);
 
   // ---- Nhóm lớp mẫu (nhãn tổ chức gom nhiều lớp) ----
   const [groupHe26, groupThu26] = await db
     .insert(classGroups)
     .values([
-      { code: "HE26-CS1", name: "Khối hè 2026 — Cơ sở 1", centerId: cs1!.id, note: "Các lớp khai giảng mùa hè 2026 tại CS1 (dữ liệu mẫu)" },
-      { code: "THU26", name: "Khối thu 2026 (toàn hệ thống)", centerId: null, note: "Dùng chung mọi cơ sở (dữ liệu mẫu)" },
+      { code: "K07-26", name: "Khối khai giảng tháng 7/2026", centerId: cs1!.id, note: "Các lớp khai giảng tháng 7/2026 (dữ liệu mẫu)" },
+      { code: "NH26-27", name: "Khối năm học 2026–2027", centerId: null, note: "Các lớp khai giảng năm học 2026–2027 (dữ liệu mẫu)" },
     ])
     .returning();
 
@@ -254,13 +205,13 @@ async function main() {
     .insert(classes)
     .values([
       {
-        code: buildClassCode("CS1", "SATA4", 2026, 1), name: "Sata4 sáng CN CS1", courseId: sata4!.id, curriculumId: cur4!.id,
-        centerId: cs1!.id, homeRoomId: roomRows[0]!.id, leadTeacherId: gv1!.id, capacity: 12, startDate: startA, status: "running",
+        code: buildClassCode("ONL", robo1.code, 2026, 1), name: "Robotics AI TH N1 · sáng CN", courseId: robo1.id, curriculumId: cur4.id,
+        centerId: cs1!.id, homeRoomId: roomRows[0]!.id, leadTeacherId: gv1!.id, capacity: 8, startDate: startA, status: "running",
         classGroupId: groupHe26!.id,
       },
       {
-        code: buildClassCode("CS2", "SATA6", 2026, 3), name: "Sata6 chiều T7 CS2", courseId: sata6!.id,
-        centerId: cs2!.id, homeRoomId: roomRows[2]!.id, leadTeacherId: gv2!.id, capacity: 12, startDate: startB, status: "recruiting",
+        code: buildClassCode("ONL", robo2.code, 2026, 1), name: "Robotics AI TH N2 · chiều T7", courseId: robo2.id, curriculumId: cur6.id,
+        centerId: cs2!.id, homeRoomId: roomRows[2]!.id, leadTeacherId: gv2!.id, capacity: 8, startDate: startB, status: "recruiting",
         classGroupId: groupThu26!.id,
       },
     ])
@@ -268,7 +219,6 @@ async function main() {
 
   const rulesA = [
     { classId: classA!.id, weekday: 7, startTime: "09:45", endTime: "11:15", roomId: roomRows[0]!.id, teacherId: gv1!.id, effectiveFrom: startA, effectiveTo: null },
-    { classId: classA!.id, weekday: 3, startTime: "18:00", endTime: "19:30", roomId: roomRows[1]!.id, teacherId: gv1!.id, effectiveFrom: startA, effectiveTo: null },
   ];
   const rulesB = [
     { classId: classB!.id, weekday: 6, startTime: "15:45", endTime: "17:15", roomId: roomRows[2]!.id, teacherId: gv2!.id, effectiveFrom: startB, effectiveTo: null },
@@ -276,15 +226,15 @@ async function main() {
   await db.insert(classSchedules).values([...rulesA, ...rulesB]);
 
   const toCore = (r: (typeof rulesA)[number]) => ({ ...r, weekday: r.weekday as 1 | 2 | 3 | 4 | 5 | 6 | 7 });
-  const plannedA = generateSessions({ classId: classA!.id, startDate: startA, totalSessions: 12, rules: rulesA.map(toCore), lessonIds: lessonRows.map((l) => l.id) });
-  const plannedB = generateSessions({ classId: classB!.id, startDate: startB, totalSessions: 12, rules: rulesB.map(toCore) });
+  const plannedA = generateSessions({ classId: classA!.id, startDate: startA, totalSessions: robo1.totalSessions, rules: rulesA.map(toCore), lessonIds: lessonRows.map((l) => l.id) });
+  const plannedB = generateSessions({ classId: classB!.id, startDate: startB, totalSessions: robo2.totalSessions, rules: rulesB.map(toCore), lessonIds: lessons6.map((l) => l.id) });
 
   const sessionRows = await db
     .insert(sessions)
     .values(
       [...plannedA, ...plannedB].map((p) => ({
         classId: p.classId, lessonId: p.lessonId, sequenceNo: p.sequenceNo, date: p.date, startTime: p.startTime, endTime: p.endTime,
-        roomId: p.roomId, teacherId: p.teacherId, topic: lessonRows.find((l) => l.id === p.lessonId)?.title ?? null,
+        roomId: p.roomId, teacherId: p.teacherId, topic: [...lessonRows, ...lessons6].find((l) => l.id === p.lessonId)?.title ?? null,
       })),
     )
     .returning();
@@ -300,9 +250,9 @@ async function main() {
     .insert(students)
     .values(
       Array.from({ length: 16 }, (_, i) => ({
-        code: buildStudentCode(i < 10 ? "CS1" : "CS2", 2026, i + 1), fullName: `Học viên mẫu ${i + 1}`, grade: 3 + (i % 4),
+        code: buildStudentCode("ONL", 2026, i + 1), fullName: `Học viên mẫu ${i + 1}`, grade: 3 + (i % 4),
         homeCenterId: i < 10 ? cs1!.id : cs2!.id, status: (i < 10 ? "active" : "trial") as "active" | "trial",
-        dateOfBirth: `${2019 - (i % 4)}-${String((i % 12) + 1).padStart(2, "0")}-${String((i % 27) + 1).padStart(2, "0")}`,
+        dateOfBirth: `${2018 - (i % 4)}-${String((i % 12) + 1).padStart(2, "0")}-${String((i % 27) + 1).padStart(2, "0")}`,
         gender: i % 2 === 0 ? "male" : "female", school: `Tiểu học mẫu ${(i % 3) + 1}`, healthNotes: i === 3 ? "Dị ứng đậu phộng" : null,
       })),
     )
@@ -312,9 +262,9 @@ async function main() {
   const enrollA = await db
     .insert(enrollments)
     // HV 9 mua gói ngắn để xuất hiện ở "Sắp hết khoá"
-    .values(studentRows.slice(0, 10).map((s, i) => ({ studentId: s.id, classId: classA!.id, packageSessions: i === 8 ? 8 : 48, createdBy: mgrU!.id })))
+    .values(studentRows.slice(0, 10).map((s, i) => ({ studentId: s.id, classId: classA!.id, packageSessions: i === 8 ? 18 : robo1.totalSessions, createdBy: mgrU!.id })))
     .returning();
-  const enrollB = await db.insert(enrollments).values(studentRows.slice(10).map((s) => ({ studentId: s.id, classId: classB!.id, packageSessions: 48, status: "trial" as const }))).returning();
+  const enrollB = await db.insert(enrollments).values(studentRows.slice(10).map((s) => ({ studentId: s.id, classId: classB!.id, packageSessions: robo2.totalSessions, status: "trial" as const }))).returning();
   await db.insert(enrollmentEvents).values([...enrollA, ...enrollB].map((e) => ({ enrollmentId: e.id, type: "created" as const, toStatus: e.status, meta: { packageSessions: e.packageSessions }, actorId: mgrU!.id })));
 
   // ---- Điểm danh cho các buổi đã qua của lớp A (để lại 1 buổi quá hạn chưa chốt) ----
@@ -336,27 +286,24 @@ async function main() {
     await db.update(sessions).set({ status: "completed", sessionNote: "Lớp học tốt, các con hoàn thành mục tiêu buổi.", completedAt: new Date(), completedBy: t1U!.id, checklist: { pre: { kit: true, lesson: true }, post: { cleanup: true, handover: true } } }).where(eq(sessions.id, s.id));
   }
 
-  // ---- Học bạ năng lực: tiêu chí, lộ trình khoá, học bạ mẫu ----
-  await db.update(courses).set({ nextCourseId: sata6!.id }).where(eq(courses.id, sata4!.id));
-  const critNames = ["Tư duy lập trình", "Lắp ráp & cơ khí", "Giải quyết vấn đề", "Làm việc nhóm", "Thuyết trình"];
-  const crit4 = await db.insert(competencyCriteria).values(critNames.map((name, i) => ({ courseId: sata4!.id, name, sortOrder: i + 1 }))).returning();
-  await db.insert(competencyCriteria).values(critNames.slice(0, 4).map((name, i) => ({ courseId: sata6!.id, name, sortOrder: i + 1 })));
-  const m5 = sessionRows.find((x) => x.classId === classA!.id && x.sequenceNo === 5);
-  if (m5 && m5.date <= today) {
-    const [rc1] = await db.insert(reportCards).values({ enrollmentId: enrollA[0]!.id, milestoneSeq: 5, sessionId: m5.id, status: "submitted", teacherComment: "Con tiếp thu nhanh, chủ động hỏi bài và giúp bạn cùng nhóm lắp ráp mô hình.", strengths: "Tư duy logic tốt", improvements: "Cần cẩn thận hơn khi đi dây", averageScore: "4.2", authorId: t1U!.id, submittedAt: new Date() }).returning();
-    await db.insert(reportCardScores).values(crit4.map((c, i) => ({ reportCardId: rc1!.id, criterionId: c.id, score: [5, 4, 4, 4, 4][i]! })));
-    await db.insert(reportCards).values({ enrollmentId: enrollA[1]!.id, milestoneSeq: 5, sessionId: m5.id, status: "draft", teacherComment: "Đang viết…", authorId: t1U!.id });
+  // ---- Học bạ năng lực: tiêu chí chuẩn (6 năng lực + 3 phẩm chất, thang 3 mức), học bạ mốc buổi 15 ----
+  const crit4 = await db.select().from(competencyCriteria).where(and(eq(competencyCriteria.courseId, robo1.id), eq(competencyCriteria.isActive, true))).orderBy(asc(competencyCriteria.sortOrder));
+  const m15 = sessionRows.find((x) => x.classId === classA!.id && x.sequenceNo === 15);
+  if (m15 && m15.date <= today) {
+    const sc = crit4.map((_, i) => [3, 3, 2, 3, 2, 3, 3, 2, 3][i] ?? 2);
+    const [rc1] = await db.insert(reportCards).values({ enrollmentId: enrollA[0]!.id, milestoneSeq: 15, sessionId: m15.id, status: "submitted", rubricScale: RUBRIC_SCALE, teacherComment: "Con tiếp thu nhanh, chủ động hỏi bài và tự tin trình bày dự án cuối học phần trước phụ huynh.", strengths: "Tư duy công nghệ tốt", improvements: "Cần kiểm tra lại chương trình trước khi chạy", averageScore: averageScore(sc)!.toFixed(1), authorId: t1U!.id, submittedAt: new Date() }).returning();
+    await db.insert(reportCardScores).values(crit4.map((c, i) => ({ reportCardId: rc1!.id, criterionId: c.id, score: sc[i]! })));
+    await db.insert(reportCards).values({ enrollmentId: enrollA[1]!.id, milestoneSeq: 15, sessionId: m15.id, status: "draft", rubricScale: RUBRIC_SCALE, teacherComment: "Đang viết…", authorId: t1U!.id });
   }
-
   // ---- Ảnh lớp mẫu hai tầng: vài ảnh trong kho (PH chưa thấy) + ảnh đã gửi duyệt + một ảnh đã loại ----
   const pastWithMedia = sessionRows.filter((x) => x.classId === classA!.id && x.date < today).slice(-2);
   for (const [k, ss] of pastWithMedia.entries()) {
     const at = new Date(Date.now() - (k === 0 ? 50 : 3) * 3600e3);
     await db.insert(sessionMedia).values([
-      { sessionId: ss.id, objectKey: `seed/lop-a-buoi-${ss.sequenceNo}-1.svg`, caption: "Các con lắp robot theo nhóm", status: "pending" as const, takenAt: ss.date, taggedStudentIds: [studentRows[1]!.id, studentRows[2]!.id], uploadedBy: t1U!.id, submittedAt: at, submittedBy: t1U!.id, createdAt: at },
-      { sessionId: ss.id, objectKey: `seed/lop-a-buoi-${ss.sequenceNo}-2.svg`, caption: "Thử nghiệm mô hình", status: "pending" as const, takenAt: ss.date, taggedStudentIds: [studentRows[0]!.id, studentRows[3]!.id], uploadedBy: t1U!.id, submittedAt: at, submittedBy: t1U!.id, createdAt: at },
+      { sessionId: ss.id, objectKey: `seed/lop-a-buoi-${ss.sequenceNo}-1.svg`, caption: "Các con trình diễn robot trên RoboSim", status: "pending" as const, takenAt: ss.date, taggedStudentIds: [studentRows[1]!.id, studentRows[2]!.id], uploadedBy: t1U!.id, submittedAt: at, submittedBy: t1U!.id, createdAt: at },
+      { sessionId: ss.id, objectKey: `seed/lop-a-buoi-${ss.sequenceNo}-2.svg`, caption: "Chạy thử robot trên sa bàn ảo", status: "pending" as const, takenAt: ss.date, taggedStudentIds: [studentRows[0]!.id, studentRows[3]!.id], uploadedBy: t1U!.id, submittedAt: at, submittedBy: t1U!.id, createdAt: at },
       // Trong kho: GV chưa gửi duyệt — phụ huynh chưa nhìn thấy
-      { sessionId: ss.id, objectKey: `seed/lop-a-buoi-${ss.sequenceNo}-3.svg`, caption: "Ảnh chung cả lớp cuối buổi", status: "library" as const, takenAt: ss.date, isClassWide: true, uploadedBy: t1U!.id, createdAt: at },
+      { sessionId: ss.id, objectKey: `seed/lop-a-buoi-${ss.sequenceNo}-3.svg`, caption: "Ảnh chụp màn hình cả lớp cuối buổi", status: "library" as const, takenAt: ss.date, isClassWide: true, uploadedBy: t1U!.id, createdAt: at },
       { sessionId: ss.id, objectKey: `seed/lop-a-buoi-${ss.sequenceNo}-4.svg`, caption: "Chờ giáo viên gắn thẻ học viên", status: "library" as const, takenAt: ss.date, uploadedBy: t1U!.id, createdAt: at },
     ]);
   }
@@ -373,9 +320,9 @@ async function main() {
 
   // ---- Đề xuất hoàn thành khoá chờ duyệt (GV đề xuất, chưa sinh chứng nhận) ----
   await db.insert(courseCompletions).values({
-    enrollmentId: enrollA[2]!.id, courseId: sata4!.id, status: "proposed",
-    grade: "Giỏi", teacherEvaluation: "Con nắm chắc kiến thức lập trình cơ bản, chủ động hỗ trợ bạn trong nhóm và hoàn thành tốt dự án cuối khoá (dữ liệu mẫu).",
-    averageScore: "4.2", nextCourseId: sata6!.id, proposedBy: t1U!.id, proposedAt: new Date(Date.now() - 6 * 3600e3),
+    enrollmentId: enrollA[2]!.id, courseId: robo1.id, status: "proposed",
+    grade: "Hoàn thành tốt", teacherEvaluation: "Con nắm chắc lập trình robot ảo trên RoboSim, chủ động hỗ trợ bạn trong nhóm và hoàn thành tốt dự án cuối học phần (dữ liệu mẫu).",
+    averageScore: "4.2", nextCourseId: robo2.id, proposedBy: t1U!.id, proposedAt: new Date(Date.now() - 6 * 3600e3),
   });
 
   // ---- Một ca bảo lưu mẫu ----
@@ -398,18 +345,18 @@ async function main() {
     .values([
       { centerId: cs1!.id, status: "new", parentName: "PH Mẫu 01", phone: "0900000001", phoneNormalized: "84900000001", childName: "Bé An", childGrade: 3, source: "web-form", utmCampaign: "he-2026", assignedToId: sale1U!.id, assignedAt: h(1), lastTouchAt: h(1), consentAt: h(1),
         // Lead vào từ form công khai → có khối "Nguồn & theo dõi"; đã bật dùng chung cho CSKH cùng cơ sở
-        landingPage: "https://satarobo.vn/dang-ky?utm_campaign=he-2026", referrer: "https://www.facebook.com/", eventId: "fb.1.1758000000000.123456789",
+        landingPage: "https://thsteam.edu.vn/dang-ky?utm_campaign=he-2026", referrer: "https://www.facebook.com/", eventId: "fb.1.1758000000000.123456789",
         ipAddress: "113.161.42.7", userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 Safari/604.1", sharedWithCenter: true },
       { centerId: cs1!.id, status: "new", parentName: "PH Mẫu 02", phone: "0900000002", phoneNormalized: "84900000002", childName: "Bé Bình", childGrade: 5, source: "ads", utmSource: "facebook", assignedToId: null, lastTouchAt: h(0.2) },
-      { centerId: cs1!.id, status: "contacted", parentName: "PH Mẫu 03", phone: "0900000003", phoneNormalized: "84900000003", childName: "Bé Chi", childGrade: 2, source: "referral", assignedToId: sale2U!.id, assignedAt: h(30), lastTouchAt: h(30) },
-      { centerId: cs1!.id, status: "trial_scheduled", parentName: "PH Mẫu 04", phone: "0900000004", phoneNormalized: "84900000004", childName: "Bé Dũng", childGrade: 4, source: "walk-in", interestedCourseId: sata4!.id, assignedToId: sale1U!.id, assignedAt: h(50), lastTouchAt: h(20), nextActionAt: new Date(Date.now() + 26 * 3600e3) },
-      { centerId: cs1!.id, status: "trial_in_progress", parentName: "PH Mẫu 05", phone: "0900000005", phoneNormalized: "84900000005", childName: "Bé Em", childGrade: 6, source: "web-form", interestedCourseId: sata6!.id, assignedToId: sale2U!.id, assignedAt: h(100), lastTouchAt: h(40),
-        landingPage: "https://satarobo.vn/lop-trai-nghiem", referrer: "https://www.google.com/", ipAddress: "27.72.100.19", userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/141.0 Safari/537.36", sharedWithCenter: true },
+      { centerId: cs1!.id, status: "contacted", parentName: "PH Mẫu 03", phone: "0900000003", phoneNormalized: "84900000003", childName: "Bé Chi", childGrade: 3, source: "referral", assignedToId: sale2U!.id, assignedAt: h(30), lastTouchAt: h(30) },
+      { centerId: cs1!.id, status: "trial_scheduled", parentName: "PH Mẫu 04", phone: "0900000004", phoneNormalized: "84900000004", childName: "Bé Dũng", childGrade: 4, source: "hotline", interestedCourseId: robo1.id, assignedToId: sale1U!.id, assignedAt: h(50), lastTouchAt: h(20), nextActionAt: new Date(Date.now() + 26 * 3600e3) },
+      { centerId: cs1!.id, status: "trial_in_progress", parentName: "PH Mẫu 05", phone: "0900000005", phoneNormalized: "84900000005", childName: "Bé Em", childGrade: 5, source: "web-form", interestedCourseId: robo2.id, assignedToId: sale2U!.id, assignedAt: h(100), lastTouchAt: h(40),
+        landingPage: "https://thsteam.edu.vn/khoa-hoc/robotics-ai", referrer: "https://www.google.com/", ipAddress: "27.72.100.19", userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/141.0 Safari/537.36", sharedWithCenter: true },
       { centerId: cs1!.id, status: "trial_done", parentName: "PH Mẫu 06", phone: "0900000006", phoneNormalized: "84900000006", childName: "Bé Giang", childGrade: 3, source: "ads", utmSource: "google", assignedToId: sale1U!.id, assignedAt: h(120), lastTouchAt: h(30) },
       { centerId: cs1!.id, status: "deciding", parentName: "PH Mẫu 07", phone: "0900000007", phoneNormalized: "84900000007", childName: "Bé Hà", childGrade: 4, source: "referral", assignedToId: sale2U!.id, assignedAt: h(200), lastTouchAt: h(100) },
-      { centerId: cs1!.id, status: "nurturing", parentName: "PH Mẫu 08", phone: "0900000008", phoneNormalized: "84900000008", childName: "Bé Khoa", childGrade: 1, source: "web-form", assignedToId: sale1U!.id, assignedAt: h(400), lastTouchAt: h(300) },
+      { centerId: cs1!.id, status: "nurturing", parentName: "PH Mẫu 08", phone: "0900000008", phoneNormalized: "84900000008", childName: "Bé Khoa", childGrade: 3, source: "web-form", assignedToId: sale1U!.id, assignedAt: h(400), lastTouchAt: h(300) },
       { centerId: cs1!.id, status: "enrolled", parentName: "PH Mẫu 09", phone: "0900000009", phoneNormalized: "84900000009", childName: "Bé Lâm", childGrade: 5, source: "ads", assignedToId: sale1U!.id, assignedAt: h(600), lastTouchAt: h(500), convertedAt: h(500) },
-      { centerId: cs1!.id, status: "lost", parentName: "PH Mẫu 10", phone: "0900000010", phoneNormalized: "84900000010", childName: "Bé Minh", childGrade: 7, source: "web-form", assignedToId: sale2U!.id, assignedAt: h(700), lastTouchAt: h(650), lostReason: "Chọn trung tâm gần nhà" },
+      { centerId: cs1!.id, status: "lost", parentName: "PH Mẫu 10", phone: "0900000010", phoneNormalized: "84900000010", childName: "Bé Minh", childGrade: 7, source: "web-form", assignedToId: sale2U!.id, assignedAt: h(700), lastTouchAt: h(650), lostReason: "Muốn học trực tiếp tại trung tâm gần nhà" },
       { centerId: cs2!.id, status: "new", parentName: "PH Mẫu 11", phone: "0900000011", phoneNormalized: "84900000011", childName: "Bé Ngân", childGrade: 3, source: "web-form", assignedToId: null, lastTouchAt: h(5), sharedWithCenter: true },
     ])
     .returning();
@@ -419,10 +366,10 @@ async function main() {
       {
         leadId: l.id, fullName: l.childName!, grade: l.childGrade, interestedCourseId: l.interestedCourseId,
         gender: i % 2 === 0 ? "male" : "female",
-        dateOfBirth: `${yearNow - 6 - (l.childGrade ?? 3)}-0${(i % 9) + 1}-1${i % 9}`,
+        dateOfBirth: `${yearNow - 5 - (l.childGrade ?? 3)}-0${(i % 9) + 1}-1${i % 9}`,
         interestedCenterId: l.centerId,
       },
-      ...(i === 6 ? [{ leadId: l.id, fullName: "Bé Hải (em)", grade: 2, interestedCourseId: sata4!.id, gender: "male", dateOfBirth: `${yearNow - 8}-04-12`, interestedCenterId: cs2!.id }] : []),
+      ...(i === 6 ? [{ leadId: l.id, fullName: "Bé Hải (em)", grade: 3, interestedCourseId: robo1.id, gender: "male", dateOfBirth: `${yearNow - 8}-04-12`, interestedCenterId: cs2!.id }] : []),
     ]),
   );
   await db.insert(leadActivities).values(leadRows.flatMap((l) => [
@@ -436,58 +383,57 @@ async function main() {
   ]);
 
   // ---- Lớp chờ duyệt mẫu (chưa sinh buổi) + sĩ số tối thiểu ----
-  await db.update(classes).set({ minCapacity: 4, plannedSessions: 12 }).where(eq(classes.id, classA!.id));
-  await db.update(classes).set({ minCapacity: 4, plannedSessions: 12 }).where(eq(classes.id, classB!.id));
-  const sata1 = (await db.select().from(courses).where(eq(courses.code, "SATA1")))[0]!;
+  await db.update(classes).set({ minCapacity: 4, plannedSessions: robo1.totalSessions }).where(eq(classes.id, classA!.id));
+  await db.update(classes).set({ minCapacity: 4, plannedSessions: robo2.totalSessions }).where(eq(classes.id, classB!.id));
+  const roboThi = await courseByCode("ROBO-TH-THI-STR");
   const [classC] = await db.insert(classes).values({
-    code: buildClassCode("CS1", "SATA1", 2026, 1), name: "Sata1 luyện thi T7 CS1", courseId: sata1.id, centerId: cs1!.id, homeRoomId: roomRows[1]!.id,
-    leadTeacherId: gv3!.id, assistantTeacherId: gv1!.id, capacity: 8, minCapacity: 4, plannedSessions: 12, startDate: addDays(today, 10), status: "pending_approval",
-    description: "Lớp luyện thi RoboSim (dữ liệu mẫu)", submittedAt: new Date(), submittedBy: mgrU!.id,
+    code: buildClassCode("ONL", roboThi.code, 2026, 1), name: "Luyện thi Sáng tạo Robotics · sáng T7", courseId: roboThi.id, curriculumId: (await activeCurriculum(roboThi.id)).id, centerId: cs1!.id, homeRoomId: roomRows[1]!.id,
+    leadTeacherId: gv3!.id, assistantTeacherId: gv1!.id, capacity: 8, minCapacity: 4, plannedSessions: roboThi.totalSessions, startDate: addDays(today, 10), status: "pending_approval",
+    description: "Luyện thi: Sáng tạo Robotics — tự chọn, sau Năm 1 (dữ liệu mẫu)", submittedAt: new Date(), submittedBy: mgrU!.id,
   }).returning();
   await db.insert(classSchedules).values({ classId: classC!.id, weekday: 6, startTime: "08:00", endTime: "09:30", roomId: roomRows[1]!.id, teacherId: gv3!.id, effectiveFrom: addDays(today, 10), effectiveTo: null, createdBy: mgrU!.id });
   await db.insert(classEvents).values({ classId: classC!.id, event: "submit", fromStatus: "draft", toStatus: "pending_approval", actorId: mgrU!.id });
 
   // ---- Hồ sơ GV: khoá được dạy, đánh giá; khoá tiên quyết; ngày nghỉ; giáo trình nháp v2 ----
   await db.insert(teacherCourses).values([
-    { teacherId: gv1!.id, courseId: sata4!.id }, { teacherId: gv1!.id, courseId: sata1.id },
-    { teacherId: gv2!.id, courseId: sata6!.id },
-    { teacherId: gv3!.id, courseId: sata1.id }, { teacherId: gv3!.id, courseId: sata4!.id },
+    { teacherId: gv1!.id, courseId: robo1.id }, { teacherId: gv1!.id, courseId: roboThi.id },
+    { teacherId: gv2!.id, courseId: robo2.id },
+    { teacherId: gv3!.id, courseId: roboThi.id }, { teacherId: gv3!.id, courseId: robo1.id },
   ]);
-  await db.insert(teacherEvaluations).values({ teacherId: gv1!.id, score: 4, comment: "Dẫn dắt lớp tốt, cần quản lý thời gian phần thực hành chặt hơn (mẫu)", observedOn: addDays(today, -7), evaluatorId: mgrU!.id });
-  await db.insert(coursePrerequisites).values({ courseId: sata6!.id, requiredCourseId: sata4!.id, note: "Học xong Sata4 mới lên Sata6", createdBy: adminU!.id });
+  await db.insert(teacherEvaluations).values({ teacherId: gv1!.id, score: 4, comment: "Dẫn dắt lớp online tốt, cần quản lý thời gian phần thực hành chặt hơn (mẫu)", observedOn: addDays(today, -7), evaluatorId: mgrU!.id });
+  await db.insert(coursePrerequisites).values({ courseId: robo2.id, requiredCourseId: robo1.id, note: "Học xong Năm 1 (RoboSim) mới lên Năm 2 (RoboVR)", createdBy: adminU!.id });
   const monday = (() => { let d = addDays(today, 20); while (new Date(d + "T00:00:00Z").getUTCDay() !== 1) d = addDays(d, 1); return d; })();
   await db.insert(holidays).values([
     { centerId: null, date: monday, name: "Nghỉ lễ (mẫu)", createdBy: adminU!.id },
-    { centerId: cs1!.id, date: addDays(monday, 1), name: "Bảo trì cơ sở (mẫu)", createdBy: mgrU!.id },
+    { centerId: cs1!.id, date: addDays(monday, 1), name: "Bảo trì hệ thống ClassIn (mẫu)", createdBy: mgrU!.id },
   ]);
-  await db.update(curricula).set({ status: "active", description: "Giáo trình chuẩn 2026" }).where(eq(curricula.id, cur4!.id));
-  const [cur4v2] = await db.insert(curricula).values({ courseId: sata4!.id, name: "Sata4 v2 (nháp)", version: 2, status: "draft", isActive: false, createdBy: adminU!.id }).returning();
-  await db.insert(lessons).values(lessonTitles.slice(0, 3).map((title, i) => ({ curriculumId: cur4v2!.id, sequenceNo: i + 1, title, materials: "Bộ kit Sata4" })));
+  const [cur4v2] = await db.insert(curricula).values({ courseId: robo1.id, name: "Chuẩn TH STEAM 2027–2028 (nháp)", version: 2, status: "draft", isActive: false, createdBy: adminU!.id }).returning();
+  await db.insert(lessons).values(lessonTitles.slice(0, 3).map((title, i) => ({ curriculumId: cur4v2!.id, sequenceNo: i + 1, title, materials: "Máy tính có RoboSim, tai nghe có micro" })));
 
   // ---- Tài chính mẫu: kế toán CS1, phương thức TT, đơn học phí, khoản thu, hoàn tiền ----
-  const [ktU] = await db.insert(users).values({ email: "ketoan.cs1@example.test", fullName: "Kế toán CS1 (mẫu)" }).returning();
+  const [ktU] = await db.insert(users).values({ email: "ketoan.cs1@example.test", fullName: "Kế toán (mẫu)" }).returning();
   await db.insert(userRoles).values({ userId: ktU!.id, role: "CENTER_ACCOUNTANT", centerId: cs1!.id });
   const [pmCash, pmBank] = await db.insert(paymentMethods).values([
-    { code: "TM-CS1", name: "Tiền mặt tại CS1", kind: "cash", centerId: cs1!.id, allowFor: ["course", "product"], canBuyCourse: true, canBuyPackage: true, canBuyProduct: true, sortOrder: 1 },
-    { code: "CK-VCB", name: "Chuyển khoản Vietcombank", kind: "bank_transfer", centerId: null, bankBin: "970436", bankName: "Vietcombank", bankBranch: "CN Đà Nẵng", accountNo: "0000000000", accountName: "CONG TY SATA ROBO (MAU)", allowFor: ["course", "product", "exam"], canBuyCourse: true, canBuyPackage: true, canBuyExam: true, canBuyProduct: true, sortOrder: 2, description: "Tài khoản mẫu — thay bằng tài khoản thật" },
+    { code: "TM-ONL", name: "Tiền mặt tại văn phòng", kind: "cash", centerId: cs1!.id, allowFor: ["course", "product"], canBuyCourse: true, canBuyPackage: true, canBuyProduct: true, sortOrder: 1 },
+    { code: "CK-VCB", name: "Chuyển khoản Vietcombank", kind: "bank_transfer", centerId: null, bankBin: "970436", bankName: "Vietcombank", bankBranch: "Chi nhánh (mẫu)", accountNo: "0000000000", accountName: "TH STEAM ACADEMY (MAU)", allowFor: ["course", "product", "exam"], canBuyCourse: true, canBuyPackage: true, canBuyExam: true, canBuyProduct: true, sortOrder: 2, description: "Tài khoản mẫu — thay bằng tài khoản thật" },
     // Đủ loại như bản gốc: ví điện tử và thu hộ khi giao
     { code: "VI-MOMO", name: "Ví điện tử MoMo", kind: "wallet", centerId: null, allowFor: ["course", "product"], canBuyCourse: true, canBuyPackage: true, canBuyProduct: true, canDeposit: true, sortOrder: 3, description: "Ví điện tử — mẫu, chưa nối cổng thật" },
     { code: "COD", name: "Thu hộ khi giao (COD)", kind: "cod", centerId: null, allowFor: ["product"], canBuyProduct: true, sortOrder: 4, description: "Chỉ dùng cho đơn sản phẩm giao tận nơi" },
   ]).returning();
-  const sata4Price = Number(sata4!.listPrice);
+  const robo1Price = Number(robo1.listPrice);
   let orderSeq = 0;
   let receiptSeq = 0;
   const yr = new Date().getFullYear();
   const mkOrder = async (i: number, opts: { installments?: number; firstDue?: string; pay?: { amount: number; status: "confirmed" | "recorded"; daysAgo: number }[] }) => {
     const e = enrollA[i]!;
     const par = parentRows[i]!;
-    const total = packagePrice(sata4Price, sata4!.totalSessions, e.packageSessions);
+    const total = packagePrice(robo1Price, robo1.totalSessions, e.packageSessions);
     const [o] = await db.insert(orders).values({
       code: orderCode(yr, ++orderSeq), type: "course", status: "pending_payment", centerId: cs1!.id, parentId: par.id, studentId: e.studentId, enrollmentId: e.id,
       customerName: par.fullName, customerPhone: par.phone, subtotal: total, discountAmount: 0, total, paymentMethodId: pmBank!.id, createdBy: sale1U!.id,
       createdAt: new Date(Date.now() - 40 * 86400e3),
     }).returning();
-    await db.insert(orderItems).values({ orderId: o!.id, courseId: sata4!.id, description: `Học phí ${sata4!.code} — gói ${e.packageSessions} buổi`, quantity: 1, unitPrice: total, amount: total, netAmount: total, packageSessions: e.packageSessions, studentId: e.studentId, enrollmentId: e.id });
+    await db.insert(orderItems).values({ orderId: o!.id, courseId: robo1.id, description: `Học phí ${robo1.code} — gói ${e.packageSessions} buổi`, quantity: 1, unitPrice: total, amount: total, netAmount: total, packageSessions: e.packageSessions, studentId: e.studentId, enrollmentId: e.id });
     await db.insert(orderInstallments).values(buildInstallmentPlan(total, opts.installments ?? 1, opts.firstDue ?? addDays(today, -30)).map((p) => ({ orderId: o!.id, ...p })));
     await db.insert(orderEvents).values({ orderId: o!.id, event: "create", toStatus: "pending_payment", actorId: sale1U!.id });
     await db.insert(financeLedger).values({ orderId: o!.id, centerId: cs1!.id, entryType: "charge", amount: total, refId: o!.id, note: "Tạo đơn", actorId: sale1U!.id });
@@ -496,7 +442,7 @@ async function main() {
       const [pay] = await db.insert(payments).values({
         orderId: o!.id, centerId: cs1!.id, recordedAmount: p.amount, amount: p.amount, paymentMethodId: p.status === "confirmed" ? pmCash!.id : pmBank!.id, paidAt: addDays(today, -p.daysAgo),
         status: p.status, recordedBy: sale1U!.id, recordedAt: new Date(Date.now() - p.daysAgo * 86400e3),
-        ...(p.status === "confirmed" ? { decidedBy: ktU!.id, decidedAt: new Date(Date.now() - (p.daysAgo - 1) * 86400e3), receiptNo: receiptNumber("CS1", yr, ++receiptSeq) } : {}),
+        ...(p.status === "confirmed" ? { decidedBy: ktU!.id, decidedAt: new Date(Date.now() - (p.daysAgo - 1) * 86400e3), receiptNo: receiptNumber("ONL", yr, ++receiptSeq) } : {}),
       }).returning();
       if (p.status === "confirmed") {
         confirmed += p.amount;
@@ -507,15 +453,15 @@ async function main() {
     await db.update(orders).set({ status }).where(eq(orders.id, o!.id));
     return { order: o!, total };
   };
-  const paid0 = await mkOrder(0, { pay: [{ amount: packagePrice(sata4Price, 48, 48), status: "confirmed", daysAgo: 35 }] });
-  const inst = await mkOrder(1, { installments: 3, firstDue: addDays(today, -45), pay: [{ amount: 3_200_000, status: "confirmed", daysAgo: 44 }] });
+  const paid0 = await mkOrder(0, { pay: [{ amount: packagePrice(robo1Price, robo1.totalSessions, robo1.totalSessions), status: "confirmed", daysAgo: 35 }] });
+  const inst = await mkOrder(1, { installments: 3, firstDue: addDays(today, -45), pay: [{ amount: 2_500_000, status: "confirmed", daysAgo: 44 }] });
   await mkOrder(2, { pay: [{ amount: 2_000_000, status: "recorded", daysAgo: 1 }] });
-  const paidFull = await mkOrder(4, { pay: [{ amount: packagePrice(sata4Price, 48, 48), status: "confirmed", daysAgo: 30 }] });
+  const paidFull = await mkOrder(4, { pay: [{ amount: packagePrice(robo1Price, robo1.totalSessions, robo1.totalSessions), status: "confirmed", daysAgo: 30 }] });
   await mkOrder(5, { installments: 2, firstDue: addDays(today, 2) });
   // enrollA[3] không có đơn → "Thiếu học phí: chưa lập đơn"
   await db.insert(refunds).values({
-    orderId: paidFull.order.id, enrollmentId: enrollA[4]!.id, centerId: cs1!.id, status: "pending", amount: 6_000_000, proposedAmount: 7_600_000,
-    sessionsUsed: 10, sessionsTotal: 48, reason: "Gia đình chuyển vào TP.HCM (mẫu)", requestedBy: mgrU!.id,
+    orderId: paidFull.order.id, enrollmentId: enrollA[4]!.id, centerId: cs1!.id, status: "pending", amount: 4_500_000, proposedAmount: 4_800_000,
+    sessionsUsed: 16, sessionsTotal: 45, reason: "Gia đình đi nước ngoài dài hạn (mẫu)", requestedBy: mgrU!.id,
   });
 
   // ---- Hoa hồng mẫu + biến động số dư mẫu ----
@@ -531,30 +477,30 @@ async function main() {
       ...(st === "approved" ? { approvedBy: mgrU!.id, approvedAt: new Date() } : {}),
     });
   }
-  // ---- Chính sách hoa hồng 4 trục (mẫu theo SR.QD.208 · PL04): tổng % mỗi sự kiện ≤ 9% ----
+  // ---- Chính sách hoa hồng 4 trục (quy chế mẫu): tổng % mỗi sự kiện ≤ 9% ----
   const [polNew, polRenew, polTransfer, polDevice, polTitle] = await db.insert(commissionPolicies).values([
     {
       name: "Học viên mới — khoá học", event: "hoc_vien_moi", orderScope: "course", centerId: null, calcMethod: "percent",
-      sourceRef: "SR.QD.208 · PL04 Điều 1", note: "Tổng 9%: TVV 5% + quản lý trung tâm 3% + quản lý vùng 1%",
+      sourceRef: "Quy chế hoa hồng (mẫu) · Điều 1", note: "Tổng 9%: TVV 5% + quản lý trung tâm 3% + quản lý vùng 1%",
       effectiveFrom: "2026-01-01", isActive: true, createdBy: adminU!.id,
     },
     {
       name: "Tái tục — khoá học", event: "tai_tuc", orderScope: "course", centerId: null, calcMethod: "percent",
-      sourceRef: "SR.QD.208 · PL04 Điều 2", note: "Mức tái tục thấp hơn học viên mới",
+      sourceRef: "Quy chế hoa hồng (mẫu) · Điều 2", note: "Mức tái tục thấp hơn học viên mới",
       effectiveFrom: "2026-01-01", isActive: true, createdBy: adminU!.id,
     },
     {
       name: "Chuyển trung tâm — chi một lần cho nhân sự trung tâm cũ", event: "chuyen_trung_tam", orderScope: "all", centerId: null, calcMethod: "fixed",
-      sourceRef: "SR.QD.208 · PL04 Điều 3", note: "Chi MỘT LẦN cho nhân sự trung tâm cũ, không chi lại ở kỳ sau",
+      sourceRef: "Quy chế hoa hồng (mẫu) · Điều 3", note: "Chi MỘT LẦN cho nhân sự trung tâm cũ, không chi lại ở kỳ sau",
       effectiveFrom: "2026-01-01", isActive: true, createdBy: adminU!.id,
     },
     {
       name: "Bán thiết bị — sản phẩm", event: "ban_thiet_bi", orderScope: "product", centerId: null, calcMethod: "fixed",
-      sourceRef: "SR.QD.208 · PL04 Điều 4", effectiveFrom: "2026-01-01", isActive: true, createdBy: adminU!.id,
+      sourceRef: "Quy chế hoa hồng (mẫu) · Điều 4", effectiveFrom: "2026-01-01", isActive: true, createdBy: adminU!.id,
     },
     {
       name: "Thưởng danh hiệu TVV theo bậc doanh thu quý", event: "thuong_danh_hieu_tvv", orderScope: "all", centerId: null, calcMethod: "tier",
-      sourceRef: "SR.QD.208 · PL04 Điều 5", note: "Bậc doanh thu không chồng lấn",
+      sourceRef: "Quy chế hoa hồng (mẫu) · Điều 5", note: "Bậc doanh thu không chồng lấn",
       effectiveFrom: "2026-01-01", isActive: true, createdBy: adminU!.id,
     },
   ]).returning();
@@ -579,15 +525,15 @@ async function main() {
   const qrNow = Date.now();
   await db.insert(paymentQrCodes).values([
     {
-      orderId: inst.order.id, paymentMethodId: pmBank!.id, amount: 3_200_000, content: transferMemo(inst.order.code),
-      imageUrl: vietQrImageUrl({ bankBin: "970436", accountNo: "0000000000", accountName: "CONG TY SATA ROBO (MAU)", amount: 3_200_000, memo: transferMemo(inst.order.code) }),
-      bankBin: "970436", accountNo: "0000000000", accountName: "CONG TY SATA ROBO (MAU)", bankName: "Vietcombank",
+      orderId: inst.order.id, paymentMethodId: pmBank!.id, amount: 2_500_000, content: transferMemo(inst.order.code),
+      imageUrl: vietQrImageUrl({ bankBin: "970436", accountNo: "0000000000", accountName: "TH STEAM ACADEMY (MAU)", amount: 2_500_000, memo: transferMemo(inst.order.code) }),
+      bankBin: "970436", accountNo: "0000000000", accountName: "TH STEAM ACADEMY (MAU)", bankName: "Vietcombank",
       status: "active", issuedBy: sale1U!.id, issuedAt: new Date(qrNow - 2 * 3600e3), expiresAt: new Date(qrNow + 22 * 3600e3),
     },
     {
-      orderId: inst.order.id, paymentMethodId: pmBank!.id, amount: 3_200_000, content: transferMemo(inst.order.code),
-      imageUrl: vietQrImageUrl({ bankBin: "970436", accountNo: "0000000000", accountName: "CONG TY SATA ROBO (MAU)", amount: 3_200_000, memo: transferMemo(inst.order.code) }),
-      bankBin: "970436", accountNo: "0000000000", accountName: "CONG TY SATA ROBO (MAU)", bankName: "Vietcombank",
+      orderId: inst.order.id, paymentMethodId: pmBank!.id, amount: 2_500_000, content: transferMemo(inst.order.code),
+      imageUrl: vietQrImageUrl({ bankBin: "970436", accountNo: "0000000000", accountName: "TH STEAM ACADEMY (MAU)", amount: 2_500_000, memo: transferMemo(inst.order.code) }),
+      bankBin: "970436", accountNo: "0000000000", accountName: "TH STEAM ACADEMY (MAU)", bankName: "Vietcombank",
       status: "expired", issuedBy: sale1U!.id, issuedAt: new Date(qrNow - 3 * 86400e3), expiresAt: new Date(qrNow - 2 * 86400e3),
     },
   ]);
@@ -595,12 +541,12 @@ async function main() {
   const now = Date.now();
   await db.insert(bankTransactions).values([
     { source: "sepay", externalId: "seed-1", gateway: "Vietcombank", accountNo: "0000000000", paymentMethodId: pmBank!.id, occurredAt: new Date(now - 2 * 3600e3), amount: 1_500_000, direction: "in", content: "PH chuyen tien hoc cho be (mau)", status: "unmatched", matchNote: "Nội dung không có mã đơn" },
-    { source: "sepay", externalId: "seed-2", gateway: "Vietcombank", accountNo: "0000000000", paymentMethodId: pmBank!.id, centerId: cs1!.id, occurredAt: new Date(now - 3600e3), amount: 20_000_000, direction: "in", content: `SATA ${inst.order.code.replace("-", "")} (mau)`, status: "needs_review", matchNote: "Tiền vào vượt số còn phải thu", orderId: inst.order.id },
+    { source: "sepay", externalId: "seed-2", gateway: "Vietcombank", accountNo: "0000000000", paymentMethodId: pmBank!.id, centerId: cs1!.id, occurredAt: new Date(now - 3600e3), amount: 20_000_000, direction: "in", content: `${thTransferMemo(inst.order.code)} (mau)`, status: "needs_review", matchNote: "Tiền vào vượt số còn phải thu", orderId: inst.order.id },
     { source: "sepay", externalId: "seed-3", gateway: "Vietcombank", accountNo: "0000000000", paymentMethodId: pmBank!.id, occurredAt: new Date(now - 1800e3), amount: 22_000, direction: "out", content: "Phi dich vu SMS (mau)", status: "ignored", matchNote: "Tiền ra — không đối khớp" },
   ]);
 
   // ---- Nhân sự, ca làm, chấm công, đơn từ (mẫu) ----
-  const [hrU] = await db.insert(users).values({ email: "hr.cs1@example.test", fullName: "Nhân sự CS1 (mẫu)" }).returning();
+  const [hrU] = await db.insert(users).values({ email: "hr.cs1@example.test", fullName: "Nhân sự (mẫu)" }).returning();
   await db.insert(userRoles).values({ userId: hrU!.id, role: "CENTER_HR", centerId: cs1!.id });
   await db.update(centers).set({ latitude: 16.0336, longitude: 108.2212, checkinRadiusM: 150 }).where(eq(centers.id, cs1!.id));
   // Danh mục mã ca gốc (dùng chung — Hội sở giữ)
@@ -611,7 +557,7 @@ async function main() {
       return {
         centerId: null, code: sh.code, name: sh.name, kind: sh.kind, units: sh.units, segments: sh.segments,
         plannedMinutes: plannedMinutesOf(sh.segments), workplace: sh.workplace,
-        workplaceCenterId: sh.fixedCenterCode === "CS1" ? cs1!.id : sh.fixedCenterCode === "CS2" ? cs2!.id : null,
+        workplaceCenterId: sh.fixedCenterCode === cs1!.code ? cs1!.id : null,
         punchRequired: sh.punchRequired, sortOrder: i, isActive: true,
         dayCredit: sh.units, isLeave: isLeaveShift(sh.kind), nominalMinutes: nominalMinutesOf(sh.segments, payMode),
         payMode, attendanceMode: attendanceModeOf(sh.kind, sh.workplace),
@@ -622,15 +568,14 @@ async function main() {
   const shHC = shiftByCode.get("HC")!;
   const shC = shiftByCode.get("CS")!;
   await db.insert(checkinPoints).values([
-    { centerId: cs1!.id, name: "Quầy lễ tân CS1", lat: 16.0336, lng: 108.2212, radiusM: 100, geofenceEnabled: true, keyVersion: 1, createdBy: adminU!.id },
-    { centerId: cs2!.id, name: "Quầy lễ tân CS2", lat: 16.0678, lng: 108.2208, radiusM: 100, geofenceEnabled: true, keyVersion: 1, createdBy: adminU!.id },
+    { centerId: cs1!.id, name: "Văn phòng TH STEAM (điểm chấm công)", lat: 16.0336, lng: 108.2212, radiusM: 100, geofenceEnabled: true, keyVersion: 1, createdBy: adminU!.id },
   ]);
   const [posMgr] = await db.insert(positions).values([
-    { centerId: cs1!.id, name: "Quản lý cơ sở 1", department: "management", roles: ["CENTER_MANAGER"] as Role[], isManager: true, createdBy: adminU!.id },
-    { centerId: cs1!.id, name: "Nhân sự cơ sở 1", department: "hr", roles: ["CENTER_HR"] as Role[], isManager: false, createdBy: adminU!.id },
+    { centerId: cs1!.id, name: "Quản lý trung tâm", department: "management", roles: ["CENTER_MANAGER"] as Role[], isManager: true, createdBy: adminU!.id },
+    { centerId: cs1!.id, name: "Nhân sự", department: "hr", roles: ["CENTER_HR"] as Role[], isManager: false, createdBy: adminU!.id },
   ]).returning();
   const staffDefs = [
-    { u: mgrU!, code: "NV0001", department: "management", title: "Quản lý cơ sở", hiredAt: "2025-03-01", status: "active" as const, shift: shHC! },
+    { u: mgrU!, code: "NV0001", department: "management", title: "Quản lý trung tâm", hiredAt: "2025-03-01", status: "active" as const, shift: shHC! },
     { u: sale1U!, code: "NV0002", department: "sales", title: "Tư vấn viên", hiredAt: "2026-02-10", status: "active" as const, shift: shHC! },
     { u: sale2U!, code: "NV0003", department: "sales", title: "Tư vấn viên", hiredAt: "2026-07-01", status: "probation" as const, shift: shHC! },
     { u: ktU!, code: "NV0004", department: "accounting", title: "Kế toán", hiredAt: "2025-09-15", status: "active" as const, shift: shHC! },
@@ -648,7 +593,7 @@ async function main() {
   ]);
   await db.insert(staffPositions).values([
     ...staffDefs.map((d, i) => ({ staffId: staffRows[i]!.id, centerId: cs1!.id, positionId: i === 0 ? posMgr!.id : null, title: d.title, department: d.department, kind: "primary" as const, effectiveFrom: d.hiredAt, createdBy: adminU!.id })),
-    { staffId: stMgr!.id, centerId: cs2!.id, title: "Phụ trách CS2", department: "management", kind: "concurrent" as const, effectiveFrom: "2026-06-01", createdBy: adminU!.id },
+    { staffId: stMgr!.id, centerId: cs1!.id, title: "Phụ trách tuyển sinh online", department: "management", kind: "concurrent" as const, effectiveFrom: "2026-06-01", createdBy: adminU!.id },
     { staffId: stSale1!.id, centerId: cs1!.id, title: "Quyền trưởng nhóm tư vấn", department: "sales", kind: "delegated" as const, effectiveFrom: addDays(today, -10), effectiveTo: addDays(today, 20), createdBy: mgrU!.id },
     { staffId: stOld!.id, centerId: cs1!.id, title: "Lễ tân", department: "operations", kind: "primary" as const, effectiveFrom: "2024-06-01", effectiveTo: "2026-05-31", endReason: "Nghỉ việc", createdBy: adminU!.id },
   ]);
@@ -689,7 +634,7 @@ async function main() {
     { staffId: stGv1!.id, centerId: cs1!.id, kind: "sub_teach", status: "pending", dateFrom: addDays(today, 2), dateTo: addDays(today, 2), effectPreview: "chờ chỉ định người dạy thay", reason: "Bận việc gia đình, nhờ dạy thay (mẫu)", createdBy: t1U!.id },
   ]);
   await db.insert(shiftTemplates).values(staffDefs.flatMap((d, i) => [1, 2, 3, 4, 5, 6].map((wd) => ({ centerId: cs1!.id, staffId: staffRows[i]!.id, weekday: wd, shiftId: d.shift.id, createdBy: hrU!.id }))));
-  await db.insert(staffDeployments).values({ staffId: stGv1!.id, centerId: cs2!.id, effectiveFrom: addDays(today, -3), effectiveTo: addDays(today, 27), reason: "Điều động hỗ trợ dạy tại CS2 (mẫu)", createdBy: adminU!.id });
+  await db.insert(staffDeployments).values({ staffId: stGv1!.id, centerId: cs1!.id, effectiveFrom: addDays(today, -3), effectiveTo: addDays(today, 27), reason: "Điều động hỗ trợ dạy lớp luyện thi online (mẫu)", createdBy: adminU!.id });
 
   // ---- CSKH phụ huynh (mẫu): yêu cầu, đánh giá, khảo sát, thông báo, sinh nhật ----
   const futA = sessionRows.filter((x) => x.classId === classA!.id && x.date > today).sort((a, b) => a.sequenceNo - b.sequenceNo);
@@ -697,7 +642,7 @@ async function main() {
   const reqDefs = [
     { type: "absence" as const, status: "new" as const, channel: "zalo" as const, i: 0, sessionId: futA[0]?.id ?? null, content: "Con bị sốt, xin nghỉ buổi tới (mẫu)", hoursAgo: 1 },
     { type: "pause" as const, status: "in_progress" as const, channel: "phone" as const, i: 1, content: "Gia đình về quê 1 tháng, xin bảo lưu (mẫu)", hoursAgo: 30, dateFrom: addDays(today, 7), dateTo: addDays(today, 37) },
-    { type: "complaint" as const, status: "new" as const, channel: "walk_in" as const, i: 2, content: "Phòng học hơi nóng buổi chiều (mẫu)", hoursAgo: 40 },
+    { type: "complaint" as const, status: "new" as const, channel: "phone" as const, i: 2, content: "Đường truyền ClassIn buổi tối hơi giật (mẫu)", hoursAgo: 40 },
     { type: "other" as const, status: "done" as const, channel: "app" as const, i: 3, content: "Hỏi lịch nghỉ lễ (mẫu)", hoursAgo: 72 },
   ];
   let reqSeq = 0;
@@ -717,7 +662,7 @@ async function main() {
   await db.insert(parentFeedback).values([
     { centerId: cs1!.id, studentId: enrollA[0]!.studentId, parentId: parentRows[0]!.id, classId: classA!.id, sessionId: pastSess[1]?.id ?? null, teacherId: gv1!.id, rating: 5, teacherRating: 5, tags: ["teacher", "result"], comment: "Con rất thích thầy (mẫu)", channel: "zalo", status: "resolved", response: "Cảm ơn chị!", respondedBy: sale1U!.id, respondedAt: new Date(), createdBy: sale1U!.id },
     { centerId: cs1!.id, studentId: enrollA[1]!.studentId, parentId: parentRows[1]!.id, classId: classA!.id, sessionId: pastSess[1]?.id ?? null, teacherId: gv1!.id, rating: 4, teacherRating: 4, tags: ["content"], channel: "app", createdBy: sale1U!.id },
-    { centerId: cs1!.id, studentId: enrollA[2]!.studentId, parentId: parentRows[2]!.id, classId: classA!.id, sessionId: pastSess[2]?.id ?? null, teacherId: gv1!.id, rating: 2, teacherRating: 3, tags: ["facility", "schedule"], comment: "Lớp tan muộn 15 phút, phòng nóng (mẫu)", channel: "phone", careTaskId: ct!.id, createdBy: sale1U!.id },
+    { centerId: cs1!.id, studentId: enrollA[2]!.studentId, parentId: parentRows[2]!.id, classId: classA!.id, sessionId: pastSess[2]?.id ?? null, teacherId: gv1!.id, rating: 2, teacherRating: 3, tags: ["facility", "schedule"], comment: "Lớp tan muộn 15 phút, âm thanh hơi rè (mẫu)", channel: "phone", careTaskId: ct!.id, createdBy: sale1U!.id },
   ]);
   const qs = [
     { id: "nps", type: "nps" as const, label: "Anh/chị sẵn sàng giới thiệu TH STEAM Academy cho bạn bè ở mức nào?", required: true },
@@ -783,9 +728,9 @@ async function main() {
   await db.update(students).set({ dateOfBirth: `2015-${mdAfter(20)}` }).where(eq(students.id, enrollA[4]!.studentId));
 
   // ---- Hệ thống (mẫu): khu vực, nhóm, nhật ký email/OTP/webhook, cài đặt, mục tiêu doanh thu ----
-  const [rg] = await db.insert(regions).values({ code: "MIEN-TRUNG", name: "Miền Trung", managerUserId: adminU!.id }).returning();
+  const [rg] = await db.insert(regions).values({ code: "TOAN-QUOC", name: "Toàn quốc (online)", managerUserId: adminU!.id }).returning();
   await db.update(centers).set({ regionId: rg!.id });
-  const [grp] = await db.insert(userGroups).values({ name: "Ban quản lý cơ sở", description: "Nhận thông báo vận hành chung", createdBy: adminU!.id }).returning();
+  const [grp] = await db.insert(userGroups).values({ name: "Ban quản lý trung tâm", description: "Nhận thông báo vận hành chung", createdBy: adminU!.id }).returning();
   await db.insert(userGroupMembers).values([{ groupId: grp!.id, userId: mgrU!.id, addedBy: adminU!.id }, { groupId: grp!.id, userId: ktU!.id, addedBy: adminU!.id }]);
   // Nhóm có QUYỀN: cấp thêm quyền cho cả nhóm mà không sửa vai trò từng người
   const [grpReport] = await db.insert(userGroups).values({ name: "Tổ báo cáo vận hành", description: "Được xem báo cáo và marketing toàn hệ thống mà không đổi vai trò", createdBy: adminU!.id }).returning();
@@ -796,8 +741,8 @@ async function main() {
 
   // ---- Cây tổ chức động (/to-chuc): dựng từ chính khu vực + cơ sở ở trên ----
   const [le] = await db.insert(legalEntities).values({
-    legalName: "Công ty Cổ phần Giáo dục TH STEAM Academy (mẫu)", taxCode: "0401234567",
-    address: "211 Nguyễn Hữu Thọ, Đà Nẵng", representative: "Nguyễn Văn A (mẫu)",
+    legalName: TH_BRAND.legalName, taxCode: "0000000000",
+    address: "Cập nhật địa chỉ đăng ký kinh doanh (mẫu)", representative: "Người đại diện (mẫu)",
   }).returning();
   const unitRow = (x: { code: string; name: string; type: "root" | "ho" | "region" | "center"; parentId: string | null; parentPath: string | null; centerId?: string; regionId?: string; address?: string | null; sortOrder?: number }) => ({
     code: x.code, name: x.name, type: x.type, parentId: x.parentId,
@@ -806,11 +751,10 @@ async function main() {
     centerId: x.centerId ?? null, regionId: x.regionId ?? null, sortOrder: x.sortOrder ?? 0,
   });
   const [uRoot] = await db.insert(orgUnits).values(unitRow({ code: "ROOT", name: "TH STEAM Academy", type: "root", parentId: null, parentPath: null })).returning();
-  const [uHo] = await db.insert(orgUnits).values(unitRow({ code: "HO", name: "Hội sở TH STEAM Academy", type: "ho", parentId: uRoot!.id, parentPath: uRoot!.path, address: "211 Nguyễn Hữu Thọ, Đà Nẵng" })).returning();
+  const [uHo] = await db.insert(orgUnits).values(unitRow({ code: "HO", name: "Hội sở TH STEAM Academy", type: "ho", parentId: uRoot!.id, parentPath: uRoot!.path, address: "Học online qua ClassIn" })).returning();
   const [uRegion] = await db.insert(orgUnits).values(unitRow({ code: rg!.code, name: rg!.name, type: "region", parentId: uHo!.id, parentPath: uHo!.path, regionId: rg!.id })).returning();
   await db.insert(orgUnits).values([
     unitRow({ code: cs1!.code, name: cs1!.name, type: "center", parentId: uRegion!.id, parentPath: uRegion!.path, centerId: cs1!.id, address: cs1!.address }),
-    unitRow({ code: cs2!.code, name: cs2!.name, type: "center", parentId: uRegion!.id, parentPath: uRegion!.path, centerId: cs2!.id, address: cs2!.address }),
   ]);
 
   // ---- Danh mục loại thông báo: khai đủ danh mục mặc định để tab Cấu hình vận hành dùng được ----
@@ -825,12 +769,12 @@ async function main() {
   const todayVn = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10);
   await db.insert(userNotifications).values([
     { userId: ktU!.id, title: "Cần đối soát tay giao dịch ngân hàng", body: "2 giao dịch (3.000.000 đ) chưa rót được vào phiếu thu nào — cần đối soát tay", link: "/bien-dong-so-du?status=unmatched", priority: 1, type: "action_required", dedupeKey: `action:bank_unallocated:${todayVn}` },
-    { userId: mgrU!.id, title: "Khoản thu chờ xác nhận", body: "DH26-000001 · 4.800.000đ · Phụ huynh mẫu", link: "/payments?status=recorded", priority: 2, type: "payment.pending" },
+    { userId: mgrU!.id, title: "Khoản thu chờ xác nhận", body: "DH26-000001 · 5.625.000đ · Phụ huynh mẫu", link: "/payments?status=recorded", priority: 2, type: "payment.pending" },
     { userId: mgrU!.id, title: "Lead mới được phân công", body: "Gọi tư vấn trong 15 phút", link: "/leads", priority: 1, type: "lead.moi", createdAt: new Date(Date.now() - 26 * 3600e3) },
     { userId: mgrU!.id, title: "Đơn nghỉ phép chờ duyệt", body: "Giáo viên mẫu — nghỉ phép 1 ngày", link: "/don-tu?status=pending", priority: 2, type: "request.submitted", createdAt: new Date(Date.now() - 5 * 86400e3) },
   ]);
   await db.insert(emailLogs).values([
-    { toEmail: "ph.mau1@example.test", eventKey: "RECEIPT_ISSUED", subject: "TH STEAM Academy xác nhận thanh toán PT-CS1-26-000001", body: "(mẫu)", status: "skipped", error: "Chưa cấu hình nhà cung cấp email (RESEND_API_KEY)", attempts: 1, createdAt: new Date(Date.now() - 86400e3) },
+    { toEmail: "ph.mau1@example.test", eventKey: "RECEIPT_ISSUED", subject: "TH STEAM Academy xác nhận thanh toán PT-ONL-26-000001", body: "(mẫu)", status: "skipped", error: "Chưa cấu hình nhà cung cấp email (RESEND_API_KEY)", attempts: 1, createdAt: new Date(Date.now() - 86400e3) },
     { toEmail: "sai-dia-chi", eventKey: "TEST", subject: "Email thử", body: "(mẫu)", status: "failed", error: "Địa chỉ email không hợp lệ", attempts: 3 },
   ]);
   await db.insert(otpRequests).values([
@@ -842,55 +786,55 @@ async function main() {
     { source: "sepay", externalId: "seed-1", status: "processed", httpStatus: 201, payload: { id: "seed-1", transferAmount: 1500000 }, result: { status: "unmatched" }, receivedAt: new Date(Date.now() - 7200e3) },
     { source: "sepay", status: "rejected", httpStatus: 401, payload: { note: "sai khoá" }, error: "Sai API key", receivedAt: new Date(Date.now() - 3600e3) },
   ]);
-  await db.insert(appSettings).values({ key: "general", value: { ...SETTINGS_DEFAULTS, hotline: "0900 000 000", supportEmail: "hotro@example.test" }, updatedBy: adminU!.id });
+  await db.insert(appSettings).values({ key: "general", value: { ...SETTINGS_DEFAULTS, brandName: TH_BRAND.name, legalName: TH_BRAND.legalName, hotline: TH_BRAND.hotline, website: TH_BRAND.websiteUrl, supportEmail: "hotro@example.test" }, updatedBy: adminU!.id });
   const pm = (k: number) => { const d = new Date(); d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth() + k); return d.toISOString().slice(0, 7); };
   await db.insert(revenueTargets).values([
     { centerId: cs1!.id, period: pm(0), amount: 60_000_000, newEnrollments: 8, updatedBy: adminU!.id },
     { centerId: cs1!.id, period: pm(-1), amount: 50_000_000, newEnrollments: 6, updatedBy: adminU!.id },
-    { centerId: cs2!.id, period: pm(0), amount: 40_000_000, newEnrollments: 5, updatedBy: adminU!.id },
   ]);
 
-  // ---- Kho & học cụ (mẫu): linh kiện, bộ học cụ theo khoá, sản phẩm bán/thuê, tồn đầu kỳ ----
+  // ---- Kho & học cụ (mẫu): đồ dùng học online, bộ quà nhập học theo khoá, sản phẩm bán / cho thuê, tồn đầu kỳ ----
   const itemRows = await db.insert(inventoryItems).values([
-    { sku: "LK-MOTOR", name: "Động cơ DC mini", type: "component", unit: "cái", reorderLevel: 20 },
-    { sku: "LK-SENSOR", name: "Cảm biến siêu âm", type: "component", unit: "cái", reorderLevel: 10 },
-    { sku: "LK-BOARD", name: "Bo mạch điều khiển", type: "component", unit: "cái", reorderLevel: 5 },
-    { sku: "KIT-SATA4", name: "Bộ học cụ Sata 4", type: "kit", unit: "bộ", courseId: sata4!.id, salePrice: 1_200_000, rentPrice: 150_000, deposit: 500_000, reorderLevel: 3 },
-    { sku: "SP-ROBOT-MINI", name: "Robot mini lắp ráp", type: "product", unit: "hộp", salePrice: 350_000, reorderLevel: 5 },
+    { sku: "VT-AO", name: "Áo đồng phục TH STEAM Academy", type: "component", unit: "cái", reorderLevel: 20 },
+    { sku: "VT-SO-TAY", name: "Sổ tay TH STEAM Academy", type: "component", unit: "cuốn", reorderLevel: 10 },
+    { sku: "VT-STICKER", name: "Bộ sticker TH STEAM", type: "component", unit: "bộ", reorderLevel: 10 },
+    { sku: "KIT-NHAP-HOC", name: "Bộ quà nhập học TH STEAM", type: "kit", unit: "bộ", courseId: robo1.id, salePrice: 250_000, reorderLevel: 3 },
+    { sku: "SP-TAI-NGHE", name: "Tai nghe có micro", type: "product", unit: "cái", salePrice: 250_000, reorderLevel: 5 },
+    { sku: "SP-WEBCAM", name: "Webcam HD cho lớp online", type: "product", unit: "cái", salePrice: 450_000, rentPrice: 50_000, deposit: 300_000, reorderLevel: 3 },
     { sku: "SP-BINH-NUOC", name: "Bình nước TH STEAM Academy", type: "product", unit: "cái", salePrice: 90_000, reorderLevel: 10 },
-    { sku: "VT-PIN-AA", name: "Pin AA", type: "material", unit: "viên", reorderLevel: 50 },
+    { sku: "VT-GIAY-CN", name: "Giấy in chứng nhận A4", type: "material", unit: "tờ", reorderLevel: 50 },
   ]).returning();
   const it = (sku: string) => itemRows.find((x) => x.sku === sku)!;
   await db.insert(kitComponents).values([
-    { kitId: it("KIT-SATA4").id, componentId: it("LK-MOTOR").id, qty: 2 },
-    { kitId: it("KIT-SATA4").id, componentId: it("LK-SENSOR").id, qty: 1 },
-    { kitId: it("KIT-SATA4").id, componentId: it("LK-BOARD").id, qty: 1 },
+    { kitId: it("KIT-NHAP-HOC").id, componentId: it("VT-AO").id, qty: 1 },
+    { kitId: it("KIT-NHAP-HOC").id, componentId: it("VT-SO-TAY").id, qty: 1 },
+    { kitId: it("KIT-NHAP-HOC").id, componentId: it("VT-STICKER").id, qty: 1 },
   ]);
   const opening: [string, string, number, number][] = [
-    ["LK-MOTOR", cs1!.id, 40, 45_000], ["LK-SENSOR", cs1!.id, 12, 60_000], ["LK-BOARD", cs1!.id, 6, 180_000], ["KIT-SATA4", cs1!.id, 5, 380_000],
-    ["SP-ROBOT-MINI", cs1!.id, 8, 200_000], ["SP-BINH-NUOC", cs1!.id, 4, 40_000], ["VT-PIN-AA", cs1!.id, 120, 3_000],
-    ["LK-MOTOR", cs2!.id, 10, 45_000], ["KIT-SATA4", cs2!.id, 2, 380_000], ["SP-ROBOT-MINI", cs2!.id, 3, 200_000],
+    ["VT-AO", cs1!.id, 40, 70_000], ["VT-SO-TAY", cs1!.id, 30, 25_000], ["VT-STICKER", cs1!.id, 30, 10_000], ["KIT-NHAP-HOC", cs1!.id, 5, 105_000],
+    ["SP-TAI-NGHE", cs1!.id, 8, 150_000], ["SP-WEBCAM", cs1!.id, 4, 300_000], ["SP-BINH-NUOC", cs1!.id, 4, 40_000], ["VT-GIAY-CN", cs1!.id, 120, 3_000],
   ];
   await db.insert(stockLevels).values(opening.map(([sku, c, q, cost]) => ({ itemId: it(sku).id, centerId: c, onHand: q, avgCost: cost })));
   await db.insert(stockMovements).values(opening.map(([sku, c, q, cost], i) => ({
-    code: `PN-${c === cs1!.id ? "CS1" : "CS2"}-${today.slice(2, 4)}-${String(c === cs1!.id ? 1 : 1).padStart(5, "0")}`, itemId: it(sku).id, centerId: c, type: "receipt" as const,
+    code: `PN-${cs1!.code}-${today.slice(2, 4)}-${String(i + 1).padStart(5, "0")}`, itemId: it(sku).id, centerId: c, type: "receipt" as const,
     qty: q, balanceAfter: q, unitCost: cost, supplier: "Nhà cung cấp mẫu", note: "Tồn đầu kỳ (mẫu)", createdBy: adminU!.id, createdAt: new Date(Date.now() - (20 - i) * 3600e3),
   })));
-  await db.insert(stockCounters).values([{ key: `PN-CS1-${today.slice(0, 4)}`, seq: 1 }, { key: `PN-CS2-${today.slice(0, 4)}`, seq: 1 }]);
-  // cấp 1 bộ học cụ cho HV đầu tiên lớp A; 1 phiếu thuê quá hạn
-  await db.update(stockLevels).set({ onHand: 3 }).where(and(eq(stockLevels.itemId, it("KIT-SATA4").id), eq(stockLevels.centerId, cs1!.id)));
+  await db.insert(stockCounters).values([{ key: `PN-${cs1!.code}-${today.slice(0, 4)}`, seq: opening.length }]);
+  // cấp 1 bộ quà nhập học cho HV đầu tiên lớp A; 1 phiếu thuê webcam quá hạn
+  await db.update(stockLevels).set({ onHand: 4 }).where(and(eq(stockLevels.itemId, it("KIT-NHAP-HOC").id), eq(stockLevels.centerId, cs1!.id)));
+  await db.update(stockLevels).set({ onHand: 3 }).where(and(eq(stockLevels.itemId, it("SP-WEBCAM").id), eq(stockLevels.centerId, cs1!.id)));
   await db.insert(stockMovements).values([
-    { code: `PX-CS1-${today.slice(2, 4)}-00001`, itemId: it("KIT-SATA4").id, centerId: cs1!.id, type: "issue", qty: -1, balanceAfter: 4, unitCost: 380_000, studentId: enrollA[0]!.studentId, classId: classA!.id, createdBy: mgrU!.id },
-    { code: `TH-CS1-${today.slice(2, 4)}-00001`, itemId: it("KIT-SATA4").id, centerId: cs1!.id, type: "rent_out", qty: -1, balanceAfter: 3, unitCost: 380_000, studentId: enrollA[1]!.studentId, refType: "rental", createdBy: mgrU!.id },
+    { code: `PX-${cs1!.code}-${today.slice(2, 4)}-00001`, itemId: it("KIT-NHAP-HOC").id, centerId: cs1!.id, type: "issue", qty: -1, balanceAfter: 4, unitCost: 105_000, studentId: enrollA[0]!.studentId, classId: classA!.id, createdBy: mgrU!.id },
+    { code: `TH-${cs1!.code}-${today.slice(2, 4)}-00001`, itemId: it("SP-WEBCAM").id, centerId: cs1!.id, type: "rent_out", qty: -1, balanceAfter: 3, unitCost: 300_000, studentId: enrollA[1]!.studentId, refType: "rental", createdBy: mgrU!.id },
   ]);
-  await db.insert(stockCounters).values([{ key: `PX-CS1-${today.slice(0, 4)}`, seq: 1 }, { key: `TH-CS1-${today.slice(0, 4)}`, seq: 1 }]);
-  await db.insert(rentals).values({ code: `TH-CS1-${today.slice(2, 4)}-00001`, itemId: it("KIT-SATA4").id, centerId: cs1!.id, studentId: enrollA[1]!.studentId, qty: 1, startDate: addDays(today, -40), dueDate: addDays(today, -10), fee: 300_000, deposit: 500_000, createdBy: mgrU!.id });
+  await db.insert(stockCounters).values([{ key: `PX-${cs1!.code}-${today.slice(0, 4)}`, seq: 1 }, { key: `TH-${cs1!.code}-${today.slice(0, 4)}`, seq: 1 }]);
+  await db.insert(rentals).values({ code: `TH-${cs1!.code}-${today.slice(2, 4)}-00001`, itemId: it("SP-WEBCAM").id, centerId: cs1!.id, studentId: enrollA[1]!.studentId, qty: 1, startDate: addDays(today, -40), dueDate: addDays(today, -10), fee: 100_000, deposit: 300_000, createdBy: mgrU!.id });
 
-  // ---- SataCoin (mẫu): quà, lịch sử xu, 1 yêu cầu đổi quà chờ duyệt ----
+  // ---- TH Coin (mẫu): quà, lịch sử xu, 1 yêu cầu đổi quà chờ duyệt ----
   const rw = await db.insert(rewardItems).values([
     { name: "Sticker TH STEAM Academy", cost: 20, sortOrder: 1 },
     { name: "Bình nước TH STEAM Academy", cost: 120, inventoryItemId: it("SP-BINH-NUOC").id, sortOrder: 2 },
-    { name: "Robot mini lắp ráp", cost: 400, inventoryItemId: it("SP-ROBOT-MINI").id, sortOrder: 3 },
+    { name: "Tai nghe có micro", cost: 400, inventoryItemId: it("SP-TAI-NGHE").id, sortOrder: 3 },
   ]).returning();
   await db.insert(coinRules).values(
     (Object.keys(COIN_RULE_DEFS) as (keyof typeof COIN_RULE_DEFS)[]).map((code) => ({
@@ -902,33 +846,33 @@ async function main() {
   const bal: Record<number, number> = {};
   await db.insert(coinTransactions).values(coinPlan.map(([i, amt, reason], k) => {
     bal[i] = (bal[i] ?? 0) + amt;
-    return { studentId: enrollA[i]!.studentId, centerId: cs1!.id, amount: amt, balanceAfter: bal[i]!, reason, note: reason === "competition" ? "Giải nhì Robotacon (mẫu)" : null, classId: classA!.id, createdBy: reason === "competition" ? mgrU!.id : t1U!.id, createdAt: new Date(Date.now() - (10 - k) * 86400e3) };
+    return { studentId: enrollA[i]!.studentId, centerId: cs1!.id, amount: amt, balanceAfter: bal[i]!, reason, note: reason === "competition" ? "Giải khuyến khích Sáng tạo Robotics (mẫu)" : null, classId: classA!.id, createdBy: reason === "competition" ? mgrU!.id : t1U!.id, createdAt: new Date(Date.now() - (10 - k) * 86400e3) };
   }));
-  await db.insert(redemptions).values({ code: `DQ-CS1-${today.slice(2, 4)}-00001`, studentId: enrollA[0]!.studentId, centerId: cs1!.id, rewardId: rw[1]!.id, cost: 120, requestedBy: sale1U!.id, note: "Con muốn đổi bình nước" });
-  await db.insert(stockCounters).values({ key: `DQ-CS1-${today.slice(0, 4)}`, seq: 1 });
+  await db.insert(redemptions).values({ code: `DQ-${cs1!.code}-${today.slice(2, 4)}-00001`, studentId: enrollA[0]!.studentId, centerId: cs1!.id, rewardId: rw[1]!.id, cost: 120, requestedBy: sale1U!.id, note: "Con muốn đổi bình nước" });
+  await db.insert(stockCounters).values({ key: `DQ-${cs1!.code}-${today.slice(0, 4)}`, seq: 1 });
 
   // ---- Học liệu (mẫu): tài khoản Đào tạo, tài liệu liên kết, mẫu bài tập, bài tập lớp A, đề xuất sửa giáo án ----
   const [dtU] = await db.insert(users).values({ email: "daotao@example.test", fullName: "Đào tạo (mẫu)" }).returning();
   await db.insert(userRoles).values({ userId: dtU!.id, role: "TRAINING", centerId: null });
   await db.insert(documents).values([
-    { title: "Video: làm quen robot Sata4", kind: "link", category: "video", audience: "student", status: "published", courseId: sata4!.id, lessonId: lessonRows[0]!.id, url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", tags: ["video", "bài 1"], createdBy: dtU!.id, publishedAt: new Date() },
-    { title: "Hướng dẫn lập trình cảm biến (GV)", kind: "link", category: "guide", audience: "teacher", status: "published", courseId: sata4!.id, lessonId: lessonRows[1]!.id, url: "https://docs.google.com/document/d/mau", tags: ["cảm biến"], createdBy: dtU!.id, publishedAt: new Date() },
-    { title: "Giáo án bài 2 (đang soạn)", kind: "file", category: "lesson_plan", audience: "teacher", status: "draft", courseId: sata4!.id, lessonId: lessonRows[1]!.id, createdBy: dtU!.id },
+    { title: "Video: làm quen robot ảo RoboSim", kind: "link", category: "video", audience: "student", status: "published", courseId: robo1.id, lessonId: lessonRows[0]!.id, url: "https://example.test/video-mau-robosim", tags: ["video", "bài 1"], createdBy: dtU!.id, publishedAt: new Date() },
+    { title: "Hướng dẫn lập trình cảm biến trên RoboSim (GV)", kind: "link", category: "guide", audience: "teacher", status: "published", courseId: robo1.id, lessonId: lessonRows[1]!.id, url: "https://example.test/huong-dan-mau", tags: ["cảm biến"], createdBy: dtU!.id, publishedAt: new Date() },
+    { title: "Giáo án bài 2 (đang soạn)", kind: "file", category: "lesson_plan", audience: "teacher", status: "draft", courseId: robo1.id, lessonId: lessonRows[1]!.id, createdBy: dtU!.id },
   ]);
   // ---- Giáo án buổi học (mẫu): buổi 1 có slide PDF đang dùng + một bản hỏng để thấy khung "Dọn bản lỗi" ----
   const lp = lessonRows[0]!;
   const [plan1] = await db.insert(documents).values({
     title: `Buổi ${lp.sequenceNo} — ${lp.title}`, kind: "file", category: "lesson_plan", audience: "teacher", status: "published",
-    courseId: sata4!.id, lessonId: lp.id, currentVersion: 1, createdBy: dtU!.id, updatedBy: dtU!.id, publishedAt: new Date(),
+    courseId: robo1.id, lessonId: lp.id, currentVersion: 1, createdBy: dtU!.id, updatedBy: dtU!.id, publishedAt: new Date(),
   }).returning();
   const planPdf = samplePdf([
     `Buoi ${lp.sequenceNo}: ${lp.title}`,
     "Giao an mau cua he thong TH STEAM Academy (du lieu thu nghiem)",
-    "1. On dinh lop va kiem tra hoc cu",
-    "2. Gioi thieu bai - dat van de",
-    "3. Lap mo hinh theo nhom",
-    "4. Lap trinh va thu nghiem",
-    "5. Trinh bay san pham - nhan xet",
+    "10 phut - Khoi dong: kiem tra ClassIn, camera, micro",
+    "15 phut - Kham pha: giao vien lam mau tren RoboSim",
+    "30 phut - Thuc hanh: con lap trinh robot ao",
+    "25 phut - Thu thach: nang cap robot cua minh",
+    "10 phut - Chia se: trinh bay san pham, nhan xet",
   ]);
   const planKey = `docs/${plan1!.id}/v1/buoi-${lp.sequenceNo}-v1.pdf`;
   writeSeedFile(planKey, planPdf);
@@ -943,14 +887,14 @@ async function main() {
     createdAt: new Date(Date.now() - 3600e3), processedAt: new Date(Date.now() - 3600e3),
   });
 
-  const [tpl1] = await db.insert(assignmentTemplates).values({ courseId: sata4!.id, lessonId: lessonRows[0]!.id, title: "Lắp xe robot cơ bản", instructions: "Con lắp xe theo hình hướng dẫn trang 3 và chụp ảnh xe đã lắp xong gửi thầy cô.", submissionType: "file", maxScore: 10, createdBy: dtU!.id }).returning();
+  const [tpl1] = await db.insert(assignmentTemplates).values({ courseId: robo1.id, lessonId: lessonRows[0]!.id, title: "Thiết kế robot 2 bánh trên RoboSim", instructions: "Con thiết kế robot 2 bánh trong RoboSim theo hướng dẫn và chụp màn hình robot đã chạy được gửi thầy cô.", submissionType: "file", maxScore: 10, createdBy: dtU!.id }).returning();
   const hwActive = enrollA.filter((e, i) => i !== 9);
-  const [hw1] = await db.insert(assignments).values({ classId: classA!.id, templateId: tpl1!.id, title: "Lắp xe robot cơ bản", instructions: "Con lắp xe theo hình hướng dẫn trang 3 và chụp ảnh xe đã lắp xong gửi thầy cô.", submissionType: "file", maxScore: 10, dueAt: new Date(Date.now() + 3 * 86400e3), coinReward: 5, status: "published", publishedAt: new Date(Date.now() - 86400e3), createdBy: t1U!.id }).returning();
+  const [hw1] = await db.insert(assignments).values({ classId: classA!.id, templateId: tpl1!.id, title: "Thiết kế robot 2 bánh trên RoboSim", instructions: "Con thiết kế robot 2 bánh trong RoboSim theo hướng dẫn và chụp màn hình robot đã chạy được gửi thầy cô.", submissionType: "file", maxScore: 10, dueAt: new Date(Date.now() + 3 * 86400e3), coinReward: 5, status: "published", publishedAt: new Date(Date.now() - 86400e3), createdBy: t1U!.id }).returning();
   await db.insert(submissions).values(hwActive.map((e, i) => ({
     assignmentId: hw1!.id, studentId: e.studentId, token: `seedhw1tok${String(i).padStart(2, "0")}${hw1!.id.slice(0, 8)}`,
     status: (i === 0 ? "submitted" : i === 1 ? "graded" : "assigned") as "submitted" | "graded" | "assigned",
-    answerText: i < 2 ? "Con đã lắp xong (mẫu)" : null, submittedAt: i < 2 ? new Date(Date.now() - 3600e3) : null, submittedVia: i < 2 ? "parent_link" : null, attempts: i < 2 ? 1 : 0,
-    score: i === 1 ? 9 : null, feedback: i === 1 ? "Lắp chắc chắn, gọn gàng" : null, gradedBy: i === 1 ? t1U!.id : null, gradedAt: i === 1 ? new Date() : null,
+    answerText: i < 2 ? "Con đã làm xong, robot chạy được (mẫu)" : null, submittedAt: i < 2 ? new Date(Date.now() - 3600e3) : null, submittedVia: i < 2 ? "parent_link" : null, attempts: i < 2 ? 1 : 0,
+    score: i === 1 ? 9 : null, feedback: i === 1 ? "Robot chạy đúng, chương trình gọn gàng" : null, gradedBy: i === 1 ? t1U!.id : null, gradedAt: i === 1 ? new Date() : null,
   })));
   const [hw0] = await db.insert(assignments).values({ classId: classA!.id, title: "Trả lời: robot dùng cảm biến gì?", instructions: "Con kể tên 2 loại cảm biến đã học và công dụng của chúng.", submissionType: "text", maxScore: 10, dueAt: new Date(Date.now() - 5 * 86400e3), status: "closed", publishedAt: new Date(Date.now() - 12 * 86400e3), closedAt: new Date(Date.now() - 4 * 86400e3), createdBy: t1U!.id }).returning();
   await db.insert(submissions).values(hwActive.slice(0, 3).map((e, i) => ({
@@ -968,19 +912,17 @@ async function main() {
   const futureA = sessionRows.filter((x) => x.classId === classA!.id && x.date > today).sort((a, b) => a.sequenceNo - b.sequenceNo);
   const futureB = sessionRows.filter((x) => x.classId === classB!.id && x.date > today).sort((a, b) => a.sequenceNo - b.sequenceNo);
   const trialRows: (typeof trialBookings.$inferInsert)[] = [];
-  if (futureA[0]) trialRows.push({ leadId: leadRows[3]!.id, sessionId: futureA[0].id, centerId: cs1!.id, status: "booked", childName: leadRows[3]!.childName, note: "PH đưa đón (mẫu)", bookedBy: sale1U!.id });
+  if (futureA[0]) trialRows.push({ leadId: leadRows[3]!.id, sessionId: futureA[0].id, centerId: cs1!.id, status: "booked", childName: leadRows[3]!.childName, note: "PH ngồi cùng con lúc vào ClassIn (mẫu)", bookedBy: sale1U!.id });
   if (futureB[0]) trialRows.push({ leadId: leadRows[4]!.id, sessionId: futureB[0].id, centerId: cs2!.id, status: "booked", childName: leadRows[4]!.childName, bookedBy: sale2U!.id });
   if (toComplete.length >= 2) {
-    trialRows.push({ leadId: leadRows[5]!.id, sessionId: toComplete[toComplete.length - 1]!.id, centerId: cs1!.id, status: "attended", childName: leadRows[5]!.childName, resultNote: "Con hào hứng, lắp xong mô hình", resultBy: t1U!.id, resultAt: h(30), bookedBy: sale1U!.id });
+    trialRows.push({ leadId: leadRows[5]!.id, sessionId: toComplete[toComplete.length - 1]!.id, centerId: cs1!.id, status: "attended", childName: leadRows[5]!.childName, resultNote: "Con hào hứng, lập trình xong robot ảo", resultBy: t1U!.id, resultAt: h(30), bookedBy: sale1U!.id });
     trialRows.push({ leadId: leadRows[7]!.id, sessionId: toComplete[toComplete.length - 2]!.id, centerId: cs1!.id, status: "no_show", childName: leadRows[7]!.childName, resultNote: "PH báo bận đột xuất", resultBy: mgrU!.id, resultAt: h(200), bookedBy: sale1U!.id });
     trialRows.push({ leadId: leadRows[8]!.id, sessionId: toComplete[0]!.id, centerId: cs1!.id, status: "attended", childName: leadRows[8]!.childName, resultBy: t1U!.id, resultAt: h(520), bookedBy: sale1U!.id });
   }
   if (trialRows.length) await db.insert(trialBookings).values(trialRows);
 
   // ---- Phiếu đánh giá buổi học thử mẫu (tên giả trong seed) ----
-  // Chân phiếu lấy tên / địa chỉ / SĐT từ bảng centers → gắn SĐT mẫu cho hai cơ sở
-  await db.update(centers).set({ phone: "0900000100" }).where(eq(centers.id, cs1!.id));
-  await db.update(centers).set({ phone: "0900000200" }).where(eq(centers.id, cs2!.id));
+  // Chân phiếu lấy tên / địa chỉ / SĐT từ bảng centers (trung tâm online đã có hotline)
   const [bkGiang] = await db.select({ id: trialBookings.id, sessionId: trialBookings.sessionId }).from(trialBookings)
     .where(and(eq(trialBookings.leadId, leadRows[5]!.id), eq(trialBookings.status, "attended"))).limit(1);
   const kidGiang = await db.query.leadChildren.findFirst({ where: eq(leadChildren.leadId, leadRows[5]!.id) });
@@ -989,15 +931,15 @@ async function main() {
   const reportYear = Number(today.slice(0, 4));
   if (bkGiang) {
     const [rp] = await db.insert(trialReports).values({
-      tenantId: tSata.id, centerId: cs1!.id, leadId: leadRows[5]!.id, childId: kidGiang?.id ?? null, trialBookingId: bkGiang.id,
-      courseId: sata4!.id, teacherId: gv1!.id, code: trialReportCode("CS1", reportYear, 1), status: "published", childName: "Bé Giang",
+      tenantId: tTh.id, centerId: cs1!.id, leadId: leadRows[5]!.id, childId: kidGiang?.id ?? null, trialBookingId: bkGiang.id,
+      courseId: robo1.id, teacherId: gv1!.id, code: trialReportCode("ONL", reportYear, 1), status: "published", childName: "Bé Giang",
       sessionAt: sGiang ? new Date(`${sGiang.date}T${sGiang.startTime.slice(0, 5)}:00+07:00`) : h(30),
       answers: snapshotAnswers(TRIAL_REPORT_TEMPLATE, { grasp: 3, speed: 2, computer: 3, focus: 3, communication: 2, presentation: 3, interest: 3 }),
-      strengths: "Bé tự lắp xong xe robot theo hình hướng dẫn, rất tò mò hỏi vì sao bánh răng lớn làm xe chạy chậm mà khoẻ hơn.",
+      strengths: "Bé tự thiết kế xong robot 2 bánh trên RoboSim, rất tò mò hỏi vì sao bánh xe lớn làm robot chạy nhanh hơn.",
       growth: "Bé cần luyện thêm thao tác kéo thả chuột và mạnh dạn chia sẻ ý tưởng trước lớp.",
-      productNote: "Xe robot né vật cản chạy trọn một vòng sa bàn (dữ liệu mẫu).",
-      readiness: "ready", recommendedCourseId: sata4!.id, recommendedLevel: "Cấp 1 — Làm quen",
-      recommendationNote: "Bé thao tác nhanh và thích lắp ráp — hợp lộ trình lắp ráp kết hợp lập trình kéo thả.",
+      productNote: "Robot ảo né vật cản chạy trọn một vòng sa bàn (dữ liệu mẫu).",
+      readiness: "ready", recommendedCourseId: robo1.id, recommendedLevel: "Năm 1 · Basic (Nền tảng)",
+      recommendationNote: "Bé thao tác nhanh và thích robot — hợp chương trình Lập trình Robotics AI, Năm 1 với RoboSim.",
       pathway: true, competitionPotential: false,
       shareToken: DEMO_TRIAL_REPORT_TOKEN, shareExpiresAt: shareExpiresAt(new Date()), publishedAt: h(20), publishedBy: sale1U!.id,
       viewCount: 3, firstViewedAt: h(18), lastViewedAt: h(2), createdBy: t1U!.id, updatedBy: sale1U!.id,
@@ -1010,8 +952,8 @@ async function main() {
   }
   // Bản nháp chấm dở — lập từ trang lead (bé học thử ngoài hệ thống)
   await db.insert(trialReports).values({
-    tenantId: tSata.id, centerId: cs1!.id, leadId: leadRows[6]!.id, childId: kidHa?.id ?? null, courseId: sata4!.id, teacherId: gv3!.id,
-    code: trialReportCode("CS1", reportYear, 2), status: "draft", childName: "Bé Hà", sessionAt: h(50),
+    tenantId: tTh.id, centerId: cs1!.id, leadId: leadRows[6]!.id, childId: kidHa?.id ?? null, courseId: robo1.id, teacherId: gv3!.id,
+    code: trialReportCode("ONL", reportYear, 2), status: "draft", childName: "Bé Hà", sessionAt: h(50),
     answers: snapshotAnswers(TRIAL_REPORT_TEMPLATE, { grasp: 2, speed: 2, focus: 1 }),
     growth: "Bé cần thêm thời gian làm quen với bàn phím (bản nháp mẫu).",
     createdBy: t3U!.id, updatedBy: t3U!.id,
@@ -1026,10 +968,10 @@ async function main() {
   await db.insert(userRoles).values({ userId: mkU!.id, role: "HO_MARKETING", centerId: null });
   const d = (n: number) => new Date(Date.now() - n * 86400e3);
   await db.insert(posts).values([
-    { slug: "khai-giang-he-2026", title: "Khai giảng khoá hè 2026", excerpt: "Lịch khai giảng các lớp robot mùa hè tại hai cơ sở.", body: "## Lịch khai giảng\n\nCác lớp **Sata4** và **Sata6** khai giảng từ tháng 6.\n\n- Học thử miễn phí 1 buổi\n- Sĩ số tối đa 12\n\n[Đăng ký học thử](/dang-ky)", category: "news", status: "published", publishedAt: d(5), createdBy: mkU!.id, views: 42 },
-    { slug: "5-meo-giup-con-yeu-lap-trinh", title: "5 mẹo giúp con yêu lập trình", excerpt: "Gợi ý cho phụ huynh đồng hành cùng con tại nhà.", body: "1. Cho con tự lắp trước\n2. Hỏi con \"vì sao\"\n3. Khen quá trình, không chỉ kết quả", category: "tips", status: "published", publishedAt: d(12), createdBy: mkU!.id, views: 17 },
-    { slug: "robotacon-2026", title: "Học viên đạt giải Robotacon 2026", body: "Bài viết đang soạn (mẫu).", category: "story", status: "draft", createdBy: mkU!.id },
-    { slug: "uu-dai-thang-9", title: "Ưu đãi tháng 9", body: "Giảm học phí khi đăng ký trước ngày khai giảng (mẫu).", category: "promotion", status: "scheduled", publishAt: new Date(Date.now() + 3 * 86400e3), createdBy: mkU!.id },
+    { slug: "khai-giang-nam-hoc-2026-2027", title: "Khai giảng năm học 2026–2027", excerpt: "Lịch khai giảng các lớp online Robotics, AI, đồ họa và lập trình.", body: "## Lịch khai giảng\n\nCác lớp **Lập trình Robotics AI**, **Trí tuệ nhân tạo AI**, **Thiết kế đồ họa AI** và **Lập trình & phát triển ứng dụng AI** khai giảng theo từng đợt.\n\n- Học online qua ClassIn, lớp 6–8 học sinh\n- 90 phút/buổi, 1 buổi/tuần\n\n[Đăng ký học trải nghiệm 1:1](/dang-ky)", category: "news", status: "published", publishedAt: d(5), createdBy: mkU!.id, views: 42 },
+    { slug: "5-meo-giup-con-yeu-lap-trinh", title: "5 mẹo giúp con yêu lập trình", excerpt: "Gợi ý cho phụ huynh đồng hành cùng con tại nhà.", body: "1. Cho con tự thử trước\n2. Hỏi con \"vì sao\"\n3. Khen quá trình, không chỉ kết quả", category: "tips", status: "published", publishedAt: d(12), createdBy: mkU!.id, views: 17 },
+    { slug: "sang-tao-robotics-2026", title: "Học viên tham gia Cuộc thi Sáng tạo Robotics", body: "Bài viết đang soạn (mẫu).", category: "story", status: "draft", createdBy: mkU!.id },
+    { slug: "uu-dai-thang-9", title: "Ưu đãi tháng 9", body: "Ưu đãi học phí khi đăng ký trước ngày khai giảng (mẫu).", category: "promotion", status: "scheduled", publishAt: new Date(Date.now() + 3 * 86400e3), createdBy: mkU!.id },
   ]);
   await db.insert(siteBlocks).values([
     { page: "home", data: { heroTitle: "TH STEAM Academy — Igniting Future Innovation", heroSubtitle: "Robotics, AI, đồ họa và lập trình online cho học sinh 8–18 tuổi.", heroImage: "", ctaLabel: "Đăng ký học trải nghiệm 1:1", ctaUrl: "/dang-ky" }, updatedBy: mkU!.id },
@@ -1038,7 +980,7 @@ async function main() {
   ]);
   const monthStartISO = `${today.slice(0, 8)}01`;
   const [campHe, campGg] = await db.insert(campaigns).values([
-    { name: "Hè 2026 — Facebook", utmCampaign: "he-2026", channel: "facebook", centerId: cs1!.id, budget: 5_000_000, startDate: addDays(today, -40), endDate: addDays(today, 20), landingUrl: "https://satarobo.vn/dang-ky", createdBy: mkU!.id },
+    { name: "Hè 2026 — Facebook", utmCampaign: "he-2026", channel: "facebook", centerId: cs1!.id, budget: 5_000_000, startDate: addDays(today, -40), endDate: addDays(today, 20), landingUrl: "https://thsteam.edu.vn/dang-ky", createdBy: mkU!.id },
     { name: "Google tìm kiếm", utmCampaign: "gg-search", channel: "google", centerId: null, budget: 2_000_000, startDate: monthStartISO, createdBy: mkU!.id },
   ]).returning();
   await db.insert(campaignSpends).values([
@@ -1070,8 +1012,8 @@ async function main() {
 
   // ---- Tuyển dụng, hộp thư, nguồn giới thiệu, pilot chat (mẫu) ----
   const [job1] = await db.insert(jobPostings).values({
-    code: `TD${today.slice(2, 4)}-001`, slug: `giao-vien-robotics-tieu-hoc-td${today.slice(2, 4)}-001`, title: "Giáo viên Robotics tiểu học", centerId: cs1!.id, department: "academic", employmentType: "part_time",
-    openings: 2, salaryText: "180–250k/buổi", description: "Dạy lắp ráp và lập trình robot cho học sinh 6–10 tuổi theo giáo trình TH STEAM Academy.\n\n- 6–10 buổi/tuần\n- Được đào tạo trước khi nhận lớp",
+    code: `TD${today.slice(2, 4)}-001`, slug: `giao-vien-robotics-ai-online-td${today.slice(2, 4)}-001`, title: "Giáo viên Robotics AI online", centerId: cs1!.id, department: "academic", employmentType: "part_time",
+    openings: 2, salaryText: "Thoả thuận theo buổi (mẫu)", description: "Dạy lập trình robot ảo (RoboSim, RoboVR) cho học sinh 8–10 tuổi qua ClassIn theo giáo trình TH STEAM Academy.\n\n- Lớp 6–8 học sinh, 90 phút/buổi\n- Được đào tạo trước khi nhận lớp",
     requirements: "Sinh viên / tốt nghiệp khối kỹ thuật hoặc sư phạm, yêu trẻ.", benefits: "Thưởng theo đánh giá phụ huynh.", deadline: addDays(today, 30), status: "open", openedAt: h(72), createdBy: hrU!.id,
   }).returning();
   const cands = await db.insert(candidates).values([
@@ -1087,20 +1029,20 @@ async function main() {
   }).returning();
   const [cv2] = await db.insert(conversations).values({
     channel: "messenger", externalId: "seedpsid0001", displayName: "Khách Facebook mẫu", centerId: cs1!.id, status: "open", subject: "Tin nhắn Facebook",
-    lastInboundAt: h(3), lastMessageAt: h(3), waitingSince: h(3), lastPreview: "Trung tâm có lớp cho bé 7 tuổi không ạ?", flags: [],
+    lastInboundAt: h(3), lastMessageAt: h(3), waitingSince: h(3), lastPreview: "Trung tâm có lớp online cho bé 8 tuổi không ạ?", flags: [],
   }).returning();
   await db.insert(messages).values([
-    { conversationId: cv1!.id, direction: "out", body: "Chào chị, tuần này bé học rất tốt, đã lắp xong xe robot.", senderUserId: sale1U!.id, status: "sent", createdAt: h(26) },
+    { conversationId: cv1!.id, direction: "out", body: "Chào chị, tuần này bé học rất tốt, đã lập trình xong robot dò đường trên RoboSim.", senderUserId: sale1U!.id, status: "sent", createdAt: h(26) },
     { conversationId: cv1!.id, direction: "in", body: "Cô ơi tuần sau con xin nghỉ 1 buổi ạ", status: "received", createdAt: h(2) },
-    { conversationId: cv2!.id, direction: "in", body: "Trung tâm có lớp cho bé 7 tuổi không ạ?", externalId: "messenger:seedmid0001", status: "received", createdAt: h(3) },
+    { conversationId: cv2!.id, direction: "in", body: "Trung tâm có lớp online cho bé 8 tuổi không ạ?", externalId: "messenger:seedmid0001", status: "received", createdAt: h(3) },
   ]);
   await db.insert(appSettings).values({ key: "chat_pilot", value: { classIds: [classA!.id], startDate: addDays(today, -14), note: "Pilot tin nhắn PH lớp A (mẫu)" }, updatedBy: mgrU!.id });
 
   // ---- Hoá đơn điện tử: cấu hình mẫu (tắt; bật khi đã ký hợp đồng nhà cung cấp) ----
-  await db.insert(appSettings).values({ key: "einvoice", value: { enabled: false, provider: "sandbox", templateCode: "1", serial: `1C${String(new Date().getFullYear()).slice(-2)}TSR`, sellerName: "Công ty mẫu TH STEAM Academy (dữ liệu mẫu)", sellerTaxCode: "0100000000", sellerAddress: "Địa chỉ mẫu", courseRate: "KCT", goodsRate: "10", autoDraft: true, autoIssue: false, startDate: null, lookupUrl: "/tra-cuu-hoa-don" }, updatedBy: adminU!.id });
+  await db.insert(appSettings).values({ key: "einvoice", value: { enabled: false, provider: "sandbox", templateCode: "1", serial: `1C${String(new Date().getFullYear()).slice(-2)}TTH`, sellerName: "Công ty mẫu TH STEAM Academy (dữ liệu mẫu)", sellerTaxCode: "0100000000", sellerAddress: "Địa chỉ mẫu", courseRate: "KCT", goodsRate: "10", autoDraft: true, autoIssue: false, startDate: null, lookupUrl: "/tra-cuu-hoa-don" }, updatedBy: adminU!.id });
 
   // ---- Một ca nghỉ học mẫu (cho báo cáo churn / cohort) ----
-  const [wd] = await db.insert(enrollments).values({ studentId: studentRows[10]!.id, classId: classA!.id, packageSessions: 24, status: "withdrawn", enrolledAt: d(40), endedAt: d(8), endReason: "Học phí cao so với gia đình (mẫu)", createdBy: mgrU!.id }).returning();
+  const [wd] = await db.insert(enrollments).values({ studentId: studentRows[10]!.id, classId: classA!.id, packageSessions: robo1.totalSessions, status: "withdrawn", enrolledAt: d(40), endedAt: d(8), endReason: "Học phí cao so với gia đình (mẫu)", createdBy: mgrU!.id }).returning();
   await db.insert(enrollmentEvents).values([
     { enrollmentId: wd!.id, type: "created", toStatus: "active", actorId: mgrU!.id, createdAt: d(40) },
     { enrollmentId: wd!.id, type: "withdraw", fromStatus: "active", toStatus: "withdrawn", reason: "Học phí cao so với gia đình (mẫu)", actorId: mgrU!.id, createdAt: d(8) },
@@ -1115,7 +1057,7 @@ async function main() {
   if (process.env.SEED_VOLUME !== "small") {
     await seedDemoVolume({
       cs1: cs1!, cs2: cs2!, adminU: adminU!, mgrU: mgrU!, ktU: ktU!, hrU: hrU!, sale1U: sale1U!, sale2U: sale2U!, t1U: t1U!, t2U: t2U!, t3U: t3U!,
-      gv1: gv1!, gv2: gv2!, gv3: gv3!, sata4: sata4!, sata6: sata6!, sata1, cur4Id: cur4!.id, lessons4: lessonRows, crit4Ids: crit4.map((c) => c.id),
+      gv1: gv1!, gv2: gv2!, gv3: gv3!, tenantId: tTh.id,
       busyRules: [...rulesA, ...rulesB, { weekday: 6, startTime: "08:00", endTime: "09:30", roomId: roomRows[1]!.id, teacherId: gv3!.id }],
       usedClassCodes: [classA!.code, classB!.code, classC!.code], usedStudentCodes: studentRows.map((st) => st.code),
       existingStaffCount: staffRows.length, pmCashCS1Id: pmCash!.id, pmBankId: pmBank!.id, shHC: shHC!, shC1: shC!, saleRule: saleRule!,
@@ -1130,11 +1072,11 @@ async function main() {
   // ---- Phía người dùng: một phụ huynh ba con, yêu cầu qua app, phản hồi sau buổi, tài liệu chuẩn bị buổi dạy ----
   const nd = await seedPhiaNguoiDung(db, { today });
 
-  console.log(`✔ Seeded: 2 centers, 3 rooms, 7 users, 3 teachers, ${lessonRows.length} lessons, 2 classes, ${sessionRows.length} sessions, 16 students, ${leadRows.length} leads`);
+  console.log(`✔ Seeded TH STEAM Academy: 1 trung tâm online, danh mục chuẩn (24 khoá), 3 phòng ClassIn, 7 users, 3 GV, 3 lớp, ${sessionRows.length} buổi, 16 học viên, ${leadRows.length} lead`);
   console.log(`  Phiếu đánh giá học thử mẫu (không cần đăng nhập): ${(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "")}/pdg/${DEMO_TRIAL_REPORT_TOKEN}`);
   console.log(`  Hồ sơ học tập: ${portfolio.evaluations} phiếu nhận xét buổi đã phát hành, ${portfolio.cards} học bạ mốc tổng hợp từ phiếu buổi`);
   if (portfolio.token) console.log(`  Hồ sơ học tập mẫu (không cần đăng nhập): ${(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "")}/hs/${portfolio.token}`);
-  console.log(`  Giấy chứng nhận: lộ trình mẫu LT-ROBO-NT, ${certs.courseCertificates} chứng nhận hoàn thành khoá vào sổ — quản trị tại /lo-trinh, mẫu tại /lo-trinh/mau-chung-nhan`);
+  console.log(`  Giấy chứng nhận: lộ trình chuẩn ROBO-TH, ${certs.courseCertificates} chứng nhận hoàn thành khoá vào sổ — quản trị tại /lo-trinh, mẫu tại /lo-trinh/mau-chung-nhan`);
   if (certs.token) console.log(`  Xác thực giấy chứng nhận mẫu (không cần đăng nhập): ${(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "")}/cn/${certs.token}`);
   if (nd.parentPhone) {
     const local = nd.parentPhone.startsWith("84") ? `0${nd.parentPhone.slice(2)}` : nd.parentPhone;
@@ -1142,9 +1084,9 @@ async function main() {
     console.log(`  Cổng phụ huynh mẫu: ${base}/ph/dang-nhap → SĐT ${local} ("Phụ huynh mẫu 1", ${nd.children} con) → "Gửi mã đăng nhập".`);
     console.log("    Chế độ phát triển (ALLOW_DEV_ACTOR=1, không phải production): mã OTP thử hiện ngay dưới ô nhập, dạng \"(mã thử: 123456)\" — không gửi Zalo, không có mật khẩu.");
     console.log(`    Dữ liệu: ${nd.requests} yêu cầu nghỉ qua app, ${nd.reactions} phản hồi sau buổi cho GV mẫu, ${nd.documents} tài liệu chuẩn bị buổi dạy. Xin học bù: đăng nhập SĐT 0911000006 (Học viên mẫu 6 vắng có phép).`);
-    console.log("  App giáo viên mẫu: /login → teacher1@satarobo.vn → /teacher (Phản hồi của phụ huynh, Chuẩn bị buổi dạy, Lớp của tôi)");
+    console.log("  App giáo viên mẫu: /login → teacher1@example.test → /teacher (Phản hồi của phụ huynh, Chuẩn bị buổi dạy, Lớp của tôi)");
   }
-  console.log("  Dev login (/login → tài khoản mẫu): superadmin@example.test | manager.cs1@example.test | sale1.cs1@example.test | ketoan.cs1@example.test | hr.cs1@example.test | daotao@example.test | marketing@example.test | teacher1@satarobo.vn");
+  console.log("  Dev login (/login → tài khoản mẫu): superadmin@example.test | manager.cs1@example.test | sale1.cs1@example.test | ketoan.cs1@example.test | hr.cs1@example.test | daotao@example.test | marketing@example.test | teacher1@example.test");
 }
 
 /* ============================================================================
@@ -1156,8 +1098,6 @@ async function main() {
 type CenterRow = typeof centers.$inferSelect;
 type UserRow = typeof users.$inferSelect;
 type TeacherRow = typeof teachers.$inferSelect;
-type CourseRow = typeof courses.$inferSelect;
-type LessonRow = typeof lessons.$inferSelect;
 type ShiftRow = typeof workShifts.$inferSelect;
 type CommissionRuleRow = typeof commissionRules.$inferSelect;
 type Rng = () => number;
@@ -1211,7 +1151,16 @@ async function inChunks<T>(rows: readonly T[], fn: (part: T[]) => PromiseLike<un
 }
 const vnAt = (date: string, hm: string) => new Date(`${date}T${hm.slice(0, 5)}:00+07:00`);
 const vnDate = (d: Date) => toISODate(new Date(d.getTime() + 7 * 3600e3));
-const courseTitle = (code: string) => `Sata${code.slice(4)}`;
+const TH_SPECS = new Map(thCourseSpecs().map((x) => [x.code, x] as const));
+/** Nhãn ngắn của khoá chuẩn dùng trong tên lớp: "Robotics AI TH N1", "Lập trình AI THCS2 N1", "Luyện thi Sáng tạo Robotics" */
+function courseLabel(code: string): string {
+  const sp = TH_SPECS.get(code);
+  const pr = sp ? thProgram(sp.programCode) : null;
+  if (!sp || !pr) return code;
+  if (sp.kind === "exam") return sp.name.replace(/^Luyện thi: /, "Luyện thi ");
+  const lv = pr.level === "tieu-hoc" ? "TH" : pr.level === "thcs" ? "THCS" : "THPT";
+  return `${TH_TRACK_SHORT[pr.track]} ${lv}${pr.code === "CODE-THCS2" ? "2" : ""} N${sp.yearNo}`;
+}
 const WD_VI: Record<number, string> = { 1: "T2", 2: "T3", 3: "T4", 4: "T5", 5: "T6", 6: "T7", 7: "CN" };
 
 const HO = ["Nguyễn", "Trần", "Lê", "Phạm", "Hoàng", "Huỳnh", "Phan", "Vũ", "Võ", "Đặng", "Bùi", "Đỗ", "Hồ", "Ngô", "Dương", "Lý", "Đoàn", "Trương", "Mai", "Lương"];
@@ -1219,40 +1168,34 @@ const DEM_NAM = ["Văn", "Minh", "Quốc", "Gia", "Đức", "Hoàng", "Anh", "B�
 const DEM_NU = ["Thị", "Ngọc", "Thu", "Minh", "Bảo", "Khánh", "Phương", "Mai", "Gia", "Thanh", "Hoài", "Diệu"];
 const TEN_NAM = ["An", "Bảo", "Khang", "Phúc", "Huy", "Khôi", "Nam", "Quân", "Minh", "Duy", "Long", "Tuấn", "Đăng", "Kiên", "Lâm", "Hải", "Phong", "Tín", "Vinh", "Hưng", "Sơn", "Thịnh", "Nhân", "Đạt"];
 const TEN_NU = ["Anh", "Chi", "Hân", "Linh", "My", "Ngân", "Nhi", "Thảo", "Trang", "Vy", "Yến", "Hà", "Quyên", "Tâm", "Uyên", "Lan", "Như", "Diệp", "Khuê", "Mai", "Ngọc", "Hương", "Giang", "Trâm"];
-const QUAN = ["Hải Châu", "Thanh Khê", "Sơn Trà", "Ngũ Hành Sơn", "Cẩm Lệ", "Liên Chiểu", "Hoà Vang"];
+const QUAN = ["Hà Nội", "TP.HCM", "Đà Nẵng", "Huế", "Cần Thơ", "Hải Phòng", "Nha Trang"];
 const NICKS = ["Bin", "Bống", "Su", "Tôm", "Cún", "Na", "Bơ", "Mít", "Gạo", "Sóc", "Ken", "Bi"];
 const HEALTH = ["Dị ứng hải sản", "Hen suyễn nhẹ — mang theo thuốc xịt", "Cận thị, cần ngồi bàn đầu", "Dị ứng phấn hoa"];
-const TOPICS: Record<string, string[]> = {
-  SATA2: ["Robot là gì? Làm quen bộ kit", "Bánh răng và chuyển động", "Lắp xe ô tô đầu tiên", "Lập trình kéo thả: tiến – lùi", "Đèn LED và âm thanh", "Cảm biến chạm", "Robot vẽ hình", "Vòng lặp đơn giản", "Robot chú chó con", "Robot né vật cản đơn giản", "Thử thách mê cung", "Trưng bày sản phẩm"],
-  SATA6: ["Ôn tập Sata4 & an toàn lab", "Cảm biến màu và phân loại", "Biến và phép so sánh", "Điều khiển PID cơ bản", "Robot dò line tốc độ", "Camera AI: nhận diện màu", "Nhận diện khuôn mặt đơn giản", "Robot trợ lý giọng nói", "Dự án: xe tự hành", "Tối ưu thuật toán", "Luyện đề sa hình", "Thuyết trình dự án AI"],
-  SATA8: ["Làm quen Python", "Biến, kiểu dữ liệu, vòng lặp", "Hàm và module", "Điều khiển động cơ bằng Python", "Đọc cảm biến qua cổng I/O", "Xử lý ảnh với thư viện mở", "Học máy: phân loại đơn giản", "Robot bám đối tượng", "Giao tiếp không dây", "Dự án nhóm: nhà thông minh", "Kiểm thử & gỡ lỗi", "Bảo vệ dự án cuối khoá"],
-  SATA1: ["Luật thi RoboSim", "Mô phỏng sa hình 1", "Chiến thuật di chuyển", "Tối ưu thời gian", "Mô phỏng sa hình 2", "Xử lý tình huống", "Thi thử vòng 1", "Chữa đề vòng 1", "Mô phỏng sa hình 3", "Thi thử vòng 2", "Chữa đề vòng 2", "Tổng duyệt trước thi"],
-};
 const SESSION_NOTES = [
   "Lớp học tốt, các con hoàn thành mục tiêu buổi.",
-  "Các con hào hứng, nhóm nào cũng chạy được mô hình.",
+  "Các con hào hứng, bạn nào cũng chạy được sản phẩm.",
   "Một số bạn còn chậm phần lập trình, tuần sau ôn lại.",
   "Buổi học đúng tiến độ, đã giao bài tập về nhà.",
-  "Lớp sôi nổi, cần nhắc giữ trật tự khi thực hành.",
+  "Lớp sôi nổi, cần nhắc tắt micro khi thực hành.",
   "Hoàn thành dự án nhỏ, các con tự thuyết trình sản phẩm.",
 ];
-const REMARKS = ["Con tập trung, lắp nhanh", "Chủ động hỏi bài", "Cần cẩn thận khi đi dây", "Giúp bạn cùng nhóm tốt", "Hôm nay hơi mất tập trung", "Lập trình đúng ngay lần đầu", "Tiến bộ rõ so với tuần trước", "Cần luyện thêm phần vòng lặp"];
+const REMARKS = ["Con tập trung, làm bài nhanh", "Chủ động hỏi bài", "Cần kiểm tra lại chương trình trước khi chạy", "Giúp bạn cùng nhóm tốt", "Hôm nay hơi mất tập trung", "Lập trình đúng ngay lần đầu", "Tiến bộ rõ so với tuần trước", "Cần luyện thêm phần vòng lặp"];
 const ABSENT_NOTES = ["PH báo con ốm", "Gia đình có việc", "Con đi thi ở trường", "PH xin nghỉ qua Zalo"];
 const END_REASONS = ["Gia đình chuyển nhà xa (mẫu)", "Lịch học trùng lịch học thêm ở trường (mẫu)", "Học phí chưa phù hợp (mẫu)", "Con chưa hứng thú (mẫu)", "Chuyển sang học bơi hè (mẫu)"];
-const LOST_REASONS = ["Chọn trung tâm gần nhà", "Học phí cao", "Không liên lạc được", "Lịch học không phù hợp", "Con còn nhỏ, để năm sau", "Đã đăng ký nơi khác"];
+const LOST_REASONS = ["Muốn học trực tiếp gần nhà", "Học phí cao", "Không liên lạc được", "Lịch học không phù hợp", "Con còn nhỏ, để năm sau", "Đã đăng ký nơi khác"];
 const CALL_OK = ["Đã gọi, PH quan tâm khoá học cho con", "Gọi tư vấn lộ trình, PH hỏi lịch khai giảng", "PH hỏi học phí và lịch học cuối tuần", "Đã tư vấn qua điện thoại 10 phút"];
 const CALL_MISS = ["Không nghe máy", "Thuê bao tạm thời không liên lạc được", "PH bận, hẹn gọi lại"];
 const MSGS = ["Gửi lịch khai giảng qua Zalo", "Gửi học phí và ưu đãi tháng này", "Gửi video lớp học mẫu", "Nhắn nhắc lịch học thử"];
-const NOTES_LEAD = ["PH muốn con học cuối tuần", "PH hỏi có xe đưa đón không", "Con thích lắp ráp, đã học Scratch ở trường", "PH cần bàn thêm với gia đình"];
+const NOTES_LEAD = ["PH muốn con học cuối tuần", "PH hỏi máy tính cần cấu hình gì", "Con thích robot, đã học Scratch ở trường", "PH cần bàn thêm với gia đình"];
 const RC_COMMENTS = [
-  "Con tiếp thu nhanh, chủ động hỏi bài và hỗ trợ bạn cùng nhóm khi lắp ráp.",
-  "Con tiến bộ rõ ở phần lập trình, cần rèn thêm tính cẩn thận khi đi dây.",
-  "Con tập trung tốt, hoàn thành đầy đủ bài tập và thuyết trình tự tin.",
-  "Con còn rụt rè khi làm việc nhóm nhưng kỹ năng lắp ráp rất chắc chắn.",
-  "Con sáng tạo, thường đề xuất cải tiến mô hình; cần quản lý thời gian tốt hơn.",
+  "Con tiếp thu nhanh, chủ động hỏi bài và hỗ trợ bạn cùng nhóm khi làm dự án.",
+  "Con tiến bộ rõ ở phần lập trình, cần rèn thêm thói quen kiểm tra lại trước khi chạy.",
+  "Con tập trung tốt, hoàn thành đầy đủ bài tập và trình bày dự án tự tin.",
+  "Con còn rụt rè khi trình bày nhưng sản phẩm làm rất chắc chắn.",
+  "Con sáng tạo, thường đề xuất cải tiến sản phẩm; cần quản lý thời gian tốt hơn.",
 ];
 const FEEDBACK_GOOD = ["Con về kể rất hào hứng", "Thầy cô nhiệt tình, con tiến bộ", "Lớp học vui, con thích đi học", "Cảm ơn trung tâm đã gửi nhận xét chi tiết"];
-const FEEDBACK_BAD = ["Lớp tan muộn 10 phút", "Phòng học hơi nóng", "Con chưa theo kịp phần lập trình", "Muốn được báo trước khi đổi giáo viên"];
+const FEEDBACK_BAD = ["Lớp tan muộn 10 phút", "Mạng chập chờn lúc học", "Con chưa theo kịp phần lập trình", "Muốn được báo trước khi đổi giáo viên"];
 
 interface DemoCtx {
   cs1: CenterRow;
@@ -1269,12 +1212,7 @@ interface DemoCtx {
   gv1: TeacherRow;
   gv2: TeacherRow;
   gv3: TeacherRow;
-  sata4: CourseRow;
-  sata6: CourseRow;
-  sata1: CourseRow;
-  cur4Id: string;
-  lessons4: LessonRow[];
-  crit4Ids: string[];
+  tenantId: string;
   busyRules: { weekday: number; startTime: string; endTime: string; roomId: string | null; teacherId: string | null }[];
   usedClassCodes: string[];
   usedStudentCodes: (string | null)[];
@@ -1326,9 +1264,9 @@ async function seedDemoVolume(x: DemoCtx): Promise<void> {
     counts[k] = (counts[k] ?? 0) + n;
   };
   const { cs1, cs2 } = x;
-  const ccOf = (centerId: string) => (centerId === cs1.id ? "CS1" : "CS2");
+  const ccOf = (centerId: string) => (centerId === cs1.id ? cs1.code : cs2.code);
 
-  /* ---------------- Khoá học bổ sung, giáo trình, tiêu chí học bạ ---------------- */
+  /* ---------------- Khoá học chuẩn TH STEAM (đã nạp bằng syncThSteamCatalog) ---------------- */
   interface CourseInfo {
     id: string;
     code: string;
@@ -1342,60 +1280,20 @@ async function seedDemoVolume(x: DemoCtx): Promise<void> {
     criteriaIds: string[];
     nextCourseId: string | null;
   }
-  const sata2Id = uid();
-  const sata8Id = uid();
-  await db.insert(courses).values([
-    { id: sata2Id, code: "SATA2", name: "Sata2 — Khám Phá Robot", slug: "sata2", gradeFrom: 1, gradeTo: 2, totalSessions: 48, listPrice: "8400000", nextCourseId: x.sata4.id, level: "Cơ bản", description: "Lắp ráp và lập trình kéo thả cho học sinh lớp 1–2 (dữ liệu mẫu)" },
-    { id: sata8Id, code: "SATA8", name: "Sata8 — Lập Trình Python & AI", slug: "sata8", gradeFrom: 7, gradeTo: 9, totalSessions: 48, listPrice: "12000000", level: "Nâng cao", description: "Python, cảm biến và AI cơ bản cho THCS (dữ liệu mẫu)" },
-  ]);
-  await db.update(courses).set({ nextCourseId: sata8Id }).where(eq(courses.id, x.sata6.id));
-  bump("courses", 2);
-  const crit6 = await db.select({ id: competencyCriteria.id }).from(competencyCriteria).where(eq(competencyCriteria.courseId, x.sata6.id));
-  const CRIT = ["Tư duy lập trình", "Lắp ráp & cơ khí", "Giải quyết vấn đề", "Làm việc nhóm"];
-  const courseDefs: { id: string; code: string; listPrice: number; totalSessions: number; gradeFrom: number; gradeTo: number; next: string | null; lessons: number; criteria: string[] | null }[] = [
-    { id: sata2Id, code: "SATA2", listPrice: 8_400_000, totalSessions: 48, gradeFrom: 1, gradeTo: 2, next: x.sata4.id, lessons: 24, criteria: null },
-    { id: x.sata6.id, code: "SATA6", listPrice: Number(x.sata6.listPrice), totalSessions: x.sata6.totalSessions, gradeFrom: 5, gradeTo: 6, next: sata8Id, lessons: 24, criteria: crit6.map((c) => c.id) },
-    { id: sata8Id, code: "SATA8", listPrice: 12_000_000, totalSessions: 48, gradeFrom: 7, gradeTo: 9, next: null, lessons: 24, criteria: null },
-    { id: x.sata1.id, code: "SATA1", listPrice: Number(x.sata1.listPrice), totalSessions: x.sata1.totalSessions, gradeFrom: 3, gradeTo: 8, next: null, lessons: 12, criteria: null },
-  ];
+  const TH_DEMO_COURSES = ["ROBO-TH-N1", "ROBO-TH-N2", "ROBO-TH-THI-STR", "AI-TH-N1", "AI-THCS-N1", "DOHOA-TH-N1", "DOHOA-THCS-N1", "CODE-TH-N1", "CODE-THCS1-N1", "CODE-THCS2-N1", "CODE-THPT-N1"];
   const courseInfo = new Map<string, CourseInfo>();
-  const curIns: (typeof curricula.$inferInsert)[] = [];
-  const lessonIns: (typeof lessons.$inferInsert)[] = [];
-  const critIns: (typeof competencyCriteria.$inferInsert)[] = [];
-  for (const c of courseDefs) {
-    const curriculumId = uid();
-    curIns.push({ id: curriculumId, courseId: c.id, name: `${courseTitle(c.code)} v1 (2026)`, status: "active", description: "Giáo trình chuẩn (dữ liệu mẫu)", createdBy: x.adminU.id });
-    const pool = TOPICS[c.code] ?? [];
-    const lessonIds: string[] = [];
-    const titles: string[] = [];
-    for (let i = 1; i <= c.lessons; i++) {
-      const base = pool[(i - 1) % Math.max(1, pool.length)] ?? `Bài ${i}`;
-      const title = i <= pool.length ? base : `${base} — nâng cao`;
-      const lessonId = uid();
-      lessonIds.push(lessonId);
-      titles.push(title);
-      lessonIns.push({ id: lessonId, curriculumId, sequenceNo: i, title, objectives: `Hoàn thành mục tiêu: ${title.toLowerCase()}`, materials: `Bộ kit ${courseTitle(c.code)}`, isReportCardMilestone: [5, 12, 17, 24].includes(i) });
-    }
-    let criteriaIds = c.criteria;
-    if (!criteriaIds) {
-      const ids = CRIT.map(() => uid());
-      CRIT.forEach((name, k) => {
-        critIns.push({ id: ids[k]!, courseId: c.id, name, sortOrder: k + 1 });
-      });
-      criteriaIds = ids;
-    }
-    courseInfo.set(c.code, { id: c.id, code: c.code, listPrice: c.listPrice, totalSessions: c.totalSessions, gradeFrom: c.gradeFrom, gradeTo: c.gradeTo, curriculumId, lessonIds, titles, criteriaIds, nextCourseId: c.next });
+  for (const code of TH_DEMO_COURSES) {
+    const [c] = await db.select().from(courses).where(and(eq(courses.tenantId, x.tenantId), eq(courses.code, code))).limit(1);
+    if (!c) throw new Error(`Thiếu khoá chuẩn ${code}`);
+    const [cur] = await db.select().from(curricula).where(and(eq(curricula.courseId, c.id), eq(curricula.isActive, true))).limit(1);
+    if (!cur) throw new Error(`Thiếu giáo trình chuẩn của ${code}`);
+    const ls = await db.select({ id: lessons.id, title: lessons.title }).from(lessons).where(eq(lessons.curriculumId, cur.id)).orderBy(asc(lessons.sequenceNo));
+    const cr = await db.select({ id: competencyCriteria.id }).from(competencyCriteria).where(and(eq(competencyCriteria.courseId, c.id), eq(competencyCriteria.isActive, true))).orderBy(asc(competencyCriteria.sortOrder));
+    courseInfo.set(code, {
+      id: c.id, code, listPrice: Number(c.listPrice), totalSessions: c.totalSessions, gradeFrom: c.gradeFrom ?? 3, gradeTo: c.gradeTo ?? 12,
+      curriculumId: cur.id, lessonIds: ls.map((l) => l.id), titles: ls.map((l) => l.title), criteriaIds: cr.map((z) => z.id), nextCourseId: c.nextCourseId,
+    });
   }
-  const l4 = [...x.lessons4].sort((a, b) => a.sequenceNo - b.sequenceNo);
-  courseInfo.set("SATA4", {
-    id: x.sata4.id, code: "SATA4", listPrice: Number(x.sata4.listPrice), totalSessions: x.sata4.totalSessions, gradeFrom: 3, gradeTo: 4,
-    curriculumId: x.cur4Id, lessonIds: l4.map((l) => l.id), titles: l4.map((l) => l.title), criteriaIds: x.crit4Ids, nextCourseId: x.sata6.id,
-  });
-  await db.insert(curricula).values(curIns);
-  await inChunks(lessonIns, (p) => db.insert(lessons).values(p));
-  await db.insert(competencyCriteria).values(critIns);
-  bump("curricula", curIns.length);
-  bump("lessons", lessonIns.length);
   const course = (code: string): CourseInfo => {
     const c = courseInfo.get(code);
     if (!c) throw new Error(`Thiếu khoá ${code}`);
@@ -1403,7 +1301,7 @@ async function seedDemoVolume(x: DemoCtx): Promise<void> {
   };
   const courseIdByCode = (code: string) => course(code).id;
 
-  /* ---------------- Nhân sự: tư vấn, giáo vụ, kế toán, quản lý CS2, GV, trợ giảng ---------------- */
+  /* ---------------- Nhân sự: tư vấn, giáo vụ, kế toán, quản lý vận hành, GV, trợ giảng ---------------- */
   type Dept = "sales" | "academic" | "accounting" | "operations" | "management";
   interface PersonDef {
     key: string;
@@ -1418,26 +1316,26 @@ async function seedDemoVolume(x: DemoCtx): Promise<void> {
     employment: "full_time" | "part_time";
     teacher?: { grade: string; contract: "full_time" | "part_time" | "collaborator"; courses: string[]; maxLoad: number };
   }
-  const ALL4 = ["SATA2", "SATA4", "SATA6", "SATA8"];
+  const ALL4 = ["ROBO-TH-N1", "AI-TH-N1", "CODE-TH-N1", "DOHOA-TH-N1"];
   const people: PersonDef[] = [
     { key: "sale3", email: "sale3.cs1@example.test", name: "Tư vấn Thảo (mẫu)", role: "CENTER_SALES_CSM", center: cs1, dept: "sales", title: "Tư vấn viên", hiredAt: "2025-11-03", status: "active", employment: "full_time" },
     { key: "sale4", email: "sale4.cs1@example.test", name: "Tư vấn Quân (mẫu)", role: "CENTER_SALES_CSM", center: cs1, dept: "sales", title: "Tư vấn viên", hiredAt: "2026-08-03", status: "probation", employment: "full_time" },
-    { key: "gvu1", email: "giaovu.cs1@example.test", name: "Giáo vụ CS1 (mẫu)", role: "CENTER_CLASS_MANAGER", center: cs1, dept: "operations", title: "Giáo vụ", hiredAt: "2025-06-16", status: "active", employment: "full_time" },
-    { key: "mgr2", email: "manager.cs2@example.test", name: "Quản lý CS2 (mẫu)", role: "CENTER_MANAGER", center: cs2, dept: "management", title: "Quản lý cơ sở", hiredAt: "2025-04-01", status: "active", employment: "full_time" },
-    { key: "sale5", email: "sale1.cs2@example.test", name: "Tư vấn Vy (mẫu)", role: "CENTER_SALES_CSM", center: cs2, dept: "sales", title: "Tư vấn viên", hiredAt: "2025-10-06", status: "active", employment: "full_time" },
-    { key: "sale6", email: "sale2.cs2@example.test", name: "Tư vấn Khang (mẫu)", role: "CENTER_SALES_CSM", center: cs2, dept: "sales", title: "Tư vấn viên", hiredAt: "2026-03-02", status: "active", employment: "full_time" },
-    { key: "gvu2", email: "giaovu.cs2@example.test", name: "Giáo vụ CS2 (mẫu)", role: "CENTER_CLASS_MANAGER", center: cs2, dept: "operations", title: "Giáo vụ", hiredAt: "2025-09-08", status: "active", employment: "full_time" },
-    { key: "kt2", email: "ketoan.cs2@example.test", name: "Kế toán CS2 (mẫu)", role: "CENTER_ACCOUNTANT", center: cs2, dept: "accounting", title: "Kế toán", hiredAt: "2025-07-01", status: "active", employment: "full_time" },
-    { key: "t4", email: "teacher4@example.test", name: "GV Phong (mẫu)", role: "TEACHER", center: cs1, dept: "academic", title: "Giáo viên chính", hiredAt: "2025-02-17", status: "active", employment: "full_time", teacher: { grade: "senior", contract: "full_time", courses: ["SATA2", "SATA4"], maxLoad: 16 } },
-    { key: "t5", email: "teacher5@example.test", name: "GV Ngân (mẫu)", role: "TEACHER", center: cs1, dept: "academic", title: "Giáo viên", hiredAt: "2025-08-11", status: "active", employment: "part_time", teacher: { grade: "advanced", contract: "part_time", courses: ["SATA6", "SATA8"], maxLoad: 12 } },
-    { key: "t6", email: "teacher6@example.test", name: "GV Tuấn (mẫu)", role: "TEACHER", center: cs1, dept: "academic", title: "Giáo viên chính", hiredAt: "2024-09-09", status: "active", employment: "full_time", teacher: { grade: "expert", contract: "full_time", courses: ["SATA8", "SATA6", "SATA1"], maxLoad: 14 } },
-    { key: "t7", email: "teacher7@example.test", name: "GV Hà (mẫu)", role: "TEACHER", center: cs2, dept: "academic", title: "Giáo viên chính", hiredAt: "2025-03-03", status: "active", employment: "full_time", teacher: { grade: "advanced", contract: "full_time", courses: ["SATA4", "SATA2"], maxLoad: 16 } },
-    { key: "t8", email: "teacher8@example.test", name: "GV Duy (mẫu)", role: "TEACHER", center: cs2, dept: "academic", title: "Giáo viên", hiredAt: "2026-01-05", status: "active", employment: "part_time", teacher: { grade: "junior", contract: "part_time", courses: ["SATA2", "SATA8"], maxLoad: 10 } },
-    { key: "t9", email: "teacher9@example.test", name: "GV Linh (mẫu)", role: "TEACHER", center: cs2, dept: "academic", title: "Giáo viên", hiredAt: "2026-07-20", status: "probation", employment: "part_time", teacher: { grade: "advanced", contract: "collaborator", courses: ["SATA6", "SATA2"], maxLoad: 8 } },
+    { key: "gvu1", email: "giaovu.cs1@example.test", name: "Giáo vụ (mẫu)", role: "CENTER_CLASS_MANAGER", center: cs1, dept: "operations", title: "Giáo vụ", hiredAt: "2025-06-16", status: "active", employment: "full_time" },
+    { key: "mgr2", email: "quanly.vanhanh@example.test", name: "Quản lý vận hành (mẫu)", role: "CENTER_MANAGER", center: cs2, dept: "management", title: "Quản lý vận hành", hiredAt: "2025-04-01", status: "active", employment: "full_time" },
+    { key: "sale5", email: "sale5@example.test", name: "Tư vấn Vy (mẫu)", role: "CENTER_SALES_CSM", center: cs2, dept: "sales", title: "Tư vấn viên", hiredAt: "2025-10-06", status: "active", employment: "full_time" },
+    { key: "sale6", email: "sale6@example.test", name: "Tư vấn Khang (mẫu)", role: "CENTER_SALES_CSM", center: cs2, dept: "sales", title: "Tư vấn viên", hiredAt: "2026-03-02", status: "active", employment: "full_time" },
+    { key: "gvu2", email: "giaovu2@example.test", name: "Giáo vụ 2 (mẫu)", role: "CENTER_CLASS_MANAGER", center: cs2, dept: "operations", title: "Giáo vụ", hiredAt: "2025-09-08", status: "active", employment: "full_time" },
+    { key: "kt2", email: "ketoan2@example.test", name: "Kế toán 2 (mẫu)", role: "CENTER_ACCOUNTANT", center: cs2, dept: "accounting", title: "Kế toán", hiredAt: "2025-07-01", status: "active", employment: "full_time" },
+    { key: "t4", email: "teacher4@example.test", name: "GV Phong (mẫu)", role: "TEACHER", center: cs1, dept: "academic", title: "Giáo viên chính", hiredAt: "2025-02-17", status: "active", employment: "full_time", teacher: { grade: "senior", contract: "full_time", courses: ["CODE-TH-N1", "ROBO-TH-N1"], maxLoad: 16 } },
+    { key: "t5", email: "teacher5@example.test", name: "GV Ngân (mẫu)", role: "TEACHER", center: cs1, dept: "academic", title: "Giáo viên", hiredAt: "2025-08-11", status: "active", employment: "part_time", teacher: { grade: "advanced", contract: "part_time", courses: ["ROBO-TH-N2", "CODE-THCS1-N1"], maxLoad: 12 } },
+    { key: "t6", email: "teacher6@example.test", name: "GV Tuấn (mẫu)", role: "TEACHER", center: cs1, dept: "academic", title: "Giáo viên chính", hiredAt: "2024-09-09", status: "active", employment: "full_time", teacher: { grade: "expert", contract: "full_time", courses: ["CODE-THCS1-N1", "CODE-THCS2-N1", "ROBO-TH-THI-STR"], maxLoad: 14 } },
+    { key: "t7", email: "teacher7@example.test", name: "GV Hà (mẫu)", role: "TEACHER", center: cs2, dept: "academic", title: "Giáo viên chính", hiredAt: "2025-03-03", status: "active", employment: "full_time", teacher: { grade: "advanced", contract: "full_time", courses: ["ROBO-TH-N1", "DOHOA-THCS-N1"], maxLoad: 16 } },
+    { key: "t8", email: "teacher8@example.test", name: "GV Duy (mẫu)", role: "TEACHER", center: cs2, dept: "academic", title: "Giáo viên", hiredAt: "2026-01-05", status: "active", employment: "part_time", teacher: { grade: "junior", contract: "part_time", courses: ["AI-TH-N1", "CODE-THCS2-N1"], maxLoad: 10 } },
+    { key: "t9", email: "teacher9@example.test", name: "GV Linh (mẫu)", role: "TEACHER", center: cs2, dept: "academic", title: "Giáo viên", hiredAt: "2026-07-20", status: "probation", employment: "part_time", teacher: { grade: "advanced", contract: "collaborator", courses: ["AI-THCS-N1", "DOHOA-TH-N1"], maxLoad: 8 } },
     { key: "a1", email: "trogiang1.cs1@example.test", name: "TG Nhi (mẫu)", role: "ASSISTANT_TEACHER", center: cs1, dept: "academic", title: "Trợ giảng", hiredAt: "2026-02-02", status: "active", employment: "part_time", teacher: { grade: "intern", contract: "part_time", courses: ALL4, maxLoad: 12 } },
     { key: "a2", email: "trogiang2.cs1@example.test", name: "TG Khôi (mẫu)", role: "ASSISTANT_TEACHER", center: cs1, dept: "academic", title: "Trợ giảng", hiredAt: "2026-05-18", status: "active", employment: "part_time", teacher: { grade: "intern", contract: "part_time", courses: ALL4, maxLoad: 12 } },
-    { key: "a3", email: "trogiang1.cs2@example.test", name: "TG My (mẫu)", role: "ASSISTANT_TEACHER", center: cs2, dept: "academic", title: "Trợ giảng", hiredAt: "2026-03-09", status: "active", employment: "part_time", teacher: { grade: "intern", contract: "part_time", courses: ALL4, maxLoad: 12 } },
-    { key: "a4", email: "trogiang2.cs2@example.test", name: "TG Bảo (mẫu)", role: "ASSISTANT_TEACHER", center: cs2, dept: "academic", title: "Trợ giảng", hiredAt: "2026-08-24", status: "probation", employment: "part_time", teacher: { grade: "intern", contract: "part_time", courses: ALL4, maxLoad: 12 } },
+    { key: "a3", email: "trogiang3@example.test", name: "TG My (mẫu)", role: "ASSISTANT_TEACHER", center: cs2, dept: "academic", title: "Trợ giảng", hiredAt: "2026-03-09", status: "active", employment: "part_time", teacher: { grade: "intern", contract: "part_time", courses: ALL4, maxLoad: 12 } },
+    { key: "a4", email: "trogiang4@example.test", name: "TG Bảo (mẫu)", role: "ASSISTANT_TEACHER", center: cs2, dept: "academic", title: "Trợ giảng", hiredAt: "2026-08-24", status: "probation", employment: "part_time", teacher: { grade: "intern", contract: "part_time", courses: ALL4, maxLoad: 12 } },
   ];
   interface TeacherLite {
     id: string;
@@ -1488,7 +1386,7 @@ async function seedDemoVolume(x: DemoCtx): Promise<void> {
     posIns.push({ staffId, centerId: p.center.id, title: p.title, department: p.dept, kind: "primary", effectiveFrom: p.hiredAt, createdBy: x.adminU.id });
     hrPeople.push({ staffId, userId, centerId: p.center.id, kind: p.role === "ASSISTANT_TEACHER" ? "assistant" : p.teacher ? "teacher" : "office" });
   });
-  // Hồ sơ nhân sự cho GV Lan (CS2) và GV Hùng (CS1) — trước đây chưa có
+  // Hồ sơ nhân sự cho GV Lan và GV Hùng — trước đây chưa có
   for (const [u, t, c, hired] of [[x.t2U, x.gv2, cs2, "2025-08-01"], [x.t3U, x.gv3, cs1, "2024-12-02"]] as const) {
     const staffId = uid();
     staffIns.push({ id: staffId, code: staffCode(++staffSeq), userId: u.id, teacherId: t.id, fullName: u.fullName, email: u.email, centerId: c.id, department: "academic", title: "Giáo viên", employmentType: "part_time", status: "active", hiredAt: hired, createdBy: x.adminU.id });
@@ -1515,13 +1413,12 @@ async function seedDemoVolume(x: DemoCtx): Promise<void> {
     return v;
   };
   const teacherUser = new Map<string, string | null>([...teacherOf.values()].map((t) => [t.id, t.userId] as const));
-  const sales1 = [x.sale1U.id, x.sale2U.id, uidOf("sale3"), uidOf("sale4")];
+  const sales1 = [x.sale1U.id, x.sale2U.id, uidOf("sale3"), uidOf("sale4"), uidOf("sale5"), uidOf("sale6")];
   const sales2 = [uidOf("sale5"), uidOf("sale6")];
   const salesOf = (centerId: string) => (centerId === cs1.id ? sales1 : sales2);
   const mgrOf = (centerId: string) => (centerId === cs1.id ? x.mgrU.id : uidOf("mgr2"));
   const accOf = (centerId: string) => (centerId === cs1.id ? x.ktU.id : uidOf("kt2"));
   const gvuOf = (centerId: string) => (centerId === cs1.id ? uidOf("gvu1") : uidOf("gvu2"));
-  await db.insert(admissionsSettings).values({ centerId: cs2.id, distributionMode: "round_robin", dedupeDays: 30, maxTrialsPerLead: 2, staleAfterDays: 7, updatedBy: x.adminU.id });
 
   /* ---------------- Phòng học ---------------- */
   interface RoomLite {
@@ -1532,17 +1429,16 @@ async function seedDemoVolume(x: DemoCtx): Promise<void> {
     capacity: number;
   }
   const roomList: RoomLite[] = [
-    { id: uid(), centerId: cs1.id, code: "102", name: "Phòng 102", capacity: 14 },
-    { id: uid(), centerId: cs1.id, code: "103", name: "Phòng 103", capacity: 12 },
-    { id: uid(), centerId: cs1.id, code: "LAB2", name: "Lab 2", capacity: 16 },
-    { id: uid(), centerId: cs1.id, code: "201", name: "Phòng 201", capacity: 16 },
-    { id: uid(), centerId: cs2.id, code: "P301", name: "Phòng 301", capacity: 14 },
-    { id: uid(), centerId: cs2.id, code: "P303", name: "Phòng 303", capacity: 12 },
-    { id: uid(), centerId: cs2.id, code: "LAB-A", name: "Lab A", capacity: 16 },
-    { id: uid(), centerId: cs2.id, code: "P201", name: "Phòng 201", capacity: 16 },
+    { id: uid(), centerId: cs1.id, code: "CI04", name: "Phòng ClassIn 04", capacity: 8 },
+    { id: uid(), centerId: cs1.id, code: "CI05", name: "Phòng ClassIn 05", capacity: 8 },
+    { id: uid(), centerId: cs1.id, code: "CI06", name: "Phòng ClassIn 06", capacity: 8 },
+    { id: uid(), centerId: cs1.id, code: "CI07", name: "Phòng ClassIn 07", capacity: 8 },
+    { id: uid(), centerId: cs1.id, code: "CI08", name: "Phòng ClassIn 08", capacity: 8 },
+    { id: uid(), centerId: cs1.id, code: "CI09", name: "Phòng ClassIn 09", capacity: 8 },
+    { id: uid(), centerId: cs1.id, code: "CI10", name: "Phòng ClassIn 10", capacity: 8 },
+    { id: uid(), centerId: cs1.id, code: "CI11", name: "Phòng ClassIn 11", capacity: 8 },
   ];
   await db.insert(rooms).values(roomList.map((r) => ({ id: r.id, centerId: r.centerId, code: r.code, name: r.name, capacity: r.capacity })));
-  await db.update(centers).set({ latitude: 16.0678, longitude: 108.2208, checkinRadiusM: 150 }).where(eq(centers.id, cs2.id));
   bump("rooms", roomList.length);
   const roomByCode = (centerId: string, code: string) => {
     const r = roomList.find((z) => z.centerId === centerId && z.code === code);
@@ -1671,19 +1567,20 @@ async function seedDemoVolume(x: DemoCtx): Promise<void> {
   };
 
   const classSpecs: { center: CenterRow; course: string; status: ClassStatus; off: number; perWeek: number; lead: string; asst: string | null; room: string }[] = [
-    { center: cs1, course: "SATA4", status: "finished", off: -150, perWeek: 2, lead: "t4", asst: "a2", room: "201" },
-    { center: cs1, course: "SATA2", status: "running", off: -63, perWeek: 2, lead: "t4", asst: "a1", room: "102" },
-    { center: cs1, course: "SATA4", status: "running", off: -42, perWeek: 1, lead: "gv3", asst: "a2", room: "103" },
-    { center: cs1, course: "SATA6", status: "running", off: -56, perWeek: 2, lead: "t5", asst: "a1", room: "LAB2" },
-    { center: cs1, course: "SATA8", status: "running", off: -28, perWeek: 1, lead: "t6", asst: null, room: "201" },
-    { center: cs1, course: "SATA1", status: "recruiting", off: 12, perWeek: 1, lead: "gv1", asst: null, room: "LAB2" },
-    { center: cs1, course: "SATA6", status: "draft", off: 30, perWeek: 1, lead: "t5", asst: null, room: "103" },
-    { center: cs2, course: "SATA2", status: "finished", off: -140, perWeek: 2, lead: "t8", asst: "a4", room: "P201" },
-    { center: cs2, course: "SATA4", status: "running", off: -49, perWeek: 2, lead: "t7", asst: "a3", room: "P301" },
-    { center: cs2, course: "SATA6", status: "running", off: -70, perWeek: 1, lead: "gv2", asst: "a4", room: "LAB-A" },
-    { center: cs2, course: "SATA2", status: "running", off: -35, perWeek: 1, lead: "t9", asst: "a3", room: "P303" },
-    { center: cs2, course: "SATA6", status: "recruiting", off: 8, perWeek: 2, lead: "t9", asst: null, room: "P201" },
-    { center: cs2, course: "SATA8", status: "pending_approval", off: 21, perWeek: 1, lead: "t8", asst: null, room: "LAB-A" },
+    // TH STEAM: 1 buổi/tuần, năm học 45 buổi → lớp đã kết thúc khai giảng trước ~45 tuần
+    { center: cs1, course: "ROBO-TH-N1", status: "finished", off: -440, perWeek: 1, lead: "t4", asst: "a2", room: "CI04" },
+    { center: cs1, course: "CODE-TH-N1", status: "running", off: -140, perWeek: 1, lead: "t4", asst: "a1", room: "CI05" },
+    { center: cs1, course: "ROBO-TH-N1", status: "running", off: -42, perWeek: 1, lead: "gv3", asst: "a2", room: "CI06" },
+    { center: cs1, course: "ROBO-TH-N2", status: "running", off: -112, perWeek: 1, lead: "t5", asst: "a1", room: "CI07" },
+    { center: cs1, course: "CODE-THCS1-N1", status: "running", off: -28, perWeek: 1, lead: "t6", asst: null, room: "CI04" },
+    { center: cs1, course: "ROBO-TH-THI-STR", status: "recruiting", off: 12, perWeek: 1, lead: "gv1", asst: null, room: "CI07" },
+    { center: cs1, course: "DOHOA-TH-N1", status: "draft", off: 30, perWeek: 1, lead: "t9", asst: null, room: "CI06" },
+    { center: cs2, course: "AI-TH-N1", status: "finished", off: -400, perWeek: 1, lead: "t8", asst: "a4", room: "CI08" },
+    { center: cs2, course: "ROBO-TH-N1", status: "running", off: -119, perWeek: 1, lead: "t7", asst: "a3", room: "CI09" },
+    { center: cs2, course: "AI-THCS-N1", status: "running", off: -70, perWeek: 1, lead: "t9", asst: "a4", room: "CI10" },
+    { center: cs2, course: "DOHOA-THCS-N1", status: "running", off: -35, perWeek: 1, lead: "t7", asst: "a3", room: "CI11" },
+    { center: cs2, course: "AI-TH-N1", status: "recruiting", off: 8, perWeek: 1, lead: "t8", asst: null, room: "CI08" },
+    { center: cs2, course: "CODE-THCS2-N1", status: "pending_approval", off: 21, perWeek: 1, lead: "t6", asst: null, room: "CI10" },
   ];
   const plans: ClassPlan[] = [];
   const classIns: (typeof classes.$inferInsert)[] = [];
@@ -1719,8 +1616,8 @@ async function seedDemoVolume(x: DemoCtx): Promise<void> {
     const clsCode = nextClassCode(spec.center.code, crs.code, Number(start.slice(0, 4)));
     const firstStart = chosen[0]?.sl.s ?? "08:00";
     const part = firstStart < "12:00" ? "sáng" : firstStart < "17:00" ? "chiều" : "tối";
-    const name = `${courseTitle(crs.code)} ${part} ${chosen.map((c) => WD_VI[c.wd] ?? "").join(" & ")} ${spec.center.code}`;
-    const planned = crs.code === "SATA1" ? 12 : 24;
+    const name = `${courseLabel(crs.code)} · ${part} ${chosen.map((c) => WD_VI[c.wd] ?? "").join(" & ")}`;
+    const planned = crs.totalSessions;
     const rules = chosen.map((c) => ({ weekday: c.wd as Weekday, startTime: c.sl.s, endTime: c.sl.e, roomId: room.id, teacherId: lead.id, effectiveFrom: start, effectiveTo: null }));
     const holidayList = [...x.holidayDates.global, ...(spec.center.id === cs1.id ? x.holidayDates.cs1 : [])];
     const withSessions = spec.status === "running" || spec.status === "finished" || spec.status === "recruiting";
@@ -1751,8 +1648,8 @@ async function seedDemoVolume(x: DemoCtx): Promise<void> {
     plans.push(plan);
     classIns.push({
       id, code: clsCode, name, courseId: crs.id, curriculumId: crs.curriculumId, centerId: spec.center.id, homeRoomId: room.id, leadTeacherId: lead.id,
-      assistantTeacherId: asst?.id ?? null, capacity: room.capacity, minCapacity: 6, plannedSessions: planned, startDate: start,
-      expectedEndDate: gen.length ? sessionsEndDate(gen) : null, status: spec.status, description: `Lớp ${courseTitle(crs.code)} (dữ liệu mẫu)`,
+      assistantTeacherId: asst?.id ?? null, capacity: room.capacity, minCapacity: 4, plannedSessions: planned, startDate: start,
+      expectedEndDate: gen.length ? sessionsEndDate(gen) : null, status: spec.status, description: `Lớp ${courseLabel(crs.code)} online qua ClassIn (dữ liệu mẫu)`,
       submittedAt, submittedBy: submittedAt ? gvu : null, approvedAt, approvedBy: approvedAt ? mgr : null, createdAt,
     });
     for (const r of rules) schedIns.push({ classId: id, weekday: r.weekday, startTime: r.startTime, endTime: r.endTime, roomId: r.roomId, teacherId: r.teacherId, effectiveFrom: start, effectiveTo: null, createdBy: gvu, createdAt });
@@ -1869,13 +1766,13 @@ async function seedDemoVolume(x: DemoCtx): Promise<void> {
     const gradeBump = lastDate < `${syStart}-09-01` ? 1 : 0;
     const n = cls.capacity - int(0, 2);
     for (let i = 0; i < n; i++) {
-      const grade = Math.min(9, int(cls.course.gradeFrom, cls.course.gradeTo) + gradeBump);
+      const grade = Math.min(12, int(cls.course.gradeFrom, cls.course.gradeTo) + gradeBump);
       const enrolledAt = vnAt(addDays(cls.start, -int(3, 15)), hm());
       const kid = newKid(familyFor(cls.centerId, grade, enrolledAt), grade, enrolledAt);
       const withdrawn = chance(0.14) && cls.attended.length >= 8;
       const cut = withdrawn ? cls.attended[int(5, cls.attended.length - 2)] : undefined;
       addEnr({
-        kid, cls, status: cut ? "withdrawn" : "completed", pkg: 24, startSeq: 1, carried: 0, enrolledAt,
+        kid, cls, status: cut ? "withdrawn" : "completed", pkg: cls.planned, startSeq: 1, carried: 0, enrolledAt,
         endedAt: cut ? vnAt(addDays(cut.date, int(0, 2)), "10:00") : vnAt(addDays(lastDate, int(0, 3)), "10:30"),
         endReason: cut ? pick(END_REASONS) : "Hoàn thành khoá", pausedAt: null, pauseUntil: null, cutDate: cut ? cut.date : null,
         createdBy: pick(salesOf(cls.centerId)), continuing: false,
@@ -1910,7 +1807,7 @@ async function seedDemoVolume(x: DemoCtx): Promise<void> {
     const cont = continuing.get(cls.id) ?? [];
     for (const c of cont.slice(0, open)) {
       const d = maxISO(addDays(cls.start, -int(2, 6)), addDays(vnDate(c.after), 1));
-      addEnr({ kid: c.kid, cls, status: "active", pkg: 24, startSeq: 1, carried: 0, enrolledAt: vnAt(minISO(d, addDays(cls.start, -1)), hm()), endedAt: null, endReason: null, pausedAt: null, pauseUntil: null, cutDate: null, createdBy: pick(salesOf(cls.centerId)), continuing: true });
+      addEnr({ kid: c.kid, cls, status: "active", pkg: cls.planned, startSeq: 1, carried: 0, enrolledAt: vnAt(minISO(d, addDays(cls.start, -1)), hm()), endedAt: null, endReason: null, pausedAt: null, pauseUntil: null, cutDate: null, createdBy: pick(salesOf(cls.centerId)), continuing: true });
     }
     for (let i = cont.length; i < open; i++) {
       const pickSt = pickRunStatus(cls);
@@ -1930,7 +1827,7 @@ async function seedDemoVolume(x: DemoCtx): Promise<void> {
           pauseUntil = minISO(wanted, addDays(ps.date, 89));
         } else status = "active";
       }
-      addEnr({ kid, cls, status, pkg: 24, startSeq, carried: 0, enrolledAt, endedAt: null, endReason: null, pausedAt, pauseUntil, cutDate: pausedAt, createdBy: pick(salesOf(cls.centerId)), continuing: false });
+      addEnr({ kid, cls, status, pkg: cls.planned, startSeq, carried: 0, enrolledAt, endedAt: null, endReason: null, pausedAt, pauseUntil, cutDate: pausedAt, createdBy: pick(salesOf(cls.centerId)), continuing: false });
     }
     const wd = A.length >= 5 ? int(0, 2) : 0;
     for (let i = 0; i < wd; i++) {
@@ -1939,14 +1836,14 @@ async function seedDemoVolume(x: DemoCtx): Promise<void> {
       const kid = newKid(familyFor(cls.centerId, grade, enrolledAt), grade, enrolledAt);
       const cut = A[int(2, A.length - 2)]!;
       addEnr({
-        kid, cls, status: "withdrawn", pkg: 24, startSeq: 1, carried: 0, enrolledAt, endedAt: notFuture(vnAt(addDays(cut.date, int(0, 2)), "10:00")), endReason: pick(END_REASONS),
+        kid, cls, status: "withdrawn", pkg: cls.planned, startSeq: 1, carried: 0, enrolledAt, endedAt: notFuture(vnAt(addDays(cut.date, int(0, 2)), "10:00")), endReason: pick(END_REASONS),
         pausedAt: null, pauseUntil: null, cutDate: cut.date, createdBy: pick(salesOf(cls.centerId)), continuing: false,
       });
     }
   }
   // 4) Lớp đang tuyển sinh (chưa khai giảng)
   for (const cls of recruiting) {
-    const n = int(6, 9);
+    const n = int(5, 7);
     for (let i = 0; i < n; i++) {
       const enrolledAt = ago(int(1, 20 * 24));
       const grade = int(cls.course.gradeFrom, cls.course.gradeTo);
@@ -1981,24 +1878,25 @@ async function seedDemoVolume(x: DemoCtx): Promise<void> {
       else if (chance(0.4)) r.status = chance(0.5) ? "absent_excused" : "absent_unexcused";
     });
   }
-  // 6) Gói học: suy từ số buổi đã học để có HV "sắp hết khoá" (còn ≤ 4 buổi)
+  // 6) Gói học: 1 năm học (45 buổi) hoặc combo 2 năm; vài HV đóng theo học phần (15 / 30 buổi) để có "sắp hết khoá"
   for (const e of allEnrs) {
     e.consumed = e.recs.filter((r) => r.status === "present" || r.status === "late" || r.status === "absent_unexcused").length;
     if (e.cls.status !== "running") continue;
     const P = e.recs.length;
+    const T = e.cls.planned;
     if (e.status === "active" && !e.continuing && chance(0.05)) {
       e.carried = int(4, 10);
-      e.pkg = 36;
+      e.pkg = T;
       continue;
     }
     if ((e.status === "active" || e.status === "paused") && P >= 8 && chance(0.28)) {
-      const fit = [12, 16, 20, 24].find((k) => k >= P && k - e.consumed <= 4);
+      const fit = [15, 30, 45].find((k) => k >= P && k - e.consumed <= 4);
       if (fit) {
         e.pkg = fit;
         continue;
       }
     }
-    e.pkg = P + 4 > 24 ? 36 : weighted<number>([[24, 0.75], [36, 0.25]]);
+    e.pkg = P + 4 > T ? T * 2 : weighted<number>([[T, 0.8], [T * 2, 0.2]]);
   }
 
   // Ghi DB: phụ huynh, học viên, ghi danh, lịch sử ghi danh, điểm danh
@@ -2079,7 +1977,11 @@ async function seedDemoVolume(x: DemoCtx): Promise<void> {
     if (src === "web-form" && chance(0.4)) return { utmSource: "google", utmMedium: "organic", utmCampaign: null };
     return { utmSource: null, utmMedium: null, utmCampaign: null };
   };
-  const courseForGrade = (grade: number): CourseInfo => (grade <= 2 ? course("SATA2") : grade <= 4 ? course("SATA4") : grade <= 6 ? course("SATA6") : course("SATA8"));
+  const courseForGrade = (grade: number): CourseInfo =>
+    course(grade <= 4 ? pick(["ROBO-TH-N1", "AI-TH-N1", "CODE-TH-N1", "DOHOA-TH-N1"])
+      : grade === 5 ? pick(["ROBO-TH-N2", "AI-TH-N1", "CODE-TH-N1"])
+        : grade <= 7 ? pick(["AI-THCS-N1", "DOHOA-THCS-N1", "CODE-THCS1-N1"])
+          : grade <= 9 ? pick(["CODE-THCS2-N1", "AI-THCS-N1", "DOHOA-THCS-N1"]) : "CODE-THPT-N1");
   const trialPool = plans.filter((p) => p.status === "running" || p.status === "recruiting");
   const findTrialSession = (centerId: string, courseId: string | null, from: string, to: string, want: "future" | "past"): { s: SessPlan; cls: ClassPlan } | null => {
     const ok = (s: SessPlan) => s.date >= from && s.date <= to && (want === "future" ? s.status === "scheduled" && s.date > today : s.status === "completed") && (trialSeat.get(s.id) ?? 0) < 2;
@@ -2112,10 +2014,10 @@ async function seedDemoVolume(x: DemoCtx): Promise<void> {
     const kidsSpec: { id: string; name: string; grade: number; courseId: string | null; studentId: string | null }[] = conv
       ? conv.enrs.map((e) => ({ id: uid(), name: e.kid.name, grade: e.kid.grade, courseId: e.cls.course.id, studentId: e.kid.id }))
       : (() => {
-          const g = weighted<number>([[1, 6], [2, 10], [3, 14], [4, 14], [5, 12], [6, 10], [7, 7], [8, 5], [9, 3]]);
+          const g = weighted<number>([[3, 12], [4, 14], [5, 13], [6, 11], [7, 9], [8, 8], [9, 7], [10, 5], [11, 3], [12, 2]]);
           const list = [{ id: uid(), name: personName(chance(0.55) ? "male" : "female", familyName), grade: g, courseId: target === "new" && chance(0.4) ? null : courseForGrade(g).id, studentId: null }];
           if (chance(0.1)) {
-            const g2 = Math.max(1, Math.min(9, g + pick([-3, -2, 2, 3])));
+            const g2 = Math.max(3, Math.min(12, g + pick([-3, -2, 2, 3])));
             list.push({ id: uid(), name: personName(chance(0.55) ? "male" : "female", familyName), grade: g2, courseId: courseForGrade(g2).id, studentId: null });
           }
           return list;
@@ -2377,14 +2279,13 @@ async function seedDemoVolume(x: DemoCtx): Promise<void> {
   await db.insert(leadAssignees).values([
     ...[uidOf("sale3"), uidOf("sale4")].map((u) => ({ userId: u, centerId: cs1.id, isAvailable: true, roundsReceived: statOf(u)?.n ?? 0, lastAssignedAt: statOf(u)?.last ?? null })),
     ...sales2.map((u) => ({ userId: u, centerId: cs2.id, isAvailable: true, roundsReceived: statOf(u)?.n ?? 0, lastAssignedAt: statOf(u)?.last ?? null })),
-    { userId: uidOf("mgr2"), centerId: cs2.id, isAvailable: false, note: "Chỉ nhận khi thiếu người" },
   ]);
   for (const u of [x.sale1U.id, x.sale2U.id]) {
     const s = statOf(u);
     if (s) await db.update(leadAssignees).set({ roundsReceived: s.n, lastAssignedAt: s.last }).where(and(eq(leadAssignees.userId, u), eq(leadAssignees.centerId, cs1.id)));
   }
 
-  /* ---------------- Lớp trải nghiệm nhiều buổi (mỗi cơ sở một lớp mẫu) ---------------- */
+  /* ---------------- Lớp trải nghiệm nhiều buổi (hai lớp mẫu) ---------------- */
   const trialClassIns: (typeof trialClasses.$inferInsert)[] = [];
   const trialClassSessionIns: (typeof trialClassSessions.$inferInsert)[] = [];
   const trialClassEnrollIns: (typeof trialClassEnrollments.$inferInsert)[] = [];
@@ -2392,20 +2293,20 @@ async function seedDemoVolume(x: DemoCtx): Promise<void> {
   const OPEN_FOR_TRIAL: LeadStatus[] = ["contacted", "consulting", "trial_scheduled", "trial_in_progress", "trial_done"];
   interface TrialClassSeed { center: CenterRow; courseCode: string; teacherKey: string; roomCode: string; capacity: number; offsets: number[]; students: number }
   const trialClassSeeds: TrialClassSeed[] = [
-    // CS1: lớp đã học 1 buổi (có điểm danh) + 2 buổi tới
-    { center: cs1, courseCode: "SATA4", teacherKey: "gv1", roomCode: "102", capacity: 10, offsets: [-7, 0, 7], students: 4 },
-    // CS2: lớp vừa mở, 2 buổi sắp tới
-    { center: cs2, courseCode: "SATA6", teacherKey: "gv2", roomCode: "P301", capacity: 12, offsets: [3, 10], students: 3 },
+    // Lớp đã học 1 buổi (có điểm danh) + 2 buổi tới
+    { center: cs1, courseCode: "ROBO-TH-N1", teacherKey: "gv1", roomCode: "CI05", capacity: 8, offsets: [-7, 0, 7], students: 4 },
+    // Lớp vừa mở, 2 buổi sắp tới
+    { center: cs2, courseCode: "AI-TH-N1", teacherKey: "gv2", roomCode: "CI09", capacity: 8, offsets: [3, 10], students: 3 },
   ];
   const usedTrialLeadIds = new Set<string>();
-  for (const p of trialClassSeeds) {
+  for (const [tIdx, p] of trialClassSeeds.entries()) {
     const classId = uid();
     const cc = ccOf(p.center.id);
     const firstOffset = p.offsets[0] ?? 0;
     trialClassIns.push({
       id: classId,
-      code: trialClassCode(cc, yr, 1),
-      name: trialClassName({ centerCode: cc, courseCode: p.courseCode, seq: 1 }),
+      code: trialClassCode(cc, yr, tIdx + 1),
+      name: trialClassName({ centerCode: cc, courseCode: p.courseCode, seq: tIdx + 1 }),
       centerId: p.center.id, courseId: course(p.courseCode).id, status: "open", capacity: p.capacity,
       note: "Lớp trải nghiệm mẫu (dữ liệu demo)", createdBy: mgrOf(p.center.id),
       createdAt: vnAt(addDays(today, firstOffset - 5), "09:00"),
@@ -2453,9 +2354,7 @@ async function seedDemoVolume(x: DemoCtx): Promise<void> {
   bump("trial_class_enrollments", trialClassEnrollIns.length);
 
   /* ---------------- Tài chính: đơn học phí, kế hoạch trả góp, khoản thu, hoàn tiền, hoa hồng ---------------- */
-  const pmCash2Id = uid();
-  await db.insert(paymentMethods).values({ id: pmCash2Id, code: "TM-CS2", name: "Tiền mặt tại CS2", kind: "cash", centerId: cs2.id, allowFor: ["course", "product"], sortOrder: 1 });
-  const cashOf = (centerId: string) => (centerId === cs1.id ? x.pmCashCS1Id : pmCash2Id);
+  const cashOf = (_centerId: string) => x.pmCashCS1Id;
   type Scenario = "normal" | "overdue" | "partial" | "pending" | "prepay" | "unpaid" | "full" | "cancel";
   interface PayTmp {
     row: typeof payments.$inferInsert;
@@ -2492,7 +2391,7 @@ async function seedDemoVolume(x: DemoCtx): Promise<void> {
     const total = subtotal - discountAmount;
     const orderAt = notFuture(later(e.enrolledAt, 5, 180));
     const orderDate = vnDate(orderAt);
-    const nInst = e.pkg >= 24 ? weighted<number>([[1, 0.55], [2, 0.3], [3, 0.15]]) : 1;
+    const nInst = e.pkg >= 45 ? weighted<number>([[1, 0.55], [2, 0.3], [3, 0.15]]) : 1;
     const plan = buildInstallmentPlan(total, nInst, addDays(orderDate, int(0, 3)));
     const oid = uid();
     const method = chance(0.45) ? cashOf(centerId) : x.pmBankId;
@@ -2555,7 +2454,7 @@ async function seedDemoVolume(x: DemoCtx): Promise<void> {
     }
   }
   // Số phiếu thu theo thứ tự thời gian xác nhận, riêng từng cơ sở
-  const rcSeq: Record<string, number> = { CS1: x.seq.receiptCS1, CS2: 0 };
+  const rcSeq: Record<string, number> = { [cs1.code]: x.seq.receiptCS1 };
   const confirmedPays = orderList.flatMap((o) => o.pays).filter((p) => p.status === "confirmed" && p.decidedAt).sort((a, b) => (a.decidedAt?.getTime() ?? 0) - (b.decidedAt?.getTime() ?? 0));
   for (const p of confirmedPays) {
     const cc = ccOf(p.centerId);
@@ -2674,15 +2573,16 @@ async function seedDemoVolume(x: DemoCtx): Promise<void> {
           ? weighted<RcState>([["published", 0.3], ["approved", 0.1], ["submitted", 0.25], ["draft", 0.15], ["none", 0.2]])
           : weighted<RcState>([["published", 0.86], ["approved", 0.04], ["submitted", 0.03], ["returned", 0.02], ["none", 0.05]]);
         if (state === "none") continue;
-        const scores = cls.course.criteriaIds.map(() => (chance(0.1) ? 2 : int(3, 5)));
+        // Thang 3 mức (Cần cố gắng 1 · Đạt 2 · Tốt 3)
+        const scores = cls.course.criteriaIds.map(() => (chance(0.08) ? 1 : chance(0.55) ? 3 : 2));
         const avg = averageScore(scores);
         if (avg !== null) avgByEnr.set(e.id, [...(avgByEnr.get(e.id) ?? []), avg]);
         const rcId = uid();
         const submittedAt = state === "draft" ? null : notFuture(vnAt(addDays(s.date, int(1, 3)), "21:00"));
         const reviewedAt = (state === "published" || state === "approved" || state === "returned") && submittedAt ? later(submittedAt, 60, 3 * 24 * 60) : null;
         rcIns.push({
-          id: rcId, enrollmentId: e.id, milestoneSeq: m, sessionId: s.id, status: state, teacherComment: pick(RC_COMMENTS),
-          strengths: pick(["Tư duy logic tốt", "Lắp ráp chắc chắn", "Tự tin thuyết trình", "Hợp tác nhóm tốt"]), improvements: pick(["Cần cẩn thận hơn khi đi dây", "Cần tập trung hơn cuối buổi", "Luyện thêm vòng lặp", "Mạnh dạn phát biểu hơn"]),
+          id: rcId, enrollmentId: e.id, milestoneSeq: m, sessionId: s.id, status: state, rubricScale: RUBRIC_SCALE, teacherComment: pick(RC_COMMENTS),
+          strengths: pick(["Tư duy công nghệ tốt", "Lập trình chắc chắn", "Tự tin trình bày", "Hợp tác nhóm tốt"]), improvements: pick(["Cần kiểm tra lại chương trình trước khi chạy", "Cần tập trung hơn cuối buổi", "Luyện thêm vòng lặp", "Mạnh dạn phát biểu hơn"]),
           averageScore: state === "draft" || avg === null ? null : avg.toFixed(1), authorId: s.teacherUserId, submittedAt,
           reviewedBy: reviewedAt ? gvuOf(cls.centerId) : null, reviewedAt, returnReason: state === "returned" ? "Nhận xét chưa cụ thể, bổ sung ví dụ trong buổi học" : null,
           publishedAt: state === "published" && reviewedAt ? later(reviewedAt, 5, 120) : null, createdAt: vnAt(s.date, "21:00"),
@@ -2701,7 +2601,9 @@ async function seedDemoVolume(x: DemoCtx): Promise<void> {
   for (const e of allEnrs) {
     if (e.status !== "completed" || !e.endedAt) continue;
     const avgs = avgByEnr.get(e.id) ?? [];
-    const avg = avgs.length ? Math.round((avgs.reduce((a, b) => a + b, 0) / avgs.length) * 10) / 10 : null;
+    // Học bạ thang 3 → quy về thang 5 để xếp loại hoàn thành khoá (Hoàn thành tốt / Hoàn thành)
+    const avg3 = avgs.length ? avgs.reduce((a, b) => a + b, 0) / avgs.length : null;
+    const avg = avg3 === null ? null : convertScore(avg3, RUBRIC_SCALE, 5);
     const n = (certSeq.get(e.cls.course.code) ?? 0) + 1;
     certSeq.set(e.cls.course.code, n);
     complIns.push({
@@ -2877,12 +2779,6 @@ async function seedDemoVolume(x: DemoCtx): Promise<void> {
   bump("parent_notifications", notifIns.length);
 
   /* ---------------- Nhân sự: ca làm, phân ca, chấm công 30 ngày, đơn từ ---------------- */
-  const shS2Id = uid();
-  const shC2Id = uid();
-  await db.insert(workShifts).values([
-    { id: shS2Id, centerId: cs2.id, code: "S2", name: "Ca sáng CS2", kind: "timed" as const, units: 0.5, segments: [{ from: "07:30", to: "11:30" }], plannedMinutes: 240, workplace: "own_center" as const, punchRequired: true, dayCredit: 0.5, nominalMinutes: 240, attendanceMode: "timed" as const },
-    { id: shC2Id, centerId: cs2.id, code: "C2", name: "Ca chiều tối CS2", kind: "timed" as const, units: 1, segments: [{ from: "13:30", to: "21:00" }], plannedMinutes: 450, workplace: "own_center" as const, punchRequired: true, dayCredit: 1, nominalMinutes: 450, attendanceMode: "timed" as const },
-  ]);
   const clockOf = (sh: { segments: { from: string; to: string; paid?: boolean }[] }) => {
     const segs = workSegments(sh.segments ?? []);
     return { start: segs[0]?.from ?? 480, end: segs[segs.length - 1]?.to ?? 1020 };
@@ -2891,11 +2787,8 @@ async function seedDemoVolume(x: DemoCtx): Promise<void> {
   const c1Clock = clockOf(x.shC1);
   const snapOf = (sh: { units: number; nominalMinutes?: number | null; plannedMinutes: number; segments: { from: string; to: string; paid?: boolean }[] }) =>
     ({ units: sh.units, minutes: sh.nominalMinutes || sh.plannedMinutes, segments: sh.segments ?? [] });
-  const c2Snap = { units: 1, minutes: 450, segments: [{ from: "13:30", to: "21:00" }] };
   const shiftFor = (p: { centerId: string; kind: HrKind }) =>
-    p.kind === "office" ? { id: x.shHC.id, ...hcClock, ...snapOf(x.shHC) }
-      : p.centerId === cs1.id ? { id: x.shC1.id, ...c1Clock, ...snapOf(x.shC1) }
-        : { id: shC2Id, start: 810, end: 1260, ...c2Snap };
+    p.kind === "office" ? { id: x.shHC.id, ...hcClock, ...snapOf(x.shHC) } : { id: x.shC1.id, ...c1Clock, ...snapOf(x.shC1) };
   const workDays = (kind: HrKind) => (kind === "office" ? [1, 2, 3, 4, 5, 6] : kind === "teacher" ? [2, 3, 4, 5, 6, 7] : [2, 4, 6]);
   const coords = (centerId: string) => (centerId === cs1.id ? { lat: 16.0336, lng: 108.2212 } : { lat: 16.0678, lng: 108.2208 });
   const asgIns: (typeof shiftAssignments.$inferInsert)[] = [];

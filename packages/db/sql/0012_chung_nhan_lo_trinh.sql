@@ -179,10 +179,10 @@ END $$;
 
 -- ------------------------------------------------------------------
 -- 5. Mẫu mặc định dựng sẵn cho mỗi trung tâm chưa có mẫu nào
---    (nền SVG do máy chủ phát tại /mau-chung-nhan/sata-mac-dinh.svg; fields rỗng = bố cục mặc định của core)
+--    (nền SVG do máy chủ phát tại /mau-chung-nhan/th-steam-mac-dinh.svg; fields rỗng = bố cục mặc định của core)
 -- ------------------------------------------------------------------
 INSERT INTO certificate_templates (tenant_id, name, orientation, background_key, width_px, height_px, fields, is_default)
-SELECT t.id, 'Mẫu mặc định Sata Robo (A4 ngang)', 'landscape', 'builtin/sata-mac-dinh.svg', 3508, 2480, '[]'::jsonb, true
+SELECT t.id, 'Mẫu mặc định TH STEAM Academy (A4 ngang)', 'landscape', 'builtin/th-steam-mac-dinh.svg', 3508, 2480, '[]'::jsonb, true
   FROM tenants t
  WHERE NOT EXISTS (SELECT 1 FROM certificate_templates ct WHERE ct.tenant_id = t.id);
 
@@ -208,7 +208,7 @@ SELECT ce.tenant_id, 'course', cc.id, e.student_id, cl.center_id, NULL, cc.certi
          'issuedDate', to_char(coalesce(cc.issued_at, cc.decided_at, cc.updated_at) AT TIME ZONE 'Asia/Ho_Chi_Minh', 'YYYY-MM-DD'),
          'grade', cc.grade,
          'centerName', ce.name, 'centerAddress', ce.address, 'centerPhone', ce.phone,
-         'issuerName', 'Sata Robo', 'signerName', '', 'signerTitle', '', 'customText', ''
+         'issuerName', 'TH STEAM Academy', 'signerName', '', 'signerTitle', '', 'customText', ''
        )
   FROM course_completions cc
   JOIN enrollments e ON e.id = cc.enrollment_id

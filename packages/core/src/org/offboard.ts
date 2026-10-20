@@ -97,7 +97,7 @@ export function retentionUntil(closedAtISO: string, dataRetentionYears: number):
   return end.toISOString().slice(0, 10);
 }
 
-/** Tên tệp bàn giao: SATA-FR_HUE-ban-giao-2026-09-18.zip */
+/** Tên tệp bàn giao: TH-DOI_TAC-ban-giao-2026-09-18.zip */
 export function offboardExportName(tenantCode: string, dateISO: string): string {
   const code = tenantCode.trim().toUpperCase().replace(/[^A-Z0-9_]/g, "") || "TENANT";
   return `${code}-ban-giao-${dateISO.slice(0, 10)}.zip`;

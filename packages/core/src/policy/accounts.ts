@@ -55,7 +55,7 @@ export const PERMISSION_RESOURCES: { key: string; label: string; group: string }
   { key: "document", label: "Tài liệu", group: "Học thuật" },
   { key: "assignment", label: "Bài tập về nhà", group: "Học thuật" },
   { key: "care", label: "Chăm sóc HV", group: "Chăm sóc" },
-  { key: "coin", label: "SataCoin", group: "Chăm sóc" },
+  { key: "coin", label: "TH Coin", group: "Chăm sóc" },
   { key: "automation", label: "Tự động hoá", group: "Chăm sóc" },
   { key: "teacher", label: "Giáo viên", group: "Nhân sự" },
   { key: "staff", label: "Nhân sự", group: "Nhân sự" },

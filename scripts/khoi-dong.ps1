@@ -145,8 +145,8 @@ Noi ""
 Noi ("He thong da san sang: " + $BaseUrl + "/login") "Cyan"
 Noi "Tai khoan mau (khong can mat khau, chi o che do phat trien):" "Gray"
 Noi "  superadmin@example.test      Quan tri toi cao" "Gray"
-Noi "  manager.cs1@example.test     Quan ly co so 1" "Gray"
-Noi "  giamdoc@satarobo-hue.test    Giam doc trung tam nhuong quyen" "Gray"
+Noi "  manager.cs1@example.test     Quan ly trung tam online (ONL)" "Gray"
+Noi "  teacher1@example.test        Giao vien" "Gray"
 Noi "Tat he thong: dong 2 cua so 'TH STEAM dev server' va 'TH STEAM worker'; 'docker compose stop' neu muon tat CSDL." "Gray"
 
 if (-not $KhongMoTrinhDuyet) { Start-Process ($BaseUrl + "/login") }

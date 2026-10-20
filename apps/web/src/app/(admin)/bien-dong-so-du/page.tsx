@@ -32,7 +32,7 @@ export default async function BankTxPage({ searchParams }: { searchParams: Promi
     <div className="space-y-4">
       <PageHeader
         title="Biến động số dư"
-        desc="Tiền vào tài khoản (SePay hoặc sao kê) được tự khớp với đơn theo mã trong nội dung chuyển khoản (VD: SATA DH26000012). Khớp được → tự xác nhận khoản thu và cấp số phiếu; không chắc chắn → chờ kế toán kiểm tra."
+        desc="Tiền vào tài khoản (SePay hoặc sao kê) được tự khớp với đơn theo mã trong nội dung chuyển khoản (VD: THSTEAM DH26000012). Khớp được → tự xác nhận khoản thu và cấp số phiếu; không chắc chắn → chờ kế toán kiểm tra."
         actions={<CsvButton filename="bien-dong-so-du" headers={["Thời gian", "Tài khoản", "Số tiền", "Nội dung", "Mã GD", "Trạng thái", "Đơn", "Phiếu thu", "Ghi chú"]} rows={d.items.map((t) => [dt(t.occurredAt), t.accountNo, t.direction === "in" ? t.amount : -t.amount, t.content, t.referenceCode, BANK_TX_STATUS_VI[t.status], t.orderCode, t.receiptNo, t.matchNote])} />}
       />
 

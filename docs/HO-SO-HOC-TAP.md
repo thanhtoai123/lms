@@ -243,9 +243,9 @@ Biến môi trường: `PDF_RENDERER=playwright`, `PDF_CHROME_CHANNEL` (mặc đ
 `pnpm db:reset && pnpm db:push && pnpm db:apply-sql && pnpm db:seed` — seed sinh phiếu đã phát hành cho mọi học viên có mặt ở các buổi đã hoàn tất
 (điểm tăng nhẹ theo số buổi, học viên vắng không có phiếu), chuyển học bạ mốc đã có sang thang 4 với số liệu tổng hợp, gắn 2 ảnh đã duyệt cho "Học viên mẫu 2", và in ở cuối:
 
-- **Hồ sơ học tập mẫu** (không cần đăng nhập): `http://localhost:3000/hs/xem-thu-ho-so-hoc-tap-sata-robo-mau`
+- **Hồ sơ học tập mẫu** (không cần đăng nhập): `http://localhost:3000/hs/xem-thu-ho-so-hoc-tap-th-steam-mau`
 - Trang quản trị: **Học viên → Học viên mẫu 2 → khối "Hồ sơ học tập"** (xem, in, chia sẻ, danh sách link + lượt xem + thu hồi).
-- Luồng giáo viên: đăng nhập `teacher1@satarobo.vn` → buổi quá hạn chưa chốt của lớp Sata4 sáng CN → điểm danh → chấm phiếu → thử **Hoàn tất** khi còn thiếu để thấy thông báo chặn.
+- Luồng giáo viên: đăng nhập `teacher1@example.test` → buổi quá hạn chưa chốt của lớp Sata4 sáng CN → điểm danh → chấm phiếu → thử **Hoàn tất** khi còn thiếu để thấy thông báo chặn.
 - Mốc bật tính năng trong seed đặt 14 ngày trước để nhóm "Buổi chưa có phiếu nhận xét học viên" có việc mẫu.
 
 ---

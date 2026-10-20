@@ -3,7 +3,7 @@
 -- Xem docs/HO-SO-HOC-TAP.md, mục "Chuẩn thông tin hồ sơ học tập".
 
 -- ------------------------------------------------------------------
--- 1. Tiêu chí năng lực: nhóm + mô tả hành vi cho từng mức (mảng 4 chuỗi, mức 1 → 4)
+-- 1. Tiêu chí năng lực: nhóm + mô tả hành vi cho từng mức (mảng 3 chuỗi theo thang chuẩn TH STEAM; mô tả 4 mức cũ vẫn hợp lệ)
 -- ------------------------------------------------------------------
 ALTER TABLE competency_criteria ADD COLUMN IF NOT EXISTS group_name text;
 ALTER TABLE competency_criteria ADD COLUMN IF NOT EXISTS level_descriptors jsonb;
@@ -12,7 +12,7 @@ ALTER TABLE competency_criteria DROP CONSTRAINT IF EXISTS competency_criteria_le
 ALTER TABLE competency_criteria ADD CONSTRAINT competency_criteria_level_descriptors_check CHECK (
   level_descriptors IS NULL OR (
     jsonb_typeof(level_descriptors) = 'array'
-    AND jsonb_array_length(level_descriptors) = 4
+    AND jsonb_array_length(level_descriptors) BETWEEN 3 AND 4
     AND NOT jsonb_path_exists(level_descriptors, '$[*] ? (@.type() != "string")')
   )
 );
@@ -20,7 +20,7 @@ ALTER TABLE competency_criteria DROP CONSTRAINT IF EXISTS competency_criteria_gr
 ALTER TABLE competency_criteria ADD CONSTRAINT competency_criteria_group_name_check CHECK (coalesce(length(group_name), 0) <= 60);
 
 COMMENT ON COLUMN competency_criteria.level_descriptors IS
-  'Mô tả hành vi quan sát được cho 4 mức (Đang làm quen / Cần hỗ trợ / Đạt / Vượt mong đợi). NULL = dùng mô tả mặc định theo tên tiêu chí. Chụp vào phiếu buổi lúc phát hành.';
+  'Mô tả hành vi quan sát được cho từng mức — thang chuẩn 3 mức (Cần cố gắng / Đạt / Tốt); dữ liệu cũ có thể còn 4 mức. NULL = dùng mô tả mặc định theo tên tiêu chí. Chụp vào phiếu buổi lúc phát hành.';
 
 -- ------------------------------------------------------------------
 -- 2. Tiêu chí trọng tâm của bài học (không bắt buộc)

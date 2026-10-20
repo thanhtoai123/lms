@@ -1,5 +1,5 @@
 {
-  "name": "sata-trinh-chieu",
+  "name": "thsteam-trinh-chieu",
   "version": "1.0.0",
   "private": true,
   "description": "Trinh chieu an toan — ung dung may tinh chieu giao an, chan chup/quay man hinh o muc he dieu hanh",
@@ -12,8 +12,8 @@
     "electron": "33.2.0"
   },
   "build": {
-    "appId": "vn.satarobo.trinhchieu",
-    "productName": "SataRobo-TrinhChieu",
+    "appId": "vn.edu.thsteam.trinhchieu",
+    "productName": "THSTEAM-TrinhChieu",
     "files": ["main.cjs", "cau-hinh.json"],
     "win": { "target": "portable" }
   }

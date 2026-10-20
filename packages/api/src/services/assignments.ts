@@ -379,7 +379,7 @@ export async function gradeSubmission(ctx: ProtectedContext, input: { id: string
   const now = new Date();
   await ctx.db.update(submissions).set({ status: to, score: input.score, feedback: input.feedback?.trim() || null, gradedBy: ctx.user.id, gradedAt: now, ...(s.submittedAt ? {} : { submittedAt: now, submittedVia: "staff" }) }).where(eq(submissions.id, s.id));
   let coin: { awarded: number; error: string | null } = { awarded: 0, error: null };
-  // Luật thưởng xu "Hoàn thành bài tập" (SataCoin → Luật thưởng xu): tắt thì không cộng xu
+  // Luật thưởng xu "Hoàn thành bài tập" (TH Coin → Luật thưởng xu): tắt thì không cộng xu
   const homeworkRule = await coinsForEvent(ctx.db, "HOMEWORK_DONE", a.coinReward);
   if (homeworkRule !== null && earnsCoin(input.score, a.maxScore, a.coinReward) && !s.coinTxId) {
     try {

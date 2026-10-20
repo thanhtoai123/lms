@@ -128,7 +128,7 @@ export const stockAuditLines = pgTable("stock_audit_lines", {
 }, (t) => [primaryKey({ columns: [t.auditId, t.itemId] })]);
 
 /* ------------------------------------------------------------------ */
-/* SataCoin                                                            */
+/* TH Coin                                                             */
 /* ------------------------------------------------------------------ */
 
 /** Sổ xu — chỉ thêm */

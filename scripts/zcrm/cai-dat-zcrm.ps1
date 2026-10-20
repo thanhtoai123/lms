@@ -1,5 +1,5 @@
 ﻿<#
-  CAI ZALO CRM (ZCRM Community v3.4) CANH HE THONG SATA ROBO — tren may Windows co Docker Desktop.
+  CAI ZALO CRM (ZCRM Community v3.4) CANH HE THONG TH STEAM ACADEMY — tren may Windows co Docker Desktop.
 
   Lam gi:
     1. Tai ma nguon ZCRM (github.com/locphamnguyen/ZaloCRM) vao %USERPROFILE%\zcrm — CHAY RIENG,

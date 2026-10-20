@@ -121,7 +121,7 @@ function DayPanel({ staffId, date, canUpdate, onClose }: { staffId: string; date
           </div>
           {canUpdate && d.canReview && (
             <div className="space-y-2 border-t border-black/5 pt-2">
-              <label className="block text-xs text-ink-600">Ghi chú kết luận / lý do<input className="input mt-1" value={note} onChange={(e) => setNote(e.target.value)} placeholder="VD: có xác nhận của quản lý, đi công tác CS2" /></label>
+              <label className="block text-xs text-ink-600">Ghi chú kết luận / lý do<input className="input mt-1" value={note} onChange={(e) => setNote(e.target.value)} placeholder="VD: có xác nhận của quản lý, dạy bù lớp online buổi tối" /></label>
               {d.cell.openFlags.length > 0 && (
                 <div className="flex flex-wrap items-center gap-1 text-xs">
                   <span className="text-ink-600">Rà cờ:</span>
@@ -148,7 +148,7 @@ function DayPanel({ staffId, date, canUpdate, onClose }: { staffId: string; date
             <div className="flex flex-wrap items-end gap-2 border-t border-black/5 pt-2">
               <label className="text-xs text-ink-600">Công<select className="input mt-1 w-auto" value={unitsV} onChange={(e) => setUnits(e.target.value)}><option value="1">1</option><option value="0.5">0,5</option><option value="0">0</option><option value="1.5">1,5</option></select></label>
               <label className="text-xs text-ink-600">Nhãn<input className="input mt-1 w-32" value={label} onChange={(e) => setLabel(e.target.value)} /></label>
-              <label className="flex-1 text-xs text-ink-600">Lý do (bắt buộc)<input className="input mt-1" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="VD: đi công tác CS2 có xác nhận QL" /></label>
+              <label className="flex-1 text-xs text-ink-600">Lý do (bắt buộc)<input className="input mt-1" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="VD: trực lớp online ngoài ca, có xác nhận QL" /></label>
               <button className="btn-primary" disabled={reason.trim().length < 5 || ov.isPending} onClick={() => ov.mutate({ staffId, date, units: Number(unitsV), label, reason: reason.trim() })}>Ghi đè công</button>
               {d.cell.override && <button className="btn-ghost" disabled={reason.trim().length < 5 || ov.isPending} onClick={() => ov.mutate({ staffId, date, units: null, reason: reason.trim() })}>Bỏ ghi đè</button>}
             </div>

@@ -373,7 +373,7 @@ export function validateTenantCode(code: string): string | null {
 }
 
 /** Mã tenant mặc định của chuỗi gốc — mọi dữ liệu cũ được gán về đây */
-export const DEFAULT_TENANT_CODE = "SATA";
+export const DEFAULT_TENANT_CODE = "TH";
 
 /* ------------------------------------------------------------------ */
 /* Trung tâm tạm ngừng / đã đóng                                       */

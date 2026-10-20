@@ -210,7 +210,7 @@ export default async function ParentOverview({ searchParams }: { searchParams: P
                 {[
                   { href: `/ph/lich?con=${kidId}`, icon: CalendarDays, title: "Lịch học", sub: f.attendance30.rate === null ? "Tháng này" : `Chuyên cần 30 ngày ${f.attendance30.rate}%` },
                   { href: `/ph/be/${kidId}`, icon: Route, title: "Hành trình học", sub: "Khoá, học bạ, chứng nhận" },
-                  { href: `/ph/be/${kidId}/xu`, icon: Coins, title: "SataCoin", sub: `${f.coins} xu` },
+                  { href: `/ph/be/${kidId}/xu`, icon: Coins, title: "TH Coin", sub: `${f.coins} xu` },
                   { href: "/ph/bai-tap", icon: BookOpen, title: "Bài tập", sub: f.homework.length ? `${f.homework.length} bài cần làm` : "Không có bài chờ" },
                 ].map((t) => (
                   <Link key={t.title} href={t.href} className="card flex min-h-[88px] flex-col justify-between p-3 transition hover:border-primary/40">

@@ -21,7 +21,7 @@ export default async function CertificatePage({ params }: { params: Promise<{ id
         <PrintButton />
       </div>
       <article className="mx-auto aspect-[1.414/1] max-w-4xl rounded-2xl border-8 border-double border-brand-600 bg-white p-10 text-center shadow-sm print:shadow-none">
-        <div className="text-sm font-bold tracking-[0.3em] text-brand-600">SATA ROBO</div>
+        <div className="text-sm font-bold tracking-[0.3em] text-brand-600">TH STEAM ACADEMY</div>
         <h1 className="mt-6 text-4xl font-extrabold text-brand-700">CHỨNG NHẬN HOÀN THÀNH KHOÁ HỌC</h1>
         <p className="mt-8 text-ink-600">Trân trọng chứng nhận học viên</p>
         <p className="mt-2 text-4xl font-bold">{c.studentName}</p>

@@ -441,7 +441,7 @@ export function NewTenantPanel({ templates }: { templates: Template[] }) {
             <h3 className="text-sm font-semibold">2. Trung tâm mới</h3>
             <div className="grid gap-2 sm:grid-cols-2">
               <label className="text-sm">Mã trung tâm <span className="text-muted-foreground">(IN HOA, không đổi được)</span>
-                <input className="input mt-1 w-full uppercase" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} maxLength={12} placeholder="FR_HUE" required />
+                <input className="input mt-1 w-full uppercase" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} maxLength={12} placeholder="VD: TH_HUE" required />
               </label>
               <label className="text-sm">Tên trung tâm
                 <input className="input mt-1 w-full" value={name} onChange={(e) => setName(e.target.value)} maxLength={120} placeholder="TH STEAM Academy Huế" required />
@@ -465,7 +465,7 @@ export function NewTenantPanel({ templates }: { templates: Template[] }) {
                 <input type="number" min={0} max={10} className="input mt-1 w-full" value={roomCount} onChange={(e) => setRoomCount(e.target.value)} />
               </label>
               <label className="text-sm">Mã cơ sở đầu tiên <span className="text-muted-foreground">(khác mọi cơ sở đang có)</span>
-                <input className="input mt-1 w-full uppercase" value={centerCode} onChange={(e) => setCenterCode(e.target.value.toUpperCase())} maxLength={20} placeholder="HUE1" required />
+                <input className="input mt-1 w-full uppercase" value={centerCode} onChange={(e) => setCenterCode(e.target.value.toUpperCase())} maxLength={20} placeholder="VD: HUE1" required />
               </label>
               <label className="text-sm">Tên cơ sở đầu tiên
                 <input className="input mt-1 w-full" value={centerName} onChange={(e) => setCenterName(e.target.value)} maxLength={120} placeholder="TH STEAM Academy Huế — Lê Lợi" required />

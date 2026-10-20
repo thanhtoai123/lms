@@ -177,7 +177,7 @@ export function RequestForm({ staffId, staffName, onDone }: { staffId?: string; 
             </label>
           </>
         )}
-        {kind === "business_trip" && <label className={L}>Nơi đến *<input className="input mt-1" value={f.destination} onChange={(e) => set("destination", e.target.value)} placeholder="VD: Cơ sở 2" /></label>}
+        {kind === "business_trip" && <label className={L}>Nơi đến *<input className="input mt-1" value={f.destination} onChange={(e) => set("destination", e.target.value)} placeholder="VD: Trường đối tác tổ chức ngày hội STEAM" /></label>}
         <label className={`${L} sm:col-span-3 lg:col-span-4`}>Lý do *<input className="input mt-1" value={f.reason} onChange={(e) => set("reason", e.target.value)} placeholder="Ghi rõ để người duyệt không phải hỏi lại" /></label>
       </div>
 

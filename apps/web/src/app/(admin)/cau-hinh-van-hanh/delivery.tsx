@@ -60,7 +60,7 @@ function SettingsEditor({ initial, events, canEdit, onSaved }: { initial: Delive
       <div className="grid gap-3 md:grid-cols-4">
         <label>Zalo ZNS<select className="input mt-1" disabled={!canEdit} value={s.zns.mode} onChange={(e) => setS({ ...s, zns: { ...s.zns, mode: e.target.value as DeliveryMode } })}>{(["off", "sandbox", "live"] as const).map((x) => <option key={x} value={x}>{MODE_VI[x]}</option>)}</select></label>
         <label>SMS brandname<select className="input mt-1" disabled={!canEdit} value={s.sms.mode} onChange={(e) => setS({ ...s, sms: { ...s.sms, mode: e.target.value as DeliveryMode } })}>{(["off", "sandbox", "live"] as const).map((x) => <option key={x} value={x}>{MODE_VI[x]}</option>)}</select></label>
-        <label>Tên brandname<input className="input mt-1" disabled={!canEdit} value={s.sms.brandname} onChange={(e) => setS({ ...s, sms: { ...s.sms, brandname: e.target.value } })} placeholder="SATAROBO" /></label>
+        <label>Tên brandname<input className="input mt-1" disabled={!canEdit} value={s.sms.brandname} onChange={(e) => setS({ ...s, sms: { ...s.sms, brandname: e.target.value } })} placeholder="THSTEAM" /></label>
         <label className="flex items-end gap-2 pb-2"><input type="checkbox" disabled={!canEdit} checked={s.sms.fallback} onChange={(e) => setS({ ...s, sms: { ...s.sms, fallback: e.target.checked } })} /> ZNS lỗi thì gửi SMS</label>
         <label>Giờ yên lặng từ<input className="input mt-1" disabled={!canEdit} value={s.quietStart} onChange={(e) => setS({ ...s, quietStart: e.target.value })} /></label>
         <label>đến<input className="input mt-1" disabled={!canEdit} value={s.quietEnd} onChange={(e) => setS({ ...s, quietEnd: e.target.value })} /></label>

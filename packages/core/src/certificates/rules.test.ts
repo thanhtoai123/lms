@@ -61,12 +61,12 @@ test("kiểm tra danh sách khoá của lộ trình và mã lộ trình", () => 
 });
 
 test("số chứng nhận lộ trình CN-<mã cơ sở>-<yy>-<6 số>; số cũ SR- vẫn hợp lệ", () => {
-  assert.equal(pathCertificateNumber("CS1", 2026, 12), "CN-CS1-26-000012");
+  assert.equal(pathCertificateNumber("ONL", 2026, 12), "CN-ONL-26-000012");
   assert.equal(pathCertificateNumber("cs-đà nẵng", 2027, 1), "CN-CSDANANG-27-000001");
   assert.equal(certificateCenterCode(""), "TH");
   assert.equal(certificatePrefix("CS2", 2026), "CN-CS2-26-");
-  assert.ok(PATH_CERTIFICATE_NO_RE.test("CN-CS1-26-000012"));
-  assert.ok(CERTIFICATE_NO_RE.test("CN-CS1-26-000012"));
+  assert.ok(PATH_CERTIFICATE_NO_RE.test("CN-ONL-26-000012"));
+  assert.ok(CERTIFICATE_NO_RE.test("CN-ONL-26-000012"));
   assert.ok(CERTIFICATE_NO_RE.test(certificateNumber("ROBO-TH-N1", 2026, 7)));
   assert.ok(CERTIFICATE_NO_RE.test("SR-SATA4-26-000007"), "số cũ SR- vẫn hợp lệ");
   assert.ok(!CERTIFICATE_NO_RE.test("CN-CS1-26-12"));
@@ -79,7 +79,7 @@ test("số chứng nhận lộ trình CN-<mã cơ sở>-<yy>-<6 số>; số cũ 
 
 test("token QR và đường dẫn xác thực; lý do thu hồi", () => {
   assert.ok(CERTIFICATE_TOKEN_RE.test("a".repeat(43)));
-  assert.ok(!CERTIFICATE_TOKEN_RE.test("CN-CS1-26-000012"));
+  assert.ok(!CERTIFICATE_TOKEN_RE.test("CN-ONL-26-000012"));
   assert.ok(!CERTIFICATE_TOKEN_RE.test("abc/../" + "a".repeat(40)));
   assert.equal(certificateVerifyPath("tok"), "/cn/tok");
   assert.equal(validateRevokeReason("   "), "Nhập lý do thu hồi (tối thiểu 5 ký tự)");
@@ -179,7 +179,7 @@ test("bản chụp chứng nhận: chụp mọi chữ đã in, kể cả ngườ
   assert.equal(certificateFieldText(byKey("qr"), s), "");
 
   const sample = sampleCertificateSnapshot(fields, new Date("2026-05-01T03:00:00Z"));
-  assert.equal(sample.certificateNo, "CN-CS1-26-000012");
+  assert.equal(sample.certificateNo, "CN-ONL-26-000012");
   assert.equal(sample.signerName, "Trần Văn Mẫu");
 });
 
@@ -199,9 +199,9 @@ test("ảnh nền: đọc kích thước PNG / JPEG, cảnh báo lệch khổ A4
   assert.ok(backgroundWarnings({ width: 1123, height: 794 }, "landscape").some((w) => w.includes("dpi")));
 
   assert.ok(CERTIFICATE_BG_KEY_RE.test("certificates/t1/abc/0f.png"));
-  assert.ok(CERTIFICATE_BG_KEY_RE.test("builtin/sata-mac-dinh.svg"));
+  assert.ok(CERTIFICATE_BG_KEY_RE.test("builtin/th-steam-mac-dinh.svg"));
   assert.ok(!CERTIFICATE_BG_KEY_RE.test("certificates/x.svg"));
   assert.ok(!CERTIFICATE_BG_KEY_RE.test("builtin/../x.svg"));
-  assert.equal(builtinBackgroundPath("builtin/sata-mac-dinh.svg"), "/mau-chung-nhan/sata-mac-dinh.svg");
+  assert.equal(builtinBackgroundPath("builtin/th-steam-mac-dinh.svg"), "/mau-chung-nhan/th-steam-mac-dinh.svg");
   assert.equal(builtinBackgroundPath("certificates/a.png"), null);
 });

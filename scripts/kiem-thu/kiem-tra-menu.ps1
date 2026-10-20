@@ -1,5 +1,5 @@
 ﻿# -----------------------------------------------------------------------------
-#  Kiem tra menu quan tri — Sata Robo Platform
+#  Kiem tra menu quan tri — TH STEAM Academy Platform
 #  Voi 7 tai khoan mau (cookie x-dev-actor): mo MOI muc + chip nguoi do thay trong menu,
 #  MOI muc bi an theo quyen, va MOI duong cu trong bang chuyen huong.
 #  Cay menu doc tu scripts/kiem-thu/menu-manifest.json (sinh tu packages/core/src/nav/menu.ts).
@@ -9,7 +9,7 @@ param(
   [string]$BaseUrl = "http://localhost:3000",
   [string]$Out = "",
   [string]$Manifest = "",
-  # Chi chay mot tai khoan (vd "teacher1@satarobo.vn"); de trong = ca 7
+  # Chi chay mot tai khoan (vd "teacher1@example.test"); de trong = ca 7
   [string]$Only = ""
 )
 
@@ -37,7 +37,7 @@ $Accounts = @(
   @{ email = "hr.cs1@example.test"; ten = "hr.cs1" },
   @{ email = "sale1.cs1@example.test"; ten = "sale1.cs1" },
   @{ email = "giaovu.cs1@example.test"; ten = "giaovu.cs1" },
-  @{ email = "teacher1@satarobo.vn"; ten = "teacher1" }
+  @{ email = "teacher1@example.test"; ten = "teacher1" }
 )
 if ($Only) { $Accounts = @($Accounts | Where-Object { $_.email -eq $Only -or $_.ten -eq $Only }) }
 

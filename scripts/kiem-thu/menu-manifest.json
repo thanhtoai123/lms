@@ -386,8 +386,8 @@
           "tabs": []
         },
         {
-          "label": "SataCoin",
-          "href": "/satacoin",
+          "label": "TH Coin",
+          "href": "/th-coin",
           "perm": [
             "coin:read"
           ],

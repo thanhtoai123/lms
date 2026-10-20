@@ -46,7 +46,7 @@ export default async function StudentProfile({ params }: { params: Promise<{ id:
       open: !p.endedAt,
     })),
     coin: coins
-      ? { balance: coins.balance, tierLabel: coins.tier.label, note: `Tích luỹ ${coins.earned}${coins.held ? ` · đang giữ ${coins.held} cho đổi quà` : ""}`, href: `/satacoin?student=${id}` }
+      ? { balance: coins.balance, tierLabel: coins.tier.label, note: `Tích luỹ ${coins.earned}${coins.held ? ` · đang giữ ${coins.held} cho đổi quà` : ""}`, href: `/th-coin?student=${id}` }
       : null,
     homework: homework && homework.items.length > 0
       ? {

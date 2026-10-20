@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Khôi phục bản sao lưu vào một CSDL ĐÍCH (mặc định CSDL thử nghiệm, KHÔNG phải CSDL đang chạy).
-# Dùng: TARGET_URL=postgres://.../satarobo_restore_test ./restore.sh /srv/sata/backups/db-20260917-021500.dump [files.tar.gz] [thư_mục_giải_nén]
+# Dùng: TARGET_URL=postgres://.../satarobo_restore_test ./restore.sh /srv/thsteam/backups/db-20260917-021500.dump [files.tar.gz] [thư_mục_giải_nén]
 # Sau khi thử thành công: ghi restoreTestedAt vào LATEST.json.
 set -euo pipefail
 DB_FILE="${1:?Đường dẫn tệp .dump}"

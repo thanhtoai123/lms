@@ -1,6 +1,8 @@
-# Sata Robo Platform
+# TH STEAM Academy Platform
 
-Nền tảng vận hành trung tâm giáo dục thế hệ mới cho Sata Robo — xây lại theo **modular monolith**, **workflow-first**, **API-first**, **privacy by design**. Giai đoạn 1 tập trung vào domain **Academics** (lớp / lịch / buổi học / điểm danh) và **Teacher app**.
+Nền tảng vận hành trung tâm giáo dục cho **TH STEAM Academy** (học online qua ClassIn; khung chương trình chuẩn: docs/KHUNG-CHUONG-TRINH.md) — xây lại theo **modular monolith**, **workflow-first**, **API-first**, **privacy by design**. Giai đoạn 1 tập trung vào domain **Academics** (lớp / lịch / buổi học / điểm danh) và **Teacher app**.
+
+> Mã nguồn được dựng lại từ hệ thống vận hành cũ; tên kỹ thuật nội bộ (`@satarobo/*`, CSDL `satarobo`, vai trò `satarobo_app`) giữ nguyên để không phá cấu hình máy chủ — mọi chữ hiển thị và dữ liệu mẫu là TH STEAM Academy.
 
 ## Kiến trúc
 
@@ -41,7 +43,7 @@ CI (GitHub Actions) chạy: build core → unit test → typecheck → db push +
 
 ## Những gì Giai đoạn 1 đã làm
 
-- **Lịch học là dữ liệu** (`class_schedules`) thay cho chuỗi `sata6.15h45-T7.CS2-P302`; buổi học sinh tự động, bỏ ngày nghỉ, gán bài học theo giáo trình, chặn trùng phòng/GV ở cả app và DB (`EXCLUDE USING gist`).
+- **Lịch học là dữ liệu** (`class_schedules`) thay cho chuỗi lịch dạng văn bản của hệ cũ; buổi học sinh tự động, bỏ ngày nghỉ, gán bài học theo giáo trình, chặn trùng phòng/GV ở cả app và DB (`EXCLUDE USING gist`).
 - **Buổi học có vòng đời** `scheduled → attendance_done → notes_done → completed` với guard (không điểm danh buổi tương lai, phải đủ điểm danh, phải có nhận xét). "Buổi chưa hoàn tất" = truy vấn trạng thái, không phải quy tắc trong UI.
 - **Teacher app một màn hình**: điểm danh (chạm xoay trạng thái) → nhận xét → hoàn tất, có mốc học bạ, quá hạn nổi bật trên "Hôm nay".
 - **Ops console**: hàng đợi buổi quá hạn, lớp học (tiến độ, quá hạn), chi tiết lớp với chuyên cần + cảnh báo rủi ro tính từ rule engine, mở lớp mới sinh lịch tự động.

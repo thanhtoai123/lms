@@ -1,5 +1,5 @@
 ﻿# -----------------------------------------------------------------------------
-#  Kich ban kiem thu toan dien — Sata Robo Platform
+#  Kich ban kiem thu toan dien — TH STEAM Academy Platform
 #  Bo A: bao mat · Bo B: cach ly trung tam (tenant) · Bo C: mot cham · Bo D: vai tro · Bo E: tan cong mo rong
 #  Chay tren Windows PowerShell 5.1. Xem docs/KIEM-THU-TOAN-DIEN.md
 # -----------------------------------------------------------------------------
@@ -34,10 +34,10 @@ $K = "ketoan.cs1@example.test"     # kế toán cơ sở 1
 $H = "hr.cs1@example.test"         # nhân sự cơ sở 1
 $S = "sale1.cs1@example.test"      # tư vấn cơ sở 1
 $G = "giaovu.cs1@example.test"     # giáo vụ cơ sở 1
-$TE = "teacher1@satarobo.vn"       # giáo viên
+$TE = "teacher1@example.test"       # giáo viên
 # Bên nhượng quyền FR_HUE: tài khoản ĐANG HOẠT ĐỘNG dùng trước, tài khoản chờ kích hoạt để dự phòng
-$FR = "giamdoc@satarobo-hue.test"
-$FR2 = "quantri@satarobo-hue.test"
+$FR = "giamdoc.nhuongquyen@example.test"
+$FR2 = "quantri.nhuongquyen@example.test"
 
 # `ten` chỉ là tên gọi ngắn để đọc log. Vai trò THẬT của từng tài khoản được đọc sống
 # từ `auth.me` + `system.roles`, không suy từ tên tài khoản (xem bộ C).
@@ -287,8 +287,8 @@ if (-not $ping.ok -or $null -eq $ping.data) {
 }
 
 $centers = @((Q "org.centers" $null $A).data)
-$cs1 = @($centers) | Where-Object { $_.code -eq "CS1" } | Select-Object -First 1
-$cs2 = @($centers) | Where-Object { $_.code -eq "CS2" } | Select-Object -First 1
+$cs1 = @($centers) | Where-Object { $_.code -eq "ONL" -or $_.code -eq "CS1" } | Select-Object -First 1
+$cs2 = @($centers) | Where-Object { $_.code -eq "CS2" } | Select-Object -First 1   # du lieu mau TH chi co 1 trung tam online (ONL) -> cac kiem tra IDOR giua 2 co so se duoc bo qua
 $csHue = @($centers) | Where-Object { $_.code -eq "HUE1" } | Select-Object -First 1
 $today = (Get-Date).ToString("yyyy-MM-dd")
 $rnd = Get-Random -Minimum 100000 -Maximum 999999
@@ -570,9 +570,10 @@ if ($Only -eq "tat-ca" -or $Only -eq "tenant") {
     Note "Bo B bi bo qua gan het vi khong doc duoc tenants.list."
   } else {
     $tenants = @($tl.data.items)
-    $tSata = @($tenants) | Where-Object { $_.code -eq "SATA" } | Select-Object -First 1
+    $tTh = @($tenants) | Where-Object { $_.code -eq "TH" } | Select-Object -First 1
     $tFr = @($tenants) | Where-Object { $_.code -eq "FR_HUE" } | Select-Object -First 1
-    T "B" "B01 quan tri chuoi thay ca SATA va FR_HUE" (($null -ne $tSata) -and ($null -ne $tFr)) "co du 2 trung tam mau" ("so trung tam=" + $tenants.Count)
+    T "B" "B01 quan tri thay trung tam TH (mac dinh)" ($null -ne $tTh) "co tenant TH" ("so trung tam=" + $tenants.Count)
+    if ($null -eq $tFr) { Note "Du lieu mau chi co 1 trung tam online (TH) — cac kiem tra cach ly voi trung tam nhuong quyen FR_HUE se duoc bo qua." }
 
     $r = Q "tenants.list" $null $M
     T "B" "B02 quan ly co so khong doc duoc danh sach trung tam" (LoiBiChan $r) "bi tu choi (thieu quyen tenant:read)" ("ok=" + $r.ok)
@@ -689,7 +690,7 @@ if ($Only -eq "tat-ca" -or $Only -eq "tenant") {
       }
     }
 
-    # --- B18–B20. Chiều ngược lại: người của FR_HUE không thấy dữ liệu SATA
+    # --- B18–B20. Chiều ngược lại: người của FR_HUE không thấy dữ liệu TH
     # Tài khoản của bên nhượng quyền: dùng tài khoản đang hoạt động, dự phòng tài khoản chờ kích hoạt
     $frActor = $FR
     $frMe = Q "auth.me" $null $FR
@@ -699,15 +700,15 @@ if ($Only -eq "tat-ca" -or $Only -eq "tenant") {
     }
     $frSong = ($frMe.ok -and $null -ne $frMe.data)
     if (-not $frSong) {
-      Note ("Khong dang nhap duoc bang tai khoan nao cua FR_HUE (" + $FR + " / " + $FR2 + "). Cac kiem tra chieu FR_HUE -> SATA bi bo qua. Chay lai pnpm db:seed de co tai khoan mau dang hoat dong cua ben nhuong quyen.")
+      Note ("Khong dang nhap duoc bang tai khoan nao cua FR_HUE (" + $FR + " / " + $FR2 + "). Cac kiem tra chieu FR_HUE -> TH bi bo qua. Chay lai pnpm db:seed de co tai khoan mau dang hoat dong cua ben nhuong quyen.")
       Skip "B" "B18 nguoi cua FR_HUE chi thay co so cua minh" "tai khoan FR_HUE dang cho kich hoat"
-      Skip "B" "B19 nguoi cua FR_HUE khong thay lead / hoc vien cua SATA" "tai khoan FR_HUE dang cho kich hoat"
+      Skip "B" "B19 nguoi cua FR_HUE khong thay lead / hoc vien cua TH" "tai khoan FR_HUE dang cho kich hoat"
       Skip "B" "B20 nguoi cua FR_HUE chi thay chinh trung tam minh trong tenants.list" "tai khoan FR_HUE dang cho kich hoat"
       Skip "B" "B21 FR_HUE bat hoSeesPii -> Hoi so doc thay day du, tat lai -> che lai" "tai khoan FR_HUE dang cho kich hoat"
     } else {
       $cFr = Rows (Q "org.centers" $null $frActor).data
       $loCs = @($cFr | Where-Object { $_.code -eq "CS1" -or $_.code -eq "CS2" }).Count
-      T "B" "B18 nguoi cua FR_HUE chi thay co so cua minh" ($loCs -eq 0) "khong thay CS1 / CS2" ("so co so SATA lo ra=" + $loCs)
+      T "B" "B18 nguoi cua FR_HUE chi thay co so cua minh" ($loCs -eq 0) "khong thay CS1 / CS2" ("so co so TH lo ra=" + $loCs)
 
       $ldFr = Rows (Q "admissions.leads.inbox" @{ scope = "all"; allStatuses = $true; limit = 200 } $frActor).data.items
       $loLead = 0
@@ -716,7 +717,7 @@ if ($Only -eq "tat-ca" -or $Only -eq "tenant") {
       $stFr = Rows (Q "students.list" @{ pageSize = 100 } $frActor).data.items
       $loStu = 0
       if ($cs1) { $loStu += @($stFr | Where-Object { $_.homeCenterId -eq $cs1.id }).Count }
-      T "B" "B19 nguoi cua FR_HUE khong thay lead / hoc vien cua SATA" (($loLead -eq 0) -and ($loStu -eq 0)) "0 ban ghi cua SATA" ("lead lo=" + $loLead + " hoc vien lo=" + $loStu)
+      T "B" "B19 nguoi cua FR_HUE khong thay lead / hoc vien cua TH" (($loLead -eq 0) -and ($loStu -eq 0)) "0 ban ghi cua TH" ("lead lo=" + $loLead + " hoc vien lo=" + $loStu)
 
       $tlFr = Rows (Q "tenants.list" $null $frActor).data.items
       $loTen = @($tlFr | Where-Object { $_.code -ne "FR_HUE" }).Count
@@ -744,31 +745,31 @@ if ($Only -eq "tat-ca" -or $Only -eq "tenant") {
     }
 
     # --- B23–B25. Vòng tròn đổi tuỳ chọn trên CHÍNH tenant của người thao tác
-    if ($null -eq $tSata) {
-      Skip "B" "B23..B25 doi tuy chon quyen rieng tu cua chinh trung tam minh" "khong tim thay tenant SATA"
+    if ($null -eq $tTh) {
+      Skip "B" "B23..B25 doi tuy chon quyen rieng tu cua chinh trung tam minh" "khong tim thay tenant TH"
     } else {
-      $goc = $tSata.allowCrossCenterTransfer
-      $r = Mu "tenants.updateSettings" @{ tenantId = $tSata.id; allowCrossCenterTransfer = $false; reason = "Kiem thu vong tron doi tuy chon" } $A
+      $goc = $tTh.allowCrossCenterTransfer
+      $r = Mu "tenants.updateSettings" @{ tenantId = $tTh.id; allowCrossCenterTransfer = $false; reason = "Kiem thu vong tron doi tuy chon" } $A
       T "B" "B23 quan tri cua chinh trung tam doi duoc tuy chon (co ly do)" $r.ok "thanh cong" ("loi=" + $r.err)
       if ($r.ok) {
-        Created ("Da doi tam thoi tuy chon allowCrossCenterTransfer cua SATA (kiem thu tra ve " + $goc + ")")
-        $doc = @((Q "tenants.list" $null $A).data.items) | Where-Object { $_.code -eq "SATA" } | Select-Object -First 1
+        Created ("Da doi tam thoi tuy chon allowCrossCenterTransfer cua TH (kiem thu tra ve " + $goc + ")")
+        $doc = @((Q "tenants.list" $null $A).data.items) | Where-Object { $_.code -eq "TH" } | Select-Object -First 1
         T "B" "B24 doc lai thay dung gia tri vua dat" ($doc.allowCrossCenterTransfer -eq $false) "allowCrossCenterTransfer=false" ("doc duoc=" + $doc.allowCrossCenterTransfer)
-        $back = Mu "tenants.updateSettings" @{ tenantId = $tSata.id; allowCrossCenterTransfer = $goc; reason = "Kiem thu: tra ve trang thai ban dau" } $A
-        $doc2 = @((Q "tenants.list" $null $A).data.items) | Where-Object { $_.code -eq "SATA" } | Select-Object -First 1
+        $back = Mu "tenants.updateSettings" @{ tenantId = $tTh.id; allowCrossCenterTransfer = $goc; reason = "Kiem thu: tra ve trang thai ban dau" } $A
+        $doc2 = @((Q "tenants.list" $null $A).data.items) | Where-Object { $_.code -eq "TH" } | Select-Object -First 1
         T "B" "B25 tra ve trang thai ban dau sau khi kiem thu" ($back.ok -and ($doc2.allowCrossCenterTransfer -eq $goc)) ("tro lai " + $goc) ("hien tai=" + $doc2.allowCrossCenterTransfer)
       }
-      $r = Mu "tenants.updateSettings" @{ tenantId = $tSata.id; hoSeesPii = $true; reason = "abc" } $A
+      $r = Mu "tenants.updateSettings" @{ tenantId = $tTh.id; hoSeesPii = $true; reason = "abc" } $A
       T "B" "B26 doi tuy chon khong co ly do du dai -> bi chan" (LoiBiChan $r) "tu choi vi ly do < 5 ky tu" ("ok=" + $r.ok + " loi=" + $r.err)
     }
 
     # --- B27–B29. Bảng kê nhân bản ------------------------------------------
     $mau = Q "tenants.templates" $null $A
     $mauList = @($mau.data)
-    T "B" "B27 danh sach mo hinh mau chi gom trung tam cua chuoi (OWNED)" ($mau.ok -and ($mauList.Count -ge 1) -and (@($mauList | Where-Object { $_.code -eq "FR_HUE" }).Count -eq 0)) "co SATA, khong co FR_HUE" ("so mau=" + $mauList.Count)
+    T "B" "B27 danh sach mo hinh mau chi gom trung tam cua chuoi (OWNED)" ($mau.ok -and ($mauList.Count -ge 1) -and (@($mauList | Where-Object { $_.code -eq "FR_HUE" }).Count -eq 0)) "co TH, khong co FR_HUE" ("so mau=" + $mauList.Count)
 
     $nguon = $null
-    if ($null -ne $tSata) { $nguon = $tSata.id } elseif ($mauList.Count -gt 0) { $nguon = $mauList[0].id }
+    if ($null -ne $tTh) { $nguon = $tTh.id } elseif ($mauList.Count -gt 0) { $nguon = $mauList[0].id }
     if ($null -eq $nguon) {
       Skip "B" "B28..B40 nhan ban mot cham" "khong xac dinh duoc trung tam mau (nguon)"
     } else {
@@ -1258,19 +1259,19 @@ if ($Only -eq "tat-ca" -or $Only -eq "tan-cong") {
     $c = [string]$r.errCode
     return ($c -eq "FORBIDDEN" -or $c -eq "NOT_FOUND" -or $c -eq "UNAUTHORIZED")
   }
-  # Tai khoan ben nhuong quyen FR_HUE dang hoat dong (khac tenant voi SATA)
+  # Tai khoan ben nhuong quyen FR_HUE dang hoat dong (khac tenant voi TH)
   $frF = $FR
   $meFr = Q "auth.me" $null $frF
   if ((-not $meFr.ok) -or ($null -eq $meFr.data)) { $frF = $FR2; $meFr = Q "auth.me" $null $frF }
 
-  # --- F01-F04. IDOR: lay id THAT cua SATA (quan tri), roi mo .get(id) o tai khoan khac tenant ---
+  # --- F01-F04. IDOR: lay id THAT cua TH (quan tri), roi mo .get(id) o tai khoan khac tenant ---
   if ((-not $meFr.ok) -or ($null -eq $meFr.data)) {
     Skip "F" "F01-F04 IDOR truy cap truc tiep cheo tenant" "khong co tai khoan FR_HUE dang hoat dong"
   } else {
-    # Lay id tu QUAN LY CO SO SATA (chi thay du lieu SATA) -> nguoi FR_HUE mo la CHEO TENANT that su
+    # Lay id tu QUAN LY CO SO TH (chi thay du lieu TH) -> nguoi FR_HUE mo la CHEO TENANT that su
     $sid = (@(Rows (Q "students.list" @{ page = 1 } $M).data.items) | Select-Object -First 1).id
     $lid = (@(Rows (Q "admissions.leads.inbox" @{ scope = "all" } $M).data.items) | Select-Object -First 1).id
-    # Lop SATA co it nhat mot buoi hoc (duyet vai lop dau)
+    # Lop TH co it nhat mot buoi hoc (duyet vai lop dau)
     $cid = $null; $ssid = $null
     foreach ($opt in @(Rows (Q "schedule.classOptions" $null $M).data)) {
       $kl = (Q "academics.classes.get" @{ id = $opt.id } $M).data
@@ -1283,22 +1284,22 @@ if ($Only -eq "tat-ca" -or $Only -eq "tan-cong") {
 
     if ($sid) {
       $r = Q "students.get" @{ id = $sid } $frF
-      T "F" "F01 IDOR: nguoi FR_HUE mo ho so hoc vien SATA bang id -> bi chan" (BiChan $r) "FORBIDDEN / NOT_FOUND" ("ok=" + $r.ok + " ma=" + $r.errCode)
-    } else { Skip "F" "F01 IDOR hoc vien" "khong lay duoc id hoc vien SATA" }
+      T "F" "F01 IDOR: nguoi FR_HUE mo ho so hoc vien TH bang id -> bi chan" (BiChan $r) "FORBIDDEN / NOT_FOUND" ("ok=" + $r.ok + " ma=" + $r.errCode)
+    } else { Skip "F" "F01 IDOR hoc vien" "khong lay duoc id hoc vien TH" }
 
     if ($lid) {
       $r = Q "admissions.leads.get" @{ id = $lid } $frF
-      T "F" "F02 IDOR: nguoi FR_HUE mo lead SATA bang id -> bi chan" (BiChan $r) "FORBIDDEN / NOT_FOUND" ("ok=" + $r.ok + " ma=" + $r.errCode)
-    } else { Skip "F" "F02 IDOR lead" "khong lay duoc id lead SATA" }
+      T "F" "F02 IDOR: nguoi FR_HUE mo lead TH bang id -> bi chan" (BiChan $r) "FORBIDDEN / NOT_FOUND" ("ok=" + $r.ok + " ma=" + $r.errCode)
+    } else { Skip "F" "F02 IDOR lead" "khong lay duoc id lead TH" }
 
     if ($cid) {
       $r = Q "academics.classes.get" @{ id = $cid } $frF
-      T "F" "F03 IDOR: nguoi FR_HUE mo lop SATA bang id -> bi chan" (BiChan $r) "FORBIDDEN / NOT_FOUND" ("ok=" + $r.ok + " ma=" + $r.errCode)
-    } else { Skip "F" "F03 IDOR lop" "khong lay duoc id lop SATA" }
+      T "F" "F03 IDOR: nguoi FR_HUE mo lop TH bang id -> bi chan" (BiChan $r) "FORBIDDEN / NOT_FOUND" ("ok=" + $r.ok + " ma=" + $r.errCode)
+    } else { Skip "F" "F03 IDOR lop" "khong lay duoc id lop TH" }
     if ($ssid) {
       $r = Q "academics.sessions.get" @{ id = $ssid } $frF
-      T "F" "F04 IDOR: nguoi FR_HUE mo buoi hoc SATA bang id -> bi chan" (BiChan $r) "FORBIDDEN / NOT_FOUND" ("ok=" + $r.ok + " ma=" + $r.errCode)
-    } else { Skip "F" "F04 IDOR buoi hoc" "khong lay duoc id buoi hoc SATA" }
+      T "F" "F04 IDOR: nguoi FR_HUE mo buoi hoc TH bang id -> bi chan" (BiChan $r) "FORBIDDEN / NOT_FOUND" ("ok=" + $r.ok + " ma=" + $r.errCode)
+    } else { Skip "F" "F04 IDOR buoi hoc" "khong lay duoc id buoi hoc TH" }
   }
 
   # --- F05-F09. Leo quyen: vai tro thap goi thu tuc ghi chi danh cho Hoi so / quan tri ---
@@ -1391,7 +1392,7 @@ function W([string]$line) { [void]$sb.AppendLine($line) }
 $ketThuc = Get-Date
 $thoiLuong = [int]($ketThuc - $script:Started).TotalSeconds
 
-W "# Báo cáo kiểm thử toàn diện — Sata Robo Platform"
+W "# Báo cáo kiểm thử toàn diện — TH STEAM Academy Platform"
 W ""
 W "## 1. Môi trường và thời điểm"
 W ""

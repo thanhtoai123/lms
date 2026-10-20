@@ -111,7 +111,7 @@ export const NOTIFICATION_TYPES: readonly NotificationTypeDef[] = [
   { prefix: "feedback.low", label: "Đánh giá / NPS thấp từ phụ huynh", groupKey: "care", priority: "urgent", recipients: [...CENTER_OPS, ...SALES], pushEnabled: true },
   { prefix: "message.new", label: "Tin nhắn mới từ phụ huynh / kênh ngoài", groupKey: "care", priority: "normal", recipients: [...CENTER_OPS, ...SALES], pushEnabled: true },
   { prefix: "message.assigned", label: "Bạn được giao hội thoại", groupKey: "care", priority: "normal", recipients: [], pushEnabled: false },
-  { prefix: "coin.redeem", label: "Yêu cầu đổi quà SataCoin", groupKey: "care", priority: "info", recipients: CENTER_OPS, pushEnabled: false },
+  { prefix: "coin.redeem", label: "Yêu cầu đổi quà TH Coin", groupKey: "care", priority: "info", recipients: CENTER_OPS, pushEnabled: false },
   { prefix: "coin.revoked", label: "Xu thưởng bị thu hồi", groupKey: "care", priority: "info", recipients: [], pushEnabled: false },
   { prefix: "care.rui-ro", label: "Học viên cần chăm sóc (cảnh báo rủi ro)", groupKey: "care", priority: "normal", recipients: [...SALES, "CENTER_MANAGER"], pushEnabled: false },
   { prefix: "care.tai-tuc", label: "Học viên hoàn thành khoá — tư vấn tái tục", groupKey: "care", priority: "normal", recipients: SALES, pushEnabled: false },

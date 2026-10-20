@@ -171,7 +171,8 @@ ALTER TABLE portfolio_exports ADD CONSTRAINT portfolio_exports_file_check CHECK 
 ALTER TABLE report_cards ADD COLUMN IF NOT EXISTS rubric_scale smallint NOT NULL DEFAULT 5;
 ALTER TABLE report_cards ADD COLUMN IF NOT EXISTS aggregate jsonb;
 ALTER TABLE report_cards DROP CONSTRAINT IF EXISTS report_cards_rubric_scale_check;
-ALTER TABLE report_cards ADD CONSTRAINT report_cards_rubric_scale_check CHECK (rubric_scale IN (4, 5));
+-- 3 = thang chuẩn TH STEAM (Cần cố gắng / Đạt / Tốt); 4 = phiếu buổi trước khi đổi thang; 5 = học bạ cũ chấm tay
+ALTER TABLE report_cards ADD CONSTRAINT report_cards_rubric_scale_check CHECK (rubric_scale IN (3, 4, 5));
 
 -- ------------------------------------------------------------------
 -- 5. Cách ly trung tâm: tự điền tenant_id theo cơ sở (như 0005), chỉ mục tenant,
@@ -209,4 +210,4 @@ COMMENT ON TABLE session_evaluations IS
 COMMENT ON TABLE portfolio_shares IS
   'Link chia sẻ hồ sơ học tập /hs/<token>. Không bao giờ trả SĐT / email / địa chỉ phụ huynh, ghi chú nội bộ, lý do vắng.';
 COMMENT ON COLUMN report_cards.rubric_scale IS
-  '5 = học bạ cũ chấm tay 1–5; 4 = học bạ mốc tổng hợp từ phiếu buổi (rubric 4 mức).';
+  '3 = thang chuẩn TH STEAM (Cần cố gắng / Đạt / Tốt); 4 = học bạ mốc tổng hợp từ phiếu buổi thang 4 cũ; 5 = học bạ cũ chấm tay 1–5.';

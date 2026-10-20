@@ -31,7 +31,7 @@ test("nhận diện môi trường chạy thật", () => {
 
 test("email tài khoản mẫu phải hợp lệ mới được dùng", () => {
   assert.equal(normalizeDevActor("Superadmin@Example.Test"), "superadmin@example.test");
-  assert.equal(normalizeDevActor("  teacher1@satarobo.vn "), "teacher1@satarobo.vn");
+  assert.equal(normalizeDevActor("  teacher1@example.test "), "teacher1@example.test");
   assert.equal(normalizeDevActor("khong-phai-email"), null);
   assert.equal(normalizeDevActor(""), null);
   assert.equal(normalizeDevActor(null), null);

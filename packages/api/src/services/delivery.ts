@@ -302,7 +302,7 @@ export async function testDelivery(ctx: ProtectedContext, input: { channel: "zns
   const s = await deliverySettings(ctx.db);
   const to = znsPhone(input.phone);
   if (!to) throw bad("SĐT không hợp lệ");
-  const sample: Record<string, string> = { otp: "123456", phut: "5", ten_ph: "Phụ huynh", ten_hv: "Học viên", so_tien: "1.000.000đ", han: "20/09", ma_don: "DH26-000001", lop: "CS1.SATA4", ngay: "20/09", gio: "09:45", co_so: "CS1", nhan_xet: "Con tích cực", so_hd: "1", ky_hieu: "1C26TSR", ma_tra_cuu: "ABC123", moc: "Buổi 12", tieu_de: "Thông báo thử", noi_dung: "Nội dung thử" };
+  const sample: Record<string, string> = { otp: "123456", phut: "5", ten_ph: "Phụ huynh", ten_hv: "Học viên", so_tien: "1.000.000đ", han: "20/09", ma_don: "DH26-000001", lop: "ONL.ROBO-TH-N1", ngay: "20/09", gio: "09:45", co_so: "ONL", nhan_xet: "Con tích cực", so_hd: "1", ky_hieu: "1C26TTH", ma_tra_cuu: "ABC123", moc: "Buổi 12", tieu_de: "Thông báo thử", noi_dung: "Nội dung thử" };
   const ref = randomUUID();
   let r: SendResult;
   if (input.channel === "zns") {

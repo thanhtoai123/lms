@@ -6,4 +6,4 @@ const jwk = privateKey.export({ format: "jwk" });
 const pub = Buffer.concat([Buffer.from([4]), Buffer.from(jwk.x, "base64url"), Buffer.from(jwk.y, "base64url")]).toString("base64url");
 console.log(`VAPID_PUBLIC_KEY=${pub}`);
 console.log(`VAPID_PRIVATE_KEY=${jwk.d}`);
-console.log("VAPID_SUBJECT=mailto:hotro@satarobo.vn");
+console.log("VAPID_SUBJECT=https://thsteam.edu.vn");

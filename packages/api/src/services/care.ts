@@ -853,7 +853,7 @@ export async function sendBirthdayGreeting(ctx: ProtectedContext, input: { stude
     const ins = await tx.insert(birthdayGreetings).values({ studentId: st.id, year, message: text, sentBy: ctx.user.id }).onConflictDoNothing().returning({ id: birthdayGreetings.id });
     if (!ins.length) throw pre(`Đã gửi lời chúc sinh nhật năm ${year}`);
     await notifyParent(tx, { parentId: parent.id, studentId: st.id, template: "BIRTHDAY", title: `Chúc mừng sinh nhật ${st.nickname || st.fullName}! 🎂`, body: text, actorId: ctx.user.id });
-    // Luật thưởng xu sinh nhật (SataCoin → Luật thưởng xu); luật tắt thì không cộng
+    // Luật thưởng xu sinh nhật (TH Coin → Luật thưởng xu); luật tắt thì không cộng
     const coins = st.homeCenterId
       ? await awardByRule(tx, { code: "BIRTHDAY", studentId: st.id, centerId: st.homeCenterId, note: `Sinh nhật ${year}`, actorId: ctx.user.id })
       : 0;

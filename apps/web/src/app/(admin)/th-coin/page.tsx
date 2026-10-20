@@ -8,16 +8,16 @@ import { dtVN } from "@/components/care-ui";
 import { LeaderTable, SessionAward, StudentPanel, RedemptionActions, RewardForm, CoinRuleForm } from "./client";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "SataCoin" };
+export const metadata = { title: "TH Coin" };
 
 type SP = { tab?: string; center?: string; class?: string; q?: string; page?: string; student?: string; reason?: string; rstatus?: string };
 const TIER_CHIP: Record<string, string> = { bronze: "bg-orange-100 text-orange-800", silver: "bg-slate-200 text-slate-700", gold: "bg-amber-100 text-amber-800", diamond: "bg-sky-100 text-sky-800" };
 
-export default async function SataCoinPage({ searchParams }: { searchParams: Promise<SP> }) {
+export default async function ThCoinPage({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
   const { caller, ctx } = await getServerCaller();
   const actor = ctx.actor as Actor | null;
-  if (!actor || !hasPermission(actor, "coin:read")) return <NoAccess title="SataCoin" perm="coin:read" />;
+  if (!actor || !hasPermission(actor, "coin:read")) return <NoAccess title="TH Coin" perm="coin:read" />;
   const canSeeRedeem = hasPermission(actor, "coin:redeem") || hasPermission(actor, "coin:approve");
   // 3 tab việc (Bảng xu · Lịch sử · Đổi quà). "Danh mục quà" + "Luật thưởng xu"
   // là thiết lập, gộp vào một trang Thiết lập xu để tab bar không dài ra.
@@ -30,12 +30,12 @@ export default async function SataCoinPage({ searchParams }: { searchParams: Pro
   const link = (patch: Partial<SP>) => {
     const u = new URLSearchParams(Object.entries({ ...sp, page: undefined, ...patch }).filter(([, v]) => v) as [string, string][]);
     const s = u.toString();
-    return `/satacoin${s ? `?${s}` : ""}`;
+    return `/th-coin${s ? `?${s}` : ""}`;
   };
   const tabs: [string, string][] = [["board", "Bảng xu"], ["log", "Lịch sử"], ...(canSeeRedeem ? [["redeem", `Đổi quà${lb.kpi.pendingRedemptions ? ` (${lb.kpi.pendingRedemptions})` : ""}`] as [string, string]] : [])];
   return (
     <div className="space-y-4">
-      <PageHeader title="SataCoin" desc={`Sổ xu thưởng chỉ thêm (không sửa / xoá): thưởng theo hạn mức vai trò (GV ≤ ${lb.limits.teacher.perAward} xu/lần, ${lb.limits.teacher.perStudentDay} xu/HV/ngày), thu hồi / điều chỉnh cần lý do, đổi quà qua duyệt.`} />
+      <PageHeader title="TH Coin" desc={`Sổ xu thưởng chỉ thêm (không sửa / xoá): thưởng theo hạn mức vai trò (GV ≤ ${lb.limits.teacher.perAward} xu/lần, ${lb.limits.teacher.perStudentDay} xu/HV/ngày), thu hồi / điều chỉnh cần lý do, đổi quà qua duyệt.`} />
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Kpi label="Xu đã thưởng 30 ngày" value={lb.kpi.issued30.toLocaleString("vi-VN")} tone="good" hint={lb.teacherOnly ? "do bạn thưởng" : undefined} />
         <Kpi label="Xu đã đổi quà 30 ngày" value={lb.kpi.spent30.toLocaleString("vi-VN")} />
@@ -58,7 +58,7 @@ export default async function SataCoinPage({ searchParams }: { searchParams: Pro
 
       {tab === "board" && (
         <>
-          <form className="flex flex-wrap gap-2" action="/satacoin">
+          <form className="flex flex-wrap gap-2" action="/th-coin">
             {lb.centers.length > 1 && <select name="center" defaultValue={sp.center ?? ""} className="input"><option value="">Mọi cơ sở</option>{lb.centers.map((c) => <option key={c.id} value={c.id}>{c.code}</option>)}</select>}
             <select name="class" defaultValue={sp.class ?? ""} className="input"><option value="">{lb.teacherOnly ? "Chọn lớp để thưởng" : "Mọi lớp"}</option>{lb.classes.map((c) => <option key={c.id} value={c.id}>{c.code}</option>)}</select>
             <input name="q" defaultValue={sp.q} placeholder="Tên / mã học viên" className="input w-48" />
@@ -72,7 +72,7 @@ export default async function SataCoinPage({ searchParams }: { searchParams: Pro
               rows={lb.items.map((r) => ({ id: r.id, rank: r.rank, fullName: r.fullName, code: r.code, centerCode: r.centerCode, balance: r.balance, available: r.available, held: r.held, earned: r.earned, tier: r.tier.label, tierClass: TIER_CHIP[r.tier.key] ?? "", href: link({ student: r.id }) }))}
             />
           )}
-          <Pager basePath="/satacoin" params={sp} page={lb.page} pageSize={lb.pageSize} total={lb.total} />
+          <Pager basePath="/th-coin" params={sp} page={lb.page} pageSize={lb.pageSize} total={lb.total} />
         </>
       )}
 
@@ -132,7 +132,7 @@ async function Ledger({ sp, caller, link }: { sp: SP; caller: Caller; link: (p: 
   const d = await caller.coin.ledger({ centerId: sp.center || undefined, reason, page: Math.max(1, Number(sp.page) || 1) });
   return (
     <div className="space-y-3">
-      <form className="flex gap-2" action="/satacoin">
+      <form className="flex gap-2" action="/th-coin">
         <input type="hidden" name="tab" value="log" />
         <select name="reason" defaultValue={reason ?? ""} className="input"><option value="">Mọi lý do</option>{COIN_REASONS.map((r) => <option key={r} value={r}>{COIN_REASON_VI[r]}</option>)}</select>
         <button className="btn-ghost">Lọc</button>
@@ -156,7 +156,7 @@ async function Ledger({ sp, caller, link }: { sp: SP; caller: Caller; link: (p: 
           </table>
         </div>
       )}
-      <Pager basePath="/satacoin" params={{ ...sp, tab: "log" }} page={d.page} pageSize={d.pageSize} total={d.total} />
+      <Pager basePath="/th-coin" params={{ ...sp, tab: "log" }} page={d.page} pageSize={d.pageSize} total={d.total} />
     </div>
   );
 }
@@ -167,8 +167,8 @@ async function Redemptions({ sp, caller }: { sp: SP; caller: Caller }) {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2 text-sm">
-        <Link href="/satacoin?tab=redeem" className={`chip ${!status ? "bg-brand-600 text-white" : "bg-black/5"}`}>Đang xử lý ({(d.counts?.requested ?? 0) + (d.counts?.approved ?? 0)})</Link>
-        {REDEMPTION_STATUSES.map((s) => <Link key={s} href={`/satacoin?tab=redeem&rstatus=${s}`} className={`chip ${status === s ? "bg-brand-600 text-white" : "bg-black/5"}`}>{REDEMPTION_STATUS_VI[s]}</Link>)}
+        <Link href="/th-coin?tab=redeem" className={`chip ${!status ? "bg-brand-600 text-white" : "bg-black/5"}`}>Đang xử lý ({(d.counts?.requested ?? 0) + (d.counts?.approved ?? 0)})</Link>
+        {REDEMPTION_STATUSES.map((s) => <Link key={s} href={`/th-coin?tab=redeem&rstatus=${s}`} className={`chip ${status === s ? "bg-brand-600 text-white" : "bg-black/5"}`}>{REDEMPTION_STATUS_VI[s]}</Link>)}
       </div>
       {d.items.length === 0 ? <Empty>Không có yêu cầu.</Empty> : (
         <div className="card overflow-x-auto">
@@ -178,7 +178,7 @@ async function Redemptions({ sp, caller }: { sp: SP; caller: Caller }) {
               {d.items.map((r) => (
                 <tr key={r.id}>
                   <td className="p-3 text-xs"><span className="font-mono">{r.code}</span><div className="text-ink-400">{dtVN(r.createdAt)} · {r.byName ?? "—"}</div>{r.note && <div>{r.note}</div>}</td>
-                  <td className="p-3"><Link className="hover:underline" href={`/satacoin?student=${r.studentId}&tab=redeem`}>{r.studentName}</Link><div className="font-mono text-xs text-ink-400">{r.studentCode} · {r.centerCode}</div></td>
+                  <td className="p-3"><Link className="hover:underline" href={`/th-coin?student=${r.studentId}&tab=redeem`}>{r.studentName}</Link><div className="font-mono text-xs text-ink-400">{r.studentCode} · {r.centerCode}</div></td>
                   <td className="p-3">{r.rewardName}<div className="text-xs text-amber-700">{r.cost} xu</div></td>
                   <td className="p-3 text-xs">{r.statusLabel}{r.decisionNote && <div className="text-ink-400">{r.decisionNote}</div>}</td>
                   <td className="p-3"><RedemptionActions id={r.id} canDecide={r.canDecide} canDeliver={r.canDeliver} canCancel={r.canCancel} /></td>

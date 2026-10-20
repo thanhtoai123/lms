@@ -13,8 +13,8 @@ import type { RouterOutputs } from "@/lib/trpc/types";
 type Resolved = RouterOutputs["finance"]["legacyResolve"];
 
 const TEMPLATE_ROWS = [
-  ["HV-CU-001", "Nguyễn Hoàng Đức", "0905123456", "Đang học", "15/08/2026", "SATA4", "CS1", "4.800.000", "Đợt 1"],
-  ["HV-CU-002", "Trần Bảo Ngọc", "0912000000", "Đang học", "20/08/2026", "SATA2", "CS2", "2.000.000", ""],
+  ["HV-CU-001", "Nguyễn Hoàng Đức", "0905123456", "Đang học", "15/08/2026", "ROBO-TH-N1", "ONL", "5.625.000", "Đợt 1"],
+  ["HV-CU-002", "Trần Bảo Ngọc", "0912000000", "Đang học", "20/08/2026", "AI-TH-N1", "ONL", "2.000.000", ""],
 ];
 
 const STATUS_CLS: Record<string, string> = {
@@ -94,7 +94,7 @@ export function LegacyImporter({ sales }: { sales: { id: string; fullName: strin
         Chọn thẳng <b>file Excel (.xlsx)</b>: file nhiều sheet (mỗi sheet = một tháng × cơ sở) sẽ hiện ô chọn sheet, tên sheet tự điền vào ô bên dưới — nhập xong một sheet thì chọn sheet tiếp theo.
       </p>
       <div className="flex flex-wrap items-end gap-2">
-        <label className="text-xs text-ink-600">Tên sheet (tháng / cơ sở)<input className="input mt-1" placeholder="VD: Tháng 7 2026 CS1" value={sheet} onChange={(e) => setSheet(e.target.value)} /></label>
+        <label className="text-xs text-ink-600">Tên sheet (tháng / cơ sở)<input className="input mt-1" placeholder="VD: Tháng 7 2026" value={sheet} onChange={(e) => setSheet(e.target.value)} /></label>
       </div>
       <CsvFileInput
         onText={read}

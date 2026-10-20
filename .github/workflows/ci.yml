@@ -27,7 +27,7 @@ jobs:
           --health-retries 10
     env:
       DATABASE_URL: postgres://postgres:postgres@localhost:5432/satarobo
-      DEV_ACTOR_EMAIL: teacher1@satarobo.vn
+      DEV_ACTOR_EMAIL: teacher1@example.test
       ALLOW_DEV_ACTOR: "1"
       SEPAY_API_KEY: ci-sepay-key
     steps:
@@ -57,7 +57,7 @@ jobs:
         run: |
           (cd apps/web && pnpm start -p 3000 &)
           for i in $(seq 1 30); do curl -sf http://localhost:3000/login >/dev/null && break; sleep 1; done
-          curl -sf -b "x-dev-actor=teacher1@satarobo.vn" http://localhost:3000/teacher | grep -q "Hôm nay"
+          curl -sf -b "x-dev-actor=teacher1@example.test" http://localhost:3000/teacher | grep -q "Hôm nay"
           M="x-dev-actor=manager.cs1@example.test"; A="x-dev-actor=superadmin@example.test"
           curl -sf -b "$M" http://localhost:3000/dashboard | grep -q "CẦN XỬ LÝ\|Cần xử lý"
           curl -sf -b "$A" http://localhost:3000/dashboard | grep -q "Báo cáo Lead"   # sidebar đủ nhóm cho Super Admin
@@ -130,12 +130,12 @@ jobs:
             curl -sf -o /dev/null -b "$M" "http://localhost:3000$p" || { echo "FAIL report $p"; exit 1; }
           done
           curl -s -X POST -H 'Content-Type: application/json' -d '{"action":"request","phone":"0901234599","purpose":"phone_verify"}' http://localhost:3000/api/public/otp | grep -q '"ok":true'
-          for p in /kits /products "/products?type=any" /inventory/dashboard "/inventory/dashboard?tab=log" "/inventory/dashboard?tab=rentals&rstatus=overdue" /inventory/audit /satacoin "/satacoin?tab=log" "/satacoin?tab=redeem" "/satacoin?tab=rewards"; do
+          for p in /kits /products "/products?type=any" /inventory/dashboard "/inventory/dashboard?tab=log" "/inventory/dashboard?tab=rentals&rstatus=overdue" /inventory/audit /th-coin "/th-coin?tab=log" "/th-coin?tab=redeem" "/th-coin?tab=rewards"; do
             curl -sf -o /dev/null -b "$M" "http://localhost:3000$p" || { echo "FAIL kho/xu $p"; exit 1; }
           done
-          curl -sf -o /dev/null -b "x-dev-actor=teacher1@satarobo.vn" http://localhost:3000/satacoin || { echo "FAIL satacoin(GV)"; exit 1; }
+          curl -sf -o /dev/null -b "x-dev-actor=teacher1@example.test" http://localhost:3000/th-coin || { echo "FAIL th-coin(GV)"; exit 1; }
           for p in /documents /scorm /teaching-materials /assignments "/assignments?tab=templates" /de-xuat-giao-an; do
-            curl -sf -o /dev/null -b "x-dev-actor=teacher1@satarobo.vn" "http://localhost:3000$p" || { echo "FAIL content(GV) $p"; exit 1; }
+            curl -sf -o /dev/null -b "x-dev-actor=teacher1@example.test" "http://localhost:3000$p" || { echo "FAIL content(GV) $p"; exit 1; }
             curl -sf -o /dev/null -b "x-dev-actor=daotao@example.test" "http://localhost:3000$p" || { echo "FAIL content(DT) $p"; exit 1; }
           done
           MK="x-dev-actor=marketing@example.test"
@@ -178,7 +178,7 @@ jobs:
             curl -sf -o /dev/null -b "$A" "http://localhost:3000/cau-hinh-van-hanh?tab=$t" || { echo "FAIL cau-hinh $t"; exit 1; }
           done
           curl -sf -o /dev/null -b "$A" http://localhost:3000/huong-dan || { echo "FAIL huong-dan"; exit 1; }
-          curl -sf -o /dev/null -b "x-dev-actor=teacher1@satarobo.vn" http://localhost:3000/huong-dan || { echo "FAIL huong-dan(GV)"; exit 1; }
+          curl -sf -o /dev/null -b "x-dev-actor=teacher1@example.test" http://localhost:3000/huong-dan || { echo "FAIL huong-dan(GV)"; exit 1; }
           for p in /quen-mat-khau /dat-mat-khau "/dat-mat-khau?token_hash=abc&type=recovery"; do
             curl -sf -o /dev/null "http://localhost:3000$p" || { echo "FAIL auth $p"; exit 1; }
           done
@@ -198,7 +198,7 @@ jobs:
           done
           curl -s -o /dev/null -w '%{url_effective}' -L http://localhost:3000/ph | grep -q "/ph/dang-nhap"
           curl -s -X POST -H 'Content-Type: application/json' -H 'Origin: http://localhost:3000' -d '{"action":"otp","phone":"0999999999"}' http://localhost:3000/api/ph/login | grep -q '"ok":true'
-          curl -sf -o /dev/null -b "x-dev-actor=teacher1@satarobo.vn" http://localhost:3000/tin-nhan || { echo "FAIL tin-nhan(GV)"; exit 1; }
+          curl -sf -o /dev/null -b "x-dev-actor=teacher1@example.test" http://localhost:3000/tin-nhan || { echo "FAIL tin-nhan(GV)"; exit 1; }
           for p in /tuyen-dung /api/public/jobs; do
             curl -sf -o /dev/null "http://localhost:3000$p" || { echo "FAIL public $p"; exit 1; }
           done

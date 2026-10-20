@@ -319,7 +319,7 @@ test("link chia sẻ: hạn mặc định 180 ngày, kẹp trần, thu hồi / h
   assert.equal(portfolioShareState({ expiresAt: exp, revokedAt: now }, now), "revoked");
   assert.equal(portfolioShareState({ expiresAt: "khong-phai-ngay" }, now), "expired");
   assert.equal(portfolioPath("abc"), "/hs/abc");
-  assert.ok(PORTFOLIO_TOKEN_RE.test("xem-thu-ho-so-hoc-tap-sata-robo-mau"));
+  assert.ok(PORTFOLIO_TOKEN_RE.test("xem-thu-ho-so-hoc-tap-th-steam-mau"));
   assert.ok(!PORTFOLIO_TOKEN_RE.test("ngan"));
   assert.ok(!PORTFOLIO_TOKEN_RE.test("a".repeat(40) + "/"));
   assert.match(portfolioShareMessage("Học viên mẫu 2", "https://x/hs/t"), /bé Học viên mẫu 2/);

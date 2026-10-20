@@ -63,7 +63,7 @@ export function ProfileDrawer({ name, extras }: { name: string; extras: ProfileE
           {extras.coin && (
             <section>
               <div className="mb-1 flex items-center justify-between">
-                <h3 className="font-bold text-foreground">SataCoin</h3>
+                <h3 className="font-bold text-foreground">TH Coin</h3>
                 <Link href={extras.coin.href} className="text-xs font-semibold text-primary">Chi tiết →</Link>
               </div>
               <p><span className="text-2xl font-bold text-accent-ink">{extras.coin.balance}</span> xu · hạng {extras.coin.tierLabel}</p>

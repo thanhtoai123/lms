@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Sao lưu Sata Robo: CSDL (pg_dump định dạng custom) + thư mục tệp tải lên.
-# Dùng: BACKUP_DIR=/srv/sata/backups STORAGE_DIR=/srv/sata/uploads DATABASE_URL=... ./backup.sh
+# Sao lưu TH STEAM Academy: CSDL (pg_dump định dạng custom) + thư mục tệp tải lên.
+# Dùng: BACKUP_DIR=/srv/thsteam/backups STORAGE_DIR=/srv/thsteam/uploads DATABASE_URL=... ./backup.sh
 # Lên lịch: cron "15 2 * * *" (2:15 sáng hằng ngày). Giữ KEEP_DAYS ngày (mặc định 14).
 set -euo pipefail
 : "${BACKUP_DIR:?Cần BACKUP_DIR}"
@@ -30,5 +30,5 @@ PREV_RESTORE=$(grep -o '"restoreTestedAt":"[^"]*"' "$BACKUP_DIR/LATEST.json" 2>/
 printf '{"at":"%s","db":"%s","files":"%s","dbBytes":%s,"filesBytes":%s%s}\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$(basename "$DB_FILE")" "$(basename "$FILES_FILE")" "$DB_BYTES" "$FILES_BYTES" "${PREV_RESTORE:+,$PREV_RESTORE}" > "$BACKUP_DIR/LATEST.json"
 
 find "$BACKUP_DIR" -maxdepth 1 -type f \( -name 'db-*.dump' -o -name 'files-*.tar.gz' \) -mtime +"$KEEP_DAYS" -delete
-# Bản ngoài máy chủ (khuyến nghị): rclone copy "$BACKUP_DIR" remote:sata-backups --max-age 25h
+# Bản ngoài máy chủ (khuyến nghị): rclone copy "$BACKUP_DIR" remote:thsteam-backups --max-age 25h
 echo "OK $DB_FILE ($DB_BYTES B) $FILES_FILE ($FILES_BYTES B)"

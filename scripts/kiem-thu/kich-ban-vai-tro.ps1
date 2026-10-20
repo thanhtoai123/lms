@@ -37,7 +37,7 @@ function MediaLoi($r) {
 }
 
 $A = "superadmin@example.test"; $M = "manager.cs1@example.test"; $K = "ketoan.cs1@example.test"
-$H = "hr.cs1@example.test"; $S = "sale1.cs1@example.test"; $G = "giaovu.cs1@example.test"; $TE = "teacher1@satarobo.vn"
+$H = "hr.cs1@example.test"; $S = "sale1.cs1@example.test"; $G = "giaovu.cs1@example.test"; $TE = "teacher1@example.test"
 $today = (Get-Date).ToString("yyyy-MM-dd")
 $rnd = Get-Random -Minimum 100000 -Maximum 999999
 

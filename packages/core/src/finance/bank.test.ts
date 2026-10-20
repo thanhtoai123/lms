@@ -5,7 +5,7 @@ import {
 } from "./bank.js";
 import { pickRule, computeCommission, commissionTransition, refundAdjustment, validateRule, describeRule, type CommissionRule } from "./commission.js";
 
-const sepay = { id: 92704, gateway: "Vietcombank", transactionDate: "2024-07-02 11:08:33", accountNumber: "0123499999", code: null, content: "SATA DH26000012 PH Lan", transferType: "in", description: "", transferAmount: 5000000, accumulated: 19077000, subAccount: null, referenceCode: "MBVCB.3278907687" };
+const sepay = { id: 92704, gateway: "Vietcombank", transactionDate: "2024-07-02 11:08:33", accountNumber: "0123499999", code: null, content: "THSTEAM DH26000012 PH Lan", transferType: "in", description: "", transferAmount: 5000000, accumulated: 19077000, subAccount: null, referenceCode: "MBVCB.3278907687" };
 
 test("parseSepayPayload chuẩn hoá payload SePay", () => {
   const r = parseSepayPayload(sepay);
@@ -35,7 +35,7 @@ test("checkApiKey", () => {
 });
 
 test("decideBankMatch", () => {
-  const base = { direction: "in" as const, amount: 3_000_000, content: "SATA DH26000012", accountKnown: true, accountOk: true };
+  const base = { direction: "in" as const, amount: 3_000_000, content: "THSTEAM DH26000012", accountKnown: true, accountOk: true };
   const order = { code: "DH26-000012", status: "partially_paid", total: 9_600_000, confirmed: 3_000_000, pending: [] as { id: string; amount: number }[] };
   assert.equal(decideBankMatch({ ...base, order }).kind, "confirm_new");
   assert.equal(decideBankMatch({ ...base, direction: "out", order }).kind, "ignored");
@@ -73,9 +73,9 @@ test("parseLegacyCsv", () => {
   const csv = [
     "Mã đơn,Mã HV,Mã lớp,Tổng đơn,Số tiền,Ngày thu,Phương thức,Số phiếu,Người nộp,Ghi chú",
     "DH25-000123,,,,\"2.000.000\",15/08/2025,TM-CS1,PT001,Chị Lan,",
-    ",HV0001,CS1.SATA4,9.600.000,4.800.000,16/08/2025,CK-VCB,PT002,,đợt 1",
+    ",HV0001,ONL.ROBO-TH-N1,9.600.000,4.800.000,16/08/2025,CK-VCB,PT002,,đợt 1",
     ",HV0001,,,1000,16/08/2025,CK-VCB,PT003,,",
-    "SATA DH25000124,,,,abc,40/08/2025,,PT001,,",
+    "THSTEAM DH25000124,,,,abc,40/08/2025,,PT001,,",
     ",,,,100000,01/01/2030,TM,PT009,,",
   ].join("\n");
   const r = parseLegacyCsv(csv, "2026-09-16");
@@ -94,7 +94,7 @@ test("parseLegacyCsv", () => {
 });
 
 test("parseStatementCsv", () => {
-  const csv = "Ngày GD;Số tiền ghi nợ;Số tiền ghi có;Nội dung;Mã GD\n02/07/2024;;5.000.000;SATA DH26000012;FT001\n02/07/2024;200.000;;phi;FT002\n03/07/2024;;1.000.000;ck hoc phi;\n03/07/2024;;xx;loi;FT004";
+  const csv = "Ngày GD;Số tiền ghi nợ;Số tiền ghi có;Nội dung;Mã GD\n02/07/2024;;5.000.000;THSTEAM DH26000012;FT001\n02/07/2024;200.000;;phi;FT002\n03/07/2024;;1.000.000;ck hoc phi;\n03/07/2024;;xx;loi;FT004";
   const r = parseStatementCsv(csv, "0123499999", "VCB");
   assert.deepEqual(r.headerErrors, []);
   assert.equal(r.txs.length, 2);

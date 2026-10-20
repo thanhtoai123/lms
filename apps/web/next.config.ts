@@ -12,7 +12,7 @@ const nextConfig: NextConfig = {
   },
   // playwright-core: gói TUỲ CHỌN cho xuất PDF phía máy chủ (PDF_RENDERER=playwright) — không đóng gói, nạp động lúc chạy
   serverExternalPackages: ["postgres", "playwright-core"],
-  // Đường dẫn cũ của bản thử nghiệm (/ops) → đường dẫn chuẩn giống admin.satarobo.vn
+  // Đường dẫn cũ của bản thử nghiệm (/ops) → đường dẫn chuẩn của hệ thống
   async redirects() {
     const map: [string, string][] = [
       ["/ops", "/dashboard"],
@@ -34,6 +34,8 @@ const nextConfig: NextConfig = {
       { source: "/ops/leads/:id", destination: "/leads/:id", permanent: false },
       { source: "/ops/classes/:path*", destination: "/classes/:path*", permanent: false },
       { source: "/admin", destination: "/dashboard", permanent: false },
+      // Đổi tên mục xu thưởng cũ → TH Coin (giữ liên kết cũ)
+      { source: "/satacoin", destination: "/th-coin", permanent: false },
       // Trang cũ đã gộp vào trang trung tâm (docs/KIEN-TRUC-MENU.md §5) — 308, truy vấn gốc được giữ
       // nguyên (vd /hoc-ba?student=<id> → /ho-so-hoc-tap?xem=tra-cuu&student=<id>). Bảng ở packages/core/src/nav/menu.ts.
       ...nextRedirects(),

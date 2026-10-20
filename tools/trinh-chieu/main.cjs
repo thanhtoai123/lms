@@ -33,10 +33,10 @@ function docCauHinh() {
   } catch (e) {
     console.error("cau-hinh.json sai định dạng, dùng mặc định:", e.message);
   }
-  const base = String(process.env.SATA_URL || tep.baseUrl || mac_dinh.baseUrl).replace(/\/+$/, "");
+  const base = String(process.env.TH_URL || process.env.SATA_URL || tep.baseUrl || mac_dinh.baseUrl).replace(/\/+$/, "");
   return {
     baseUrl: base,
-    kiosk: process.env.SATA_KIOSK === "1" || tep.kiosk === true,
+    kiosk: process.env.TH_KIOSK === "1" || process.env.SATA_KIOSK === "1" || tep.kiosk === true,
     /** Mở thẳng một buổi học nếu được truyền vào: --buoi=<lessonId> */
     lessonId: (process.argv.find((a) => a.startsWith("--buoi=")) || "").slice("--buoi=".length) || tep.lessonId || "",
     /**
@@ -181,7 +181,7 @@ function taoCuaSo() {
   const phien = session.fromPartition("persist:sata-trinh-chieu");
 
   // Nhận diện ứng dụng để trang web biết mình đang được bảo vệ (viewer.tsx đọc chuỗi này)
-  const ua = `${phien.getUserAgent()} SataRoboTrinhChieu/1.0`;
+  const ua = `${phien.getUserAgent()} ThSteamTrinhChieu/1.0`;
   phien.setUserAgent(ua);
 
   // Không cho tải tệp về máy: mọi lượt tải đều huỷ ngay.
@@ -205,7 +205,7 @@ function taoCuaSo() {
     show: false,
     autoHideMenuBar: true,
     kiosk: CAU_HINH.kiosk,
-    title: "Trình chiếu an toàn — Sata Robo",
+    title: "Trình chiếu an toàn — TH STEAM Academy",
     webPreferences: {
       session: phien,
       nodeIntegration: false,

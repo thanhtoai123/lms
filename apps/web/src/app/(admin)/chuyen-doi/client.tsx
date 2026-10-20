@@ -10,11 +10,11 @@ import { CsvButton } from "@/components/csv-button";
 
 /** Cột của các file nhập hệ cũ — dùng chung cho nút "Tải file mẫu" (CSV và .xlsx) */
 const STUDENT_COLS = ["ma_hv", "ho_ten", "ngay_sinh", "gioi_tinh", "khoi", "truong", "co_so", "trang_thai", "ten_ph", "sdt_ph", "email_ph", "quan_he", "ten_ph_2", "sdt_ph_2", "suc_khoe", "ghi_chu"] as const;
-const STUDENT_SAMPLE = [["HV00123", "Nguyễn Văn A", "05/03/2017", "Nam", "3", "Tiểu học ABC", "CS1", "Đang học", "Nguyễn Thị B", "0900000001", "", "Mẹ", "", "", "", ""]] as const;
+const STUDENT_SAMPLE = [["HV00123", "Nguyễn Văn A", "05/03/2017", "Nam", "3", "Tiểu học ABC", "ONL", "Đang học", "Nguyễn Thị B", "0900000001", "", "Mẹ", "", "", "", ""]] as const;
 const ENROLL_COLS = ["ma_hv", "ma_lop", "so_buoi_goi", "da_hoc", "con_lai", "trang_thai", "ngay_ghi_danh", "bao_luu_den", "ghi_chu"] as const;
-const ENROLL_SAMPLE = [["HV00123", "CS1.SATA4.26.001", "48", "10", "38", "Đang học", "01/02/2026", "", ""], ["HV00124", "CS1.SATA4.26.001", "24", "", "20", "Bảo lưu", "01/03/2026", "30/10/2026", ""]] as const;
+const ENROLL_SAMPLE = [["HV00123", "ONL.ROBO-TH-N1.26.001", "48", "10", "38", "Đang học", "01/02/2026", "", ""], ["HV00124", "ONL.ROBO-TH-N1.26.001", "24", "", "20", "Bảo lưu", "01/03/2026", "30/10/2026", ""]] as const;
 const RECON_COLS = ["ma_hv", "ma_lop", "con_lai", "cong_no"] as const;
-const RECON_SAMPLE = [["HV00123", "CS1.SATA4.26.001", "38", "0"]] as const;
+const RECON_SAMPLE = [["HV00123", "ONL.ROBO-TH-N1.26.001", "38", "0"]] as const;
 
 const Msg = ({ m }: { m: { ok: boolean; text: string } | null }) =>
   m ? <div className={`rounded-xl border p-3 text-sm ${m.ok ? "border-green-200 bg-green-50 text-green-800" : "border-red-200 bg-red-50 text-red-700"}`}>{m.text}</div> : null;
@@ -29,7 +29,7 @@ function ImportFooter({ ok, errors, pending, onImport }: { ok: number; errors: n
   return (
     <div className="space-y-1">
       <div className="flex flex-wrap gap-2">
-        <input className="input flex-1" placeholder="Ghi chú lô nhập (bắt buộc), VD: Xuất từ admin cũ ngày 17/09, CS1" value={note} onChange={(e) => setNote(e.target.value)} />
+        <input className="input flex-1" placeholder="Ghi chú lô nhập (bắt buộc), VD: Xuất từ hệ thống cũ ngày 17/09" value={note} onChange={(e) => setNote(e.target.value)} />
         <button className="btn-primary" disabled={note.trim().length < 5 || pending || ok === 0} onClick={() => onImport(note.trim())}>Nhập {ok} dòng hợp lệ</button>
       </div>
       {errors > 0 && <p className="text-xs text-amber-700">Dòng lỗi sẽ bị bỏ qua — sửa file rồi nhập lại (dòng đã nhập được nhận là trùng).</p>}

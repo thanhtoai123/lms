@@ -3,12 +3,12 @@
  *
  *  - Sinh phiếu nhận xét ĐÃ PHÁT HÀNH cho mọi học viên có mặt ở các buổi `completed`
  *    (điểm tăng nhẹ theo thời gian cho chân thực; học viên vắng không có phiếu; buổi học bù ghi "Học bù").
- *  - Học bạ mốc đã có của các ghi danh → chuyển sang thang 4, điểm = trung bình phiếu buổi của giai đoạn,
+ *  - Học bạ mốc đã có của các ghi danh → thang 3 mức (Tốt / Đạt / Cần cố gắng), điểm = trung bình phiếu buổi của giai đoạn,
  *    kèm bản chụp số liệu tổng hợp (xu hướng, chuyên cần, tỷ lệ đạt mục tiêu bài, thẻ nổi bật).
  *  - Hai ảnh lớp đã duyệt gắn một học viên mẫu (phụ huynh đồng ý đăng ảnh) làm minh chứng trên phiếu.
  *  - MỘT link chia sẻ hồ sơ cố định để xem thử: /hs/<DEMO_PORTFOLIO_TOKEN>.
- *  - Chuẩn hồ sơ (sql/0013): mô tả 4 mức + nhóm cho tiêu chí các khoá mẫu (theo bộ mẫu robotics),
- *    tiêu chí trọng tâm cho vài bài Sata4; ~10% phiếu phát hành trễ hạn để màn "Quản lý hồ sơ học tập" có số liệu.
+ *  - Chuẩn hồ sơ (sql/0013): 9 tiêu chí TH STEAM (6 năng lực + 3 phẩm chất, 3 mức) do danh mục chuẩn tạo sẵn;
+ *    tiêu chí trọng tâm cho vài bài của khoá Robotics Tiểu học (ROBO-TH-N1); ~10% phiếu phát hành trễ hạn để màn "Quản lý hồ sơ học tập" có số liệu.
  * PRNG cố định → chạy lại ra cùng dữ liệu.
  */
 import { and, eq, inArray, sql } from "drizzle-orm";
@@ -24,7 +24,7 @@ import {
 import type { Database } from "./index";
 
 /** Token CỐ ĐỊNH, dễ nhớ của link hồ sơ học tập mẫu — xem thử tại /hs/<token> (chỉ dữ liệu mẫu) */
-export const DEMO_PORTFOLIO_TOKEN = "xem-thu-ho-so-hoc-tap-sata-robo-mau";
+export const DEMO_PORTFOLIO_TOKEN = "xem-thu-ho-so-hoc-tap-th-steam-mau";
 
 function hash(s: string): number {
   let h = 2166136261;
@@ -45,39 +45,38 @@ async function inChunks<T>(rows: readonly T[], fn: (part: T[]) => PromiseLike<un
 }
 
 const PRODUCT = [
-  "Lắp xong mô hình theo bài và cho robot chạy thử thành công",
+  "Lập trình robot ảo đi đúng đường trên sa bàn RoboSim",
   "Tự viết chương trình điều khiển robot đi thẳng, rẽ trái, rẽ phải",
-  "Hoàn thành thử thách sa bàn trong thời gian của buổi",
-  "Cùng nhóm lắp cánh tay robot gắp được vật nhỏ",
-  "Sửa được lỗi chương trình để robot dừng trước vật cản",
+  "Hoàn thành thử thách mô phỏng trong thời gian của buổi",
+  "Dùng cảm biến để robot ảo dừng trước vật cản",
+  "Sửa được lỗi chương trình và chạy lại thành công",
 ];
 const REMARK = [
-  "Hôm nay con tập trung tốt, chủ động hỏi khi chưa hiểu.",
-  "Con lắp ráp nhanh và biết giúp bạn cùng nhóm.",
-  "Con tự tìm ra lỗi trong chương trình, cô rất khen tinh thần kiên trì của con.",
-  "Con trình bày sản phẩm trước lớp rõ ràng, tự tin hơn buổi trước.",
+  "Hôm nay con tập trung tốt, chủ động bật mic hỏi khi chưa hiểu.",
+  "Con thao tác phần mềm nhanh và biết hỗ trợ bạn cùng nhóm.",
+  "Con tự tìm ra lỗi trong chương trình, thầy cô rất khen tinh thần kiên trì của con.",
+  "Con chia sẻ màn hình và trình bày sản phẩm rõ ràng, tự tin hơn buổi trước.",
   "Con cần luyện thêm thao tác kéo thả khối lệnh; ở nhà bố mẹ có thể cho con ôn lại bài.",
-  "Con có nhiều ý tưởng sáng tạo khi trang trí và cải tiến mô hình.",
+  "Con có nhiều ý tưởng sáng tạo khi cải tiến dự án của mình.",
 ];
 
-/** Tên tiêu chí trong seed cũ → nhóm theo khung TH STEAM (mô tả 3 mức lấy theo từ khoá tên, `rubricLevelsFor`) */
+/** Tên tiêu chí kiểu cũ (nếu còn) → nhóm theo khung TH STEAM. Danh mục chuẩn đã tạo sẵn 9 tiêu chí có mô tả 3 mức */
 const SEED_CRITERIA_TEMPLATE: Record<string, string> = {
-  "Tư duy lập trình": "Tư duy",
-  "Lắp ráp & cơ khí": "Kỹ năng số",
-  "Giải quyết vấn đề": "Tư duy",
-  "Làm việc nhóm": "Phẩm chất",
-  "Thuyết trình": "Bản lĩnh",
+  "Tư duy công nghệ": "Tư duy",
+  "Tư duy phản biện": "Tư duy",
+  "Kỹ năng vi tính": "Kỹ năng số",
+  "Tự tin, trình bày": "Bản lĩnh",
 };
-/** Tiêu chí trọng tâm của vài bài Sata4 (tên bài, tên tiêu chí) */
+/** Tiêu chí trọng tâm của vài bài Robotics Tiểu học (tên bài, tên tiêu chí) */
 const SEED_FOCUS: [string, string][] = [
-  ["Cảm biến siêu âm & đo khoảng cách", "Tư duy lập trình"],
-  ["Vòng lặp & rẽ nhánh", "Tư duy lập trình"],
-  ["Robot tránh vật cản", "Giải quyết vấn đề"],
-  ["Lắp ráp khung gầm nâng cao", "Lắp ráp & cơ khí"],
-  ["Dự án nhóm: robot phân loại", "Làm việc nhóm"],
-  ["Dự án nhóm: robot phân loại", "Giải quyết vấn đề"],
-  ["Gỡ lỗi & tối ưu", "Giải quyết vấn đề"],
-  ["Thử thách sa hình & thuyết trình", "Thuyết trình"],
+  ["HP1 · Basic — Làm quen robot ảo · bài 1", "Kỹ năng vi tính"],
+  ["HP1 · Basic — Làm quen robot ảo · bài 3", "Tư duy công nghệ"],
+  ["HP1 · Basic — Ôn tập", "Tư duy phản biện"],
+  ["HP1 · Basic — Dự án cuối học phần: lên ý tưởng", "Tư duy công nghệ"],
+  ["HP1 · Basic — Dự án cuối học phần: hoàn thiện và demo", "Trách nhiệm"],
+  ["HP1 · Basic — Báo cáo học phần trước phụ huynh", "Tự tin, trình bày"],
+  ["HP2 · Advanced — Robot biết cảm nhận · bài 1", "Tư duy công nghệ"],
+  ["HP2 · Advanced — Báo cáo học phần trước phụ huynh", "Tự tin, trình bày"],
 ];
 
 /** Chuẩn hồ sơ: mô tả 3 mức + nhóm cho tiêu chí mẫu, tiêu chí trọng tâm theo bài. Chạy lại không nhân đôi */
@@ -351,7 +350,7 @@ export async function seedDemoPortfolioMedia(db: Database) {
   await inChunks(targetSessionIds, (ids) => d.delete(sessionMedia).where(and(inArray(sessionMedia.sessionId, ids), sql`${sessionMedia.objectKey} like 'seed/%'`)));
   await inChunks(targetSessionIds, (ids) => d.update(sessionEvaluations).set({ mediaIds: [] }).where(and(inArray(sessionEvaluations.sessionId, ids), inArray(sessionEvaluations.studentId, kidIds), eq(sessionEvaluations.status, "published"))));
 
-  const BE_CAPTIONS = ["Bé giới thiệu mô hình của mình", "Bé lắp ráp cùng nhóm", "Bé thuyết trình sản phẩm", "Robot của bé chạy thử trên sa bàn", "Bé thử nghiệm và chỉnh sửa"];
+  const BE_CAPTIONS = ["Bé giới thiệu dự án của mình", "Bé làm việc nhóm trên ClassIn", "Bé thuyết trình sản phẩm", "Robot ảo của bé chạy thử trên sa bàn", "Bé thử nghiệm và chỉnh sửa chương trình"];
   const LOP_CAPTIONS = ["Cả lớp trong giờ thực hành", "Không khí buổi học nhóm", "Trưng bày sản phẩm cuối buổi"];
   const rows: (typeof sessionMedia.$inferInsert)[] = [];
   const classWideDone = new Set<string>();

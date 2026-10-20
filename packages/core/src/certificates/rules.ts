@@ -453,7 +453,7 @@ export function isCertificateSnapshot(x: unknown): x is CertificateSnapshot {
 export function sampleCertificateSnapshot(fields: readonly TemplateField[] = [], now = new Date()): CertificateSnapshot {
   return buildCertificateSnapshot({
     kind: "path",
-    certificateNo: pathCertificateNumber("CS1", now.getFullYear(), 12),
+    certificateNo: pathCertificateNumber("ONL", now.getFullYear(), 12),
     student: { fullName: "Nguyễn Minh An", code: "HV-MAU" },
     achievement: { name: "Lập trình Robotics AI · Tiểu học 8–10 tuổi", criteriaText: "Hoàn thành 2 năm học bắt buộc: Năm 1 — Lập trình robot ảo với RoboSim và Năm 2 — Robot trong thế giới 3D với RoboVR." },
     courses: [{ code: "ROBO-TH-N1", name: "Năm 1 · RoboSim" }, { code: "ROBO-TH-N2", name: "Năm 2 · RoboVR" }],

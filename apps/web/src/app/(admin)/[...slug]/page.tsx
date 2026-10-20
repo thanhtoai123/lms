@@ -36,7 +36,7 @@ export default async function PlannedScreen({ params }: { params: Promise<{ slug
           {item.phase && <span className="chip bg-brand-600/10 text-brand-600">{PHASE_VI[item.phase]}</span>}
         </div>
         {item.desc && <p className="text-sm text-ink-600">{item.desc}</p>}
-        <p className="text-xs text-ink-400">Màn hình này giữ đúng đường dẫn <code className="font-mono">{item.href}</code> như admin.satarobo.vn. Phạm vi chi tiết xem docs/ADMIN-SPEC.md.</p>
+        <p className="text-xs text-ink-400">Màn hình này giữ đúng đường dẫn <code className="font-mono">{item.href}</code> như hệ thống cũ. Phạm vi chi tiết xem docs/ADMIN-SPEC.md.</p>
       </div>
       {siblings.some((s) => s.ready !== false) && (
         <div className="card p-5">

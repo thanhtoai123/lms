@@ -36,7 +36,7 @@ test("danh mục loại / trạng thái tenant có nhãn tiếng Việt", () => 
   for (const t of TENANT_TYPES) assert.ok(TENANT_TYPE_VI[t].length > 3);
   for (const s of TENANT_STATUSES) assert.ok(TENANT_STATUS_VI[s].length > 3);
   assert.equal(TENANT_TYPE_VI.FRANCHISE, "Nhượng quyền");
-  assert.equal(DEFAULT_TENANT_CODE, "SATA");
+  assert.equal(DEFAULT_TENANT_CODE, "TH");
 });
 
 test("tenantOf đọc được từ chuỗi, bản ghi và actor", () => {

@@ -748,9 +748,9 @@ export function orderCodePrefix(format: OrderCodeFormat, dateISO: string): strin
   return full.slice(0, full.length - 6);
 }
 
-/** Nội dung chuyển khoản: bỏ ký tự đặc biệt để ngân hàng không cắt (SATA DH26000012) */
+/** Nội dung chuyển khoản: bỏ ký tự đặc biệt để ngân hàng không cắt (THSTEAM DH26000012) */
 export function transferMemo(code: string): string {
-  return `SATA ${code.replace(/[^A-Za-z0-9]/g, "").toUpperCase()}`;
+  return `THSTEAM ${code.replace(/[^A-Za-z0-9]/g, "").toUpperCase()}`;
 }
 
 /**

@@ -109,7 +109,28 @@ Nội dung dựng từ danh mục + bộ nhận diện (`packages/core/src/site/
 Trang khoá học cũ (`khoa-hoc-lap-trinh-robot`, `-luyen-thi-robosim`, `-hoc-online`) chuyển "lưu trữ", không xoá; bản cũ của
 mọi trang vẫn nằm trong lịch sử xuất bản (Website → Landing page → Lịch sử).
 
-## 5. Điểm cần chủ trung tâm xác nhận
+## 5. Dữ liệu mẫu làm mới (10/2026)
+
+Cơ sở dữ liệu phát triển được **xoá sạch và nạp lại** chỉ với dữ liệu TH STEAM (sao lưu bản cũ trước khi xoá:
+`sao-luu\satarobo-truoc-th-<ngày>.dump` trên máy chạy hệ thống). Lệnh làm lại từ đầu:
+
+```
+ALLOW_DB_RESET=1 pnpm db:reset && pnpm db:push && pnpm db:apply-sql && pnpm db:seed && pnpm db:seed-thsteam
+```
+
+- **Một trung tâm** `TH` (TH STEAM Academy, mặc định) với **một cơ sở online** `ONL` — "TH STEAM Academy Online",
+  học qua ClassIn; phòng học là phòng ClassIn `CI01…CI11` (8 chỗ). Không còn chuỗi / nhượng quyền / cơ sở 2 mẫu.
+- **Danh mục chuẩn** (24 khoá, 9 lộ trình, gói học phí) do `syncThSteamCatalog` tạo; lớp mẫu dùng mã khoá chuẩn
+  (`ONL.ROBO-TH-N1.26.001` …), 1 buổi/tuần, 45 buổi/năm học, mốc học bạ 15 / 30 / 45, thang 3 mức.
+- Ca làm việc: `OLT` dạy online buổi tối, `OLC` cuối tuần, `OLS` sáng + tối, `VPO` văn phòng + trực lớp online.
+- Tính năng vận hành offline (kho, nhượng quyền, chấm công, xu thưởng…) **giữ nguyên**, chỉ đổi tên: "SataCoin" → **TH Coin**
+  (`/th-coin`, liên kết cũ `/satacoin` tự chuyển), nội dung chuyển khoản `THSTEAM …`, mã trung tâm mặc định `TH`.
+- Dữ liệu mẫu chỉ dùng tên giả ("Học viên mẫu 1", "Phụ huynh mẫu 1", "GV Minh (mẫu)"), email `@example.test`.
+- Link xem thử không cần đăng nhập: `/hs/xem-thu-ho-so-hoc-tap-th-steam-mau`, `/cn/xem-thu-giay-chung-nhan-th-steam-mau`,
+  `/pdg/xem-thu-phieu-danh-gia-th-steam-mau`.
+- Tên kỹ thuật nội bộ giữ nguyên để không phá cấu hình: gói `@satarobo/*`, CSDL `satarobo`, vai trò `satarobo_app`, khoá module `satacoin`.
+
+## 6. Điểm cần chủ trung tâm xác nhận
 
 1. Công khai bảng học phí trên `/khoa-hoc` (đang hiện) hay chỉ gửi khi tư vấn.
 2. Số buổi khoá luyện thi Lập trình: 30 buổi (theo bộ slide) so với 15 buổi ở các chuyên ngành khác.

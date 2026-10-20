@@ -65,13 +65,13 @@ test("mã chứng từ, nội dung CK, che CCCD, QR", () => {
   assert.equal(receiptNumber("CS1", 2026, 123), "PT-CS1-26-000123");
   const code = orderCode(2026, 12);
   assert.equal(code, "DH26-000012");
-  assert.equal(transferMemo(code), "SATA DH26000012");
-  assert.equal(extractOrderRef("MBVCB.123 SATA DH26000012 nop hoc phi"), code);
-  assert.equal(extractOrderRef("sata dh26-000005 be An"), "DH26-000005");
+  assert.equal(transferMemo(code), "THSTEAM DH26000012");
+  assert.equal(extractOrderRef("MBVCB.123 THSTEAM DH26000012 nop hoc phi"), code);
+  assert.equal(extractOrderRef("thsteam dh26-000005 be An"), "DH26-000005");
   assert.equal(extractOrderRef("DH260000123"), null);
   assert.equal(extractOrderRef("chuyen tien"), null);
   assert.equal(maskIdNumber("048123456789"), "048*******89");
-  assert.match(vietQrImageUrl({ bankBin: "970436", accountNo: "0123", amount: 1000, memo: "SATA X" }), /970436-0123-compact2\.png\?amount=1000&addInfo=SATA\+X/);
+  assert.match(vietQrImageUrl({ bankBin: "970436", accountNo: "0123", amount: 1000, memo: "THSTEAM X" }), /970436-0123-compact2\.png\?amount=1000&addInfo=THSTEAM\+X/);
 });
 
 test("hoàn tiền theo buổi", () => {

@@ -108,7 +108,7 @@ Mẫu tiêu chí: `packages/core/src/admissions/trialReport.ts` — `TRIAL_REPOR
 
 `pnpm db:seed` tạo hai phiếu cho lead giả:
 
-- **Đã phát hành** — Bé Giang (PH Mẫu 06): `http://localhost:3000/pdg/xem-thu-phieu-danh-gia-sata-robo-mau` (lệnh seed in đường link này ở cuối).
+- **Đã phát hành** — Bé Giang (PH Mẫu 06): `http://localhost:3000/pdg/xem-thu-phieu-danh-gia-th-steam-mau` (lệnh seed in đường link này ở cuối).
 - **Bản nháp** — Bé Hà (PH Mẫu 07): mở ở trang chi tiết lead → khối "Phiếu đánh giá học thử".
 
 ---

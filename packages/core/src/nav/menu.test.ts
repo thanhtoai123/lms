@@ -13,7 +13,7 @@ const OLD_MENU_HREFS = [
   "/viec-hom-nay", "/dashboard", "/huong-dan", "/bao-mat", "/crm", "/leads", "/nhap-khach-hang", "/leads/import", "/leads/import/registered",
   "/leads/bulk-convert", "/quan-ly-chia-lead", "/quan-ly-chia-lead/lich-su", "/ban-giao-lead", "/lead-nguoi", "/leads/bao-cao-chuyen",
   "/affiliates", "/crm/messenger", "/lop-trial", "/lop-trial/buoi-le", "/students", "/students/tai-khoan", "/the-hoc-vien", "/enrollments",
-  "/chuyen-lop", "/students/sap-het-khoa", "/hoan-thanh-khoa", "/hoc-ba", "/report-cards", "/ho-so-hoc-tap", "/satacoin", "/classes",
+  "/chuyen-lop", "/students/sap-het-khoa", "/hoan-thanh-khoa", "/hoc-ba", "/report-cards", "/ho-so-hoc-tap", "/th-coin", "/classes",
   "/class-groups", "/sessions", "/classes/kiem-tra-lich", "/lich", "/attendance", "/media", "/duyet-media", "/hoc-bu", "/centers", "/rooms",
   "/curriculums", "/de-xuat-giao-an", "/courses", "/course-packages", "/course-prerequisites", "/lo-trinh", "/documents", "/assignments",
   "/teaching-materials", "/scorm", "/tin-nhan", "/hoi-thoai", "/parent-requests", "/parent-feedback", "/evaluations", "/khao-sat",

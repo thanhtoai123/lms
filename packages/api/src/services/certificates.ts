@@ -125,7 +125,7 @@ export async function getTemplate(ctx: ProtectedContext, id: string) {
   return {
     ...templateView(t),
     sample: sampleCertificateSnapshot(fields),
-    sampleQrSvg: qrFor(`${appUrl()}${certificateVerifyPath("xem-thu-ma-qr-mau-chung-nhan-sata-robo")}`),
+    sampleQrSvg: qrFor(`${appUrl()}${certificateVerifyPath("xem-thu-ma-qr-mau-chung-nhan-th-steam")}`),
   };
 }
 

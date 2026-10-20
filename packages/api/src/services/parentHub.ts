@@ -1,5 +1,5 @@
 /**
- * CỔNG PHỤ HUYNH `/ph` — "Hôm nay của con", lịch học, yêu cầu của tôi, SataCoin, hành trình học,
+ * CỔNG PHỤ HUYNH `/ph` — "Hôm nay của con", lịch học, yêu cầu của tôi, TH Coin, hành trình học,
  * phản hồi sau buổi (docs/PHIA-NGUOI-DUNG.md).
  *
  * PHẠM VI: mọi hàm nhận `parentId` lấy từ PHIÊN phụ huynh (cookie → `parentFromToken`), không bao giờ từ dữ liệu
@@ -768,7 +768,7 @@ export async function parentReact(
 }
 
 /* ------------------------------------------------------------------ */
-/* SataCoin của con (chỉ đọc)                                           */
+/* TH Coin của con (chỉ đọc)                                            */
 /* ------------------------------------------------------------------ */
 
 /** Lý do mà ghi chú là của nhân sự (điều chỉnh / thu hồi) — không hiện ghi chú cho phụ huynh */

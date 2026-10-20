@@ -1,5 +1,5 @@
 /**
- * Mã lớp tương thích với quy ước hiện có "CS2.SATA6.26.003"
+ * Mã lớp theo quy ước "<cơ sở>.<mã khoá>.<năm>.<số>", vd "ONL.ROBO-TH-N1.26.003"
  * = <centerCode>.<courseCode>.<yy>.<seq 3 số>
  * Mã chỉ là NHÃN hiển thị; mọi quan hệ dùng UUID.
  */
@@ -63,8 +63,8 @@ export function shortHour(t: string): string {
 }
 
 /**
- * Gợi ý tên lớp theo quy ước "tênkhoá.giờ-thứ.phòng": `sata3.14h-CN.CS2-P302`,
- * nhiều ca nối bằng "&": `combo.10h-T2&10h-T4&15h30-T7.CS2-P302`.
+ * Gợi ý tên lớp theo quy ước "tênkhoá.giờ-thứ.phòng": `robo-th-n1.14h-CN.ONL-CI01`,
+ * nhiều ca nối bằng "&": `combo.10h-T2&10h-T4&15h30-T7.ONL-CI01`.
  */
 export function suggestClassName(i: { courseCode: string; slots: readonly { weekday: number; startTime: string }[]; roomCode?: string | null; centerCode?: string | null }): string {
   const slots = [...i.slots].sort((a, b) => a.weekday - b.weekday || a.startTime.localeCompare(b.startTime));

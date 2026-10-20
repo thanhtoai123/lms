@@ -1,5 +1,5 @@
-﻿# Sao lưu Sata Robo trên Windows (Postgres chạy trong Docker Compose).
-# Dùng: powershell -ExecutionPolicy Bypass -File scripts\ops\backup.ps1 -BackupDir D:\sata-backups
+﻿# Sao lưu TH STEAM Academy trên Windows (Postgres chạy trong Docker Compose).
+# Dùng: powershell -ExecutionPolicy Bypass -File scripts\ops\backup.ps1 -BackupDir D:\thsteam-backups
 # Lên lịch: Task Scheduler, hằng ngày 02:15, "Start in" = thư mục satarobo-platform.
 param(
   [string]$BackupDir = $(if ($env:BACKUP_DIR) { $env:BACKUP_DIR } else { Join-Path $PWD "backups" }),
@@ -12,11 +12,11 @@ $ts = Get-Date -Format "yyyyMMdd-HHmmss"
 $dbFile = Join-Path $BackupDir "db-$ts.dump"
 $filesFile = Join-Path $BackupDir "files-$ts.zip"
 # pg_dump trong container ghi ra file tạm trong container rồi copy ra (tránh hỏng dữ liệu nhị phân qua pipe PowerShell)
-docker compose exec -T postgres pg_dump -U postgres --no-owner --no-privileges -Fc -f /tmp/sata-backup.dump satarobo
+docker compose exec -T postgres pg_dump -U postgres --no-owner --no-privileges -Fc -f /tmp/thsteam-backup.dump satarobo
 if ($LASTEXITCODE -ne 0) { throw "pg_dump lỗi" }
 $cid = (docker compose ps -q postgres).Trim()
-docker cp "${cid}:/tmp/sata-backup.dump" $dbFile | Out-Null
-docker compose exec -T postgres rm -f /tmp/sata-backup.dump | Out-Null
+docker cp "${cid}:/tmp/thsteam-backup.dump" $dbFile | Out-Null
+docker compose exec -T postgres rm -f /tmp/thsteam-backup.dump | Out-Null
 if (-not (Test-Path $dbFile) -or (Get-Item $dbFile).Length -lt 1000) { throw "Bản sao lưu CSDL rỗng" }
 if (Test-Path $StorageDir) { Compress-Archive -Path (Join-Path $StorageDir "*") -DestinationPath $filesFile -Force } else { Set-Content -Path $filesFile -Value "" }
 $prev = $null

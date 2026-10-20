@@ -78,7 +78,7 @@ export function PlanViewer({ kind, documentId, lessonId, streamPath, watermark, 
   }, [canReport, lessonId]);
 
   useEffect(() => {
-    setTrongUngDung(/SataRoboTrinhChieu|Electron/i.test(navigator.userAgent));
+    setTrongUngDung(/ThSteamTrinhChieu|SataRoboTrinhChieu|Electron/i.test(navigator.userAgent));
     const tick = () => setClock(new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
     tick();
     const t = window.setInterval(tick, 1000);

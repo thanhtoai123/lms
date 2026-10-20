@@ -219,11 +219,15 @@ công tắc này ở `/nhuong-quyen`.
 
 ## 6. Những chỗ kịch bản sẽ tự bỏ qua
 
-Kịch bản không bao giờ dừng vì thiếu dữ liệu — nó ghi `SKIP` kèm lý do:
+Kịch bản không bao giờ dừng vì thiếu dữ liệu — nó ghi `SKIP` kèm lý do.
+
+> Từ 10/2026 dữ liệu mẫu chỉ còn **một trung tâm online** (`TH` / cơ sở `ONL`), không còn trung tâm nhượng quyền mẫu và cơ sở 2 —
+> các kiểm tra cách ly giữa trung tâm / giữa hai cơ sở dưới đây sẽ `SKIP`. Muốn chạy lại, tạo một trung tâm nhượng quyền thử
+> trong **Nhượng quyền** (tài khoản `giamdoc.nhuongquyen@example.test`) và một cơ sở `CS2` có dữ liệu.
 
 | Tình huống | Bị bỏ qua |
 |---|---|
-| Không đăng nhập được bằng tài khoản nào của `FR_HUE` (`giamdoc@satarobo-hue.test` đang hoạt động, `quantri@satarobo-hue.test` chờ kích hoạt) | Toàn bộ chiều kiểm tra "người của `FR_HUE` không thấy dữ liệu của `SATA`", và vòng tròn bật / tắt `hoSeesPii` (B18–B22). Chạy lại `pnpm db:seed` để có tài khoản mẫu đang hoạt động |
+| Không đăng nhập được bằng tài khoản nào của `FR_HUE` (`giamdoc.nhuongquyen@example.test`, `quantri.nhuongquyen@example.test`) | Toàn bộ chiều kiểm tra "người của `FR_HUE` không thấy dữ liệu của `TH`", và vòng tròn bật / tắt `hoSeesPii` (B18–B22). Chạy lại `pnpm db:seed` để có tài khoản mẫu đang hoạt động |
 | Chưa chạy `pnpm db:apply-sql` nên chưa có bảng `tenants` | Gần như toàn bộ bộ B |
 | `FR_HUE` chưa có học viên / phiếu thu trong dữ liệu mẫu | Các kiểm tra che PII của danh sách học viên và chi tiết tài chính của bên nhượng quyền |
 | Không có trung tâm thứ hai nào **đang có lớp** để đối chiếu | B16 (lớp nhận chuyển lớp lẫn tenant khác) |

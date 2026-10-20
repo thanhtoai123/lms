@@ -4,9 +4,9 @@
  *  - "Phụ huynh mẫu 1" có BA con để thấy chip chuyển nhanh: Học viên mẫu 1 (con ruột, có xu + yêu cầu nghỉ),
  *    Học viên mẫu 2 (phiếu nhận xét + ảnh đã duyệt), Học viên mẫu 11 (giấy chứng nhận lộ trình + khoá đã hoàn thành).
  *  - Một yêu cầu xin nghỉ gửi qua app (còn "Mới" → huỷ được) cho buổi thứ hai sắp tới của Học viên mẫu 2.
- *  - Phản hồi sau buổi của phụ huynh (👍 / 🙂 / 😟) cho buổi gần nhất lớp Sata4 của GV mẫu (teacher1) — "Cần trao đổi"
+ *  - Phản hồi sau buổi của phụ huynh (👍 / 🙂 / 😟) cho buổi gần nhất lớp Robotics Tiểu học (ROBO-TH-N1) của GV mẫu (teacher1) — "Cần trao đổi"
  *    kèm việc chăm sóc PARENT_CONCERN như luồng thật.
- *  - Mục tiêu + học cụ cho các bài Sata4 chưa có, một tài liệu chung của khoá và một tài liệu cho bài của buổi sắp tới
+ *  - Mục tiêu + học cụ cho các bài Robotics Tiểu học chưa có, một tài liệu chung của khoá và một tài liệu cho bài của buổi sắp tới
  *    (màn "Chuẩn bị buổi dạy").
  * Chạy lại không nhân đôi (kiểm tra tồn tại trước khi thêm).
  */
@@ -37,7 +37,7 @@ export async function seedPhiaNguoiDung(db: Database, opts: { today: string }) {
   }
   out.children = (await db.select({ n: sql<number>`count(*)::int` }).from(studentGuardians).where(eq(studentGuardians.parentId, parent.id)))[0]?.n ?? 0;
 
-  // ---- Lớp Sata4 của GV mẫu (lớp của Học viên mẫu 1) ----
+  // ---- Lớp Robotics Tiểu học (ROBO-TH-N1) của GV mẫu (lớp của Học viên mẫu 1) ----
   const k1 = kid("Học viên mẫu 1");
   const [enr1] = k1 ? await db.select({ classId: enrollments.classId }).from(enrollments).where(eq(enrollments.studentId, k1.id)).orderBy(asc(enrollments.enrolledAt)).limit(1) : [];
   if (!enr1) return out;
@@ -109,8 +109,8 @@ export async function seedPhiaNguoiDung(db: Database, opts: { today: string }) {
     const ls = await db.select({ id: lessons.id, title: lessons.title }).from(lessons).where(and(eq(lessons.curriculumId, cls.curriculumId), isNull(lessons.objectives)));
     for (const l of ls) {
       await db.update(lessons).set({
-        objectives: `Học viên hiểu và tự thực hành được nội dung "${l.title}"; lập trình và chạy thử robot đúng yêu cầu của bài; trình bày ngắn sản phẩm của nhóm.`,
-        materials: "Bộ kit Sata4 (1 bộ / 2 em), máy tính bảng có ứng dụng lập trình, pin dự phòng, sa bàn thử thách",
+        objectives: `Học viên hiểu và tự thực hành được nội dung "${l.title}"; lập trình và chạy thử robot ảo đúng yêu cầu của bài; chia sẻ màn hình, trình bày ngắn sản phẩm.`,
+        materials: "Máy tính có cài ClassIn và RoboSim, tai nghe có mic, webcam, sa bàn thử thách mô phỏng",
       }).where(eq(lessons.id, l.id));
     }
   }
@@ -118,7 +118,7 @@ export async function seedPhiaNguoiDung(db: Database, opts: { today: string }) {
   const [nextSession] = await db.select({ lessonId: sessions.lessonId }).from(sessions)
     .where(and(eq(sessions.classId, cls.id), gte(sessions.date, today), eq(sessions.status, "scheduled"))).orderBy(asc(sessions.date)).limit(1);
   const docs: (typeof documents.$inferInsert)[] = [
-    { title: "Sổ tay giảng dạy Sata4 — quy trình một buổi 90 phút (GV)", kind: "link", category: "guide", audience: "teacher", status: "published", courseId: cls.courseId, lessonId: null, url: "https://docs.google.com/document/d/mau-so-tay-sata4", tags: ["sổ tay"], createdBy: author?.id ?? null, publishedAt: new Date() },
+    { title: "Sổ tay giảng dạy online — quy trình một buổi 90 phút trên ClassIn (GV)", kind: "link", category: "guide", audience: "teacher", status: "published", courseId: cls.courseId, lessonId: null, url: "https://docs.google.com/document/d/mau-so-tay-giang-day-online", tags: ["sổ tay"], createdBy: author?.id ?? null, publishedAt: new Date() },
   ];
   if (nextSession?.lessonId) {
     docs.push({ title: "Slide bài giảng buổi tới (mẫu)", kind: "link", category: "slides", audience: "teacher", status: "published", courseId: cls.courseId, lessonId: nextSession.lessonId, url: "https://docs.google.com/presentation/d/mau-slide", tags: ["slide"], createdBy: author?.id ?? null, publishedAt: new Date() });

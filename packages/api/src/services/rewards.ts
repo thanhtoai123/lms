@@ -250,7 +250,7 @@ export async function awardCoins(ctx: ProtectedContext, input: { studentIds: str
  */
 export async function awardSession(ctx: ProtectedContext, input: { sessionId: string; amount?: number | null }) {
   const ruleCoins = await coinsForEvent(ctx.db, "ATTENDANCE_SESSION", COIN_RULE_DEFS.ATTENDANCE_SESSION.coins);
-  if (ruleCoins === null) throw pre("Luật thưởng chuyên cần đang tắt — bật ở SataCoin → Luật thưởng xu");
+  if (ruleCoins === null) throw pre("Luật thưởng chuyên cần đang tắt — bật ở TH Coin → Luật thưởng xu");
   const amount = input.amount ?? ruleCoins;
   const se = await ctx.db.query.sessions.findFirst({ where: eq(sessions.id, input.sessionId) });
   if (!se) throw notFound("Không tìm thấy buổi học");
@@ -292,7 +292,7 @@ export async function revokeCoins(ctx: ProtectedContext, input: { txId: string; 
       const r = await postTx(tx as unknown as Db, { studentId: t.studentId, centerId: t.centerId, amount: -t.amount, reason: "revoke", note: input.note, classId: t.classId, sessionId: t.sessionId, revokesId: t.id, userId: ctx.user.id });
       await writeAudit(tx as unknown as Db, { actorId: ctx.user.id, action: "CREATE", module: "coin", entity: "coin_transactions", entityId: r.id, before: { txId: t.id, amount: t.amount }, reason: input.note, ip: ctx.ip });
       if (t.createdBy && t.createdBy !== ctx.user.id) {
-        await deliverNotifications(tx, [t.createdBy], { title: "Xu thưởng bị thu hồi", body: `${t.amount} xu (${COIN_REASON_VI[t.reason as CoinReason]}) đã bị thu hồi: ${input.note.trim()}`, link: `/satacoin?student=${t.studentId}`, priority: 3, type: "coin.revoked" });
+        await deliverNotifications(tx, [t.createdBy], { title: "Xu thưởng bị thu hồi", body: `${t.amount} xu (${COIN_REASON_VI[t.reason as CoinReason]}) đã bị thu hồi: ${input.note.trim()}`, link: `/th-coin?student=${t.studentId}`, priority: 3, type: "coin.revoked" });
       }
       return { balance: r.balanceAfter };
     });
@@ -441,7 +441,7 @@ export async function requestRedemption(ctx: ProtectedContext, input: { studentI
     const code = await nextRedemptionCode(tx as unknown as Db, center?.code ?? "CS");
     const [r] = await tx.insert(redemptions).values({ code, studentId: s.id, centerId: s.homeCenterId!, rewardId: rw.id, cost: rw.cost, note: input.note?.trim() || null, requestedBy: ctx.user.id }).returning({ id: redemptions.id });
     const mgrs = await tx.select({ u: userRoles.userId }).from(userRoles).where(and(eq(userRoles.centerId, s.homeCenterId!), eq(userRoles.role, "CENTER_MANAGER")));
-    await deliverNotifications(tx, mgrs.map((m) => m.u), { title: "Yêu cầu đổi quà", body: `${s.fullName} đổi "${rw.name}" (${rw.cost} xu)`, link: "/satacoin?tab=redeem", priority: 3, type: "coin.redeem" });
+    await deliverNotifications(tx, mgrs.map((m) => m.u), { title: "Yêu cầu đổi quà", body: `${s.fullName} đổi "${rw.name}" (${rw.cost} xu)`, link: "/th-coin?tab=redeem", priority: 3, type: "coin.redeem" });
     await writeAudit(tx as unknown as Db, { actorId: ctx.user.id, action: "CREATE", module: "coin", entity: "redemptions", entityId: r!.id, after: { code, reward: rw.name, cost: rw.cost }, ip: ctx.ip });
     return { id: r!.id, code };
   });

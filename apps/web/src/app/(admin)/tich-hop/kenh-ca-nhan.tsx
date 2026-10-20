@@ -114,7 +114,7 @@ export function KenhCaNhanCard({ nicks, goc, canEdit }: { nicks: NickKhaiBao[]; 
           </ol>
           <div className="grid gap-2 sm:grid-cols-2">
             <label>Tên nick (để nhận ra người dùng)
-              <input className="input mt-0.5 !py-1" value={f.label} onChange={(e) => setF({ ...f, label: e.target.value })} placeholder="Nick CS2 — chị Hà" />
+              <input className="input mt-0.5 !py-1" value={f.label} onChange={(e) => setF({ ...f, label: e.target.value })} placeholder="Nick tư vấn — chị Hà" />
             </label>
             <label>Trần tin/ngày
               <input className="input mt-0.5 !py-1" type="number" min={1} max={1000} value={f.dailyCap} onChange={(e) => setF({ ...f, dailyCap: Number(e.target.value) || 180 })} />

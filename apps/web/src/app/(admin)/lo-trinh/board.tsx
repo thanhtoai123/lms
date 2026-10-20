@@ -160,7 +160,7 @@ function PathDrawer({ value, options, onClose, onSaved }: { value: FormState; op
         <div className="grid gap-3 sm:grid-cols-3">
           <label className="block">
             <span className="label">Mã *</span>
-            <input className="input font-mono uppercase" value={v.code} maxLength={30} placeholder="LT-ROBO-NT" onChange={(e) => setV({ ...v, code: e.target.value.toUpperCase() })} />
+            <input className="input font-mono uppercase" value={v.code} maxLength={30} placeholder="ROBO-TH" onChange={(e) => setV({ ...v, code: e.target.value.toUpperCase() })} />
           </label>
           <label className="block sm:col-span-2">
             <span className="label">Tên lộ trình *</span>

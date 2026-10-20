@@ -1,21 +1,23 @@
 -- Đợt 7 (nhượng quyền): trung tâm độc lập (tenant), cách ly dữ liệu, quyền riêng tư.
 -- Chạy SAU drizzle push, idempotent. CHỈ THÊM cột / bảng / ràng buộc — không xoá dữ liệu.
 --
--- Nguyên tắc: tenant mặc định `SATA` (type OWNED) nhận toàn bộ dữ liệu đang có,
+-- Nguyên tắc: tenant mặc định `TH` (TH STEAM Academy, type OWNED) nhận toàn bộ dữ liệu đang có,
 -- nên hệ thống một-tenant chạy y hệt trước khi có file này.
 
 -- ------------------------------------------------------------------
 -- 1) Tenant gốc của chuỗi + cấu hình quyền riêng tư
 -- ------------------------------------------------------------------
+-- Chỉ tạo khi CSDL chưa có tenant mặc định (CSDL đã chạy trước đó giữ nguyên tenant mặc định của nó)
 INSERT INTO tenants (code, name, type, status, is_default, note)
-VALUES ('SATA', 'Sata Robo (chuỗi gốc)', 'OWNED', 'active', true, 'Tenant mặc định — mọi dữ liệu có trước khi bật nhượng quyền thuộc về đây')
+SELECT 'TH', 'TH STEAM Academy', 'OWNED', 'active', true, 'Tenant mặc định — mọi dữ liệu có trước khi bật nhượng quyền thuộc về đây'
+ WHERE NOT EXISTS (SELECT 1 FROM tenants WHERE is_default)
 ON CONFLICT (code) DO NOTHING;
 
 -- Chỉ MỘT tenant được làm mặc định
 CREATE UNIQUE INDEX IF NOT EXISTS tenants_one_default ON tenants (is_default) WHERE is_default;
 
 INSERT INTO tenant_settings (tenant_id, ho_sees_pii, ho_sees_finance_detail, data_retention_years, allow_cross_center_transfer)
-SELECT id, true, true, 10, true FROM tenants WHERE code = 'SATA'
+SELECT id, true, true, 10, true FROM tenants WHERE is_default
 ON CONFLICT (tenant_id) DO NOTHING;
 
 -- Cấu hình mặc định cho tenant chưa có dòng nào (OWNED mở hết, FRANCHISE đóng hết)
@@ -56,7 +58,7 @@ BEGIN
   LOOP
     EXECUTE format('DROP TRIGGER IF EXISTS %I ON %I', 'fill_tenant_id_' || r.table_name, r.table_name);
     EXECUTE format('CREATE TRIGGER %I BEFORE INSERT ON %I FOR EACH ROW EXECUTE FUNCTION fill_tenant_id()', 'fill_tenant_id_' || r.table_name, r.table_name);
-    -- Backfill: mọi dữ liệu đang có về tenant mặc định `SATA`.
+    -- Backfill: mọi dữ liệu đang có về tenant mặc định (is_default).
     -- Vài bảng là "chỉ ghi thêm" (audit_log, finance_ledger, attendance_punches…) nên UPDATE bị trigger chặn;
     -- tắt trigger người dùng đúng trong lúc backfill rồi bật lại — không đụng ràng buộc khoá ngoại.
     EXECUTE format('ALTER TABLE %I DISABLE TRIGGER USER', r.table_name);

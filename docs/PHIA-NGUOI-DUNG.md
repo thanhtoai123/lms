@@ -142,7 +142,7 @@ Sau `pnpm db:push && pnpm db:apply-sql && pnpm db:seed` (lệnh seed in lại h�
   - Chip **Học viên mẫu 11**: Hành trình → chứng nhận lộ trình + chứng nhận khoá (Tải / in, Chia sẻ link xác thực).
   - Học viên mẫu 1: SataCoin 150 xu + một quà chờ duyệt; buổi tới đã "Đã xin nghỉ".
   - Xin học bù: đăng nhập **0911000006** (Học viên mẫu 6 vắng có phép các buổi chẵn).
-- **Giáo viên**: `/login` → `teacher1@satarobo.vn` → `/teacher`: thẻ "Phản hồi của phụ huynh" (👍 / 🙂 / 😟), nút "Chuẩn bị buổi dạy"
+- **Giáo viên**: `/login` → `teacher1@example.test` → `/teacher`: thẻ "Phản hồi của phụ huynh" (👍 / 🙂 / 😟), nút "Chuẩn bị buổi dạy"
   trên buổi sắp tới (Học viên mẫu 4 có lưu ý dị ứng; PH cần trao đổi), "Lớp của tôi" (Học viên mẫu 3, 6 cần quan tâm; học bạ mốc buổi 5).
 
 ### 2.6 Cần kiểm lại trên máy thật

@@ -56,7 +56,7 @@ export function summarize(records: AttendanceRecord[]): AttendanceSummary {
 
 /**
  * Số buổi đã "tiêu thụ" khỏi gói học (dùng cho công nợ/hoàn tiền/sắp hết khoá).
- * Quy ước Sata Robo: vắng không phép vẫn tính buổi; vắng có phép được bảo lưu
+ * Quy ước trung tâm: vắng không phép vẫn tính buổi; vắng có phép được bảo lưu
  * nếu chưa quá hạn học bù — ở đây tham số hoá để cấu hình được.
  */
 export function sessionsConsumed(

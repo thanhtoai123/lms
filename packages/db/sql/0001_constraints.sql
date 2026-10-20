@@ -117,7 +117,7 @@ ALTER TABLE survey_responses ADD CONSTRAINT survey_responses_nps_check CHECK (np
 ALTER TABLE revenue_targets DROP CONSTRAINT IF EXISTS revenue_targets_amount_check;
 ALTER TABLE revenue_targets ADD CONSTRAINT revenue_targets_amount_check CHECK (amount >= 0 AND period ~ '^[0-9]{4}-(0[1-9]|1[0-2])$');
 
--- 12) Kho & SataCoin: sổ chỉ thêm, tồn không âm
+-- 12) Kho & TH Coin (xu thưởng): sổ chỉ thêm, tồn không âm
 CREATE OR REPLACE FUNCTION append_only_guard() RETURNS trigger AS $$
 BEGIN
   RAISE EXCEPTION '% chỉ được thêm: lập phiếu / giao dịch điều chỉnh thay vì sửa, xoá', TG_TABLE_NAME;

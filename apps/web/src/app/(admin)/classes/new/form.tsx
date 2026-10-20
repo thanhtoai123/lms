@@ -66,14 +66,14 @@ export function NewClassForm({ ref_, canApprove }: { ref_: Ref; canApprove: bool
         <div><label className="label">Khoá học</label><select className="input" value={courseId} onChange={(e) => setCourseId(e.target.value)}>{ref_.courses.map((c) => <option key={c.id} value={c.id}>{c.code} — {c.name} ({c.totalSessions} buổi)</option>)}</select></div>
         <div className="sm:col-span-2">
           <label className="label">Tên lớp</label>
-          <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={suggested || "VD: sata4.18h-T4.CS1-P201"} required minLength={3} />
+          <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={suggested || "VD: robo-th-n1.18h-T4.ONL-CI01"} required minLength={3} />
           {suggested && name !== suggested && (
             <button type="button" className="mt-1 text-xs font-semibold text-brand-600" onClick={() => setName(suggested)}>Dùng tên gợi ý: {suggested}</button>
           )}
         </div>
         <div>
           <label className="label">Mã lớp (tuỳ chọn)</label>
-          <input className="input font-mono uppercase" maxLength={40} value={code} onChange={(e) => setCode(e.target.value)} placeholder="Để trống để tự sinh (VD CS2.SATA3.26.004)" />
+          <input className="input font-mono uppercase" maxLength={40} value={code} onChange={(e) => setCode(e.target.value)} placeholder="Để trống để tự sinh (VD ONL.ROBO-TH-N1.26.004)" />
           {code.trim().length >= 3 && codeCheck.data && (
             <p className={`mt-0.5 text-[11px] ${!codeCheck.data.valid || codeCheck.data.taken ? "text-red-700" : "text-green-700"}`}>
               {!codeCheck.data.valid ? "Mã không hợp lệ (chữ in hoa, số, dấu chấm / gạch)" : codeCheck.data.taken ? "Mã đã tồn tại" : "Mã dùng được"}

@@ -78,13 +78,13 @@ async function supabaseLogin(formData: FormData) {
 
 const DEV_ACCOUNTS = [
   { email: "superadmin@example.test", label: "Quản trị tối cao (toàn hệ thống)" },
-  { email: "manager.cs1@example.test", label: "Quản lý cơ sở CS1" },
-  { email: "sale1.cs1@example.test", label: "Tư vấn / CSKH CS1" },
-  { email: "ketoan.cs1@example.test", label: "Kế toán cơ sở CS1" },
-  { email: "hr.cs1@example.test", label: "Nhân sự cơ sở CS1" },
-  { email: "daotao@example.test", label: "Đào tạo (hội sở)" },
-  { email: "marketing@example.test", label: "Marketing (hội sở)" },
-  { email: "teacher1@satarobo.vn", label: "Giáo viên CS1" },
+  { email: "manager.cs1@example.test", label: "Quản lý trung tâm" },
+  { email: "sale1.cs1@example.test", label: "Tư vấn / CSKH" },
+  { email: "ketoan.cs1@example.test", label: "Kế toán" },
+  { email: "hr.cs1@example.test", label: "Nhân sự" },
+  { email: "daotao@example.test", label: "Đào tạo" },
+  { email: "marketing@example.test", label: "Marketing" },
+  { email: "teacher1@example.test", label: "Giáo viên" },
 ];
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string; next?: string; wait?: string }> }) {

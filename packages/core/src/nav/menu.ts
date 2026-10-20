@@ -200,7 +200,7 @@ export const ADMIN_MENU: NavGroup[] = [
         ],
       },
       { label: "Hoàn thành khoá & chứng nhận", href: "/hoan-thanh-khoa", icon: "award", perm: "enrollment:read" },
-      { label: "SataCoin", href: "/satacoin", icon: "coins", module: "satacoin", perm: "coin:read", desc: "Sổ xu thưởng: thưởng theo hạn mức, thu hồi có lý do, đổi quà qua duyệt." },
+      { label: "TH Coin", href: "/th-coin", icon: "coins", module: "satacoin", perm: "coin:read", desc: "Sổ xu thưởng: thưởng theo hạn mức, thu hồi có lý do, đổi quà qua duyệt." },
     ],
   },
   {

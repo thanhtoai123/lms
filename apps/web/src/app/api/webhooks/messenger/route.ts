@@ -4,7 +4,7 @@ import { ingestExternal, logWebhook, metaSignatureOk, parseMessengerPayload } fr
 import { clientIp, sharedRateLimit } from "@/lib/route-ctx";
 
 /**
- * Webhook Facebook Messenger (trang Sata Robo).
+ * Webhook Facebook Messenger (fanpage TH STEAM ACADEMY).
  * GET: xác minh (hub.verify_token = META_VERIFY_TOKEN). POST: kiểm tra X-Hub-Signature-256 bằng META_APP_SECRET, lưu tin khách gửi.
  * Luôn trả 200 nhanh cho sự kiện hợp lệ để Meta không gửi lại.
  */

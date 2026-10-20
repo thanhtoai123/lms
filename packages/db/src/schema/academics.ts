@@ -16,14 +16,14 @@ export const classStatusEnum = pgEnum("class_status", CLASS_STATUSES);
 export const sessionKindEnum = pgEnum("session_kind", SESSION_KINDS);
 
 /**
- * Khoá học thương mại (Sata1..Sata8, combo).
+ * Khoá học thương mại (theo danh mục chuẩn TH STEAM: mỗi năm học một khoá 45 buổi, khoá Luyện thi 15 buổi).
  * Mã và slug chỉ duy nhất TRONG một trung tâm (tenant) — hai trung tâm nhượng quyền
- * được phép cùng dùng mã SATA4 cho danh mục khoá học riêng của mình.
+ * được phép cùng dùng mã ROBO-TH-N1 cho danh mục khoá học riêng của mình.
  */
 export const courses = pgTable("courses", {
   id: id(),
   tenantId: tenantCol(),
-  code: text("code").notNull(), // SATA4
+  code: text("code").notNull(), // ROBO-TH-N1
   name: text("name").notNull(),
   slug: text("slug"),
   gradeFrom: integer("grade_from"),
@@ -151,7 +151,7 @@ export const lessons = pgTable(
 );
 
 /**
- * Nhóm lớp: gom nhiều lớp cùng một "khối" để lọc / báo cáo (vd "Sata4 hè 2026 CS1").
+ * Nhóm lớp: gom nhiều lớp cùng một "khối" để lọc / báo cáo (vd "Robotics Tiểu học khai giảng 09/2026").
  * Chỉ là nhãn tổ chức — không ảnh hưởng lịch học hay ghi danh.
  */
 export const classGroups = pgTable(
@@ -176,7 +176,7 @@ export const classes = pgTable(
   {
     id: id(),
     tenantId: tenantCol(),
-    code: text("code").notNull().unique(), // CS2.SATA6.26.003 (nhãn)
+    code: text("code").notNull().unique(), // ONL.ROBO-TH-N1.26.003 (nhãn)
     name: text("name").notNull(),
     courseId: uuid("course_id").notNull().references(() => courses.id),
     curriculumId: uuid("curriculum_id").references(() => curricula.id),

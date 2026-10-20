@@ -86,7 +86,7 @@ export function NotificationCenter() {
           </select>
         </label>
         <label className="flex-1 text-xs text-ink-600">Tìm trong tiêu đề / nội dung
-          <input className="input mt-1 w-full !py-1.5" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Ví dụ: hoàn tiền, CS1, đối soát…" maxLength={100} />
+          <input className="input mt-1 w-full !py-1.5" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Ví dụ: hoàn tiền, đối soát, học phí…" maxLength={100} />
         </label>
         <label className="flex items-center gap-1 pb-1.5 text-xs text-ink-600">
           <input type="checkbox" checked={unreadOnly} onChange={(e) => setUnreadOnly(e.target.checked)} /> Chỉ chưa đọc

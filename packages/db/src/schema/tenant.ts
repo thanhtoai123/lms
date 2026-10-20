@@ -12,13 +12,13 @@ export const tenantStatusEnum = pgEnum("tenant_status", TENANT_STATUSES);
  * `FRANCHISE` = bên nhận nhượng quyền: dữ liệu riêng tư, Hội sở chỉ thấy số liệu
  * tổng hợp và PII bị che, trừ khi tenant bật công tắc trong `tenant_settings`.
  *
- * Đúng MỘT dòng có `is_default = true` — tenant gốc `SATA`, nơi mọi dữ liệu cũ được gán về.
+ * Đúng MỘT dòng có `is_default = true` — tenant gốc `TH` (TH STEAM Academy), nơi mọi dữ liệu mặc định được gán về.
  */
 export const tenants = pgTable(
   "tenants",
   {
     id: id(),
-    /** Mã ngắn IN HOA, không đổi sau khi tạo — vd SATA, FR_HUE */
+    /** Mã ngắn IN HOA, không đổi sau khi tạo — vd TH, TH_HUE */
     code: text("code").notNull().unique(),
     name: text("name").notNull(),
     type: tenantTypeEnum("type").notNull().default("OWNED"),

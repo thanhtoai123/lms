@@ -8,10 +8,10 @@ import { PhMain, PhPageHead, PhSection, dtPh } from "@/components/ph-ui";
 import { Progress } from "@/components/ph/bits";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "SataCoin của con — TH STEAM Academy", robots: { index: false } };
+export const metadata = { title: "TH Coin của con — TH STEAM Academy", robots: { index: false } };
 
 /**
- * SATACOIN CỦA CON (chỉ đọc): số xu, hạng, lịch sử, quà đổi được, yêu cầu đổi quà.
+ * TH COIN CỦA CON (chỉ đọc): số xu, hạng, lịch sử, quà đổi được, yêu cầu đổi quà.
  * Đổi quà do thầy cô / trung tâm làm tại lớp — phụ huynh xem để động viên con.
  */
 export default async function CoinsPage({ params }: { params: Promise<{ id: string }> }) {
@@ -27,7 +27,7 @@ export default async function CoinsPage({ params }: { params: Promise<{ id: stri
   return (
     <>
       <PhMain className="space-y-5">
-        <PhPageHead title={`SataCoin của ${name}`} back={{ href: `/ph/be/${c.child.id}`, label: name }} />
+        <PhPageHead title={`TH Coin của ${name}`} back={{ href: `/ph/be/${c.child.id}`, label: name }} />
         <section aria-label="Số xu" className="rounded-3xl bg-gradient-to-br from-accent-500 to-accent-600 p-5 text-accent-foreground shadow-lg">
           <div className="flex items-center justify-between gap-3">
             <div>

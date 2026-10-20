@@ -158,20 +158,20 @@ export function validateShiftDef(s: ShiftDef): string[] {
 const seg = (from: string, to: string): ShiftSegment => ({ from, to });
 
 /**
- * Danh mục ~22 mã ca của bản gốc (dùng chung — phạm vi Hội sở).
- * `fixedCenterCode` chỉ dùng khi workplace = fixed_center (D1 / D2).
+ * Danh mục 22 mã ca mặc định (dùng chung — phạm vi Hội sở), theo mô hình TH STEAM: một trung tâm, dạy online qua ClassIn.
+ * `fixedCenterCode` chỉ dùng khi workplace = fixed_center (D1: làm tại văn phòng trung tâm).
  */
 export const SHIFT_CATALOGUE: (ShiftDef & { fixedCenterCode?: string })[] = [
   { code: "CG", name: "Ca gãy", kind: "timed", units: 1, segments: [seg("09:00", "11:30"), seg("14:00", "17:45")], workplace: "own_center", punchRequired: true },
   { code: "CS", name: "Ca suốt (nghỉ 16:30–17:00 tính giờ làm)", kind: "timed", units: 1, segments: [seg("14:00", "21:00")], workplace: "own_center", punchRequired: true },
   { code: "CCT", name: "Ca cuối tuần", kind: "timed", units: 1, segments: [seg("07:45", "11:30"), seg("13:45", "17:45")], workplace: "own_center", punchRequired: true },
   { code: "CGD", name: "Ca gãy dài", kind: "timed", units: 1, segments: [seg("09:00", "11:30"), seg("13:30", "19:15")], workplace: "own_center", punchRequired: true },
-  { code: "D1", name: "Làm tại Cơ sở 1", kind: "location_only", units: 1, segments: [], workplace: "fixed_center", punchRequired: false, fixedCenterCode: "CS1" },
-  { code: "D2", name: "Làm tại Cơ sở 2", kind: "location_only", units: 1, segments: [], workplace: "fixed_center", punchRequired: false, fixedCenterCode: "CS2" },
+  { code: "D1", name: "Làm tại văn phòng trung tâm", kind: "location_only", units: 1, segments: [], workplace: "fixed_center", punchRequired: false, fixedCenterCode: "ONL" },
+  { code: "OLT", name: "Dạy online buổi tối", kind: "timed", units: 0.5, segments: [seg("17:15", "21:00")], workplace: "flexible", punchRequired: true },
   { code: "HC", name: "Giờ hành chính", kind: "timed", units: 1, segments: [seg("08:00", "11:30"), seg("13:30", "17:30")], workplace: "assigned", punchRequired: true },
-  { code: "12", name: "Sáng CS1 · Chiều CS2", kind: "timed", units: 1, segments: [seg("08:00", "11:30"), seg("13:30", "17:30")], workplace: "any_center", punchRequired: true },
-  { code: "21", name: "Sáng CS2 · Chiều CS1", kind: "timed", units: 1, segments: [seg("08:00", "11:30"), seg("13:30", "17:30")], workplace: "any_center", punchRequired: true },
-  { code: "2C", name: "Cả 2 cơ sở", kind: "timed", units: 1, segments: [seg("08:00", "11:30"), seg("13:30", "17:30")], workplace: "any_center", punchRequired: true },
+  { code: "OLC", name: "Dạy online cuối tuần", kind: "timed", units: 1, segments: [seg("07:45", "11:30"), seg("13:45", "17:45")], workplace: "flexible", punchRequired: true },
+  { code: "OLS", name: "Dạy online sáng + tối", kind: "timed", units: 1, segments: [seg("07:45", "11:30"), seg("17:15", "21:00")], workplace: "flexible", punchRequired: true },
+  { code: "VPO", name: "Văn phòng + trực lớp online", kind: "timed", units: 1, segments: [seg("08:00", "11:30"), seg("13:30", "17:30")], workplace: "any_center", punchRequired: true },
   { code: "S", name: "Ca sáng", kind: "timed", units: 0.5, segments: [seg("07:45", "11:30")], workplace: "own_center", punchRequired: true },
   { code: "C", name: "Ca chiều", kind: "timed", units: 0.5, segments: [seg("13:45", "17:30")], workplace: "own_center", punchRequired: true },
   { code: "T", name: "Ca tối", kind: "timed", units: 0.5, segments: [seg("17:15", "21:00")], workplace: "own_center", punchRequired: true },

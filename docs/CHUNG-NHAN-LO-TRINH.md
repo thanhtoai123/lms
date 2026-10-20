@@ -143,7 +143,8 @@ tên thành tích, điều kiện đạt, người nhận, ngày cấp, số ch�
 Sau `pnpm db:push && pnpm db:apply-sql && pnpm db:seed`:
 
 - Quản trị: đăng nhập `superadmin@example.test` → **LMS / Học liệu → Lộ trình học & chứng nhận** (`/lo-trinh`), lộ trình mẫu
-  `LT-ROBO-NT` "Lộ trình Robotics nền tảng" (Sata1 → Sata4 bắt buộc, Sata6 tuỳ chọn): Học viên mẫu 12, 13 *đủ điều kiện*,
-  Học viên mẫu 11 *đã cấp*, Học viên mẫu 14 và lớp Sata4 đang chạy ở nhóm *đang học*.
+  chuẩn `ROBO-TH` "Lập trình Robotics AI · Tiểu học 8–10 tuổi" (Năm 1 ROBO-TH-N1 → Năm 2 ROBO-TH-N2 bắt buộc, các khoá
+  Luyện thi tự chọn): Học viên mẫu 12, 13 *đủ điều kiện*, Học viên mẫu 11 *đã cấp*, Học viên mẫu 14 và lớp ROBO-TH-N1 đang chạy
+  ở nhóm *đang học*.
 - Mẫu: `/lo-trinh/mau-chung-nhan` (mẫu mặc định nền dựng sẵn).
-- Xác thực công khai (không cần đăng nhập): `/cn/xem-thu-giay-chung-nhan-sata-robo-mau` — lệnh seed in đường dẫn đầy đủ ở cuối.
+- Xác thực công khai (không cần đăng nhập): `/cn/xem-thu-giay-chung-nhan-th-steam-mau` — lệnh seed in đường dẫn đầy đủ ở cuối.

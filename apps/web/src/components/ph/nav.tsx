@@ -48,7 +48,7 @@ export const PH_NAV_GROUPS: PhGroup[] = [
     items: [
       { href: "/ph/be/:con", label: "Hành trình học", icon: Route, theoCon: true, match: (p) => /^\/ph\/be\/[^/]+$/.test(p) },
       { href: "/ph/be/:con/ho-so", label: "Học bạ năng lực", icon: GraduationCap, theoCon: true, match: (p) => p.includes("/ho-so") || p.includes("/chung-nhan") },
-      { href: "/ph/be/:con/xu", label: "SataCoin", icon: Coins, theoCon: true, match: (p) => p.endsWith("/xu") },
+      { href: "/ph/be/:con/xu", label: "TH Coin", icon: Coins, theoCon: true, match: (p) => p.endsWith("/xu") },
     ],
   },
   {

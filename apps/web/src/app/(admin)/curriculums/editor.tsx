@@ -26,7 +26,7 @@ export function NewCurriculum({ courses }: { courses: { id: string; code: string
         <label className="text-xs text-ink-600">Khoá
           <select className="input mt-1" value={f.courseId} onChange={(e) => setF({ ...f, courseId: e.target.value })}>{courses.map((c) => <option key={c.id} value={c.id}>{c.code} — {c.name}</option>)}</select>
         </label>
-        <label className="text-xs text-ink-600 sm:col-span-2">Tên<input className="input mt-1" value={f.name} placeholder="Giáo trình Sata 1 (2027)" onChange={(e) => setF({ ...f, name: e.target.value })} /></label>
+        <label className="text-xs text-ink-600 sm:col-span-2">Tên<input className="input mt-1" value={f.name} placeholder="Chuẩn TH STEAM 2027–2028" onChange={(e) => setF({ ...f, name: e.target.value })} /></label>
       </div>
       <label className="block text-xs text-ink-600">Mô tả<input className="input mt-1" value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} /></label>
       <div className="flex gap-2">

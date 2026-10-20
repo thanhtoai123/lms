@@ -42,7 +42,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
 
       <form className="card flex flex-wrap items-end gap-2 p-3" action="/search">
         <label className="flex-1 text-xs text-ink-600">Từ khoá (tên, mã học viên, mã lớp, mã đơn, số điện thoại)
-          <input name="q" defaultValue={q} className="input mt-1 w-full" placeholder="Ví dụ: Minh An, CS1.SATA4, DH26-000045, 0912345678" maxLength={80} autoFocus />
+          <input name="q" defaultValue={q} className="input mt-1 w-full" placeholder="Ví dụ: Minh An, ROBO-TH-N1, DH26-000045, 0912345678" maxLength={80} autoFocus />
         </label>
         <label className="text-xs text-ink-600">Loại
           <select name="kind" defaultValue={kind ?? ""} className="input mt-1 !py-1.5">

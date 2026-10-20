@@ -1,5 +1,5 @@
 /**
- * SataCoin: sổ điểm thưởng bất biến (chỉ thêm), giới hạn theo vai trò, đổi quà — quy tắc thuần.
+ * TH Coin: sổ điểm thưởng bất biến (chỉ thêm), giới hạn theo vai trò, đổi quà — quy tắc thuần.
  */
 export class RewardRuleError extends Error {
   constructor(message: string) {
@@ -97,7 +97,7 @@ export function validateReward(x: { name: string; cost: number; stockLimited: bo
 }
 
 /* ------------------------------------------------------------------ */
-/* Luật thưởng xu (coin_rules) — cấu hình ở /satacoin                   */
+/* Luật thưởng xu (coin_rules) — cấu hình ở /th-coin                   */
 /* ------------------------------------------------------------------ */
 
 /** Sự kiện đã có chỗ cộng xu trong hệ thống — luật chỉ bật/tắt và đặt số xu mặc định */

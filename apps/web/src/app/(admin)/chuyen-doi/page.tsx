@@ -27,7 +27,7 @@ export default async function MigrationPage({ searchParams }: { searchParams: Pr
   const centerId = sp.center && UUID.test(sp.center) ? sp.center : null;
   return (
     <div className="space-y-4">
-      <PageHeader title="Chuyển đổi dữ liệu" desc="Đưa dữ liệu từ admin.satarobo.vn sang hệ mới theo thứ tự: tạo cơ sở / khoá / lớp → nhập học viên + phụ huynh → nhập ghi danh (số buổi đã học mang sang) → nhập phiếu thu cũ → đối soát. Mỗi file được kiểm tra trước; chạy lại cùng file không nhân bản." />
+      <PageHeader title="Chuyển đổi dữ liệu" desc="Đưa dữ liệu từ hệ thống cũ sang hệ mới theo thứ tự: tạo cơ sở / khoá / lớp → nhập học viên + phụ huynh → nhập ghi danh (số buổi đã học mang sang) → nhập phiếu thu cũ → đối soát. Mỗi file được kiểm tra trước; chạy lại cùng file không nhân bản." />
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Kpi label="Học viên đã chuyển" value={b.refs.students} />
         <Kpi label="Ghi danh đã chuyển" value={b.refs.enrollments} />
