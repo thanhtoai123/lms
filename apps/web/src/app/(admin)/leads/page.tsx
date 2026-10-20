@@ -101,10 +101,10 @@ export default async function LeadsInbox({ searchParams }: { searchParams: Promi
           <option value="">Mọi nguồn</option>
           {facets.sources.map((x) => <option key={x.source} value={x.source}>{x.source} ({x.n})</option>)}
         </select>
-        <div className="flex items-center gap-1">
-          <input type="date" name="from" defaultValue={sp.from} className="input" aria-label="Nhận từ ngày" title="Nhận từ ngày" />
+        <div className="flex min-w-0 items-center gap-1 sm:col-span-2 lg:col-span-2 xl:col-span-1">
+          <input type="date" name="from" defaultValue={sp.from} className="input min-w-0 flex-1" aria-label="Nhận từ ngày" title="Nhận từ ngày" />
           <span className="text-ink-400">–</span>
-          <input type="date" name="to" defaultValue={sp.to} className="input" aria-label="Nhận đến ngày" title="Nhận đến ngày" />
+          <input type="date" name="to" defaultValue={sp.to} className="input min-w-0 flex-1" aria-label="Nhận đến ngày" title="Nhận đến ngày" />
         </div>
         <div className="flex flex-wrap items-center gap-3 sm:col-span-2 lg:col-span-4 xl:col-span-6">
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="scope" value="mine" defaultChecked={scope === "mine"} /> Chỉ lead của tôi</label>
