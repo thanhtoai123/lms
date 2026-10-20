@@ -76,9 +76,8 @@ export const LP_MEDIA_SIZE: Readonly<Record<string, readonly [number, number]>> 
   "/thsteam/icon-512.png": [512, 512],
   "/thsteam/logo-dung.png": [1600, 800],
   "/thsteam/logo-goc.png": [4000, 2240],
-  "/thsteam/logo-ngang-trang.svg": [4690, 658],
-  "/thsteam/logo-ngang.png": [1200, 168],
-  "/thsteam/logo-ngang.svg": [4690, 658],
+  "/thsteam/logo-ngang-goc.png": [2000, 482],
+  "/thsteam/logo-ngang.png": [1600, 293],
 };
 
 export function mediaSize(src: string): readonly [number, number] | null {

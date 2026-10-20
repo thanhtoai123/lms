@@ -131,7 +131,7 @@ export function BrandHeader({ title, sub, right }: { title: string; sub?: React.
   return (
     <header className="hs-avoid bg-gradient-to-br from-navy to-navy-2 px-5 py-4 text-white print:px-4 print:py-3">
       <div className="flex items-center justify-between gap-3">
-        <BrandLockup height={34} onDark />
+        <BrandLockup height={44} onDark />
         {right}
       </div>
       <h1 className="mt-3 text-xl font-extrabold leading-tight print:mt-2 print:text-lg">{title}</h1>

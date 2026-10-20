@@ -145,7 +145,7 @@ export function BrandForm({ initial, canEdit, updatedLine }: { initial: Brand; c
                 </span>
               </div>
               <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs">
-                {([["Logo gốc (PNG)", "/thsteam/logo-goc.png"], ["Logo đứng (SVG)", "/thsteam/logo-dung.svg"], ["Logo ngang (SVG)", "/thsteam/logo-ngang.svg"], ["Nền tối (SVG)", "/thsteam/logo-dung-trang.svg"], ["Một màu navy (SVG)", "/thsteam/logo-dung-navy.svg"], ["Biểu tượng (SVG)", "/thsteam/symbol.svg"], ["Ảnh đại diện 512px (PNG)", "/thsteam/icon-512.png"]] as const).map(([t, h]) => (
+                {([["Logo ngang gốc (PNG)", "/thsteam/logo-ngang-goc.png"], ["Logo đứng gốc (PNG)", "/thsteam/logo-goc.png"], ["Logo đứng (SVG)", "/thsteam/logo-dung.svg"], ["Logo ngang (SVG)", "/thsteam/logo-ngang.svg"], ["Nền tối (SVG)", "/thsteam/logo-dung-trang.svg"], ["Một màu navy (SVG)", "/thsteam/logo-dung-navy.svg"], ["Biểu tượng (SVG)", "/thsteam/symbol.svg"], ["Ảnh đại diện 512px (PNG)", "/thsteam/icon-512.png"]] as const).map(([t, h]) => (
                   <a key={h} href={h} download className="text-primary-ink underline-offset-2 hover:underline">{t}</a>
                 ))}
               </div>

@@ -43,7 +43,7 @@ export function PortfolioDocument({ view, actions, portal = false }: {
         <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full border-[18px] border-accent-500/25" aria-hidden />
         <div className="pointer-events-none absolute -bottom-24 -left-16 h-72 w-72 rounded-full bg-white/5" aria-hidden />
         <div className="relative flex flex-wrap items-center justify-between gap-3">
-          <BrandLockup height={56} onDark />
+          <BrandLockup height={64} onDark />
           <span className="rounded-full border border-accent-500/60 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em] text-accent-500">Hồ sơ công nghệ</span>
         </div>
 

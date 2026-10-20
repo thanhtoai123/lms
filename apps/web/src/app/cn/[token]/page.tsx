@@ -34,7 +34,7 @@ export default async function VerifyCertificatePage({ params }: { params: Promis
     <main className="min-h-screen bg-gradient-to-b from-brand-50 to-background px-3 py-6 sm:px-4 sm:py-10">
       <div className="mx-auto max-w-xl overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 bg-gradient-to-br from-navy to-navy-2 px-5 py-4 text-white">
-          <BrandLockup height={38} onDark />
+          <BrandLockup height={50} onDark />
           <div className="text-xs font-semibold uppercase tracking-wider text-white/80">Xác thực giấy chứng nhận</div>
         </div>
         {s.state === "ok" ? <Verified cert={s.cert} /> : <Missing rateLimited={s.state === "rate_limited"} />}

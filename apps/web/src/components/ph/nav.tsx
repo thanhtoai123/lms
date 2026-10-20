@@ -125,7 +125,7 @@ function Logo() {
   return (
     <Link href="/ph" className="flex items-center gap-2.5 px-4 py-4">
       <span className="flex flex-col gap-1">
-        <BrandLockup height={28} />
+        <BrandLockup height={36} />
         <span className="text-[12px] font-semibold text-ink-600">Cổng phụ huynh</span>
       </span>
     </Link>

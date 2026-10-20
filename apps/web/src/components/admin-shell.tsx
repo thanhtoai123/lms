@@ -198,7 +198,7 @@ export function AdminShell({ nav, me, roles, canRunWorker, idleMinutes = null, c
   const sidebar = (
     <div className="flex h-full flex-col">
       <Link href="/viec-hom-nay" className="flex h-16 shrink-0 items-center border-b border-border px-5" aria-label="Về Việc hôm nay">
-        <BrandLockup height={29} />
+        <BrandLockup height={38} />
       </Link>
       <div className="shrink-0 px-4 pt-3" role="search">
         <div className="relative">

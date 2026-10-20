@@ -60,7 +60,7 @@ function Friendly({ state }: { state: Exclude<State, { state: "ok" }> }) {
   return (
     <div className="mx-auto max-w-md overflow-hidden rounded-2xl border border-border bg-card text-center shadow-sm">
       <div className="flex justify-center bg-gradient-to-br from-navy to-navy-2 px-5 py-5 text-white">
-        <BrandLockup height={40} onDark />
+        <BrandLockup height={52} onDark />
       </div>
       <div className="space-y-2 p-6">
         <h1 className="text-lg font-bold text-foreground">{title}</h1>

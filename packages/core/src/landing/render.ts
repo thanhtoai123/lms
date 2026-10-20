@@ -100,7 +100,7 @@ const abs = (ctx: RenderCtx, u: string) => (ctx.mode === "export" && u.startsWit
 function renderHeader(s: LandingSection, ctx: RenderCtx): string {
   const nav = rowsOf(s, "nav").map((r) => `<a href="${escHtml(href(ctx, r.href ?? ""))}">${escHtml(r.label ?? "")}</a>`).join("");
   const phone = d(s, "phone");
-  const lockup = ctx.brand.lockupUrl ? `<img class="lp-lockup" src="${escHtml(abs(ctx, ctx.brand.lockupUrl))}" alt="${escHtml(ctx.brand.name)}" width="300" height="42" />` : "";
+  const lockup = ctx.brand.lockupUrl ? `<img class="lp-lockup" src="${escHtml(abs(ctx, ctx.brand.lockupUrl))}" alt="${escHtml(ctx.brand.name)}" width="240" height="44" />` : "";
   const logo = lockup || (ctx.brand.logoUrl ? `<img src="${escHtml(abs(ctx, ctx.brand.logoUrl))}" alt="" width="36" height="36" />` : "");
   const tel = phone ? `<a class="lp-tel" href="tel:${escHtml(phone.replace(/[^\d+]/g, ""))}">${escHtml(phone)}</a>` : "";
   const cta = btn(ctx, d(s, "ctaLabel"), d(s, "ctaUrl"), "primary", "lp-btn-sm");
@@ -279,7 +279,7 @@ function renderFooter(s: LandingSection, ctx: RenderCtx): string {
   const links = rowsOf(s, "links").map((r) => `<a href="${escHtml(href(ctx, r.href ?? ""))}"${external(href(ctx, r.href ?? ""))}>${escHtml(r.label ?? "")}</a>`).join("");
   const contact = [d(s, "phone") ? `<a href="tel:${escHtml(d(s, "phone").replace(/[^\d+]/g, ""))}">${escHtml(d(s, "phone"))}</a>` : "", d(s, "email") ? `<a href="mailto:${escHtml(d(s, "email"))}">${escHtml(d(s, "email"))}</a>` : ""].filter(Boolean).join("");
   return `<footer class="lp-foot"><div class="lp-wrap">`
-    + `<div class="lp-foot-grid"><div>${ctx.brand.lockupOnDarkUrl ? `<img class="lp-foot-lockup" src="${escHtml(abs(ctx, ctx.brand.lockupOnDarkUrl))}" alt="${escHtml(ctx.brand.name)}" width="320" height="45" loading="lazy" />` : `<strong class="lp-foot-brand">${escHtml(ctx.brand.name)}</strong>`}${d(s, "tagline") ? `<p>${text(d(s, "tagline"))}</p>` : ""}${contact ? `<p class="lp-foot-contact">${contact}</p>` : ""}</div>`
+    + `<div class="lp-foot-grid"><div>${ctx.brand.lockupOnDarkUrl ? `<img class="lp-foot-lockup" src="${escHtml(abs(ctx, ctx.brand.lockupOnDarkUrl))}" alt="${escHtml(ctx.brand.name)}" width="300" height="55" loading="lazy" />` : `<strong class="lp-foot-brand">${escHtml(ctx.brand.name)}</strong>`}${d(s, "tagline") ? `<p>${text(d(s, "tagline"))}</p>` : ""}${contact ? `<p class="lp-foot-contact">${contact}</p>` : ""}</div>`
     + (addr ? `<ul class="lp-addr">${addr}</ul>` : "")
     + (links ? `<nav class="lp-foot-links" aria-label="Liên kết">${links}</nav>` : "")
     + `</div>`
@@ -394,8 +394,8 @@ export function landingCss(): string {
 .lp-top-in{display:flex;align-items:center;gap:16px;min-height:64px}
 .lp-brand{display:flex;align-items:center;gap:10px;font-weight:800;text-decoration:none;color:var(--primary-ink,var(--primary,#1d4ed8));margin-right:auto}
 .lp-brand img{border-radius:10px;object-fit:contain}
-.lp-brand img.lp-lockup{border-radius:0;width:300px;height:auto;max-width:52vw}
-.lp-foot-lockup{display:block;width:320px;height:auto;max-width:100%}
+.lp-brand img.lp-lockup{border-radius:0;width:240px;height:auto;max-width:52vw}
+.lp-foot-lockup{display:block;width:300px;height:auto;max-width:100%}
 .lp-nav{display:flex;gap:20px;font-size:.95rem;font-weight:600}
 .lp-nav a{text-decoration:none;color:var(--lp-mut)}
 .lp-nav a:hover{color:var(--primary-ink,var(--primary))}

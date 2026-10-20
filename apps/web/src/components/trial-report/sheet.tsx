@@ -125,7 +125,7 @@ export function TrialReportSheet({
       {/* Đầu phiếu */}
       <header className="pdg-block relative bg-gradient-to-br from-navy to-navy-2 px-5 pb-5 pt-4 text-white print:px-4 print:pb-3 print:pt-3">
         <div className="flex items-center justify-between gap-3">
-          <BrandLockup height={36} onDark />
+          <BrandLockup height={46} onDark />
           {draft && (
             <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider">
               {report.status === "revoked" ? "Đã thu hồi" : "Bản nháp"}

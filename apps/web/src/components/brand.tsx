@@ -37,8 +37,8 @@ export function BrandLockup({ height = 32, onDark = false, vertical = false, cla
   const h = onDark ? b.lockupOnDark : b.lockup;
   const src = h && vertical ? (onDark ? "/thsteam/logo-dung-trang.svg" : "/thsteam/logo-dung.svg") : h;
   if (src) {
-    // Tỉ lệ logo ngang ≈ 7,13 : 1, logo đứng 2 : 1 — đặt sẵn width để không nhảy bố cục khi ảnh tải
-    const w = Math.round(height * (vertical ? 1.9994 : 7.127));
+    // Tỉ lệ logo ngang (bản chuẩn của trung tâm) ≈ 5,46 : 1, logo đứng 2 : 1 — đặt sẵn width để không nhảy bố cục khi ảnh tải
+    const w = Math.round(height * (vertical ? 1.9994 : 5.4616));
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img src={src} alt={b.name} width={w} height={height} style={{ height, width: "auto", maxWidth: "100%" }} className={`block shrink-0 ${className}`} />

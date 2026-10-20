@@ -44,6 +44,8 @@ export const TH_BRAND = {
     icon512: "/thsteam/icon-512.png",
     /** Bản PNG cho email / tệp xuất (nơi không hiển thị được SVG) */
     horizontalPng: "/thsteam/logo-ngang.png",
+    /** File logo ngang gốc do trung tâm cung cấp (PNG nền trong) — logo-ngang*.svg được dựng lại vector từ file này */
+    horizontalOriginal: "/thsteam/logo-ngang-goc.png",
     verticalPng: "/thsteam/logo-dung.png",
   },
   /** Nền giấy chứng nhận mặc định (A4 ngang) */
