@@ -22,14 +22,29 @@ export const TH_BRAND = {
     blue: "#1D4ED8", blueDark: "#1E40AF", emerald: "#10B981", emeraldDark: "#059669", gold: "#F59E0B", amber: "#D97706",
     navy: "#0F172A", white: "#FFFFFF", slate: "#F8FAFC", text2: "#475569", wordmark: "#14215A", taglineGold: "#D4920F",
   },
-  /** Tệp logo đi kèm ứng dụng (apps/web/public) — chữ đã chuyển nét */
+  /**
+   * Tệp logo đi kèm ứng dụng (apps/web/public/thsteam) — vector dựng lại từ FILE LOGO GỐC do trung tâm cung cấp
+   * (đúng hình, đúng mã màu, chữ đã chuyển nét). Nền sáng dùng bản màu; nền Midnight Navy dùng bản "trang" (chữ trắng, tagline vàng);
+   * in 1 màu dùng bản navy / trắng (cửa sổ tên lửa là lỗ trống).
+   */
   logo: {
     symbol: "/thsteam/symbol.svg",
+    symbolWhite: "/thsteam/symbol-trang.svg",
     horizontal: "/thsteam/logo-ngang.svg",
     horizontalOnDark: "/thsteam/logo-ngang-trang.svg",
     vertical: "/thsteam/logo-dung.svg",
     verticalOnDark: "/thsteam/logo-dung-trang.svg",
+    verticalMonoNavy: "/thsteam/logo-dung-navy.svg",
+    verticalMonoWhite: "/thsteam/logo-dung-mot-mau-trang.svg",
     appIcon: "/thsteam/app-icon.svg",
+    favicon: "/icon.svg",
+    faviconPng: "/thsteam/favicon-32.png",
+    appleTouchIcon: "/thsteam/apple-touch-icon.png",
+    icon192: "/thsteam/icon-192.png",
+    icon512: "/thsteam/icon-512.png",
+    /** Bản PNG cho email / tệp xuất (nơi không hiển thị được SVG) */
+    horizontalPng: "/thsteam/logo-ngang.png",
+    verticalPng: "/thsteam/logo-dung.png",
   },
   /** Nền giấy chứng nhận mặc định (A4 ngang) */
   certificateBackground: "builtin/th-steam-mac-dinh.svg",

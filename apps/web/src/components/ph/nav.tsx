@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { BrandLogo, BrandName } from "@/components/brand";
+import { BrandLockup } from "@/components/brand";
 import {
   Bell, BookOpen, CalendarDays, ClipboardList, Coins, GraduationCap, Home, Images, Menu, MessageCircle,
   NotebookPen, Route, UserRound, Wallet, X, type LucideIcon,
@@ -126,10 +126,9 @@ function PhNavList({ conId, unread, onNavigate }: { conId: string | null; unread
 function Logo() {
   return (
     <Link href="/ph" className="flex items-center gap-2.5 px-4 py-4">
-      <BrandLogo size={34} rounded="rounded-xl" />
-      <span className="text-[16px] font-extrabold leading-tight">
-        <BrandName />
-        <span className="block text-[12px] font-semibold text-ink-600">Cổng phụ huynh</span>
+      <span className="flex flex-col gap-1">
+        <BrandLockup height={28} />
+        <span className="text-[12px] font-semibold text-ink-600">Cổng phụ huynh</span>
       </span>
     </Link>
   );

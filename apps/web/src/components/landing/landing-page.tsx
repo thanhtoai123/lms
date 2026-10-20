@@ -20,7 +20,7 @@ export async function LandingPage({ slug, searchParams }: { slug: string; search
       homeHref={chrome ? "/" : undefined}
       variant={page.variant}
       slug={page.slug}
-      brand={{ name: brand.name, primary: brand.primary, accent: brand.accent, logoUrl: brand.logoUrl }}
+      brand={{ name: brand.name, primary: brand.primary, accent: brand.accent, logoUrl: brand.logoUrl, lockup: brand.lockup, lockupOnDark: brand.lockupOnDark }}
       utm={{ utm_source: one(searchParams.utm_source), utm_medium: one(searchParams.utm_medium), utm_campaign: one(searchParams.utm_campaign), ref: one(searchParams.ref).slice(0, 20) }}
     />
   );

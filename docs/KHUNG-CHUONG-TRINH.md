@@ -24,8 +24,14 @@ Màn quản trị: **Chương trình & học liệu → Khung chương trình ch
 | Liên hệ | Hotline 0971 29 30 31 · thsteam.edu.vn · Fanpage TH STEAM ACADEMY | học online nên không có địa chỉ cơ sở |
 | Màu | Deep Ocean Blue `#1D4ED8` (đậm `#1E40AF`), Emerald `#10B981`, Cosmic Gold `#F59E0B` (Amber `#D97706`), Midnight Navy `#0F172A`, trắng, Slate `#F8FAFC` | `BRAND_DEFAULT_COLORS`, `globals.css`, `landingCss()` |
 | Phông | Plus Jakarta Sans (`--font-brand`) | `apps/web/src/app/layout.tsx` |
-| Logo | `apps/web/public/thsteam/` — biểu tượng, logo ngang / đứng (bản màu và bản nền tối), app icon; chữ đã chuyển nét | `icon.svg` = biểu tượng TH |
+| Logo | `apps/web/public/thsteam/` — **vector dựng lại từ file logo gốc** (`logo-goc.png`, 4000×2240; sai khác < 0,3% điểm ảnh, đúng mã màu): logo đứng / ngang bản màu và bản nền Midnight Navy (chữ trắng, tagline vàng), bản 1 màu navy / trắng (cửa sổ tên lửa là lỗ trống), biểu tượng, app icon, favicon PNG/ICO, logo PNG cho email | `TH_BRAND.logo`, `BrandLockup` (`components/brand.tsx`) |
 | Giấy chứng nhận | Nền mặc định `mau-chung-nhan/th-steam-mac-dinh.svg` (A4 ngang, viền vàng kép, dấu triện); số hiệu `TH-…` | `certificates/rules.ts` |
+
+Logo dùng ở đâu: thanh bên quản trị, khu giáo viên, cổng phụ huynh (logo ngang bản màu); trang đăng nhập quản trị, giấy chứng nhận /
+hồ sơ học tập / phiếu đánh giá trực tuyến (đầu trang Midnight Navy + logo ngang chữ trắng — không đặt logo màu trên nền xanh);
+đầu trang website (logo ngang) và chân trang (bản chữ trắng); đăng nhập phụ huynh (logo đứng); nền giấy chứng nhận (logo đứng);
+biểu tượng tab / ứng dụng (favicon, apple-touch-icon, icon 192/512). Trung tâm tải logo riêng ở Cài đặt hệ thống → Nhận diện thì
+logo riêng thay cho bộ logo chính thức.
 
 Quy tắc giao diện: nút kêu gọi chính màu Cosmic Gold chữ navy; chữ navy trên nền trắng; vàng chỉ để nhấn. Ảnh minh hoạ
 website (`apps/web/public/anh-site/`) là vector chỉ dùng màu trong bảng màu (kiểm bằng test `home.test.ts`).

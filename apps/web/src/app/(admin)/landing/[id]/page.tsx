@@ -18,7 +18,7 @@ export default async function LandingEditPage({ params }: { params: Promise<{ id
   return (
     <LandingEditor
       key={`${page.id}-${page.version}-${page.publishedVersion}-${page.status}`}
-      brand={{ name: brand.name, primary: brand.primary, accent: brand.accent, logoUrl: brand.logoUrl }}
+      brand={{ name: brand.name, primary: brand.primary, accent: brand.accent, logoUrl: brand.logoUrl, lockup: brand.lockup, lockupOnDark: brand.lockupOnDark }}
       page={{
         id: page.id, slug: page.slug, status: page.status, path: page.path, version: page.version, publishedVersion: page.publishedVersion,
         publishedAt: page.publishedAt ? page.publishedAt.toISOString() : null, canRename: page.canRename, canEdit: page.canEdit, hasUnpublished: page.hasUnpublished,

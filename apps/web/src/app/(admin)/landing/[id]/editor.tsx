@@ -10,7 +10,7 @@ import {
 import { useTRPC } from "@/lib/trpc/client";
 import { FieldInput, SectionForm } from "./section-form";
 
-type Brand = { name: string; primary: string; accent: string; logoUrl: string };
+type Brand = { name: string; primary: string; accent: string; logoUrl: string; lockup?: string | null; lockupOnDark?: string | null };
 type PageData = {
   id: string; slug: string; status: string; path: string; version: number; publishedVersion: number; publishedAt: string | null;
   canRename: boolean; canEdit: boolean; hasUnpublished: boolean;
@@ -53,8 +53,8 @@ export function LandingEditor({ page, brand }: { page: PageData; brand: Brand })
   const check = useMemo(() => validateLanding(doc, { title, slug }), [doc, title, slug]);
   const palette = useMemo(() => buildPalette({ primary: brand.primary, accent: brand.accent }), [brand.primary, brand.accent]);
   const previewHtml = useMemo(
-    () => renderStandalone(page.siteChrome ? applyChrome(doc, page.siteChrome) : doc, { slug, variant, mode: "export", homeHref: page.siteChrome ? "/" : undefined, brand: { name: brand.name, logoUrl: brand.logoUrl, palette } }, { title }),
-    [doc, slug, variant, title, brand.name, brand.logoUrl, palette, page.siteChrome],
+    () => renderStandalone(page.siteChrome ? applyChrome(doc, page.siteChrome) : doc, { slug, variant, mode: "export", homeHref: page.siteChrome ? "/" : undefined, brand: { name: brand.name, logoUrl: brand.logoUrl, lockupUrl: brand.lockup, lockupOnDarkUrl: brand.lockupOnDark, palette } }, { title }),
+    [doc, slug, variant, title, brand.name, brand.logoUrl, brand.lockup, brand.lockupOnDark, palette, page.siteChrome],
   );
 
   const selected = doc.sections.find((s) => s.id === sel) ?? null;

@@ -14,7 +14,7 @@
   "build": {
     "appId": "vn.edu.thsteam.trinhchieu",
     "productName": "THSTEAM-TrinhChieu",
-    "files": ["main.cjs", "cau-hinh.json"],
-    "win": { "target": "portable" }
+    "files": ["main.cjs", "cau-hinh.json", "build/icon.png"],
+    "win": { "target": "portable", "icon": "build/icon.png" }
   }
 }

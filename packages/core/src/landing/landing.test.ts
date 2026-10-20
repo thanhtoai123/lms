@@ -7,7 +7,7 @@ import { buildPalette, BRAND_DEFAULT_COLORS } from "../system/brand.js";
 
 const ctx = (over: Partial<RenderCtx> = {}): RenderCtx => ({
   slug: "trang-chu", variant: "classic", mode: "page",
-  brand: { name: "Sata Robo", logoUrl: "/icon.svg", palette: buildPalette(BRAND_DEFAULT_COLORS) }, ...over,
+  brand: { name: "TH STEAM Academy", logoUrl: "/icon.svg", palette: buildPalette(BRAND_DEFAULT_COLORS) }, ...over,
 });
 
 test("liên kết và ảnh: chỉ nhận dạng an toàn", () => {
@@ -128,7 +128,7 @@ test("an toàn: chữ người dùng bị escape, liên kết / ảnh xấu bị
 
 test("export: HTML độc lập, CSS nhúng, liên kết nội bộ thành tuyệt đối, form dẫn về hệ thống", () => {
   const doc = normalizeLanding(landingTemplateByKey("phu-huynh-tin-cay")!.build());
-  const html = renderStandalone(doc, ctx({ baseUrl: "https://app.example.com" }), { title: "Sata Robo", description: "Mô tả", image: "/api/public/site-media/a.png" });
+  const html = renderStandalone(doc, ctx({ baseUrl: "https://app.example.com" }), { title: "TH STEAM Academy", description: "Mô tả", image: "/api/public/site-media/a.png" });
   assert.ok(html.startsWith("<!doctype html>"));
   assert.ok(html.includes("<style>") && html.includes(".lp-hero"));
   assert.ok(html.includes('src="https://app.example.com/icon.svg"'));
@@ -191,4 +191,20 @@ test("CSS: liên kết trong .lp không đè màu chữ của nút (độ đặc
   assert.ok(css.includes(":where(.lp) a{color:inherit}"));
   assert.ok(!/^\.lp a\{color:inherit\}/m.test(css));
   assert.ok(css.includes(":where(.lp) :where(ul,ol)"), "reset danh sách không được đè margin của lớp riêng");
+});
+
+test("logo ngang chính thức: đầu trang dùng bản màu, chân trang bản chữ trắng; xuất HTML dùng địa chỉ tuyệt đối", async () => {
+  const { renderHeaderHtml, renderFooterHtml } = await import("./render.js");
+  const header = { id: "h", type: "header", data: { phone: "0971 29 30 31" }, lists: {} } as never;
+  const footer = { id: "f", type: "footer", data: { tagline: "Thắp lửa đổi mới" }, lists: {} } as never;
+  const brand = { name: "TH STEAM Academy", logoUrl: "/icon.svg", lockupUrl: "/thsteam/logo-ngang.svg", lockupOnDarkUrl: "/thsteam/logo-ngang-trang.svg", palette: buildPalette(BRAND_DEFAULT_COLORS) };
+  const h = renderHeaderHtml(header, ctx({ brand }));
+  assert.ok(h.includes('class="lp-lockup" src="/thsteam/logo-ngang.svg"'));
+  assert.ok(!h.includes("<span>TH STEAM Academy</span>"), "có logo ngang thì không lặp tên bằng chữ");
+  assert.ok(renderFooterHtml(footer, ctx({ brand })).includes('src="/thsteam/logo-ngang-trang.svg"'));
+  const ex = renderHeaderHtml(header, ctx({ brand, mode: "export", baseUrl: "https://app.example.com" }));
+  assert.ok(ex.includes('src="https://app.example.com/thsteam/logo-ngang.svg"'));
+  // Trung tâm tải logo riêng → không có logo ngang: giữ biểu tượng + tên
+  const own = renderHeaderHtml(header, ctx());
+  assert.ok(own.includes("<span>TH STEAM Academy</span>") && !own.includes("lp-lockup"));
 });

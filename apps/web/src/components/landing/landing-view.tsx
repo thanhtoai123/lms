@@ -3,7 +3,7 @@ import { TrialForm } from "@/app/dang-ky/form";
 import { SiteTracker } from "@/components/site-tracker";
 import { UtmLinks } from "./utm-links";
 
-export interface LandingBrand { name: string; primary: string; accent: string; logoUrl: string }
+export interface LandingBrand { name: string; primary: string; accent: string; logoUrl: string; lockup?: string | null; lockupOnDark?: string | null }
 
 /**
  * Hiển thị landing: HTML do `renderParts` (core) sinh ra từ dữ liệu đã kiểm + form đăng ký (thành phần React).
@@ -21,7 +21,7 @@ export function LandingView({ doc, variant, slug, brand, utm, preview, homeHref 
   homeHref?: string;
 }) {
   const palette = buildPalette({ primary: brand.primary, accent: brand.accent });
-  const parts = renderParts(doc, { slug, variant, mode: "page", homeHref, brand: { name: brand.name, logoUrl: brand.logoUrl, palette } });
+  const parts = renderParts(doc, { slug, variant, mode: "page", homeHref, brand: { name: brand.name, logoUrl: brand.logoUrl, lockupUrl: brand.lockup, lockupOnDarkUrl: brand.lockupOnDark, palette } });
   const hasForm = parts.some((p) => p.kind === "form");
   return (
     <div className={rootClass(variant)} style={palette as unknown as React.CSSProperties}>

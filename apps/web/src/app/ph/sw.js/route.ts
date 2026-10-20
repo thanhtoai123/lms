@@ -25,7 +25,7 @@ self.addEventListener("push", (e) => {
   let d = {};
   try { d = e.data ? e.data.json() : {}; } catch (_) { d = {}; }
   const url = typeof d.url === "string" && d.url.indexOf("/ph") === 0 ? d.url : "/ph/thong-bao";
-  e.waitUntil(self.registration.showNotification(d.title || "TH STEAM Academy", { body: d.body || "", tag: d.tag, icon: "/icon.svg", badge: "/icon.svg", data: { url } }));
+  e.waitUntil(self.registration.showNotification(d.title || "TH STEAM Academy", { body: d.body || "", tag: d.tag, icon: "/thsteam/icon-192.png", badge: "/thsteam/favicon-32.png", data: { url } }));
 });
 self.addEventListener("notificationclick", (e) => {
   e.notification.close();

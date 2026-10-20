@@ -122,7 +122,7 @@ export function BrandForm({ initial, canEdit, updatedLine }: { initial: Brand; c
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={logoSrc} alt="" className="h-full w-full rounded-lg bg-white object-contain p-0.5" />
             </div>
-            <span className="text-xs text-ink-600">{initial.hasLogo ? "Logo đã tải lên" : "Đang dùng biểu tượng mặc định"}</span>
+            <span className="text-xs text-ink-600">{initial.hasLogo ? "Logo đã tải lên (thay cho bộ logo TH STEAM chính thức)" : "Đang dùng bộ logo TH STEAM chính thức"}</span>
           </div>
           {canEdit && (
             <div className="flex flex-wrap items-center gap-2">
@@ -133,6 +133,24 @@ export function BrandForm({ initial, canEdit, updatedLine }: { initial: Brand; c
             </div>
           )}
           <p className="text-xs text-ink-400">PNG, JPG, WEBP hoặc SVG, tối đa 1MB. Nên dùng logo vuông, nền trong suốt, tối thiểu 256×256 px. SVG chỉ nhận hình tĩnh (không script, không liên kết ngoài).</p>
+          {!initial.hasLogo && (
+            <div className="space-y-2 rounded-xl border border-border bg-muted p-3">
+              <div className="text-xs font-semibold text-ink-600">Bộ logo chính thức (dựng từ file logo gốc)</div>
+              <div className="flex flex-wrap items-center gap-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/thsteam/logo-ngang.svg" alt="Logo ngang" className="h-8 w-auto" />
+                <span className="rounded-lg bg-navy px-2 py-1.5">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src="/thsteam/logo-ngang-trang.svg" alt="Logo ngang trên nền tối" className="h-7 w-auto" />
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs">
+                {([["Logo gốc (PNG)", "/thsteam/logo-goc.png"], ["Logo đứng (SVG)", "/thsteam/logo-dung.svg"], ["Logo ngang (SVG)", "/thsteam/logo-ngang.svg"], ["Nền tối (SVG)", "/thsteam/logo-dung-trang.svg"], ["Một màu navy (SVG)", "/thsteam/logo-dung-navy.svg"], ["Biểu tượng (SVG)", "/thsteam/symbol.svg"], ["Ảnh đại diện 512px (PNG)", "/thsteam/icon-512.png"]] as const).map(([t, h]) => (
+                  <a key={h} href={h} download className="text-primary-ink underline-offset-2 hover:underline">{t}</a>
+                ))}
+              </div>
+            </div>
+          )}
           {fromLogo && <div className="flex items-center gap-2 text-xs"><span className="h-5 w-5 rounded border border-black/10" style={{ background: fromLogo }} />Màu nổi bật trong logo: <code>{fromLogo}</code></div>}
         </div>
 

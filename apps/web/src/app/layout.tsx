@@ -15,8 +15,10 @@ export async function generateMetadata(): Promise<Metadata> {
     description: `Nền tảng vận hành trung tâm ${b.name}`,
     manifest: "/manifest.webmanifest",
     appleWebApp: { capable: true, title: b.name, statusBarStyle: "default" },
-    // Có logo tải lên thì làm biểu tượng tab; không thì dùng icon.svg mặc định của ứng dụng
-    ...(b.hasLogo ? { icons: { icon: b.logoUrl, apple: b.logoUrl } } : {}),
+    // Có logo tải lên thì làm biểu tượng tab; không thì dùng bộ biểu tượng TH STEAM chính thức
+    icons: b.hasLogo
+      ? { icon: b.logoUrl, apple: b.logoUrl }
+      : { icon: [{ url: "/icon.svg", type: "image/svg+xml" }, { url: "/thsteam/favicon-32.png", sizes: "32x32", type: "image/png" }], apple: "/thsteam/apple-touch-icon.png" },
   };
 }
 

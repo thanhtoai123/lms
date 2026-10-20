@@ -206,6 +206,7 @@ function taoCuaSo() {
     autoHideMenuBar: true,
     kiosk: CAU_HINH.kiosk,
     title: "Trình chiếu an toàn — TH STEAM Academy",
+    icon: path.join(__dirname, "build", "icon.png"),
     webPreferences: {
       session: phien,
       nodeIntegration: false,

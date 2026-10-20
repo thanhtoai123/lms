@@ -19,7 +19,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const origin = (process.env.NEXT_PUBLIC_APP_URL ?? new URL(req.url).origin).replace(/\/+$/, "");
     const html = renderStandalone(snapshot.doc, {
       slug, variant: snapshot.variant, mode: "export", baseUrl: origin,
-      brand: { name: brand.name, logoUrl: brand.logoUrl, palette: buildPalette({ primary: brand.primary, accent: brand.accent }) },
+      brand: { name: brand.name, logoUrl: brand.logoUrl, lockupUrl: brand.lockup, lockupOnDarkUrl: brand.lockupOnDark, palette: buildPalette({ primary: brand.primary, accent: brand.accent }) },
     }, { title: snapshot.seoTitle || snapshot.title, description: snapshot.seoDescription, image: snapshot.seoImage });
     return new Response(html, {
       headers: {

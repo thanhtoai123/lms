@@ -10,7 +10,7 @@
  * Không hook, không mã chỉ-máy-chủ → render được ở cả hai phía.
  */
 import { Award, CalendarCheck, GraduationCap, Image as ImageIcon, MapPin, Route, School, Sparkles } from "lucide-react";
-import { BrandLogo, BrandName } from "@/components/brand";
+import { BrandLockup } from "@/components/brand";
 import { pairSheets, type PortfolioView, type PortfolioAttendance, RUBRIC_SCALE } from "@satarobo/core";
 import { CenterFooter, fmtDay, num1, pct } from "./parts";
 import { ProgressLine, RadarChart } from "./charts";
@@ -23,15 +23,12 @@ export function PortfolioDocument({ view, actions }: { view: PortfolioView; acti
   return (
     <div className="hs-doc mx-auto w-full max-w-3xl space-y-5 print:max-w-none print:space-y-0">
       {/* 1. Trang bìa */}
-      <section className="hs-page hs-cover relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary via-primary-dark to-primary-darker p-6 text-white shadow-md sm:p-10 print:rounded-none print:shadow-none" aria-label="Trang bìa">
+      <section className="hs-page hs-cover relative overflow-hidden rounded-3xl bg-gradient-to-br from-navy via-navy-2 to-navy p-6 text-white shadow-md sm:p-10 print:rounded-none print:shadow-none" aria-label="Trang bìa">
         <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-accent-500/25" aria-hidden />
         <div className="pointer-events-none absolute -bottom-20 -left-10 h-64 w-64 rounded-full bg-white/5" aria-hidden />
-        <div className="relative flex items-center gap-3">
-          <BrandLogo size={56} onColor rounded="rounded-2xl" />
-          <div>
-            <div className="text-2xl font-extrabold tracking-tight"><BrandName /></div>
-            <div className="text-xs text-white/75">Giáo dục STEM · Robotics</div>
-          </div>
+        <div className="relative">
+          <BrandLockup height={64} onDark />
+          <div className="mt-2 text-xs text-white/75">Robotics · AI · Đồ họa · Lập trình — học online qua ClassIn</div>
         </div>
         <div className="relative mt-10 sm:mt-16 print:mt-24">
           <div className="text-sm font-bold uppercase tracking-[0.2em] text-accent-200">Hồ sơ học tập</div>

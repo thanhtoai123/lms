@@ -14,7 +14,9 @@ export async function generateMetadata(): Promise<Metadata> {
     robots: { index: false },
     manifest: "/ph/manifest.webmanifest",
     appleWebApp: { capable: true, title: b.name, statusBarStyle: "default" },
-    ...(b.hasLogo ? { icons: { icon: b.logoUrl, apple: b.logoUrl } } : {}),
+    icons: b.hasLogo
+      ? { icon: b.logoUrl, apple: b.logoUrl }
+      : { icon: [{ url: "/icon.svg", type: "image/svg+xml" }, { url: "/thsteam/favicon-32.png", sizes: "32x32", type: "image/png" }], apple: "/thsteam/apple-touch-icon.png" },
   };
 }
 

@@ -4,7 +4,7 @@
  * lẫn trình duyệt (xem trước trong drawer).
  */
 import { TrendingDown, TrendingUp, Minus } from "lucide-react";
-import { BrandLogo, BrandName } from "@/components/brand";
+import { BrandLockup } from "@/components/brand";
 import { RUBRIC_LEVELS, RUBRIC_SCALE, TREND_VI, scoreLabel, type RubricLevel, type Trend } from "@satarobo/core";
 
 export const TZ = "Asia/Ho_Chi_Minh";
@@ -109,12 +109,9 @@ export function TrendChip({ trend, small = false }: { trend: Trend | null | unde
 /** Đầu trang in / đầu phiếu mang nhận diện thương hiệu */
 export function BrandHeader({ title, sub, right }: { title: string; sub?: React.ReactNode; right?: React.ReactNode }) {
   return (
-    <header className="hs-avoid bg-gradient-to-br from-primary to-primary-darker px-5 py-4 text-white print:px-4 print:py-3">
+    <header className="hs-avoid bg-gradient-to-br from-navy to-navy-2 px-5 py-4 text-white print:px-4 print:py-3">
       <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5">
-          <BrandLogo size={32} onColor />
-          <span className="text-base font-extrabold tracking-tight"><BrandName /></span>
-        </div>
+        <BrandLockup height={34} onDark />
         {right}
       </div>
       <h1 className="mt-3 text-xl font-extrabold leading-tight print:mt-2 print:text-lg">{title}</h1>

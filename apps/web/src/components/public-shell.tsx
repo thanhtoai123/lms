@@ -10,7 +10,7 @@ import { loadBrand } from "@/lib/brand";
 export async function PublicShell({ children, narrow = false }: { children: React.ReactNode; narrow?: boolean }) {
   const [chrome, brand] = await Promise.all([getSiteChrome(getDb()).catch(() => null), loadBrand()]);
   const palette = buildPalette({ primary: brand.primary, accent: brand.accent });
-  const ctx: RenderCtx = { slug: "site", variant: "classic", mode: "page", homeHref: "/", brand: { name: brand.name, logoUrl: brand.logoUrl, palette } };
+  const ctx: RenderCtx = { slug: "site", variant: "classic", mode: "page", homeHref: "/", brand: { name: brand.name, logoUrl: brand.logoUrl, lockupUrl: brand.lockup, lockupOnDarkUrl: brand.lockupOnDark, palette } };
   const parts = chrome ? chromeSections(chrome) : null;
   // `display: contents` để đầu trang vẫn dính trên cùng khi cuộn, còn biến màu vẫn kế thừa xuống
   const wrap = { display: "contents" } as const;

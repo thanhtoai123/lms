@@ -23,7 +23,7 @@ import { CommandPalette, rememberPage } from "@/components/command-palette";
 import { ToastProvider } from "@/components/toast";
 import { ShortcutHelp } from "@/components/shortcuts";
 import { KeepShortCells } from "@/components/keep-short-cells";
-import { BrandName, BrandWordmark } from "@/components/brand";
+import { BrandLockup, BrandName } from "@/components/brand";
 
 type Me = { fullName: string; email: string; roleLabel: string; initials: string; isTeacher?: boolean };
 
@@ -197,9 +197,8 @@ export function AdminShell({ nav, me, roles, canRunWorker, idleMinutes = null, c
 
   const sidebar = (
     <div className="flex h-full flex-col">
-      <Link href="/viec-hom-nay" className="flex h-16 shrink-0 items-center gap-2 border-b border-border px-6">
-        <BrandWordmark size={30} textClass="text-[15px]" />
-        <span className="mt-1 text-[11px] font-medium text-muted-foreground">Admin</span>
+      <Link href="/viec-hom-nay" className="flex h-16 shrink-0 items-center border-b border-border px-5" aria-label="Về Việc hôm nay">
+        <BrandLockup height={29} />
       </Link>
       <div className="shrink-0 px-4 pt-3" role="search">
         <div className="relative">

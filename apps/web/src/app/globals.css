@@ -54,6 +54,10 @@
   --accent-ink: #a16706;
   --accent-foreground: #0f172a;
 
+  /* Midnight Navy — nền đầu trang tối, nơi đặt logo bản chữ trắng (logo-ngang-trang.svg); #14215A = màu chữ wordmark */
+  --navy: #0f172a;
+  --navy-2: #14215a;
+
   /* Màu vai: phụ huynh xanh dương, học viên xanh ngọc (Emerald Jade) */
   --parent: #1d4ed8;
   --student: #10b981;
@@ -83,6 +87,8 @@
   --color-sidebar: var(--sidebar);
   --color-sidebar-border: var(--sidebar-border);
 
+  --color-navy: var(--navy);
+  --color-navy-2: var(--navy-2);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary-dark: var(--primary-dark);
