@@ -52,7 +52,7 @@ export function MilestoneSessions({ sessions, printable = true, dense = false, c
               </div>
               <div className="flex items-center gap-1.5">
                 {s.objectiveResult && <span className={`chip whitespace-nowrap px-2 py-0.5 text-[11px] font-bold ${OBJ_TONE[s.objectiveResult]}`}>{OBJECTIVE_RESULT_VI[s.objectiveResult]}</span>}
-                {s.average != null && <span className="chip whitespace-nowrap bg-primary/10 font-bold text-primary">TB {num1(s.average)}/{RUBRIC_SCALE}</span>}
+                {s.average != null && <span className="chip whitespace-nowrap bg-primary/10 font-bold text-primary">Trung bình {num1(s.average)}/{RUBRIC_SCALE}</span>}
               </div>
             </div>
             {s.lessonTitle && <div className="mt-0.5 truncate pl-5 text-xs text-foreground/80">{s.lessonTitle}</div>}
@@ -62,9 +62,9 @@ export function MilestoneSessions({ sessions, printable = true, dense = false, c
                   <figure key={m.id} className={`relative overflow-hidden rounded-lg border border-border bg-muted ${i >= PRINT_MAX ? "print:hidden" : ""}`}>
                     <a href={m.url} target="_blank" rel="noopener noreferrer" className="block" aria-label={`Xem ảnh ${s.label}`}>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={m.url} alt={m.caption ?? (m.classWide ? `Ảnh cả lớp ${s.label}` : `Ảnh của bé ${s.label}`)} loading="lazy" className={`w-full object-cover ${dense ? "h-14" : "h-24 sm:h-28"} print:h-20`} />
+                      <img src={m.url} alt={m.caption ?? (m.classWide ? `Ảnh cả lớp ${s.label}` : `Ảnh của con ${s.label}`)} loading="lazy" className={`w-full object-cover ${dense ? "h-14" : "h-24 sm:h-28"} print:h-20`} />
                     </a>
-                    <span className={`absolute left-1 top-1 whitespace-nowrap rounded-full px-1.5 py-0.5 text-[10px] font-bold shadow-sm ${m.classWide ? "bg-black/55 text-white" : "bg-primary text-white"}`}>{m.classWide ? "Cả lớp" : "Của bé"}</span>
+                    <span className={`absolute left-1 top-1 whitespace-nowrap rounded-full px-1.5 py-0.5 text-[10px] font-bold shadow-sm ${m.classWide ? "bg-black/55 text-white" : "bg-primary text-white"}`}>{m.classWide ? "Cả lớp" : "Của con"}</span>
                   </figure>
                 ))}
               </div>

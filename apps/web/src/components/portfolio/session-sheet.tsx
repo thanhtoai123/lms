@@ -42,7 +42,7 @@ export function SessionSheet({
           </div>
           <div className="flex items-center gap-1.5">
             {c.makeup && <span className="chip bg-accent-500 font-bold text-white">Học bù</span>}
-            {sheet.average != null && <span className="chip bg-primary/10 font-bold text-primary">TB {num1(sheet.average)}/{RUBRIC_SCALE}</span>}
+            {sheet.average != null && <span className="chip bg-primary/10 font-bold text-primary">Trung bình {num1(sheet.average)}/{RUBRIC_SCALE}</span>}
           </div>
         </div>
       ) : (
@@ -92,7 +92,7 @@ export function SessionSheet({
         )}
 
         {sheet.productNote && (
-          <Block icon={Puzzle} title="Sản phẩm của bé" text={sheet.productNote} tint="bg-accent-100 text-accent-700" />
+          <Block icon={Puzzle} title="Sản phẩm của con" text={sheet.productNote} tint="bg-accent-100 text-accent-700" />
         )}
         {sheet.remark && (
           <Block icon={Heart} title="Nhận xét của giáo viên" text={sheet.remark} tint="bg-primary/10 text-primary" />
@@ -108,8 +108,8 @@ export function SessionSheet({
                 return (
                   <figure key={m.id} className={`relative overflow-hidden rounded-lg border border-border bg-muted ${inPrint ? "" : "print:hidden"} ${i >= 3 ? "sm:hidden xl:block" : ""}`}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={m.url} alt={m.caption ?? (m.classWide ? "Ảnh cả lớp" : "Ảnh của bé")} className={`w-full object-cover ${compact ? "h-24 print:h-20" : "h-32 sm:h-36 print:h-28"}`} loading="lazy" />
-                    <span className={`absolute left-1.5 top-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold shadow-sm ${m.classWide ? "bg-black/55 text-white" : "bg-primary text-white"}`}>{m.classWide ? "Cả lớp" : "Của bé"}</span>
+                    <img src={m.url} alt={m.caption ?? (m.classWide ? "Ảnh cả lớp" : "Ảnh của con")} className={`w-full object-cover ${compact ? "h-24 print:h-20" : "h-32 sm:h-36 print:h-28"}`} loading="lazy" />
+                    <span className={`absolute left-1.5 top-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold shadow-sm ${m.classWide ? "bg-black/55 text-white" : "bg-primary text-white"}`}>{m.classWide ? "Cả lớp" : "Của con"}</span>
                     {m.caption && !compact && <figcaption className="truncate px-2 py-1 text-[11px] text-muted-foreground">{m.caption}</figcaption>}
                   </figure>
                 );

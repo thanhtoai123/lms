@@ -44,7 +44,7 @@ export function ProgressLine({ points, title = "Tiến bộ theo buổi học" }
   );
 }
 
-/** Mạng nhện năng lực trung bình của một khoá (thang 1–3) */
+/** Biểu đồ năng lực (dạng radar): mức trung bình từng tiêu chí của một khoá (thang 1–3) */
 export function RadarChart({ axes, size = 240 }: { axes: readonly { label: string; value: number | null }[]; size?: number }) {
   if (axes.length < 3) {
     return (
@@ -55,7 +55,7 @@ export function RadarChart({ axes, size = 240 }: { axes: readonly { label: strin
   }
   const r = radarChart(axes, { size, labelPad: 56 });
   return (
-    <svg viewBox={`0 0 ${r.size} ${r.size}`} className="hs-avoid mx-auto h-auto w-full max-w-[260px]" role="img" aria-label={`Năng lực trung bình: ${axes.map((a) => `${a.label} ${a.value ?? "chưa có"}`).join(", ")}`}>
+    <svg viewBox={`0 0 ${r.size} ${r.size}`} className="hs-avoid mx-auto h-auto w-full max-w-[260px]" role="img" aria-label={`Biểu đồ năng lực — mức trung bình: ${axes.map((a) => `${a.label} ${a.value ?? "chưa có"}`).join(", ")}`}>
       {r.rings.map((ring, i) => <polygon key={i} points={ring} fill={i === r.rings.length - 1 ? "#f8fafc" : "none"} stroke={GRID} strokeWidth={1} />)}
       {r.axes.map((a, i) => <line key={i} x1={r.center} y1={r.center} x2={a.x} y2={a.y} stroke={GRID} strokeWidth={1} />)}
       <polygon points={r.polygon} fill={PURPLE} fillOpacity={0.22} stroke={PURPLE} strokeWidth={2} strokeLinejoin="round" />

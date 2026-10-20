@@ -3,19 +3,21 @@
  * `/hs/<token>`, trang in nội bộ (và bộ xuất PDF phía máy chủ). Chuẩn theo khung chương trình TH STEAM:
  *
  *   1. Bìa: logo, ảnh đại diện + tên con, chương trình & năm học, số liệu chính.
- *   2. Bức tranh năng lực: 6 năng lực (Tư duy · Kỹ năng số · Bản lĩnh) + 3 phẩm chất, thang Tốt / Đạt / Cần cố gắng,
- *      kèm "con làm được" theo đúng chương trình; mạng nhện năng lực.
- *   3. Lộ trình chương trình: từng năm học → 3 học phần × 15 buổi (buổi 15 báo cáo trước phụ huynh), sản phẩm dự kiến.
- *   4. Nhận xét của giáo viên (học bạ mới nhất) · Sản phẩm & dự án · Chuyên cần · Chứng nhận · Biểu đồ tiến bộ.
+ *   2. Năng lực & phẩm chất: 6 năng lực (Tư duy · Kỹ năng số · Bản lĩnh) + 3 phẩm chất, thang Tốt / Đạt / Cần cố gắng,
+ *      kèm "con làm được" theo đúng chương trình; biểu đồ năng lực.
+ *   3. Lộ trình học tập: từng năm học → 3 học phần × 15 buổi (buổi 15 báo cáo trước phụ huynh); mỗi học phần ghi
+ *      sản phẩm của học phần (theo chương trình) và "Con đã làm" (sản phẩm thầy cô ghi ở các buổi + ảnh) — không lặp
+ *      thành mục riêng; danh sách đầy đủ nằm ở phần chi tiết.
+ *   4. Thầy cô nhận xét (báo cáo học phần mới nhất) · Chuyên cần · Chứng nhận · Biểu đồ tiến bộ.
  *   5. Chi tiết từng khoá: học bạ các buổi báo cáo + phiếu nhận xét từng buổi (bản in 2 phiếu / trang).
  * Không hook, không mã chỉ-máy-chủ → render được ở cả hai phía.
  */
-import { Award, BookOpenCheck, CalendarCheck, Lightbulb, MessageSquareQuote, Rocket, Route, School, Sparkles, Star } from "lucide-react";
+import { Award, BookOpenCheck, CalendarCheck, MessageSquareQuote, Rocket, Route, School, Sparkles, Star } from "lucide-react";
 import { BrandLockup } from "@/components/brand";
 import { StudentAvatar } from "@/components/student-avatar";
 import {
   buildTechProfile, pairSheets, RUBRIC_LEVELS, RUBRIC_SCALE, TECH_MODULE_STATUS_VI, TH_DELIVERY,
-  type CompetencyGroup, type PortfolioAttendance, type PortfolioView, type TechCourseView,
+  type CompetencyGroup, type PortfolioAttendance, type PortfolioMedia, type PortfolioView, type TechCourseView, type TechMade,
 } from "@satarobo/core";
 import { CenterFooter, LEVEL_TONE, LevelChip, fmtDay, num1, pct } from "./parts";
 import { ProgressLine, RadarChart } from "./charts";
@@ -62,15 +64,15 @@ export function PortfolioDocument({ view, actions }: { view: PortfolioView; acti
 
         <dl className="relative mt-8 grid gap-3 text-sm sm:grid-cols-3 print:mt-14 print:text-base">
           {view.student.code && <CoverRow label="Mã học viên" value={view.student.code} />}
-          {view.student.grade != null && <CoverRow label="Lớp (trường phổ thông)" value={`Lớp ${view.student.grade}`} />}
-          <CoverRow label="Phạm vi" value={period ? `${view.scopeLabel} · ${period}` : view.scopeLabel} />
+          {view.student.grade != null && <CoverRow label="Lớp ở trường" value={`Lớp ${view.student.grade}`} />}
+          <CoverRow label="Giai đoạn" value={period ? `${view.scopeLabel} · ${period}` : view.scopeLabel} />
           {view.center && <CoverRow label="Đơn vị" value={view.center.name} />}
           <CoverRow label="Hình thức" value="Online qua ClassIn · 90 phút/buổi" />
           <CoverRow label="Lập ngày" value={fmtDay(view.generatedAt) ?? ""} />
         </dl>
         <div className="relative mt-6 grid grid-cols-2 gap-2 text-center sm:grid-cols-4 print:mt-14">
           <CoverStat value={String(tech.stats.modulesDone)} label="học phần đã báo cáo" />
-          <CoverStat value={String(tech.stats.products)} label="sản phẩm & khoảnh khắc" />
+          <CoverStat value={String(tech.stats.products)} label="sản phẩm đã làm" />
           <CoverStat value={pct(view.attendance.rate)} label="chuyên cần" />
           <CoverStat value={String(tech.stats.certificates)} label="chứng nhận" />
         </div>
@@ -84,13 +86,13 @@ export function PortfolioDocument({ view, actions }: { view: PortfolioView; acti
       )}
 
       {/* 2. BỨC TRANH NĂNG LỰC */}
-      <section className="hs-page hs-break space-y-4 rounded-2xl border border-border bg-card p-5 print:rounded-none print:border-0 print:p-0" aria-label="Bức tranh năng lực">
+      <section className="hs-page hs-break space-y-4 rounded-2xl border border-border bg-card p-5 print:rounded-none print:border-0 print:p-0" aria-label="Năng lực và phẩm chất">
         <div className="flex flex-wrap items-end justify-between gap-2">
-          <SectionTitle icon={Star} title="Bức tranh năng lực" sub="6 năng lực + 3 phẩm chất theo khung TH STEAM (GDPT 2018 · TT 02/2025)" />
+          <SectionTitle icon={Star} title="Năng lực & phẩm chất của con" sub="6 năng lực + 3 phẩm chất theo khung TH STEAM (GDPT 2018 · TT 02/2025)" />
           <Legend />
         </div>
         {tech.competency.source ? (
-          <p className="text-xs text-muted-foreground">Theo: <b className="text-foreground">{tech.competency.source}</b>{tech.competency.sourceDate ? ` · ${fmtDay(tech.competency.sourceDate)}` : ""}</p>
+          <p className="text-xs text-muted-foreground">Đánh giá theo: <b className="text-foreground">{tech.competency.source}</b>{tech.competency.sourceDate ? ` · ${fmtDay(tech.competency.sourceDate)}` : ""}</p>
         ) : (
           <p className="text-sm text-muted-foreground">Chưa có đánh giá năng lực — sẽ có sau buổi học đầu tiên được giáo viên nhận xét.</p>
         )}
@@ -101,8 +103,8 @@ export function PortfolioDocument({ view, actions }: { view: PortfolioView; acti
           <div className="hs-avoid grid items-center gap-4 rounded-2xl bg-[#f8fafc] p-4 sm:grid-cols-[1fr_1.1fr] print:grid-cols-[1fr_1.1fr]">
             <RadarChart axes={radarCourse.radar} />
             <div className="text-sm">
-              <div className="font-bold text-foreground">Mạng nhện năng lực</div>
-              <p className="mt-1 text-xs text-muted-foreground">Điểm trung bình các phiếu nhận xét buổi của khoá <b>{radarCourse.courseName}</b> (thang 1–{RUBRIC_SCALE}: {RUBRIC_LEVELS.map((l) => l.label).join(" · ")}).</p>
+              <div className="font-bold text-foreground">Biểu đồ năng lực</div>
+              <p className="mt-1 text-xs text-muted-foreground">Mức trung bình của con ở từng tiêu chí qua các buổi học khoá <b>{radarCourse.courseName}</b> — càng xa tâm càng tốt (1 {RUBRIC_LEVELS[0]!.label} · 2 {RUBRIC_LEVELS[1]!.label} · 3 {RUBRIC_LEVELS[2]!.label}).</p>
               <div className="mt-2 flex flex-wrap gap-1.5">
                 <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${LEVEL_TONE[3]!.chip}`}>{tech.competency.counts.tot} Tốt</span>
                 <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${LEVEL_TONE[2]!.chip}`}>{tech.competency.counts.dat} Đạt</span>
@@ -114,16 +116,16 @@ export function PortfolioDocument({ view, actions }: { view: PortfolioView; acti
       </section>
 
       {/* 3. LỘ TRÌNH CHƯƠNG TRÌNH */}
-      <section className="hs-break space-y-4 rounded-2xl border border-border bg-card p-5 print:rounded-none print:border-0 print:p-0" aria-label="Lộ trình chương trình">
-        <SectionTitle icon={Route} title="Lộ trình chương trình" sub="1 năm học = 3 học phần × 15 buổi · buổi 15 con báo cáo trước phụ huynh" />
+      <section className="hs-break space-y-4 rounded-2xl border border-border bg-card p-5 print:rounded-none print:border-0 print:p-0" aria-label="Lộ trình học tập">
+        <SectionTitle icon={Route} title="Lộ trình học tập" sub="1 năm học = 3 học phần × 15 buổi · buổi 15 con báo cáo trước phụ huynh" />
         {tech.courses.length === 0 && <p className="text-sm text-muted-foreground">Chưa có khoá học nào trong phạm vi này.</p>}
         <ol className="space-y-4">
           {tech.courses.map((c) => <CourseTrack key={c.enrollmentId} c={c} />)}
         </ol>
       </section>
 
-      {/* 4. NHẬN XÉT · SẢN PHẨM · CHUYÊN CẦN · CHỨNG NHẬN */}
-      <section className="hs-break space-y-5 rounded-2xl border border-border bg-card p-5 print:rounded-none print:border-0 print:p-0" aria-label="Nhận xét và sản phẩm">
+      {/* 4. NHẬN XÉT · CHUYÊN CẦN · CHỨNG NHẬN · TIẾN BỘ */}
+      <section className="hs-break space-y-5 rounded-2xl border border-border bg-card p-5 print:rounded-none print:border-0 print:p-0" aria-label="Nhận xét, chuyên cần và chứng nhận">
         {tech.teacherNote && (
           <div className="hs-avoid rounded-2xl border-l-4 border-accent-500 bg-[#fffbeb] p-4">
             <SectionTitle icon={MessageSquareQuote} title="Thầy cô nhận xét" sub={`${tech.teacherNote.label}${tech.teacherNote.date ? ` · ${fmtDay(tech.teacherNote.date)}` : ""}`} />
@@ -135,40 +137,6 @@ export function PortfolioDocument({ view, actions }: { view: PortfolioView; acti
             {tech.teacherNote.authorName && <p className="mt-2 text-right text-xs font-semibold text-muted-foreground">— {tech.teacherNote.authorName}</p>}
           </div>
         )}
-
-        <div>
-          <SectionTitle icon={Rocket} title="Sản phẩm & dự án của con" />
-          {tech.products.length === 0 && view.gallery.length === 0 ? (
-            <p className="mt-2 text-sm text-muted-foreground">Sản phẩm sẽ được thầy cô ghi lại sau mỗi buổi học.</p>
-          ) : (
-            <>
-              {tech.products.length > 0 && (
-                <ul className="mt-3 grid gap-2 sm:grid-cols-2 print:grid-cols-2">
-                  {tech.products.map((p, i) => (
-                    <li key={i} className="hs-avoid flex gap-3 rounded-xl border border-border p-3">
-                      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#dbeafe] text-primary"><Lightbulb className="h-4 w-4" aria-hidden /></span>
-                      <div className="min-w-0">
-                        <div className="text-sm font-semibold text-foreground">{p.text}</div>
-                        <div className="text-[11px] text-muted-foreground">{p.label} · {fmtDay(p.date)} · {p.courseName}</div>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {view.gallery.length > 0 && (
-                <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 print:grid-cols-3">
-                  {view.gallery.map((g) => (
-                    <figure key={g.id} className="hs-avoid overflow-hidden rounded-xl border border-border bg-muted">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={g.url} alt={g.caption ?? "Sản phẩm của con"} className="h-32 w-full object-cover print:h-36" loading="lazy" />
-                      <figcaption className="px-2 py-1 text-[11px] text-muted-foreground">{g.caption ?? g.courseName}{g.date ? ` · ${fmtDay(g.date)}` : ""}</figcaption>
-                    </figure>
-                  ))}
-                </div>
-              )}
-            </>
-          )}
-        </div>
 
         <div className="grid gap-4 sm:grid-cols-2 print:grid-cols-2">
           <div className="hs-avoid">
@@ -218,7 +186,7 @@ export function PortfolioDocument({ view, actions }: { view: PortfolioView; acti
               <div className="text-right text-sm">
                 <div>Chuyên cần <b className="text-primary">{pct(c.attendance.rate)}</b></div>
                 <div className="text-xs text-muted-foreground">{c.attendance.present + c.attendance.late + c.attendance.makeup}/{c.attendance.total} buổi có mặt</div>
-                {c.average != null && <div className="text-xs text-muted-foreground">Điểm TB các buổi {num1(c.average)}/{RUBRIC_SCALE}</div>}
+                {c.average != null && <div className="text-xs text-muted-foreground">Mức trung bình các buổi {num1(c.average)}/{RUBRIC_SCALE}</div>}
               </div>
             </div>
           </div>
@@ -314,9 +282,10 @@ function CourseTrack({ c }: { c: TechCourseView }) {
                   {m.levelLabel && <LevelChip level={m.level} label={m.levelLabel} />}
                 </div>
                 <dl className="mt-2 space-y-1 text-[12px] leading-snug">
-                  <div><dt className="inline font-semibold text-foreground">Sản phẩm: </dt><dd className="inline text-foreground/80">{m.product}</dd></div>
-                  <div><dt className="inline font-semibold text-foreground">Con làm được: </dt><dd className="inline text-foreground/80">{m.canDo}</dd></div>
+                  <div><dt className="inline font-semibold text-foreground">Sản phẩm của học phần: </dt><dd className="inline text-foreground/80">{m.product}</dd></div>
+                  <div><dt className="inline font-semibold text-foreground">Mục tiêu: </dt><dd className="inline text-foreground/80">{m.canDo}</dd></div>
                 </dl>
+                <MadeList made={m.made} photos={m.photos} />
               </li>
             );
           })}
@@ -326,8 +295,32 @@ function CourseTrack({ c }: { c: TechCourseView }) {
           <div className="h-2 rounded-full bg-primary" style={{ width: `${Math.min(100, Math.round((c.sessionsDone / total) * 100))}%` }} />
         </div>
       ) : null}
+      {c.modules.length === 0 && <MadeList made={c.made} photos={c.photos} />}
       {c.certificateNo && <p className="mt-2 text-xs font-semibold text-accent-700">Giấy chứng nhận số {c.certificateNo}</p>}
     </li>
+  );
+}
+
+/** "Con đã làm": sản phẩm thầy cô ghi ở các buổi (mới nhất trước) + tối đa 2 ảnh — xem đủ ở phần chi tiết từng buổi */
+function MadeList({ made, photos }: { made: TechMade[]; photos: PortfolioMedia[] }) {
+  if (!made.length && !photos.length) return null;
+  return (
+    <div className="mt-2 rounded-lg bg-white/70 p-2 ring-1 ring-black/5">
+      <div className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-accent-700"><Rocket className="h-3.5 w-3.5" aria-hidden />Con đã làm</div>
+      {made.length > 0 && (
+        <ul className="mt-1 space-y-0.5 text-[12px] leading-snug text-foreground">
+          {made.map((x, i) => <li key={i}>• {x.text} <span className="text-[11px] text-muted-foreground">({x.label})</span></li>)}
+        </ul>
+      )}
+      {photos.length > 0 && (
+        <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+          {photos.map((ph) => (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img key={ph.id} src={ph.url} alt={ph.caption ?? (ph.classWide ? "Ảnh cả lớp" : "Ảnh của con")} className="h-16 w-full rounded-md object-cover print:h-20" loading="lazy" />
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -384,7 +377,7 @@ function AttendanceBar({ a }: { a: PortfolioAttendance }) {
     { n: a.late, label: "Vào muộn", cls: "bg-primary" },
     { n: a.makeup, label: "Học bù", cls: "bg-brand-300" },
     { n: a.excused, label: "Nghỉ có phép", cls: "bg-accent-200" },
-    { n: a.absent, label: "Vắng", cls: "bg-accent-500" },
+    { n: a.absent, label: "Vắng không phép", cls: "bg-accent-500" },
   ];
   return (
     <div className="mt-2">

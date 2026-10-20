@@ -4,14 +4,14 @@
  * Không đọc CSDL: chỉ ghép dữ liệu đã có (phiếu buổi, học bạ mốc, chứng nhận) với khung chương trình chuẩn
  * (`curriculum/thsteam.ts`) để phụ huynh đọc được:
  *   - Con đang ở chương trình nào, năm học thứ mấy, đã qua mấy học phần (mỗi học phần 15 buổi, buổi 15 là buổi báo cáo).
- *   - Bức tranh 6 năng lực + 3 phẩm chất theo thang Tốt / Đạt / Cần cố gắng, kèm mô tả "con làm được gì" của đúng
+ *   - Năng lực & phẩm chất: 6 năng lực + 3 phẩm chất theo thang Tốt / Đạt / Cần cố gắng, kèm mô tả "con làm được gì" của đúng
  *     chương trình đó (bảng "Con thay đổi gì sau mỗi năm học").
- *   - Sản phẩm / dự án con đã làm (ghi chú sản phẩm của phiếu buổi) và sản phẩm dự kiến của từng học phần.
+ *   - "Con đã làm" của từng học phần (ghi chú sản phẩm + ảnh của các buổi trong học phần) đặt cạnh sản phẩm dự kiến của chương trình.
  */
 import { TH_CRITERIA_ORDER, TH_DIFFICULTY_VI, TH_LEVEL_VI, TH_SESSIONS_PER_MODULE, TH_TRACK_SHORT, ageRange, programTitle, thCourseSpecs, thProgram, type ThCourseSpec } from "../curriculum/thsteam.js";
 import type { ThProgram } from "../curriculum/thsteam-types.js";
 import { RUBRIC_LABEL, RUBRIC_SCALE, convertScore, rubricLevelsFor } from "./rubric.js";
-import type { MilestoneCardView, PortfolioCourseView, PortfolioView } from "./view.js";
+import type { MilestoneCardView, PortfolioCourseView, PortfolioMedia, PortfolioView, SessionSheetView } from "./view.js";
 
 let SPECS: Map<string, ThCourseSpec> | null = null;
 function specOf(code: string): ThCourseSpec | null {
@@ -19,9 +19,9 @@ function specOf(code: string): ThCourseSpec | null {
   return SPECS.get(code) ?? null;
 }
 
-/** done = đã có học bạ buổi báo cáo · waiting = học đủ 15 buổi, chờ thầy cô phát hành học bạ · in_progress · upcoming */
+/** done = đã có học bạ buổi báo cáo · waiting = học đủ 15 buổi, chờ thầy cô gửi báo cáo học phần · in_progress · upcoming */
 export type TechModuleStatus = "done" | "waiting" | "in_progress" | "upcoming";
-export const TECH_MODULE_STATUS_VI: Record<TechModuleStatus, string> = { done: "Đã báo cáo", waiting: "Chờ học bạ", in_progress: "Đang học", upcoming: "Sắp học" };
+export const TECH_MODULE_STATUS_VI: Record<TechModuleStatus, string> = { done: "Đã báo cáo", waiting: "Chờ báo cáo", in_progress: "Đang học", upcoming: "Sắp học" };
 
 export interface TechModuleView {
   no: number;
@@ -41,6 +41,32 @@ export interface TechModuleView {
   level: number | null;
   levelLabel: string | null;
   reportDate: string | null;
+  /** "Con đã làm": sản phẩm thầy cô ghi ở các buổi của học phần (mới nhất trước, tối đa TECH_MADE_MAX) */
+  made: TechMade[];
+  /** Ảnh minh chứng của học phần (ưu tiên ảnh có con, tối đa TECH_PHOTO_MAX) */
+  photos: PortfolioMedia[];
+}
+
+export interface TechMade {
+  text: string;
+  date: string;
+  label: string;
+}
+
+/** Số sản phẩm / ảnh tối đa hiện trên một thẻ học phần — phần chi tiết từng buổi vẫn có đủ */
+export const TECH_MADE_MAX = 3;
+export const TECH_PHOTO_MAX = 2;
+
+/** Sản phẩm + ảnh của một nhóm phiếu buổi (một học phần, hoặc cả khoá luyện thi) */
+function madeOf(sheets: readonly SessionSheetView[]): { made: TechMade[]; photos: PortfolioMedia[] } {
+  const newest = [...sheets].sort((a, b) => (a.snapshot.context.date < b.snapshot.context.date ? 1 : a.snapshot.context.date > b.snapshot.context.date ? -1 : b.snapshot.context.sequenceNo - a.snapshot.context.sequenceNo));
+  const made = newest.filter((s) => s.productNote?.trim()).slice(0, TECH_MADE_MAX)
+    .map((s) => ({ text: s.productNote!.trim(), date: s.snapshot.context.date, label: s.snapshot.context.label }));
+  const media = newest.flatMap((s) => s.media);
+  const seen = new Set<string>();
+  const photos = [...media.filter((m) => !m.classWide), ...media.filter((m) => m.classWide)]
+    .filter((m) => (seen.has(m.id) ? false : (seen.add(m.id), true))).slice(0, TECH_PHOTO_MAX);
+  return { made, photos };
 }
 
 export interface TechCourseView {
@@ -60,6 +86,9 @@ export interface TechCourseView {
   sessionsDone: number;
   sessionsTotal: number | null;
   modules: TechModuleView[];
+  /** Khoá không chia học phần (luyện thi, khoá ngoài danh mục): sản phẩm + ảnh của cả khoá */
+  made: TechMade[];
+  photos: PortfolioMedia[];
   certificateNo: string | null;
 }
 
@@ -101,6 +130,7 @@ export interface TechProfile {
   courses: TechCourseView[];
   current: TechCourseView | null;
   competency: CompetencyProfile;
+  /** Mọi sản phẩm thầy cô đã ghi (mới nhất trước) — hồ sơ hiện theo từng học phần, danh sách này để đếm / xuất */
   products: TechProduct[];
   teacherNote: { comment: string | null; strengths: string | null; improvements: string | null; authorName: string | null; label: string; date: string | null } | null;
   stats: { yearsDone: number; modulesDone: number; products: number; certificates: number };
@@ -133,6 +163,7 @@ function moduleViews(c: PortfolioCourseView, spec: ThCourseSpec, program: ThProg
       no: m.no, name: m.name, difficulty: TH_DIFFICULTY_VI[m.difficulty], learn: m.learn, product: m.product, canDo: m.canDo,
       fromSeq, toSeq, sessionsDone: done, sessionsTotal: TH_SESSIONS_PER_MODULE, status,
       level, levelLabel: level ? RUBRIC_LABEL[level] ?? null : null, reportDate: card?.publishedAt ?? null,
+      ...madeOf(c.sheets.filter((s) => s.snapshot.context.sequenceNo >= fromSeq && s.snapshot.context.sequenceNo <= toSeq)),
     };
   });
 }
@@ -156,6 +187,7 @@ export function techCourseView(c: PortfolioCourseView): TechCourseView {
     sessionsDone: new Set(c.sheets.map((s) => s.snapshot.context.sequenceNo)).size,
     sessionsTotal: spec?.totalSessions ?? null,
     modules,
+    ...(modules.length ? { made: [], photos: [] } : madeOf(c.sheets)),
     certificateNo: c.certificate?.certificateNo ?? null,
   };
 }
@@ -220,8 +252,7 @@ export function buildTechProfile(view: PortfolioView): TechProfile {
     .flatMap((c) => c.sheets.filter((s) => s.productNote?.trim()).map((s) => ({
       text: s.productNote!.trim(), date: s.snapshot.context.date, label: s.snapshot.context.label, courseName: c.courseName,
     })))
-    .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))
-    .slice(0, 12);
+    .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
   const latest = latestMilestone(view);
   const teacherNote = latest && (latest.card.teacherComment || latest.card.strengths || latest.card.improvements)
     ? { comment: latest.card.teacherComment, strengths: latest.card.strengths, improvements: latest.card.improvements, authorName: latest.card.authorName, label: latest.card.label, date: latest.card.publishedAt }

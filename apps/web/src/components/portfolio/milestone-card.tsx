@@ -33,8 +33,8 @@ export function MilestoneCard({ card, standalone = false, printSessions = true }
           <section className="hs-avoid grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="Tổng hợp giai đoạn">
             <Stat icon={CalendarCheck} label="Chuyên cần" value={`${a.attendance.attended}/${a.attendance.total}`} sub={`buổi ${a.period.fromSeq}–${a.period.toSeq}`} />
             <Stat icon={Target} label="Đạt mục tiêu bài" value={judged ? `${a.objective.achieved}/${judged}` : "—"} sub={pct(a.objective.rate)} />
-            <Stat icon={Sparkles} label="Điểm TB giai đoạn" value={a.overall.average != null ? `${num1(a.overall.average)}/${a.scale}` : "—"} sub={<TrendChip trend={a.overall.trend} small />} />
-            <Stat icon={Sprout} label="Phiếu buổi" value={String(a.sessions)} sub="đã tổng hợp" />
+            <Stat icon={Sparkles} label="Mức trung bình" value={a.overall.average != null ? `${num1(a.overall.average)}/${a.scale}` : "—"} sub={<TrendChip trend={a.overall.trend} small />} />
+            <Stat icon={Sprout} label="Phiếu nhận xét" value={String(a.sessions)} sub="buổi đã tổng hợp" />
           </section>
         )}
 
@@ -46,7 +46,7 @@ export function MilestoneCard({ card, standalone = false, printSessions = true }
               value={s.score}
               scale={card.scale}
               hint={false}
-              extra={<>{s.average != null && <span className="text-[11px] text-muted-foreground">TB buổi {num1(s.average)}</span>}<TrendChip trend={s.trend} small /></>}
+              extra={<>{s.average != null && <span className="text-[11px] text-muted-foreground">Trung bình các buổi {num1(s.average)}</span>}<TrendChip trend={s.trend} small /></>}
             />
           ))}
         </section>

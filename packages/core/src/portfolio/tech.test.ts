@@ -38,6 +38,9 @@ test("hồ sơ công nghệ: khoá năm học → chương trình, 3 học phầ
   assert.deepEqual(t.modules.map((m) => [m.fromSeq, m.toSeq, m.sessionsDone, m.status]), [[1, 15, 15, "done"], [16, 30, 2, "in_progress"], [31, 45, 0, "upcoming"]]);
   assert.equal(t.modules[0]!.levelLabel, "Tốt"); // TB 2,5 → làm tròn mức 3
   assert.equal(t.sessionsTotal, 45);
+  // "Con đã làm" theo đúng học phần: buổi 17 thuộc HP2, HP1 không có ghi chú sản phẩm
+  assert.deepEqual(t.modules[1]!.made.map((m) => m.text), ["Robot ảo đi theo vạch"]);
+  assert.equal(t.modules[0]!.made.length, 0);
   // khoá ngoài danh mục chuẩn vẫn hiện được
   const other = techCourseView(course({ courseCode: "KHAC-1", courseLevel: "Cơ bản" }));
   assert.equal(other.kind, "other");
@@ -73,6 +76,13 @@ test("hồ sơ công nghệ: sản phẩm mới nhất trước, nhận xét gi�
   const c = course({ sheets: [sheet(3, "Robot đi thẳng"), sheet(9, "Robot rẽ trái"), sheet(10, "  ")], milestones: [card(15, "2026-12-10T10:00:00Z", [["Chăm chỉ", 3]])] });
   const t = buildTechProfile(view([c]));
   assert.deepEqual(t.products.map((p) => p.text), ["Robot rẽ trái", "Robot đi thẳng"]);
+  assert.deepEqual(t.courses[0]!.modules[0]!.made.map((m) => m.text), ["Robot rẽ trái", "Robot đi thẳng"]);
+  // khoá không chia học phần: sản phẩm của cả khoá, ảnh có con trước ảnh cả lớp, tối đa 2 ảnh
+  const media = (id: string, classWide: boolean) => ({ id, url: `/a/${id}`, caption: null, date: null, classWide });
+  const exam = buildTechProfile(view([course({ courseCode: "ROBO-TH-THI-STR", sheets: [{ ...sheet(2, "Bài thi thử 1"), media: [media("lop", true), media("con", false)] }, { ...sheet(3), media: [media("con2", false)] }] })]));
+  assert.equal(exam.courses[0]!.kind, "exam");
+  assert.deepEqual(exam.courses[0]!.made.map((m) => m.text), ["Bài thi thử 1"]);
+  assert.deepEqual(exam.courses[0]!.photos.map((m) => m.id), ["con2", "con"]);
   assert.equal(t.teacherNote?.comment, "Con tiến bộ rõ.");
   assert.equal(t.stats.modulesDone, 1);
   assert.equal(t.current?.courseCode, "ROBO-TH-N1");
