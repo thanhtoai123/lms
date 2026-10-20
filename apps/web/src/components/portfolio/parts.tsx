@@ -1,5 +1,5 @@
 /**
- * Mảnh hiển thị dùng chung của HỒ SƠ HỌC TẬP (phiếu buổi, học bạ mốc, cả hồ sơ).
+ * Mảnh hiển thị dùng chung của HỒ SƠ CÔNG NGHỆ (phiếu buổi, học bạ mốc, cả hồ sơ).
  * Không dùng hook, không import mã chỉ-máy-chủ → render được ở máy chủ (trang phụ huynh, trang in)
  * lẫn trình duyệt (xem trước trong drawer).
  */
@@ -42,6 +42,22 @@ function toneOf(idx: number, n: number) {
 }
 
 /**
+ * MÀU THEO MỨC của thang 3 (bảng màu nhận diện): 1 Cần cố gắng = Cosmic Gold · 2 Đạt = Deep Ocean Blue · 3 Tốt = Emerald.
+ * Dùng chung cho thanh nấc, chip mức, bức tranh năng lực và học phần.
+ */
+export const LEVEL_TONE: Record<number, { fill: string; text: string; chip: string; dot: string }> = {
+  1: { fill: "bg-[#f59e0b]", text: "text-[#b45309]", chip: "bg-[#fef3c7] text-[#b45309]", dot: "#f59e0b" },
+  2: { fill: "bg-[#1d4ed8]", text: "text-[#1d4ed8]", chip: "bg-[#dbeafe] text-[#1e40af]", dot: "#1d4ed8" },
+  3: { fill: "bg-[#10b981]", text: "text-[#047857]", chip: "bg-[#d1fae5] text-[#047857]", dot: "#10b981" },
+};
+
+/** Chip mức (Tốt / Đạt / Cần cố gắng) */
+export function LevelChip({ level, label, className = "" }: { level: number | null; label: string | null; className?: string }) {
+  if (!level || !label) return <span className={`rounded-full bg-[#f1f5f9] px-2.5 py-0.5 text-[11px] font-semibold text-[#64748b] ${className}`}>Chưa đánh giá</span>;
+  return <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${LEVEL_TONE[level]?.chip ?? ""} ${className}`}>{label}</span>;
+}
+
+/**
  * Thanh nấc cho một tiêu chí (3 nấc Cần cố gắng / Đạt / Tốt; học bạ cũ 4 hoặc 5 nấc): các nấc tới mức đạt được tô màu,
  * mức đạt được in đậm; dưới thanh là mô tả của mức (giúp ông bà đọc hiểu, không cần bảng tra).
  */
@@ -66,13 +82,17 @@ export function RubricBar({
   const idx = value == null ? -1 : steps.findIndex((l) => l.value === value);
   const t = toneOf(idx, steps.length);
   const chosen = idx >= 0 ? steps[idx] : undefined;
+  // Thang 3 mức hiện hành: màu cố định theo mức (Cần cố gắng vàng · Đạt xanh dương · Tốt xanh ngọc) — giống bức tranh năng lực
+  const three = steps.length === 3 && idx >= 0;
+  const fill = three ? LEVEL_TONE[idx + 1]!.fill : FILL[t];
+  const text = three ? LEVEL_TONE[idx + 1]!.text : TEXT[t];
   return (
     <div className={`hs-avoid ${dense ? "py-1.5" : "py-2"}`}>
       <div className="flex items-baseline justify-between gap-3">
         <span className="text-sm font-semibold text-foreground">{label}</span>
         <span className="flex shrink-0 items-center gap-2">
           {extra}
-          <span className={`text-sm font-bold ${chosen ? TEXT[t] : "text-muted-foreground"}`}>{chosen ? chosen.label : "Chưa đánh giá"}</span>
+          <span className={`text-sm font-bold ${chosen ? text : "text-muted-foreground"}`}>{chosen ? chosen.label : "Chưa đánh giá"}</span>
         </span>
       </div>
       <div
@@ -82,12 +102,12 @@ export function RubricBar({
         aria-label={`${label}: ${chosen ? chosen.label : "chưa đánh giá"} (${idx + 1}/${steps.length})`}
       >
         {steps.map((l, i) => (
-          <div key={l.value} className={`h-2.5 rounded-full ${i <= idx ? FILL[t] : "bg-brand-100/70"}`} />
+          <div key={l.value} className={`h-2.5 rounded-full ${i <= idx ? fill : "bg-[#e2e8f0]"}`} />
         ))}
       </div>
       {!dense && (
         <div className="mt-0.5 grid gap-1 text-center text-[10px] leading-tight text-muted-foreground" style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))` }} aria-hidden>
-          {steps.map((l, i) => <span key={l.value} className={`truncate ${i === idx ? `font-bold ${TEXT[t]}` : ""}`}>{l.label}</span>)}
+          {steps.map((l, i) => <span key={l.value} className={`truncate ${i === idx ? `font-bold ${text}` : ""}`}>{l.label}</span>)}
         </div>
       )}
       {hint && chosen?.hint && <p className="mt-1 text-xs italic text-foreground/70">{chosen.hint}</p>}

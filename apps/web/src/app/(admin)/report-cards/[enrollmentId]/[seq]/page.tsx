@@ -31,7 +31,7 @@ export default async function ReportCardPage({ params }: { params: Promise<{ enr
         <div className="flex flex-col items-end gap-1">
           {d.card ? <ReportCardChip status={d.card.status} /> : <span className="chip bg-red-50 text-red-700">Chưa viết</span>}
           {d.card && <Link href={`/hoc-ba-moc/${d.card.id}`} className="text-xs font-semibold text-brand-600">In học bạ</Link>}
-          <Link href={`/ho-so-hoc-tap/${d.enrollment.studentId}?enrollmentId=${d.enrollment.id}`} className="text-xs text-ink-600">Hồ sơ học tập khoá này</Link>
+          <Link href={`/ho-so-hoc-tap/${d.enrollment.studentId}?enrollmentId=${d.enrollment.id}`} className="text-xs text-ink-600">Hồ sơ công nghệ khoá này</Link>
         </div>
       </header>
       {d.card?.status === "returned" && d.card.returnReason && <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">Giáo vụ trả lại: {d.card.returnReason}</div>}

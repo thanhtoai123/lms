@@ -1,5 +1,5 @@
 /**
- * Dữ liệu biểu đồ cho hồ sơ học tập — hàm thuần tính toạ độ SVG (không thư viện vẽ).
+ * Dữ liệu biểu đồ cho hồ sơ công nghệ — hàm thuần tính toạ độ SVG (không thư viện vẽ).
  *  - Biểu đồ đường: điểm trung bình tiêu chí của từng phiếu buổi theo thời gian (thang 1–3, Cần cố gắng → Tốt).
  *  - Mạng nhện (radar): điểm trung bình từng năng lực trong một khoá.
  */

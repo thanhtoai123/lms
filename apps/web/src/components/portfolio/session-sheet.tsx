@@ -1,5 +1,5 @@
 /**
- * PHIẾU NHẬN XÉT MỘT BUỔI HỌC — dùng chung cho hồ sơ học tập (màn hình + bản in 2 phiếu / trang A4),
+ * PHIẾU NHẬN XÉT MỘT BUỔI HỌC — dùng chung cho hồ sơ công nghệ (màn hình + bản in 2 phiếu / trang A4),
  * trang in riêng một phiếu (khổ A5) và cổng phụ huynh. Không hook → render được ở máy chủ.
  *
  * Nội dung lấy từ BẢN CHỤP lúc phát hành (tiêu chí, mô tả mức, bài học, GV…) — in lại lúc nào cũng

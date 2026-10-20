@@ -1,6 +1,6 @@
 /**
  * XUẤT PDF PHÍA MÁY CHỦ (tuỳ chọn) — dùng `playwright-core` điều khiển Chrome có sẵn trên máy chủ
- * để in trang in nội bộ của hồ sơ học tập ra tệp PDF khổ A4, lưu vào kho tệp làm bản lưu trữ.
+ * để in trang in nội bộ của hồ sơ công nghệ ra tệp PDF khổ A4, lưu vào kho tệp làm bản lưu trữ.
  *
  * - Chỉ bật khi `PDF_RENDERER=playwright`. Không bật (hoặc chưa cài gói) thì giao diện ẩn nút
  *   "Xuất PDF lưu trữ" và chỉ còn "In / Lưu PDF" (hộp thoại in của trình duyệt).

@@ -95,7 +95,7 @@ const criteriaRouter = router({
   setFocus: protectedProcedure.input(z.object({ lessonId: uuid, criterionIds: z.array(uuid).max(4, "Chọn tối đa 4 tiêu chí trọng tâm") })).mutation(({ ctx, input }) => C.setLessonFocus(ctx, input)),
 });
 
-/** Quản lý hồ sơ học tập theo chuẩn thông tin (trang /ho-so-hoc-tap) */
+/** Quản lý hồ sơ công nghệ theo chuẩn thông tin (trang /ho-so-hoc-tap) */
 const standardRouter = router({
   board: protectedProcedure.input(filterInput).query(({ ctx, input }) => S.complianceBoard(ctx, input)),
   options: protectedProcedure.query(({ ctx }) => S.complianceOptions(ctx)),
@@ -113,7 +113,7 @@ const scopeInput = {
   to: isoDate.nullish(),
 };
 
-/** Hồ sơ học tập của học viên: xem, chia sẻ link, thu hồi, xuất PDF lưu trữ (tuỳ chọn) */
+/** Hồ sơ công nghệ của học viên: xem, chia sẻ link, thu hồi, xuất PDF lưu trữ (tuỳ chọn) */
 export const portfolioRouter = router({
   criteria: criteriaRouter,
   standard: standardRouter,

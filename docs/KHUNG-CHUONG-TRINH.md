@@ -28,7 +28,7 @@ Màn quản trị: **Chương trình & học liệu → Khung chương trình ch
 | Giấy chứng nhận | Nền mặc định `mau-chung-nhan/th-steam-mac-dinh.svg` (A4 ngang, viền vàng kép, dấu triện); số hiệu `TH-…` | `certificates/rules.ts` |
 
 Logo dùng ở đâu: thanh bên quản trị, khu giáo viên, cổng phụ huynh (logo ngang bản màu); trang đăng nhập quản trị, giấy chứng nhận /
-hồ sơ học tập / phiếu đánh giá trực tuyến (đầu trang Midnight Navy + logo ngang chữ trắng — không đặt logo màu trên nền xanh);
+hồ sơ công nghệ / phiếu đánh giá trực tuyến (đầu trang Midnight Navy + logo ngang chữ trắng — không đặt logo màu trên nền xanh);
 đầu trang website (logo ngang) và chân trang (bản chữ trắng); đăng nhập phụ huynh (logo đứng); nền giấy chứng nhận (logo đứng);
 biểu tượng tab / ứng dụng (favicon, apple-touch-icon, icon 192/512). Trung tâm tải logo riêng ở Cài đặt hệ thống → Nhận diện thì
 logo riêng thay cho bộ logo chính thức.

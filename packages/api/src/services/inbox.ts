@@ -312,7 +312,7 @@ async function trialReportGroup(ctx: ProtectedContext): Promise<InboxGroup | nul
 }
 
 /**
- * Buổi chưa có phiếu nhận xét học viên (hồ sơ học tập): buổi đã diễn ra, có học viên có mặt nhưng
+ * Buổi chưa có phiếu nhận xét học viên (hồ sơ công nghệ): buổi đã diễn ra, có học viên có mặt nhưng
  * chưa có phiếu phát hành. Tính từ mốc bật tính năng, trong 30 ngày gần nhất; GV chỉ thấy buổi mình dạy.
  * Quá hạn = qua hạn hoàn thiện phiếu của chuẩn hồ sơ (`sheetDeadlineHours` sau giờ kết thúc buổi, theo cơ sở).
  * Việc cần nhập liệu → "open" mở thẳng màn buổi học (khối phiếu nằm ngay dưới điểm danh).

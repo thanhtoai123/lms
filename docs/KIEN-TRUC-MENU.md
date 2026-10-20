@@ -13,7 +13,7 @@
 | Nhóm | 13 | 12 (11 nghiệp vụ + *Công cụ kỹ thuật*) |
 | Nhóm lớn nhất | 15 mục (*Hệ thống & Cấu hình*) | 6 mục |
 | Trang tới được từ menu (mục + chip) | 120 | 121 (thêm chỉ mục *Báo cáo*, chip *Ngày nghỉ*; bỏ 2 trang học bạ trùng, *Bảo mật tài khoản* sang menu tài khoản) |
-| Mục học bạ | 3 (`/hoc-ba`, `/report-cards`, `/ho-so-hoc-tap`) | **1** — *Học bạ & hồ sơ học tập* |
+| Mục học bạ | 3 (`/hoc-ba`, `/report-cards`, `/ho-so-hoc-tap`) | **1** — *Học bạ & hồ sơ công nghệ* |
 | Mục báo cáo | 10 | **1** — *Báo cáo* (trang chỉ mục) |
 | Mục chấm công | 7 | 2 (*Chấm công* + *Ca & công của tôi*) |
 | Đường cũ phải chuyển hướng | — | 2 (`/hoc-ba`, `/report-cards`, 308, giữ truy vấn) |
@@ -43,17 +43,17 @@ hoặc nằm ở menu tài khoản (kiểm thử `không mất chức năng` tro
 
 | Trang cũ | Thực chất | Còn giá trị? |
 |---|---|---|
-| `/hoc-ba` "Học bạ" | Chọn học viên → danh sách học bạ mốc (mọi trạng thái) kèm thanh điểm từng tiêu chí + nhận xét, chứng nhận; đã có nút "Mở hồ sơ học tập đầy đủ" | **Một phần.** Thanh điểm + nhận xét đã có (đầy đủ hơn, có biểu đồ tiến bộ, in PDF) trong hồ sơ học tập `/ho-so-hoc-tap/<HV>`. Nhưng hồ sơ chỉ hiện học bạ **đã gửi PH** — danh sách học bạ ở mọi trạng thái (nháp, chờ duyệt, trả lại) + lối vào viết / in vẫn cần. |
+| `/hoc-ba` "Học bạ" | Chọn học viên → danh sách học bạ mốc (mọi trạng thái) kèm thanh điểm từng tiêu chí + nhận xét, chứng nhận; đã có nút "Mở hồ sơ công nghệ đầy đủ" | **Một phần.** Thanh điểm + nhận xét đã có (đầy đủ hơn, có biểu đồ tiến bộ, in PDF) trong hồ sơ công nghệ `/ho-so-hoc-tap/<HV>`. Nhưng hồ sơ chỉ hiện học bạ **đã gửi PH** — danh sách học bạ ở mọi trạng thái (nháp, chờ duyệt, trả lại) + lối vào viết / in vẫn cần. |
 | `/report-cards` "Học bạ năng lực" | Chọn lớp → lưới học bạ mốc B5 / B12… theo học viên, lớp có học bạ chưa viết, **hàng đợi duyệt** (chờ duyệt → đã duyệt, chờ gửi PH) | **Có** — đây là luồng viết / duyệt học bạ mốc hằng ngày. |
-| `/ho-so-hoc-tap` "Quản lý hồ sơ học tập" | Bảng chuẩn hồ sơ: tỷ lệ phiếu đúng hạn / đủ chuẩn, học bạ mốc quá hạn, theo GV / lớp, nhắc GV | **Có** — màn quản lý. |
+| `/ho-so-hoc-tap` "Quản lý hồ sơ công nghệ" | Bảng chuẩn hồ sơ: tỷ lệ phiếu đúng hạn / đủ chuẩn, học bạ mốc quá hạn, theo GV / lớp, nhắc GV | **Có** — màn quản lý. |
 
-**Quyết định:** một mục menu duy nhất **"Học bạ & hồ sơ học tập"** ở `/ho-so-hoc-tap` (nhóm *Học viên*), ba chip chế độ xem:
+**Quyết định:** một mục menu duy nhất **"Học bạ & hồ sơ công nghệ"** ở `/ho-so-hoc-tap` (nhóm *Học viên*), ba chip chế độ xem:
 
 | Chip | Đường dẫn | Nội dung | Thay cho |
 |---|---|---|---|
 | Tổng quan chuẩn hồ sơ | `/ho-so-hoc-tap` | Màn quản lý hiện có (không đổi) | — |
-| Học bạ mốc cần viết / duyệt | `/ho-so-hoc-tap?xem=hoc-ba-moc[&class=<lớp>]` | Lưới theo lớp + hàng đợi duyệt (giữ nguyên luồng duyệt); tên học viên mở hồ sơ học tập của khoá | `/report-cards` → **308** |
-| Tra cứu học viên | `/ho-so-hoc-tap?xem=tra-cuu[&student=<HV>]` | Chọn học viên → nút lớn **Mở hồ sơ học tập**, chứng nhận, bảng học bạ mọi trạng thái (viết / duyệt / In). **Bỏ** thanh điểm + nhận xét từng học bạ (đã có trong hồ sơ). | `/hoc-ba` → **308** |
+| Học bạ mốc cần viết / duyệt | `/ho-so-hoc-tap?xem=hoc-ba-moc[&class=<lớp>]` | Lưới theo lớp + hàng đợi duyệt (giữ nguyên luồng duyệt); tên học viên mở hồ sơ công nghệ của khoá | `/report-cards` → **308** |
+| Tra cứu học viên | `/ho-so-hoc-tap?xem=tra-cuu[&student=<HV>]` | Chọn học viên → nút lớn **Mở hồ sơ công nghệ**, chứng nhận, bảng học bạ mọi trạng thái (viết / duyệt / In). **Bỏ** thanh điểm + nhận xét từng học bạ (đã có trong hồ sơ). | `/hoc-ba` → **308** |
 
 Trang chi tiết giữ nguyên đường dẫn và được tô sáng dưới mục này (`match`): viết / duyệt học bạ `/report-cards/<ghi danh>/<buổi>`,
 tiêu chí `/report-cards/criteria`, in học bạ mốc `/hoc-ba-moc/<id>`, phiếu buổi `/phieu-buoi/<id>`, hồ sơ `/ho-so-hoc-tap/<HV>`.
@@ -115,7 +115,7 @@ flowchart LR
   ROOT --> G2["Học viên"]
   G2 --> G2_0["Học viên<br/><small>Danh sách · Sắp hết khoá · Tài khoản phụ huynh · Thẻ học viên (QR)</small>"]
   G2 --> G2_1["Đăng ký học<br/><small>Đăng ký học · Chuyển lớp / cơ sở</small>"]
-  G2 --> G2_2["Học bạ & hồ sơ học tập<br/><small>Tổng quan chuẩn hồ sơ · Học bạ mốc cần viết / duyệt · Tra cứu học viên</small>"]
+  G2 --> G2_2["Học bạ & hồ sơ công nghệ<br/><small>Tổng quan chuẩn hồ sơ · Học bạ mốc cần viết / duyệt · Tra cứu học viên</small>"]
   G2 --> G2_3["Hoàn thành khoá & chứng nhận"]
   G2 --> G2_4["SataCoin"]
   ROOT --> G3["Lớp & lịch học"]
@@ -212,7 +212,7 @@ Tính bằng chính `hasPermission` của policy engine cho một tài khoản c
 
 ## 8. Sidebar mới
 
-- **Ô tìm trong menu** ở đầu sidebar: lọc theo chữ gõ, **không dấu cũng khớp** (`hoc ba` → *Học bạ & hồ sơ học tập*), tìm cả tên chip
+- **Ô tìm trong menu** ở đầu sidebar: lọc theo chữ gõ, **không dấu cũng khớp** (`hoc ba` → *Học bạ & hồ sơ công nghệ*), tìm cả tên chip
   (`duyet anh` → *Ảnh lớp học › Duyệt ảnh*), mô tả và từ khoá. Enter mở kết quả đầu, Esc xoá.
 - **Nhóm mở sẵn theo vai trò**; nhóm khác thu gọn (tiêu đề hiện số mục). Người dùng tự mở / đóng thì nhớ lại
   (`localStorage` khoá `admin-nav-open-v2`, bọc try/catch). Nhóm chứa trang đang mở luôn mở.
@@ -221,8 +221,8 @@ Tính bằng chính `hasPermission` của policy engine cho một tài khoản c
 - **Dải chip** của trang trung tâm do `AdminShell` dựng từ cây menu (đã lọc quyền), hiện trên đầu mọi trang là một chip;
   trang chi tiết (`/leads/<id>`…) không hiện dải chip nhưng vẫn tô sáng mục cha.
 - **Tô sáng** theo tiền tố dài nhất (`activeNavItem`): `/leads/import` thuộc *Nhập khách hàng*, không thuộc *Lead*.
-- **Bảng lệnh Ctrl+K** tìm cả chip ("Học bạ & hồ sơ học tập › Tra cứu học viên"), từ khoá của mục; thêm hành động nhanh
-  *Học bạ cần viết / duyệt*, *Tra cứu hồ sơ học tập*, *Xem báo cáo*, *Bảo mật tài khoản*.
+- **Bảng lệnh Ctrl+K** tìm cả chip ("Học bạ & hồ sơ công nghệ › Tra cứu học viên"), từ khoá của mục; thêm hành động nhanh
+  *Học bạ cần viết / duyệt*, *Tra cứu hồ sơ công nghệ*, *Xem báo cáo*, *Bảo mật tài khoản*.
 - HTML sidebar giữ cả nhóm thu gọn (thẻ `ul hidden`) và gắn `data-nav-href` / `data-nav-tab` để bộ kiểm thử đọc được đúng những gì người dùng được thấy.
 
 ## 9. Thêm / sửa mục menu
@@ -292,9 +292,9 @@ KS Kiểm soát · QLCS Quản lý cơ sở · GVụ Giáo vụ · TV/CSKH Tư v
 | 24 | Học viên & Đăng ký học | Chuyển lớp / cơ sở | `/chuyen-lop` | Gộp vào Đăng ký học | Học viên › Đăng ký học › chip “Chuyển lớp / cơ sở” | Thao tác trên ghi danh | QT, QLCS, GVụ, TV/CSKH |
 | 25 | Học viên & Đăng ký học | Sắp hết khoá | `/students/sap-het-khoa` | Gộp vào Học viên | Học viên › Học viên › chip “Sắp hết khoá” | Một bộ lọc của học viên | QT, KT-HS, KS, QLCS, GVụ, TV/CSKH, KT |
 | 26 | Học viên & Đăng ký học | Hoàn thành khoá & chứng nhận | `/hoan-thanh-khoa` | Giữ | Học viên › Hoàn thành khoá & chứng nhận | Nhiệm vụ riêng (duyệt hoàn thành, cấp chứng nhận) | QT, KT-HS, KS, QLCS, GVụ, TV/CSKH, KT |
-| 27 | Học viên & Đăng ký học | Học bạ | `/hoc-ba` | Gộp (chuyển hướng 308) | /ho-so-hoc-tap?xem=tra-cuu | Đã được hồ sơ học tập thay thế; phần còn giá trị (học bạ mọi trạng thái) thành chip Tra cứu | QT, ĐT, KS, QLCS, GVụ, GV |
+| 27 | Học viên & Đăng ký học | Học bạ | `/hoc-ba` | Gộp (chuyển hướng 308) | /ho-so-hoc-tap?xem=tra-cuu | Đã được hồ sơ công nghệ thay thế; phần còn giá trị (học bạ mọi trạng thái) thành chip Tra cứu | QT, ĐT, KS, QLCS, GVụ, GV |
 | 28 | Học viên & Đăng ký học | Học bạ năng lực | `/report-cards` | Gộp (chuyển hướng 308) | /ho-so-hoc-tap?xem=hoc-ba-moc | Lưới học bạ mốc + hàng đợi duyệt thành chip Học bạ mốc | QT, ĐT, KS, QLCS, GVụ, GV |
-| 29 | Học viên & Đăng ký học | Quản lý hồ sơ học tập | `/ho-so-hoc-tap` | Giữ — thành trang trung tâm | Học viên › Học bạ & hồ sơ học tập › chip “Tổng quan chuẩn hồ sơ” | Một nơi duy nhất cho học bạ & hồ sơ | QT, ĐT, KS, QLCS, GVụ, GV |
+| 29 | Học viên & Đăng ký học | Quản lý hồ sơ công nghệ | `/ho-so-hoc-tap` | Giữ — thành trang trung tâm | Học viên › Học bạ & hồ sơ công nghệ › chip “Tổng quan chuẩn hồ sơ” | Một nơi duy nhất cho học bạ & hồ sơ | QT, ĐT, KS, QLCS, GVụ, GV |
 | 30 | Học viên & Đăng ký học | SataCoin | `/satacoin` | Giữ | Học viên › SataCoin | Thực thể riêng (sổ xu) | QT, KT-HS, KS, QLCS, GVụ, TV/CSKH, KT, GV |
 | 31 | Lớp học & Lịch học | Lớp học | `/classes` | Giữ — thành trang trung tâm | Lớp & lịch học › Lớp học › chip “Lớp học” | Trang trung tâm lớp | QT, KT-HS, ĐT, KS, QLCS, GVụ, TV/CSKH, KT, GV, TG |
 | 32 | Lớp học & Lịch học | Nhóm lớp | `/class-groups` | Gộp vào Lớp học | Lớp & lịch học › Lớp học › chip “Nhóm lớp” | Thuộc lớp (gom nhóm lớp) | QT, KT-HS, ĐT, KS, QLCS, GVụ, TV/CSKH, KT, GV, TG |

@@ -1,6 +1,6 @@
--- Đợt 13 (học vụ): CHUẨN THÔNG TIN HỒ SƠ HỌC TẬP — rubric có mô tả 4 mức, nhóm tiêu chí, tiêu chí trọng tâm theo bài,
--- chỉ mục cho màn "Quản lý hồ sơ học tập". Chạy SAU drizzle push, idempotent. CHỈ THÊM cột / bảng / ràng buộc / chỉ mục.
--- Xem docs/HO-SO-HOC-TAP.md, mục "Chuẩn thông tin hồ sơ học tập".
+-- Đợt 13 (học vụ): CHUẨN THÔNG TIN HỒ SƠ CÔNG NGHỆ — rubric có mô tả 4 mức, nhóm tiêu chí, tiêu chí trọng tâm theo bài,
+-- chỉ mục cho màn "Quản lý hồ sơ công nghệ". Chạy SAU drizzle push, idempotent. CHỈ THÊM cột / bảng / ràng buộc / chỉ mục.
+-- Xem docs/HO-SO-HOC-TAP.md, mục "Chuẩn thông tin hồ sơ công nghệ".
 
 -- ------------------------------------------------------------------
 -- 1. Tiêu chí năng lực: nhóm + mô tả hành vi cho từng mức (mảng 3 chuỗi theo thang chuẩn TH STEAM; mô tả 4 mức cũ vẫn hợp lệ)
@@ -73,7 +73,7 @@ ALTER TABLE session_evaluations ADD CONSTRAINT session_evaluations_published_che
 );
 
 -- ------------------------------------------------------------------
--- 4. Chỉ mục cho màn "Quản lý hồ sơ học tập" (tổng hợp theo GV / lớp / khoảng ngày)
+-- 4. Chỉ mục cho màn "Quản lý hồ sơ công nghệ" (tổng hợp theo GV / lớp / khoảng ngày)
 -- ------------------------------------------------------------------
 CREATE INDEX IF NOT EXISTS attendance_session_status_idx ON attendance (session_id, status);
 CREATE INDEX IF NOT EXISTS session_evaluations_teacher_idx ON session_evaluations (teacher_id, status);

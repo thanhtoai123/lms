@@ -7,13 +7,13 @@
  *
  * Dữ liệu một chứng nhận bám bộ trường tối thiểu của 1EdTech Open Badges 3.0:
  * tên thành tích (name), mô tả (description), tiêu chí đạt (criteria), đơn vị cấp (issuer),
- * người nhận (recipient), ngày cấp (validFrom), mã định danh duy nhất, bằng chứng (evidence — hồ sơ học tập)
+ * người nhận (recipient), ngày cấp (validFrom), mã định danh duy nhất, bằng chứng (evidence — hồ sơ công nghệ)
  * và cách xác thực (trang công khai `/cn/<token>` qua mã QR). Không ký mật mã.
  *
  * File này không dùng kiểu DOM — chạy được ở máy chủ, trình duyệt và bộ kiểm thử.
  */
 
-// `vnDateOf` (ngày YYYY-MM-DD theo giờ Việt Nam) dùng chung với chuẩn hồ sơ học tập — một nguồn duy nhất
+// `vnDateOf` (ngày YYYY-MM-DD theo giờ Việt Nam) dùng chung với chuẩn hồ sơ công nghệ — một nguồn duy nhất
 import { vnDateOf } from "../portfolio/standard.js";
 
 /* ------------------------------------------------------------------ */

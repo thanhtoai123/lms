@@ -190,13 +190,13 @@ export const ADMIN_MENU: NavGroup[] = [
         ],
       },
       {
-        label: "Học bạ & hồ sơ học tập", href: "/ho-so-hoc-tap", icon: "folder-check", keywords: "hoc ba nang luc report card phieu buoi",
+        label: "Học bạ & hồ sơ công nghệ", href: "/ho-so-hoc-tap", icon: "folder-check", keywords: "hoc ba nang luc report card phieu buoi",
         desc: "Một nơi cho học bạ: tổng quan chuẩn hồ sơ, học bạ mốc cần viết / duyệt, tra cứu hồ sơ từng học viên.",
         match: ["/report-cards", "/hoc-ba-moc", "/phieu-buoi"],
         tabs: [
           { label: "Tổng quan chuẩn hồ sơ", href: "/ho-so-hoc-tap", perm: "report_card:read", desc: "Tỷ lệ phiếu đúng hạn / đủ chuẩn, học bạ mốc quá hạn; bảng theo GV / lớp, nhắc GV một chạm." },
           { label: "Học bạ mốc cần viết / duyệt", href: "/ho-so-hoc-tap?xem=hoc-ba-moc", perm: "report_card:read", strict: true, desc: "Lưới học bạ mốc theo lớp, hàng đợi duyệt, gửi phụ huynh." },
-          { label: "Tra cứu học viên", href: "/ho-so-hoc-tap?xem=tra-cuu", perm: "report_card:read", desc: "Chọn học viên → học bạ mọi trạng thái, chứng nhận, mở hồ sơ học tập." },
+          { label: "Tra cứu học viên", href: "/ho-so-hoc-tap?xem=tra-cuu", perm: "report_card:read", desc: "Chọn học viên → học bạ mọi trạng thái, chứng nhận, mở hồ sơ công nghệ." },
         ],
       },
       { label: "Hoàn thành khoá & chứng nhận", href: "/hoan-thanh-khoa", icon: "award", perm: "enrollment:read" },

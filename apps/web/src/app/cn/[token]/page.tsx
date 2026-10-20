@@ -19,7 +19,7 @@ type State = PublicCertificateResult | { state: "rate_limited" };
  * Trang XÁC THỰC GIẤY CHỨNG NHẬN mở từ mã QR in trên giấy — không cần đăng nhập, token là quyền.
  * Kiểm định dạng token TRƯỚC khi chạm CSDL; trần tần suất theo IP chặn máy dò token.
  * Hiển thị đúng bộ trường tối thiểu của Open Badges 3.0: thành tích, điều kiện đạt, người nhận, ngày cấp,
- * mã định danh, đơn vị cấp, bằng chứng (hồ sơ học tập — chỉ khi đang có link chia sẻ còn hiệu lực).
+ * mã định danh, đơn vị cấp, bằng chứng (hồ sơ công nghệ — chỉ khi đang có link chia sẻ còn hiệu lực).
  * KHÔNG hiện SĐT / email phụ huynh, ngày sinh, mã học viên, lý do thu hồi.
  */
 export default async function VerifyCertificatePage({ params }: { params: Promise<{ token: string }> }) {
@@ -97,7 +97,7 @@ function Verified({ cert }: { cert: Extract<PublicCertificateResult, { state: "o
 
       {valid && cert.portfolioPath && (
         <a href={cert.portfolioPath} className="flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground shadow hover:bg-primary-dark">
-          Xem hồ sơ học tập <ExternalLink className="h-4 w-4" aria-hidden />
+          Xem hồ sơ công nghệ <ExternalLink className="h-4 w-4" aria-hidden />
         </a>
       )}
     </div>

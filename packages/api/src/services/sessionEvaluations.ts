@@ -8,7 +8,7 @@
  * TRONG CÙNG transaction chuyển trạng thái buổi; phiếu thiếu tiêu chí thì chặn hoàn tất
  * (trừ khi cấu hình vận hành `sessionRequireEvaluations` tắt).
  *
- * Điều kiện phát hành / chặn hoàn tất đọc theo "Chuẩn hồ sơ học tập" (cấu hình vận hành nhóm "Hồ sơ học tập",
+ * Điều kiện phát hành / chặn hoàn tất đọc theo "Chuẩn hồ sơ công nghệ" (cấu hình vận hành nhóm "Hồ sơ công nghệ",
  * theo cơ sở): bắt buộc mục tiêu bài, bắt buộc sản phẩm, công tắc chặn (`sessionRequireEvaluations`).
  * Mặc định giữ nguyên hành vi cũ. Tiêu chí có mô tả 3 mức riêng + tiêu chí trọng tâm của bài (xếp lên đầu).
  *

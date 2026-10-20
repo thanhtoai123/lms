@@ -1,5 +1,5 @@
 /**
- * DỮ LIỆU MẪU — HỒ SƠ HỌC TẬP (docs/HO-SO-HOC-TAP.md). Chạy ở CUỐI `seed.ts`, chỉ dùng dữ liệu giả đã có.
+ * DỮ LIỆU MẪU — HỒ SƠ CÔNG NGHỆ (docs/HO-SO-HOC-TAP.md). Chạy ở CUỐI `seed.ts`, chỉ dùng dữ liệu giả đã có.
  *
  *  - Sinh phiếu nhận xét ĐÃ PHÁT HÀNH cho mọi học viên có mặt ở các buổi `completed`
  *    (điểm tăng nhẹ theo thời gian cho chân thực; học viên vắng không có phiếu; buổi học bù ghi "Học bù").
@@ -8,7 +8,7 @@
  *  - Hai ảnh lớp đã duyệt gắn một học viên mẫu (phụ huynh đồng ý đăng ảnh) làm minh chứng trên phiếu.
  *  - MỘT link chia sẻ hồ sơ cố định để xem thử: /hs/<DEMO_PORTFOLIO_TOKEN>.
  *  - Chuẩn hồ sơ (sql/0013): 9 tiêu chí TH STEAM (6 năng lực + 3 phẩm chất, 3 mức) do danh mục chuẩn tạo sẵn;
- *    tiêu chí trọng tâm cho vài bài của khoá Robotics Tiểu học (ROBO-TH-N1); ~10% phiếu phát hành trễ hạn để màn "Quản lý hồ sơ học tập" có số liệu.
+ *    tiêu chí trọng tâm cho vài bài của khoá Robotics Tiểu học (ROBO-TH-N1); ~10% phiếu phát hành trễ hạn để màn "Quản lý hồ sơ công nghệ" có số liệu.
  * PRNG cố định → chạy lại ra cùng dữ liệu.
  */
 import { and, eq, inArray, sql } from "drizzle-orm";
@@ -23,7 +23,7 @@ import {
 } from "@satarobo/core";
 import type { Database } from "./index";
 
-/** Token CỐ ĐỊNH, dễ nhớ của link hồ sơ học tập mẫu — xem thử tại /hs/<token> (chỉ dữ liệu mẫu) */
+/** Token CỐ ĐỊNH, dễ nhớ của link hồ sơ công nghệ mẫu — xem thử tại /hs/<token> (chỉ dữ liệu mẫu) */
 export const DEMO_PORTFOLIO_TOKEN = "xem-thu-ho-so-hoc-tap-th-steam-mau";
 
 function hash(s: string): number {

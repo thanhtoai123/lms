@@ -131,8 +131,12 @@ const PERSON_NAME_KEY = /^(full_?name|ho_?ten|student_?name|child_?name|parent_?
 /** Tên trường chứa địa chỉ */
 const ADDRESS_KEY = /(address|dia_?chi)/i;
 
+/** Ảnh đại diện của người thật (học viên) — người ngoài tenant không được xem */
+const AVATAR_KEY = /^avatar_?(url|key)$/i;
+
 function maskOutsiderLeaf(key: string, value: string): string {
   if (!value) return value;
+  if (AVATAR_KEY.test(key)) return "";
   if (SECRET_KEY.test(key)) return value.length <= 2 ? "***" : `${value.slice(0, 1)}***${value.slice(-1)}`;
   if (PERSON_NAME_KEY.test(key)) return maskPersonName(value);
   if (ADDRESS_KEY.test(key)) return maskAddressValue(value);

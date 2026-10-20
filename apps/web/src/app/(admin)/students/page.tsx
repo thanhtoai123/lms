@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { StudentAvatar } from "@/components/student-avatar";
 import { hasPermission, type Actor } from "@satarobo/core";
 import { getServerCaller } from "@/lib/trpc/server";
 import { PageHeader, Pager, StudentStatusChip, STUDENT_STATUS_VI, fmtDate } from "@/components/admin-ui";
@@ -79,7 +80,7 @@ export default async function StudentsPage({ searchParams }: { searchParams: Pro
             <tbody className="divide-y divide-black/5">
               {data.items.map((s) => (
                 <tr key={s.id} className="hover:bg-black/[0.02]">
-                  <td className="p-3" data-col="student"><Link href={`/students/${s.id}`} className="font-medium text-brand-600">{s.fullName}</Link><div className="font-mono text-[11px] text-ink-400">{s.code}</div></td>
+                  <td className="p-3" data-col="student"><div className="flex items-center gap-2.5"><StudentAvatar src={s.avatarUrl} name={s.fullName} seed={s.code ?? s.id} size={34} /><div className="min-w-0"><Link href={`/students/${s.id}`} className="font-medium text-brand-600">{s.fullName}</Link><div className="font-mono text-[11px] text-ink-400">{s.code}</div></div></div></td>
                   <td className="p-3" data-col="grade">{s.grade ? `Lớp ${s.grade}` : "—"}<div className="text-xs text-ink-400">{s.school ?? ""}</div></td>
                   <td className="p-3 text-xs" data-col="dob">{fmtDate(s.dateOfBirth)}</td>
                   <td className="p-3" data-col="parent">{s.parentName ?? "—"}<div className="font-mono text-[11px] text-ink-400">{s.parentPhone ?? ""}</div></td>

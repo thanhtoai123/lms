@@ -116,7 +116,7 @@ export interface CompletionInput {
   /** Có giao bài tập về nhà cho buổi (tuỳ chọn) */
   assignmentCount?: number;
   /**
-   * Phiếu nhận xét buổi (hồ sơ học tập): câu chặn nêu tên HV có mặt còn thiếu phiếu đủ tiêu chí
+   * Phiếu nhận xét buổi (hồ sơ công nghệ): câu chặn nêu tên HV có mặt còn thiếu phiếu đủ tiêu chí
    * (từ `evaluationBlockerMessage`); null / bỏ trống = đủ. Chỉ chặn khi `requireEvaluations`.
    */
   evaluationsMissing?: string | null;

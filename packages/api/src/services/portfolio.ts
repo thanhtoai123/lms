@@ -1,5 +1,5 @@
 /**
- * HỒ SƠ HỌC TẬP (portfolio) của học viên — docs/HO-SO-HOC-TAP.md.
+ * HỒ SƠ CÔNG NGHỆ (portfolio) của học viên — docs/HO-SO-HOC-TAP.md.
  *
  * Gom xuyên suốt các khoá: lộ trình (khoá / lớp / cơ sở / thời gian / trạng thái), phiếu nhận xét buổi
  * đã phát hành, học bạ mốc đã gửi phụ huynh, chứng nhận đã duyệt, bộ sưu tập sản phẩm (ảnh đã duyệt +
@@ -34,6 +34,7 @@ import {
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { assertTenant, redact, tenantCond } from "./tenantScope";
 import { writeAudit } from "./audit";
+import { studentAvatarUrl } from "./avatarUrl";
 import { evidenceMedia, type EvidenceMedia } from "./sessionEvaluations";
 import { pdfRendererEnabled, renderPdf, PdfRenderUnavailable } from "./pdfRender";
 import { putObject, signedFileUrl, signedPortfolioRenderPath } from "../storage";
@@ -53,7 +54,7 @@ const dayOf = (d: Date | null | undefined) => (d ? new Date(d.getTime() + 7 * 36
 export async function buildPortfolio(db: Db, studentId: string, scopeIn: PortfolioScope, opts: { now?: Date } = {}): Promise<PortfolioView | null> {
   const scope = normalizePortfolioScope(scopeIn);
   const [st] = await db
-    .select({ id: students.id, fullName: students.fullName, code: students.code, grade: students.grade, homeCenterId: students.homeCenterId, deletedAt: students.deletedAt })
+    .select({ id: students.id, fullName: students.fullName, nickname: students.nickname, code: students.code, grade: students.grade, homeCenterId: students.homeCenterId, deletedAt: students.deletedAt, avatarKey: students.avatarKey })
     .from(students).where(eq(students.id, studentId)).limit(1);
   if (!st || st.deletedAt) return null;
 
@@ -211,7 +212,7 @@ export async function buildPortfolio(db: Db, studentId: string, scopeIn: Portfol
   const allDates = courseViews.flatMap((c) => [...c.sheets.map((s) => s.snapshot.context.date), c.from ?? "", c.to ?? ""]).filter(Boolean).sort();
   const scopeCourse = scope.scope === "course" ? enrs[0]?.courseName ?? null : null;
   return {
-    student: { fullName: st.fullName, code: st.code, grade: st.grade },
+    student: { fullName: st.fullName, nickname: st.nickname, code: st.code, grade: st.grade, avatarUrl: studentAvatarUrl(st.avatarKey) },
     center: centerView,
     scopeLabel: portfolioScopeLabel(scope, scopeCourse),
     period: scope.scope === "range" ? { from: scope.from ?? null, to: scope.to ?? null } : { from: allDates[0] ?? null, to: allDates[allDates.length - 1] ?? null },
@@ -350,7 +351,7 @@ export async function listShares(ctx: ProtectedContext, studentId: string) {
 
 export async function createShare(ctx: ProtectedContext, input: { studentId: string; scope: PortfolioScope["scope"]; enrollmentId?: string | null; from?: string | null; to?: string | null; days?: number | null; label?: string | null }) {
   const { st, centerId } = await loadStudentForStaff(ctx, input.studentId);
-  if (!canShare(ctx, centerId)) throw new TRPCError({ code: "FORBIDDEN", message: "Bạn không có quyền chia sẻ hồ sơ học tập của học viên này" });
+  if (!canShare(ctx, centerId)) throw new TRPCError({ code: "FORBIDDEN", message: "Bạn không có quyền chia sẻ hồ sơ công nghệ của học viên này" });
   const scope = normalizePortfolioScope({ scope: input.scope, enrollmentId: input.enrollmentId, from: input.from, to: input.to });
   const errs = validatePortfolioScope(scope);
   if (errs.length) throw new TRPCError({ code: "BAD_REQUEST", message: errs.join("; ") });
@@ -400,7 +401,7 @@ export async function revokeShare(ctx: ProtectedContext, input: { id: string; re
 
 export async function exportPortfolioPdf(ctx: ProtectedContext, input: { studentId: string; scope: PortfolioScope["scope"]; enrollmentId?: string | null; from?: string | null; to?: string | null }) {
   const { st, centerId } = await loadStudentForStaff(ctx, input.studentId);
-  if (!canShare(ctx, centerId)) throw new TRPCError({ code: "FORBIDDEN", message: "Bạn không có quyền xuất hồ sơ học tập của học viên này" });
+  if (!canShare(ctx, centerId)) throw new TRPCError({ code: "FORBIDDEN", message: "Bạn không có quyền xuất hồ sơ công nghệ của học viên này" });
   if (!pdfRendererEnabled()) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Chưa bật xuất PDF phía máy chủ — dùng nút \"In / Lưu PDF\"" });
   const scope = normalizePortfolioScope({ scope: input.scope, enrollmentId: input.enrollmentId, from: input.from, to: input.to });
   const errs = validatePortfolioScope(scope);

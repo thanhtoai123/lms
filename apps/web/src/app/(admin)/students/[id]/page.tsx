@@ -7,6 +7,7 @@ import { BLOOD_TYPE_VI, type BloodType } from "@satarobo/core";
 import { EnrollmentCard, AddGuardian, StudentLifecycle, RevealPrivate } from "./actions";
 import { ProfileDrawer, type ProfileExtras } from "./profile-drawer";
 import { PortfolioBlock } from "@/components/portfolio/portfolio-block";
+import { AvatarUploader } from "@/components/avatar-uploader";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Hồ sơ học viên" };
@@ -68,8 +69,8 @@ export default async function StudentProfile({ params }: { params: Promise<{ id:
     <div className="space-y-4">
       <Link href="/students" className="text-sm text-ink-600">← Học viên</Link>
       <header className="card flex flex-wrap items-start justify-between gap-4 p-5">
-        <div className="flex items-center gap-4">
-          <div className="grid h-14 w-14 place-items-center rounded-full bg-brand-600/10 text-xl font-bold text-brand-600">{s.fullName.split(/\s+/).slice(-1)[0]?.[0] ?? "?"}</div>
+        <div className="flex items-start gap-4">
+          <AvatarUploader endpoint={`/api/students/${s.id}/avatar`} current={s.avatarUrl || null} name={s.fullName} nickname={s.nickname} seed={s.code ?? s.id} size={88} canEdit={!!s.canUpdate} />
           <div>
             <h1 className="page-title">{s.fullName}{s.nickname ? <span className="ml-2 text-sm font-normal text-ink-400">({s.nickname})</span> : null}</h1>
             <div className="text-sm text-ink-600"><span className="font-mono">{s.code}</span> · {s.center?.code ?? "—"} · {s.grade ? `Lớp ${s.grade}` : "chưa rõ lớp"}{s.school ? ` · ${s.school}` : ""}</div>
@@ -127,7 +128,7 @@ export default async function StudentProfile({ params }: { params: Promise<{ id:
         </div>
 
         <aside className="space-y-4">
-          {/* Hồ sơ học tập: phiếu nhận xét từng buổi, học bạ mốc, in / chia sẻ (drawer, không thêm tab) */}
+          {/* Hồ sơ công nghệ: phiếu nhận xét từng buổi, học bạ mốc, in / chia sẻ (drawer, không thêm tab) */}
           <PortfolioBlock studentId={s.id} studentName={s.fullName} />
 
           {/* Giấy chứng nhận (hoàn thành khoá / lộ trình): in theo mẫu, mã QR xác thực */}

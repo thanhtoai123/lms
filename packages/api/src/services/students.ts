@@ -10,6 +10,7 @@ import {
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { writeAudit } from "./audit";
+import { studentAvatarUrl } from "./avatarUrl";
 import { encryptPii, decryptPii } from "./pii";
 import { getOps } from "./opsSettings";
 import { tenantCond, assertTenant, redact } from "./tenantScope";
@@ -77,7 +78,7 @@ export async function listStudents(ctx: ProtectedContext, input: { q?: string; c
   const rows = await ctx.db
     .select({
       id: students.id, code: students.code, fullName: students.fullName, grade: students.grade, school: students.school, status: students.status,
-      dateOfBirth: students.dateOfBirth, centerCode: centers.code, createdAt: students.createdAt, tenantId: students.tenantId,
+      dateOfBirth: students.dateOfBirth, centerCode: centers.code, createdAt: students.createdAt, tenantId: students.tenantId, avatarKey: students.avatarKey,
       parentName: sql<string | null>`(select p.full_name from ${studentGuardians} g join ${parents} p on p.id = g.parent_id where g.student_id = ${students.id} order by g.is_primary desc limit 1)`,
       parentPhone: sql<string | null>`(select p.phone from ${studentGuardians} g join ${parents} p on p.id = g.parent_id where g.student_id = ${students.id} order by g.is_primary desc limit 1)`,
       classes: sql<string | null>`(select string_agg(c.code, ', ') from ${enrollments} e join ${classes} c on c.id = e.class_id where e.student_id = ${students.id} and e.status in ('trial','active','paused'))`,
@@ -90,7 +91,7 @@ export async function listStudents(ctx: ProtectedContext, input: { q?: string; c
     .offset((page - 1) * pageSize);
   const full = canSeeFullPhone(ctx);
   // Che PII của học viên thuộc trung tâm khác (theo cấu hình quyền riêng tư của trung tâm đó)
-  return { total: total?.n ?? 0, page, pageSize, items: rows.map((r) => redact(ctx, { ...r, parentPhone: r.parentPhone ? (full ? r.parentPhone : maskPhone(r.parentPhone)) : null })) };
+  return { total: total?.n ?? 0, page, pageSize, items: rows.map(({ avatarKey, ...r }) => redact(ctx, { ...r, avatarUrl: studentAvatarUrl(avatarKey), parentPhone: r.parentPhone ? (full ? r.parentPhone : maskPhone(r.parentPhone)) : null })) };
 }
 
 /**
@@ -221,6 +222,7 @@ export async function getStudent(ctx: ProtectedContext, id: string) {
   // Hồ sơ của trung tâm khác: che PII nếu trung tâm đó không bật "Hội sở được xem dữ liệu cá nhân"
   return redact(ctx, {
     ...s,
+    avatarUrl: studentAvatarUrl(s.avatarKey),
     center: center ?? null,
     preferredCenter: preferredCenter ?? null,
     canUpdate,

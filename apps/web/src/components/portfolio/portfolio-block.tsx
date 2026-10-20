@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Khối "Hồ sơ học tập" trên trang học viên (quản trị) + drawer chia sẻ — không thêm tab.
+ * Khối "Hồ sơ công nghệ" trên trang học viên (quản trị) + drawer chia sẻ — không thêm tab.
  *  - Xem hồ sơ / In – Lưu PDF (mở trang hồ sơ nội bộ).
  *  - Chia sẻ link riêng /hs/<token> theo phạm vi (toàn bộ / một khoá / khoảng ngày), hạn mặc định 180 ngày.
  *  - Danh sách link đã chia sẻ: trạng thái, lượt xem, thu hồi (bắt buộc lý do).
@@ -41,7 +41,7 @@ export function PortfolioBlock({ studentId, studentName }: { studentId: string; 
     <section className="card space-y-3 p-4">
       <div className="flex items-start justify-between gap-2">
         <div>
-          <h2 className="flex items-center gap-1.5 font-bold"><BookOpenCheck className="h-4 w-4 text-primary" aria-hidden /> Hồ sơ học tập</h2>
+          <h2 className="flex items-center gap-1.5 font-bold"><BookOpenCheck className="h-4 w-4 text-primary" aria-hidden /> Hồ sơ công nghệ</h2>
           <p className="text-xs text-muted-foreground">
             {opts.isLoading ? "Đang tải…" : o ? `${o.sheets} phiếu nhận xét buổi đã phát hành · ${o.enrollments.length} khoá` : opts.error?.message ?? ""}
           </p>
@@ -105,7 +105,7 @@ export function ShareDrawer({
   const doShare = async (url: string, message: string) => {
     const nav = navigator as Navigator & { share?: (d: { title?: string; text?: string; url?: string }) => Promise<void> };
     if (typeof nav.share === "function") {
-      try { await nav.share({ title: `Hồ sơ học tập — ${studentName}`, text: message, url }); return; } catch { /* người dùng huỷ */ }
+      try { await nav.share({ title: `Hồ sơ công nghệ — ${studentName}`, text: message, url }); return; } catch { /* người dùng huỷ */ }
     }
     toast.show((await copyText(message)) ? "Đã sao chép tin nhắn kèm link" : "Không sao chép được — hãy chọn và sao chép thủ công");
   };
@@ -132,7 +132,7 @@ export function ShareDrawer({
   };
 
   return (
-    <Drawer open={open} onClose={onClose} title="Chia sẻ hồ sơ học tập" desc={`${studentName} — link riêng, có hạn, thu hồi được; không lộ SĐT / địa chỉ phụ huynh`} width="lg">
+    <Drawer open={open} onClose={onClose} title="Chia sẻ hồ sơ công nghệ" desc={`${studentName} — link riêng, có hạn, thu hồi được; không lộ SĐT / địa chỉ phụ huynh`} width="lg">
       <div className="space-y-5">
         <section className="space-y-2 rounded-xl border border-border p-3">
           <div className="text-sm font-bold">Tạo link mới</div>

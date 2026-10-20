@@ -549,7 +549,7 @@ export const reportCards = pgTable(
     averageScore: numeric("average_score", { precision: 3, scale: 1 }),
     /**
      * Thang điểm: 5 = học bạ cũ (chấm tay 1–5); 4 = học bạ mốc tổng hợp từ phiếu nhận xét buổi (rubric 4 mức).
-     * Học bạ tạo sau khi có hồ sơ học tập dùng thang 4; học bạ cũ giữ nguyên thang 5.
+     * Học bạ tạo sau khi có hồ sơ công nghệ dùng thang 4; học bạ cũ giữ nguyên thang 5.
      */
     rubricScale: smallint("rubric_scale").notNull().default(5),
     /** Bản chụp số liệu tổng hợp từ phiếu buổi của giai đoạn (trung bình, xu hướng, chuyên cần…) lúc lưu */

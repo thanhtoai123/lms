@@ -9,10 +9,10 @@ import { PortfolioPrintStyle } from "@/components/portfolio/print-style";
 import { PrintButton } from "@/components/portfolio/print-button";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Hồ sơ học tập", robots: { index: false } };
+export const metadata = { title: "Hồ sơ công nghệ", robots: { index: false } };
 
 /**
- * Cổng phụ huynh: HỒ SƠ HỌC TẬP của con — toàn bộ phiếu nhận xét từng buổi, học bạ mốc, chứng nhận,
+ * Cổng phụ huynh: HỒ SƠ CÔNG NGHỆ của con — toàn bộ phiếu nhận xét từng buổi, học bạ mốc, chứng nhận,
  * sản phẩm (ảnh đã duyệt, gia đình đồng ý đăng ảnh). Phụ huynh đã đăng nhập thì không cần link chia sẻ.
  */
 export default async function ChildPortfolioPage({ params }: { params: Promise<{ id: string }> }) {

@@ -32,7 +32,7 @@ export function teacherTabOf(pathname: string): TeacherTab {
  * Mục menu KHÔNG đưa vào "Thêm":
  *  - đã là mục chính: Lớp học → Lớp của tôi, Ca & công → Chấm công;
  *  - màn số liệu quản trị không dành cho giáo viên: Dashboard;
- *  - Hồ sơ học tập toàn trung tâm (giáo viên bấm vào sẽ báo không có quyền);
+ *  - Hồ sơ công nghệ toàn trung tâm (giáo viên bấm vào sẽ báo không có quyền);
  *  - việc của văn phòng, trùng hoặc không hợp với giáo viên: "Việc hôm nay" (hộp việc lead / phiếu thu / đơn — giáo viên đã có
  *    trang Hôm nay), danh mục Chương trình học · Khoá học · Lộ trình (bộ phận đào tạo quản; giáo viên xem bài của mình ở
  *    "Giáo án của tôi") và Kho tài liệu giảng dạy (đã có "Tài liệu lớp tôi" riêng cho giáo viên).
@@ -41,7 +41,7 @@ export function teacherTabOf(pathname: string): TeacherTab {
 export const TEACHER_MORE_SKIP = [
   "/dashboard", "/classes", "/cham-cong/lich-ca",
   "/viec-hom-nay", "/curriculums", "/courses", "/lo-trinh", "/documents",
-  // Hồ sơ học tập toàn trung tâm cần quyền xem học bạ đầy đủ — giáo viên chỉ có học bạ lớp mình (Lớp của tôi → Học bạ lớp)
+  // Hồ sơ công nghệ toàn trung tâm cần quyền xem học bạ đầy đủ — giáo viên chỉ có học bạ lớp mình (Lớp của tôi → Học bạ lớp)
   "/ho-so-hoc-tap",
   // Đã có sẵn ở thanh trên: chuông thông báo (→ Thông báo) và menu người dùng (Hồ sơ / Bảo mật tài khoản)
   "/thong-bao", "/tai-khoan", "/bao-mat",

@@ -1,14 +1,17 @@
 /**
- * Biểu đồ của hồ sơ học tập — SVG thuần, không thư viện. Toạ độ tính ở packages/core (hàm thuần, có kiểm thử).
+ * Biểu đồ của hồ sơ công nghệ — SVG thuần, không thư viện. Toạ độ tính ở packages/core (hàm thuần, có kiểm thử).
  * Màu cố định theo nhận diện TH STEAM (Deep Ocean Blue #1D4ED8, Cosmic Gold #F59E0B) để bản in giống màn hình.
  */
 import { RUBRIC_SCALE, bucketSeries, lineChart, radarChart, type ProgressPoint } from "@satarobo/core";
 
 const PURPLE = "#1d4ed8";
 const ORANGE = "#f59e0b";
-const GRID = "#e9dcf2";
-const INK = "#6c6c6c";
-const LEVEL_SHORT = ["", "Làm quen", "Cần hỗ trợ", "Đạt", "Vượt"];
+const GRID = "#e2e8f0";
+const INK = "#64748b";
+/** Nhãn trục theo thang 3 mức hiện hành (TT 27/2020): 1 Cần cố gắng · 2 Đạt · 3 Tốt */
+const LEVEL_SHORT = ["", "Cần cố gắng", "Đạt", "Tốt"];
+/** Mức mục tiêu tối thiểu của mỗi buổi */
+const GOAL = 2;
 
 /** Biểu đồ đường: điểm trung bình tiêu chí của từng phiếu buổi theo thời gian (thang 1–3: Cần cố gắng → Tốt) */
 export function ProgressLine({ points, title = "Tiến bộ theo buổi học" }: { points: readonly ProgressPoint[]; title?: string }) {
@@ -26,8 +29,8 @@ export function ProgressLine({ points, title = "Tiến bộ theo buổi học" }
             <text x={26} y={g.y + 3} textAnchor="end" fontSize={9} fill={INK}>{LEVEL_SHORT[g.value] ?? g.value}</text>
           </g>
         ))}
-        {/* Vạch "Đạt" (mức 3) — mục tiêu của mỗi buổi */}
-        {c.grid.filter((g) => g.value === 3).map((g) => <line key="goal" x1={30} x2={c.width - 30} y1={g.y} y2={g.y} stroke={ORANGE} strokeDasharray="4 4" strokeWidth={1.2} />)}
+        {/* Vạch "Đạt" (mức 2) — mục tiêu tối thiểu của mỗi buổi */}
+        {c.grid.filter((g) => g.value === GOAL).map((g) => <line key="goal" x1={30} x2={c.width - 30} y1={g.y} y2={g.y} stroke={ORANGE} strokeDasharray="4 4" strokeWidth={1.2} />)}
         <path d={c.area} fill={PURPLE} opacity={0.08} />
         <path d={c.path} fill="none" stroke={PURPLE} strokeWidth={2.4} strokeLinejoin="round" strokeLinecap="round" />
         {c.dots.map((d, i) => <circle key={i} cx={d.cx} cy={d.cy} r={3.2} fill="#fff" stroke={PURPLE} strokeWidth={2} />)}
@@ -53,7 +56,7 @@ export function RadarChart({ axes, size = 240 }: { axes: readonly { label: strin
   const r = radarChart(axes, { size, labelPad: 56 });
   return (
     <svg viewBox={`0 0 ${r.size} ${r.size}`} className="hs-avoid mx-auto h-auto w-full max-w-[260px]" role="img" aria-label={`Năng lực trung bình: ${axes.map((a) => `${a.label} ${a.value ?? "chưa có"}`).join(", ")}`}>
-      {r.rings.map((ring, i) => <polygon key={i} points={ring} fill={i === r.rings.length - 1 ? "#faf5fd" : "none"} stroke={GRID} strokeWidth={1} />)}
+      {r.rings.map((ring, i) => <polygon key={i} points={ring} fill={i === r.rings.length - 1 ? "#f8fafc" : "none"} stroke={GRID} strokeWidth={1} />)}
       {r.axes.map((a, i) => <line key={i} x1={r.center} y1={r.center} x2={a.x} y2={a.y} stroke={GRID} strokeWidth={1} />)}
       <polygon points={r.polygon} fill={PURPLE} fillOpacity={0.22} stroke={PURPLE} strokeWidth={2} strokeLinejoin="round" />
       {r.points.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r={2.8} fill={ORANGE} />)}

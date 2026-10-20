@@ -5,6 +5,7 @@ import { hubFamily, hubHome } from "@satarobo/api";
 import { childShortName, type MucChiSo } from "@satarobo/core";
 import { requireParent } from "@/lib/parent-session";
 import { PhMain, PhBlock, vndPh, dtPh, dayPh, todayPh } from "@/components/ph-ui";
+import { AvatarUploader } from "@/components/avatar-uploader";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Tổng quan — TH STEAM Academy" };
@@ -53,14 +54,14 @@ export default async function ParentOverview({ searchParams }: { searchParams: P
               const dangXem = k.id === kidId;
               return (
                 <li key={k.id} className={`card p-4 ${dangXem && fam.children.length > 1 ? "ring-2 ring-primary/25" : ""}`}>
-                  <div className="flex items-start gap-3">
-                    <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-accent-500 text-[18px] font-extrabold text-white" aria-hidden>
-                      {ten.slice(0, 1).toUpperCase()}
-                    </span>
+                  <div className="flex items-center gap-4">
+                    {/* Ảnh của con: phụ huynh bấm nút máy ảnh để đổi — hiện ngay ở mọi nơi (hồ sơ công nghệ, thẻ con, lớp học) */}
+                    <AvatarUploader endpoint="/api/ph/avatar" fields={{ studentId: k.id }} current={k.avatarUrl} name={k.fullName} nickname={k.nickname} seed={k.code ?? k.id} size={72} minimal />
                     <div className="min-w-0 flex-1">
                       {/* line-clamp thay cho truncate: `truncate` đặt white-space:nowrap nên chiều rộng
                           tối thiểu của thẻ bằng cả dòng chữ — trên điện thoại là tràn ngang cả trang. */}
-                      <div className="line-clamp-1 text-[17px] font-extrabold">{k.fullName}</div>
+                      <div className="line-clamp-1 text-[18px] font-extrabold">{k.fullName}</div>
+                      {(k.nickname || k.code) && <div className="line-clamp-1 text-[12px] text-ink-600">{[k.nickname ? `Bé ${k.nickname}` : null, k.code].filter(Boolean).join(" · ")}</div>}
                       <div className="line-clamp-1 text-[13px] text-ink-600">
                         {k.lop ? `${k.lop.courseName ?? k.lop.className} · ${k.lop.classCode}${k.lop.trial ? " · học thử" : ""}` : "Chưa xếp lớp"}
                       </div>
@@ -89,7 +90,7 @@ export default async function ParentOverview({ searchParams }: { searchParams: P
                   </dl>
 
                   <div className="mt-3 grid grid-cols-2 gap-2">
-                    <Link href={`/ph/be/${k.id}`} className="btn-ghost min-h-11 min-w-0 text-[14px]">Hồ sơ của con</Link>
+                    <Link href={`/ph/be/${k.id}/ho-so`} className="btn-ghost min-h-11 min-w-0 text-[14px]">Hồ sơ công nghệ</Link>
                     {dangXem ? (
                       <Link href={`/ph/lich?con=${k.id}`} className="btn-primary min-h-11 min-w-0 text-[14px]">Lịch học</Link>
                     ) : (

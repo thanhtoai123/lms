@@ -123,3 +123,9 @@ test("Xem đầy đủ bắt buộc lý do", () => {
   assert.equal(validateRevealReason("Kiểm tra khiếu nại của phụ huynh CS1"), null);
   assert.ok(validateRevealReason("x".repeat(501)));
 });
+
+test("maskOutsideTenant: ảnh đại diện học viên không lộ ra ngoài tenant", () => {
+  const r = maskOutsideTenant({ fullName: "Nguyễn Minh Đức", avatarUrl: "/api/media/file?key=avatars/students/x/y.jpg", total: 3 });
+  assert.equal(r.avatarUrl, "");
+  assert.equal(r.total, 3);
+});

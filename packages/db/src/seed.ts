@@ -1065,7 +1065,7 @@ async function main() {
     });
   }
 
-  // ---- Hồ sơ học tập: phiếu nhận xét từng buổi đã phát hành, học bạ mốc tổng hợp, link chia sẻ mẫu ----
+  // ---- Hồ sơ công nghệ: phiếu nhận xét từng buổi đã phát hành, học bạ mốc tổng hợp, link chia sẻ mẫu ----
   const portfolio = await seedPortfolio(db, { today });
   // ---- Lộ trình học & giấy chứng nhận: lộ trình mẫu, mẫu chứng nhận nền dựng sẵn, một giấy đã cấp ----
   const certs = await seedCertificates(db);
@@ -1074,8 +1074,8 @@ async function main() {
 
   console.log(`✔ Seeded TH STEAM Academy: 1 trung tâm online, danh mục chuẩn (24 khoá), 3 phòng ClassIn, 7 users, 3 GV, 3 lớp, ${sessionRows.length} buổi, 16 học viên, ${leadRows.length} lead`);
   console.log(`  Phiếu đánh giá học thử mẫu (không cần đăng nhập): ${(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "")}/pdg/${DEMO_TRIAL_REPORT_TOKEN}`);
-  console.log(`  Hồ sơ học tập: ${portfolio.evaluations} phiếu nhận xét buổi đã phát hành, ${portfolio.cards} học bạ mốc tổng hợp từ phiếu buổi`);
-  if (portfolio.token) console.log(`  Hồ sơ học tập mẫu (không cần đăng nhập): ${(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "")}/hs/${portfolio.token}`);
+  console.log(`  Hồ sơ công nghệ: ${portfolio.evaluations} phiếu nhận xét buổi đã phát hành, ${portfolio.cards} học bạ mốc tổng hợp từ phiếu buổi`);
+  if (portfolio.token) console.log(`  Hồ sơ công nghệ mẫu (không cần đăng nhập): ${(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "")}/hs/${portfolio.token}`);
   console.log(`  Giấy chứng nhận: lộ trình chuẩn ROBO-TH, ${certs.courseCertificates} chứng nhận hoàn thành khoá vào sổ — quản trị tại /lo-trinh, mẫu tại /lo-trinh/mau-chung-nhan`);
   if (certs.token) console.log(`  Xác thực giấy chứng nhận mẫu (không cần đăng nhập): ${(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "")}/cn/${certs.token}`);
   if (nd.parentPhone) {

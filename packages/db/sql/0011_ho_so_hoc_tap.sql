@@ -1,4 +1,4 @@
--- Đợt 10 (học vụ): HỒ SƠ HỌC TẬP — phiếu nhận xét từng buổi, học bạ mốc tự tổng hợp, chia sẻ hồ sơ, PDF lưu trữ.
+-- Đợt 10 (học vụ): HỒ SƠ CÔNG NGHỆ — phiếu nhận xét từng buổi, học bạ mốc tự tổng hợp, chia sẻ hồ sơ, PDF lưu trữ.
 -- Chạy SAU drizzle push, idempotent. CHỈ THÊM bảng / cột / ràng buộc / chỉ mục / trigger — không đụng dữ liệu cũ.
 --
 -- Bảng do drizzle push tạo (packages/db/src/schema/portfolio.ts). Các khối CREATE TABLE dưới đây chỉ là
@@ -99,7 +99,7 @@ DROP TRIGGER IF EXISTS session_evaluations_immutable ON session_evaluations;
 CREATE TRIGGER session_evaluations_immutable BEFORE UPDATE ON session_evaluations FOR EACH ROW EXECUTE FUNCTION session_evaluations_immutable();
 
 -- ------------------------------------------------------------------
--- 2. Link chia sẻ hồ sơ học tập
+-- 2. Link chia sẻ hồ sơ công nghệ
 -- ------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS portfolio_shares (
   id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -206,8 +206,8 @@ VALUES ('ho_so_hoc_tap', jsonb_build_object('since', to_char(current_date, 'YYYY
 ON CONFLICT (key) DO NOTHING;
 
 COMMENT ON TABLE session_evaluations IS
-  'Phiếu nhận xét buổi học (hồ sơ học tập): một phiếu / học viên có mặt / buổi. snapshot = bản chụp tiêu chí + mô tả mức + điểm + bối cảnh buổi lúc phát hành. Đã phát hành là bất biến; sửa phải có lý do, revision tăng.';
+  'Phiếu nhận xét buổi học (hồ sơ công nghệ): một phiếu / học viên có mặt / buổi. snapshot = bản chụp tiêu chí + mô tả mức + điểm + bối cảnh buổi lúc phát hành. Đã phát hành là bất biến; sửa phải có lý do, revision tăng.';
 COMMENT ON TABLE portfolio_shares IS
-  'Link chia sẻ hồ sơ học tập /hs/<token>. Không bao giờ trả SĐT / email / địa chỉ phụ huynh, ghi chú nội bộ, lý do vắng.';
+  'Link chia sẻ hồ sơ công nghệ /hs/<token>. Không bao giờ trả SĐT / email / địa chỉ phụ huynh, ghi chú nội bộ, lý do vắng.';
 COMMENT ON COLUMN report_cards.rubric_scale IS
   '3 = thang chuẩn TH STEAM (Cần cố gắng / Đạt / Tốt); 4 = học bạ mốc tổng hợp từ phiếu buổi thang 4 cũ; 5 = học bạ cũ chấm tay 1–5.';

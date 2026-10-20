@@ -30,6 +30,7 @@ import { writeAudit } from "./audit";
 import { deliverNotifications } from "./notify";
 import { evidenceMedia } from "./sessionEvaluations";
 import { buildPortfolio } from "./portfolio";
+import { studentAvatarUrl } from "./avatarUrl";
 import { balances } from "./parentPortal";
 
 type Db = ProtectedContext["db"];
@@ -54,6 +55,8 @@ export interface FamilyChild {
   status: string;
   tenantId: string | null;
   homeCenterId: string | null;
+  /** Ảnh đại diện (URL có chữ ký, hết hạn sau AVATAR_URL_TTL) — null khi chưa có ảnh */
+  avatarUrl: string | null;
 }
 
 /** Con của phụ huynh (đúng tenant, chưa xoá) — cửa DUY NHẤT để xác định phạm vi dữ liệu */
@@ -62,7 +65,7 @@ export async function familyChildren(db: Database, parentId: string): Promise<Fa
   const rows = await d
     .select({
       id: students.id, fullName: students.fullName, nickname: students.nickname, code: students.code, status: students.status,
-      tenantId: students.tenantId, homeCenterId: students.homeCenterId, parentTenant: parents.tenantId,
+      tenantId: students.tenantId, homeCenterId: students.homeCenterId, parentTenant: parents.tenantId, avatarKey: students.avatarKey,
     })
     .from(studentGuardians)
     .innerJoin(students, eq(students.id, studentGuardians.studentId))
@@ -72,7 +75,7 @@ export async function familyChildren(db: Database, parentId: string): Promise<Fa
   // Cách ly trung tâm: con và phụ huynh phải cùng tenant (dữ liệu di sản chưa gắn tenant thì cho qua)
   return rows
     .filter((r) => !r.tenantId || !r.parentTenant || r.tenantId === r.parentTenant)
-    .map((r) => ({ id: r.id, fullName: r.fullName, nickname: r.nickname, code: r.code, status: r.status, tenantId: r.tenantId, homeCenterId: r.homeCenterId }));
+    .map((r) => ({ id: r.id, fullName: r.fullName, nickname: r.nickname, code: r.code, status: r.status, tenantId: r.tenantId, homeCenterId: r.homeCenterId, avatarUrl: studentAvatarUrl(r.avatarKey) }));
 }
 
 async function childOf(db: Database, parentId: string, studentId: string): Promise<FamilyChild | null> {
@@ -296,6 +299,7 @@ export async function hubFamily(db: Database, parentId: string) {
         fullName: k.fullName,
         nickname: k.nickname,
         code: k.code,
+        avatarUrl: k.avatarUrl,
         lop: e ? { classCode: e.classCode, className: e.className, courseName: e.courseName, center: e.center, teacher: e.teacher, trial: e.status === "trial" } : null,
         tomTat: tt,
       };
@@ -308,6 +312,7 @@ export interface FamilyCard {
   fullName: string;
   nickname: string | null;
   code: string | null;
+  avatarUrl: string | null;
   lop: { classCode: string; className: string; courseName: string | null; center: string | null; teacher: string | null; trial: boolean } | null;
   tomTat: ReturnType<typeof tomTatCon>;
 }

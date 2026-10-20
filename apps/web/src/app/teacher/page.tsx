@@ -16,7 +16,7 @@ export default async function TeacherToday() {
   } catch (e) {
     return <Empty>{(e as Error).message}. Tài khoản này chưa gắn hồ sơ giáo viên — hãy đăng nhập bằng tài khoản GV hoặc sang <Link className="underline" href="/dashboard">Trang quản trị</Link>.</Empty>;
   }
-  // Phiếu nhận xét còn thiếu của buổi mình đã dạy, kèm hạn theo chuẩn hồ sơ học tập của cơ sở
+  // Phiếu nhận xét còn thiếu của buổi mình đã dạy, kèm hạn theo chuẩn hồ sơ công nghệ của cơ sở
   const [sheets, fb, trial] = await Promise.all([
     caller.academics.evaluations.pending({ limit: 10 }).catch(() => null),
     caller.teacher.feedback({ days: 14, limit: 8 }).catch(() => null),

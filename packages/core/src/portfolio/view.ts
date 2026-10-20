@@ -1,5 +1,5 @@
 /**
- * Dữ liệu hiển thị của HỒ SƠ HỌC TẬP — dùng chung cho trang quản trị, cổng phụ huynh,
+ * Dữ liệu hiển thị của HỒ SƠ CÔNG NGHỆ (tên cũ: hồ sơ học tập) — dùng chung cho trang quản trị, cổng phụ huynh,
  * trang chia sẻ công khai `/hs/<token>` và bản in PDF.
  *
  * CHỈ gồm những gì in trên hồ sơ: KHÔNG có SĐT / email / địa chỉ phụ huynh, KHÔNG ghi chú nội bộ
@@ -112,7 +112,7 @@ export interface PortfolioCourseView {
 }
 
 export interface PortfolioView {
-  student: { fullName: string; code: string | null; grade: number | null };
+  student: { fullName: string; nickname?: string | null; code: string | null; grade: number | null; /** Ảnh đại diện (URL có chữ ký) — luôn hiện, cả trên link chia sẻ */ avatarUrl?: string | null };
   center: { name: string; address: string | null; phone: string | null } | null;
   scopeLabel: string;
   period: { from: string | null; to: string | null };

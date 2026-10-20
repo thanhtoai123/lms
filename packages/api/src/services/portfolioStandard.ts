@@ -1,5 +1,5 @@
 /**
- * QUẢN LÝ HỒ SƠ HỌC TẬP THEO CHUẨN THÔNG TIN (trang `/ho-so-hoc-tap`, docs/HO-SO-HOC-TAP.md).
+ * QUẢN LÝ HỒ SƠ CÔNG NGHỆ THEO CHUẨN THÔNG TIN (trang `/ho-so-hoc-tap`, docs/HO-SO-HOC-TAP.md).
  *
  * Quản trị theo dõi TỶ LỆ ĐẠT CHUẨN thay vì đọc từng phiếu:
  *  - "phiếu kỳ vọng" = mỗi học viên có mặt / đi muộn / học bù ở mỗi buổi đã diễn ra (từ mốc bật tính năng);
@@ -138,7 +138,7 @@ interface ViolationRow {
   published_ms: number | null; deadline_ms: number; missing_criteria: string[] | null;
 }
 
-/** Trang "Quản lý hồ sơ học tập": 4 thẻ số, bảng theo GV / lớp, danh sách vi phạm */
+/** Trang "Quản lý hồ sơ công nghệ": 4 thẻ số, bảng theo GV / lớp, danh sách vi phạm */
 export async function complianceBoard(ctx: ProtectedContext, input: ComplianceFilter & { violationsLimit?: number }) {
   requirePermission(ctx, "report_card:read");
   const scope = scopeCenters(ctx, "report_card:read");
@@ -356,7 +356,7 @@ export async function remindTeachers(ctx: ProtectedContext, input: { sessionIds:
     await writeAudit(tx, {
       actorId: ctx.user.id, action: "CREATE", module: "academics", entity: "portfolio_reminders", entityId: null,
       after: { sessions: list.length, sent: sent.map((x) => ({ teacherId: x.teacherId, sessions: x.sessions })), skipped, note },
-      reason: "Nhắc giáo viên hoàn thiện phiếu nhận xét theo chuẩn hồ sơ học tập", ip: ctx.ip,
+      reason: "Nhắc giáo viên hoàn thiện phiếu nhận xét theo chuẩn hồ sơ công nghệ", ip: ctx.ip,
     });
   });
   return { sent, skipped };

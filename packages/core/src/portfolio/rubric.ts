@@ -354,7 +354,7 @@ export function isSessionEvalSnapshot(x: unknown): x is SessionEvalSnapshot {
 /* ------------------------------------------------------------------ */
 
 /**
- * Điều kiện bắt buộc để phát hành phiếu — đọc từ "Chuẩn hồ sơ học tập" (cấu hình vận hành).
+ * Điều kiện bắt buộc để phát hành phiếu — đọc từ "Chuẩn hồ sơ công nghệ" (cấu hình vận hành).
  * Bỏ trống = mặc định như trước: bắt buộc kết quả mục tiêu bài, không bắt buộc ô "Sản phẩm".
  */
 export interface EvalRequirement {

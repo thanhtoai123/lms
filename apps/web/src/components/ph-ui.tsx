@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { StudentAvatar } from "@/components/student-avatar";
 import { ChevronLeft } from "lucide-react";
 import { childShortName } from "@satarobo/core";
 
@@ -72,7 +73,7 @@ export function PhTwoCol({ main, side }: { main: React.ReactNode; side: React.Re
 }
 
 /** Chip chuyển nhanh giữa các con (ẩn khi chỉ có một con) */
-export function ChildChips({ kids, activeId, hrefFor }: { kids: { id: string; fullName: string; nickname?: string | null }[]; activeId: string | null; hrefFor: (id: string) => string }) {
+export function ChildChips({ kids, activeId, hrefFor }: { kids: { id: string; fullName: string; nickname?: string | null; code?: string | null; avatarUrl?: string | null }[]; activeId: string | null; hrefFor: (id: string) => string }) {
   if (kids.length < 2) return null;
   return (
     // Điện thoại: cuộn ngang. Máy tính: xuống dòng, không cần cuộn (thanh cuộn ngang trên máy tính khó thấy)
@@ -85,11 +86,9 @@ export function ChildChips({ kids, activeId, hrefFor }: { kids: { id: string; fu
               <Link
                 href={hrefFor(k.id)}
                 aria-current={on ? "true" : undefined}
-                className={`inline-flex min-h-11 items-center gap-2 rounded-full border px-4 text-[15px] font-semibold transition ${on ? "border-primary bg-primary text-white shadow-md" : "border-border bg-white text-foreground hover:border-primary/40"}`}
+                className={`inline-flex min-h-11 items-center gap-2 rounded-full border py-1 pl-1.5 pr-4 text-[15px] font-semibold transition ${on ? "border-primary bg-primary text-white shadow-md" : "border-border bg-white text-foreground hover:border-primary/40"}`}
               >
-                <span className={`grid h-7 w-7 place-items-center rounded-full text-[13px] font-bold ${on ? "bg-white/20" : "bg-primary-soft text-primary"}`} aria-hidden>
-                  {childShortName(k).slice(0, 1).toUpperCase()}
-                </span>
+                <StudentAvatar src={k.avatarUrl} name={k.fullName} nickname={k.nickname} seed={k.code ?? k.id} size={32} />
                 {childShortName(k)}
               </Link>
             </li>

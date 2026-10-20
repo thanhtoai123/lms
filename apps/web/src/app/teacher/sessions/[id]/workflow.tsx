@@ -17,7 +17,7 @@ const isAbsent = (s: AttendanceStatus) => s === "absent_excused" || s === "absen
 
 /**
  * Một màn hình, ba bước, không rời ngữ cảnh (đầu trang: khối "Buổi này cần hoàn thiện" — bài học, tiêu chí + mô tả 3 mức,
- * danh mục việc cần xong theo chuẩn hồ sơ học tập; bấm một dòng để cuộn tới đúng học viên):
+ * danh mục việc cần xong theo chuẩn hồ sơ công nghệ; bấm một dòng để cuộn tới đúng học viên):
  *   1. Điểm danh (chạm để xoay trạng thái, mặc định "có mặt")
  *   2. Nhận xét buổi (bắt buộc) + PHIẾU NHẬN XÉT từng HV có mặt (rubric 3 mức Cần cố gắng / Đạt / Tốt, tự lưu nháp)
  *   3. Hoàn tất → trạng thái completed, phiếu nhận xét được phát hành cùng lúc, PH nhận thông báo (worker)
@@ -185,7 +185,7 @@ export function SessionWorkflow({ sessionId }: { sessionId: string }) {
       {offlineSaved && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Điểm danh buổi này đã lưu trên máy, chờ gửi lên hệ thống.</div>}
       {error && <div className="rounded-xl bg-red-50 border border-red-200 p-3 text-sm text-red-700">{error}</div>}
 
-      {/* Buổi này cần hoàn thiện: bài học, tiêu chí + mô tả 3 mức, danh mục việc cần xong (chuẩn hồ sơ học tập) */}
+      {/* Buổi này cần hoàn thiện: bài học, tiêu chí + mô tả 3 mức, danh mục việc cần xong (chuẩn hồ sơ công nghệ) */}
       {!isFuture && s.status !== "cancelled" && s.status !== "rescheduled" && evalBoard.data && (
         <SessionTodo
           board={evalBoard.data}
@@ -285,7 +285,7 @@ export function SessionWorkflow({ sessionId }: { sessionId: string }) {
         )}
       </section>
 
-      {/* Phiếu nhận xét buổi học — từng HV có mặt (hồ sơ học tập) */}
+      {/* Phiếu nhận xét buổi học — từng HV có mặt (hồ sơ công nghệ) */}
       {!isFuture && s.status !== "cancelled" && s.status !== "rescheduled" && (
         <EvaluationPanel
           sessionId={sessionId}
@@ -380,7 +380,7 @@ export function SessionWorkflow({ sessionId }: { sessionId: string }) {
       {/* Bước 3: Hoàn tất */}
       <section className={`card p-4 space-y-3 ${step < 3 ? "opacity-60" : ""}`}>
         <h2 className="font-bold">Hoàn tất buổi học</h2>
-        <p className="text-sm text-ink-600">Sau khi hoàn tất, phiếu nhận xét của từng học viên được phát hành (lưu vào hồ sơ học tập, không sửa được nếu không ghi lý do), phụ huynh nhận thông báo điểm danh + nhận xét; buổi được tính vào gói học.</p>
+        <p className="text-sm text-ink-600">Sau khi hoàn tất, phiếu nhận xét của từng học viên được phát hành (lưu vào hồ sơ công nghệ, không sửa được nếu không ghi lý do), phụ huynh nhận thông báo điểm danh + nhận xét; buổi được tính vào gói học.</p>
         {s.status !== "completed" && (s.completionBlockers ?? []).length > 0 && (
           <ul className="rounded-xl bg-amber-50 p-2 text-xs text-amber-900">
             {(s.completionBlockers ?? []).map((b) => <li key={b}>• {b}</li>)}

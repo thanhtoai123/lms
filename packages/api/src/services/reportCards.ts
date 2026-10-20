@@ -63,7 +63,7 @@ async function classMilestones(db: Db, c: { curriculumId: string | null; totalSe
 }
 
 /* ------------------------------------------------------------------ */
-/* Học bạ mốc tự tổng hợp từ phiếu nhận xét buổi (hồ sơ học tập)        */
+/* Học bạ mốc tự tổng hợp từ phiếu nhận xét buổi (hồ sơ công nghệ)        */
 /* ------------------------------------------------------------------ */
 
 /** Điểm tiêu chí quy về thang 5 trong SQL — trộn học bạ cũ (thang 4, 5) với học bạ hiện hành (thang 3) */
@@ -177,7 +177,7 @@ export async function dueReportCards(ctx: ProtectedContext, input: { limit?: num
   const rows = await ctx.db
     .select({
       enrollmentId: enrollments.id, studentName: students.fullName, classId: classes.id, classCode: classes.code, seq: sessions.sequenceNo, date: sessions.date,
-      /** Hạn viết học bạ mốc (YYYY-MM-DD) = ngày buổi mốc + `milestoneDeadlineDays` của cơ sở (chuẩn hồ sơ học tập) */
+      /** Hạn viết học bạ mốc (YYYY-MM-DD) = ngày buổi mốc + `milestoneDeadlineDays` của cơ sở (chuẩn hồ sơ công nghệ) */
       dueDate: sql<string>`(${milestoneDueDateSql(sessions.date, classes.centerId, stds)})::text`,
     })
     .from(sessions)
@@ -201,7 +201,7 @@ export async function dueReportCards(ctx: ProtectedContext, input: { limit?: num
 export async function countDueReportCards(ctx: ProtectedContext): Promise<{ total: number; overdue: number }> {
   requirePermission(ctx, "report_card:read", {});
   const today = todayISO();
-  // Quá hạn theo chuẩn hồ sơ học tập: qua `milestoneDeadlineDays` (mặc định 7 ngày, theo cơ sở) sau buổi mốc
+  // Quá hạn theo chuẩn hồ sơ công nghệ: qua `milestoneDeadlineDays` (mặc định 7 ngày, theo cơ sở) sau buổi mốc
   const stds = await loadStandards(ctx.db);
   const [r] = await ctx.db
     .select({

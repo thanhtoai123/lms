@@ -179,7 +179,7 @@ export function EvaluationPanel({
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h2 className="font-bold">Phiếu nhận xét buổi học <span className="text-sm font-normal text-ink-400">({readyCount}/{present.length} đủ tiêu chí)</span></h2>
-          <p className="text-xs text-ink-600">Chạm mức cho từng tiêu chí · tự lưu nháp · phát hành khi <b>hoàn tất buổi</b>, phụ huynh xem trong hồ sơ học tập.</p>
+          <p className="text-xs text-ink-600">Chạm mức cho từng tiêu chí · tự lưu nháp · phát hành khi <b>hoàn tất buổi</b>, phụ huynh xem trong hồ sơ công nghệ.</p>
         </div>
         {status && <span className={`text-xs ${status.tone === "err" ? "text-red-700" : status.tone === "info" ? "text-amber-800" : "text-green-700"}`}>{save.isPending ? "Đang lưu…" : status.text}</span>}
       </div>

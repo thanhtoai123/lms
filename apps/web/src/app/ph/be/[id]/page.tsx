@@ -10,6 +10,7 @@ import { ShareLinkButton } from "@/components/ph/actions";
 import { Progress } from "@/components/ph/bits";
 import { ProgressLine, RadarChart } from "@/components/portfolio/charts";
 import { AskForm } from "../../tin-nhan/client";
+import { AvatarUploader } from "@/components/avatar-uploader";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,7 @@ const dmy = (d: string | null) => (d ? `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.s
 
 /**
  * HÀNH TRÌNH HỌC CỦA CON: dòng thời gian lộ trình (khoá đã / đang học + % buổi, học bạ mốc, giấy chứng nhận có
- * nút in và chia sẻ link xác thực), tiến độ lộ trình, biểu đồ tiến bộ (tái dùng SVG của hồ sơ học tập),
+ * nút in và chia sẻ link xác thực), tiến độ lộ trình, biểu đồ tiến bộ (tái dùng SVG của hồ sơ công nghệ),
  * bộ sưu tập sản phẩm, "Lưu hồ sơ PDF". Chỉ con của phụ huynh đang đăng nhập.
  */
 export default async function ChildJourneyPage({ params }: { params: Promise<{ id: string }> }) {
@@ -40,8 +41,13 @@ export default async function ChildJourneyPage({ params }: { params: Promise<{ i
 
         {/* Tổng quan */}
         <section aria-label="Tổng quan" className="rounded-3xl bg-gradient-to-br from-brand-50 to-white p-5 shadow-sm ring-1 ring-black/5">
-          <div className="text-[20px] font-extrabold text-primary">{j.child.fullName}</div>
-          {c.code && <div className="font-mono text-[13px] text-ink-600">{c.code}</div>}
+          <div className="flex items-center gap-4">
+            <AvatarUploader endpoint="/api/ph/avatar" fields={{ studentId: j.child.id }} current={kids.find((k) => k.id === j.child.id)?.avatarUrl ?? null} name={j.child.fullName} nickname={j.child.nickname} seed={c.code ?? j.child.id} size={84} minimal />
+            <div className="min-w-0">
+              <div className="text-[20px] font-extrabold text-primary">{j.child.fullName}</div>
+              {c.code && <div className="font-mono text-[13px] text-ink-600">{c.code}</div>}
+            </div>
+          </div>
           <dl className="mt-3 grid grid-cols-4 gap-2 text-center">
             <div><dt className="text-[12px] text-ink-600">Khoá</dt><dd className="text-[20px] font-extrabold">{v.totals.courses}</dd></div>
             <div><dt className="text-[12px] text-ink-600">Phiếu</dt><dd className="text-[20px] font-extrabold">{v.totals.sheets}</dd></div>

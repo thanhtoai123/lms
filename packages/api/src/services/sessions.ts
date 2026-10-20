@@ -90,7 +90,7 @@ export async function getSessionDetail(ctx: ProtectedContext, sessionId: string)
     ctx.db.select({ n: sql<number>`count(*)::int` }).from(assignments).where(and(eq(assignments.sessionId, sessionId), sql`${assignments.status} <> 'draft'`)),
     getOps(ctx.db, s.centerId),
     s.session.lessonConfirmedBy ? ctx.db.select({ name: users.fullName }).from(users).where(eq(users.id, s.session.lessonConfirmedBy)) : Promise.resolve([] as { name: string }[]),
-    // Phiếu nhận xét buổi (hồ sơ học tập): HV có mặt phải có phiếu đủ tiêu chí trước khi hoàn tất
+    // Phiếu nhận xét buổi (hồ sơ công nghệ): HV có mặt phải có phiếu đủ tiêu chí trước khi hoàn tất
     sessionEvaluationStatus(ctx.db, sessionId),
   ]);
   const missing = missingRequiredChecklist(s.session.checklist);

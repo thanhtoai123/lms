@@ -8,7 +8,7 @@ import { teachers, students } from "./people";
 import { sessions, enrollments, classes, courses, lessons } from "./academics";
 
 /**
- * HỒ SƠ HỌC TẬP (docs/HO-SO-HOC-TAP.md) — ràng buộc, trigger tenant, RLS ở packages/db/sql/0011_ho_so_hoc_tap.sql.
+ * HỒ SƠ CÔNG NGHỆ (docs/HO-SO-HOC-TAP.md) — ràng buộc, trigger tenant, RLS ở packages/db/sql/0011_ho_so_hoc_tap.sql.
  *
  * PHIẾU NHẬN XÉT BUỔI HỌC: một phiếu cho mỗi học viên CÓ MẶT ở mỗi buổi (vắng thì không có phiếu;
  * học bù vẫn có phiếu, ghi rõ "Học bù"). GV chấm nhanh theo rubric 4 mức → nháp tự lưu →
@@ -61,7 +61,7 @@ export const sessionEvaluations = pgTable(
 );
 
 /**
- * Link chia sẻ hồ sơ học tập `/hs/<token>`: token ≥ 32 byte base64url, có hạn, thu hồi có lý do,
+ * Link chia sẻ hồ sơ công nghệ `/hs/<token>`: token ≥ 32 byte base64url, có hạn, thu hồi có lý do,
  * đếm lượt xem. Phạm vi: toàn bộ | một khoá (một ghi danh) | một khoảng ngày.
  */
 export const portfolioShares = pgTable(

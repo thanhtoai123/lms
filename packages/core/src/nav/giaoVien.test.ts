@@ -28,7 +28,7 @@ test("mục chính: 5 mục, đường dẫn không trùng", () => {
   assert.equal(new Set(TEACHER_PRIMARY.map((t) => t.href)).size, 5);
 });
 
-test("Thêm của giáo viên: có bài tập, tin nhắn; không có Dashboard / Lớp học / Ca & công / Hồ sơ học tập (giáo viên không đủ quyền)", () => {
+test("Thêm của giáo viên: có bài tập, tin nhắn; không có Dashboard / Lớp học / Ca & công / Hồ sơ công nghệ (giáo viên không đủ quyền)", () => {
   const actor = { userId: "u", personId: null, assignments: [{ role: "TEACHER", centerId: "c1" }], extraPermissions: [] } as unknown as Actor;
   const nav = filterMenu(ADMIN_MENU, (p) => hasPermission(actor, p), (p) => { const c = centersWith(actor, p); return c === null || c.length > 0; });
   const hrefs = teacherMoreGroups(nav).flatMap((g) => g.items.map((i) => i.href));

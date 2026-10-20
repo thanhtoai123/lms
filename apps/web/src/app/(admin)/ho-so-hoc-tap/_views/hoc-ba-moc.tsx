@@ -6,7 +6,7 @@ import { Empty } from "@/components/ui";
 import { ReviewQueue } from "./review-queue";
 
 /**
- * Chip "Học bạ mốc cần viết / duyệt" của trang Học bạ & hồ sơ học tập (trước đây là trang /report-cards
+ * Chip "Học bạ mốc cần viết / duyệt" của trang Học bạ & hồ sơ công nghệ (trước đây là trang /report-cards
  * "Học bạ năng lực" — đường cũ chuyển hướng 308 về đây, giữ nguyên ?class=).
  * Lưới học bạ mốc theo lớp + hàng đợi duyệt (Chờ duyệt → Đã duyệt, chờ gửi PH). Viết / duyệt từng học bạ
  * ở trang chi tiết /report-cards/<ghi danh>/<buổi mốc>.
@@ -69,7 +69,7 @@ export async function MilestoneView({ classParam }: { classParam?: string }) {
                       {data.rows.map((r) => (
                         <tr key={r.enrollmentId}>
                           <td className="p-3">
-                            <Link href={`/ho-so-hoc-tap/${r.studentId}?enrollmentId=${r.enrollmentId}`} className="font-medium hover:text-brand-600" title="Mở hồ sơ học tập khoá này">{r.fullName}</Link>
+                            <Link href={`/ho-so-hoc-tap/${r.studentId}?enrollmentId=${r.enrollmentId}`} className="font-medium hover:text-brand-600" title="Mở hồ sơ công nghệ khoá này">{r.fullName}</Link>
                             <div className="font-mono text-[10px] text-ink-400">{r.code}</div>
                           </td>
                           {r.cells.map((c) => (

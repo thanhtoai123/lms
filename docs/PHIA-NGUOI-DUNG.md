@@ -14,14 +14,14 @@
 |---|---|---|---|---|---|
 | P1 | Con học buổi tới lúc nào, ở đâu, với ai | Trang chủ: một dòng ngày giờ · lớp · phòng · cơ sở | 0 | Không có tên GV, không nổi bật, không có hành động kèm | Cao |
 | P2 | Xin nghỉ một buổi | **Không có luồng**: vào trang con → "Hỏi trung tâm" → gõ chủ đề + nội dung → gửi; CSKH nhập tay thành yêu cầu | 4 + gõ | Nút một chạm tạo yêu cầu nghỉ (`parent_requests` loại `absence`), hỏi có cần học bù | **Rất cao** |
-| P3 | Xem nhận xét buổi gần nhất | Trang chủ → Chi tiết → Hồ sơ học tập → cuộn tìm phiếu mới nhất | 2 + cuộn dài | Tóm tắt phiếu gần nhất ngay trang chủ (mức, nhận xét, ảnh) | **Rất cao** |
+| P3 | Xem nhận xét buổi gần nhất | Trang chủ → Chi tiết → Hồ sơ công nghệ → cuộn tìm phiếu mới nhất | 2 + cuộn dài | Tóm tắt phiếu gần nhất ngay trang chủ (mức, nhận xét, ảnh) | **Rất cao** |
 | P4 | Đóng học phí | Băng vàng trang chủ → Học phí → mở "Chuyển khoản (QR)" | 2 | Hạn / số tiền nổi hơn, mở thẳng QR | Trung bình |
 | P5 | Đọc thông báo chưa đọc | Tab "Thông báo" (số chưa đọc trong nhãn) | 1 | Tóm tắt 3 thông báo mới trên trang chủ | Trung bình |
 | P6 | Xem lịch học tháng / tuần | **Không có** — chỉ 10 buổi sắp tới + 30 buổi gần đây dạng danh sách | — | Lịch tháng/tuần có buổi thường, học bù, nghỉ lễ, trạng thái điểm danh | Cao |
 | P7 | Theo dõi yêu cầu đã gửi (nghỉ, học bù, hỏi) | **Không có** — chỉ một thông báo "Trung tâm đã nhận yêu cầu" | — | Danh sách "Yêu cầu của tôi" + trạng thái + lịch sử | Cao |
 | P8 | Xin học bù buổi con đã vắng | **Không có** | — | Nút "Xin học bù" trên buổi vắng (trong hạn) | Cao |
 | P9 | Xem SataCoin của con | Trang con: một dòng số xu | 1 | Lịch sử, quà đổi được, yêu cầu đổi quà | Trung bình |
-| P10 | Hành trình học (khoá đã / đang học, % buổi, học bạ, chứng nhận) | Trang con: danh sách lớp + học bạ dạng chữ; hồ sơ học tập ở trang riêng | 1–2 | Dòng thời gian lộ trình, biểu đồ tiến bộ, sản phẩm, **in / chia sẻ chứng nhận** | Cao |
+| P10 | Hành trình học (khoá đã / đang học, % buổi, học bạ, chứng nhận) | Trang con: danh sách lớp + học bạ dạng chữ; hồ sơ công nghệ ở trang riêng | 1–2 | Dòng thời gian lộ trình, biểu đồ tiến bộ, sản phẩm, **in / chia sẻ chứng nhận** | Cao |
 | P11 | Phản hồi sau buổi | **Không có** (CSKH ghi hộ qua điện thoại) | — | Thả cảm xúc một chạm + ghi chú; "Cần trao đổi" → việc chăm sóc | Cao |
 | P12 | Nhiều con | Trang chủ xếp chồng thẻ từng con, phải cuộn | cuộn | Chip chuyển nhanh giữa các con | Cao |
 | P13 | Hỏi trung tâm | Trang con → form cuối trang | 1 + cuộn | Lối vào từ "Yêu cầu của tôi" | Thấp |
@@ -109,7 +109,7 @@ Cổng phụ huynh — service `packages/api/src/services/parentHub.ts` (phạm 
 | `POST /api/ph/requests` → `parentSubmitRequest` / `parentCancelRequest` | Xin nghỉ buổi sắp tới / xin học bù buổi đã vắng (trong hạn 30 ngày) / huỷ yêu cầu còn "Mới" do chính PH gửi. Tạo `parent_requests` kênh `app` như CSKH tạo tay: mã `YCyy-nnnnn` (khoá advisory), sự kiện, thông báo CSKH + QLL cơ sở, thông báo "đã nhận" cho PH, `writeAudit` — **một transaction** |
 | `POST /api/ph/react` → `parentReact` | Cảm xúc sau buổi con **có mặt** trong 14 ngày: ghi `parent_feedback` (rating 5/4/2 + `reaction`), "Cần trao đổi" mở `care_tasks` `PARENT_CONCERN` (hạn 24h, chống trùng), báo CSKH + GV đứng buổi, `writeAudit` — một transaction. PH sửa được khi dòng do app tạo và CSKH chưa xử lý |
 | `hubCoins` | Số xu, hạng, lịch sử (ẩn ghi chú điều chỉnh / thu hồi của nhân sự), quà đổi được, quà đã đổi — chỉ đọc |
-| `hubJourney` | Hồ sơ học tập (`buildPortfolio`) + dòng thời gian (`buildJourney`) + tiến độ lộ trình (`pathProgress`) + id chứng nhận |
+| `hubJourney` | Hồ sơ công nghệ (`buildPortfolio`) + dòng thời gian (`buildJourney`) + tiến độ lộ trình (`pathProgress`) + id chứng nhận |
 | `portalCertificate` (certificates.ts) | Giấy chứng nhận **còn hiệu lực** của con để in (`/ph/be/<id>/chung-nhan/<cid>`) |
 
 App giáo viên — `packages/api/src/services/teacherHub.ts`, router `teacher.*` (`protectedProcedure`, quyền `_own`):

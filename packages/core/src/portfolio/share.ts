@@ -1,5 +1,5 @@
 /**
- * CHIA SẺ HỒ SƠ HỌC TẬP qua link riêng `/hs/<token>` (khuôn giống phiếu đánh giá học thử):
+ * CHIA SẺ HỒ SƠ CÔNG NGHỆ qua link riêng `/hs/<token>` (khuôn giống phiếu đánh giá học thử):
  * token ≥ 32 byte base64url, có hạn (mặc định 180 ngày), thu hồi có lý do, đếm lượt xem.
  * Phạm vi: toàn bộ hồ sơ | một khoá (một ghi danh) | một khoảng ngày.
  */
@@ -93,7 +93,7 @@ export function portfolioPath(token: string): string {
 
 export function portfolioShareMessage(studentName: string | null | undefined, link: string): string {
   const name = (studentName ?? "").trim();
-  return `TH STEAM Academy gửi anh/chị hồ sơ học tập của ${name ? `bé ${name}` : "bé"} — xem và lưu PDF tại: ${link}`;
+  return `TH STEAM Academy gửi anh/chị hồ sơ công nghệ của ${name ? `bé ${name}` : "bé"} — xem và lưu PDF tại: ${link}`;
 }
 
 /** Chuỗi truy vấn chuẩn của một phạm vi (thứ tự cố định — dùng để ký HMAC trang in nội bộ) */

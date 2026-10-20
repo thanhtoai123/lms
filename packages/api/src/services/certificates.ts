@@ -734,7 +734,7 @@ export interface PublicCertificateView {
   issuedDateLong: string;
   number: string;
   issuer: { name: string; centerName: string; address: string | null; phone: string | null };
-  /** Chỉ có khi học viên đang có link chia sẻ hồ sơ học tập còn hiệu lực */
+  /** Chỉ có khi học viên đang có link chia sẻ hồ sơ công nghệ còn hiệu lực */
   portfolioPath: string | null;
 }
 export type PublicCertificateResult = { state: "not_found" } | { state: "ok"; cert: PublicCertificateView };

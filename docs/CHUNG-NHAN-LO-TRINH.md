@@ -35,7 +35,7 @@ Verifiable Credential), nhưng giữ đủ **bộ trường tối thiểu** đ�
 | `credentialSubject` — người nhận | Họ tên học viên | `snapshot.studentName` |
 | `validFrom` — ngày cấp | Ngày cấp (giờ Việt Nam) | `certificates.issued_at`, `snapshot.issuedDate` |
 | `id` — mã định danh duy nhất | Số chứng nhận `CN-<cơ sở>-<yy>-<6 số>` (+ id UUID) | `certificates.number` |
-| `evidence` — bằng chứng | Liên kết **hồ sơ học tập** (chỉ khi có link chia sẻ còn hiệu lực) | `portfolio_shares` |
+| `evidence` — bằng chứng | Liên kết **hồ sơ công nghệ** (chỉ khi có link chia sẻ còn hiệu lực) | `portfolio_shares` |
 | cách xác thực | Trang công khai `/cn/<verify_token>` qua mã QR | `certificates.verify_token` |
 
 ## 3. Dữ liệu
@@ -111,9 +111,9 @@ có dấu "ĐÃ THU HỒI". Thu hồi chứng nhận khoá cũng đánh dấu `c
 
 **Xác thực**: người nhận giấy (phụ huynh, trường, ban tổ chức cuộc thi) quét QR → `/cn/<token>`: trạng thái **Hợp lệ / Đã thu hồi**,
 tên thành tích, điều kiện đạt, người nhận, ngày cấp, số chứng nhận, đơn vị cấp (tên cơ sở + địa chỉ + SĐT **cơ sở**), và nút
-**Xem hồ sơ học tập** *chỉ khi* học viên đang có link chia sẻ hồ sơ còn hiệu lực.
+**Xem hồ sơ công nghệ** *chỉ khi* học viên đang có link chia sẻ hồ sơ còn hiệu lực.
 
-**Hồ sơ học tập**: mục *Giấy chứng nhận* liệt kê cả chứng nhận khoá và lộ trình (có liên kết *Xác thực*).
+**Hồ sơ công nghệ**: mục *Giấy chứng nhận* liệt kê cả chứng nhận khoá và lộ trình (có liên kết *Xác thực*).
 
 ## 7. Bảo mật
 

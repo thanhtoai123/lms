@@ -1,20 +1,36 @@
-# Hồ sơ học tập — phiếu nhận xét từng buổi, học bạ mốc tự tổng hợp, PDF lưu trữ
+# Hồ sơ công nghệ — phiếu nhận xét từng buổi, học bạ mốc tự tổng hợp, PDF lưu trữ
 
 > **Cập nhật 19/10/2026 — chuẩn TH STEAM (docs/KHUNG-CHUONG-TRINH.md):** thang chấm đổi hẳn sang **3 mức Cần cố gắng · Đạt · Tốt**
 > ở mọi nơi (`RUBRIC_SCALE = 3`); bộ tiêu chí mặc định là **6 năng lực + 3 phẩm chất** với mô tả 3 mức theo từng chương trình;
 > mốc học bạ là **buổi 15 mỗi học phần** (15 / 30 / 45). Các đoạn dưới đây nói "4 mức / thang 4" là thiết kế trước đó — phiếu và học bạ
 > đã chấm thang 4 vẫn hiển thị đúng nhãn cũ, còn khi tổng hợp được quy đổi sang thang 3 (`convertScore`).
 
+> **Cập nhật 20/10/2026 — đổi tên "Hồ sơ học tập" → "Hồ sơ công nghệ", chuẩn hoá theo khung TH STEAM:**
+> - Bố cục (`components/portfolio/portfolio-document.tsx`, dữ liệu đọc theo khung ở `packages/core/src/portfolio/tech.ts`):
+>   **Bìa** (logo, ảnh đại diện + tên con, chương trình, năm học, phần mềm, số học phần đã báo cáo / sản phẩm / chuyên cần / chứng nhận) →
+>   **Bức tranh năng lực** (Tư duy · Kỹ năng số · Bản lĩnh · Phẩm chất, mỗi tiêu chí một mức Tốt / Đạt / Cần cố gắng kèm "con làm được"
+>   lấy từ bảng "Con thay đổi gì" của đúng chương trình; nguồn = học bạ buổi báo cáo mới nhất, chưa có thì trung bình phiếu buổi) →
+>   **Lộ trình chương trình** (mỗi năm học 3 học phần × 15 buổi: tiến độ, trạng thái Đã báo cáo / Đang học / Sắp học, mức của học bạ
+>   buổi báo cáo, sản phẩm dự kiến, con làm được) → **Thầy cô nhận xét · Sản phẩm & dự án · Chuyên cần · Chứng nhận · Biểu đồ tiến bộ** →
+>   **Chi tiết từng khoá** (học bạ + phiếu buổi, bản in 2 phiếu / trang).
+> - Màu theo mức dùng chung (`LEVEL_TONE`): Cần cố gắng = Cosmic Gold, Đạt = Deep Ocean Blue, Tốt = Emerald.
+> - **Ảnh đại diện học viên** (`packages/core/src/people/avatar.ts`, `services/studentAvatar.ts`): nhân sự có quyền sửa hồ sơ học viên
+>   (trang Học viên → nút máy ảnh) và phụ huynh (cổng /ph → Tổng quan / Hành trình của con) đều đổi được, hiện ngay. Trình duyệt cắt vuông,
+>   thu về 512px, mã hoá lại JPEG (bỏ EXIF/GPS); máy chủ kiểm định dạng theo nội dung và bóc siêu dữ liệu JPEG lần nữa; tệp riêng tư, phát qua
+>   URL có chữ ký 6 giờ. Ảnh hiện trên bìa hồ sơ (kể cả link chia sẻ `/hs/…` — theo quyết định của chủ trung tâm), thẻ con, chip chọn con,
+>   danh sách học viên. Người ngoài tenant (Hội sở không được xem PII) không thấy ảnh. Chưa có ảnh: chữ cái đầu tên gọi trên nền màu thương hiệu.
+> - Đường dẫn giữ nguyên (`/ho-so-hoc-tap`, `/hs/<token>`, `/in-ho-so/…`) để link đã gửi phụ huynh vẫn mở được.
+
 Mục tiêu của chủ dự án: **sau mỗi buổi giáo viên đánh giá sẽ đổ ra được một phiếu đánh giá**, và các phiếu đó
 **lưu trữ lại dạng PDF để in hay chia sẻ toàn bộ lộ trình học của học viên**.
 
-Tính năng xây lại học bạ thành một **Hồ sơ học tập (portfolio)** xuyên suốt các khoá:
+Tính năng xây lại học bạ thành một **Hồ sơ công nghệ (portfolio)** xuyên suốt các khoá:
 
 1. **Phiếu nhận xét buổi học** — mỗi học viên có mặt, mỗi buổi, chấm nhanh theo rubric 4 mức ngay trên màn điểm danh;
    phát hành cùng lúc khi giáo viên hoàn tất buổi; đã phát hành thì bất biến.
 2. **Học bạ mốc tự tổng hợp** — mở học bạ buổi 5 / 12 … là thấy sẵn điểm trung bình các phiếu buổi của giai đoạn,
    xu hướng, chuyên cần, tỷ lệ đạt mục tiêu bài, thẻ nổi bật, gợi ý nhận xét. Giáo viên chỉ xác nhận / chỉnh và viết nhận xét tổng.
-3. **Hồ sơ học tập** — gom lộ trình các khoá, phiếu buổi, học bạ, chứng nhận, sản phẩm, biểu đồ tiến bộ; xem trên trang quản trị,
+3. **Hồ sơ công nghệ** — gom lộ trình các khoá, phiếu buổi, học bạ, chứng nhận, sản phẩm, biểu đồ tiến bộ; xem trên trang quản trị,
    cổng phụ huynh, hoặc link chia sẻ riêng `/hs/<token>`; **in / lưu PDF nhiều trang khổ A4**.
 
 ---
@@ -140,15 +156,15 @@ Hàm thuần có kiểm thử: `packages/core/src/portfolio/aggregate.ts` (`aggr
 
 ---
 
-## 5. Hồ sơ học tập & chia sẻ
+## 5. Hồ sơ công nghệ & chia sẻ
 
 Service `packages/api/src/services/portfolio.ts`, router `portfolio.{get, options, milestone, shares, createShare, revokeShare, exportPdf}`.
 Một hàm dựng dữ liệu duy nhất `buildPortfolio(db, studentId, phạm vi)` → `PortfolioView` (`packages/core/src/portfolio/view.ts`), dùng chung bốn cửa vào:
 
 | Cửa vào | Đường dẫn | Quyền |
 |---|---|---|
-| Nhân sự | `/students/<id>` → khối **"Hồ sơ học tập"** (xem, in, chia sẻ — drawer, không thêm tab); trang đầy đủ `/ho-so-hoc-tap/<id>` (lọc theo khoá / khoảng ngày) | `student:read` tại cơ sở (GV: học viên lớp mình, quyền `_own`); `assertTenant`; `redact` theo tenant |
-| Phụ huynh đã đăng nhập | `/ph/be/<id>` → "Hồ sơ học tập của con" → `/ph/be/<id>/ho-so` | chỉ con của mình (bảng `student_guardians`), không cần token |
+| Nhân sự | `/students/<id>` → khối **"Hồ sơ công nghệ"** (xem, in, chia sẻ — drawer, không thêm tab); trang đầy đủ `/ho-so-hoc-tap/<id>` (lọc theo khoá / khoảng ngày) | `student:read` tại cơ sở (GV: học viên lớp mình, quyền `_own`); `assertTenant`; `redact` theo tenant |
+| Phụ huynh đã đăng nhập | `/ph/be/<id>` → "Hồ sơ công nghệ của con" → `/ph/be/<id>/ho-so` | chỉ con của mình (bảng `student_guardians`), không cần token |
 | Link chia sẻ | `/hs/<token>` | token là quyền; có hạn; thu hồi được |
 | Bộ xuất PDF máy chủ | `/in-ho-so/<id>?…&exp&sig` | chữ ký HMAC 5 phút, ký sau khi đã kiểm quyền |
 
@@ -178,7 +194,7 @@ Bộ component dùng chung `apps/web/src/components/portfolio/`:
 | `PortfolioPrintStyle` | CSS in |
 
 **Bố cục PDF A4** (`@page A4`, lề 12 mm, `print-color-adjust: exact`, `break-inside: avoid`):
-trang bìa (logo `/icon.svg`, "Hồ sơ học tập", tên bé, mã HV, giai đoạn, cơ sở, số khoá / phiếu / chứng nhận) →
+trang bìa (logo `/icon.svg`, "Hồ sơ công nghệ", tên bé, mã HV, giai đoạn, cơ sở, số khoá / phiếu / chứng nhận) →
 trang tóm tắt (lộ trình dạng dòng thời gian, biểu đồ tiến bộ, chuyên cần, chứng nhận) →
 **mỗi khoá sang trang mới** (tổng quan + mạng nhện, học bạ mốc, rồi **2 phiếu buổi / trang**) → trang sản phẩm.
 Chân trang đánh số "Trang x / y" bằng ô lề trang CSS (`@bottom-right`, Chrome 131+; trình duyệt khác bỏ qua). Nút **"In / Lưu PDF"** gọi `window.print()`
@@ -205,7 +221,7 @@ Biến môi trường: `PDF_RENDERER=playwright`, `PDF_CHROME_CHANNEL` (mặc đ
 | Xem khối phiếu của buổi | `session:read` (GV: buổi mình dạy / lớp mình) |
 | Chấm, lưu nháp, sửa phiếu đã phát hành (có lý do) | `session_note:write` (GV: `session_note:write_own`) |
 | Xem / in một phiếu | người dạy buổi đó **hoặc** `student:read` tại cơ sở |
-| Xem hồ sơ học tập | `student:read` tại cơ sở (GV: `student:read_own` — học viên lớp mình) |
+| Xem hồ sơ công nghệ | `student:read` tại cơ sở (GV: `student:read_own` — học viên lớp mình) |
 | Chia sẻ link, thu hồi, xuất PDF lưu trữ | `student:update` **hoặc** `report_card:approve` tại cơ sở |
 | Học bạ mốc | như cũ: `report_card:write*`, `report_card:approve` |
 
@@ -222,7 +238,7 @@ Biến môi trường: `PDF_RENDERER=playwright`, `PDF_CHROME_CHANNEL` (mặc đ
 
 ## 8. Trước / sau
 
-| Khía cạnh | Học bạ cũ | Hồ sơ học tập mới |
+| Khía cạnh | Học bạ cũ | Hồ sơ công nghệ mới |
 |---|---|---|
 | Đánh giá mỗi buổi | Chỉ nhận xét chữ + 1–5 sao, không theo tiêu chí | **Phiếu theo tiêu chí năng lực của khoá**, rubric 4 mức có mô tả, mục tiêu bài, thẻ nổi bật, sản phẩm, ảnh |
 | Nhập liệu của GV | Nhận xét buổi ở một ô, học bạ chấm lại từ đầu ở mốc | Một chạm ngay trên màn điểm danh, **chép mức cho cả lớp**, tự lưu nháp; nhận xét nhập **một lần** (đồng bộ với điểm danh) |
@@ -232,7 +248,7 @@ Biến môi trường: `PDF_RENDERER=playwright`, `PDF_CHROME_CHANNEL` (mặc đ
 | Khi hoàn tất buổi | Không kiểm đánh giá từng HV (chỉ nhận xét chữ, tuỳ cấu hình) | **Chặn hoàn tất** nếu HV có mặt thiếu phiếu đủ tiêu chí (nêu tên), cấu hình được; phát hành cùng transaction |
 | Theo dõi việc còn thiếu | Không có | "Việc hôm nay" → **Buổi chưa có phiếu nhận xét học viên** |
 | Phạm vi | Từng mốc của một lớp | **Xuyên suốt các khoá**: lộ trình, biểu đồ tiến bộ, mạng nhện năng lực, chứng nhận, sản phẩm |
-| Phụ huynh xem | Danh sách điểm số dạng chữ trong cổng | Cổng `/ph` có "Hồ sơ học tập của con" + link chia sẻ cho ông bà (có hạn, thu hồi được, đếm lượt xem) |
+| Phụ huynh xem | Danh sách điểm số dạng chữ trong cổng | Cổng `/ph` có "Hồ sơ công nghệ của con" + link chia sẻ cho ông bà (có hạn, thu hồi được, đếm lượt xem) |
 | In / lưu trữ | Không có bản in | **PDF nhiều trang A4** (bìa, tóm tắt, từng khoá, 2 phiếu / trang, sản phẩm), in riêng một phiếu (A5) / một học bạ; xuất PDF lưu trữ phía máy chủ tuỳ chọn |
 | Bằng chứng | Không gắn ảnh | Ảnh đã duyệt có gắn bé, chỉ khi phụ huynh đồng ý đăng ảnh |
 
@@ -243,8 +259,8 @@ Biến môi trường: `PDF_RENDERER=playwright`, `PDF_CHROME_CHANNEL` (mặc đ
 `pnpm db:reset && pnpm db:push && pnpm db:apply-sql && pnpm db:seed` — seed sinh phiếu đã phát hành cho mọi học viên có mặt ở các buổi đã hoàn tất
 (điểm tăng nhẹ theo số buổi, học viên vắng không có phiếu), chuyển học bạ mốc đã có sang thang 4 với số liệu tổng hợp, gắn 2 ảnh đã duyệt cho "Học viên mẫu 2", và in ở cuối:
 
-- **Hồ sơ học tập mẫu** (không cần đăng nhập): `http://localhost:3000/hs/xem-thu-ho-so-hoc-tap-th-steam-mau`
-- Trang quản trị: **Học viên → Học viên mẫu 2 → khối "Hồ sơ học tập"** (xem, in, chia sẻ, danh sách link + lượt xem + thu hồi).
+- **Hồ sơ công nghệ mẫu** (không cần đăng nhập): `http://localhost:3000/hs/xem-thu-ho-so-hoc-tap-th-steam-mau`
+- Trang quản trị: **Học viên → Học viên mẫu 2 → khối "Hồ sơ công nghệ"** (xem, in, chia sẻ, danh sách link + lượt xem + thu hồi).
 - Luồng giáo viên: đăng nhập `teacher1@example.test` → buổi quá hạn chưa chốt của lớp Sata4 sáng CN → điểm danh → chấm phiếu → thử **Hoàn tất** khi còn thiếu để thấy thông báo chặn.
 - Mốc bật tính năng trong seed đặt 14 ngày trước để nhóm "Buổi chưa có phiếu nhận xét học viên" có việc mẫu.
 
@@ -271,9 +287,9 @@ Biến môi trường: `PDF_RENDERER=playwright`, `PDF_CHROME_CHANNEL` (mặc đ
 
 ---
 
-## 12. Chuẩn thông tin hồ sơ học tập
+## 12. Chuẩn thông tin hồ sơ công nghệ
 
-Yêu cầu của chủ dự án: *"Ở quản trị tôi cần đảm bảo quản lý được việc hồ sơ học tập theo đúng chuẩn thông tin"*.
+Yêu cầu của chủ dự án: *"Ở quản trị tôi cần đảm bảo quản lý được việc hồ sơ công nghệ theo đúng chuẩn thông tin"*.
 Chuẩn = **một tập quy tắc đo được**; quản trị theo dõi bằng **tỷ lệ đạt chuẩn** chứ không đọc từng phiếu.
 
 | Quy tắc | Đo thế nào | Cấu hình (khoá) | Mặc định | Chặn hoàn tất buổi? |
@@ -288,7 +304,7 @@ Chuẩn = **một tập quy tắc đo được**; quản trị theo dõi bằng 
 | Hồ sơ HV đạt chuẩn | % phiếu (đã tới hạn) đủ chuẩn ≥ N% | `profileMinSheetPct` | 90% | Không |
 | Chặn hoàn tất buổi khi thiếu phiếu | — | `sessionRequireEvaluations` (**giữ khoá cũ**) | BẬT | — |
 
-**Cấu hình**: *Cấu hình vận hành → tab "Hồ sơ học tập"* (`/cau-hinh-van-hanh?tab=ho-so-hoc-tap`, nhóm `ho-so-hoc-tap` trong `OPS_GROUPS`).
+**Cấu hình**: *Cấu hình vận hành → tab "Hồ sơ công nghệ"* (`/cau-hinh-van-hanh?tab=ho-so-hoc-tap`, nhóm `ho-so-hoc-tap` trong `OPS_GROUPS`).
 Đặt *Mặc định toàn hệ thống* (quyền `system:configure`) rồi **ghi đè theo cơ sở** (quyền `automation:update` tại cơ sở) — cơ sở không ghi đè thì kế thừa.
 Khoá `sessionRequireEvaluations` trước nằm ở tab *Lớp & GV*, nay chuyển sang tab này **giữ nguyên tên khoá** nên giá trị đã lưu vẫn hiệu lực.
 Mặc định giữ đúng hành vi trước đây (chặn khi thiếu tiêu chí / mục tiêu bài; không bắt sản phẩm, không bắt ảnh).
@@ -349,14 +365,14 @@ Trang chủ app GV (`/teacher`) có thẻ **"Phiếu cần hoàn thiện"**: bu�
 nhóm "Học bạ kỳ chưa viết" (đã có — không thêm nhóm mới, nên kịch bản kiểm thử không đổi) hiện hạn và đánh dấu quá hạn theo `milestoneDeadlineDays`
 (trước: cố định 3 ngày; nay mặc định 7 ngày theo chuẩn).
 
-## 15. Quản lý hồ sơ học tập (`/ho-so-hoc-tap`)
+## 15. Quản lý hồ sơ công nghệ (`/ho-so-hoc-tap`)
 
-Menu *Học viên → **Học bạ & hồ sơ học tập*** (icon `folder-check`, quyền `report_card:read`) — **mục menu duy nhất cho học bạ**
+Menu *Học viên → **Học bạ & hồ sơ công nghệ*** (icon `folder-check`, quyền `report_card:read`) — **mục menu duy nhất cho học bạ**
 (docs/KIEN-TRUC-MENU.md §3). Ba chip chế độ xem:
 
 | Chip | Đường dẫn | Thay cho |
 |---|---|---|
-| Tổng quan chuẩn hồ sơ (màn dưới đây) | `/ho-so-hoc-tap` | "Quản lý hồ sơ học tập" |
+| Tổng quan chuẩn hồ sơ (màn dưới đây) | `/ho-so-hoc-tap` | "Quản lý hồ sơ công nghệ" |
 | Học bạ mốc cần viết / duyệt — lưới theo lớp + hàng đợi duyệt | `/ho-so-hoc-tap?xem=hoc-ba-moc&class=<lớp>` | `/report-cards` "Học bạ năng lực" (chuyển hướng 308) |
 | Tra cứu học viên — học bạ mọi trạng thái, chứng nhận, mở hồ sơ | `/ho-so-hoc-tap?xem=tra-cuu&student=<HV>` | `/hoc-ba` "Học bạ" (chuyển hướng 308) |
 
@@ -391,7 +407,7 @@ Mô tả mức chỉ giúp chấm nhất quán khi mọi GV **hiểu mô tả gi
 3. **So lệch**: tổng hợp bảng tiêu chí × GV; đánh dấu ô lệch ≥ 2 mức, hoặc tiêu chí có < 70% GV cho cùng mức.
 4. **Thảo luận**: với từng ô lệch, mỗi GV nêu **hành vi quan sát được** khiến mình chọn mức đó; đối chiếu câu mô tả mức.
 5. **Thống nhất**: sửa câu mô tả mức mơ hồ trong drawer *Tiêu chí đánh giá* (ghi rõ hành vi, bỏ từ cảm tính); lưu 3 sản phẩm mẫu + mức đã thống nhất làm **ví dụ neo**.
-6. **Theo dõi**: quý sau so tỷ lệ đồng thuận; kết hợp bảng *Quản lý hồ sơ học tập* theo GV để phát hiện GV luôn chấm lệch cao / thấp so với lớp cùng khoá.
+6. **Theo dõi**: quý sau so tỷ lệ đồng thuận; kết hợp bảng *Quản lý hồ sơ công nghệ* theo GV để phát hiện GV luôn chấm lệch cao / thấp so với lớp cùng khoá.
 
 Phiếu đã phát hành giữ bản chụp mô tả mức cũ — thay đổi sau hiệu chuẩn chỉ áp cho phiếu mới.
 
@@ -409,7 +425,7 @@ Yêu cầu của chủ dự án: *"tiêu chí học bạ cần cấu hình linh 
 - `/report-cards/criteria` thành màn **"Tiêu chí theo chương trình"**: mỗi chương trình một thẻ (số tiêu chí, nhóm, bao nhiêu tiêu chí đã viết mô tả 4 mức, mốc học bạ, số phiếu đã phát hành), nút mở hộp cấu hình, chọn khoá tiếp theo. Chương trình chưa cấu hình được cảnh báo rõ. API cũ `learning.criteria/upsertCriterion/moveCriterion` (chỉ tên, thang 1–5) bỏ; còn một đường duy nhất `portfolio.criteria.*`.
 - **4 bộ mẫu** (`packages/core/src/portfolio/templates.ts`): Robotics & lập trình robot (8 tiêu chí), Lập trình Scratch/Python (6), STEAM cho bé nhỏ 5–8 tuổi (5), AI & dữ liệu (6) — đều có 4 mô tả hành vi mỗi tiêu chí, có kiểm thử hợp lệ.
 - Trong hộp cấu hình: **"Thêm tiêu chí từ bộ mẫu / chương trình khác"** — chọn bộ mẫu hoặc sao chép từ khoá khác (kèm nhóm, mô tả, 4 mô tả mức). Chỉ **thêm tiêu chí chưa có** (trùng tên bỏ qua) nên bấm lại không nhân đôi, không đụng tiêu chí đã có điểm. Quyền sửa: `course:update`; ghi nhật ký trong transaction.
-- **Buổi học kèm ảnh trong học bạ mốc** (`MilestoneSessionView`, `milestone-sessions.tsx`): mỗi buổi của giai đoạn một dòng — ngày, bài học, kết quả mục tiêu, điểm TB — kèm tối đa 4 ảnh (3 khi in), nhãn "Của bé" / "Cả lớp", bấm mở ảnh lớn. Hiện ở: học bạ in riêng `/hoc-ba-moc/<id>`, hồ sơ học tập / cổng phụ huynh / link chia sẻ (thu gọn mở sẵn; bản in cả hồ sơ ẩn mục này vì phiếu từng buổi ngay sau đã có ảnh), màn viết học bạ `/report-cards/<ghi danh>/<buổi>` (để giáo viên nhìn lại buổi học khi viết nhận xét), và **Tra cứu học viên** (mỗi học bạ có dòng xổ "Các buổi & ảnh").
+- **Buổi học kèm ảnh trong học bạ mốc** (`MilestoneSessionView`, `milestone-sessions.tsx`): mỗi buổi của giai đoạn một dòng — ngày, bài học, kết quả mục tiêu, điểm TB — kèm tối đa 4 ảnh (3 khi in), nhãn "Của bé" / "Cả lớp", bấm mở ảnh lớn. Hiện ở: học bạ in riêng `/hoc-ba-moc/<id>`, hồ sơ công nghệ / cổng phụ huynh / link chia sẻ (thu gọn mở sẵn; bản in cả hồ sơ ẩn mục này vì phiếu từng buổi ngay sau đã có ảnh), màn viết học bạ `/report-cards/<ghi danh>/<buổi>` (để giáo viên nhìn lại buổi học khi viết nhận xét), và **Tra cứu học viên** (mỗi học bạ có dòng xổ "Các buổi & ảnh").
 - Quy tắc ảnh giữ nguyên: chỉ ảnh đã duyệt, gắn thẻ bé hoặc cả lớp, và chỉ khi phụ huynh đang đồng ý đăng ảnh (kiểm lại mỗi lần hiển thị); giáo viên đã chọn tay ảnh cho phiếu thì theo lựa chọn đó (`pickSheetMedia`).
 
 **Giới hạn đã biết / để sau**: thang 4 mức và tên 4 mức ("Đang làm quen … Vượt mong đợi") vẫn dùng chung mọi chương trình; thẻ nổi bật và trọng số tiêu chí chưa tuỳ biến theo chương trình. Quản lý cơ sở (chỉ có `course:read`) xem được tiêu chí nhưng không sửa — việc sửa thuộc Đào tạo / quản trị.

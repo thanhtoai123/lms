@@ -31,7 +31,7 @@ const QUICK_ACTIONS: { title: string; sub: string; href: string; needs: string; 
   { title: "Duyệt ảnh lớp", sub: "Ảnh chờ duyệt theo buổi", href: "/duyet-media", needs: "/duyet-media", words: "duyet anh lop media" },
   { title: "Duyệt đơn từ", sub: "Đơn nghỉ / đơn công chờ duyệt", href: "/don-tu?status=pending", needs: "/don-tu", words: "duyet don tu nghi phep cong" },
   { title: "Học bạ cần viết / duyệt", sub: "Lưới học bạ mốc theo lớp và hàng đợi duyệt", href: "/ho-so-hoc-tap?xem=hoc-ba-moc", needs: "/ho-so-hoc-tap?xem=hoc-ba-moc", words: "hoc ba moc viet duyet report card" },
-  { title: "Tra cứu hồ sơ học tập", sub: "Chọn học viên → học bạ, chứng nhận, in PDF", href: "/ho-so-hoc-tap?xem=tra-cuu", needs: "/ho-so-hoc-tap?xem=tra-cuu", words: "tra cuu hoc ba ho so hoc tap hoc vien" },
+  { title: "Tra cứu hồ sơ công nghệ", sub: "Chọn học viên → học bạ, chứng nhận, in PDF", href: "/ho-so-hoc-tap?xem=tra-cuu", needs: "/ho-so-hoc-tap?xem=tra-cuu", words: "tra cuu hoc ba ho so hoc tap hoc vien" },
   { title: "Xem báo cáo", sub: "Chỉ mục mọi báo cáo nghiệp vụ", href: "/bao-cao", needs: "/bao-cao", words: "bao cao thong ke doanh thu lead" },
   { title: "Hồ sơ tài khoản", sub: "Tôi là ai trong hệ thống: vai trò, cơ sở, hồ sơ nhân sự / giáo viên", href: "/tai-khoan", needs: "/viec-hom-nay", words: "ho so tai khoan cua toi thong tin ca nhan vai tro profile" },
   { title: "Bảo mật tài khoản", sub: "Xác thực 2 lớp bằng ứng dụng OTP", href: "/bao-mat", needs: "/viec-hom-nay", words: "bao mat tai khoan 2 lop otp mat khau" },
@@ -91,7 +91,7 @@ export function CommandPalette({ nav, open, onOpenChange }: { nav: NavGroup[]; o
 
   const items = useMemo<Item[]>(() => {
     const f = fold(q.trim());
-    // Trang = mục menu + chip của trang trung tâm (vd "Học bạ & hồ sơ học tập › Tra cứu học viên")
+    // Trang = mục menu + chip của trang trung tâm (vd "Học bạ & hồ sơ công nghệ › Tra cứu học viên")
     const pages = nav.flatMap((g) => g.items.flatMap((it) => [
       { g: g.label, i: { label: it.label, href: it.href, desc: it.desc, keywords: it.keywords } },
       ...(it.tabs ?? []).filter((t) => t.href !== it.href).map((t) => ({ g: g.label, i: { label: `${it.label} › ${t.label}`, href: t.href, desc: t.desc, keywords: it.keywords } })),

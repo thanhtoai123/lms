@@ -32,7 +32,7 @@ export const appRouter = router({
   academics: router({
     sessions: sessionsRouter,
     classes: classesRouter,
-    /** Phiếu nhận xét buổi học (hồ sơ học tập) */
+    /** Phiếu nhận xét buổi học (hồ sơ công nghệ) */
     evaluations: sessionEvaluationsRouter,
   }),
   teacher: teacherRouter,
@@ -72,7 +72,7 @@ export const appRouter = router({
   opsConfig: opsConfigRouter,
   card: cardRouter,
   tenants: tenantsRouter,
-  /** Hồ sơ học tập (portfolio) của học viên */
+  /** Hồ sơ công nghệ (portfolio) của học viên */
   portfolio: portfolioRouter,
   /** Giấy chứng nhận, lộ trình học, mẫu chứng nhận */
   certificates: certificatesRouter,
@@ -93,6 +93,7 @@ export { ingestBankTx } from "./services/bank";
 export { publicSurvey, submitPublicSurvey, runSurveyTriggers } from "./services/care";
 export { publicTrialReport, publicTrialReportRespond, CONSULT_RECEIVED_MESSAGE, type PublicTrialReportResult } from "./services/trialReports";
 export { publicPortfolio, portalPortfolio, portfolioForRender, type PublicPortfolioResult } from "./services/portfolio";
+export { studentAvatarUrl, uploadStudentAvatar, removeStudentAvatar, parentSetChildAvatar, parentRemoveChildAvatar, type ParentAvatarResult } from "./services/studentAvatar";
 export { verifyPortfolioRenderSignature } from "./storage";
 export { publicCertificate, portalCertificate, uploadTemplateBackground, type PublicCertificateResult, type PublicCertificateView, type PrintableCertificate } from "./services/certificates";
 export { logWebhook, mapPublicLeadBody, requestOtp, verifyOtp, processEmailQueue } from "./services/admin";

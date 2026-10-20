@@ -1,5 +1,5 @@
 /**
- * CSS in của hồ sơ học tập. Chỉ render trên trang có hồ sơ / phiếu nên không ảnh hưởng trang khác.
+ * CSS in của hồ sơ công nghệ. Chỉ render trên trang có hồ sơ / phiếu nên không ảnh hưởng trang khác.
  * (CSP của dự án cho phép style nội tuyến — xem packages/core/src/security/headers.ts; không có script.)
  *
  * - Hồ sơ: A4 dọc, lề 12mm, trang bìa trọn một trang, mỗi khoá sang trang mới, phiếu buổi 2 phiếu / trang,
@@ -22,7 +22,7 @@ const COMMON = `
 }`;
 
 const DOC_CSS = `
-@page { size: A4; margin: 12mm 12mm 14mm; @bottom-right { content: "Trang " counter(page) " / " counter(pages); font-size: 9px; color: #6c6c6c; } @bottom-left { content: "TH STEAM Academy · Hồ sơ học tập"; font-size: 9px; color: #6c6c6c; } }
+@page { size: A4; margin: 12mm 12mm 14mm; @bottom-right { content: "Trang " counter(page) " / " counter(pages); font-size: 9px; color: #6c6c6c; } @bottom-left { content: "TH STEAM Academy · Hồ sơ công nghệ"; font-size: 9px; color: #6c6c6c; } }
 @page :first { margin: 0; @bottom-right { content: none; } @bottom-left { content: none; } }
 @media print {
   html { font-size: 11px; }

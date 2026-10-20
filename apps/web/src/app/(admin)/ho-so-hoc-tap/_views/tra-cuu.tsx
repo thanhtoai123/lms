@@ -9,12 +9,12 @@ import { StudentChooser } from "./student-chooser";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
- * Chip "Tra cứu học viên" của trang Học bạ & hồ sơ học tập (trước đây là trang /hoc-ba "Học bạ" —
+ * Chip "Tra cứu học viên" của trang Học bạ & hồ sơ công nghệ (trước đây là trang /hoc-ba "Học bạ" —
  * đường cũ chuyển hướng 308 về đây, giữ nguyên ?student=).
  *
- * Giữ phần CÒN GIÁ TRỊ của trang cũ: danh sách học bạ ở MỌI trạng thái (nháp, chờ duyệt, trả lại… — hồ sơ học tập
- * chỉ hiện học bạ đã gửi phụ huynh) kèm lối vào viết / duyệt / in, và chứng nhận. Bỏ phần đã được hồ sơ học tập
- * thay thế: thanh điểm từng tiêu chí + nhận xét (xem đầy đủ, có biểu đồ tiến bộ, trong hồ sơ học tập).
+ * Giữ phần CÒN GIÁ TRỊ của trang cũ: danh sách học bạ ở MỌI trạng thái (nháp, chờ duyệt, trả lại… — hồ sơ công nghệ
+ * chỉ hiện học bạ đã gửi phụ huynh) kèm lối vào viết / duyệt / in, và chứng nhận. Bỏ phần đã được hồ sơ công nghệ
+ * thay thế: thanh điểm từng tiêu chí + nhận xét (xem đầy đủ, có biểu đồ tiến bộ, trong hồ sơ công nghệ).
  */
 export async function LookupView({ student }: { student?: string }) {
   const { caller } = await getServerCaller();
@@ -23,7 +23,7 @@ export async function LookupView({ student }: { student?: string }) {
     <div className="max-w-5xl space-y-4">
       <PageHeader
         title="Tra cứu học viên"
-        desc="Chọn một học viên để xem mọi học bạ mốc (kể cả đang viết / chờ duyệt), chứng nhận hoàn thành khoá và mở hồ sơ học tập đầy đủ — phiếu từng buổi, biểu đồ tiến bộ, in / lưu PDF, chia sẻ cho phụ huynh."
+        desc="Chọn một học viên để xem mọi học bạ mốc (kể cả đang viết / chờ duyệt), chứng nhận hoàn thành khoá và mở hồ sơ công nghệ đầy đủ — phiếu từng buổi, biểu đồ tiến bộ, in / lưu PDF, chia sẻ cho phụ huynh."
       />
       <StudentChooser current={book ? { id: book.student.id, fullName: book.student.fullName, code: book.student.code, grade: book.student.grade } : null} />
       {book && (
@@ -33,7 +33,7 @@ export async function LookupView({ student }: { student?: string }) {
               <div className="font-semibold">{book.student.fullName}{book.student.code ? <span className="ml-2 font-mono text-xs text-ink-400">{book.student.code}</span> : null}</div>
               <div className="text-xs text-ink-600">{book.cards.length} học bạ mốc · {book.completions.length} chứng nhận</div>
             </div>
-            <Link href={`/ho-so-hoc-tap/${book.student.id}`} className="btn-primary">Mở hồ sơ học tập →</Link>
+            <Link href={`/ho-so-hoc-tap/${book.student.id}`} className="btn-primary">Mở hồ sơ công nghệ →</Link>
           </section>
           {book.completions.length > 0 && (
             <section className="card p-4">

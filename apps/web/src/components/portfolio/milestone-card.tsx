@@ -1,5 +1,5 @@
 /**
- * HỌC BẠ MỐC — thẻ hiển thị dùng chung (hồ sơ học tập, cổng phụ huynh, trang in riêng một học bạ).
+ * HỌC BẠ MỐC — thẻ hiển thị dùng chung (hồ sơ công nghệ, cổng phụ huynh, trang in riêng một học bạ).
  * Học bạ mới (thang 3) kèm số liệu tổng hợp từ phiếu buổi: chuyên cần, tỷ lệ đạt mục tiêu bài,
  * xu hướng từng tiêu chí, thẻ nổi bật. Học bạ cũ (thang 5) vẫn hiển thị như trước.
  */

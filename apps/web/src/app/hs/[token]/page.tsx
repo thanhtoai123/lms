@@ -10,7 +10,7 @@ import { PrintButton } from "@/components/portfolio/print-button";
 
 export const dynamic = "force-dynamic";
 export const metadata = {
-  title: { absolute: "Hồ sơ học tập — TH STEAM Academy" },
+  title: { absolute: "Hồ sơ công nghệ — TH STEAM Academy" },
   robots: { index: false, follow: false, nocache: true },
   referrer: "no-referrer" as const,
 };
@@ -18,7 +18,7 @@ export const metadata = {
 type State = PublicPortfolioResult | { state: "rate_limited" };
 
 /**
- * Hồ sơ học tập chia sẻ qua link riêng (Zalo / email) — không cần đăng nhập, token là quyền.
+ * Hồ sơ công nghệ chia sẻ qua link riêng (Zalo / email) — không cần đăng nhập, token là quyền.
  * Kiểm định dạng token TRƯỚC khi chạm CSDL; trần tần suất theo IP chặn máy quét dò token.
  * Không bao giờ hiển thị SĐT / email / địa chỉ phụ huynh, ghi chú nội bộ, lý do vắng.
  */
@@ -47,10 +47,10 @@ export default async function PublicPortfolioPage({ params }: { params: Promise<
 function Friendly({ state }: { state: Exclude<State, { state: "ok" }> }) {
   const center = "center" in state ? state.center : null;
   const title =
-    state.state === "expired" ? "Liên kết hồ sơ học tập đã hết hạn"
+    state.state === "expired" ? "Liên kết hồ sơ công nghệ đã hết hạn"
       : state.state === "revoked" ? "Liên kết này đã được trung tâm thu hồi"
         : state.state === "rate_limited" ? "Anh/chị vui lòng thử lại sau ít phút"
-          : "Không tìm thấy hồ sơ học tập";
+          : "Không tìm thấy hồ sơ công nghệ";
   const body =
     state.state === "expired" ? "Để bảo vệ thông tin của bé, liên kết chỉ có hiệu lực trong một thời gian. Anh/chị liên hệ trung tâm để nhận liên kết mới nhé."
       : state.state === "revoked" ? "Trung tâm có thể đã gửi một liên kết mới. Anh/chị vui lòng kiểm tra tin nhắn hoặc liên hệ trung tâm."

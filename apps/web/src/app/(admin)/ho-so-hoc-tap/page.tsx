@@ -8,27 +8,27 @@ import { MilestoneView } from "./_views/hoc-ba-moc";
 import { LookupView } from "./_views/tra-cuu";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Học bạ & hồ sơ học tập" };
+export const metadata = { title: "Học bạ & hồ sơ công nghệ" };
 
 type SP = { xem?: string; student?: string; center?: string; course?: string; class?: string; teacher?: string; from?: string; to?: string };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
- * HỌC BẠ & HỒ SƠ HỌC TẬP — MỘT mục menu cho mọi thứ về học bạ (docs/KIEN-TRUC-MENU.md §3).
+ * HỌC BẠ & HỒ SƠ CÔNG NGHỆ — MỘT mục menu cho mọi thứ về học bạ (docs/KIEN-TRUC-MENU.md §3).
  * Chế độ xem chọn bằng chip (dải chip do AdminShell dựng từ cây menu) qua `?xem=`:
  *  - (mặc định) Tổng quan chuẩn hồ sơ — màn quản lý bên dưới;
  *  - `xem=hoc-ba-moc` Học bạ mốc cần viết / duyệt — thay trang /report-cards (chuyển hướng 308);
  *  - `xem=tra-cuu`    Tra cứu học viên — thay trang /hoc-ba (chuyển hướng 308), mở hồ sơ từng học viên.
  *
- * Tổng quan: QUẢN LÝ HỒ SƠ HỌC TẬP theo chuẩn thông tin (docs/HO-SO-HOC-TAP.md).
+ * Tổng quan: QUẢN LÝ HỒ SƠ CÔNG NGHỆ theo chuẩn thông tin (docs/HO-SO-HOC-TAP.md).
  * 4 thẻ số → bảng theo GV / theo lớp (chip) → danh sách vi phạm cụ thể, "Nhắc GV" một chạm / hàng loạt.
  * Số liệu tổng hợp bằng SQL ở service `portfolio.standard.board` (phạm vi cơ sở theo quyền report_card:read).
  */
 export default async function PortfolioCompliancePage({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
   const { caller, ctx } = await getServerCaller();
-  if (!ctx.actor || !hasPermission(ctx.actor as Actor, "report_card:read")) return <NoAccess title="Học bạ & hồ sơ học tập" perm="report_card:read" />;
+  if (!ctx.actor || !hasPermission(ctx.actor as Actor, "report_card:read")) return <NoAccess title="Học bạ & hồ sơ công nghệ" perm="report_card:read" />;
   if (sp.xem === "hoc-ba-moc") {
     // Học bạ mốc cần report_card:read ĐẦY ĐỦ (giáo viên chỉ có bản _own → viết học bạ trong app giáo viên)
     const full = centersWith(ctx.actor as Actor, "report_card:read");
@@ -49,7 +49,7 @@ export default async function PortfolioCompliancePage({ searchParams }: { search
     <div className="space-y-4">
       <RememberFilters storageKey="ho-so-hoc-tap" />
       <PageHeader
-        title="Tổng quan chuẩn hồ sơ học tập"
+        title="Tổng quan chuẩn hồ sơ công nghệ"
         desc="Theo dõi hồ sơ theo CHUẨN THÔNG TIN bằng tỷ lệ đạt chuẩn — không cần đọc từng phiếu: phiếu đủ trường bắt buộc, hoàn thiện đúng hạn, học bạ mốc đúng lịch, đủ bằng chứng. Dòng dưới 90% tô cảnh báo; một chạm để nhắc giáo viên."
         actions={<Link href="/cau-hinh-van-hanh?tab=ho-so-hoc-tap" className="btn-ghost">Cấu hình chuẩn</Link>}
       />

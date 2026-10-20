@@ -1,5 +1,5 @@
 /**
- * CHUẨN HỒ SƠ HỌC TẬP — đọc cấu hình vận hành (nhóm "Hồ sơ học tập", theo tenant, cơ sở ghi đè được)
+ * CHUẨN HỒ SƠ CÔNG NGHỆ — đọc cấu hình vận hành (nhóm "Hồ sơ công nghệ", theo tenant, cơ sở ghi đè được)
  * và dựng biểu thức SQL theo cơ sở (hạn hoàn thiện phiếu, hạn học bạ mốc, ngưỡng) để tổng hợp bằng SQL.
  * Không phụ thuộc service khác (tránh vòng import).
  */

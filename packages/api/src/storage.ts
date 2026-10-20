@@ -74,7 +74,7 @@ export function verifyScormSignature(documentId: string, version: number, exp: n
 }
 
 /**
- * Đường dẫn trang in NỘI BỘ của hồ sơ học tập cho bộ kết xuất PDF phía máy chủ (Playwright).
+ * Đường dẫn trang in NỘI BỘ của hồ sơ công nghệ cho bộ kết xuất PDF phía máy chủ (Playwright).
  * Trình duyệt không đầu không mang phiên đăng nhập → trang nhận chữ ký HMAC ngắn hạn (mặc định 5 phút)
  * trên đúng (học viên, phạm vi); quyền đã được kiểm ở thủ tục xuất PDF trước khi ký.
  */

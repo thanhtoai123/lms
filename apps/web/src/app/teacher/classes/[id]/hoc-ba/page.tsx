@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * HỌC BẠ MỐC CỦA LỚP — bản giáo viên (lớp mình dạy / trợ giảng). Trước đây "Viết học bạ" dẫn sang
- * màn quản lý Học bạ & hồ sơ học tập (cần quyền đầy đủ) nên giáo viên gặp "Chưa có quyền".
+ * màn quản lý Học bạ & hồ sơ công nghệ (cần quyền đầy đủ) nên giáo viên gặp "Chưa có quyền".
  * Mỗi học viên một thẻ, mỗi mốc một chip: chạm để viết / sửa học bạ.
  */
 export default async function TeacherClassReportCards({ params }: { params: Promise<{ id: string }> }) {

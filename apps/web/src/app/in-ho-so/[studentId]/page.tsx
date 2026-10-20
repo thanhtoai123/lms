@@ -6,7 +6,7 @@ import { PortfolioDocument } from "@/components/portfolio/portfolio-document";
 import { PortfolioPrintStyle } from "@/components/portfolio/print-style";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: { absolute: "Hồ sơ học tập — bản in" }, robots: { index: false, follow: false, nocache: true }, referrer: "no-referrer" as const };
+export const metadata = { title: { absolute: "Hồ sơ công nghệ — bản in" }, robots: { index: false, follow: false, nocache: true }, referrer: "no-referrer" as const };
 
 type SP = { scope?: string; enrollmentId?: string; from?: string; to?: string; exp?: string; sig?: string };
 

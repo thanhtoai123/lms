@@ -1,12 +1,12 @@
 /**
- * CHUẨN THÔNG TIN HỒ SƠ HỌC TẬP — quy tắc thuần (không chạm CSDL, không dùng kiểu DOM).
+ * CHUẨN THÔNG TIN HỒ SƠ CÔNG NGHỆ — quy tắc thuần (không chạm CSDL, không dùng kiểu DOM).
  *
  * Quản trị không đọc từng phiếu: hồ sơ được quản lý bằng một tập QUY TẮC ĐO ĐƯỢC
  *  - phiếu nào cũng đủ trường bắt buộc (tiêu chí, mục tiêu bài, nhận xét đủ dài, sản phẩm nếu bắt buộc);
  *  - phiếu hoàn thiện đúng hạn (`sheetDeadlineHours` sau giờ kết thúc buổi);
  *  - học bạ mốc viết đúng lịch (`milestoneDeadlineDays` sau buổi mốc);
  *  - bằng chứng (ảnh / sản phẩm) đạt tỷ lệ tối thiểu mỗi buổi (`minEvidenceRatePct`).
- * rồi theo dõi bằng TỶ LỆ ĐẠT CHUẨN (xem docs/HO-SO-HOC-TAP.md, mục "Chuẩn thông tin hồ sơ học tập").
+ * rồi theo dõi bằng TỶ LỆ ĐẠT CHUẨN (xem docs/HO-SO-HOC-TAP.md, mục "Chuẩn thông tin hồ sơ công nghệ").
  *
  * Kèm theo: rubric có MÔ TẢ HÀNH VI cho từng mức (bộ mẫu robotics / lập trình), tiêu chí trọng tâm theo bài,
  * danh mục việc cần xong của một buổi (màn giáo viên).
@@ -48,7 +48,7 @@ export const DEFAULT_PORTFOLIO_STANDARD: PortfolioStandard = {
   profileMinSheetPct: 90,
 };
 
-/** Các khoá cấu hình vận hành (nhóm "Hồ sơ học tập") đọc được thành chuẩn */
+/** Các khoá cấu hình vận hành (nhóm "Hồ sơ công nghệ") đọc được thành chuẩn */
 export interface PortfolioStandardOps {
   remarkMinLength: number;
   requireProductNote: boolean;
