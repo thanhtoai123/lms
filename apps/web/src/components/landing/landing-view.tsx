@@ -28,7 +28,7 @@ export function LandingView({ doc, variant, slug, brand, utm, preview, homeHref,
   const hasForm = parts.some((p) => p.kind === "form" || p.kind === "leadHero");
   return (
     <div className={rootClass(variant)} style={palette as unknown as React.CSSProperties}>
-      <style dangerouslySetInnerHTML={{ __html: landingCss() }} />
+      <style dangerouslySetInnerHTML={{ __html: landingCss(variant) }} />
       {parts.map((p, i) => {
         if (p.kind === "html") return <div key={i} className="lp-part" style={{ display: "contents" }} dangerouslySetInnerHTML={{ __html: p.html }} />;
         if (p.kind === "leadHero") {

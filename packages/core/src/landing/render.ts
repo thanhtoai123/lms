@@ -73,7 +73,11 @@ function imgTag(ctx: RenderCtx, v: string, alt: string, o: { eager?: boolean; cl
   const u = src(ctx, v);
   if (!u) return "";
   const dim = mediaSize(v);
-  return `<img${o.cls ? ` class="${o.cls}"` : ""} src="${escHtml(u)}" alt="${escHtml(alt)}"`
+  // Ảnh có bản nhỏ "<tên>-800.webp" đi kèm → srcset để điện thoại tải bản nhẹ
+  const small = /\.webp$/.test(v) ? v.replace(/\.webp$/, "-800.webp") : "";
+  const sdim = small ? mediaSize(small) : null;
+  const srcset = dim && sdim && o.sizes ? ` srcset="${escHtml(src(ctx, small))} ${sdim[0]}w, ${escHtml(u)} ${dim[0]}w"` : "";
+  return `<img${o.cls ? ` class="${o.cls}"` : ""} src="${escHtml(u)}"${srcset} alt="${escHtml(alt)}"`
     + (dim ? ` width="${dim[0]}" height="${dim[1]}"` : "")
     + (o.eager ? ` fetchpriority="high"` : ` loading="lazy"`) + ` decoding="async"`
     + (o.sizes ? ` sizes="${o.sizes}"` : "") + ` />`;
@@ -507,8 +511,17 @@ export function paletteStyle(palette: Record<string, string>): string {
 }
 
 /** CSS của landing, phạm vi trong `.lp` — không ảnh hưởng phần còn lại của ứng dụng */
-export function landingCss(): string {
-  return `
+/**
+ * CSS của landing. Truyền `variant` để chỉ nhúng phần chung + đúng kiểu giao diện đang dùng (trang công khai nhẹ hơn);
+ * để trống = mọi kiểu (khung xem trước trong quản trị, tệp xuất). Bỏ chú thích, dồn dòng.
+ */
+export function landingCss(variant?: LandingVariant): string {
+  return LANDING_CSS
+    .replace(/\/\*@v:(\w+)\*\/([\s\S]*?)\/\*@\/v\*\//g, (_m, v: string, body: string) => (!variant || v === variant ? body : ""))
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/\n\s*/g, "\n").replace(/([{};,])\n/g, "$1").replace(/\n/g, " ").trim();
+}
+const LANDING_CSS = `
 .lp{--lp-ink:#0f172a;--lp-mut:#475569;--lp-line:#e2e8f0;--lp-bg:#fff;--lp-alt:var(--brand-50,#f8fafc);--lp-r:18px;color:var(--lp-ink);background:var(--lp-bg);font-family:var(--font-brand,var(--font-be-vietnam)),"Plus Jakarta Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.6;font-size:16px;-webkit-text-size-adjust:100%}
 .lp *,.lp *::before,.lp *::after{box-sizing:border-box}
 .lp img{max-width:100%;height:auto;display:block}
@@ -821,9 +834,11 @@ export function landingCss(): string {
  .lp-chg-a::before{content:none}
 }
 @media (max-width:380px){.lp-f-row{grid-template-columns:1fr}}
+/*@v:soft*/
 .lp--soft{--lp-bg:#f8fafc;--lp-alt:#ffffff;--lp-r:24px}
 .lp--soft .lp-hero{background:linear-gradient(180deg,#fef3c7,#f8fafc)}
 .lp--soft .lp-sec{padding:76px 0}
+/*@/v*//*@v:bold*/
 .lp--bold{--lp-r:12px}
 .lp--bold .lp-hero{background:linear-gradient(135deg,var(--primary,#1d4ed8),var(--primary-dark,#1e40af));color:var(--primary-foreground,#fff)}
 .lp--bold .lp-hero .lp-lead{color:inherit;opacity:.92}
@@ -831,6 +846,7 @@ export function landingCss(): string {
 .lp--bold .lp-btn-ghost{color:inherit}
 .lp--bold .lp-btn-primary{background:var(--accent,#f59e0b);color:var(--accent-foreground,#0f172a);box-shadow:none}
 .lp--bold .lp-hero h1{font-size:clamp(2.2rem,5.6vw,3.9rem)}
+/*@/v*/
 @media (max-width:860px){
  .lp-hero.has-pic .lp-wrap{grid-template-columns:1fr}
  .lp-lead-hero{padding:24px 0 40px}
@@ -854,9 +870,13 @@ export function landingCss(): string {
 }
 @media (max-width:480px){.lp-brand img.lp-lockup{max-width:60vw}.lp-btn{width:100%}.lp-actions{flex-direction:column}.lp-top .lp-btn{width:auto}}
 @media (prefers-reduced-motion:reduce){.lp *{transition:none!important}}
-html{scroll-behavior:smooth}
-/* ================= KIỂU "STUDIO" — trang chính (DESIGN.md ở gốc repo) ================= */
+@media (prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}
 .lp-hl{font-style:normal;color:var(--primary,#1d4ed8)}
+.lp-bento-pic{grid-row:span 3;border-radius:28px;overflow:hidden;background:#dbeafe;min-height:320px}
+.lp-bento-pic img{width:100%;height:100%;object-fit:cover}
+@media (max-width:1000px){.lp-bento-pic{grid-row:auto;grid-column:1/-1;aspect-ratio:16/9;min-height:0}}
+/*@v:studio*/
+/* ================= KIỂU "STUDIO" — trang chính (DESIGN.md ở gốc repo) ================= */
 .lp--studio{--lp-ink:#0f172a;--lp-mut:#475569;--lp-line:#e2e8f0;--lp-alt:#f8fafc;--lp-r:20px;font-size:17px;line-height:1.65;background:#fff}
 .lp--studio .lp-wrap{max-width:1248px;padding:0 24px}
 .lp--studio .lp-sec{padding:120px 0}
@@ -929,8 +949,6 @@ html{scroll-behavior:smooth}
 .lp--studio .lp-card{border-radius:20px;padding:28px;gap:12px;box-shadow:0 1px 2px rgba(15,23,42,.06)}
 .lp--studio .lp-card h3{font-size:1.18rem;letter-spacing:-.01em}
 .lp--studio .lp-bento.lp-features .lp-grid.lp-grid{grid-template-columns:1.15fr 1fr 1fr;gap:20px}
-.lp-bento-pic{grid-row:span 3;border-radius:28px;overflow:hidden;background:#dbeafe;min-height:320px}
-.lp-bento-pic img{width:100%;height:100%;object-fit:cover}
 /* một buổi học: dòng thời gian nối liền */
 .lp--studio .lp-steps-list{grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:0}
 .lp--studio .lp-steps-list li{background:transparent;border:0;border-radius:0;padding:0 24px 0 0;position:relative}
@@ -958,7 +976,6 @@ html{scroll-behavior:smooth}
 @media (min-width:1001px){.lp--studio .lp-faqs .lp-wrap{display:grid;grid-template-columns:1fr 1.7fr;gap:64px;align-items:start}.lp--studio .lp-faqs .lp-head{position:sticky;top:110px}}
 @media (max-width:1000px){
  .lp--studio .lp-bento.lp-features .lp-grid.lp-grid{grid-template-columns:1fr 1fr}
- .lp-bento-pic{grid-row:auto;grid-column:1/-1;aspect-ratio:16/9;min-height:0}
 }
 @media (max-width:860px){
  .lp--studio .lp-sec{padding:72px 0}
@@ -980,13 +997,15 @@ html{scroll-behavior:smooth}
  .lp--studio .lp-sticky .lp-btn{min-height:48px;padding:8px 10px;font-size:.92rem;white-space:nowrap}
 }
 @media (max-width:600px){.lp--studio .lp-bento.lp-features .lp-grid.lp-grid{grid-template-columns:1fr}}
+/*@/v*/
 /* nhãn tab giàu thông tin: chỉ kiểu "sắc màu" hiện biểu tượng + độ tuổi */
 .lp-tab-ic,.lp-tab-l small{display:none}
 .lp-tab-tx b{font-weight:inherit}
+/*@v:vivid*/
 /* ================= KIỂU "SẮC MÀU" (vivid) — trang chính, DESIGN.md =================
    Tham khảo cách trường công nghệ Việt trình bày (màu thương hiệu phủ mảng lớn, thẻ chuyên ngành, tiêu đề khối căn giữa),
    giữ bộ nhận diện TH STEAM. Điểm nhớ duy nhất: quỹ đạo vàng của logo (nền đầu trang, gạch dưới cụm từ nhấn, dải kêu gọi). */
-.lp--vivid{--lp-ink:#0f172a;--lp-mut:#475569;--lp-line:#e2e8f0;--lp-alt:#f8fafc;--lp-r:24px;--v-blue:#1d4ed8;--v-blue-d:#1e40af;--v-navy:#0f172a;--v-green:#10b981;--v-green-d:#047857;--v-gold:#f59e0b;font-size:17px;line-height:1.65;background:#fff}
+.lp--vivid{--v-star:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 0Q13.8 10.2 24 12Q13.8 13.8 12 24Q10.2 13.8 0 12Q10.2 10.2 12 0Z' fill='%23F59E0B'/%3E%3C/svg%3E");--v-line:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 12' preserveAspectRatio='none'%3E%3Cpath d='M3 8.5C50 2.5 130 1.5 197 6' fill='none' stroke='%23F59E0B' stroke-width='5' stroke-linecap='round'/%3E%3C/svg%3E");--v-orb:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 640' preserveAspectRatio='none'%3E%3Cpath d='M-60 560C320 700 980 640 1520 90' fill='none' stroke='%23F59E0B' stroke-width='3' stroke-linecap='round' opacity='.7'/%3E%3Cpath d='M-60 600C380 720 1040 660 1520 170' fill='none' stroke='%23ffffff' stroke-width='1.5' opacity='.18'/%3E%3C/svg%3E");--lp-ink:#0f172a;--lp-mut:#475569;--lp-line:#e2e8f0;--lp-alt:#f8fafc;--lp-r:24px;--v-blue:#1d4ed8;--v-blue-d:#1e40af;--v-navy:#0f172a;--v-green:#10b981;--v-green-d:#047857;--v-gold:#f59e0b;font-size:17px;line-height:1.65;background:#fff}
 .lp--vivid .lp-wrap{max-width:1200px;padding:0 24px}
 .lp--vivid .lp-sec{padding:96px 0}
 .lp--vivid .lp-alt{background:#f8fafc}
@@ -994,7 +1013,7 @@ html{scroll-behavior:smooth}
 .lp--vivid .lp-head h2{font-size:clamp(1.8rem,3.8vw,2.7rem);font-weight:800;line-height:1.16;letter-spacing:-.02em}
 .lp--vivid .lp-head p{margin:16px auto 0;font-size:1.12rem;line-height:1.6;color:#475569;max-width:680px}
 .lp--vivid .lp-kicker{display:inline-block;text-transform:none;letter-spacing:0;font-size:.92rem;font-weight:700;color:#1e40af;background:#dbeafe;border-radius:999px;padding:6px 16px;margin-bottom:16px!important}
-.lp--vivid .lp-hl{color:var(--v-blue);background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 12' preserveAspectRatio='none'%3E%3Cpath d='M3 8.5C50 2.5 130 1.5 197 6' fill='none' stroke='%23F59E0B' stroke-width='5' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat 0 100%/100% .3em;padding-bottom:.1em}
+.lp--vivid .lp-hl{color:var(--v-blue);background:var(--v-line) no-repeat 0 100%/100% .3em;padding-bottom:.1em}
 .lp--vivid .lp-btn{min-height:52px;padding:14px 28px;font-weight:800}
 .lp--vivid .lp-btn-sm{min-height:44px;padding:10px 20px}
 .lp--vivid .lp-btn-primary{box-shadow:0 10px 24px -12px rgba(180,83,9,.7)}
@@ -1007,7 +1026,7 @@ html{scroll-behavior:smooth}
 .lp--vivid .lp-nav a:hover{color:var(--v-blue)}
 .lp--vivid .lp-tel{color:var(--v-blue)}
 /* mở đầu: mảng xanh Deep Ocean + quỹ đạo vàng, form trắng bên phải, ảnh ghép tràn xuống nền trắng */
-.lp--vivid .lp-lead-hero{color:#fff;padding:64px 0 0;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 0Q13.8 10.2 24 12Q13.8 13.8 12 24Q10.2 13.8 0 12Q10.2 10.2 12 0Z' fill='%23F59E0B'/%3E%3C/svg%3E") no-repeat 93% 64px/30px,url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 0Q13.8 10.2 24 12Q13.8 13.8 12 24Q10.2 13.8 0 12Q10.2 10.2 12 0Z' fill='%23F59E0B'/%3E%3C/svg%3E") no-repeat 4% 420px/18px,url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 640' preserveAspectRatio='none'%3E%3Cpath d='M-60 560C320 700 980 640 1520 90' fill='none' stroke='%23F59E0B' stroke-width='3' stroke-linecap='round' opacity='.7'/%3E%3Cpath d='M-60 600C380 720 1040 660 1520 170' fill='none' stroke='%23ffffff' stroke-width='1.5' opacity='.18'/%3E%3C/svg%3E") no-repeat 0 0/100% 640px,linear-gradient(var(--v-blue),var(--v-blue)) no-repeat 0 0/100% calc(100% - 200px),#fff}
+.lp--vivid .lp-lead-hero{color:#fff;padding:64px 0 0;background:var(--v-star) no-repeat 93% 64px/30px,var(--v-star) no-repeat 4% 420px/18px,var(--v-orb) no-repeat 0 0/100% 640px,linear-gradient(var(--v-blue),var(--v-blue)) no-repeat 0 0/100% calc(100% - 200px),#fff}
 .lp--vivid .lp-lead-hero .lp-wrap{grid-template-columns:1.15fr .85fr;grid-template-areas:"text form" "pic pic";grid-template-rows:auto auto;gap:0 56px;align-items:start}
 .lp--vivid .lp-lead-hero .lp-hero-text{padding-top:20px}
 .lp--vivid .lp-lead-hero h1{font-size:clamp(2.2rem,4.8vw,3.6rem);line-height:1.1;letter-spacing:-.025em;font-weight:800;color:#fff}
@@ -1105,7 +1124,7 @@ html{scroll-behavior:smooth}
 .lp--vivid .lp-teacher-photo{border-radius:28px}
 .lp--vivid .lp-teacher .lp-head{text-align:center}
 /* dải kêu gọi: mảng xanh + quỹ đạo vàng (lặp lại mô-típ đầu trang) */
-.lp--vivid .lp-cta{background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 0Q13.8 10.2 24 12Q13.8 13.8 12 24Q10.2 13.8 0 12Q10.2 10.2 12 0Z' fill='%23F59E0B'/%3E%3C/svg%3E") no-repeat 8% 30%/22px,url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 0Q13.8 10.2 24 12Q13.8 13.8 12 24Q10.2 13.8 0 12Q10.2 10.2 12 0Z' fill='%23F59E0B'/%3E%3C/svg%3E") no-repeat 92% 70%/30px,url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 640' preserveAspectRatio='none'%3E%3Cpath d='M-60 560C320 700 980 640 1520 90' fill='none' stroke='%23F59E0B' stroke-width='3' stroke-linecap='round' opacity='.7'/%3E%3Cpath d='M-60 600C380 720 1040 660 1520 170' fill='none' stroke='%23ffffff' stroke-width='1.5' opacity='.18'/%3E%3C/svg%3E") no-repeat 0 0/100% 100%,var(--v-blue);padding:96px 0}
+.lp--vivid .lp-cta{background:var(--v-star) no-repeat 8% 30%/22px,var(--v-star) no-repeat 92% 70%/30px,var(--v-orb) no-repeat 0 0/100% 100%,var(--v-blue);padding:96px 0}
 .lp--vivid .lp-cta h2{font-size:clamp(1.8rem,3.8vw,2.7rem);letter-spacing:-.02em}
 .lp--vivid .lp-cta .lp-btn-light{background:var(--v-gold);color:#0f172a}
 .lp--vivid .lp-cta .lp-btn-light:hover{background:#d97706}
@@ -1118,6 +1137,7 @@ html{scroll-behavior:smooth}
 .lp--vivid .lp-form{background:#dbeafe}
 .lp--vivid .lp-form-in{max-width:640px}
 .lp--vivid .lp-form .lp-form-card{border:0;border-top:6px solid var(--v-gold);border-radius:24px}
+.lp--vivid .lp-bento-pic{grid-row:span 2;min-height:0}
 /* một chuyển động duy nhất: ảnh ghép đầu trang nổi lên khi tải trang */
 .lp--vivid .lp-sec .lp-head,.lp--vivid .lp-ins-list>li,.lp--vivid .lp-grid>li,.lp--vivid .lp-chg>li,.lp--vivid .lp-vs-col,.lp--vivid .lp-steps-list>li,.lp--vivid .lp-photos>li,.lp--vivid .lp-faq-list>details,.lp--vivid .lp-teacher-in>*,.lp--vivid .lp-ins-close{animation:none}
 @media (prefers-reduced-motion:no-preference){.lp--vivid .lp-lead-hero .lp-hero-pic img{animation:lp-rise .9s cubic-bezier(.2,.7,.2,1) .15s both}}
@@ -1151,8 +1171,8 @@ html{scroll-behavior:smooth}
 }
 @media (max-width:600px){.lp--vivid .lp-bento.lp-features .lp-grid.lp-grid{grid-template-columns:1fr}.lp--vivid .lp-tab-bar label.lp-tab-l{flex-direction:column;align-items:flex-start;gap:8px}.lp--vivid .lp-tab-ic{width:36px;height:36px;border-radius:10px}.lp--vivid .lp-tab-ic svg{width:22px;height:22px}.lp--vivid .lp-tab-l small{font-size:.8rem}}
 @media (max-width:420px){.lp--vivid .lp-steps-list{grid-template-columns:1fr}}
+/*@/v*/
 `;
-}
 
 export interface StandaloneMeta { title: string; description?: string; image?: string; lang?: string }
 
@@ -1170,7 +1190,7 @@ ${meta.description ? `<meta name="description" content="${escHtml(meta.descripti
 <meta property="og:title" content="${escHtml(meta.title)}" />
 ${meta.description ? `<meta property="og:description" content="${escHtml(meta.description)}" />` : ""}
 ${og ? `<meta property="og:image" content="${escHtml(og)}" />` : ""}
-<style>${landingCss()}body{margin:0}</style>
+<style>${landingCss(ctx.variant)}body{margin:0}</style>
 </head>
 <body>
 <div class="lp lp--${escHtml(ctx.variant)}" style="${escHtml(paletteStyle(ctx.brand.palette))}">

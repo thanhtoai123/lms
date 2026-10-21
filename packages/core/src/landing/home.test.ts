@@ -50,7 +50,7 @@ test("trang chính: MỌI con số đều có nguồn kèm liên kết https t�
       assert.ok(known.has(r.sourceUrl ?? ""), `${s.id}: ${r.value} — nguồn ${r.sourceUrl}`);
     }
   }
-  assert.ok(n >= 8);
+  assert.ok(n >= 7);
   const h = html();
   assert.equal((h.match(/class="lp-src"/g) ?? []).length, n, "nguồn hiện cạnh từng con số");
   assert.match(h, /lp-insights lp-dark/);

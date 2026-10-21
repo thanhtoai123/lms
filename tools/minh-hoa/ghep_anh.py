@@ -156,7 +156,33 @@ def tc_ghep_hero():
     return W, H, body, "Ảnh ghép: màn hình phần mềm thật trên laptop, máy tính bảng, điện thoại — game Roblox Studio, Scratch, App Inventor, AI Teachable Machine, Python"
 
 
-SCENES = {"tc-ghep-hero": tc_ghep_hero}
+# ------------------------------------------------------------------ cảnh 2: ảnh chia sẻ (Facebook, Zalo, Google) 1200×630
+def og_trang_chu():
+    W, H = 1200, 630
+    logo = base64.b64encode((REPO / "apps/web/public/thsteam/logo-ngang-mot-mau-trang.svg").read_bytes()).decode()
+    hero = base64.b64encode((OUT / "tc-ghep-hero.webp").read_bytes()).decode()
+    line = ("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 12' preserveAspectRatio='none'%3E"
+            "%3Cpath d='M3 8.5C50 2.5 130 1.5 197 6' fill='none' stroke='%23F59E0B' stroke-width='5' stroke-linecap='round'/%3E%3C/svg%3E")
+    body = f"""
+<div class="stage" style="width:{W}px;height:{H}px;background:{B}">
+ {swoosh(W, H, "M-40 600 C 300 700, 900 640, 1260 120", G, 5)}
+ {star(1120, 40, 30)}{star(40, 560, 18)}
+ <img src="data:image/svg+xml;base64,{logo}" style="position:absolute;left:56px;top:48px;height:58px">
+ <div style="position:absolute;left:56px;top:150px;width:530px;color:#fff">
+   <div style="font-weight:800;font-size:46px;line-height:1.12;letter-spacing:-.02em">Biến giờ con ngồi trước màn hình thành giờ con <span style="background:url(&quot;{line}&quot;) no-repeat 0 100%/100% .3em;padding-bottom:6px">tạo ra công nghệ</span></div>
+   <div style="margin-top:22px;font-size:21px;font-weight:600;opacity:.9">Robotics, AI, Đồ họa, Lập trình cho con 8–18 tuổi</div>
+   <div style="margin-top:30px;display:flex;gap:12px;align-items:center">
+     <span style="background:{G};color:{N};font-weight:800;font-size:22px;padding:12px 24px;border-radius:999px">Học trải nghiệm 1:1</span>
+     <span style="font-weight:800;font-size:24px">0971 29 30 31</span>
+   </div>
+ </div>
+ <img src="data:image/webp;base64,{hero}" style="position:absolute;left:600px;top:180px;width:640px">
+ <div style="position:absolute;left:56px;bottom:34px;color:rgba(255,255,255,.8);font-weight:700;font-size:20px">thsteam.edu.vn</div>
+</div>"""
+    return W, H, body, "TH STEAM Academy"
+
+
+SCENES = {"tc-ghep-hero": tc_ghep_hero, "og-trang-chu": og_trang_chu}
 
 
 def render(name):
@@ -171,10 +197,15 @@ def render(name):
         png = pg.screenshot(omit_background=True, clip={"x": 0, "y": 0, "width": W, "height": H})
         b.close()
     im = Image.open(io.BytesIO(png)).convert("RGBA")
-    im = im.resize((1600, round(1600 * H / W)), Image.LANCZOS)
-    out = OUT / f"{name}.webp"
-    im.save(out, "WEBP", quality=84, method=6)
-    print(out, im.size, out.stat().st_size // 1024, "KB")
+    if name.startswith("og-"):
+        out = OUT / f"{name}.png"
+        im.resize((W, H), Image.LANCZOS).convert("RGB").save(out, "PNG", optimize=True)
+        print(out, out.stat().st_size // 1024, "KB")
+        return
+    for w, suffix in ((1600, ""), (800, "-800")):
+        out = OUT / f"{name}{suffix}.webp"
+        im.resize((w, round(w * H / W)), Image.LANCZOS).save(out, "WEBP", quality=84 if w > 800 else 80, method=6)
+        print(out, out.stat().st_size // 1024, "KB")
 
 
 if __name__ == "__main__":

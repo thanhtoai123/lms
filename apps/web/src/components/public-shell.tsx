@@ -18,7 +18,7 @@ export async function PublicShell({ children, narrow = false }: { children: Reac
     <div className="flex min-h-dvh flex-col bg-surface">
       {parts && (
         <div className={rootClass("classic")} style={{ ...(palette as unknown as React.CSSProperties), ...wrap }}>
-          <style dangerouslySetInnerHTML={{ __html: landingCss() }} />
+          <style dangerouslySetInnerHTML={{ __html: landingCss("classic") }} />
           <div style={wrap} dangerouslySetInnerHTML={{ __html: renderHeaderHtml(parts.header, ctx) }} />
         </div>
       )}

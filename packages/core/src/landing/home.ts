@@ -79,11 +79,9 @@ export const HOME_PAGE = {
         }, {
           points: [
             { text: "Con làm ra sản phẩm thật: robot ảo, game, ứng dụng, mô hình 3D" },
-            { text: "Giáo viên dạy trực tiếp, lớp nhỏ để sửa bài cho từng bạn" },
             { text: "Bố mẹ tận mắt xem con trình bày và nhận đánh giá năng lực" },
             { text: "Con học thử một buổi 1:1 trước khi gia đình quyết định" },
           ],
-          badges: [{ text: "Học online tại nhà qua ClassIn" }, { text: "Lớp 6–8 học sinh hoặc kèm 1:1" }, { text: "Theo khung năng lực số của Bộ GD&ĐT" }],
         }),
 
         // 2. NỖI LO — số liệu có nguồn, nền tối để dừng mắt
@@ -91,7 +89,7 @@ export const HOME_PAGE = {
           eyebrow: "Điều nhiều bố mẹ đang lo",
           title: "Mỗi ngày con ở trên màn hình nhiều giờ. Nhưng *con đang làm gì* ở đó?",
           intro: "Cấm hẳn thì khó, buông thì không yên. Những con số dưới đây cho thấy vấn đề không chỉ nằm ở số giờ.",
-          closing: "Các bác sĩ nhi khoa Hoa Kỳ (AAP) khuyên cha mẹ xem chất lượng thời gian dùng màn hình, không chỉ đếm số giờ. Câu hỏi đúng không phải là có cho con dùng máy hay không, mà là con dùng nó để làm gì.",
+          closing: "Bác sĩ nhi khoa Hoa Kỳ (AAP) khuyên cha mẹ để ý con dùng màn hình để làm gì, không chỉ đếm số giờ.",
           tone: "toi",
         }, {
           items: [
@@ -107,14 +105,12 @@ export const HOME_PAGE = {
           eyebrow: "Thế giới con sắp bước vào",
           title: "Khi con lớn lên, hiểu công nghệ sẽ là *kỹ năng nền tảng*",
           intro: "Không phải để con nào cũng thành kỹ sư. Mà để dù làm nghề gì, con cũng làm chủ được công cụ của thời mình.",
-          closing: "Con không cần trở thành lập trình viên. Nhưng con cần hiểu công nghệ đủ sâu để dùng nó làm ra điều có ích, thay vì để nó dẫn dắt mình.",
           tone: "",
         }, {
           items: [
             { value: "39%", label: "kỹ năng cốt lõi của người lao động sẽ thay đổi đến năm 2030", text: "Tăng nhanh nhất: AI và dữ liệu, hiểu biết công nghệ, tư duy sáng tạo, sự tò mò và học suốt đời.", source: "Diễn đàn Kinh tế Thế giới, Future of Jobs 2025", sourceUrl: S.wef },
             { value: "91%", label: "lãnh đạo doanh nghiệp Việt Nam cân nhắc tuyển vị trí chuyên về AI", text: "Cao hơn mức 78% của thế giới.", source: "Microsoft Work Trend Index 2025, qua Việt Nam News", sourceUrl: S.microsoft },
             { value: "12 tiết", label: "học về AI mỗi năm cho học sinh phổ thông, từ năm học 2026–2027", text: "Khung nội dung giáo dục trí tuệ nhân tạo của Bộ GD&ĐT (QĐ 2422/QĐ-BGDĐT).", source: "Báo Văn Hóa, 20/08/2026", sourceUrl: S.qd2422 },
-            { value: "6 miền", label: "năng lực số học sinh cần có, gồm sáng tạo nội dung số và ứng dụng AI", text: "Khung năng lực số cho người học (Thông tư 02/2025/TT-BGDĐT).", source: "VnEconomy, 06/02/2025", sourceUrl: S.tt02 },
           ],
         }),
 
@@ -125,21 +121,18 @@ export const HOME_PAGE = {
           intro: `Ở ${B}, thời gian con ngồi trước máy là thời gian con tự tay làm ra một thứ gì đó, sửa nó cho đến khi chạy, rồi đứng lên giới thiệu nó.`,
           leftTitle: "Khi con chỉ dùng công nghệ",
           rightTitle: "Khi con tạo ra công nghệ",
-          note: "Dùng máy tính và AI an toàn, trung thực là một trong 6 năng lực giáo viên đánh giá ở mỗi học sinh — không chỉ dạy kỹ thuật.",
         }, {
           left: [
             { text: "Lướt hết video này sang video khác" },
             { text: "Chơi game người khác làm sẵn" },
             { text: "Nhờ AI làm bài hộ, chép lại đáp án" },
             { text: "Gặp lỗi là bỏ, chờ người lớn sửa giúp" },
-            { text: "Ngại nói, ngại trình bày ý của mình" },
           ],
           right: [
             { text: "Lập trình robot giải nhiệm vụ trên sa bàn" },
             { text: "Tự thiết kế và làm game của riêng mình" },
             { text: "Dùng AI làm trợ lý, rồi tự kiểm chứng kết quả" },
             { text: "Tự tìm lỗi, sửa đến khi chương trình chạy" },
-            { text: "Giới thiệu sản phẩm, trả lời câu hỏi của bố mẹ" },
           ],
         }),
 
@@ -219,8 +212,6 @@ export const HOME_PAGE = {
             { title: "Lớp nhỏ 6–8 bạn", text: "Đủ ít để giáo viên theo sát từng bạn, đủ đông để con có bạn cùng làm, cùng trình bày. Cần kèm riêng thì có lớp 1:1.", icon: "nhom" },
             { title: "Bố mẹ tận mắt thấy con tiến bộ", text: "Định kỳ con báo cáo dự án trực tuyến trước phụ huynh; gia đình nhận phiếu đánh giá năng lực và video sản phẩm của con.", icon: "mat" },
             { title: "Bám chương trình của Bộ GD&ĐT", text: "Theo GDPT 2018 môn Tin học, khung năng lực số (Thông tư 02/2025) và khung nội dung giáo dục AI áp dụng từ năm học 2026–2027.", icon: "chuan" },
-            { title: "Học ngay tại nhà", text: "Không đưa đón, không lo kẹt xe. Chỉ cần máy tính có camera, tai nghe có micro và mạng ổn định.", icon: "nha" },
-            { title: "Hồ sơ công nghệ của riêng con", text: "Mọi dự án, video, phiếu đánh giá, chứng nhận đều được lưu lại — một hồ sơ năng lực lớn dần theo năm tháng.", icon: "ho-so" },
           ],
         }),
 
@@ -247,8 +238,6 @@ export const HOME_PAGE = {
             { image: "/lp-anh/that/appinventor-thiet-ke-app.webp", caption: "App điện thoại tự thiết kế với App Inventor", credit: "Ảnh: Wikimedia Commons / Florian Schäffer, CC0", creditUrl: "https://commons.wikimedia.org/wiki/File:Mit_app_inventor_2_beta3.png" },
             { image: "/lp-anh/that/roblox-studio-lau-dai.webp", caption: "Thế giới game 3D trong Roblox Studio", credit: "Ảnh: Roblox Creator Docs, CC BY 4.0", creditUrl: "https://github.com/Roblox/creator-docs" },
             { image: "/lp-anh/that/python-pygame-ma.webp", caption: "Viết game bằng Python", credit: "Ảnh: Wikimedia Commons / Rikulpatel1, CC0", creditUrl: "https://commons.wikimedia.org/wiki/File:Python_pygame_code.png" },
-            { image: "/lp-anh/that/photoshop-generative-expand.webp", caption: "Ảnh sáng tạo cùng công cụ AI tạo ảnh", credit: "Ảnh: Adobe Photoshop", creditUrl: "https://www.adobe.com/products/photoshop.html" },
-            { image: "/lp-anh/that/wordpress-soan-bai.webp", caption: "Website hoàn chỉnh với WordPress", credit: "Ảnh: Wikimedia Commons / Gmoran6, GPL", creditUrl: "https://commons.wikimedia.org/wiki/File:WordPress_PostEdit.png" },
           ],
         }),
 
@@ -264,7 +253,6 @@ export const HOME_PAGE = {
             { title: "Giáo viên đạt chuẩn STEM.org", text: "Chứng nhận quốc tế STEM.org Certified Educational Instructor." },
             { title: "Huấn luyện viên đội tuyển", text: "Dẫn dắt học sinh thi đấu Robotics, Tin học trẻ, KHKT, HKICO." },
           ],
-          tags: [{ text: "Robotics" }, { text: "Tin học trẻ" }, { text: "KHKT" }, { text: "HKICO" }],
         }),
 
         sec("testimonials", "phan-hoi", { title: "Phụ huynh nói gì" }, { items: [] }, false),
@@ -274,7 +262,7 @@ export const HOME_PAGE = {
           title: "Để con thử một buổi trước khi quyết định",
           text: "Con học 1:1 cùng giáo viên qua ClassIn. Sau buổi học, bố mẹ được tư vấn chuyên ngành và lộ trình hợp với con — rồi gia đình mới quyết định.",
           primaryLabel: "Đặt lịch học trải nghiệm", primaryUrl: "#dang-ky", secondaryLabel: `Gọi ${TH_BRAND.hotline}`, secondaryUrl: telHref,
-        }, { points: [{ text: "Học 1:1 cùng giáo viên" }, { text: "Tư vấn theo độ tuổi, sở thích" }, { text: "Học ngay tại nhà" }] }),
+        }),
 
         // 12. HỎI ĐÁP — trả lời thẳng những băn khoăn thật
         sec("faq", "faq", { title: "Bố mẹ thường hỏi" }, {
@@ -288,7 +276,6 @@ export const HOME_PAGE = {
             { q: "Cần chuẩn bị gì để học?", a: PREPARE_TEXT },
             { q: "Con nghỉ học có được học bù không?", a: "Báo nghỉ trước ít nhất 24 giờ qua Zalo lớp hoặc hotline thì được học bù, tối đa 3 buổi mỗi năm học. Nghỉ không báo trước thì không học bù. Trung tâm hủy buổi học thì bù đủ." },
             { q: "Học phí thế nào?", a: `Học phí giống nhau ở cả 4 chuyên ngành, có lớp nhóm và kèm 1:1, đăng ký 2 năm học được ưu đãi hơn. Sau buổi học trải nghiệm, giáo viên gửi bố mẹ lộ trình và học phí phù hợp với con; cần biết trước, bố mẹ gọi ${TH_BRAND.hotline}.` },
-            { q: "Có được học thử trước khi đăng ký không?", a: "Có. Con học một buổi trải nghiệm 1:1 cùng giáo viên qua ClassIn trước khi gia đình quyết định đăng ký." },
           ],
         }),
 
