@@ -15,7 +15,7 @@ export type LFieldType = "text" | "textarea" | "url" | "image";
 export interface LField { key: string; label: string; type: LFieldType; max: number; required?: boolean; hint?: string }
 export interface LList { key: string; label: string; addLabel: string; max: number; min?: number; fields: LField[]; hint?: string }
 
-export const SECTION_TYPES = ["header", "hero", "leadHero", "stats", "features", "programs", "roadmap", "tools", "split", "teacher", "testimonials", "cta", "steps", "timeline", "gallery", "faq", "form", "text", "footer"] as const;
+export const SECTION_TYPES = ["header", "hero", "leadHero", "stats", "features", "programs", "roadmap", "tools", "split", "teacher", "testimonials", "cta", "steps", "timeline", "gallery", "faq", "form", "text", "insights", "contrast", "tracks", "change", "footer"] as const;
 export type SectionType = (typeof SECTION_TYPES)[number];
 
 export interface SectionDef {
@@ -152,6 +152,40 @@ export const SECTION_DEFS: Record<SectionType, SectionDef> = {
     type: "text", label: "Đoạn chữ tự do", desc: "Tiêu đề + nội dung (hỗ trợ **đậm**, danh sách “- ”, tiêu đề “## ”) + ảnh.",
     fields: [t("title", "Tiêu đề", 120), ta("body", "Nội dung", 5000, { required: true }), img("image", "Ảnh")],
     lists: [],
+  },
+  insights: {
+    type: "insights", label: "Số liệu có nguồn (nỗi lo / bối cảnh)",
+    desc: "3–6 con số kèm nguồn trích dẫn (báo, khảo sát, văn bản). Chỉ dùng số liệu đã kiểm chứng và ghi rõ nguồn. Kiểu “toi” = nền navy để nhấn mạnh.",
+    fields: [t("eyebrow", "Dòng nhỏ phía trên", 80), t("title", "Tiêu đề", 140, { required: true }), ta("intro", "Mô tả", 400), ta("closing", "Câu chốt dưới các con số", 400), t("tone", "Kiểu nền", 10, { hint: "toi = nền navy · để trống = nền sáng" })],
+    lists: [{ key: "items", label: "Số liệu", addLabel: "Thêm số liệu", max: 6, fields: [t("value", "Con số", 20, { required: true }), t("label", "Ý nghĩa con số", 140, { required: true }), ta("text", "Giải thích thêm", 280), t("source", "Nguồn (tên báo / tổ chức, ngày)", 120, { required: true }), u("sourceUrl", "Liên kết nguồn")] }],
+    needs: "items",
+  },
+  contrast: {
+    type: "contrast", label: "So sánh hai lựa chọn", desc: "Hai cột đối lập (vd Dùng công nghệ ↔ Tạo ra công nghệ). Cột phải là lựa chọn trung tâm mang lại.",
+    fields: [t("eyebrow", "Dòng nhỏ phía trên", 80), t("title", "Tiêu đề", 140, { required: true }), ta("intro", "Mô tả", 400), t("leftTitle", "Tiêu đề cột trái", 80, { required: true }), t("rightTitle", "Tiêu đề cột phải", 80, { required: true }), ta("note", "Ghi chú dưới hai cột", 300)],
+    lists: [
+      { key: "left", label: "Cột trái", addLabel: "Thêm ý", max: 6, fields: [t("text", "Nội dung", 120, { required: true })] },
+      { key: "right", label: "Cột phải", addLabel: "Thêm ý", max: 6, fields: [t("text", "Nội dung", 120, { required: true })] },
+    ],
+    needs: "right",
+  },
+  tracks: {
+    type: "tracks", label: "Chuyên ngành (thẻ chuyển tab)",
+    desc: "Mỗi chuyên ngành một tab: dành cho bạn nhỏ nào, con làm gì, con làm được gì, phần mềm. Mã tab dùng cho đường dẫn ?nganh=<mã> (chạy quảng cáo): mở sẵn tab, đổi tiêu đề lớn, chọn sẵn chuyên ngành trong form.",
+    fields: [t("eyebrow", "Dòng nhỏ phía trên", 80), t("title", "Tiêu đề", 140, { required: true }), ta("intro", "Mô tả", 400), t("ctaLabel", "Chữ liên kết cuối khối", 60), u("ctaUrl", "Liên kết cuối khối")],
+    lists: [{ key: "items", label: "Chuyên ngành", addLabel: "Thêm chuyên ngành", max: 6, fields: [
+      t("key", "Mã tab (vd robotics)", 20, { required: true, hint: "chữ thường không dấu, gạch ngang" }), t("tab", "Chữ trên tab", 30, { required: true }), t("name", "Tên chuyên ngành", 80, { required: true }),
+      t("ages", "Độ tuổi / cấp học", 80), t("hook", "Dành cho bạn nhỏ nào", 160), ta("text", "Con học gì", 500), ta("outcomes", "Con làm được (mỗi dòng một ý)", 500),
+      t("tools", "Phần mềm / luyện thi", 200), img("image", "Ảnh"), t("imageAlt", "Mô tả ảnh (alt)", 160), t("credit", "Nguồn ảnh", 120),
+      t("headline", "Tiêu đề lớn khi vào bằng ?nganh=", 120), t("interest", "Chuyên ngành chọn sẵn trong form", 60),
+    ] }],
+    needs: "items",
+  },
+  change: {
+    type: "change", label: "Con thay đổi thế nào (trước → sau)", desc: "Các tiêu chí đánh giá với mô tả trước khi học và sau năm học. Chỉ ghi điều chương trình hướng tới, không hứa kết quả.",
+    fields: [t("eyebrow", "Dòng nhỏ phía trên", 80), t("title", "Tiêu đề", 140, { required: true }), ta("intro", "Mô tả", 400), t("beforeLabel", "Nhãn cột trước", 40), t("afterLabel", "Nhãn cột sau", 40), ta("note", "Ghi chú", 300), img("image", "Ảnh minh hoạ"), t("imageAlt", "Mô tả ảnh (alt)", 160)],
+    lists: [{ key: "items", label: "Tiêu chí", addLabel: "Thêm tiêu chí", max: 9, fields: [t("area", "Tiêu chí", 60, { required: true }), t("before", "Trước khi học", 140, { required: true }), t("after", "Sau năm học", 160, { required: true })] }],
+    needs: "items",
   },
   footer: {
     type: "footer", label: "Chân trang", single: true, fixed: "bottom",

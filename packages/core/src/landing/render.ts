@@ -29,6 +29,11 @@ export interface RenderCtx {
   baseUrl?: string;
   /** Liên kết của logo / tên thương hiệu ở đầu trang. Mặc định "#top" (cuộn lên đầu trang); trang con của website dùng "/" */
   homeHref?: string;
+  /**
+   * Biến thể theo chuyên ngành (`?nganh=<mã>` trên trang chính, dùng cho quảng cáo): mở sẵn tab của khối "Chuyên ngành",
+   * đổi tiêu đề lớn sang `headline` và chọn sẵn chuyên ngành trong form. Mã không khớp tab nào → bỏ qua.
+   */
+  focus?: string;
 }
 
 /**
@@ -192,15 +197,103 @@ function renderText(s: LandingSection, ctx: RenderCtx): string {
   return wrap(s, "lp-text", head(s, ctx) + `<div class="lp-prose">${renderMarkdown(d(s, "body"))}</div>` + (im ? imgTag(ctx, d(s, "image"), d(s, "title"), { cls: "lp-text-img" }) : ""), s.id);
 }
 
+
+/* ---------------------------- khối kể chuyện của trang chính ---------------------------- */
+
+/** Đầu khối có dòng nhỏ phía trên (eyebrow) */
+function headK(s: LandingSection, extra = ""): string {
+  const k = d(s, "eyebrow"), title = d(s, "title"), intro = d(s, "intro");
+  if (!k && !title && !intro) return "";
+  return `<header class="lp-head${extra}">${k ? `<p class="lp-kicker">${escHtml(k)}</p>` : ""}${title ? `<h2>${escHtml(title)}</h2>` : ""}${intro ? `<p>${text(intro)}</p>` : ""}</header>`;
+}
+
+/** Số liệu có nguồn — nguồn luôn hiện cạnh con số, có liên kết khi có */
+function renderInsights(s: LandingSection, ctx: RenderCtx): string {
+  const dark = /^(toi|tối|dark)$/i.test(d(s, "tone").trim());
+  const items = rowsOf(s, "items").map((r) => {
+    const u = r.sourceUrl && validUrl(r.sourceUrl) ? href(ctx, r.sourceUrl) : "";
+    const src1 = u ? `<a href="${escHtml(u)}"${external(u)}>${escHtml(r.source ?? "")}</a>` : escHtml(r.source ?? "");
+    return `<li class="lp-ins"><strong class="lp-ins-val">${escHtml(r.value ?? "")}</strong><p class="lp-ins-lbl">${escHtml(r.label ?? "")}</p>`
+      + (r.text ? `<p class="lp-ins-txt">${text(r.text)}</p>` : "")
+      + `<p class="lp-src">Nguồn: ${src1}</p></li>`;
+  }).join("");
+  const closing = d(s, "closing") ? `<p class="lp-ins-close">${text(d(s, "closing"))}</p>` : "";
+  return wrap(s, `lp-insights${dark ? " lp-dark" : ""}`, headK(s) + `<ul class="lp-ins-list">${items}</ul>` + closing, s.id);
+}
+
+function renderContrast(s: LandingSection, ctx: RenderCtx): string {
+  void ctx;
+  const col = (key: string, title: string, cls: string) => {
+    const rows = rowsOf(s, key).map((r) => `<li>${escHtml(r.text ?? "")}</li>`).join("");
+    return rows ? `<div class="lp-vs-col ${cls}"><h3>${escHtml(title)}</h3><ul>${rows}</ul></div>` : "";
+  };
+  const left = col("left", d(s, "leftTitle"), "lp-vs-l"), right = col("right", d(s, "rightTitle"), "lp-vs-r");
+  return wrap(s, "lp-contrast", headK(s) + `<div class="lp-vs${left ? "" : " lp-vs-one"}">${left}${left ? `<span class="lp-vs-arrow" aria-hidden="true">→</span>` : ""}${right}</div>`
+    + (d(s, "note") ? `<p class="lp-note">${text(d(s, "note"))}</p>` : ""), s.id);
+}
+
+/** Mã tab an toàn cho id / thuộc tính */
+const tabKey = (v: string) => v.toLowerCase().replace(/[^a-z0-9-]/g, "").slice(0, 20);
+
+/** Dòng chuyên ngành được mở sẵn theo `ctx.focus` (null nếu không khớp) */
+export function focusedTrack(doc: LandingDoc, focus?: string): Record<string, string> | null {
+  const k = tabKey(focus ?? "");
+  if (!k) return null;
+  for (const s of doc.sections) {
+    if (s.type !== "tracks" || !sectionVisible(s)) continue;
+    const r = rowsOf(s, "items").find((x) => tabKey(x.key ?? "") === k);
+    if (r) return r;
+  }
+  return null;
+}
+
+/**
+ * Tab chuyên ngành KHÔNG cần JavaScript: nhóm radio ẩn + nhãn + bảng nội dung; CSS hiện bảng của radio đang chọn.
+ * Bàn phím: Tab vào nhóm, mũi tên để đổi tab (hành vi gốc của radio). Không có CSS (tệp xuất, trình đọc) → hiện đủ mọi bảng.
+ */
+function renderTracks(s: LandingSection, ctx: RenderCtx): string {
+  const rows = rowsOf(s, "items");
+  const want = tabKey(ctx.focus ?? "");
+  let on = rows.findIndex((r) => want && tabKey(r.key ?? "") === want);
+  if (on < 0) on = 0;
+  const gid = `lp-t-${tabKey(s.id) || "nganh"}`;
+  const inputs = rows.map((r, i) => `<input class="lp-tab-in" type="radio" name="${gid}" id="${gid}-${i}" aria-label="${escHtml(r.tab ?? "")}"${i === on ? " checked" : ""} />`).join("");
+  const bar = rows.map((r, i) => `<label for="${gid}-${i}">${escHtml(r.tab ?? "")}</label>`).join("");
+  const panels = rows.map((r) => {
+    const outs = (r.outcomes ?? "").split("\n").map((x) => x.replace(/^[-•\s]+/, "").trim()).filter(Boolean).map((x) => `<li>${escHtml(x)}</li>`).join("");
+    const pic = r.image ? `<figure class="lp-tab-pic"><div class="lp-frame"><span aria-hidden="true"></span>${imgTag(ctx, r.image, r.imageAlt || r.name || "", { sizes: "(max-width: 860px) 100vw, 560px" })}</div>${r.credit ? `<figcaption>${escHtml(r.credit)}</figcaption>` : ""}</figure>` : "";
+    return `<article class="lp-tab-panel" id="nganh-${escHtml(tabKey(r.key ?? ""))}">${pic}<div class="lp-tab-body">`
+      + (r.ages ? `<span class="lp-tag">${escHtml(r.ages)}</span>` : "")
+      + `<h3>${escHtml(r.name ?? "")}</h3>`
+      + (r.hook ? `<p class="lp-tab-hook">${escHtml(r.hook)}</p>` : "")
+      + (r.text ? `<p>${text(r.text)}</p>` : "")
+      + (outs ? `<p class="lp-tab-sub">Con làm được</p><ul class="lp-ticks">${outs}</ul>` : "")
+      + (r.tools ? `<p class="lp-tab-tools">${escHtml(r.tools)}</p>` : "")
+      + `</div></article>`;
+  }).join("");
+  const more = d(s, "ctaLabel") && d(s, "ctaUrl") ? `<p class="lp-tab-more"><a class="lp-link" href="${escHtml(href(ctx, d(s, "ctaUrl")))}" data-cta="1">${escHtml(d(s, "ctaLabel"))} →</a></p>` : "";
+  return wrap(s, "lp-tracks", headK(s) + `<div class="lp-tabs">${inputs}<div class="lp-tab-bar">${bar}</div><div class="lp-tab-panels">${panels}</div></div>` + more, s.id);
+}
+
+function renderChange(s: LandingSection, ctx: RenderCtx): string {
+  const b = d(s, "beforeLabel") || "Trước", a = d(s, "afterLabel") || "Sau";
+  const items = rowsOf(s, "items").map((r) => `<li><strong class="lp-chg-area">${escHtml(r.area ?? "")}</strong>`
+    + `<span class="lp-chg-b"><em>${escHtml(b)}</em>${escHtml(r.before ?? "")}</span>`
+    + `<span class="lp-chg-a"><em>${escHtml(a)}</em>${escHtml(r.after ?? "")}</span></li>`).join("");
+  const pic = d(s, "image") ? `<div class="lp-chg-pic">${imgTag(ctx, d(s, "image"), d(s, "imageAlt") || d(s, "title"), { sizes: "(max-width: 860px) 100vw, 420px" })}</div>` : "";
+  return wrap(s, `lp-change${pic ? " has-pic" : ""}`, headK(s) + `<div class="lp-chg-in"><ul class="lp-chg">${items}</ul>${pic}</div>`
+    + (d(s, "note") ? `<p class="lp-note">${text(d(s, "note"))}</p>` : ""), s.id);
+}
+
 /* ---------------------------- khối cho landing quảng cáo ---------------------------- */
 
-function leadHeroLeft(s: LandingSection, ctx: RenderCtx): string {
+function leadHeroLeft(s: LandingSection, ctx: RenderCtx, headline = ""): string {
   const pts = rowsOf(s, "points").map((r) => `<li>${escHtml(r.text ?? "")}</li>`).join("");
   const badges = rowsOf(s, "badges").map((r) => `<li>${escHtml(r.text ?? "")}</li>`).join("");
   void ctx;
   return `<div class="lp-hero-text">`
     + (d(s, "eyebrow") ? `<p class="lp-eyebrow">${escHtml(d(s, "eyebrow"))}</p>` : "")
-    + `<h1>${escHtml(d(s, "title"))}</h1>`
+    + `<h1>${escHtml(headline || d(s, "title"))}</h1>`
     + (d(s, "subtitle") ? `<p class="lp-lead">${text(d(s, "subtitle"))}</p>` : "")
     + (pts ? `<ul class="lp-ticks">${pts}</ul>` : "")
     + (badges ? `<ul class="lp-badges">${badges}</ul>` : "")
@@ -213,8 +306,8 @@ function leadFormHead(s: LandingSection): string {
   return `<p class="lp-form-title">${escHtml(d(s, "formTitle"))}</p>${d(s, "formNote") ? `<p class="lp-form-note">${escHtml(d(s, "formNote"))}</p>` : ""}`;
 }
 /** Bản HTML tĩnh (xuất / kiểm thử): cột chữ + thẻ form dẫn về trang đăng ký của hệ thống */
-function renderLeadHeroStatic(s: LandingSection, ctx: RenderCtx, formInner: string): string {
-  return `<section class="lp-sec lp-hero lp-lead-hero" id="top"><div class="lp-wrap">${leadHeroLeft(s, ctx)}`
+function renderLeadHeroStatic(s: LandingSection, ctx: RenderCtx, formInner: string, headline = ""): string {
+  return `<section class="lp-sec lp-hero lp-lead-hero" id="top"><div class="lp-wrap">${leadHeroLeft(s, ctx, headline)}`
     + `<div class="lp-hero-form" id="dang-ky-nhanh"><div class="lp-form-card">${leadFormHead(s)}${formInner}</div></div>${leadHeroPic(s, ctx)}</div></section>`;
 }
 
@@ -311,8 +404,12 @@ export function renderParts(doc: LandingDoc, ctx: RenderCtx): LandingPart[] {
   };
   // Nền xen kẽ giữa các khối nội dung (tính bằng thứ tự hiển thị, không dựa vào CSS nth-of-type vì các phần nằm ở nhiều thẻ cha)
   let n = 0;
-  const CONTENT: ReadonlySet<string> = new Set(["stats", "features", "programs", "roadmap", "tools", "split", "teacher", "testimonials", "steps", "timeline", "gallery", "faq", "text", "form"]);
+  const CONTENT: ReadonlySet<string> = new Set(["stats", "features", "programs", "roadmap", "tools", "split", "teacher", "testimonials", "steps", "timeline", "gallery", "faq", "text", "form", "contrast", "tracks", "change"]);
   const lead = doc.sections.find((x) => x.type === "leadHero" && sectionVisible(x));
+  // ?nganh=<mã>: tiêu đề lớn + chuyên ngành chọn sẵn trong form theo tab đang mở
+  const ft = focusedTrack(doc, ctx.focus);
+  const headline = ft?.headline ?? "";
+  const leadInterest = (l: LandingSection) => ft?.interest || d(l, "interest");
   let flip = false;
   const alt = (html: string, on: boolean) => (on ? html.replace('class="lp-sec ', 'class="lp-sec lp-alt ') : html);
   for (const s of doc.sections) {
@@ -322,8 +419,8 @@ export function renderParts(doc: LandingDoc, ctx: RenderCtx): LandingPart[] {
       case "header": push(renderHeader(s, ctx)); break;
       case "hero": push(renderHero(s, ctx)); break;
       case "leadHero":
-        if (ctx.mode === "page") parts.push({ kind: "leadHero", sectionId: s.id, left: leadHeroLeft(s, ctx), pic: leadHeroPic(s, ctx), formHead: leadFormHead(s), thankYou: d(s, "thankYou"), interest: d(s, "interest") });
-        else push(renderLeadHeroStatic(s, ctx, formExport(s, ctx)));
+        if (ctx.mode === "page") parts.push({ kind: "leadHero", sectionId: s.id, left: leadHeroLeft(s, ctx, headline), pic: leadHeroPic(s, ctx), formHead: leadFormHead(s), thankYou: d(s, "thankYou"), interest: leadInterest(s) });
+        else push(renderLeadHeroStatic(s, ctx, formExport(s, ctx), headline));
         break;
       case "roadmap": push(alt(renderRoadmap(s, ctx), isAlt)); break;
       case "tools": push(alt(renderTools(s, ctx), isAlt)); break;
@@ -339,9 +436,13 @@ export function renderParts(doc: LandingDoc, ctx: RenderCtx): LandingPart[] {
       case "gallery": push(alt(renderGallery(s, ctx), isAlt)); break;
       case "faq": push(alt(renderFaq(s, ctx), isAlt)); break;
       case "text": push(alt(renderText(s, ctx), isAlt)); break;
+      case "insights": push(renderInsights(s, ctx)); break;
+      case "contrast": push(alt(renderContrast(s, ctx), isAlt)); break;
+      case "tracks": push(alt(renderTracks(s, ctx), isAlt)); break;
+      case "change": push(alt(renderChange(s, ctx), isAlt)); break;
       case "footer": push((lead ? renderStickyBar(doc, ctx) : "") + renderFooter(s, ctx)); break;
       case "form":
-        if (ctx.mode === "page") parts.push({ kind: "form", sectionId: s.id, thankYou: d(s, "thankYou"), head: formHead(s), alt: isAlt, compact: !!lead, interest: lead ? d(lead, "interest") : "" });
+        if (ctx.mode === "page") parts.push({ kind: "form", sectionId: s.id, thankYou: d(s, "thankYou"), head: formHead(s), alt: isAlt, compact: !!lead, interest: lead ? leadInterest(lead) : "" });
         else push(alt(formOpen(s), isAlt) + formExport(s, ctx) + `</div></section>`);
         break;
     }
@@ -487,9 +588,10 @@ export function landingCss(): string {
 .lp-copy{margin-top:12px!important;font-size:.85rem!important;border-top:1px solid rgba(255,255,255,.12);padding-top:14px}
 /* ---- Landing quảng cáo: mở đầu + form, lộ trình, công cụ, ảnh + nội dung, giảng viên, thanh đăng ký nhanh ---- */
 .lp-lead-hero{padding:40px 0 56px}
-.lp-lead-hero .lp-wrap{display:grid;grid-template-columns:1.08fr .92fr;grid-template-areas:"text form" "pic form";gap:20px 40px;align-items:start}
-.lp-lead-hero .lp-hero-text{grid-area:text}
-.lp-lead-hero .lp-hero-form{grid-area:form;position:relative}
+/* Máy tính: ảnh phía trên cột phải, form đè lên mép dưới ảnh — hai cột cân nhau, form vẫn nằm trong màn hình đầu */
+.lp-lead-hero .lp-wrap{display:grid;grid-template-columns:1.08fr .92fr;grid-template-areas:"text pic" "text form";grid-template-rows:auto 1fr;gap:0 44px;align-items:start}
+.lp-lead-hero .lp-hero-text{grid-area:text;padding-top:8px}
+.lp-lead-hero .lp-hero-form{grid-area:form;position:relative;z-index:1;margin:-96px 12px 0}
 .lp-lead-hero .lp-hero-pic{grid-area:pic}
 .lp-lead-hero .lp-hero-pic img{aspect-ratio:4/3;box-shadow:0 24px 50px -30px rgba(15,23,42,.35)}
 .lp-lead-hero h1{font-size:clamp(1.9rem,4.4vw,3rem)}
@@ -552,6 +654,116 @@ export function landingCss(): string {
 .lp-lead-done-title{font-size:1.25rem;font-weight:800;color:#047857}
 .lp-lead-done ul{list-style:disc;padding-left:20px;color:var(--lp-mut);display:grid;gap:4px}
 .lp-form .lp-form-card .lp-lead-form{padding:6px 16px 16px;margin-top:4px}
+/* ---- Trang chính: khối kể chuyện (số liệu có nguồn, so sánh, tab chuyên ngành, trước → sau) ---- */
+.lp-sec{scroll-margin-top:72px}
+.lp-head .lp-kicker+h2{margin-top:2px}
+.lp-src{font-size:.78rem;color:#64748b;margin-top:auto!important;padding-top:10px}
+.lp-src a{color:inherit;text-decoration:underline;text-underline-offset:2px}
+.lp-ins-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px}
+.lp-ins{display:flex;flex-direction:column;gap:6px;background:#fff;border:1px solid var(--lp-line);border-radius:var(--lp-r);padding:22px 20px;position:relative;overflow:hidden}
+.lp-ins::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--primary,#1d4ed8)}
+.lp-ins:nth-child(3n+2)::before{background:var(--success,#10b981)}
+.lp-ins:nth-child(3n)::before{background:var(--accent,#f59e0b)}
+.lp-ins-val{font-size:clamp(2.1rem,4.4vw,2.9rem);font-weight:800;line-height:1.05;letter-spacing:-.02em;color:var(--primary-ink,var(--primary,#1d4ed8))}
+.lp-ins-lbl{font-weight:700;font-size:1.02rem;line-height:1.4}
+.lp-ins-txt{color:var(--lp-mut);font-size:.94rem}
+.lp-ins-close{margin-top:28px!important;max-width:760px;font-size:clamp(1.1rem,2.2vw,1.35rem);font-weight:700;line-height:1.45;padding-left:18px;border-left:4px solid var(--accent,#f59e0b)}
+.lp-dark{background:radial-gradient(900px 420px at 85% -10%,rgba(29,78,216,.45),transparent 60%),radial-gradient(700px 380px at -10% 110%,rgba(16,185,129,.22),transparent 60%),#0f172a;color:#f8fafc}
+.lp-dark .lp-head p{color:rgba(248,250,252,.78)}
+.lp-dark .lp-kicker{color:#fcd34d}
+.lp-dark .lp-ins{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.12);backdrop-filter:blur(2px)}
+.lp-dark .lp-ins-val{color:#fbbf24}
+.lp-dark .lp-ins-txt,.lp-dark .lp-src{color:rgba(248,250,252,.7)}
+.lp-dark .lp-ins-close{color:#fff}
+.lp-vs{display:grid;grid-template-columns:1fr auto 1fr;gap:18px;align-items:stretch}
+.lp-vs-one{grid-template-columns:1fr}
+.lp-vs-col{border-radius:calc(var(--lp-r) + 4px);padding:26px 24px;border:1px solid var(--lp-line);background:#fff}
+.lp-vs-col h3{font-size:1.15rem;margin-bottom:14px}
+.lp-vs-col ul{display:grid;gap:10px}
+.lp-vs-col li{position:relative;padding-left:32px}
+.lp-vs-l{background:#f1f5f9;color:#475569}
+.lp-vs-l h3{color:#475569}
+.lp-vs-l li::before{content:"";position:absolute;left:4px;top:11px;width:14px;height:2px;background:#94a3b8;border-radius:2px}
+.lp-vs-r{border:2px solid var(--success,#10b981);box-shadow:0 24px 50px -32px rgba(5,150,105,.55)}
+.lp-vs-r h3{color:#047857}
+.lp-vs-r li{font-weight:600}
+.lp-vs-r li::before{content:"✓";position:absolute;left:0;top:2px;width:22px;height:22px;border-radius:50%;background:var(--success,#10b981);color:#fff;font-size:.78rem;display:grid;place-items:center;font-weight:800}
+.lp-vs-arrow{align-self:center;display:grid;place-items:center;width:44px;height:44px;border-radius:50%;background:var(--accent,#f59e0b);color:#0f172a;font-weight:800;font-size:1.3rem}
+.lp-tabs{position:relative}
+.lp-tab-in{position:absolute;opacity:0;width:1px;height:1px;pointer-events:none}
+.lp-tab-bar{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:22px}
+.lp-tab-bar label{cursor:pointer;padding:10px 18px;border-radius:999px;border:1.5px solid var(--lp-line);background:#fff;font-weight:700;font-size:.95rem;transition:background .2s,color .2s,box-shadow .2s;user-select:none;white-space:nowrap}
+.lp-tab-bar label:hover{border-color:var(--primary,#1d4ed8)}
+.lp-tab-panel{display:none;grid-template-columns:1.05fr 1fr;gap:36px;align-items:center;background:#fff;border:1px solid var(--lp-line);border-radius:calc(var(--lp-r) + 6px);padding:28px;animation:lp-fade .35s ease both}
+.lp-tab-pic{margin:0}
+.lp-tab-pic figcaption{font-size:.72rem;color:#64748b;margin-top:6px}
+.lp-frame{border-radius:14px;overflow:hidden;border:1px solid var(--lp-line);background:#fff;box-shadow:0 30px 60px -36px rgba(15,23,42,.45)}
+.lp-frame>span{display:block;height:26px;background:#f1f5f9;border-bottom:1px solid var(--lp-line);position:relative}
+.lp-frame>span::before{content:"";position:absolute;left:12px;top:9px;width:8px;height:8px;border-radius:50%;background:#f87171;box-shadow:13px 0 0 #fbbf24,26px 0 0 #34d399}
+.lp-frame img{width:100%;aspect-ratio:16/10;object-fit:cover}
+.lp-tab-body{display:flex;flex-direction:column;gap:10px}
+.lp-tab-body h3{font-size:clamp(1.3rem,2.6vw,1.65rem)}
+.lp-tab-body>p{color:var(--lp-mut)}
+.lp-tab-hook{color:var(--primary-ink,#1e40af)!important;font-weight:700}
+.lp-tab-sub{margin-top:6px!important;font-size:.78rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#047857!important}
+.lp-tab-body .lp-ticks{margin-top:0}
+.lp-tab-tools{font-size:.88rem;border-top:1px dashed var(--lp-line);padding-top:10px;margin-top:4px!important}
+.lp-tab-more{margin-top:18px!important}
+.lp-tab-in:nth-of-type(1):checked~.lp-tab-panels>.lp-tab-panel:nth-child(1){display:grid}
+.lp-tab-in:nth-of-type(1):checked~.lp-tab-bar>label:nth-child(1){background:var(--primary,#1d4ed8);color:#fff;border-color:var(--primary,#1d4ed8);box-shadow:0 10px 24px -14px var(--primary,#1d4ed8)}
+.lp-tab-in:nth-of-type(1):focus-visible~.lp-tab-bar>label:nth-child(1){outline:3px solid var(--accent,#f59e0b);outline-offset:2px}
+.lp-tab-in:nth-of-type(2):checked~.lp-tab-panels>.lp-tab-panel:nth-child(2){display:grid}
+.lp-tab-in:nth-of-type(2):checked~.lp-tab-bar>label:nth-child(2){background:var(--primary,#1d4ed8);color:#fff;border-color:var(--primary,#1d4ed8);box-shadow:0 10px 24px -14px var(--primary,#1d4ed8)}
+.lp-tab-in:nth-of-type(2):focus-visible~.lp-tab-bar>label:nth-child(2){outline:3px solid var(--accent,#f59e0b);outline-offset:2px}
+.lp-tab-in:nth-of-type(3):checked~.lp-tab-panels>.lp-tab-panel:nth-child(3){display:grid}
+.lp-tab-in:nth-of-type(3):checked~.lp-tab-bar>label:nth-child(3){background:var(--primary,#1d4ed8);color:#fff;border-color:var(--primary,#1d4ed8);box-shadow:0 10px 24px -14px var(--primary,#1d4ed8)}
+.lp-tab-in:nth-of-type(3):focus-visible~.lp-tab-bar>label:nth-child(3){outline:3px solid var(--accent,#f59e0b);outline-offset:2px}
+.lp-tab-in:nth-of-type(4):checked~.lp-tab-panels>.lp-tab-panel:nth-child(4){display:grid}
+.lp-tab-in:nth-of-type(4):checked~.lp-tab-bar>label:nth-child(4){background:var(--primary,#1d4ed8);color:#fff;border-color:var(--primary,#1d4ed8);box-shadow:0 10px 24px -14px var(--primary,#1d4ed8)}
+.lp-tab-in:nth-of-type(4):focus-visible~.lp-tab-bar>label:nth-child(4){outline:3px solid var(--accent,#f59e0b);outline-offset:2px}
+.lp-tab-in:nth-of-type(5):checked~.lp-tab-panels>.lp-tab-panel:nth-child(5){display:grid}
+.lp-tab-in:nth-of-type(5):checked~.lp-tab-bar>label:nth-child(5){background:var(--primary,#1d4ed8);color:#fff;border-color:var(--primary,#1d4ed8);box-shadow:0 10px 24px -14px var(--primary,#1d4ed8)}
+.lp-tab-in:nth-of-type(5):focus-visible~.lp-tab-bar>label:nth-child(5){outline:3px solid var(--accent,#f59e0b);outline-offset:2px}
+.lp-tab-in:nth-of-type(6):checked~.lp-tab-panels>.lp-tab-panel:nth-child(6){display:grid}
+.lp-tab-in:nth-of-type(6):checked~.lp-tab-bar>label:nth-child(6){background:var(--primary,#1d4ed8);color:#fff;border-color:var(--primary,#1d4ed8);box-shadow:0 10px 24px -14px var(--primary,#1d4ed8)}
+.lp-tab-in:nth-of-type(6):focus-visible~.lp-tab-bar>label:nth-child(6){outline:3px solid var(--accent,#f59e0b);outline-offset:2px}
+.lp-chg-in{display:grid;gap:28px}
+.lp-change.has-pic .lp-chg-in{grid-template-columns:1.5fr 1fr;align-items:center}
+.lp-chg{display:grid;gap:10px}
+.lp-chg li{display:grid;grid-template-columns:minmax(130px,.8fr) 1fr 1.25fr;gap:14px;align-items:center;background:#fff;border:1px solid var(--lp-line);border-radius:14px;padding:14px 18px}
+.lp-chg-area{font-size:.98rem}
+.lp-chg em{display:none;font-style:normal;font-size:.7rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase}
+.lp-chg-b{color:#64748b;font-size:.95rem}
+.lp-chg-a{color:#065f46;font-weight:600;font-size:.95rem;position:relative;padding-left:28px}
+.lp-chg-a::before{content:"→";position:absolute;left:0;top:-1px;color:var(--success,#10b981);font-weight:800}
+.lp-chg-pic img{width:100%;border-radius:calc(var(--lp-r) + 6px)}
+.lp-steps-list{grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
+@media (min-width:861px){.lp-features .lp-grid:has(>li:nth-child(5)),.lp-photos:has(>li:nth-child(5)){grid-template-columns:repeat(3,1fr)}}
+.lp-nav a{white-space:nowrap}
+@media (min-width:561px) and (max-width:1024px){.lp-ins-list{grid-template-columns:1fr 1fr}}
+@media (max-width:600px){.lp-photos{grid-template-columns:1fr 1fr;gap:12px}.lp-photos figcaption{font-size:.8rem;line-height:1.4}}
+@media (max-width:1100px){.lp-top .lp-nav,.lp-top .lp-tel{display:none}.lp-top .lp-menu{display:block}}
+.lp-steps-list li{flex-direction:column;gap:12px}
+@keyframes lp-fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes lp-rise{from{opacity:0;transform:translateY(28px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:no-preference){@supports (animation-timeline:view()){
+ .lp-sec:not(.lp-hero) .lp-head,.lp-ins-list>li,.lp-grid>li,.lp-chg>li,.lp-vs-col,.lp-steps-list>li,.lp-photos>li,.lp-faq-list>details,.lp-teacher-in>*,.lp-road>li,.lp-ins-close{animation:lp-rise linear both;animation-timeline:view();animation-range:entry 0% entry 55%}
+}}
+@media (prefers-reduced-motion:reduce){.lp-tab-panel{animation:none}}
+@media (max-width:860px){
+ .lp-vs{grid-template-columns:1fr}
+ .lp-vs-arrow{justify-self:center;transform:rotate(90deg)}
+ .lp-tab-bar{flex-wrap:nowrap;overflow-x:auto;margin:0 -20px 18px;padding:2px 20px 6px;scrollbar-width:none}
+ .lp-tab-bar::-webkit-scrollbar{display:none}
+ .lp-tab-panel{grid-template-columns:1fr;padding:18px;gap:20px}
+ .lp-change.has-pic .lp-chg-in{grid-template-columns:1fr}
+ .lp-chg-pic{order:-1;max-width:420px}
+ .lp-chg li{grid-template-columns:1fr;gap:6px}
+ .lp-chg em{display:block;color:#94a3b8}
+ .lp-chg-a em{color:#047857}
+ .lp-chg-a{padding-left:0}
+ .lp-chg-a::before{content:none}
+}
 @media (max-width:380px){.lp-f-row{grid-template-columns:1fr}}
 .lp--soft{--lp-bg:#f8fafc;--lp-alt:#ffffff;--lp-r:24px}
 .lp--soft .lp-hero{background:linear-gradient(180deg,#fef3c7,#f8fafc)}
@@ -566,7 +778,8 @@ export function landingCss(): string {
 @media (max-width:860px){
  .lp-hero.has-pic .lp-wrap{grid-template-columns:1fr}
  .lp-lead-hero{padding:24px 0 40px}
- .lp-lead-hero .lp-wrap{grid-template-columns:1fr;grid-template-areas:"text" "form" "pic"}
+ .lp-lead-hero .lp-wrap{grid-template-columns:1fr;grid-template-areas:"text" "form" "pic";grid-template-rows:none;gap:20px}
+ .lp-lead-hero .lp-hero-form{margin:0}
  .lp-lead-hero .lp-ticks{display:none}
  .lp-lead-hero .lp-badges{margin-top:14px}
  .lp-split-in,.lp-teacher-in{grid-template-columns:1fr;gap:24px}

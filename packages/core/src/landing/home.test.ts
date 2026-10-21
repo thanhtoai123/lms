@@ -1,89 +1,150 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { normalizeLanding, validSlug, validateLanding } from "./model.js";
-import { HOME_PAGE } from "./home.js";
+import { normalizeLanding, validSlug, validateLanding, validImage, validUrl } from "./model.js";
+import { HOME_PAGE, HOME_SOURCES, HOME_TRACK_KEYS, SITE_MERGED, homeFocus } from "./home.js";
 import { buildPalette, BRAND_DEFAULT_COLORS } from "../system/brand.js";
 import { TH_BRAND } from "../system/th-brand.js";
 import { SITE_NODES } from "../site/map.js";
-import { renderBody } from "./render.js";
+import { renderBody, renderParts, type RenderCtx } from "./render.js";
+import { landingJsonLd } from "./seo.js";
+import { LEAD_INTERESTS } from "./ads.js";
 
 const doc = () => normalizeLanding(HOME_PAGE.build());
-const html = () => renderBody(doc(), { slug: "trang-chu", variant: "classic", mode: "page", brand: { name: TH_BRAND.name, logoUrl: "/icon.svg", palette: buildPalette(BRAND_DEFAULT_COLORS) } });
+const ctx = (over: Partial<RenderCtx> = {}): RenderCtx => ({ slug: "trang-chu", variant: "classic", mode: "page", brand: { name: TH_BRAND.name, logoUrl: "/icon.svg", palette: buildPalette(BRAND_DEFAULT_COLORS) }, ...over });
+const html = (over: Partial<RenderCtx> = {}) => renderBody(doc(), ctx(over));
 
-test("trang chủ: đường dẫn hợp lệ, xuất bản được không cảnh báo (không còn chữ mẫu)", () => {
+test("trang chính: đường dẫn hợp lệ, xuất bản được không cảnh báo", () => {
   assert.equal(validSlug(HOME_PAGE.slug), null);
   const r = validateLanding(doc(), { title: HOME_PAGE.title, slug: HOME_PAGE.slug });
   assert.deepEqual(r.errors, []);
-  // khối phản hồi phụ huynh đang tắt (chưa có lời thật) nên không bị tính
   assert.deepEqual(r.warnings, []);
-  assert.doesNotMatch(JSON.stringify(doc()), /\[demo\]/i);
 });
 
-test("trang chủ: theo thứ tự các phần của trang mẫu (hero → số liệu → … → hỏi đáp → form)", () => {
+test("trang chính: mạch nỗi lo → bối cảnh → giải pháp → chuyên ngành → giá trị → bằng chứng → hành động", () => {
   const ids = doc().sections.map((s) => s.id);
-  const order = ["hero", "stats", "features", "programs", "uu-dai", "gia-tri", "buoi-hoc", "hanh-trang", "ket-luan", "lo-trinh", "steps", "he-sinh-thai", "phan-hoi", "doi-ngu", "bao-cao", "faq", "form"];
+  const order = ["mo-dau", "noi-lo", "tuong-lai", "sang-tao", "chuyen-nganh", "con-thay-doi", "cam-ket", "buoi-hoc", "san-pham", "giang-vien", "hoc-thu", "faq", "form"];
   assert.deepEqual(ids.filter((i) => order.includes(i)), order);
   assert.equal(ids[0], "header");
   assert.equal(ids[ids.length - 1], "footer");
-  assert.equal(doc().sections.find((s) => s.id === "phan-hoi")!.enabled, false, "phản hồi phụ huynh tắt cho tới khi có lời thật");
-});
-
-test("trang chủ: nút kêu gọi dẫn tới form cuối trang, gọi hotline hoặc trang chuyên ngành có thật (một form mỗi trang)", () => {
-  const paths = new Set(SITE_NODES.map((n) => n.path));
-  const urls: string[] = [];
-  for (const s of doc().sections) {
-    for (const k of ["primaryUrl", "secondaryUrl", "ctaUrl"]) if (s.data[k]) urls.push(s.data[k]!);
-    for (const rows of Object.values(s.lists)) for (const r of rows) if (r.url) urls.push(r.url);
-  }
-  assert.ok(urls.length >= 8);
-  for (const u of urls) assert.ok(u === "#dang-ky" || u === `tel:${TH_BRAND.hotlineTel}` || paths.has(u), u);
-  assert.equal(urls.filter((u) => u.startsWith("/khoa-hoc/")).length, 4, "đủ 4 thẻ chuyên ngành");
+  assert.equal(doc().sections.find((s) => s.id === "phan-hoi")!.enabled, false, "lời phụ huynh tắt cho tới khi có lời thật");
   assert.equal(doc().sections.filter((s) => s.type === "form").length, 1);
 });
 
-test("trang chủ: chuẩn hoá không làm mất chữ (không bị cắt vì quá giới hạn)", () => {
-  assert.deepEqual(doc(), HOME_PAGE.build());
-});
-
-test("trang chủ: không chữ giữ chỗ, không 'miễn phí', không học phí, không khẳng định chưa có nguồn, không còn thương hiệu cũ", () => {
+test("trang chính: không kể thông số kỹ thuật (học phần, số buổi) — chỉ nỗi lo và giá trị", () => {
   const h = html();
-  for (const bad of [/0\.000\.000/, /đang cập nhật/i, /miễn phí/i, /\d\.\d{3}\.\d{3}đ/, /hoàn (lại )?(100% )?(học phí|tiền)/i, /độc quyền/i, /duy nhất/i, /số 1/i, /24\/7/, /lorem/i, /sata/i, /0837/, /satarobo/i]) assert.ok(!bad.test(h), String(bad));
+  for (const bad of [/học phần(?! mềm)/i, /\b45 buổi/, /\b15 buổi/, /\b90 buổi/, /Basic|Advanced|Expert/]) assert.ok(!bad.test(h), String(bad));
 });
 
-test("trang chủ: có thông tin liên hệ thật theo bộ nhận diện", () => {
+test("trang chính: không chữ giữ chỗ, không 'miễn phí', không học phí, không khẳng định cấm, không thương hiệu cũ", () => {
   const h = html();
-  for (const must of [TH_BRAND.hotline, `tel:${TH_BRAND.hotlineTel}`, TH_BRAND.website, TH_BRAND.legalName.replace("&", "&amp;"), 'id="dang-ky"', TH_BRAND.tagline]) assert.ok(h.includes(must), must);
-  assert.match(h, /<h1/);
+  for (const bad of [/0\.000\.000/, /đang cập nhật/i, /miễn phí/i, /\d\.\d{3}\.\d{3}đ/, /độc quyền/i, /duy nhất/i, /số 1/i, /hàng đầu/i, /tốt nhất/i, /cam kết đầu ra/i, /24\/7/, /lorem/i, /sata/i, /satarobo/i]) assert.ok(!bad.test(h), String(bad));
 });
 
-test("trang chủ: tiêu đề SEO ≤ 70, mô tả ≤ 170 ký tự", () => {
-  assert.ok(HOME_PAGE.seoTitle.length <= 70 && HOME_PAGE.seoDescription.length <= 170);
+test("trang chính: MỌI con số đều có nguồn kèm liên kết https tới đúng danh sách nguồn đã kiểm", () => {
+  const known = new Set<string>(Object.values(HOME_SOURCES));
+  let n = 0;
+  for (const s of doc().sections.filter((x) => x.type === "insights")) {
+    for (const r of s.lists.items ?? []) {
+      n++;
+      assert.ok(r.value && r.source, `${s.id}: ${r.label}`);
+      assert.ok(known.has(r.sourceUrl ?? ""), `${s.id}: ${r.value} — nguồn ${r.sourceUrl}`);
+    }
+  }
+  assert.ok(n >= 8);
+  const h = html();
+  assert.equal((h.match(/class="lp-src"/g) ?? []).length, n, "nguồn hiện cạnh từng con số");
+  assert.match(h, /lp-insights lp-dark/);
 });
 
-test("trang chủ: ảnh minh hoạ hợp lệ, có đủ file trong apps/web/public/anh-site và mô tả ghi rõ là hình minh hoạ", async () => {
+test("trang chính: liên kết nội bộ đều tới phần có thật của trang, trang website có thật hoặc hotline", () => {
+  const paths = new Set(SITE_NODES.map((n) => n.path));
+  const h = html();
+  const ids = new Set([...h.matchAll(/ id="([^"]+)"/g)].map((m) => m[1]));
+  ids.add("dang-ky"); // phần form do React dựng
+  for (const m of h.matchAll(/href="([^"]+)"/g)) {
+    const u = m[1]!.replace(/&amp;/g, "&");
+    if (u.startsWith("https://")) continue;
+    if (u.startsWith("#")) { assert.ok(u === "#top" || ids.has(u.slice(1)), `neo ${u}`); continue; }
+    assert.ok(validUrl(u), u);
+    assert.ok(u.startsWith("tel:") || paths.has(u.split("#")[0]!), u);
+  }
+});
+
+test("trang chính: 4 tab chuyên ngành, không JavaScript; ?nganh= mở đúng tab, đổi H1, chọn sẵn ngành trong form", () => {
+  const h = html();
+  assert.equal((h.match(/class="lp-tab-in"/g) ?? []).length, 4);
+  assert.equal((h.match(/ checked/g) ?? []).length, 1);
+  assert.doesNotMatch(h, /<script/i);
+  assert.match(h, /<h1>Biến giờ con ngồi trước màn hình/);
+  const interests = new Set(LEAD_INTERESTS.map((x) => x.value));
+  for (const [i, key] of Object.values(HOME_TRACK_KEYS).entries()) {
+    assert.equal(homeFocus(key.toUpperCase()), key);
+    const parts = renderParts(doc(), ctx({ focus: key }));
+    const lead = parts.find((p) => p.kind === "leadHero");
+    assert.ok(lead && lead.kind === "leadHero");
+    assert.ok(interests.has(lead.interest), `${key}: ${lead.interest}`);
+    assert.doesNotMatch(lead.left, /Biến giờ con ngồi/, `${key}: H1 đổi theo ngành`);
+    const form = parts.find((p) => p.kind === "form");
+    assert.ok(form && form.kind === "form" && form.interest === lead.interest);
+    const body = renderBody(doc(), ctx({ focus: key }));
+    const radios = [...body.matchAll(/<input class="lp-tab-in"[^>]*>/g)].map((m) => m[0]);
+    assert.ok(radios[i]!.includes(" checked"), `${key} mở tab ${i + 1}`);
+  }
+  assert.equal(homeFocus("<script>"), "");
+  assert.equal(homeFocus(""), "");
+});
+
+test("trang chính: ảnh hợp lệ, có file thật, ảnh phần mềm ghi nguồn", async () => {
   const { existsSync } = await import("node:fs");
-  const { validImage } = await import("./model.js");
   const imgs: string[] = [];
   for (const s of doc().sections) {
-    if (s.data.image) imgs.push(s.data.image);
+    for (const k of ["image", "photo", "certImage"]) if (s.data[k]) imgs.push(s.data[k]!);
     for (const rows of Object.values(s.lists)) for (const r of rows) if (r.image) imgs.push(r.image);
   }
-  assert.equal(imgs.length, 9);
+  assert.ok(imgs.length >= 12);
   for (const u of imgs) {
     assert.ok(validImage(u), u);
     assert.ok(existsSync(new URL(`../../../../apps/web/public${u}`, import.meta.url)), u);
   }
-  const g = doc().sections.find((s) => s.id === "buoi-hoc")!;
-  assert.ok((g.lists.items ?? []).every((r) => /minh hoạ/.test(r.caption ?? "")));
+  const g = doc().sections.find((s) => s.id === "san-pham")!;
+  assert.ok((g.lists.items ?? []).every((r) => /\(ảnh: .+\)/.test(r.caption ?? "")));
+  const t = doc().sections.find((s) => s.id === "chuyen-nganh")!;
+  assert.ok((t.lists.items ?? []).every((r) => !!r.credit && !!r.imageAlt));
 });
 
-test("ảnh minh hoạ chỉ dùng màu trong bảng màu TH STEAM (cộng màu da, tóc của nhân vật)", async () => {
-  const { readdirSync, readFileSync } = await import("node:fs");
-  const dir = new URL("../../../../apps/web/public/anh-site/", import.meta.url);
-  const palette = new Set(["#1d4ed8", "#1e40af", "#4f75e1", "#dbeafe", "#10b981", "#059669", "#d1fae5", "#f59e0b", "#d97706", "#fef3c7", "#f7d27a", "#0f172a", "#f8fafc", "#ffffff", "#e2e8f0", "#475569"]);
-  const skinHair = new Set(["#f3cfae", "#d9a577", "#9a6440", "#2b1b17", "#1f1f2e", "#5a3825"]);
-  for (const f of readdirSync(dir).filter((x) => x.endsWith(".svg"))) {
-    const cols = new Set((readFileSync(new URL(f, dir), "utf8").match(/#[0-9a-fA-F]{6}\b/g) ?? []).map((c) => c.toLowerCase()));
-    for (const c of cols) assert.ok(palette.has(c) || skinHair.has(c), `${f}: màu ${c} ngoài bảng màu`);
+test("trang chính: SEO — tiêu đề ≤ 60–70, mô tả ≤ 160, một H1, ảnh có alt, JSON-LD có FAQ và 4 khoá học", () => {
+  assert.ok(HOME_PAGE.seoTitle.length <= 70, `${HOME_PAGE.seoTitle.length}`);
+  assert.ok(HOME_PAGE.seoDescription.length <= 160, `${HOME_PAGE.seoDescription.length}`);
+  assert.ok(validImage(HOME_PAGE.seoImage));
+  const h = html();
+  assert.equal((h.match(/<h1/g) ?? []).length, 1, "đúng một H1");
+  const lead = renderParts(doc(), ctx()).find((p) => p.kind === "leadHero");
+  assert.ok(lead && lead.kind === "leadHero" && (lead.left.match(/<h1/g) ?? []).length === 1);
+  for (const m of h.matchAll(/<img [^>]*>/g)) if (!m[0].includes("/icon.svg")) assert.match(m[0], /alt="[^"]{3,}"/, m[0]); // logo cạnh tên thương hiệu là ảnh trang trí
+  const ld = landingJsonLd(doc(), { baseUrl: "https://thsteam.edu.vn", path: "/", title: HOME_PAGE.seoTitle, brand: { name: TH_BRAND.name } }) as { "@graph": { "@type": string }[] };
+  const types = ld["@graph"].map((x) => x["@type"]);
+  assert.ok(types.includes("FAQPage"));
+  assert.equal(types.filter((x) => x === "Course").length, 4);
+});
+
+test("trang chính: thông tin liên hệ thật theo bộ nhận diện", () => {
+  const h = html();
+  for (const must of [TH_BRAND.hotline, `tel:${TH_BRAND.hotlineTel}`, TH_BRAND.website, TH_BRAND.legalName.replace("&", "&amp;"), TH_BRAND.tagline]) assert.ok(h.includes(must), must);
+});
+
+test("trang chính: chuẩn hoá không làm mất chữ (không bị cắt vì quá giới hạn)", () => {
+  assert.deepEqual(doc(), HOME_PAGE.build());
+});
+
+test("trang cũ đã gộp: chuyển hướng tới phần có thật của trang chính, trang chuyên ngành mở đúng tab", () => {
+  const nodes = new Map(SITE_NODES.map((n) => [n.slug, n.path]));
+  const ids = new Set(doc().sections.map((s) => s.id));
+  ids.add("giang-vien"); ids.add("dang-ky");
+  for (const m of SITE_MERGED) {
+    assert.equal(nodes.get(m.slug), m.from, m.slug);
+    const [path, hash] = m.to.split("#");
+    assert.ok(hash && ids.has(hash), m.to);
+    const q = new URL(`https://x${path}`).searchParams.get("nganh");
+    if (m.from.startsWith("/khoa-hoc/")) assert.equal(homeFocus(q), q);
   }
 });

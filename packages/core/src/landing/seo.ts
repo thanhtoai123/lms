@@ -60,6 +60,16 @@ export function landingJsonLd(doc: LandingDoc, m: JsonLdMeta): Record<string, un
     const qs = rowsOf(faq, "items");
     if (qs.length) graph.push({ "@type": "FAQPage", mainEntity: qs.map((q) => ({ "@type": "Question", name: q.q, acceptedAnswer: { "@type": "Answer", text: q.a } })) });
   }
+  // Chuyên ngành (khối tab của trang chính): mỗi chuyên ngành một khoá học online
+  for (const t of visible.filter((s) => s.type === "tracks")) {
+    for (const r of rowsOf(t, "items")) {
+      graph.push({
+        "@type": "Course", name: r.name, description: [r.hook, r.text].filter(Boolean).join(" ").slice(0, 500) || r.name,
+        provider: { "@id": orgId }, inLanguage: "vi", ...(r.ages ? { educationalLevel: r.ages } : {}),
+        hasCourseInstance: { "@type": "CourseInstance", courseMode: "online", inLanguage: "vi" },
+      });
+    }
+  }
   const road = visible.find((s) => s.type === "roadmap");
   if (road) {
     for (const r of rowsOf(road, "items")) {

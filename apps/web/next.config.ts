@@ -1,5 +1,5 @@
 import type { NextConfig } from "next";
-import { API_CSP, nextRedirects, securityHeaderOptions, securityHeaders } from "@satarobo/core";
+import { API_CSP, SITE_MERGED, nextRedirects, securityHeaderOptions, securityHeaders } from "@satarobo/core";
 
 const nextConfig: NextConfig = {
   transpilePackages: ["@satarobo/api", "@satarobo/core", "@satarobo/db"],
@@ -39,6 +39,8 @@ const nextConfig: NextConfig = {
       // Trang cũ đã gộp vào trang trung tâm (docs/KIEN-TRUC-MENU.md §5) — 308, truy vấn gốc được giữ
       // nguyên (vd /hoc-ba?student=<id> → /ho-so-hoc-tap?xem=tra-cuu&student=<id>). Bảng ở packages/core/src/nav/menu.ts.
       ...nextRedirects(),
+      // Website một trang (docs/TRANG-CHINH.md): trang cũ đã gộp → đúng phần của trang chính (vĩnh viễn, giữ thứ hạng tìm kiếm)
+      ...SITE_MERGED.map((m) => ({ source: m.from, destination: m.to, permanent: true })),
     ];
   },
   /**

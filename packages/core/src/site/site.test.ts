@@ -36,7 +36,7 @@ test("khung chung: mặc định hợp lệ, menu trỏ tới trang có thật t
   assert.deepEqual(validateChrome(DEFAULT_CHROME), []);
   const paths = new Set(SITE_NODES.map((n) => n.path));
   for (const l of [...DEFAULT_CHROME.nav, ...DEFAULT_CHROME.links]) assert.ok(paths.has(l.href.split("#")[0]!), `${l.label} → ${l.href}`);
-  assert.ok(paths.has(DEFAULT_CHROME.ctaUrl));
+  assert.ok(paths.has(DEFAULT_CHROME.ctaUrl.split("#")[0]!));
   // thông tin liên hệ thật theo bộ nhận diện (học online nên không có địa chỉ cơ sở)
   assert.equal(DEFAULT_CHROME.phone, TH_BRAND.hotline);
   assert.equal(DEFAULT_CHROME.legal, TH_BRAND.legalName);
@@ -74,7 +74,7 @@ test("khung chung: thay đầu / chân trang, giữ khối ở giữa và id", (
 test("khung chung: dựng được đầu / chân trang HTML, logo về trang chủ", () => {
   const { header, footer } = chromeSections(DEFAULT_CHROME);
   const h = renderHeaderHtml(header, ctx({ homeHref: "/" }));
-  assert.ok(h.includes('class="lp-brand" href="/"') && h.includes("/gioi-thieu") && h.includes(`tel:${TH_BRAND.hotlineTel}`));
+  assert.ok(h.includes('class="lp-brand" href="/"') && h.includes("/#chuyen-nganh") && h.includes(`tel:${TH_BRAND.hotlineTel}`));
   assert.ok(renderHeaderHtml(header, ctx()).includes('href="#top"'));
   const f = renderFooterHtml(footer, ctx());
   assert.ok(f.includes("ClassIn") && f.includes("/chinh-sach/bao-mat") && f.includes("/chinh-sach/dieu-khoan") && f.includes(TH_BRAND.website));

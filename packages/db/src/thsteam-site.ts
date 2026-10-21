@@ -9,10 +9,12 @@
  *  - 5 landing chạy quảng cáo (/lp/hoc-cong-nghe-online + 4 chuyên ngành, core/landing/ads.ts): tạo / cập nhật như trên,
  *    NHƯNG trang đã có người sửa trong quản trị (updatedBy khác rỗng) thì giữ nguyên — trừ khi gọi với `forceAds`.
  *  - Trang khoá học cũ của khung website (Lập trình Robot, Luyện thi RoboSim, Học online) → "archived" (ẩn, không xoá).
+ *  - Trang đã gộp vào trang chính một trang (SITE_MERGED: Giới thiệu, Liên hệ, 4 trang chuyên ngành) → "archived";
+ *    đường dẫn cũ chuyển hướng 308 tới đúng phần của trang chính (apps/web/next.config.ts).
  */
 import { eq, inArray, sql } from "drizzle-orm";
 import { appSettings, landingPageHistory, landingPages, siteBlocks } from "./schema/index";
-import { ADS_LANDINGS, DEFAULT_CHROME, HOME_PAGE, SITE_DEMO_PAGES, SITE_RETIRED_SLUGS, TH_REGISTER_BLOCK, normalizeLanding } from "@satarobo/core";
+import { ADS_LANDINGS, DEFAULT_CHROME, HOME_PAGE, SITE_DEMO_PAGES, SITE_MERGED, SITE_RETIRED_SLUGS, TH_REGISTER_BLOCK, normalizeLanding } from "@satarobo/core";
 import type { Database } from "./index";
 
 export interface ThSiteResult { created: string[]; updated: string[]; published: string[]; archived: string[]; kept: string[] }
@@ -28,9 +30,11 @@ export async function syncThSteamWebsite(db: Database, opts: { publish: boolean;
   await db.insert(siteBlocks).values({ page: "register", data: reg, updatedBy: actor })
     .onConflictDoUpdate({ target: siteBlocks.page, set: { data: reg, version: sql`${siteBlocks.version} + 1`, updatedBy: actor, updatedAt: new Date() } });
 
+  const merged = new Set(SITE_MERGED.map((m) => m.slug));
   const pages = [
-    { slug: HOME_PAGE.slug, title: HOME_PAGE.title, template: HOME_PAGE.template, variant: HOME_PAGE.variant, seoTitle: HOME_PAGE.seoTitle, seoDescription: HOME_PAGE.seoDescription, seoImage: "", ads: false, build: () => HOME_PAGE.build() },
-    ...SITE_DEMO_PAGES.map((p) => ({ ...p, seoImage: "", ads: false })),
+    { slug: HOME_PAGE.slug, title: HOME_PAGE.title, template: HOME_PAGE.template, variant: HOME_PAGE.variant, seoTitle: HOME_PAGE.seoTitle, seoDescription: HOME_PAGE.seoDescription, seoImage: HOME_PAGE.seoImage, ads: false, build: () => HOME_PAGE.build() },
+    // Trang đã gộp vào trang chính (Giới thiệu, Liên hệ, 4 trang chuyên ngành) không dựng lại — bị lưu trữ ở cuối hàm
+    ...SITE_DEMO_PAGES.filter((p) => !merged.has(p.slug)).map((p) => ({ ...p, seoImage: "", ads: false })),
     ...ADS_LANDINGS.map((p) => ({ slug: p.slug, title: p.title, template: p.template, variant: p.variant, seoTitle: p.seoTitle, seoDescription: p.seoDescription, seoImage: p.seoImage, ads: true, build: () => p.build() })),
   ];
   for (const p of pages) {
@@ -64,7 +68,7 @@ export async function syncThSteamWebsite(db: Database, opts: { publish: boolean;
   }
 
   const old = await db.update(landingPages).set({ status: "archived", updatedBy: actor, updatedAt: new Date() })
-    .where(inArray(landingPages.slug, [...SITE_RETIRED_SLUGS])).returning({ slug: landingPages.slug });
+    .where(inArray(landingPages.slug, [...SITE_RETIRED_SLUGS, ...merged])).returning({ slug: landingPages.slug });
   r.archived = old.map((o) => o.slug);
   return r;
 }

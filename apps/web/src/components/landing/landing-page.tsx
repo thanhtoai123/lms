@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { getDb } from "@satarobo/db";
 import { getSiteChrome, publicLanding, publicTrackingConfig } from "@satarobo/api";
-import { TH_BRAND, applyChrome, isSiteSlug, jsonLdString, landingJsonLd, sitePathOf } from "@satarobo/core";
+import { HOME_SLUG, TH_BRAND, applyChrome, homeFocus, isSiteSlug, jsonLdString, landingJsonLd, sitePathOf } from "@satarobo/core";
 import { loadBrand } from "@/lib/brand";
 import { cspNonce } from "@/lib/nonce";
 import { LandingView } from "./landing-view";
@@ -39,6 +39,8 @@ export async function LandingPage({ slug, searchParams }: { slug: string; search
         homeHref={chrome ? "/" : undefined}
         variant={page.variant}
         slug={page.slug}
+        // Trang chính: /?nganh=robotics|ai|do-hoa|lap-trinh mở sẵn tab chuyên ngành, đổi tiêu đề lớn, chọn sẵn ngành trong form
+        focus={slug === HOME_SLUG ? homeFocus(one(searchParams.nganh)) : undefined}
         brand={{ name: brand.name, primary: brand.primary, accent: brand.accent, logoUrl: brand.logoUrl, lockup: brand.lockup, lockupOnDark: brand.lockupOnDark }}
         utm={{ utm_source: one(searchParams.utm_source), utm_medium: one(searchParams.utm_medium), utm_campaign: one(searchParams.utm_campaign), ref: one(searchParams.ref).slice(0, 20) }}
       />

@@ -183,7 +183,8 @@ test("nền xen kẽ theo thứ tự hiển thị (không dựa vào CSS nth-of-
   const content = secs.filter((c) => !/lp-hero|lp-cta/.test(c));
   assert.ok(content.length >= 4);
   content.forEach((c, i) => assert.equal(c.includes("lp-alt"), i % 2 === 1, `khối nội dung #${i}: ${c}`));
-  assert.ok(!landingCss().includes("nth-of-type"));
+  // nth-of-type chỉ được dùng cho tab chuyên ngành (radio), không dùng để tô nền xen kẽ các khối
+  assert.ok(!/\.lp-(sec|alt)[^{,]*:nth-(of-type|child)/.test(landingCss()));
 });
 
 test("CSS: liên kết trong .lp không đè màu chữ của nút (độ đặc hiệu thấp)", () => {
