@@ -138,7 +138,7 @@ const footer = () => sec("footer", "footer", {
   addresses: [{ label: "Hình thức học", text: "Online qua ClassIn · lớp nhóm 6–8 học sinh · 90 phút/buổi" }, { label: "Website", text: TH_BRAND.website }, { label: "Fanpage", text: TH_BRAND.fanpage }],
   links: [
     ...TH_TRACKS.map((t) => ({ label: t.name, href: `/lp/${ADS_TRACK_SLUG[t.code]}` })),
-    { label: "Chương trình học", href: "/khoa-hoc" }, { label: "Điều khoản đăng ký học", href: "/chinh-sach/dieu-khoan" }, { label: "Chính sách bảo mật", href: "/chinh-sach/bao-mat" },
+    { label: "Trang chủ", href: "/" }, { label: "Điều khoản đăng ký học", href: "/chinh-sach/dieu-khoan" }, { label: "Chính sách bảo mật", href: "/chinh-sach/bao-mat" },
   ],
 });
 const cta = (title: string) => sec("cta", "cta", {

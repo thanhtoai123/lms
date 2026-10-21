@@ -144,7 +144,7 @@ export const HOME_PAGE = {
           eyebrow: "4 chuyên ngành · 8–18 tuổi",
           title: "Mỗi bạn nhỏ một thế mạnh. Chọn con đường hợp với con",
           intro: "Chưa biết con hợp hướng nào? Buổi học trải nghiệm 1:1 giúp giáo viên nhận ra con thích gì, giỏi gì để gợi ý chuyên ngành phù hợp.",
-          ctaLabel: "Xem chương trình từng năm và học phí", ctaUrl: "/khoa-hoc",
+          ctaLabel: "Đặt lịch học trải nghiệm để được tư vấn lộ trình", ctaUrl: "#dang-ky",
         }, {
           items: [
             {
@@ -281,7 +281,7 @@ export const HOME_PAGE = {
             { q: "Bố mẹ theo dõi con học thế nào?", a: "Qua nhóm Zalo lớp (lịch học, ảnh và video sản phẩm, nhận xét của giáo viên), hệ thống học tập để xem lại bài và chuyên cần, và hồ sơ công nghệ lưu mọi dự án của con. Định kỳ con báo cáo dự án trực tuyến trước phụ huynh, gia đình nhận phiếu đánh giá 6 năng lực, 3 phẩm chất." },
             { q: "Cần chuẩn bị gì để học?", a: PREPARE_TEXT },
             { q: "Con nghỉ học có được học bù không?", a: "Báo nghỉ trước ít nhất 24 giờ qua Zalo lớp hoặc hotline thì được học bù, tối đa 3 buổi mỗi năm học. Nghỉ không báo trước thì không học bù. Trung tâm hủy buổi học thì bù đủ." },
-            { q: "Học phí thế nào?", a: `Học phí giống nhau ở cả 4 chuyên ngành, có lớp nhóm và kèm 1:1, đăng ký 2 năm học được ưu đãi hơn. Xem bảng học phí ở trang Chương trình học hoặc gọi ${TH_BRAND.hotline}.` },
+            { q: "Học phí thế nào?", a: `Học phí giống nhau ở cả 4 chuyên ngành, có lớp nhóm và kèm 1:1, đăng ký 2 năm học được ưu đãi hơn. Sau buổi học trải nghiệm, giáo viên gửi bố mẹ lộ trình và học phí phù hợp với con; cần biết trước, bố mẹ gọi ${TH_BRAND.hotline}.` },
             { q: "Có được học thử trước khi đăng ký không?", a: "Có. Con học một buổi trải nghiệm 1:1 cùng giáo viên qua ClassIn trước khi gia đình quyết định đăng ký." },
           ],
         }),
@@ -299,7 +299,7 @@ export const HOME_PAGE = {
           copyright: `© 2026 ${B}`,
         }, {
           addresses: [{ label: "Hình thức học", text: "Online qua ClassIn" }, { label: "Website", text: TH_BRAND.website }],
-          links: [{ label: "Chương trình & học phí", href: "/khoa-hoc" }, { label: "Điều khoản đăng ký học", href: "/chinh-sach/dieu-khoan" }, { label: "Chính sách bảo mật", href: "/chinh-sach/bao-mat" }],
+          links: [{ label: "Đăng ký học trải nghiệm", href: "#dang-ky" }, { label: "Điều khoản đăng ký học", href: "/chinh-sach/dieu-khoan" }, { label: "Chính sách bảo mật", href: "/chinh-sach/bao-mat" }],
         }),
       ],
     };
@@ -309,11 +309,13 @@ export const HOME_PAGE = {
 /**
  * Trang cũ đã GỘP vào trang chính → chuyển hướng vĩnh viễn (308) tới đúng phần; trang chuyên ngành mở sẵn tab.
  * Seed website (`syncThSteamWebsite`) lưu trữ các trang này nên chúng rời sơ đồ trang (sitemap).
- * Giữ lại /khoa-hoc (bảng chương trình từng năm + học phí) và các trang chính sách.
+ * Website chỉ còn MỘT trang chính: cả trang Chương trình học (/khoa-hoc) cũng gộp (21/10/2026). Giữ các trang chính sách
+ * (form đăng ký cần liên kết chính sách bảo mật), tin tức, tuyển dụng, /dang-ky và landing quảng cáo /lp/….
  */
 export const SITE_MERGED: readonly { slug: string; from: string; to: string }[] = [
   { slug: "gioi-thieu", from: "/gioi-thieu", to: "/#giang-vien" },
   { slug: "lien-he", from: "/lien-he", to: "/#dang-ky" },
+  { slug: "khoa-hoc", from: "/khoa-hoc", to: "/#chuyen-nganh" },
   { slug: "khoa-hoc-robotics-ai", from: "/khoa-hoc/robotics-ai", to: `/?nganh=${HOME_TRACK_KEYS.ROBO}#chuyen-nganh` },
   { slug: "khoa-hoc-tri-tue-nhan-tao-ai", from: "/khoa-hoc/tri-tue-nhan-tao-ai", to: `/?nganh=${HOME_TRACK_KEYS.AI}#chuyen-nganh` },
   { slug: "khoa-hoc-thiet-ke-do-hoa-ai", from: "/khoa-hoc/thiet-ke-do-hoa-ai", to: `/?nganh=${HOME_TRACK_KEYS.DOHOA}#chuyen-nganh` },

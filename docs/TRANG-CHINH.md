@@ -21,7 +21,8 @@ Nỗi lo → bối cảnh → giải pháp → chuyên ngành → giá trị →
 | 10 | Giảng viên (`#giang-vien`) | Ảnh và chứng chỉ thật |
 | 11 | Kêu gọi học thử + hỏi đáp + form (`#hoi-dap`, `#dang-ky`) | Rủi ro thấp: thử trước, quyết sau |
 
-Không nêu số học phần, số buổi, cấp độ Basic/Advanced/Expert, học phí trên trang chính — chi tiết ở `/khoa-hoc`.
+Không nêu số học phần, số buổi, cấp độ Basic/Advanced/Expert, học phí trên trang chính. Học phí: giáo viên gửi sau buổi học
+trải nghiệm hoặc phụ huynh gọi hotline (website không còn trang học phí riêng).
 Lời phụ huynh để tắt cho tới khi có lời thật, có đồng ý.
 
 ## 2. Nguồn số liệu (đọc trực tiếp 21/10/2026)
@@ -51,10 +52,10 @@ Không dùng: "thiếu 150–200 nghìn nhân lực CNTT", "tuổi có điện t
   "giảm chuyển động" thì không chạy hiệu ứng. Ảnh đầu trang tải ngay, ảnh còn lại tải lười, có width/height chống nhảy bố cục.
 - SEO: một H1, tiêu đề ≤ 70 ký tự, mô tả ≤ 160, ảnh chia sẻ `og-hoc-cong-nghe-online.png`; JSON-LD EducationalOrganization +
   WebPage + FAQPage + 4 Course (từ khối tab).
-- Menu chung (khung website) trỏ `/#noi-lo`, `/#chuyen-nganh`, `/#quy-trinh`, `/#giang-vien`, `/khoa-hoc#hoc-phi`, `/#hoi-dap`.
-- Trang đã gộp (`SITE_MERGED`): `/gioi-thieu`, `/lien-he`, 4 trang `/khoa-hoc/<ngành>` → chuyển hướng 308 tới đúng phần
-  (trang ngành mở đúng tab); seed lưu trữ các trang này nên chúng rời sitemap. Giữ `/khoa-hoc` (chương trình từng năm + học phí),
-  chính sách, tin tức, tuyển dụng, 5 landing quảng cáo `/lp/...`.
+- Menu chung (khung website) trỏ `/#noi-lo`, `/#chuyen-nganh`, `/#con-thay-doi`, `/#quy-trinh`, `/#giang-vien`, `/#hoi-dap`.
+- Website chỉ còn MỘT trang chính. Trang đã gộp (`SITE_MERGED`): `/gioi-thieu`, `/lien-he`, `/khoa-hoc`, 4 trang
+  `/khoa-hoc/<ngành>` (mở đúng tab) và mọi `/khoa-hoc/<…>` khác → chuyển hướng 308 tới đúng phần; seed lưu trữ các trang này
+  nên chúng rời sitemap. Còn lại: chính sách (bắt buộc cho ô đồng ý của form), tin tức, tuyển dụng, `/dang-ky`, landing `/lp/...`.
 
 ## 4. Việc còn chờ trung tâm
 

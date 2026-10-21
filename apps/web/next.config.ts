@@ -41,6 +41,8 @@ const nextConfig: NextConfig = {
       ...nextRedirects(),
       // Website một trang (docs/TRANG-CHINH.md): trang cũ đã gộp → đúng phần của trang chính (vĩnh viễn, giữ thứ hạng tìm kiếm)
       ...SITE_MERGED.map((m) => ({ source: m.from, destination: m.to, permanent: true })),
+      // Mọi trang chương trình / khoá học cũ khác (/khoa-hoc/<…>) → phần Chuyên ngành của trang chính
+      { source: "/khoa-hoc/:path+", destination: "/#chuyen-nganh", permanent: true },
     ];
   },
   /**

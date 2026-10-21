@@ -148,3 +148,11 @@ test("trang cũ đã gộp: chuyển hướng tới phần có thật của tran
     if (m.from.startsWith("/khoa-hoc/")) assert.equal(homeFocus(q), q);
   }
 });
+
+test("website một trang: trang chính, menu chung, landing quảng cáo không còn dẫn tới /khoa-hoc", async () => {
+  const { DEFAULT_CHROME } = await import("../site/chrome.js");
+  const { ADS_LANDINGS } = await import("./ads.js");
+  const all = JSON.stringify([HOME_PAGE.build(), DEFAULT_CHROME, ...ADS_LANDINGS.map((p) => p.build())]);
+  assert.doesNotMatch(all, /"\/khoa-hoc/);
+  assert.ok(SITE_MERGED.some((m) => m.from === "/khoa-hoc"));
+});

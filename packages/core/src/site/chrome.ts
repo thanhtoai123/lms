@@ -35,7 +35,7 @@ export const DEFAULT_CHROME: SiteChrome = {
     { label: "Chuyên ngành", href: "/#chuyen-nganh" },
     { label: "Buổi học", href: "/#quy-trinh" },
     { label: "Giảng viên", href: "/#giang-vien" },
-    { label: "Học phí", href: "/khoa-hoc#hoc-phi" },
+    { label: "Con thay đổi gì", href: "/#con-thay-doi" },
     { label: "Hỏi đáp", href: "/#hoi-dap" },
   ],
   tagline: `${TH_BRAND.tagline} — ${TH_BRAND.taglineVi}. Robotics, AI, đồ họa và lập trình cho học sinh, học online cùng giáo viên qua ClassIn.`,
@@ -48,7 +48,6 @@ export const DEFAULT_CHROME: SiteChrome = {
     { label: "Fanpage", text: TH_BRAND.fanpage },
   ],
   links: [
-    { label: "Chương trình & học phí", href: "/khoa-hoc" },
     { label: "Đăng ký học trải nghiệm", href: "/#dang-ky" },
     { label: "Tin tức", href: "/tin-tuc" },
     { label: "Tuyển dụng", href: "/tuyen-dung" },
