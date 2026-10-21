@@ -59,9 +59,9 @@ Không dùng: "thiếu 150–200 nghìn nhân lực CNTT", "tuổi có điện t
 
 ## 4. Hình ảnh
 
-- Tranh minh hoạ vector theo bộ nhận diện (màu Deep Ocean Blue / Emerald / Cosmic Gold / Midnight Navy; mô-típ quỹ đạo vàng,
-  tên lửa, ngôi sao 4 cánh): `tools/minh-hoa/art_trang_chu.py` → `lp-anh/tc-hero.svg`, `lp-anh/tc-xem-tao.svg`; ảnh chia sẻ
-  `lp-anh/og-trang-chu.png` (`og_build.py trang-chu`). Nhân vật là tranh vẽ, không phải ảnh trẻ em thật.
+- Giao diện: kiểu `vivid` ("sắc màu"), quy chuẩn ở `DESIGN.md` (tham khảo Teky, MindX).
+- Ảnh đầu trang: ảnh ghép màn hình phần mềm thật `lp-anh/tc-ghep-hero.webp` (`tools/minh-hoa/ghep_anh.py`), nguồn ghi dưới ảnh.
+  Ảnh chia sẻ `lp-anh/og-trang-chu.png` (`og_build.py trang-chu`). Tranh vector `tc-hero.svg`, `tc-xem-tao.svg` không còn dùng trên trang chính.
 - Ảnh phần mềm thật, ưu tiên giấy phép mở, nguồn + liên kết hiện dưới ảnh (trường `credit`, `creditUrl`):
 
 | Ảnh | Nguồn · giấy phép |

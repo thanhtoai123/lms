@@ -29,6 +29,7 @@ export const LP_MEDIA_SIZE: Readonly<Record<string, readonly [number, number]>> 
   "/lp-anh/og-thiet-ke-do-hoa-ai-cho-hoc-sinh.png": [1200, 630],
   "/lp-anh/og-trang-chu.png": [1200, 630],
   "/lp-anh/og-tri-tue-nhan-tao-ai-cho-hoc-sinh.png": [1200, 630],
+  "/lp-anh/tc-ghep-hero.webp": [1600, 800],
   "/lp-anh/tc-hero.svg": [1200, 900],
   "/lp-anh/tc-xem-tao.svg": [1200, 520],
   "/lp-anh/that/appinventor-chatbot.webp": [648, 826],

@@ -56,6 +56,7 @@ export const SECTION_DEFS: Record<SectionType, SectionDef> = {
     fields: [
       t("eyebrow", "Dòng nhỏ phía trên", 80), t("title", "Tiêu đề lớn (H1, có từ khoá)", 120, { required: true, hint: "Đặt *cụm từ* trong dấu sao để tô màu nhấn" }), ta("subtitle", "Mô tả ngắn", 300),
       img("image", "Ảnh minh hoạ"), t("imageAlt", "Mô tả ảnh (alt, có từ khoá)", 160),
+      t("credit", "Nguồn ảnh (hiện nhỏ dưới ảnh)", 240), u("creditUrl", "Liên kết nguồn ảnh"),
       t("formTitle", "Tiêu đề form", 80, { required: true }), t("formNote", "Dòng nhỏ dưới tiêu đề form", 140),
       t("interest", "Chuyên ngành chọn sẵn trong form", 60, { hint: "Robotics AI / Trí tuệ nhân tạo AI / Thiết kế đồ họa AI / Lập trình AI — để trống: phụ huynh tự chọn" }),
       t("thankYou", "Lời cảm ơn sau khi gửi", 300),
@@ -178,6 +179,7 @@ export const SECTION_DEFS: Record<SectionType, SectionDef> = {
       t("ages", "Độ tuổi / cấp học", 80), t("hook", "Dành cho bạn nhỏ nào", 160), ta("text", "Con học gì", 500), ta("outcomes", "Con làm được (mỗi dòng một ý)", 500),
       t("tools", "Phần mềm / luyện thi", 200), img("image", "Ảnh"), t("imageAlt", "Mô tả ảnh (alt)", 160), t("credit", "Nguồn ảnh", 120), u("creditUrl", "Liên kết nguồn ảnh"),
       t("headline", "Tiêu đề lớn khi vào bằng ?nganh=", 120), t("interest", "Chuyên ngành chọn sẵn trong form", 60),
+      t("icon", "Biểu tượng trên thẻ chọn", 20, { hint: "robot, ai, co-ve, code, ten-lua… — để trống: tự chọn theo mã tab" }),
     ] }],
     needs: "items",
   },
@@ -209,9 +211,9 @@ export interface LandingSection {
 }
 export interface LandingDoc { sections: LandingSection[] }
 
-export const LANDING_VARIANTS = ["classic", "soft", "bold", "studio"] as const;
+export const LANDING_VARIANTS = ["classic", "soft", "bold", "studio", "vivid"] as const;
 export type LandingVariant = (typeof LANDING_VARIANTS)[number];
-export const VARIANT_LABEL: Record<LandingVariant, string> = { classic: "Cổ điển — nền sáng, thẻ bo tròn", soft: "Dịu — nền kem, nhiều khoảng trắng", bold: "Nổi bật — băng màu đậm, chữ lớn", studio: "Studio — trang chính: chữ lớn, nhiều khoảng trắng, ảnh thật (DESIGN.md)" };
+export const VARIANT_LABEL: Record<LandingVariant, string> = { classic: "Cổ điển — nền sáng, thẻ bo tròn", soft: "Dịu — nền kem, nhiều khoảng trắng", bold: "Nổi bật — băng màu đậm, chữ lớn", studio: "Studio — chữ lớn, nhiều khoảng trắng, ảnh thật", vivid: "Sắc màu — trang chính: màu thương hiệu đậm, thẻ chuyên ngành, ảnh ghép phần mềm thật (DESIGN.md)" };
 
 export const MAX_SECTIONS = 40;
 export const SLUG_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;

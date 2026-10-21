@@ -52,7 +52,7 @@ export const HOME_PAGE = {
   slug: "trang-chu",
   title: "Trang chủ TH STEAM Academy",
   template: "trang-chu-thsteam",
-  variant: "studio" as const,
+  variant: "vivid" as const,
   seoTitle: "Học Robotics, AI, lập trình online cho trẻ 8–18 tuổi | TH STEAM",
   seoDescription: "Con học Robotics, Trí tuệ nhân tạo, Thiết kế đồ họa và Lập trình online cùng giáo viên qua ClassIn: lớp nhỏ, tự làm sản phẩm thật, học trải nghiệm 1:1 trước.",
   seoImage: "/lp-anh/og-trang-chu.png",
@@ -66,11 +66,12 @@ export const HOME_PAGE = {
 
         // 1. MỞ ĐẦU — gọi đúng nỗi lo, hứa một chuyển đổi cụ thể, form ngay màn hình đầu
         sec("leadHero", "mo-dau", {
-          eyebrow: "Robotics · AI · Đồ họa · Lập trình — online cho học sinh 8–18 tuổi",
+          eyebrow: "Lớp công nghệ online cho con 8–18 tuổi",
           title: "Biến giờ con ngồi trước màn hình thành giờ con *tạo ra công nghệ*",
           subtitle: "Khoá học Robotics, Trí tuệ nhân tạo, Thiết kế đồ họa và Lập trình online. Giáo viên dạy trực tiếp qua ClassIn, lớp nhỏ, con tự tay làm ra sản phẩm và tự tin giới thiệu nó trước bố mẹ.",
-          image: "/lp-anh/that/cover-minh-hoa-robovr.webp",
-          imageAlt: "Minh hoạ lớp Robotics AI online qua ClassIn: giáo viên chia sẻ màn hình RoboVR, học sinh cùng làm",
+          image: "/lp-anh/tc-ghep-hero.webp",
+          imageAlt: "Những thứ con tự làm ở TH STEAM: game 3D trong Roblox Studio, hoạt hình Scratch, AI nhận diện hình ảnh, chương trình Python và báo cáo năng lực gửi phụ huynh",
+          credit: "Ảnh ghép từ màn hình phần mềm: Roblox Creator Docs (CC BY 4.0), Scratch qua Wikimedia Commons (CC BY-SA 2.0), Teachable Machine (Apache-2.0), Python qua Wikimedia Commons (CC0)",
           formTitle: "Đặt lịch học trải nghiệm 1:1 cho con",
           formNote: "Giáo viên gọi lại trong giờ làm việc để hẹn giờ phù hợp với gia đình.",
           interest: "",
@@ -144,14 +145,14 @@ export const HOME_PAGE = {
 
         // 5. CHUYÊN NGÀNH — tab, mỗi tab nói "hợp với bạn nhỏ nào" và "con làm được gì"
         sec("tracks", "chuyen-nganh", {
-          eyebrow: "4 chuyên ngành · 8–18 tuổi",
+          eyebrow: "4 chuyên ngành cho con 8–18 tuổi",
           title: "Mỗi bạn nhỏ một thế mạnh. Chọn *con đường hợp với con*",
           intro: "Chưa biết con hợp hướng nào? Buổi học trải nghiệm 1:1 giúp giáo viên nhận ra con thích gì, giỏi gì để gợi ý chuyên ngành phù hợp.",
           ctaLabel: "Đặt lịch học trải nghiệm để được tư vấn lộ trình", ctaUrl: "#dang-ky",
         }, {
           items: [
             {
-              key: HOME_TRACK_KEYS.ROBO, tab: "Robotics AI", name: "Lập trình Robotics AI", ages: "Tiểu học · 8–10 tuổi",
+              key: HOME_TRACK_KEYS.ROBO, icon: "robot", tab: "Robotics AI", name: "Lập trình Robotics AI", ages: "Tiểu học · 8–10 tuổi",
               hook: "Cho bạn nhỏ mê xe cộ, máy móc, thích thử rồi sửa.",
               text: "Con lập trình robot ảo làm nhiệm vụ: thu gom bưu kiện, cứu hộ trên bản đồ, du hành không gian. Robot chạy sai, con phải tự tìm ra vì sao — đó chính là lúc tư duy logic lớn lên.",
               outcomes: "Chia một nhiệm vụ lớn thành các bước nhỏ\nDùng cảm biến, vòng lặp, điều kiện để điều khiển robot\nTự tìm lỗi, tối ưu đường đi và thời gian",
@@ -160,7 +161,7 @@ export const HOME_PAGE = {
               headline: "Con học lập trình Robotics AI online — robot chạy được nhờ chính con", interest: TH_TRACK_SHORT.ROBO,
             },
             {
-              key: HOME_TRACK_KEYS.AI, tab: "Trí tuệ nhân tạo", name: "Trí tuệ nhân tạo AI", ages: "Tiểu học · THCS · 8–14 tuổi",
+              key: HOME_TRACK_KEYS.AI, icon: "ai", tab: "Trí tuệ nhân tạo", name: "Trí tuệ nhân tạo AI", ages: "Tiểu học · THCS · 8–14 tuổi",
               hook: "Con đã, đang và sẽ dùng AI — hãy để con dùng đúng cách.",
               text: "Con dùng AI để học, vẽ, làm nhạc, làm video và trang web. Quan trọng hơn, con học cách đặt câu hỏi, kiểm chứng câu trả lời và nhận ra khi AI sai — để AI giúp con nghĩ sâu hơn, không phải nghĩ hộ con.",
               outcomes: "Viết yêu cầu rõ ràng để AI hỗ trợ đúng việc\nKiểm chứng thông tin, nhận ra khi AI trả lời sai\nLàm video kể chuyện, trang web, dự án AI giải quyết vấn đề",
@@ -169,7 +170,7 @@ export const HOME_PAGE = {
               headline: "Con học Trí tuệ nhân tạo AI online — dùng AI thông minh, an toàn, trung thực", interest: TH_TRACK_SHORT.AI,
             },
             {
-              key: HOME_TRACK_KEYS.DOHOA, tab: "Đồ họa AI", name: "Thiết kế đồ họa AI", ages: "Tiểu học · THCS · 8–14 tuổi",
+              key: HOME_TRACK_KEYS.DOHOA, icon: "co-ve", tab: "Đồ họa AI", name: "Thiết kế đồ họa AI", ages: "Tiểu học · THCS · 8–14 tuổi",
               hook: "Cho bạn nhỏ thích vẽ, thích tưởng tượng và làm đẹp.",
               text: "Tiểu học, con dựng mô hình 3D: ngôi nhà mơ ước, thành phố xanh của em. THCS, con thiết kế poster, bìa sách, ảnh ghép với Photoshop và công cụ AI tạo ảnh. Con học cách biến ý tưởng trong đầu thành thứ người khác nhìn thấy được.",
               outcomes: "Dựng mô hình 3D, căn chỉnh khối chính xác\nThiết kế poster, bìa sách có bố cục, màu sắc rõ ràng\nDùng AI tạo ảnh có chọn lọc, giữ dấu ấn riêng",
@@ -178,7 +179,7 @@ export const HOME_PAGE = {
               headline: "Con học Thiết kế đồ họa AI online — từ mô hình 3D đến poster đầu tay", interest: TH_TRACK_SHORT.DOHOA,
             },
             {
-              key: HOME_TRACK_KEYS.CODE, tab: "Lập trình", name: "Lập trình & phát triển ứng dụng AI", ages: "Tiểu học → THPT · 8–18 tuổi",
+              key: HOME_TRACK_KEYS.CODE, icon: "code", tab: "Lập trình", name: "Lập trình & phát triển ứng dụng AI", ages: "Tiểu học → THPT · 8–18 tuổi",
               hook: "Cho bạn nhỏ mê game và hay hỏi “cái này làm thế nào?”.",
               text: "Đi từ kéo thả đến code thật: Scratch và CreatiCode AI ở tiểu học; game 3D Roblox và app điện thoại ở THCS; Python, lập trình web, WordPress ở THCS–THPT. Mỗi chặng con làm ra game, ứng dụng, website của chính mình.",
               outcomes: "Làm game, app điện thoại có AI, website hoàn chỉnh\nViết code Python, HTML, CSS, JavaScript\nĐọc lỗi, sửa lỗi, làm việc theo dự án",
