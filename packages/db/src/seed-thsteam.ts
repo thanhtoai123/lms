@@ -19,6 +19,7 @@ import { BRAND_DEFAULT_COLORS, TH_BRAND } from "@satarobo/core";
 import { createDb } from "./index";
 import { syncThSteamCatalog, defaultTenantId } from "./thsteam-sync";
 import { syncThSteamWebsite } from "./thsteam-site";
+import { standardizeThCertificates } from "./thsteam-certificates";
 
 const keepOld = process.argv.includes("--giu-cu");
 const publishSite = process.argv.includes("--xuat-ban") || (!process.argv.includes("--nhap") && process.env.NODE_ENV !== "production");
@@ -52,9 +53,13 @@ const certs = await db.update(certificateTemplates).set({ backgroundKey: TH_BRAN
 // ---- Danh mục chương trình chuẩn ----
 const r = await syncThSteamCatalog(db, { tenantId, retireOthers: !keepOld });
 
+// ---- Giấy chứng nhận: mẫu nền dựng sẵn theo bố cục chuẩn + nâng bản chụp cũ lên nội dung chuẩn (một lần) ----
+const cn = await standardizeThCertificates(db);
+
 console.log(`✓ Nhận diện: ${TH_BRAND.name} · ${TH_BRAND.hotline} · ${TH_BRAND.website} · màu ${BRAND_DEFAULT_COLORS.primary} + ${BRAND_DEFAULT_COLORS.accent} · ${certs.length} mẫu chứng nhận đổi nền`);
 console.log(`✓ Khoá học: tạo ${r.courses.created}, cập nhật ${r.courses.updated} · buổi: tạo ${r.lessons.created}, cập nhật ${r.lessons.updated} · đổi tên theo buổi: ${r.renamed.sessions} buổi dạy, ${r.renamed.plans} giáo án`);
 console.log(`✓ Tiêu chí học bạ: thêm ${r.criteria.created}, điền mô tả ${r.criteria.filled} · gói học phí: tạo ${r.packages.created}, cập nhật ${r.packages.updated} · lộ trình: tạo ${r.paths.created}, cập nhật ${r.paths.updated}`);
+console.log(`✓ Giấy chứng nhận: ${cn.templates} mẫu đặt lại bố cục chuẩn · ${cn.certificates} giấy đã cấp nâng lên nội dung chuẩn (ghi nhật ký)`);
 console.log(keepOld ? "= Giữ danh mục cũ đang bán (--giu-cu)" : `✓ Ngừng bán danh mục cũ: ${r.retired.courses} khoá, ${r.retired.packages} gói, ${r.retired.paths} lộ trình (không xoá)`);
 
 // ---- Website ----

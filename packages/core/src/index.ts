@@ -33,6 +33,7 @@ export * from "./portal/family.js";
 export * from "./portal/theCon.js";
 export * from "./portal/teacher.js";
 export * from "./certificates/rules.js";
+export * from "./certificates/standard.js";
 export * from "./media/consent.js";
 export * from "./trials/rules.js";
 export * from "./trials/classRules.js";

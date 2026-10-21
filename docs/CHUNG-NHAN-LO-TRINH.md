@@ -78,6 +78,36 @@ trong cùng transaction — giấy hoàn thành khoá cũng có QR xác thực v
 
 Test: `packages/core/src/certificates/rules.test.ts`.
 
+## 4b. Mẫu chuẩn TH STEAM & nội dung in (packages/core/src/certificates/standard.ts)
+
+Chỉ còn **một** kiểu giấy: trang chi tiết `/hoan-thanh-khoa/chung-nhan/[id]`, trang in hàng loạt và cổng phụ huynh đều
+vẽ bằng `CertificateSheet` theo mẫu đang dùng (bản HTML viền xanh cũ đã bỏ — xem gì in nấy).
+
+Nền dựng sẵn `builtin/th-steam-mac-dinh.svg` (bố cục v2) in sẵn: logo đứng, GIẤY CHỨNG NHẬN, "Trân trọng chứng nhận",
+"đã hoàn thành chương trình", dấu triện, "Quét mã để xác thực". Ô trường của mẫu chuẩn (`standardTemplateFields`):
+
+| Dòng | Chứng nhận khoá (một năm học) | Chứng nhận lộ trình |
+|---|---|---|
+| Tên học viên (IN HOA) | NGUYỄN MINH AN | như bên trái |
+| Ngày sinh | Ngày sinh: 12/03/2016 (không có thì bỏ dòng) | như bên trái |
+| Tên khoá / lộ trình | Năm 2: Lập trình RoboVR | Lập trình Robotics AI · Tiểu học 8–10 tuổi |
+| Chuyên ngành | Chuyên ngành Lập trình Robotics AI · Tiểu học 8–10 tuổi | Lộ trình 2 năm học: Năm 1: … → Năm 2: … |
+| Thời lượng | 45 buổi học · 3 học phần: Basic – Advanced – Expert | 90 buổi học · 6 học phần |
+| Xếp loại | Xếp loại: Hoàn thành tốt | theo điểm trung bình các khoá |
+| Hàng dưới | QR + Số chứng nhận · dấu triện · "Đà Nẵng, ngày … tháng … năm …" · GIÁM ĐỐC TRUNG TÂM · chỗ ký · Phan Thành Toại | như bên trái |
+
+- Tên khoá luôn theo danh mục chuẩn (`yearCourseName`), không dùng tên mô tả; dòng thời lượng không lặp lại tên khoá.
+- Người ký, chức danh, địa danh mặc định ở `TH_CERTIFICATE_SIGNER`; trung tâm sửa ở **Lộ trình → Mẫu chứng nhận**.
+  Giấy đã cấp giữ người ký lúc cấp.
+- Ngày sinh in trên giấy nhưng KHÔNG hiện ở trang xác thực công khai `/cn/<token>`.
+- Tên học viên đặt ở 39,5 % (dòng in sẵn ở 37,6 %) để dấu chồng tầng khi IN HOA (Ễ, Ỗ, Ẫ…) không đè chữ phía trên.
+
+**Nâng giấy cấp trước khi chuẩn hoá** — `pnpm db:seed-thsteam` (packages/db/src/thsteam-certificates.ts):
+mẫu nền dựng sẵn còn bố cục cũ → đặt lại ô trường (giữ người ký / địa danh đã tự nhập, thay chữ giữ chỗ
+"Quản lý trung tâm"); bản chụp chưa có `std` → ghi lại tên khoá, chuyên ngành, thời lượng, ngày sinh theo chuẩn,
+giữ nguyên số, tên học viên, ngày cấp, xếp loại; mỗi giấy ghi một dòng nhật ký. Trigger `certificates_immutable`
+(sql/0020) chỉ cho phép đúng việc này một lần, khi phiên bật `satarobo.chuan_hoa_chung_nhan`; sau đó giấy lại bất biến.
+
 ## 5. Hướng dẫn thiết kế mẫu trên Canva
 
 1. Tạo thiết kế **A4 ngang (297 × 210 mm)** — hoặc cỡ tuỳ chỉnh **3508 × 2480 px** (300 dpi). Mẫu dọc: 2480 × 3508 px.

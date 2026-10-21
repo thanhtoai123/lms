@@ -20,10 +20,10 @@ import {
   students, centers, tenants, portfolioShares, users, studentGuardians, parents, type Database,
 } from "@satarobo/db";
 import {
-  authorize, centersWith, visibleCenterIds, qrSvg, gradeFromAverage,
+  authorize, centersWith, visibleCenterIds, qrSvg, gradeFromAverage, courseCertificateAchievement, pathCertificateAchievement, standardTemplateFields, TH_STANDARD_TEMPLATE_NAME,
   pathProgress, validatePathCourses, normalizePathCode, PATH_CODE_RE,
   certificatePrefix, pathCertificateNumber, nextCertificateSeq, certificateVerifyPath, validateRevokeReason, CERTIFICATE_TOKEN_RE,
-  normalizeTemplateFields, defaultTemplateFields, validateTemplateFields, buildCertificateSnapshot, isCertificateSnapshot,
+  normalizeTemplateFields, validateTemplateFields, buildCertificateSnapshot, isCertificateSnapshot,
   sampleCertificateSnapshot, formatIssuedDate, checkImageUpload, readImageSize, backgroundWarnings, builtinBackgroundPath,
   CERTIFICATE_BG_KEY_RE, CERTIFICATE_BG_MAX_BYTES, CERTIFICATE_BG_MIME, CERTIFICATE_STATUS_VI, CERTIFICATE_KIND_VI, PATH_COURSE_STATE_VI,
   type TemplateField, type TemplateOrientation, type CertificateSnapshot, type CertificateKind, type CertificateStatus, type PathCourseState,
@@ -70,7 +70,7 @@ type TemplateRow = typeof certificateTemplates.$inferSelect;
 /** Trường của mẫu đã chuẩn hoá; mẫu chưa cấu hình (mảng rỗng) dùng bố cục mặc định */
 export function templateFieldsOf(t: { fields: unknown; orientation: TemplateOrientation }): TemplateField[] {
   const arr = Array.isArray(t.fields) ? t.fields : [];
-  return arr.length ? normalizeTemplateFields(arr, t.orientation) : defaultTemplateFields(t.orientation);
+  return arr.length ? normalizeTemplateFields(arr, t.orientation) : standardTemplateFields(t.orientation);
 }
 
 /** URL ảnh nền: nền dựng sẵn là tệp tĩnh; ảnh tải lên phát qua URL có chữ ký, có hạn */
@@ -93,8 +93,8 @@ export type CertificateTemplateView = ReturnType<typeof templateView>;
 /** Mẫu ảo khi trung tâm chưa có mẫu nào (không lưu) */
 function virtualTemplate(): CertificateTemplateView {
   return {
-    id: "", name: "Mẫu mặc định TH STEAM Academy (A4 ngang)", orientation: "landscape", backgroundKey: BUILTIN_BG, backgroundUrl: backgroundUrlOf(BUILTIN_BG),
-    widthPx: 3508, heightPx: 2480, fields: defaultTemplateFields("landscape"), isDefault: true, isActive: true, updatedAt: null,
+    id: "", name: TH_STANDARD_TEMPLATE_NAME, orientation: "landscape", backgroundKey: BUILTIN_BG, backgroundUrl: backgroundUrlOf(BUILTIN_BG),
+    widthPx: 3508, heightPx: 2480, fields: standardTemplateFields("landscape"), isDefault: true, isActive: true, updatedAt: null,
   };
 }
 
@@ -141,7 +141,7 @@ export async function createTemplate(ctx: ProtectedContext, input: { name: strin
     const [row] = await tx.insert(certificateTemplates).values({
       tenantId: ctx.tenantId, name, orientation,
       backgroundKey: src?.backgroundKey ?? null, widthPx: src?.widthPx ?? null, heightPx: src?.heightPx ?? null,
-      fields: src ? templateFieldsOf(src) : defaultTemplateFields(orientation),
+      fields: src ? templateFieldsOf(src) : standardTemplateFields(orientation),
       isDefault: !hasDefault, createdBy: ctx.user.id, updatedBy: ctx.user.id,
     }).returning();
     if (!row) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
@@ -478,7 +478,7 @@ export async function issuePathCertificates(ctx: ProtectedContext, input: { path
   const templateRow = input.templateId ? await loadTemplate(ctx, input.templateId)
     : p.certificateTemplateId ? await loadTemplate(ctx, p.certificateTemplateId).catch(() => null)
     : await defaultTemplateRow(ctx.db, p.tenantId);
-  const fields = templateRow ? templateFieldsOf(templateRow) : defaultTemplateFields("landscape");
+  const fields = templateRow ? templateFieldsOf(templateRow) : standardTemplateFields("landscape");
   const pcs = await pathCoursesOf(ctx.db, [p.id]);
 
   const skipped: { studentId: string; reason: string }[] = [];
@@ -500,6 +500,8 @@ export async function issuePathCertificates(ctx: ProtectedContext, input: { path
     .where(and(inArray(enrollments.studentId, targets.map((t) => t.studentId)), inArray(courseCompletions.courseId, pcs.map((c) => c.courseId)), eq(courseCompletions.status, "approved"), isNull(courseCompletions.revokedAt)))
     .groupBy(enrollments.studentId);
   const issuerName = await issuerNameOf(ctx.db, p.tenantId);
+  const dobRows = await ctx.db.select({ id: students.id, dob: students.dateOfBirth }).from(students).where(inArray(students.id, targets.map((t) => t.studentId)));
+  const dobs = new Map(dobRows.map((r) => [r.id, r.dob ?? null]));
 
   const issued = await ctx.db.transaction(async (tx) => {
     const done: { id: string; studentId: string; number: string }[] = [];
@@ -512,8 +514,8 @@ export async function issuePathCertificates(ctx: ProtectedContext, input: { path
       const avg = avgRaw === null ? null : Math.round(Number(avgRaw) * 10) / 10;
       const snapshot = buildCertificateSnapshot({
         kind: "path", certificateNo: number,
-        student: { fullName: t.fullName, code: t.code },
-        achievement: { name: p.name, description: p.description, criteriaText: p.criteriaText },
+        student: { fullName: t.fullName, code: t.code, dateOfBirth: dobs.get(t.studentId) ?? null },
+        achievement: pathCertificateAchievement(p),
         courses: t.courses.filter((c) => c.state === "completed").map((c) => ({ code: c.code, name: c.name })),
         issuedAt: now, grade: avg === null || !Number.isFinite(avg) ? null : gradeFromAverage(avg),
         center: { name: center?.name ?? "TH STEAM Academy", address: center?.address ?? null, phone: center?.phone ?? null },
@@ -543,7 +545,7 @@ export async function issuePathCertificates(ctx: ProtectedContext, input: { path
 export async function createCourseCertificate(tx: Db, input: { completionId: string; number: string; issuedAt: Date; issuedBy: string }) {
   const [r] = await tx
     .select({
-      studentId: students.id, fullName: students.fullName, code: students.code, grade: courseCompletions.grade,
+      studentId: students.id, fullName: students.fullName, code: students.code, dateOfBirth: students.dateOfBirth, grade: courseCompletions.grade,
       courseCode: courses.code, courseName: courses.name, totalSessions: courses.totalSessions,
       centerId: centers.id, centerName: centers.name, centerAddress: centers.address, centerPhone: centers.phone, tenantId: centers.tenantId,
     })
@@ -558,11 +560,11 @@ export async function createCourseCertificate(tx: Db, input: { completionId: str
   const [exists] = await tx.select({ id: certificates.id }).from(certificates).where(and(eq(certificates.courseCompletionId, input.completionId), eq(certificates.status, "valid"))).limit(1);
   if (exists) return exists.id;
   const template = await defaultTemplateRow(tx, r.tenantId);
-  const fields = template ? templateFieldsOf(template) : defaultTemplateFields("landscape");
+  const fields = template ? templateFieldsOf(template) : standardTemplateFields("landscape");
   const snapshot = buildCertificateSnapshot({
     kind: "course", certificateNo: input.number,
-    student: { fullName: r.fullName, code: r.code },
-    achievement: { name: r.courseName, criteriaText: `Hoàn thành chương trình khoá học ${r.courseName} (${r.totalSessions} buổi)` },
+    student: { fullName: r.fullName, code: r.code, dateOfBirth: r.dateOfBirth },
+    achievement: courseCertificateAchievement({ code: r.courseCode, name: r.courseName, totalSessions: r.totalSessions }),
     courses: [{ code: r.courseCode, name: r.courseName }],
     issuedAt: input.issuedAt, grade: r.grade,
     center: { name: r.centerName, address: r.centerAddress, phone: r.centerPhone },

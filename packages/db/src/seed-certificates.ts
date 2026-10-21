@@ -1,6 +1,7 @@
 /**
  * DỮ LIỆU MẪU — LỘ TRÌNH HỌC & GIẤY CHỨNG NHẬN (docs/CHUNG-NHAN-LO-TRINH.md). Chạy ở CUỐI `seed.ts`.
- * Chỉ dùng dữ liệu giả đã có (Học viên mẫu 11–14 của trung tâm online ONL, "Quản lý trung tâm (mẫu)").
+ * Chỉ dùng dữ liệu giả đã có (Học viên mẫu 11–14 của trung tâm online ONL). Mẫu & nội dung in theo CHUẨN
+ * (packages/core/src/certificates/standard.ts): tên khoá chuẩn, chuyên ngành, thời lượng, ngày sinh, xếp loại, người ký của trung tâm.
  *
  *  - Mẫu chứng nhận mặc định dùng NỀN DỰNG SẴN `builtin/th-steam-mac-dinh.svg` (apps/web/public/mau-chung-nhan/),
  *    vẽ bằng SVG — riêng mẫu mặc định được phép nền SVG vì do máy chủ phát, không phải tệp người dùng tải lên.
@@ -17,7 +18,8 @@ import {
   certificateTemplates, learningPaths, certificates,
 } from "./schema/index";
 import {
-  buildClassCode, certificateNumber, defaultTemplateFields, buildCertificateSnapshot, certificatePrefix, pathCertificateNumber,
+  buildClassCode, certificateNumber, standardTemplateFields, courseCertificateAchievement, pathCertificateAchievement, TH_STANDARD_TEMPLATE_NAME,
+  buildCertificateSnapshot, certificatePrefix, pathCertificateNumber,
   nextCertificateSeq, TH_BRAND, type TemplateField,
 } from "@satarobo/core";
 import type { Database } from "./index";
@@ -31,11 +33,7 @@ type CourseRow = typeof courses.$inferSelect;
 type ClassRow = typeof classes.$inferSelect;
 
 function seedFields(): TemplateField[] {
-  return defaultTemplateFields("landscape").map((f) =>
-    f.key === "signerName" ? { ...f, text: "Quản lý trung tâm" }
-      : f.key === "issuedDate" ? { ...f, place: "Đà Nẵng" }
-        : f,
-  );
+  return standardTemplateFields("landscape");
 }
 
 export async function seedCertificates(db: Database) {
@@ -57,7 +55,7 @@ export async function seedCertificates(db: Database) {
     .where(and(eq(certificateTemplates.isDefault, true), eq(certificateTemplates.tenantId, courseTenant))).limit(1);
   if (!tpl) {
     [tpl] = await db.insert(certificateTemplates).values({
-      tenantId: courseTenant, name: "Mẫu mặc định TH STEAM Academy (A4 ngang)", orientation: "landscape", backgroundKey: BUILTIN_BG,
+      tenantId: courseTenant, name: TH_STANDARD_TEMPLATE_NAME, orientation: "landscape", backgroundKey: BUILTIN_BG,
       widthPx: 3508, heightPx: 2480, fields: seedFields(), isDefault: true, createdBy: issuedBy,
     }).returning();
   } else if (!Array.isArray(tpl.fields) || tpl.fields.length === 0) {
@@ -73,7 +71,7 @@ export async function seedCertificates(db: Database) {
 
   // ---- Hai lớp đã kết thúc của trung tâm online + hoàn thành khoá đã duyệt ----
   const names = ["Học viên mẫu 11", "Học viên mẫu 12", "Học viên mẫu 13", "Học viên mẫu 14"];
-  const studs = await db.select({ id: students.id, fullName: students.fullName, code: students.code }).from(students).where(inArray(students.fullName, names));
+  const studs = await db.select({ id: students.id, fullName: students.fullName, code: students.code, dateOfBirth: students.dateOfBirth }).from(students).where(inArray(students.fullName, names));
   const st = names.map((n) => studs.find((s) => s.fullName === n)).filter((s): s is NonNullable<typeof s> => !!s);
   if (st.length < 4) return { token: null as string | null, courseCertificates: 0 };
 
@@ -114,7 +112,7 @@ export async function seedCertificates(db: Database) {
     .select({
       id: courseCompletions.id, number: courseCompletions.certificateNo, issuedAt: courseCompletions.issuedAt, decidedAt: courseCompletions.decidedAt,
       createdAt: courseCompletions.createdAt, issuedBy: courseCompletions.issuedBy, grade: courseCompletions.grade,
-      studentId: students.id, fullName: students.fullName, studentCode: students.code,
+      studentId: students.id, fullName: students.fullName, studentCode: students.code, dateOfBirth: students.dateOfBirth,
       courseCode: courses.code, courseName: courses.name, totalSessions: courses.totalSessions,
       centerId: centers.id, centerName: centers.name, centerAddress: centers.address, centerPhone: centers.phone, centerTenant: centers.tenantId,
     })
@@ -135,8 +133,8 @@ export async function seedCertificates(db: Database) {
       tenantId: r.centerTenant, kind: "course" as const, courseCompletionId: r.id, studentId: r.studentId, centerId: r.centerId, templateId: null,
       number: r.number, verifyToken: randomBytes(32).toString("base64url"), issuedAt: at, issuedBy: r.issuedBy, status: "valid" as const,
       snapshot: buildCertificateSnapshot({
-        kind: "course", certificateNo: r.number, student: { fullName: r.fullName, code: r.studentCode },
-        achievement: { name: r.courseName, criteriaText: `Hoàn thành chương trình khoá học ${r.courseName} (${r.totalSessions} buổi)` },
+        kind: "course", certificateNo: r.number, student: { fullName: r.fullName, code: r.studentCode, dateOfBirth: r.dateOfBirth },
+        achievement: courseCertificateAchievement({ code: r.courseCode, name: r.courseName, totalSessions: r.totalSessions }),
         courses: [{ code: r.courseCode, name: r.courseName }], issuedAt: at, grade: r.grade,
         center: { name: r.centerName, address: r.centerAddress, phone: r.centerPhone }, template: { fields },
       }),
@@ -155,8 +153,8 @@ export async function seedCertificates(db: Database) {
     tenantId: onl.tenantId ?? tenantId, kind: "path", learningPathId: path.id, studentId: winner.id, centerId: onl.id, templateId: tpl.id,
     number, verifyToken: DEMO_CERTIFICATE_TOKEN, issuedAt: now, issuedBy, status: "valid",
     snapshot: buildCertificateSnapshot({
-      kind: "path", certificateNo: number, student: { fullName: winner.fullName, code: winner.code },
-      achievement: { name: path.name, description: path.description, criteriaText: path.criteriaText },
+      kind: "path", certificateNo: number, student: { fullName: winner.fullName, code: winner.code, dateOfBirth: winner.dateOfBirth },
+      achievement: pathCertificateAchievement(path),
       courses: [{ code: year1.code, name: year1.name }, { code: year2.code, name: year2.name }],
       issuedAt: now, grade: "Hoàn thành tốt",
       center: { name: onl.name, address: onl.address, phone: onl.phone }, issuerName: TH_BRAND.name, template: { fields },

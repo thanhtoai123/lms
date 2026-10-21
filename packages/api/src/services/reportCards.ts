@@ -619,7 +619,7 @@ export async function listCompletions(ctx: ProtectedContext, input: { centerId?:
 export async function getCertificate(ctx: ProtectedContext, id: string) {
   const [r] = await ctx.db
     .select({ id: courseCompletions.id, status: courseCompletions.status, grade: courseCompletions.grade, certificateNo: courseCompletions.certificateNo, issuedAt: courseCompletions.issuedAt, teacherEvaluation: courseCompletions.teacherEvaluation, revokedAt: courseCompletions.revokedAt, studentName: students.fullName, studentCode: students.code, dateOfBirth: students.dateOfBirth, courseName: courses.name, courseCode: courses.code, totalSessions: courses.totalSessions, centerName: centers.name, centerId: centers.id,
-      certificateId: sql<string | null>`(select x.id from ${certificates} x where x.course_completion_id = ${courseCompletions.id} and x.status = 'valid' limit 1)` })
+      certificateId: sql<string | null>`(select x.id from ${certificates} x where x.course_completion_id = ${courseCompletions.id} order by (x.status = 'valid') desc, x.issued_at desc limit 1)` })
     .from(courseCompletions)
     .innerJoin(enrollments, eq(enrollments.id, courseCompletions.enrollmentId))
     .innerJoin(students, eq(students.id, enrollments.studentId))

@@ -208,7 +208,7 @@ export function recommendedPixels(o: TemplateOrientation): { width: number; heig
 
 export const CERTIFICATE_FIELD_KEYS = [
   "studentName", "pathName", "issuedDate", "certificateNo", "centerName", "grade", "criteriaText",
-  "signerName", "signerTitle", "qr", "customText",
+  "signerName", "signerTitle", "qr", "customText", "studentDob", "description",
 ] as const;
 export type CertificateFieldKey = (typeof CERTIFICATE_FIELD_KEYS)[number];
 
@@ -224,6 +224,8 @@ export const CERTIFICATE_FIELD_VI: Record<CertificateFieldKey, string> = {
   signerTitle: "Chức danh người ký",
   qr: "Mã QR xác thực",
   customText: "Dòng chữ tuỳ ý",
+  studentDob: "Ngày sinh học viên",
+  description: "Chuyên ngành / chương trình",
 };
 
 /** Trường mà nội dung do người soạn mẫu nhập (không lấy từ dữ liệu học viên) */
@@ -274,23 +276,31 @@ const HEX_RE = /^#[0-9a-fA-F]{6}$/;
 const round2 = (n: number) => Math.round(n * 100) / 100;
 const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
 
-/** Bố cục mặc định (A4 ngang) — hợp với nền "để trống" giữa trang */
+/**
+ * Bố cục mặc định — khớp nền dựng sẵn `builtin/th-steam-mac-dinh.svg` (A4 ngang, khung 2970 × 2100):
+ *   "Trân trọng chứng nhận" (in sẵn, 37,6 %) → TÊN HỌC VIÊN (39,5 %, trên đường kẻ 48,1 %) → Ngày sinh
+ *   → "đã hoàn thành chương trình" (in sẵn, 54,8 %) → Tên khoá / lộ trình → Chuyên ngành → Thời lượng → Xếp loại
+ *   → hàng dưới: QR + "Quét mã để xác thực" + số chứng nhận (trái, tránh hoa văn góc) · dấu triện (giữa, in sẵn) · ngày cấp, chức danh, chỗ ký, họ tên người ký (phải).
+ * Tên học viên đặt THẤP hơn dòng "Trân trọng chứng nhận" đủ chỗ cho dấu tiếng Việt chồng tầng (Ễ, Ỗ, Ẫ…) khi IN HOA.
+ */
 export function defaultTemplateFields(orientation: TemplateOrientation = "landscape"): TemplateField[] {
   const base = { enabled: true, bold: false, italic: false, color: "#0f172a", align: "center" as TemplateAlign, uppercase: false, font: "be-vietnam" as TemplateFont };
   const L = orientation === "landscape";
   const f = (key: CertificateFieldKey, x: number, y: number, w: number, h: number, fontSize: number, extra: Partial<TemplateField> = {}): TemplateField =>
     ({ ...base, key, x, y, w, h, fontSize, ...extra });
   return [
-    f("studentName", 10, L ? 38 : 36, 80, L ? 10 : 7, L ? 34 : 30, { bold: true, color: "#14215a", uppercase: true }),
-    f("pathName", 12, L ? 53 : 48, 76, L ? 7 : 5, L ? 20 : 18, { bold: true, color: "#1e40af" }),
-    f("criteriaText", 18, L ? 61 : 55, 64, L ? 9 : 8, 11, { italic: true, color: "#4b4453" }),
-    f("grade", 30, L ? 71 : 64, 40, 4, 12, { enabled: false, prefix: "Xếp loại: " }),
-    f("issuedDate", 55, L ? 76 : 76, 35, 4, 12, { dateFormat: "long", place: "", italic: true }),
-    f("signerTitle", 55, L ? 80 : 80, 35, 4, 12, { bold: true, uppercase: true, text: "Giám đốc trung tâm" }),
-    f("signerName", 55, L ? 91 : 91, 35, 4, 14, { bold: true, text: "" }),
+    f("studentName", 10, L ? 39.5 : 36, 80, L ? 7.5 : 6, L ? 32 : 28, { bold: true, color: "#14215a", uppercase: true }),
+    f("studentDob", 30, L ? 49.2 : 43, 40, 3, 12, { color: "#475569", prefix: "Ngày sinh: " }),
+    f("pathName", 10, L ? 56.3 : 49, 80, L ? 5.5 : 4.5, L ? 24 : 20, { bold: true, color: "#1e40af" }),
+    f("description", 12, L ? 61.8 : 54, 76, 3.2, 14, { bold: true, color: "#14215a" }),
+    f("criteriaText", 15, L ? 65.4 : 58, 70, 3, 12, { italic: true, color: "#475569" }),
+    f("grade", 30, L ? 68.8 : 62, 40, 3, 13, { bold: true, color: "#14215a", prefix: "Xếp loại: " }),
+    f("issuedDate", 55, L ? 73.5 : 72, 35, 3, 12, { dateFormat: "long", place: "", italic: true, color: "#475569" }),
+    f("signerTitle", 55, L ? 77.3 : 76, 35, 3, 12, { bold: true, uppercase: true, color: "#14215a", text: "Giám đốc trung tâm" }),
+    f("signerName", 55, L ? 87.6 : 88, 35, 3.5, 15, { bold: true, color: "#14215a", text: "" }),
     f("centerName", 10, L ? 80 : 80, 35, 4, 11, { enabled: false }),
-    f("certificateNo", 8, L ? 91 : 93, 30, 3, 9, { align: "left", prefix: "Số: ", color: "#4b4453" }),
-    f("qr", 8, L ? 71 : 80, L ? 8.5 : 11, L ? 8.5 : 11, 0, { align: "left" }),
+    f("certificateNo", 7.4, L ? 84.3 : 93, 30, 2.5, 9, { align: "left", prefix: "Số: ", color: "#475569" }),
+    f("qr", 8.3, L ? 70.4 : 80, L ? 8 : 11, L ? 8 : 11, 0, { align: "left" }),
     f("customText", 15, L ? 30 : 30, 70, 4, 13, { enabled: false, text: "" }),
   ];
 }
@@ -380,12 +390,19 @@ export function fontSizeCqw(pt: number, orientation: TemplateOrientation): numbe
  * Mọi chữ đã in lên chứng nhận, chụp lại lúc cấp — bản in lại luôn giống bản gốc
  * dù sau này đổi tên lộ trình, tên cơ sở, người ký hay học viên đổi tên.
  */
+/** Phiên bản nội dung chuẩn in trên chứng nhận (certificates/standard.ts) — tăng khi đổi cách ghi nội dung */
+export const CERTIFICATE_STANDARD_VERSION = 2;
+
 export interface CertificateSnapshot {
   v: 1;
+  /** Phiên bản nội dung chuẩn (CERTIFICATE_STANDARD_VERSION) — thiếu = bản chụp trước khi chuẩn hoá */
+  std?: number;
   kind: CertificateKind;
   certificateNo: string;
   studentName: string;
   studentCode: string | null;
+  /** YYYY-MM-DD — in "Ngày sinh" trên giấy (không đưa ra trang xác thực công khai) */
+  dateOfBirth?: string | null;
   /** Tên thành tích: tên lộ trình hoặc tên khoá */
   pathName: string;
   /** Mô tả ngắn thành tích (Open Badges: description) */
@@ -410,7 +427,7 @@ export interface CertificateSnapshot {
 export function buildCertificateSnapshot(input: {
   kind: CertificateKind;
   certificateNo: string;
-  student: { fullName: string; code?: string | null };
+  student: { fullName: string; code?: string | null; dateOfBirth?: string | null };
   achievement: { name: string; description?: string | null; criteriaText?: string | null };
   courses?: { code: string; name: string }[];
   issuedAt: Date;
@@ -423,10 +440,12 @@ export function buildCertificateSnapshot(input: {
   const criteria = (input.achievement.criteriaText ?? "").trim();
   return {
     v: 1,
+    std: CERTIFICATE_STANDARD_VERSION,
     kind: input.kind,
     certificateNo: input.certificateNo,
     studentName: input.student.fullName.trim(),
     studentCode: input.student.code ?? null,
+    dateOfBirth: /^\d{4}-\d{2}-\d{2}/.test(input.student.dateOfBirth ?? "") ? input.student.dateOfBirth!.slice(0, 10) : null,
     pathName: input.achievement.name.trim(),
     description: (input.achievement.description ?? "").trim() || null,
     criteriaText: criteria || (input.kind === "course" ? `Hoàn thành chương trình khoá học ${input.achievement.name.trim()}` : `Hoàn thành các khoá bắt buộc của ${input.achievement.name.trim()}`),
@@ -454,9 +473,13 @@ export function sampleCertificateSnapshot(fields: readonly TemplateField[] = [],
   return buildCertificateSnapshot({
     kind: "path",
     certificateNo: pathCertificateNumber("ONL", now.getFullYear(), 12),
-    student: { fullName: "Nguyễn Minh An", code: "HV-MAU" },
-    achievement: { name: "Lập trình Robotics AI · Tiểu học 8–10 tuổi", criteriaText: "Hoàn thành 2 năm học bắt buộc: Năm 1 — Lập trình robot ảo với RoboSim và Năm 2 — Robot trong thế giới 3D với RoboVR." },
-    courses: [{ code: "ROBO-TH-N1", name: "Năm 1 · RoboSim" }, { code: "ROBO-TH-N2", name: "Năm 2 · RoboVR" }],
+    student: { fullName: "Nguyễn Minh An", code: "HV-MAU", dateOfBirth: "2016-03-12" },
+    achievement: {
+      name: "Năm 2: Lập trình RoboVR",
+      description: "Chuyên ngành Lập trình Robotics AI · Tiểu học 8–10 tuổi",
+      criteriaText: "45 buổi học · 3 học phần: Basic – Advanced – Expert",
+    },
+    courses: [{ code: "ROBO-TH-N2", name: "Năm 2: Lập trình RoboVR" }],
     issuedAt: now,
     grade: "Hoàn thành tốt",
     center: { name: "TH STEAM Academy", address: null, phone: null },
@@ -482,6 +505,8 @@ export function certificateFieldText(f: TemplateField, s: CertificateSnapshot): 
     case "signerName": v = s.signerName || (f.text ?? ""); break;
     case "signerTitle": v = s.signerTitle || (f.text ?? ""); break;
     case "customText": v = s.customText || (f.text ?? ""); break;
+    case "studentDob": v = s.dateOfBirth ? formatIssuedDate(s.dateOfBirth, "dmy") : ""; break;
+    case "description": v = s.description ?? ""; break;
     case "qr": return "";
   }
   v = v.trim();

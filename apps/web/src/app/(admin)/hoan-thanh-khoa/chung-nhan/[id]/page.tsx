@@ -1,40 +1,57 @@
 import Link from "next/link";
 import { getServerCaller } from "@/lib/trpc/server";
-import { PrintButton } from "./print";
+import { PrintButton } from "@/components/portfolio/print-button";
+import { CertificateSheet, CertificatePrintStyle } from "@/components/certificates/certificate-sheet";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Chứng nhận" };
+export const metadata = { title: "Giấy chứng nhận" };
 
+/**
+ * Giấy chứng nhận hoàn thành khoá của một học viên — hiển thị ĐÚNG MẪU CHUẨN đang in (nền dựng sẵn hoặc mẫu
+ * trung tâm tải lên, mã QR xác thực), cùng bản chụp nội dung lúc cấp. Không còn bản HTML trắng riêng: xem gì in nấy.
+ */
 export default async function CertificatePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { caller } = await getServerCaller();
   const c = await caller.learning.certificate({ id });
-  const issued = (c.issuedAt ?? new Date()).toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh", day: "2-digit", month: "2-digit", year: "numeric" });
+  const [cert] = c.certificateId ? await caller.certificates.print({ ids: [c.certificateId] }) : [];
+  const back = encodeURIComponent(`/hoan-thanh-khoa/chung-nhan/${c.id}`);
+
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap justify-end gap-2 print:hidden">
-        {c.certificateId && (
-          <Link href={`/lo-trinh/in-chung-nhan?ids=${c.certificateId}&back=${encodeURIComponent(`/hoan-thanh-khoa/chung-nhan/${c.id}`)}`} className="btn-ghost">
-            In theo mẫu giấy chứng nhận (có mã QR)
-          </Link>
-        )}
-        <PrintButton />
-      </div>
-      <article className="mx-auto aspect-[1.414/1] max-w-4xl rounded-2xl border-8 border-double border-brand-600 bg-white p-10 text-center shadow-sm print:shadow-none">
-        <div className="text-sm font-bold tracking-[0.3em] text-brand-600">TH STEAM ACADEMY</div>
-        <h1 className="mt-6 text-4xl font-extrabold text-brand-700">CHỨNG NHẬN HOÀN THÀNH KHOÁ HỌC</h1>
-        <p className="mt-8 text-ink-600">Trân trọng chứng nhận học viên</p>
-        <p className="mt-2 text-4xl font-bold">{c.studentName}</p>
-        {c.dateOfBirth && <p className="mt-1 text-sm text-ink-600">Ngày sinh: {c.dateOfBirth.split("-").reverse().join("/")}</p>}
-        <p className="mt-6 text-ink-600">đã hoàn thành khoá học</p>
-        <p className="mt-2 text-2xl font-semibold">{c.courseName}</p>
-        <p className="mt-1 text-sm text-ink-600">{c.totalSessions} buổi · Xếp loại: <b>{c.grade}</b></p>
-        {c.revokedAt && <p className="mt-4 font-bold text-red-700">CHỨNG NHẬN ĐÃ BỊ THU HỒI</p>}
-        <div className="mt-10 flex items-end justify-between text-sm">
-          <div className="text-left"><div className="text-ink-400">Số chứng nhận</div><div className="font-mono font-semibold">{c.certificateNo}</div></div>
-          <div className="text-right"><div className="text-ink-400">{c.centerName}, ngày {issued}</div><div className="mt-10 font-semibold">Giám đốc trung tâm</div></div>
+    <div className="cn-print-root space-y-4">
+      {cert && <CertificatePrintStyle orientation={cert.template.orientation} />}
+      <div className="cn-noprint flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="page-title">Giấy chứng nhận</h1>
+          <p className="text-sm text-muted-foreground">
+            {c.studentName} · {c.courseCode} · Số <span className="font-mono">{c.certificateNo}</span>
+            {cert && <> · {cert.statusLabel}</>}
+          </p>
+          {cert && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              Khi in chọn <b>Lề: Không</b> và bật <b>Đồ hoạ nền</b>. Mẫu, người ký, địa danh sửa ở{" "}
+              <Link href="/lo-trinh/mau-chung-nhan" className="text-brand-600 underline">Lộ trình → Mẫu chứng nhận</Link>.
+            </p>
+          )}
         </div>
-      </article>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/hoan-thanh-khoa" className="btn-ghost">Quay lại</Link>
+          {cert && <Link href={`/lo-trinh/in-chung-nhan?ids=${cert.id}&back=${back}`} className="btn-ghost">Trang in hàng loạt</Link>}
+          {cert && <PrintButton label="In / Lưu PDF" />}
+        </div>
+      </div>
+      {cert ? (
+        <section
+          className={`cn-page mx-auto shadow-md ${cert.template.orientation === "landscape" ? "cn-page-landscape max-w-5xl" : "cn-page-portrait max-w-2xl"}`}
+          aria-label={`Giấy chứng nhận ${cert.number}`}
+        >
+          <CertificateSheet template={cert.template} snapshot={cert.snapshot} qrSvg={cert.qrSvg} revoked={cert.status === "revoked"} />
+        </section>
+      ) : (
+        <div className="card p-6 text-sm text-muted-foreground">
+          Hoàn thành khoá này chưa có giấy chứng nhận trong sổ chứng nhận (dữ liệu cũ). Liên hệ quản trị hệ thống để đồng bộ sổ chứng nhận.
+        </div>
+      )}
     </div>
   );
 }
