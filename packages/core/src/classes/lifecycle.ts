@@ -90,9 +90,9 @@ export type SessionKind = (typeof SESSION_KINDS)[number];
 
 export const SESSION_KIND_VI: Record<SessionKind, string> = {
   regular: "Học chính thức",
-  coach_1_1: "Coach 1-1",
-  coach_1_2: "Coach 1-2",
-  coach_1_4: "Coach 1-4",
+  coach_1_1: "Kèm 1:1",
+  coach_1_2: "Kèm 1-2 (cũ)",
+  coach_1_4: "Kèm 1-4 (cũ)",
   makeup: "Học bù",
   advance: "Học vượt",
   extra: "Buổi bổ sung",

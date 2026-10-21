@@ -6,7 +6,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   buildPlan, buildModulePlan, buildMonthlyPlan, addMonthsISO, validateInstallmentPlan, replanInstallments,
-  COACH_MULTIPLIER, formatUnitPrice, priceLine, priceLines, orderDisplayState,
+  COACH_MULTIPLIER, classFormatOfPackage, formatUnitPrice, priceLine, priceLines, orderDisplayState,
   enrollmentDebtChip, agingBucketBy, agingBucketLabels, FinanceRuleError,
 } from "./rules.js";
 import { planAllocation, normalizeName, normalizeLegacyPhone, matchLegacyStudent, parseLegacyTuitionTable, legacyLineStatus } from "./bank.js";
@@ -71,7 +71,10 @@ test("Đợt 2 · sửa kế hoạch: đợt đã thu được bảo vệ", () =
 });
 
 test("Đợt 2 · định giá dòng: hệ số coach, giảm cộng dồn, gói cố định", () => {
-  assert.equal(COACH_MULTIPLIER.coach_1_1, 2);
+  assert.equal(COACH_MULTIPLIER.coach_1_1, 3); // TH STEAM: kèm 1:1 niêm yết = 3 lần lớp nhóm
+  assert.equal(formatUnitPrice(7_500_000, "coach_1_1"), 22_500_000); // khớp TH_PRICING.year.oneToOne.list
+  assert.equal(classFormatOfPackage("ROBO-TH-N1-1KEM1"), "coach_1_1");
+  assert.equal(classFormatOfPackage("ROBO-TH-N1-NHOM"), "group");
   assert.equal(formatUnitPrice(9_600_000, "coach_1_2"), 17_280_000);
   assert.equal(formatUnitPrice(1_000_001, "coach_1_4"), 1_500_002); // luôn là số nguyên VND
   const ok = priceLine({ unitPrice: 10_560_000, quantity: 1, discounts: [{ kind: "percent", value: 5, reason: "Giới thiệu" }] });
@@ -84,7 +87,7 @@ test("Đợt 2 · định giá dòng: hệ số coach, giảm cộng dồn, gói
   const over = priceLine({ unitPrice: 100_000, quantity: 1, discounts: [{ kind: "amount", value: 200_000, reason: "nhập sai" }] });
   assert.equal(over.net, 0);
   assert.match(over.errors.join(), /vượt thành tiền/);
-  assert.match(priceLine({ unitPrice: 100, quantity: 1, fixedPackage: true, format: "coach_1_1", sessions: 5, courseSessions: 5 }).errors.join(), /không bán dạng coach/);
+  assert.match(priceLine({ unitPrice: 100, quantity: 1, fixedPackage: true, format: "coach_1_1", sessions: 5, courseSessions: 5 }).errors.join(), /không bán dạng kèm riêng/);
   assert.match(priceLine({ unitPrice: 100, quantity: 1, fixedPackage: true, sessions: 3, courseSessions: 5 }).errors.join(), /không bán lẻ buổi/);
   const order = priceLines([
     { unitPrice: 5_000_000, quantity: 1, discounts: [{ kind: "amount", value: 500_000, reason: "Anh chị em" }] },

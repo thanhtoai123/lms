@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useTRPC } from "@/lib/trpc/client";
 import {
-  priceLines, buildPlan, validateInstallmentPlan, formatUnitPrice, COACH_MULTIPLIER, CLASS_FORMATS, CLASS_FORMAT_VI, MAX_INSTALLMENTS,
+  priceLines, buildPlan, validateInstallmentPlan, formatUnitPrice, COACH_MULTIPLIER, SELLABLE_CLASS_FORMATS, CLASS_FORMAT_VI, MAX_INSTALLMENTS, classFormatOfPackage,
   ORDER_TYPES, ORDER_TYPE_VI, DISCOUNT_POLICIES, DISCOUNT_POLICY_VI, DISCOUNT_POLICY_KIND,
   discountPercentOf, discountNeedsApproval, DEFAULT_DISCOUNT_APPROVAL_PCT,
   type OrderType, type ClassFormat, type InstallmentKind, type DiscountPolicy,
@@ -94,7 +94,17 @@ export function OrderForm({ centers, methods, courses, packages = [], today, dra
   const pickPackage = (i: number, packageId: string) => {
     const p = packages.find((x) => x.id === packageId);
     if (!p) { setItem(i, { packageId: "" }); return; }
-    setItem(i, { packageId, courseId: p.courseId, description: `Học phí ${p.courseCode} — ${p.name}`, packageSessions: p.sessions, unitPrice: p.price, basePrice: p.price, format: "group" });
+    setItem(i, { packageId, courseId: p.courseId, description: `Học phí ${p.courseCode} — ${p.name}`, packageSessions: p.sessions, unitPrice: p.price, basePrice: p.price, format: classFormatOfPackage(p.code) });
+  };
+  /**
+   * Đổi hình thức lớp: nếu khoá có gói bán đúng hình thức (…-NHOM / …-1KEM1) thì chuyển sang gói đó (giá gói đã có
+   * ưu đãi riêng); không có gói thì giữ đơn giá, gợi ý giá niêm yết × hệ số để sale tự áp.
+   */
+  const pickFormat = (i: number, format: ClassFormat) => {
+    const it = items[i]!;
+    const twin = it.courseId ? packages.find((p) => p.courseId === it.courseId && classFormatOfPackage(p.code) === format && p.sessions === (it.packageSessions || p.sessions)) : undefined;
+    if (twin) { pickPackage(i, twin.id); return; }
+    setItem(i, { format, packageId: "" });
   };
 
   const submit = () => {
@@ -186,13 +196,14 @@ export function OrderForm({ centers, methods, courses, packages = [], today, dra
             {type === "course" && (
               <div className="flex flex-wrap items-end gap-2 sm:col-span-12">
                 <label className="text-xs text-ink-600">Hình thức lớp
-                  <select className="input mt-1" value={it.format} onChange={(e) => setItem(i, { format: e.target.value as ClassFormat })}>
-                    {CLASS_FORMATS.map((f) => <option key={f} value={f}>{CLASS_FORMAT_VI[f]}{f === "group" ? "" : ` ×${COACH_MULTIPLIER[f]}`}</option>)}
+                  <select className="input mt-1" value={it.format} onChange={(e) => pickFormat(i, e.target.value as ClassFormat)}>
+                    {SELLABLE_CLASS_FORMATS.map((f) => <option key={f} value={f}>{CLASS_FORMAT_VI[f]}</option>)}
                   </select>
                 </label>
-                {it.format !== "group" && (
+                {it.format !== "group" && it.packageId && <div className="pb-2 text-xs text-ink-600">Giá theo gói kèm 1:1 đang bán (đã gồm ưu đãi).</div>}
+                {it.format !== "group" && !it.packageId && (
                   <div className="pb-2 text-xs text-ink-600">
-                    {vnd(it.basePrice || it.unitPrice)}/gói × {COACH_MULTIPLIER[it.format]} = <b>{vnd(formatUnitPrice(it.basePrice || it.unitPrice, it.format))}</b>
+                    Kèm 1:1 niêm yết = {COACH_MULTIPLIER[it.format]} lần lớp nhóm: {vnd(it.basePrice || it.unitPrice)} × {COACH_MULTIPLIER[it.format]} = <b>{vnd(formatUnitPrice(it.basePrice || it.unitPrice, it.format))}</b>
                     <button className="ml-2 font-semibold text-brand-600" onClick={() => setItem(i, { unitPrice: formatUnitPrice(it.basePrice || it.unitPrice, it.format) })}>Áp số này vào Đơn giá</button>
                   </div>
                 )}

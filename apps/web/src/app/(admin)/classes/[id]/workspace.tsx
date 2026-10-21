@@ -341,7 +341,7 @@ export function SchedulePanel({ classId, ws }: { classId: string; ws: WS }) {
 
       {open && !ws.planning && (
         <div className="space-y-3 rounded-xl border border-black/10 p-3">
-          <p className="text-xs text-ink-600">Chỉ xếp lại các buổi <b>chính thức chưa diễn ra, chưa điểm danh</b> từ ngày áp dụng; giữ nguyên số buổi và bỏ ngày nghỉ. Buổi đã học, buổi coach / bù không bị đụng tới.</p>
+          <p className="text-xs text-ink-600">Chỉ xếp lại các buổi <b>chính thức chưa diễn ra, chưa điểm danh</b> từ ngày áp dụng; giữ nguyên số buổi và bỏ ngày nghỉ. Buổi đã học, buổi kèm 1:1 / bù không bị đụng tới.</p>
           <SlotEditor rows={rows} onChange={setRows} rooms={rooms} teachers={teachers} />
           <div className="flex flex-wrap items-end gap-2">
             <label className="text-xs text-ink-600">Áp dụng từ ngày<input type="date" className="input mt-1" min={tomorrow} value={fromDate} onChange={(e) => setFromDate(e.target.value)} /></label>
@@ -496,14 +496,14 @@ export function AddSessionPanel({ classId, ws }: { classId: string; ws: WS }) {
         <h2 className="font-semibold">Buổi ngoài lộ trình</h2>
         {!open && <button className="text-xs font-semibold text-brand-600" onClick={() => { setOpen(true); m.clear(); }}>+ Thêm buổi</button>}
       </div>
-      <p className="text-xs text-ink-600">Coach 1-1/1-2/1-4, học bù cả lớp, học vượt, buổi bổ sung — không làm lệch số buổi chính thức và mốc học bạ.</p>
+      <p className="text-xs text-ink-600">Kèm 1:1, học bù cả lớp, học vượt, buổi bổ sung — không làm lệch số buổi chính thức và mốc học bạ.</p>
       <Msg msg={m.msg} />
       {open && (
         <div className="space-y-2">
           <div className="grid gap-2 sm:grid-cols-4">
             <label className="text-xs text-ink-600">Loại buổi
               <select className="input mt-1" value={f.kind} onChange={(e) => setF({ ...f, kind: e.target.value as typeof f.kind })}>
-                {SESSION_KINDS.filter((k) => k !== "regular").map((k) => <option key={k} value={k}>{SESSION_KIND_VI[k]}</option>)}
+                {SESSION_KINDS.filter((k) => k !== "regular" && k !== "coach_1_2" && k !== "coach_1_4").map((k) => <option key={k} value={k}>{SESSION_KIND_VI[k]}</option>)}
               </select>
             </label>
             <label className="text-xs text-ink-600">Ngày<input type="date" min={ws.today} className="input mt-1" value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} /></label>

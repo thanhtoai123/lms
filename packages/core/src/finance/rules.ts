@@ -138,13 +138,26 @@ export function packagePrice(listPrice: number, courseSessions: number, packageS
 export const CLASS_FORMATS = ["group", "coach_1_1", "coach_1_2", "coach_1_4"] as const;
 export type ClassFormat = (typeof CLASS_FORMATS)[number];
 export const CLASS_FORMAT_VI: Record<ClassFormat, string> = {
-  group: "Lớp nhóm",
-  coach_1_1: "Coach 1-1 (kèm riêng)",
-  coach_1_2: "Coach 1-2",
-  coach_1_4: "Coach 1-4",
+  group: "Lớp nhóm 6–8 học sinh",
+  coach_1_1: "Kèm 1:1",
+  coach_1_2: "Kèm 1-2 (dữ liệu cũ)",
+  coach_1_4: "Kèm 1-4 (dữ liệu cũ)",
 };
-/** Hệ số nhân giá/buổi theo hình thức lớp (bản gốc: 1 / 2 / 1,8 / 1,5) */
-export const COACH_MULTIPLIER: Record<ClassFormat, number> = { group: 1, coach_1_1: 2, coach_1_2: 1.8, coach_1_4: 1.5 };
+/**
+ * Hình thức TH STEAM đang bán: lớp nhóm 6–8 học sinh và kèm 1:1 (TH_PRICING). Kèm 1-2 / 1-4 chỉ còn để
+ * hiển thị đơn cũ — không chọn được khi tạo đơn mới.
+ */
+export const SELLABLE_CLASS_FORMATS: readonly ClassFormat[] = ["group", "coach_1_1"];
+/**
+ * Hệ số nhân GIÁ NIÊM YẾT theo hình thức lớp. TH STEAM: kèm 1:1 niêm yết bằng 3 lần lớp nhóm (TH_PRICING.note).
+ * Bán theo gói "…-1KEM1" thì lấy thẳng giá gói (đã có ưu đãi riêng), không nhân hệ số.
+ */
+export const COACH_MULTIPLIER: Record<ClassFormat, number> = { group: 1, coach_1_1: 3, coach_1_2: 1.8, coach_1_4: 1.5 };
+
+/** Hình thức lớp suy ra từ mã gói bán: "…-1KEM1" = kèm 1:1, còn lại lớp nhóm */
+export function classFormatOfPackage(code: string): ClassFormat {
+  return /-1KEM1$/i.test(code.trim()) ? "coach_1_1" : "group";
+}
 
 /** Đơn giá sau hệ số coach — luôn trả số nguyên VND (không để số thực chạm vào tiền lưu) */
 export function formatUnitPrice(basePrice: number, format: ClassFormat): number {
@@ -326,7 +339,7 @@ export interface PriceLineInput {
   discounts?: readonly LineDiscount[];
   /** Trần % giảm theo cấu hình vận hành (mặc định 50) */
   maxPercent?: number;
-  /** Gói cam kết giá cố định (SR.QD.219 Điều 3/5): cấm coach và cấm bán lẻ buổi */
+  /** Gói cam kết giá cố định: không bán dạng kèm riêng theo hệ số và không bán lẻ buổi */
   fixedPackage?: boolean;
   format?: ClassFormat;
   /** Số buổi mua của dòng */
@@ -353,7 +366,7 @@ export function priceLine(i: PriceLineInput): PricedLine {
   const gross = Math.max(0, Math.round((Number.isFinite(i.unitPrice) ? i.unitPrice : 0) * Math.max(1, Number.isInteger(quantity) ? quantity : 1)));
   const format = i.format ?? "group";
   if (i.fixedPackage) {
-    if (format !== "group") errors.push("Gói cam kết giá cố định — không bán dạng coach");
+    if (format !== "group") errors.push("Gói cam kết giá cố định — không bán dạng kèm riêng theo hệ số");
     if (i.sessions != null && i.courseSessions != null && i.sessions !== i.courseSessions) errors.push("Gói cam kết giá cố định — không bán lẻ buổi");
   }
   let discount = 0;
@@ -395,9 +408,9 @@ export function priceLines(lines: readonly PriceLineInput[]) {
 export const INSTALLMENT_KINDS = ["deposit", "installment"] as const;
 export type InstallmentKind = (typeof INSTALLMENT_KINDS)[number];
 export const INSTALLMENT_KIND_VI: Record<InstallmentKind, string> = { deposit: "Cọc", installment: "Đợt" };
-/** SR.QD.219 Điều 2: chia đều tối đa 12 kỳ theo tháng */
+/** Chia đều tối đa 12 kỳ theo tháng */
 export const MAX_INSTALLMENTS = 12;
-/** SR.QD.223: các mốc cách nhau 30 ngày */
+/** Mốc các đợt mặc định cách nhau 30 ngày */
 export const DEFAULT_INSTALLMENT_INTERVAL_DAYS = 30;
 
 export interface Installment { seq: number; amount: number; dueDate: string; kind?: InstallmentKind }
@@ -421,7 +434,7 @@ function splitEven(total: number, count: number): number[] {
 
 export interface PlanOptions {
   intervalDays?: number;
-  /** true = mốc theo tháng (SR.QD.219 Điều 2) thay vì cách nhau intervalDays */
+  /** true = mốc theo tháng thay vì cách nhau intervalDays */
   monthly?: boolean;
   /** Thu cọc trước: số tiền cọc, trừ khỏi phần chia đều */
   deposit?: number | null;
@@ -467,13 +480,13 @@ export function buildInstallmentPlan(total: number, count: number, firstDueDate:
   return buildPlan(total, count, firstDueDate, { intervalDays });
 }
 
-/** Chia theo học phần: 48 buổi = 4 học phần × 12 buổi (1–4 học phần, mốc cách 30 ngày) */
+/** Chia theo học phần (TH STEAM: 1 năm học = 3 học phần × 15 buổi; 1–4 đợt, mốc cách 30 ngày) */
 export function buildModulePlan(total: number, modules: 1 | 2 | 3 | 4, firstDueDate: string, intervalDays = DEFAULT_INSTALLMENT_INTERVAL_DAYS, opts: Omit<PlanOptions, "monthly" | "intervalDays"> = {}): Installment[] {
   if (!Number.isInteger(modules) || modules < 1 || modules > 4) throw new FinanceRuleError("Số học phần từ 1 đến 4");
   return buildPlan(total, modules, firstDueDate, { ...opts, intervalDays });
 }
 
-/** Chia đều theo tháng, tối đa 12 kỳ (SR.QD.219 Điều 2) */
+/** Chia đều theo tháng, tối đa 12 kỳ */
 export function buildMonthlyPlan(total: number, months: number, firstDueDate: string, opts: Omit<PlanOptions, "monthly" | "intervalDays"> = {}): Installment[] {
   if (!Number.isInteger(months) || months < 1 || months > MAX_INSTALLMENTS) throw new FinanceRuleError(`Chia theo tháng tối đa ${MAX_INSTALLMENTS} kỳ`);
   return buildPlan(total, months, firstDueDate, { ...opts, monthly: true });

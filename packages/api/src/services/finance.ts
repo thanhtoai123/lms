@@ -10,7 +10,7 @@ import {
   priceLines, packagePrice, buildPlan, validateInstallmentPlan, replanInstallments, orderBalance, deriveOrderStatus, canCancelOrder,
   allocateInstallments, agingBucket, agingBucketBy, agingBucketLabels, dueSoon, validatePaymentDecision, receiptNumber, transferMemo, maskIdNumber,
   refundProposal, validateRefundRequest, refundTransition, vietQrImageUrl, requireReason, formatVnd, maskPhone, remainingSessions, isEmail,
-  orderDisplayState, enrollmentDebtChip, COACH_MULTIPLIER, MAX_INSTALLMENTS, DEBT_CHIPS,
+  orderDisplayState, enrollmentDebtChip, COACH_MULTIPLIER, SELLABLE_CLASS_FORMATS, MAX_INSTALLMENTS, DEBT_CHIPS,
   AGING_BUCKETS, FinanceRuleError,
   buildOrderCode, orderCodePrefix, DEFAULT_ORDER_CODE_FORMAT,
   qrExpiresAt, qrExpired, qrState, DEFAULT_QR_TTL_HOURS, QR_REUSE_LABEL,
@@ -465,6 +465,7 @@ export async function createOrder(ctx: ProtectedContext, input: CreateOrderInput
   } else if (childIds.length) throw bad("Chỉ đơn tạo từ lead mới chọn được con của lead");
   const phone = lead ? localPhone(lead.phoneNormalized) : input.customer.phone.replace(/\D/g, "");
   if (phone.length < 9 || phone.length > 11) throw bad("Số điện thoại khách hàng không hợp lệ");
+  if (input.items.some((i) => i.format && !SELLABLE_CLASS_FORMATS.includes(i.format))) throw bad("Hình thức lớp chỉ còn Lớp nhóm 6–8 học sinh hoặc Kèm 1:1");
   const ops = await getOps(ctx.db, input.centerId);
   const priced = priceLines(input.items.map((i) => ({
     unitPrice: i.unitPrice, quantity: i.quantity, discounts: i.discounts ?? [], maxPercent: ops.maxLineDiscountPercent,

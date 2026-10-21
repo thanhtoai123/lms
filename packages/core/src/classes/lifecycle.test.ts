@@ -33,7 +33,7 @@ test("loại buổi, số buổi ngoài lộ trình, checklist", () => {
   assert.equal(nextExtraSequence([1, 2, 3]), 1001);
   assert.equal(nextExtraSequence([1, 1001, 1003]), 1004);
   assert.equal(sessionLabel(5, "regular"), "Buổi 5");
-  assert.equal(sessionLabel(1002, "coach_1_1"), "Coach 1-1 #2");
+  assert.equal(sessionLabel(1002, "coach_1_1"), "Kèm 1:1 #2");
   assert.deepEqual(missingRequiredChecklist({ post: { cleanup: true } }).map((i) => i.key), ["handover"]);
   assert.equal(missingRequiredChecklist({ post: { cleanup: true, handover: true } }).length, 0);
   assert.equal(missingRequiredChecklist(null).length, 2);

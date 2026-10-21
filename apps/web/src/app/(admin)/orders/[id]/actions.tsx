@@ -228,12 +228,13 @@ export function PlanEditor({ orderId, total, current, today, updatedAt, canEdit 
   return (
     <div className="space-y-2 rounded-xl border border-black/10 p-3">
       <p className="text-xs text-ink-600">
-        Đóng một lần hoặc chia theo học phần (48 buổi = 4 học phần × 12 buổi). Công văn SR.QD.223 nêu mốc các đợt cách 30 ngày;
-        SR.QD.219 Điều 2 cho phép chia đều tối đa {MAX_INSTALLMENTS} kỳ theo tháng. Đợt đã thu giữ nguyên.
+        Điều khoản TH STEAM: đóng trọn học phí ít nhất 3 ngày trước khai giảng. Trường hợp được duyệt chia đợt: theo học phần
+        (1 năm học = 3 học phần × 15 buổi, mốc cách 30 ngày) hoặc chia đều tối đa {MAX_INSTALLMENTS} kỳ theo tháng. Đợt đã thu giữ nguyên.
       </p>
       <div className="flex flex-wrap gap-1 text-xs">
         <button className="btn-ghost !px-2 !py-1 text-xs" onClick={() => quick(1)}>1 lần</button>
-        {[2, 3, 4].map((n) => <button key={n} className="btn-ghost !px-2 !py-1 text-xs" onClick={() => quick(n)}>{n} học phần</button>)}
+        <button className="btn-ghost !px-2 !py-1 text-xs" onClick={() => quick(3)}>3 đợt theo học phần</button>
+        <button className="btn-ghost !px-2 !py-1 text-xs" onClick={() => quick(6)}>6 đợt (combo 2 năm)</button>
         <button className="btn-ghost !px-2 !py-1 text-xs" onClick={() => quick(Math.min(MAX_INSTALLMENTS, 6), { monthly: true })}>6 kỳ / tháng</button>
         <button className="btn-ghost !px-2 !py-1 text-xs" onClick={() => quick(MAX_INSTALLMENTS, { monthly: true })}>{MAX_INSTALLMENTS} kỳ / tháng</button>
         <button className="btn-ghost !px-2 !py-1 text-xs" onClick={() => quick(3, { deposit: Math.max(1000, Math.round(total / 10 / 1000) * 1000) })}>Thu cọc trước + 3 đợt</button>
