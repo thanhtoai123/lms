@@ -188,7 +188,7 @@ export function ConvertForm({ lead, classes, packages = [], scholarshipMode }: {
       <section className="card space-y-2 p-4 text-sm">
         <label className="flex items-start gap-2">
           <input type="checkbox" className="mt-1" checked={mediaConsent} onChange={(e) => setMediaConsent(e.target.checked)} />
-          <span>Phụ huynh đồng ý cho trung tâm sử dụng hình ảnh/video của học viên trong lớp cho mục đích lưu trữ &amp; truyền thông (NĐ 13/2023). Người tick &amp; thời điểm sẽ được ghi nhật ký.</span>
+          <span>Phụ huynh (và con, nếu con từ đủ 7 tuổi) đồng ý cho trung tâm sử dụng hình ảnh/video của học viên trong lớp cho mục đích lưu trữ &amp; truyền thông (Luật Bảo vệ dữ liệu cá nhân 91/2025). Người tick &amp; thời điểm sẽ được ghi nhật ký.</span>
         </label>
         {(error?.includes("tiên quyết") || waiverReason) && (
           <input className="input" maxLength={300} placeholder="Miễn điều kiện tiên quyết — lý do (quản lý cơ sở), VD: đã test đầu vào" value={waiverReason} onChange={(e) => setWaiverReason(e.target.value)} />

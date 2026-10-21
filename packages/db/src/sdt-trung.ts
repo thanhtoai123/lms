@@ -9,7 +9,7 @@
  *   pnpm sdt-trung          → chỉ xem báo cáo, không ghi gì
  *   pnpm sdt-trung --gop    → gộp thật
  *
- * Gộp làm gì: chuyển con, đơn học phí, thông báo, phiên đăng nhập, đồng ý NĐ13 và PII về
+ * Gộp làm gì: chuyển con, đơn học phí, thông báo, phiên đăng nhập, đồng ý xử lý dữ liệu và PII về
  * dòng được giữ lại, rồi XOÁ MỀM các dòng còn lại (`deleted_at`) — không xoá cứng, để còn
  * lần ngược được nếu gộp nhầm. Mỗi lượt gộp là một giao dịch: hỏng giữa chừng thì không
  * để lại nửa vời.
@@ -48,7 +48,7 @@ const CHUYEN = [
   { bang: "orders", cot: "parent_id", note: "đơn học phí" },
   { bang: "parent_notifications", cot: "parent_id", note: "thông báo" },
   { bang: "parent_sessions", cot: "parent_id", note: "phiên đăng nhập" },
-  { bang: "consent_records", cot: "parent_id", note: "đồng ý NĐ13" },
+  { bang: "consent_records", cot: "parent_id", note: "đồng ý xử lý dữ liệu" },
   { bang: "parent_feedback", cot: "parent_id", note: "phản hồi sau buổi" },
   { bang: "parent_requests", cot: "parent_id", note: "yêu cầu của phụ huynh" },
   { bang: "push_subscriptions", cot: "parent_id", note: "đăng ký thông báo đẩy" },

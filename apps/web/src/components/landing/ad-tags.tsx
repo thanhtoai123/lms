@@ -1,8 +1,14 @@
+import { ConsentBanner } from "./consent-banner";
+
 /**
  * THẺ ĐO LƯỜNG QUẢNG CÁO cho trang công khai: Meta Pixel, GA4 và Google Ads — chỉ khi Quản trị → Marketing đã nhập ID
  * và bật "Ghi nhận sự kiện". Đoạn mồi mang nonce CSP; thư viện của Meta / Google được nạp từ đoạn mồi (CSP 'strict-dynamic').
  * ID được kiểm định dạng ở máy chủ khi lưu, ở đây kiểm lại trước khi ghép vào script.
  * Sự kiện chuyển đổi (Lead / generate_lead / conversion) do form gửi khi lead tạo thành công — xem lead-form.tsx.
+ *
+ * ĐỒNG Ý TRƯỚC KHI ĐO LƯỜNG (Luật BVDLCN 91/2025 Điều 28 khoản 3 · Nghị định 356/2025): thẻ quảng cáo KHÔNG tự chạy.
+ * Đoạn mồi chỉ định nghĩa `window.__thAdsBoot()`; hàm chạy khi người xem đã bấm "Đồng ý" (lưu ở trình duyệt, khoá
+ * `th-ads-consent`) — xem consent-banner.tsx. Từ chối thì không nạp Pixel / GA4 / Google Ads; form đăng ký vẫn hoạt động.
  */
 export function AdTags({ nonce, metaPixelId, ga4Id, googleAdsId, googleAdsLeadLabel }: {
   nonce?: string; metaPixelId: string | null; ga4Id: string | null; googleAdsId: string | null; googleAdsLeadLabel: string | null;
@@ -28,5 +34,12 @@ export function AdTags({ nonce, metaPixelId, ga4Id, googleAdsId, googleAdsLeadLa
       `fbq('init',${JSON.stringify(px)});fbq('track','PageView');`,
     );
   }
-  return <script nonce={nonce} dangerouslySetInnerHTML={{ __html: parts.filter(Boolean).join("\n") }} />;
+  const boot = `window.__thAdsBoot=function(){if(window.__thAdsOn)return;window.__thAdsOn=1;${parts.filter(Boolean).join("\n")}};`
+    + `try{if(localStorage.getItem('th-ads-consent')==='yes')window.__thAdsBoot();}catch(e){}`;
+  return (
+    <>
+      <script nonce={nonce} dangerouslySetInnerHTML={{ __html: boot }} />
+      <ConsentBanner />
+    </>
+  );
 }

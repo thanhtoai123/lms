@@ -1,7 +1,8 @@
 from playwright.sync_api import sync_playwright
-import os
+import os, sys
 PUB=os.path.abspath(os.path.join(os.environ.get("REPO", "."), "apps/web/public"))
 PAGES=[
+ ("trang-chu","Biến giờ màn hình thành giờ sáng tạo công nghệ","Robotics · AI · Đồ họa · Lập trình cho trẻ 8–18 tuổi","tc-hero"),
  ("hoc-cong-nghe-online","Khóa học công nghệ online cho trẻ 8–18 tuổi","Robotics · AI · Đồ họa · Lập trình","lp-hero-chung"),
  ("robotics-ai-cho-tre","Lập trình Robotics AI cho trẻ 8–10 tuổi","RoboSim → RoboVR · 2 năm học","lp-hero-robotics"),
  ("tri-tue-nhan-tao-ai-cho-hoc-sinh","Trí tuệ nhân tạo AI cho học sinh 8–14 tuổi","AI for kids · AI for teen","lp-hero-ai"),
@@ -9,7 +10,7 @@ PAGES=[
  ("lap-trinh-ai-cho-tre-em","Lập trình cho trẻ em 8–18 tuổi","Scratch → Roblox → Python → Web","lp-hero-lap-trinh"),
 ]
 CSS="""@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;700;800&display=swap');
-*{box-sizing:border-box;margin:0}body{width:1200px;height:630px;font-family:'Plus Jakarta Sans',Arial,sans-serif;background:#fff;overflow:hidden}
+*{box-sizing:border-box;margin:0}body{width:1200px;height:630px;font-family:'Plus Jakarta Sans','Inter',Arial,sans-serif;background:#fff;overflow:hidden}
 .w{display:grid;grid-template-columns:600px 600px;height:630px}
 .l{padding:56px 40px 48px 64px;display:flex;flex-direction:column;gap:22px;background:linear-gradient(160deg,#F8FAFC,#fff)}
 .logo{height:46px;width:auto;align-self:flex-start}
@@ -23,7 +24,7 @@ h1{font-size:50px;line-height:1.1;font-weight:800;color:#0F172A;letter-spacing:-
 .bar{position:absolute;left:0;right:0;bottom:0;height:10px;background:linear-gradient(90deg,#1D4ED8 0 33%,#10B981 33% 66%,#F59E0B 66%)}"""
 with sync_playwright() as p:
     b=p.chromium.launch(); pg=b.new_page(viewport={"width":1200,"height":630})
-    for slug,h1,sub,art in PAGES:
+    for slug,h1,sub,art in [p for p in PAGES if len(sys.argv) < 2 or p[0] in sys.argv[1:]]:
         html=f"""<html><head><style>{CSS}</style></head><body><div class="w"><div class="l"><img class="logo" src="file://{PUB}/thsteam/logo-ngang.svg"><h1>{h1}</h1><p class="sub">{sub}</p>
         <div class="chips"><span>Học online qua ClassIn</span><span>Lớp 6–8 học sinh</span><span class="g">Học trải nghiệm 1:1</span></div></div>
         <div class="r"><img src="file://{PUB}/lp-anh/{art}.svg"></div></div><div class="bar"></div></body></html>"""

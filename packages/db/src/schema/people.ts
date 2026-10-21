@@ -57,10 +57,10 @@ export const parents = pgTable("parents", {
   phoneNormalized: text("phone_normalized"),
   email: text("email"),
   zaloId: text("zalo_id"),
-  /** Đồng ý cho đăng ảnh con (NĐ13) — enforce ở service khi publish media */
+  /** Đồng ý cho đăng ảnh con (Luật BVDLCN 91/2025) — enforce ở service khi publish media */
   mediaConsent: boolean("media_consent").notNull().default(false),
   mediaConsentAt: timestamp("media_consent_at", { withTimezone: true }),
-  /** NĐ13: không nhận tiếp thị / hạn chế xử lý / đã ẩn danh */
+  /** Luật BVDLCN 91/2025: không nhận tiếp thị / hạn chế xử lý / đã ẩn danh */
   marketingOptOut: boolean("marketing_opt_out").notNull().default(false),
   processingRestricted: boolean("processing_restricted").notNull().default(false),
   anonymizedAt: timestamp("anonymized_at", { withTimezone: true }),

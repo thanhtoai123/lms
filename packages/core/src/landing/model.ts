@@ -99,7 +99,7 @@ export const SECTION_DEFS: Record<SectionType, SectionDef> = {
   features: {
     type: "features", label: "Cam kết / lợi ích", desc: "Thẻ đánh số: vì sao phụ huynh chọn trung tâm.",
     fields: [t("title", "Tiêu đề", 120, { required: true }), ta("intro", "Giới thiệu", 300)],
-    lists: [{ key: "items", label: "Thẻ", addLabel: "Thêm thẻ", max: 8, fields: [t("title", "Tiêu đề thẻ", 100, { required: true }), ta("text", "Mô tả", 300)] }],
+    lists: [{ key: "items", label: "Thẻ", addLabel: "Thêm thẻ", max: 8, fields: [t("title", "Tiêu đề thẻ", 100, { required: true }), ta("text", "Mô tả", 300), t("icon", "Biểu tượng", 20, { hint: "Biểu tượng (tuỳ chọn): man-hinh, nhom, mat, chuan, nha, ho-so, tia-sang, la-ban, code, cup, chia-se, ten-lua" })] }],
     needs: "items",
   },
   programs: {
@@ -122,7 +122,7 @@ export const SECTION_DEFS: Record<SectionType, SectionDef> = {
   steps: {
     type: "steps", label: "Các bước / quy trình", desc: "Ví dụ: Đăng ký → Học thử → Xếp lớp.",
     fields: [t("title", "Tiêu đề", 120, { required: true }), ta("intro", "Giới thiệu", 300)],
-    lists: [{ key: "items", label: "Bước", addLabel: "Thêm bước", max: 6, fields: [t("title", "Tên bước", 80, { required: true }), ta("text", "Mô tả", 240)] }],
+    lists: [{ key: "items", label: "Bước", addLabel: "Thêm bước", max: 6, fields: [t("title", "Tên bước", 80, { required: true }), ta("text", "Mô tả", 240), t("icon", "Biểu tượng", 20, { hint: "Biểu tượng (tuỳ chọn): man-hinh, nhom, mat, chuan, nha, ho-so, tia-sang, la-ban, code, cup, chia-se, ten-lua" })] }],
     needs: "items",
   },
   timeline: {
@@ -134,7 +134,7 @@ export const SECTION_DEFS: Record<SectionType, SectionDef> = {
   gallery: {
     type: "gallery", label: "Thư viện ảnh", desc: "Ảnh lớp học, sản phẩm của bé (chỉ ảnh đã được phụ huynh đồng ý).",
     fields: [t("title", "Tiêu đề", 120, { required: true })],
-    lists: [{ key: "items", label: "Ảnh", addLabel: "Thêm ảnh", max: 8, fields: [img("image", "Ảnh", { required: true }), t("caption", "Chú thích", 120)] }],
+    lists: [{ key: "items", label: "Ảnh", addLabel: "Thêm ảnh", max: 8, fields: [img("image", "Ảnh", { required: true }), t("caption", "Chú thích", 120), t("credit", "Nguồn / giấy phép ảnh", 120, { hint: "vd Ảnh: Wikimedia Commons / Zio27, CC0" }), u("creditUrl", "Liên kết nguồn ảnh")] }],
     needs: "items",
   },
   faq: {
@@ -162,7 +162,7 @@ export const SECTION_DEFS: Record<SectionType, SectionDef> = {
   },
   contrast: {
     type: "contrast", label: "So sánh hai lựa chọn", desc: "Hai cột đối lập (vd Dùng công nghệ ↔ Tạo ra công nghệ). Cột phải là lựa chọn trung tâm mang lại.",
-    fields: [t("eyebrow", "Dòng nhỏ phía trên", 80), t("title", "Tiêu đề", 140, { required: true }), ta("intro", "Mô tả", 400), t("leftTitle", "Tiêu đề cột trái", 80, { required: true }), t("rightTitle", "Tiêu đề cột phải", 80, { required: true }), ta("note", "Ghi chú dưới hai cột", 300)],
+    fields: [t("eyebrow", "Dòng nhỏ phía trên", 80), t("title", "Tiêu đề", 140, { required: true }), ta("intro", "Mô tả", 400), t("leftTitle", "Tiêu đề cột trái", 80, { required: true }), t("rightTitle", "Tiêu đề cột phải", 80, { required: true }), ta("note", "Ghi chú dưới hai cột", 300), img("image", "Ảnh minh hoạ (rộng)"), t("imageAlt", "Mô tả ảnh (alt)", 160)],
     lists: [
       { key: "left", label: "Cột trái", addLabel: "Thêm ý", max: 6, fields: [t("text", "Nội dung", 120, { required: true })] },
       { key: "right", label: "Cột phải", addLabel: "Thêm ý", max: 6, fields: [t("text", "Nội dung", 120, { required: true })] },
@@ -176,7 +176,7 @@ export const SECTION_DEFS: Record<SectionType, SectionDef> = {
     lists: [{ key: "items", label: "Chuyên ngành", addLabel: "Thêm chuyên ngành", max: 6, fields: [
       t("key", "Mã tab (vd robotics)", 20, { required: true, hint: "chữ thường không dấu, gạch ngang" }), t("tab", "Chữ trên tab", 30, { required: true }), t("name", "Tên chuyên ngành", 80, { required: true }),
       t("ages", "Độ tuổi / cấp học", 80), t("hook", "Dành cho bạn nhỏ nào", 160), ta("text", "Con học gì", 500), ta("outcomes", "Con làm được (mỗi dòng một ý)", 500),
-      t("tools", "Phần mềm / luyện thi", 200), img("image", "Ảnh"), t("imageAlt", "Mô tả ảnh (alt)", 160), t("credit", "Nguồn ảnh", 120),
+      t("tools", "Phần mềm / luyện thi", 200), img("image", "Ảnh"), t("imageAlt", "Mô tả ảnh (alt)", 160), t("credit", "Nguồn ảnh", 120), u("creditUrl", "Liên kết nguồn ảnh"),
       t("headline", "Tiêu đề lớn khi vào bằng ?nganh=", 120), t("interest", "Chuyên ngành chọn sẵn trong form", 60),
     ] }],
     needs: "items",

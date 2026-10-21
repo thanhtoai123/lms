@@ -15,7 +15,7 @@ export const MEDIA_STATUS_VI: Record<MediaStatus, string> = {
 };
 
 /**
- * Ảnh lớp chỉ được duyệt gửi PH khi mọi học viên xuất hiện trong ảnh đều có PH đồng ý đăng ảnh (NĐ13).
+ * Ảnh lớp chỉ được duyệt gửi PH khi mọi học viên xuất hiện trong ảnh đều có PH đồng ý đăng ảnh (Luật BVDLCN 91/2025).
  * Học viên có nhiều PH: chỉ cần một PH (người giám hộ chính) đồng ý là đủ; không PH nào đồng ý → chặn.
  */
 export function consentCheck(taggedStudentIds: string[], consentByStudent: Map<string, boolean>): { ok: boolean; blocked: string[] } {

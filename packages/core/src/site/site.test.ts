@@ -86,7 +86,13 @@ test("trang con: đủ trang, slug đúng sơ đồ, xuất bản được; ch�
   for (const p of SITE_DEMO_PAGES) {
     assert.ok(isSiteSlug(p.slug), p.slug);
     const doc = normalizeLanding(p.build());
-    assert.deepEqual(doc, p.build(), `${p.slug}: chuẩn hoá không làm mất chữ`);
+    // Chuẩn hoá không làm mất / cắt chữ (trường tuỳ chọn mới như "icon" được thêm rỗng — bỏ qua)
+    const src = p.build();
+    src.sections.forEach((sec, i) => {
+      const out = doc.sections.find((x) => x.id === sec.id) ?? doc.sections[i]!;
+      for (const [k, v] of Object.entries(sec.data)) assert.equal(out.data[k], v, `${p.slug} › ${sec.id}.${k}`);
+      for (const [lk, rows] of Object.entries(sec.lists)) rows.forEach((r, j) => { for (const [k, v] of Object.entries(r)) assert.equal(out.lists[lk]![j]![k], v, `${p.slug} › ${sec.id}.${lk}[${j}].${k}`); });
+    });
     const r = validateLanding(doc, { title: p.title, slug: p.slug });
     assert.deepEqual(r.errors, [], p.slug);
     assert.ok(p.seoTitle.length <= 70 && p.seoDescription.length <= 170, `${p.slug} SEO`);

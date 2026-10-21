@@ -100,7 +100,7 @@ export async function xuLySuKienOa(db: Database, body: unknown, actorId?: string
     if (!sk.sdt) return { ok: true, loai: sk.loai, nhan: `${nhan} (không có SĐT nên chưa tạo lead)`, conversationId: c.id };
 
     try {
-      // Khách CHỦ ĐỘNG bấm nút chia sẻ ⇒ đây là đồng ý thật, đủ căn cứ tạo lead (NĐ 13/2023)
+      // Khách CHỦ ĐỘNG bấm nút chia sẻ ⇒ đây là đồng ý thật, đủ căn cứ tạo lead (Luật BVDLCN 91/2025, NĐ 356/2025)
       const r = await createLead(d, {
         parentName: sk.ten ?? "Khách Zalo", phone: sk.sdt, centerId: c.centerId, source: "zalo-oa",
         utmSource: "zalo", utmMedium: "chat", consent: true,

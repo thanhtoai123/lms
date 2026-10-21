@@ -84,6 +84,30 @@ function btn(ctx: RenderCtx, label: string, url: string, kind: "primary" | "ghos
   return `<a class="lp-btn lp-btn-${kind} ${cls}" href="${escHtml(h)}" data-cta="1"${external(h)}>${escHtml(label)}</a>`;
 }
 
+
+/* ---------------------------- biểu tượng nét (24×24, cùng một kiểu) ---------------------------- */
+const ICONS: Record<string, string> = {
+  "man-hinh": '<rect x="3" y="4" width="18" height="12" rx="2"/><circle cx="12" cy="9" r="2.2"/><path d="M8.5 14c.6-1.6 2-2.4 3.5-2.4s2.9.8 3.5 2.4M8 20l4-4 4 4"/>',
+  nhom: '<circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.5"/><path d="M15.5 14.2c3 .2 5.5 2.6 5.5 5.8"/>',
+  mat: '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+  chuan: '<path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/>',
+  nha: '<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/>',
+  "ho-so": '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M8 13h8M8 16h5"/>',
+  "tia-sang": '<path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/><circle cx="12" cy="12" r="3"/>',
+  "la-ban": '<circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/>',
+  code: '<path d="M8 8l-4 4 4 4M16 8l4 4-4 4M13.5 6l-3 12"/>',
+  cup: '<path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4"/><path d="M12 13v4M9 20h6"/>',
+  "chia-se": '<path d="M4 5h16v10H9l-5 4z"/><path d="M8 9h8M8 12h5"/>',
+  "ten-lua": '<path d="M12 3c3 2 4.5 5 4.5 9l-2 4h-5l-2-4C7.5 8 9 5 12 3z"/><circle cx="12" cy="10" r="1.8"/><path d="M9.5 16l-2.5 3M14.5 16l2.5 3M12 17v4"/>',
+};
+/** Ô biểu tượng (màu xoay vòng xanh dương / xanh ngọc / vàng); mã lạ → số thứ tự như cũ */
+function iconTile(name: string | undefined, i: number): string {
+  const p = ICONS[(name ?? "").trim()];
+  if (!p) return `<span class="lp-num">${i + 1}</span>`;
+  return `<span class="lp-ico lp-ico-${i % 3}" aria-hidden="true"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${p}</svg></span>`;
+}
+export const LANDING_ICON_NAMES: readonly string[] = Object.keys(ICONS);
+
 const d = (s: LandingSection, k: string) => s.data[k] ?? "";
 function head(s: LandingSection, ctx: RenderCtx, extra = ""): string {
   const title = d(s, "title");
@@ -137,7 +161,7 @@ function renderStats(s: LandingSection, ctx: RenderCtx): string {
 }
 
 function renderFeatures(s: LandingSection, ctx: RenderCtx): string {
-  const items = rowsOf(s, "items").map((r, i) => `<li class="lp-card"><span class="lp-num">${i + 1}</span><h3>${escHtml(r.title ?? "")}</h3>${r.text ? `<p>${text(r.text)}</p>` : ""}</li>`).join("");
+  const items = rowsOf(s, "items").map((r, i) => `<li class="lp-card">${iconTile(r.icon, i)}<h3>${escHtml(r.title ?? "")}</h3>${r.text ? `<p>${text(r.text)}</p>` : ""}</li>`).join("");
   return wrap(s, "lp-features", head(s, ctx) + `<ol class="lp-grid">${items}</ol>`, "cam-ket");
 }
 
@@ -170,7 +194,7 @@ function renderCta(s: LandingSection, ctx: RenderCtx): string {
 }
 
 function renderSteps(s: LandingSection, ctx: RenderCtx): string {
-  const items = rowsOf(s, "items").map((r, i) => `<li><span class="lp-num">${i + 1}</span><div><h3>${escHtml(r.title ?? "")}</h3>${r.text ? `<p>${text(r.text)}</p>` : ""}</div></li>`).join("");
+  const items = rowsOf(s, "items").map((r, i) => `<li>${iconTile(r.icon, i)}<div><h3>${escHtml(r.title ?? "")}</h3>${r.text ? `<p>${text(r.text)}</p>` : ""}</div></li>`).join("");
   return wrap(s, "lp-steps", head(s, ctx) + `<ol class="lp-steps-list">${items}</ol>`, "quy-trinh");
 }
 
@@ -182,7 +206,9 @@ function renderTimeline(s: LandingSection, ctx: RenderCtx): string {
 function renderGallery(s: LandingSection, ctx: RenderCtx): string {
   const items = rowsOf(s, "items").map((r) => {
     const im = src(ctx, r.image ?? "");
-    return im ? `<li><figure>${imgTag(ctx, r.image ?? "", r.caption ?? "")}${r.caption ? `<figcaption>${escHtml(r.caption)}</figcaption>` : ""}</figure></li>` : "";
+    const cu = r.creditUrl && validUrl(r.creditUrl) ? href(ctx, r.creditUrl) : "";
+    const credit = r.credit ? `<small class="lp-credit">${cu ? `<a href="${escHtml(cu)}"${external(cu)} rel="noopener nofollow">${escHtml(r.credit)}</a>` : escHtml(r.credit)}</small>` : "";
+    return im ? `<li><figure>${imgTag(ctx, r.image ?? "", r.caption ?? "")}${r.caption || credit ? `<figcaption>${escHtml(r.caption ?? "")}${credit}</figcaption>` : ""}</figure></li>` : "";
   }).join("");
   return wrap(s, "lp-gallery", head(s, ctx) + `<ul class="lp-photos">${items}</ul>`, "hinh-anh");
 }
@@ -228,7 +254,8 @@ function renderContrast(s: LandingSection, ctx: RenderCtx): string {
     return rows ? `<div class="lp-vs-col ${cls}"><h3>${escHtml(title)}</h3><ul>${rows}</ul></div>` : "";
   };
   const left = col("left", d(s, "leftTitle"), "lp-vs-l"), right = col("right", d(s, "rightTitle"), "lp-vs-r");
-  return wrap(s, "lp-contrast", headK(s) + `<div class="lp-vs${left ? "" : " lp-vs-one"}">${left}${left ? `<span class="lp-vs-arrow" aria-hidden="true">→</span>` : ""}${right}</div>`
+  const pic = d(s, "image") ? `<figure class="lp-vs-pic">${imgTag(ctx, d(s, "image"), d(s, "imageAlt") || d(s, "title"), { sizes: "(max-width: 1120px) 100vw, 1080px" })}</figure>` : "";
+  return wrap(s, "lp-contrast", headK(s) + pic + `<div class="lp-vs${left ? "" : " lp-vs-one"}">${left}${left ? `<span class="lp-vs-arrow" aria-hidden="true">→</span>` : ""}${right}</div>`
     + (d(s, "note") ? `<p class="lp-note">${text(d(s, "note"))}</p>` : ""), s.id);
 }
 
@@ -261,7 +288,7 @@ function renderTracks(s: LandingSection, ctx: RenderCtx): string {
   const bar = rows.map((r, i) => `<label for="${gid}-${i}">${escHtml(r.tab ?? "")}</label>`).join("");
   const panels = rows.map((r) => {
     const outs = (r.outcomes ?? "").split("\n").map((x) => x.replace(/^[-•\s]+/, "").trim()).filter(Boolean).map((x) => `<li>${escHtml(x)}</li>`).join("");
-    const pic = r.image ? `<figure class="lp-tab-pic"><div class="lp-frame"><span aria-hidden="true"></span>${imgTag(ctx, r.image, r.imageAlt || r.name || "", { sizes: "(max-width: 860px) 100vw, 560px" })}</div>${r.credit ? `<figcaption>${escHtml(r.credit)}</figcaption>` : ""}</figure>` : "";
+    const pic = r.image ? `<figure class="lp-tab-pic"><div class="lp-frame"><span aria-hidden="true"></span>${imgTag(ctx, r.image, r.imageAlt || r.name || "", { sizes: "(max-width: 860px) 100vw, 560px" })}</div>${r.credit ? `<figcaption>${r.creditUrl && validUrl(r.creditUrl) ? `<a href="${escHtml(href(ctx, r.creditUrl))}"${external(href(ctx, r.creditUrl))} rel="noopener nofollow">${escHtml(r.credit)}</a>` : escHtml(r.credit)}</figcaption>` : ""}</figure>` : "";
     return `<article class="lp-tab-panel" id="nganh-${escHtml(tabKey(r.key ?? ""))}">${pic}<div class="lp-tab-body">`
       + (r.ages ? `<span class="lp-tag">${escHtml(r.ages)}</span>` : "")
       + `<h3>${escHtml(r.name ?? "")}</h3>`
@@ -675,6 +702,13 @@ export function landingCss(): string {
 .lp-dark .lp-ins-val{color:#fbbf24}
 .lp-dark .lp-ins-txt,.lp-dark .lp-src{color:rgba(248,250,252,.7)}
 .lp-dark .lp-ins-close{color:#fff}
+.lp-vs-pic{margin:0 0 26px}
+.lp-vs-pic img{width:100%;border-radius:calc(var(--lp-r) + 6px)}
+.lp-ico{display:inline-grid;place-items:center;width:48px;height:48px;border-radius:14px;flex:none;background:#dbeafe;color:#1e40af}
+.lp-ico-1{background:#d1fae5;color:#047857}
+.lp-ico-2{background:#fef3c7;color:#b45309}
+.lp-credit{display:block;margin-top:2px;font-size:.72rem;color:#64748b}
+.lp-credit a,.lp-tab-pic figcaption a{color:inherit;text-decoration:underline;text-underline-offset:2px}
 .lp-vs{display:grid;grid-template-columns:1fr auto 1fr;gap:18px;align-items:stretch}
 .lp-vs-one{grid-template-columns:1fr}
 .lp-vs-col{border-radius:calc(var(--lp-r) + 4px);padding:26px 24px;border:1px solid var(--lp-line);background:#fff}
@@ -738,8 +772,14 @@ export function landingCss(): string {
 .lp-chg-a::before{content:"→";position:absolute;left:0;top:-1px;color:var(--success,#10b981);font-weight:800}
 .lp-chg-pic img{width:100%;border-radius:calc(var(--lp-r) + 6px)}
 .lp-steps-list{grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
-@media (min-width:861px){.lp-features .lp-grid:has(>li:nth-child(5)),.lp-photos:has(>li:nth-child(5)){grid-template-columns:repeat(3,1fr)}}
+@media (min-width:861px){.lp-features .lp-grid:has(>li:nth-child(5)),.lp-photos:has(>li:nth-child(5)){grid-template-columns:repeat(3,1fr)}.lp-photos:has(>li:nth-child(7)){grid-template-columns:repeat(4,1fr)}}
 .lp-nav a{white-space:nowrap}
+.lp-consent-bar{position:fixed;left:16px;bottom:16px;z-index:40;max-width:440px;background:#fff;border:1px solid var(--lp-line);border-radius:16px;box-shadow:0 20px 50px -20px rgba(15,23,42,.45);padding:14px 16px;display:grid;gap:10px;font-size:.88rem;color:var(--lp-mut)}
+.lp-consent-bar a{color:var(--primary-ink,#1d4ed8)}
+.lp-consent-bar>div{display:flex;gap:8px;justify-content:flex-end}
+.lp-consent-bar .lp-btn{width:auto;cursor:pointer;font:inherit;font-weight:700}
+@media (max-width:860px){.lp-consent-bar{left:10px;right:10px;bottom:84px;max-width:none}}
+@media (max-width:1320px){.lp-top .lp-tel{display:none}.lp-nav{gap:18px}}
 @media (min-width:561px) and (max-width:1024px){.lp-ins-list{grid-template-columns:1fr 1fr}}
 @media (max-width:600px){.lp-photos{grid-template-columns:1fr 1fr;gap:12px}.lp-photos figcaption{font-size:.8rem;line-height:1.4}}
 @media (max-width:1100px){.lp-top .lp-nav,.lp-top .lp-tel{display:none}.lp-top .lp-menu{display:block}}

@@ -1,6 +1,6 @@
 import { duongNoiBo } from "../security/duongNoiBo.js";
 /**
- * Website / tin tức, tracking marketing, cohort / churn, tuân thủ dữ liệu (NĐ13/2023) — quy tắc thuần.
+ * Website / tin tức, tracking marketing, cohort / churn, tuân thủ dữ liệu (Luật BVDLCN 91/2025, NĐ 356/2025) — quy tắc thuần.
  */
 
 export class GrowthRuleError extends Error {

@@ -222,41 +222,64 @@ const terms: SiteDemoPage = {
   ]),
 };
 
-/** Bản nháp chính sách bảo mật: nêu đúng dữ liệu form đang thu, cần người có thẩm quyền duyệt trước khi bỏ chữ [DEMO] */
+/**
+ * Chính sách bảo mật (21/10/2026) — theo Luật Bảo vệ dữ liệu cá nhân 91/2025/QH15 và Nghị định 356/2025/NĐ-CP: nêu đúng
+ * dữ liệu hệ thống đang thu (form 4 ô, trang đăng ký, hồ sơ học tập, cookie đo lường), mục đích TỪNG LOẠI, đồng ý riêng cho
+ * đo lường quảng cáo (banner, components/landing/consent-banner.tsx), quyền của chủ thể dữ liệu. Không phải ý kiến pháp lý:
+ * trung tâm nên nhờ luật sư rà lại trước khi chạy quảng cáo lớn.
+ */
 const privacy: SiteDemoPage = {
   slug: "chinh-sach-bao-mat", title: "Chính sách bảo mật", template: "site-chinh-sach", label: "Chính sách / điều khoản", variant: "classic",
   desc: "Cách trung tâm thu thập, sử dụng và bảo vệ thông tin của phụ huynh và học sinh.",
   seoTitle: `Chính sách bảo mật — ${B}`, seoDescription: `Cách ${B} thu thập, sử dụng và bảo vệ thông tin của phụ huynh và học sinh.`,
   build: () => page([
-    sec("hero", "hero", { eyebrow: "Chính sách", title: "Chính sách bảo mật", subtitle: "[DEMO] Bản nháp — cần người có thẩm quyền duyệt và ghi ngày hiệu lực trước khi công bố.", primaryLabel: "Về trang chủ", primaryUrl: "/", secondaryLabel: "", secondaryUrl: "" }, { badges: [] }),
+    sec("hero", "hero", { eyebrow: "Chính sách", title: "Chính sách bảo mật", subtitle: "Có hiệu lực từ ngày 21/10/2026. Áp dụng cho website, form đăng ký và quá trình học tại trung tâm.", primaryLabel: "Về trang chủ", primaryUrl: "/", secondaryLabel: "", secondaryUrl: "" }, { badges: [] }),
     sec("text", "noi-dung", {
       title: "",
       body: [
-        `${TH_BRAND.legalName} (${B}) tôn trọng và bảo vệ thông tin của phụ huynh và học sinh.`,
+        `${TH_BRAND.legalName} (${B}, sau đây gọi là "trung tâm") tôn trọng và bảo vệ dữ liệu cá nhân của phụ huynh và học sinh, theo Luật Bảo vệ dữ liệu cá nhân số 91/2025/QH15 và Nghị định 356/2025/NĐ-CP.`,
         "",
-        "## 1. Thông tin trung tâm thu thập",
-        "- Khi đăng ký học trải nghiệm: họ tên phụ huynh, số điện thoại, tên con, lớp, trường và ghi chú do phụ huynh tự nhập.",
-        "- Trong quá trình học: chuyên cần, bài tập, sản phẩm, video buổi học, phiếu đánh giá và chứng nhận của con (hồ sơ công nghệ).",
+        "## 1. Dữ liệu trung tâm thu thập",
+        "- **Khi bố mẹ đăng ký học trải nghiệm:** họ tên phụ huynh, số điện thoại / Zalo, lớp của con, chuyên ngành quan tâm và ghi chú do bố mẹ tự nhập. Trang đăng ký đầy đủ có thể hỏi thêm tên con và trường.",
+        "- **Khi con học tại trung tâm:** lịch học, chuyên cần, bài tập, sản phẩm, video buổi học, phiếu đánh giá năng lực và chứng nhận (hồ sơ công nghệ của con); thông tin học phí, hoá đơn.",
+        "- **Khi xem website:** trang đã xem, nguồn truy cập (mã chiến dịch UTM) và một mã ngẫu nhiên lưu trên trình duyệt để đếm lượt truy cập. Mã này không chứa tên hay số điện thoại.",
+        "- **Cookie đo lường quảng cáo (Meta, Google):** chỉ được nạp khi bố mẹ bấm \"Đồng ý\" ở thông báo đo lường trên website.",
         "",
-        "## 2. Mục đích sử dụng",
-        "- Liên hệ tư vấn, xếp lớp, gửi lịch học và thông báo của lớp.",
-        "- Theo dõi, đánh giá việc học và báo cáo tiến bộ cho phụ huynh.",
-        "- Chỉ gửi thông tin ưu đãi, sự kiện khi phụ huynh đồng ý nhận; có thể hủy bất cứ lúc nào.",
+        "## 2. Trung tâm dùng dữ liệu để làm gì",
+        "- Gọi điện / nhắn Zalo tư vấn và hẹn buổi học trải nghiệm — theo sự đồng ý của bố mẹ khi gửi form.",
+        "- Xếp lớp, gửi lịch học, thông báo của lớp, báo cáo tiến bộ, thu học phí và xuất hoá đơn — để thực hiện việc học đã đăng ký.",
+        "- Đo hiệu quả quảng cáo — chỉ khi bố mẹ đồng ý riêng ở thông báo đo lường.",
+        "- Gửi ưu đãi, sự kiện — chỉ khi bố mẹ đồng ý nhận; bố mẹ có thể từ chối bất cứ lúc nào.",
+        "Trung tâm không dùng dữ liệu cho mục đích khác khi chưa hỏi lại bố mẹ.",
         "",
-        "## 3. Hình ảnh và video của con",
-        "- Dùng cho hồ sơ công nghệ của con.",
-        "- Chỉ dùng cho truyền thông khi phụ huynh đồng ý bằng văn bản.",
+        "## 3. Dữ liệu và hình ảnh của trẻ em",
+        "- Trung tâm chỉ nhận thông tin của con từ phụ huynh hoặc người giám hộ.",
+        "- Hình ảnh, video của con dùng cho hồ sơ công nghệ của con. Chỉ dùng cho truyền thông khi có đồng ý bằng văn bản của phụ huynh, và của cả con nếu con từ đủ 7 tuổi.",
         "",
-        "## 4. Chia sẻ và bảo vệ",
-        "- Không bán hoặc cho thuê thông tin cá nhân.",
-        "- Chỉ người phụ trách lớp, tư vấn và vận hành được xem thông tin cần cho công việc của mình.",
-        "- Thực hiện theo quy định pháp luật Việt Nam về bảo vệ dữ liệu cá nhân.",
+        "## 4. Chia sẻ dữ liệu",
+        "- Trung tâm **không bán, không cho thuê** dữ liệu cá nhân.",
+        "- Chỉ chia sẻ phần cần thiết với đơn vị cung cấp dịch vụ cho trung tâm: máy chủ lưu trữ, lớp học trực tuyến ClassIn, Zalo, tin nhắn, ngân hàng / cổng thanh toán; và Meta, Google khi bố mẹ đã đồng ý đo lường quảng cáo. Một số dịch vụ có máy chủ ở nước ngoài.",
+        "- Cung cấp cho cơ quan nhà nước khi pháp luật yêu cầu.",
         "",
-        "## 5. Quyền của phụ huynh",
-        "Phụ huynh có thể đề nghị xem, sửa hoặc xóa thông tin, rút lại sự đồng ý nhận tin.",
+        "## 5. Lưu trữ và bảo vệ",
+        "- Thông tin đăng ký của phụ huynh chưa nhập học được lưu tối đa 24 tháng, sau đó xoá hoặc ẩn danh.",
+        "- Hồ sơ học tập lưu trong thời gian con học và theo yêu cầu của bố mẹ; chứng từ học phí lưu theo quy định về kế toán.",
+        "- Hệ thống dùng kết nối mã hoá (HTTPS), phân quyền theo vai trò (chỉ người phụ trách lớp, tư vấn, vận hành xem phần dữ liệu cần cho công việc), ghi nhật ký truy cập và sao lưu định kỳ.",
+        "- Nếu xảy ra sự cố lộ lọt dữ liệu, trung tâm xử lý và thông báo theo quy định pháp luật.",
         "",
-        "## 6. Liên hệ",
-        `Hotline ${TH_BRAND.hotline} · ${TH_BRAND.website}.`,
+        "## 6. Quyền của bố mẹ và học sinh",
+        "Bố mẹ (và con theo quy định) có quyền: được biết dữ liệu đang được xử lý; xem, sửa dữ liệu; rút lại sự đồng ý; yêu cầu xoá hoặc hạn chế xử lý; phản đối việc dùng dữ liệu cho quảng cáo, tiếp thị; khiếu nại theo quy định pháp luật.",
+        `Gửi yêu cầu qua hotline ${TH_BRAND.hotline} hoặc nhóm Zalo lớp. Trung tâm phản hồi trong 24 giờ và xử lý trong 5 ngày làm việc. Rút lại đồng ý không ảnh hưởng tới việc xử lý đã thực hiện trước đó.`,
+        "",
+        "## 7. Đo lường trên website",
+        "- Trung tâm tự đếm lượt xem trang và nguồn truy cập để cải thiện website; dữ liệu này không bán, không gửi cho bên quảng cáo.",
+        "- Cookie của Meta Pixel, Google Analytics, Google Ads chỉ chạy khi bố mẹ chọn \"Đồng ý\". Muốn đổi lựa chọn: bấm \"Đổi lựa chọn đo lường\" ở chân trang.",
+        "",
+        "## 8. Thay đổi chính sách",
+        "Khi chính sách thay đổi, trung tâm cập nhật trên trang này và ghi ngày hiệu lực mới.",
+        "",
+        "## 9. Liên hệ",
+        `${TH_BRAND.legalName} · Hotline ${TH_BRAND.hotline} · ${TH_BRAND.website}.`,
       ].join("\n"),
     }),
   ]),
@@ -265,7 +288,8 @@ const privacy: SiteDemoPage = {
 /** Các trang con của website, đúng thứ tự sơ đồ */
 export const SITE_DEMO_PAGES: readonly SiteDemoPage[] = [about, courses, ...trackPages, contact, privacy, terms];
 /** Trang con có chữ "[DEMO]" (bản nháp cần duyệt) */
-export const SITE_DRAFT_SLUGS: readonly string[] = ["chinh-sach-bao-mat"];
+/** Trang còn là bản nháp (có chữ [DEMO]) — hiện không còn trang nào */
+export const SITE_DRAFT_SLUGS: readonly string[] = [];
 
 /* --------------------------- Mẫu tạo trang mới --------------------------- */
 /** Mẫu trang chi tiết cho chương trình / khoá mới (chưa có trong danh mục chuẩn): chữ mẫu có [DEMO] để nhắc thay */

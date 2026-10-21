@@ -53,6 +53,7 @@ export const DEFAULT_CHROME: SiteChrome = {
     { label: "Tuyển dụng", href: "/tuyen-dung" },
     { label: "Điều khoản đăng ký học", href: "/chinh-sach/dieu-khoan" },
     { label: "Chính sách bảo mật", href: "/chinh-sach/bao-mat" },
+    { label: "Đổi lựa chọn đo lường", href: "/#do-luong" },
   ],
 };
 

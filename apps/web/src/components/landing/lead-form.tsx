@@ -23,8 +23,16 @@ type W = Window & {
 const VN_PHONE = /^(0|\+?84)(3|5|7|8|9)\d{8}$/;
 const GRADES = Array.from({ length: 12 }, (_, i) => i + 1);
 
-function fireConversion(eventId: string, interest: string) {
+/** Phụ huynh đã đồng ý đo lường quảng cáo (consent-banner.tsx) */
+function adsConsent(): boolean {
+  try { return localStorage.getItem("th-ads-consent") === "yes"; } catch { return false; }
+}
+const cookie = (k: string) => document.cookie.split("; ").find((x) => x.startsWith(`${k}=`))?.slice(k.length + 1) ?? null;
+
+function fireConversion(eventId: string, interest: string, phone: string) {
   const w = window as W;
+  // Google Ads enhanced conversions (bật trong tài khoản Ads): gtag tự băm số điện thoại trước khi gửi
+  try { const d = phone.replace(/\D/g, ""); if (d) w.gtag?.("set", "user_data", { phone_number: `+84${d.replace(/^(84|0)/, "")}` }); } catch { /* bỏ qua */ }
   try { w.fbq?.("track", "Lead", { content_name: interest || "Học trải nghiệm 1:1", content_category: "trial" }, { eventID: eventId }); } catch { /* bỏ qua */ }
   try {
     w.gtag?.("event", "generate_lead", { event_id: eventId, lead_source: "landing", interest: interest || "chua-ro" });
@@ -65,12 +73,14 @@ export function LeadForm({ utm, thankYou, interest, submitLabel }: { utm: Utm; t
       eventId: eventId.slice(0, 100),
       source: "web-form",
       anonId: anonId(),
+      // Meta Conversions API phía máy chủ chỉ chạy khi phụ huynh đã đồng ý đo lường quảng cáo
+      ...(adsConsent() ? { adsConsent: true, fbp: cookie("_fbp"), fbc: cookie("_fbc") } : {}),
     };
     try {
       const r = await fetch("/api/public/leads", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       const j = (await r.json()) as { ok: boolean; error?: string; duplicated?: boolean };
       if (j.ok) {
-        fireConversion(eventId, pick);
+        fireConversion(eventId, pick, phone);
         setState("done");
         setMsg(j.duplicated ? "Trung tâm đã nhận thông tin của ba mẹ trước đó và sẽ liên hệ sớm." : thankYou || TH_REGISTER_BLOCK.thankYou);
       } else { setState("error"); setMsg(j.error ?? "Có lỗi, ba mẹ vui lòng thử lại."); }

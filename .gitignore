@@ -23,3 +23,4 @@ logs/
 
 # Chép tự động từ pdfjs-dist khi cài gói (apps/web/scripts/copy-pdf-worker.mjs)
 apps/web/public/pdf.worker.min.mjs
+__pycache__/

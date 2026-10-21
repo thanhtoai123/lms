@@ -50,7 +50,7 @@ export interface CreateLeadInput {
   notes?: string | null;
   facebookUrl?: string | null;
   consent?: boolean;
-  /** Đồng ý nhận thông tin tiếp thị (NĐ13: tách riêng mục đích) */
+  /** Đồng ý nhận thông tin tiếp thị (Luật BVDLCN 91/2025: tách riêng mục đích) */
   marketingConsent?: boolean;
   referralCode?: string | null;
   autoAssign?: boolean;
@@ -813,7 +813,7 @@ export interface ConvertLeadInput {
   leadId: string;
   parent?: { fullName?: string | null; email?: string | null; idNumber?: string | null; address?: string | null; province?: string | null; ward?: string | null } | null;
   items: ConvertItemInput[];
-  /** PH đồng ý cho đăng ảnh con (NĐ13) */
+  /** PH đồng ý cho đăng ảnh con (Luật BVDLCN 91/2025) */
   mediaConsent?: boolean;
   /** Miễn khoá tiên quyết (quản lý cơ sở, kèm lý do) — khách mới xếp lớp theo năng lực */
   waiverReason?: string | null;

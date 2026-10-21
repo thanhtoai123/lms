@@ -29,7 +29,7 @@ export const DELIVERY_VARS: Record<DeliveryEvent, string[]> = {
 /**
  * ĐỒNG Ý NHẬN TIN — vạch ranh giới giữa tin TIẾP THỊ và tin GIAO DỊCH.
  *
- * Phụ huynh tắt "nhận tin tiếp thị" thì KHÔNG được gửi thông báo chung nữa (Nghị định 13/2023 và
+ * Phụ huynh tắt "nhận tin tiếp thị" thì KHÔNG được gửi thông báo chung nữa (Luật BVDLCN 91/2025, Nghị định 356/2025 và
  * Luật BVDLCN 2025: tiếp thị phải có đồng ý riêng, rút lại lúc nào cũng được). Nhưng mã OTP,
  * nhắc học phí, nhắc lịch học, tóm tắt buổi, hoá đơn, học bạ là **tin phục vụ dịch vụ họ đang dùng**
  * — tắt luôn những tin này thì phụ huynh không biết con nghỉ học hay lớp đổi giờ. Vì vậy chỉ

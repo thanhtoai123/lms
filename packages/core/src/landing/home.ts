@@ -12,6 +12,9 @@
  *    Ảnh: phần mềm thật (ghi nguồn) hoặc tranh minh hoạ vector của trung tâm; lời phụ huynh để TẮT cho tới khi có lời thật.
  *  - Đường dẫn `/?nganh=robotics|ai|do-hoa|lap-trinh` (quảng cáo): mở sẵn tab, đổi tiêu đề lớn, chọn sẵn chuyên ngành.
  *
+ * Ảnh: tranh minh hoạ vector theo bộ nhận diện (tools/minh-hoa/art_trang_chu.py, tc-*.svg) và ảnh phần mềm thật có nguồn —
+ *    ưu tiên giấy phép mở (Wikimedia Commons, Roblox Creator Docs CC BY 4.0, Teachable Machine Apache-2.0); ảnh của nhà sản xuất
+ *    (WhalesBot, Autodesk, CreatiCode, Adobe, thể lệ cuộc thi) ghi nguồn và nên xin phép trước khi chạy quảng cáo lớn.
  * Mỗi lần cải tiến: sửa trong Website → Landing page → "Trang chủ" rồi Xuất bản; hoặc sửa ở đây cho lần dựng sau.
  */
 import { emptySection, type LandingDoc, type LandingSection, type SectionType } from "./model.js";
@@ -52,7 +55,7 @@ export const HOME_PAGE = {
   variant: "classic" as const,
   seoTitle: "Học Robotics, AI, lập trình online cho trẻ 8–18 tuổi | TH STEAM",
   seoDescription: "Con học Robotics, Trí tuệ nhân tạo, Thiết kế đồ họa và Lập trình online cùng giáo viên qua ClassIn: lớp nhỏ, tự làm sản phẩm thật, học trải nghiệm 1:1 trước.",
-  seoImage: "/lp-anh/og-hoc-cong-nghe-online.png",
+  seoImage: "/lp-anh/og-trang-chu.png",
   build(): LandingDoc {
     return {
       sections: [
@@ -66,7 +69,7 @@ export const HOME_PAGE = {
           eyebrow: "Robotics · AI · Đồ họa · Lập trình — online cho học sinh 8–18 tuổi",
           title: "Biến giờ con ngồi trước màn hình thành giờ con tạo ra công nghệ",
           subtitle: "Khoá học Robotics, Trí tuệ nhân tạo, Thiết kế đồ họa và Lập trình online. Giáo viên dạy trực tiếp qua ClassIn, lớp nhỏ, con tự tay làm ra sản phẩm và tự tin giới thiệu nó trước bố mẹ.",
-          image: "/lp-anh/lp-hero-chung.svg",
+          image: "/lp-anh/tc-hero.svg",
           imageAlt: "Tranh minh hoạ lớp học công nghệ online qua ClassIn: giáo viên dạy trực tiếp, học sinh làm robot, AI và mô hình 3D",
           formTitle: "Đặt lịch học trải nghiệm 1:1 cho con",
           formNote: "Giáo viên gọi lại trong giờ làm việc để hẹn giờ phù hợp với gia đình.",
@@ -121,6 +124,7 @@ export const HOME_PAGE = {
           intro: `Ở ${B}, thời gian con ngồi trước máy là thời gian con tự tay làm ra một thứ gì đó, sửa nó cho đến khi chạy, rồi đứng lên giới thiệu nó.`,
           leftTitle: "Khi con chỉ dùng công nghệ",
           rightTitle: "Khi con tạo ra công nghệ",
+          image: "/lp-anh/tc-xem-tao.svg", imageAlt: "Tranh minh hoạ: từ chỉ lướt xem video trên điện thoại đến tự lập trình robot và tạo sản phẩm trên máy tính",
           note: "Dùng máy tính và AI an toàn, trung thực là một trong 6 năng lực giáo viên đánh giá ở mỗi học sinh — không chỉ dạy kỹ thuật.",
         }, {
           left: [
@@ -153,7 +157,7 @@ export const HOME_PAGE = {
               text: "Con lập trình robot ảo làm nhiệm vụ: thu gom bưu kiện, cứu hộ trên bản đồ, du hành không gian. Robot chạy sai, con phải tự tìm ra vì sao — đó chính là lúc tư duy logic lớn lên.",
               outcomes: "Chia một nhiệm vụ lớn thành các bước nhỏ\nDùng cảm biến, vòng lặp, điều kiện để điều khiển robot\nTự tìm lỗi, tối ưu đường đi và thời gian",
               tools: "Phần mềm: RoboSim → RoboVR · Luyện thi tự chọn: Sáng tạo Robotics, ENJOY AI",
-              image: "/lp-anh/that/robovr-ban-do-thanh-pho.webp", imageAlt: "Bản đồ thành phố trong phần mềm lập trình robot ảo RoboVR", credit: "Ảnh phần mềm: WhalesBot (whalesbot.ai)",
+              image: "/lp-anh/that/robovr-ban-do-thanh-pho.webp", imageAlt: "Bản đồ thành phố trong phần mềm lập trình robot ảo RoboVR", credit: "Ảnh phần mềm: WhalesBot (whalesbot.ai)", creditUrl: "https://www.whalesbot.ai/",
               headline: "Con học lập trình Robotics AI online — robot chạy được nhờ chính con", interest: TH_TRACK_SHORT.ROBO,
             },
             {
@@ -162,7 +166,7 @@ export const HOME_PAGE = {
               text: "Con dùng AI để học, vẽ, làm nhạc, làm video và trang web. Quan trọng hơn, con học cách đặt câu hỏi, kiểm chứng câu trả lời và nhận ra khi AI sai — để AI giúp con nghĩ sâu hơn, không phải nghĩ hộ con.",
               outcomes: "Viết yêu cầu rõ ràng để AI hỗ trợ đúng việc\nKiểm chứng thông tin, nhận ra khi AI trả lời sai\nLàm video kể chuyện, trang web, dự án AI giải quyết vấn đề",
               tools: "Bộ công cụ AI phổ biến · Luyện thi tự chọn: Sáng tạo trẻ AI (THCS)",
-              image: "/lp-anh/lp-hero-ai.svg", imageAlt: "Tranh minh hoạ học sinh trò chuyện với trợ lý AI, vẽ tranh và làm nhạc", credit: "Tranh minh hoạ",
+              image: "/lp-anh/that/teachable-machine-du-lieu.webp", imageAlt: "Dạy máy tính nhận biết hình ảnh bằng Teachable Machine: thu thập ảnh mẫu cho từng nhóm", credit: "Ảnh: Google Creative Lab – Teachable Machine, Apache-2.0", creditUrl: "https://github.com/googlecreativelab/teachablemachine-community",
               headline: "Con học Trí tuệ nhân tạo AI online — dùng AI thông minh, an toàn, trung thực", interest: TH_TRACK_SHORT.AI,
             },
             {
@@ -171,7 +175,7 @@ export const HOME_PAGE = {
               text: "Tiểu học, con dựng mô hình 3D: ngôi nhà mơ ước, thành phố xanh của em. THCS, con thiết kế poster, bìa sách, ảnh ghép với Photoshop và công cụ AI tạo ảnh. Con học cách biến ý tưởng trong đầu thành thứ người khác nhìn thấy được.",
               outcomes: "Dựng mô hình 3D, căn chỉnh khối chính xác\nThiết kế poster, bìa sách có bố cục, màu sắc rõ ràng\nDùng AI tạo ảnh có chọn lọc, giữ dấu ấn riêng",
               tools: "Phần mềm: Tinkercad · Photoshop · Luyện thi tự chọn: ACP Photoshop (từ 13 tuổi)",
-              image: "/lp-anh/that/tinkercad-banh-rang.webp", imageAlt: "Mô hình bánh răng 3D trong phần mềm Tinkercad", credit: "Ảnh phần mềm: Autodesk Tinkercad (tinkercad.com)",
+              image: "/lp-anh/that/tinkercad-banh-rang.webp", imageAlt: "Mô hình bánh răng 3D trong phần mềm Tinkercad", credit: "Ảnh phần mềm: Autodesk Tinkercad (tinkercad.com)", creditUrl: "https://www.tinkercad.com/",
               headline: "Con học Thiết kế đồ họa AI online — từ mô hình 3D đến poster đầu tay", interest: TH_TRACK_SHORT.DOHOA,
             },
             {
@@ -180,7 +184,7 @@ export const HOME_PAGE = {
               text: "Đi từ kéo thả đến code thật: Scratch và CreatiCode AI ở tiểu học; game 3D Roblox và app điện thoại ở THCS; Python, lập trình web, WordPress ở THCS–THPT. Mỗi chặng con làm ra game, ứng dụng, website của chính mình.",
               outcomes: "Làm game, app điện thoại có AI, website hoàn chỉnh\nViết code Python, HTML, CSS, JavaScript\nĐọc lỗi, sửa lỗi, làm việc theo dự án",
               tools: "Phần mềm: Scratch → CreatiCode AI → Roblox → App Inventor → Python → Web → WordPress · Luyện thi tự chọn: Tin học trẻ, HKICO, KHKT, Tốt nghiệp THPT môn Tin học",
-              image: "/lp-anh/that/roblox-studio-giao-dien.webp", imageAlt: "Giao diện Roblox Studio để làm game 3D", credit: "Ảnh phần mềm: Roblox Creator Docs (CC BY 4.0)",
+              image: "/lp-anh/that/roblox-studio-dua-xe.webp", imageAlt: "Làm game đua xe 3D trong Roblox Studio", credit: "Ảnh: Roblox Creator Docs, CC BY 4.0", creditUrl: "https://github.com/Roblox/creator-docs",
               headline: "Con học lập trình online — từ chơi game đến tự làm game, app, website", interest: TH_TRACK_SHORT.CODE,
             },
           ],
@@ -211,12 +215,12 @@ export const HOME_PAGE = {
           intro: "Một lớp học online tốt không nằm ở phần mềm, mà ở cách giáo viên theo sát con.",
         }, {
           items: [
-            { title: "Giáo viên dạy trực tiếp, không phải video quay sẵn", text: "Mỗi buổi là một lớp học thật qua ClassIn: giáo viên giảng, làm mẫu, giao việc và sửa bài cho từng bạn." },
-            { title: "Lớp nhỏ 6–8 bạn", text: "Đủ ít để giáo viên theo sát từng bạn, đủ đông để con có bạn cùng làm, cùng trình bày. Cần kèm riêng thì có lớp 1:1." },
-            { title: "Bố mẹ tận mắt thấy con tiến bộ", text: "Định kỳ con báo cáo dự án trực tuyến trước phụ huynh; gia đình nhận phiếu đánh giá năng lực và video sản phẩm của con." },
-            { title: "Bám chương trình của Bộ GD&ĐT", text: "Theo GDPT 2018 môn Tin học, khung năng lực số (Thông tư 02/2025) và khung nội dung giáo dục AI áp dụng từ năm học 2026–2027." },
-            { title: "Học ngay tại nhà", text: "Không đưa đón, không lo kẹt xe. Chỉ cần máy tính có camera, tai nghe có micro và mạng ổn định." },
-            { title: "Hồ sơ công nghệ của riêng con", text: "Mọi dự án, video, phiếu đánh giá, chứng nhận đều được lưu lại — một hồ sơ năng lực lớn dần theo năm tháng." },
+            { title: "Giáo viên dạy trực tiếp, không phải video quay sẵn", text: "Mỗi buổi là một lớp học thật qua ClassIn: giáo viên giảng, làm mẫu, giao việc và sửa bài cho từng bạn.", icon: "man-hinh" },
+            { title: "Lớp nhỏ 6–8 bạn", text: "Đủ ít để giáo viên theo sát từng bạn, đủ đông để con có bạn cùng làm, cùng trình bày. Cần kèm riêng thì có lớp 1:1.", icon: "nhom" },
+            { title: "Bố mẹ tận mắt thấy con tiến bộ", text: "Định kỳ con báo cáo dự án trực tuyến trước phụ huynh; gia đình nhận phiếu đánh giá năng lực và video sản phẩm của con.", icon: "mat" },
+            { title: "Bám chương trình của Bộ GD&ĐT", text: "Theo GDPT 2018 môn Tin học, khung năng lực số (Thông tư 02/2025) và khung nội dung giáo dục AI áp dụng từ năm học 2026–2027.", icon: "chuan" },
+            { title: "Học ngay tại nhà", text: "Không đưa đón, không lo kẹt xe. Chỉ cần máy tính có camera, tai nghe có micro và mạng ổn định.", icon: "nha" },
+            { title: "Hồ sơ công nghệ của riêng con", text: "Mọi dự án, video, phiếu đánh giá, chứng nhận đều được lưu lại — một hồ sơ năng lực lớn dần theo năm tháng.", icon: "ho-so" },
           ],
         }),
 
@@ -226,23 +230,25 @@ export const HOME_PAGE = {
           intro: "Ít ngồi nghe, nhiều tự làm: phần lớn thời gian con thực hành và sáng tạo trên máy của mình, giáo viên đi cùng từng bước.",
         }, {
           items: [
-            { title: "Khởi động", text: "Một câu chuyện, một tình huống để con tò mò về bài học." },
-            { title: "Khám phá", text: "Giáo viên giới thiệu kiến thức mới và làm mẫu trên phần mềm." },
-            { title: "Thực hành", text: "Con tự làm trên máy của mình, giáo viên theo dõi và gỡ rối." },
-            { title: "Thử thách", text: "Con sáng tạo thêm, nâng cấp sản phẩm theo ý mình." },
-            { title: "Chia sẻ", text: "Con giới thiệu sản phẩm, nghe nhận xét của thầy cô và bạn bè." },
+            { title: "Khởi động", text: "Một câu chuyện, một tình huống để con tò mò về bài học.", icon: "tia-sang" },
+            { title: "Khám phá", text: "Giáo viên giới thiệu kiến thức mới và làm mẫu trên phần mềm.", icon: "la-ban" },
+            { title: "Thực hành", text: "Con tự làm trên máy của mình, giáo viên theo dõi và gỡ rối.", icon: "code" },
+            { title: "Thử thách", text: "Con sáng tạo thêm, nâng cấp sản phẩm theo ý mình.", icon: "cup" },
+            { title: "Chia sẻ", text: "Con giới thiệu sản phẩm, nghe nhận xét của thầy cô và bạn bè.", icon: "chia-se" },
           ],
         }),
 
         // 9. BẰNG CHỨNG — loại sản phẩm con làm ra (ảnh phần mềm thật, ghi nguồn)
         sec("gallery", "san-pham", { title: "Những thứ con sẽ tự tay làm ra" }, {
           items: [
-            { image: "/lp-anh/that/robosim-sa-ban-vong-loai.webp", caption: "Robot ảo vượt sa bàn thi đấu Sáng tạo Robotics (ảnh: thể lệ cuộc thi, tainangviet.vn)" },
-            { image: "/lp-anh/that/creaticode-dem-ngon-tay.webp", caption: "AI nhận diện bàn tay, đếm ngón tay qua camera (ảnh: CreatiCode)" },
-            { image: "/lp-anh/that/roblox-nhay-nen-thu-xu.webp", caption: "Game 3D vượt chướng ngại, thu xu (ảnh: Roblox Creator Docs)" },
-            { image: "/lp-anh/that/tinkercad-giao-dien.webp", caption: "Mô hình 3D tự thiết kế (ảnh: Autodesk Tinkercad)" },
-            { image: "/lp-anh/that/photoshop-generative-expand.webp", caption: "Ảnh sáng tạo cùng công cụ AI tạo ảnh (ảnh: Adobe Photoshop)" },
-            { image: "/lp-anh/that/appinventor-chatbot.webp", caption: "App điện thoại hỏi đáp với ChatGPT (ảnh: MIT App Inventor)" },
+            { image: "/lp-anh/that/robosim-sa-ban-vong-loai.webp", caption: "Robot ảo vượt sa bàn thi đấu Sáng tạo Robotics", credit: "Ảnh: Thể lệ Cuộc thi Sáng tạo Robotics 2026", creditUrl: "https://tainangviet.vn/" },
+            { image: "/lp-anh/that/scratch-trinh-soan.webp", caption: "Hoạt hình, game đầu tay bằng Scratch", credit: "Ảnh: Wikimedia Commons / MouseCursor, CC BY-SA 2.0", creditUrl: "https://commons.wikimedia.org/wiki/File:Scratch_editor_screenshot.png" },
+            { image: "/lp-anh/that/creaticode-dem-ngon-tay.webp", caption: "AI nhận diện bàn tay, đếm ngón tay qua camera", credit: "Ảnh: CreatiCode", creditUrl: "https://www.creaticode.com/" },
+            { image: "/lp-anh/that/appinventor-thiet-ke-app.webp", caption: "App điện thoại tự thiết kế với App Inventor", credit: "Ảnh: Wikimedia Commons / Florian Schäffer, CC0", creditUrl: "https://commons.wikimedia.org/wiki/File:Mit_app_inventor_2_beta3.png" },
+            { image: "/lp-anh/that/roblox-studio-lau-dai.webp", caption: "Thế giới game 3D trong Roblox Studio", credit: "Ảnh: Roblox Creator Docs, CC BY 4.0", creditUrl: "https://github.com/Roblox/creator-docs" },
+            { image: "/lp-anh/that/python-pygame-ma.webp", caption: "Viết game bằng Python", credit: "Ảnh: Wikimedia Commons / Rikulpatel1, CC0", creditUrl: "https://commons.wikimedia.org/wiki/File:Python_pygame_code.png" },
+            { image: "/lp-anh/that/photoshop-generative-expand.webp", caption: "Ảnh sáng tạo cùng công cụ AI tạo ảnh", credit: "Ảnh: Adobe Photoshop", creditUrl: "https://www.adobe.com/products/photoshop.html" },
+            { image: "/lp-anh/that/wordpress-soan-bai.webp", caption: "Website hoàn chỉnh với WordPress", credit: "Ảnh: Wikimedia Commons / Gmoran6, GPL", creditUrl: "https://commons.wikimedia.org/wiki/File:WordPress_PostEdit.png" },
           ],
         }),
 

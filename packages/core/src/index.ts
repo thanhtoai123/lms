@@ -63,6 +63,7 @@ export * from "./content/protect.js";
 export * from "./content/scormNguon.js";
 export * from "./content/planAccess.js";
 export * from "./growth/rules.js";
+export * from "./growth/capi.js";
 export * from "./outreach/rules.js";
 export * from "./outreach/kenhNgoai.js";
 export * from "./outreach/zaloOa.js";
