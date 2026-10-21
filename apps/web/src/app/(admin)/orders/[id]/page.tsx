@@ -13,7 +13,7 @@ const EVENT_VI: Record<string, string> = {
   create: "Tạo đơn", status: "Đổi trạng thái", cancel: "Huỷ đơn", payment_recorded: "Ghi nhận thu", payment_confirmed: "Kế toán xác nhận", payment_adjusted: "Kế toán điều chỉnh",
   discount_approval_requested: "Chờ duyệt giảm giá", discount_approved: "Duyệt giảm giá", discount_rejected: "Từ chối giảm giá",
   payment_rejected: "Kế toán từ chối", payment_updated: "Sửa khoản đang chờ", payment_unlinked: "Gỡ gắn giao dịch",
-  plan_changed: "Sửa kế hoạch thanh toán", installment_added: "Thêm đợt cho con", installment_cancelled: "Huỷ đợt", method_changed: "Đổi phương thức thanh toán", fee_changed: "Sửa học phí hợp đồng", qr_issued: "Xuất mã QR",
+  plan_changed: "Sửa kế hoạch thanh toán", installment_added: "Thêm đợt cho con", installment_cancelled: "Huỷ đợt", method_changed: "Đổi phương thức thanh toán", fee_changed: "Sửa học phí hợp đồng", qr_issued: "Xuất mã QR", auto_enroll: "Tự xếp lớp khi tiền về",
   refund_requested: "Đề xuất hoàn", refund_approved: "Duyệt hoàn", refund_rejected: "Từ chối hoàn", refund_paid: "Đã chi hoàn",
 };
 const LEDGER_VI: Record<string, string> = { charge: "Ghi nợ", payment: "Thu tiền", refund: "Chi hoàn", cancel: "Huỷ nợ", adjustment: "Điều chỉnh" };
