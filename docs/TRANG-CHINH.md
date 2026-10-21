@@ -57,8 +57,37 @@ Không dùng: "thiếu 150–200 nghìn nhân lực CNTT", "tuổi có điện t
   `/khoa-hoc/<ngành>` (mở đúng tab) và mọi `/khoa-hoc/<…>` khác → chuyển hướng 308 tới đúng phần; seed lưu trữ các trang này
   nên chúng rời sitemap. Còn lại: chính sách (bắt buộc cho ô đồng ý của form), tin tức, tuyển dụng, `/dang-ky`, landing `/lp/...`.
 
-## 4. Việc còn chờ trung tâm
+## 4. Hình ảnh
+
+- Tranh minh hoạ vector theo bộ nhận diện (màu Deep Ocean Blue / Emerald / Cosmic Gold / Midnight Navy; mô-típ quỹ đạo vàng,
+  tên lửa, ngôi sao 4 cánh): `tools/minh-hoa/art_trang_chu.py` → `lp-anh/tc-hero.svg`, `lp-anh/tc-xem-tao.svg`; ảnh chia sẻ
+  `lp-anh/og-trang-chu.png` (`og_build.py trang-chu`). Nhân vật là tranh vẽ, không phải ảnh trẻ em thật.
+- Ảnh phần mềm thật, ưu tiên giấy phép mở, nguồn + liên kết hiện dưới ảnh (trường `credit`, `creditUrl`):
+
+| Ảnh | Nguồn · giấy phép |
+|---|---|
+| scratch-trinh-soan.webp | Wikimedia Commons / MouseCursor · CC BY-SA 2.0 |
+| teachable-machine-du-lieu.webp | Google Creative Lab, teachablemachine-community · Apache-2.0 |
+| appinventor-thiet-ke-app.webp | Wikimedia Commons / Florian Schäffer · CC0 |
+| roblox-studio-dua-xe.webp, roblox-studio-lau-dai.webp | Roblox Creator Docs (GitHub) · CC BY 4.0 |
+| python-pygame-ma.webp | Wikimedia Commons / Rikulpatel1 · CC0 |
+| wordpress-soan-bai.webp | Wikimedia Commons / Gmoran6 · GPL |
+| robovr-*, tinkercad-*, creaticode-*, photoshop-*, robosim-* | Ảnh giới thiệu của nhà sản xuất / ban tổ chức — xin phép trước khi dùng trong quảng cáo trả tiền |
+
+- Scratch đổi điều khoản 22/01/2026: dự án chia sẻ không còn được coi là CC BY-SA 2.0 → không lấy ảnh dự án mới từ scratch.mit.edu.
+
+## 5. Đo lường và quảng cáo
+
+- Thẻ Meta Pixel / GA4 / Google Ads chỉ nạp khi phụ huynh bấm "Đồng ý" ở banner (`components/landing/consent-banner.tsx`,
+  khoá `th-ads-consent`); chân trang có "Đổi lựa chọn đo lường" (`/#do-luong`).
+- Meta Conversions API: route `/api/public/leads` gửi sự kiện Lead (cùng `event_id` với Pixel, số điện thoại băm SHA-256)
+  khi có `META_CAPI_TOKEN` + Pixel ID + đồng ý; nhật ký ở Hệ thống → Chạy lại webhook (nguồn `meta_capi`). Thử bằng
+  `META_CAPI_TEST_CODE`. Google Ads enhanced conversions: form đặt `user_data.phone_number` trước sự kiện chuyển đổi.
+- Hướng dẫn chạy quảng cáo + checklist vận hành: doc "Vận hành & chạy quảng cáo trang chính" (Claude Docs).
+
+## 6. Việc còn chờ trung tâm
 
 - Ảnh thật có đồng ý: màn hình lớp ClassIn đang dạy, sản phẩm học viên (thay dần ảnh phần mềm ở khối Sản phẩm).
 - Lời phụ huynh thật → bật khối "Phụ huynh nói gì".
 - Ảnh AI (nếu dùng): chỉ bối cảnh, thiết bị, đồ vật; ghi "Ảnh minh hoạ".
+- Duyệt chính sách bảo mật mới (Luật 91/2025, NĐ 356/2025); xác nhận khoá AI có dạy Teachable Machine (ảnh tab AI).
