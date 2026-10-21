@@ -121,7 +121,7 @@ export function HubTabs({ item, pathname }: { item: NavItem | undefined; pathnam
   );
 }
 
-export function AdminShell({ nav, me, roles, canRunWorker, idleMinutes = null, children }: { nav: NavGroup[]; me: Me; roles: Role[]; canRunWorker: boolean; idleMinutes?: number | null; children: React.ReactNode }) {
+export function AdminShell({ nav, me, roles, idleMinutes = null, children }: { nav: NavGroup[]; me: Me; roles: Role[]; idleMinutes?: number | null; children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -368,7 +368,7 @@ export function AdminShell({ nav, me, roles, canRunWorker, idleMinutes = null, c
           </button>
 
           <div className="ml-auto flex items-center gap-2">
-            <NotificationBell canRunWorker={canRunWorker} />
+            <NotificationBell />
             <div className="relative">
               <button
                 type="button"

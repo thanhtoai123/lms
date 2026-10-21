@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import { hasRole } from "@satarobo/core";
 import { AdminShell } from "@/components/admin-shell";
 import { TeacherShell } from "@/components/teacher-shell";
 import { NoAccess } from "@/components/admin-ui";
@@ -36,7 +35,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   }
   return (
     <div className="admin-scope contents">
-      <AdminShell nav={s.nav} me={s.me} roles={s.roles} canRunWorker={hasRole(s.actor, "SUPER_ADMIN", "CENTER_MANAGER")} idleMinutes={s.idle}>
+      <AdminShell nav={s.nav} me={s.me} roles={s.roles} idleMinutes={s.idle}>
         {body}
       </AdminShell>
     </div>

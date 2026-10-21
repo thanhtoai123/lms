@@ -7,23 +7,21 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "@/lib/trpc/client";
 import { fmtDateTime } from "@/components/lead-ui";
 
-export function NotificationBell({ canRunWorker }: { canRunWorker: boolean }) {
+/**
+ * Chuông thông báo ở đầu trang. (Nút "Chạy automation" đã bỏ: worker việc nền tự xử lý outbox + quét SLA mỗi phút,
+ * khởi động cùng hệ thống — xem scripts/khoi-dong.ps1.)
+ */
+export function NotificationBell() {
   const trpc = useTRPC();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const q = useQuery({ ...trpc.engagement.myNotifications.queryOptions({ limit: 20 }), refetchInterval: 30_000 });
   const mark = useMutation(trpc.engagement.markRead.mutationOptions({ onSuccess: () => qc.invalidateQueries({ queryKey: trpc.engagement.myNotifications.queryKey() }) }));
-  const run = useMutation(trpc.engagement.runWorker.mutationOptions({ onSuccess: () => { qc.invalidateQueries(); } }));
   const unread = q.data?.unread ?? 0;
 
   return (
     <div className="relative">
       <div className="flex items-center gap-2">
-        {canRunWorker && (
-          <button className="btn-ghost !px-2 !py-1 text-[11px]" onClick={() => run.mutate()} disabled={run.isPending} title="Xử lý outbox + quét SLA (production chạy tự động mỗi phút)">
-            {run.isPending ? "Đang chạy…" : run.data ? `Automation: ${run.data.processed} event, ${run.data.actions} hành động` : "▶ Chạy automation"}
-          </button>
-        )}
         <button className="relative inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted" onClick={() => setOpen(!open)} aria-label={`Thông báo, ${unread} chưa đọc`}>
           <Bell className="h-5 w-5" aria-hidden />
           {unread > 0 && <span className={`absolute right-0.5 top-0.5 rounded-full px-1.5 text-[10px] font-bold text-white ${q.data?.hasPriority1 ? "bg-red-600" : "bg-primary"}`}>{unread > 9 ? "9+" : unread}</span>}

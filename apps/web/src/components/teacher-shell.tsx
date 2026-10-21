@@ -108,7 +108,7 @@ export function TeacherShell({ nav, me, canAdmin, idleMinutes = null, children }
               })}
             </nav>
             <div className="ml-auto flex items-center gap-1">
-              <NotificationBell canRunWorker={false} />
+              <NotificationBell />
               <div className="relative">
                 <button type="button" onClick={() => setUserOpen((v) => !v)} aria-expanded={userOpen} aria-label="Tài khoản của tôi"
                   className="flex min-h-11 items-center gap-2 rounded-lg px-1.5 hover:bg-black/[0.04]">
