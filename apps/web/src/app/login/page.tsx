@@ -91,21 +91,46 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   const sp = await searchParams;
   const next = safeNext(sp.next);
   return (
-    <main className="grid min-h-dvh bg-surface lg:grid-cols-2">
-      <section className="relative hidden overflow-hidden bg-gradient-to-br from-navy to-navy-2 p-12 text-white lg:flex lg:flex-col lg:justify-between">
-        <div className="flex items-end gap-3"><BrandLockup height={64} onDark /><span className="pb-1 text-sm font-medium text-white/70">Admin</span></div>
-        <div className="max-w-md space-y-4">
-          <h2 className="text-3xl font-bold leading-tight">Hệ thống quản trị trung tâm <BrandName /></h2>
-          <p className="text-white/80">Tuyển sinh, lớp học, học viên, tài chính và nhân sự trong một nơi — dữ liệu giới hạn theo cơ sở và vai trò của bạn.</p>
+    <main className="grid min-h-dvh bg-surface lg:grid-cols-[1.1fr_1fr]">
+      <section className="relative hidden overflow-hidden bg-gradient-to-br from-navy to-navy-2 px-12 py-10 text-white lg:flex lg:flex-col xl:px-16">
+        <div className="relative z-10 flex items-center gap-4">
+          <BrandLockup height={60} onDark />
+          <span className="rounded-full border border-white/25 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-white/80">Admin</span>
         </div>
-        <div className="text-xs text-white/60">© 2026 <BrandName /> · Dữ liệu cá nhân được bảo vệ theo Luật Bảo vệ dữ liệu cá nhân 2025</div>
-        <div className="pointer-events-none absolute -right-24 -top-24 h-96 w-96 rounded-full bg-white/10" aria-hidden />
-        <div className="pointer-events-none absolute -bottom-32 right-24 h-72 w-72 rounded-full bg-white/5" aria-hidden />
+
+        <div className="relative z-10 my-auto grid max-w-xl gap-8 py-10">
+          <div className="space-y-4">
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#fcd34d]">Nền tảng vận hành trung tâm</p>
+            <h2 className="text-4xl font-extrabold leading-tight">Quản trị <BrandName /> trong một nơi</h2>
+            <p className="text-base leading-relaxed text-white/75">Tuyển sinh, lớp học, học viên, tài chính và nhân sự — dữ liệu giới hạn theo cơ sở và vai trò của bạn.</p>
+          </div>
+          <ul className="grid grid-cols-2 gap-3 text-sm">
+            {[
+              ["#1D4ED8", "Tuyển sinh & CRM", "Lead, học thử, chốt đăng ký"],
+              ["#10B981", "Lớp học & điểm danh", "Lịch học, giáo án, học liệu buổi"],
+              ["#F59E0B", "Hồ sơ công nghệ", "Nhận xét, năng lực, chứng nhận"],
+              ["#4F75E1", "Tài chính & nhân sự", "Học phí, hoá đơn, chấm công"],
+            ].map(([c, t, d]) => (
+              <li key={t} className="rounded-2xl border border-white/10 bg-white/[0.06] p-4">
+                <span className="mb-2 block h-1.5 w-8 rounded-full" style={{ background: c }} aria-hidden />
+                <span className="block font-semibold text-white">{t}</span>
+                <span className="block text-xs text-white/60">{d}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="relative z-10 flex items-center justify-between gap-4 text-xs text-white/55">
+          <span>© 2026 <BrandName /> · Dữ liệu cá nhân được bảo vệ theo Luật Bảo vệ dữ liệu cá nhân 2025</span>
+          <span className="flex h-1.5 w-24 shrink-0 overflow-hidden rounded-full" aria-hidden><span className="flex-1 bg-[#1D4ED8]" /><span className="flex-1 bg-[#10B981]" /><span className="flex-1 bg-[#F59E0B]" /></span>
+        </div>
+        <div className="pointer-events-none absolute -right-28 -top-28 h-[26rem] w-[26rem] rounded-full bg-white/[0.07]" aria-hidden />
+        <div className="pointer-events-none absolute -bottom-40 -left-20 h-80 w-80 rounded-full bg-white/[0.04]" aria-hidden />
       </section>
 
-      <section className="flex items-center justify-center p-6">
-        <div className="w-full max-w-sm">
-          <div className="mb-8 flex flex-col items-center gap-1 lg:hidden"><BrandLockup height={52} /><span className="text-xs font-medium text-ink-400">Admin</span></div>
+      <section className="flex items-center justify-center p-6 sm:p-10">
+        <div className="w-full max-w-md rounded-3xl border border-border bg-card p-8 shadow-[0_24px_60px_-32px_rgba(15,23,42,0.35)] sm:p-10">
+          <div className="mb-8 flex items-center justify-center gap-3 lg:hidden"><BrandLockup height={48} /><span className="rounded-full border border-border px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-400">Admin</span></div>
           <h1 className="text-2xl font-bold">Đăng nhập quản trị</h1>
           <p className="mb-6 mt-1 text-sm text-ink-600">Dùng tài khoản nhân sự được cấp để vào khu quản trị.</p>
 
@@ -130,17 +155,17 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
               <p className="text-center text-xs text-ink-400"><Link href="/quen-mat-khau" className="text-brand-600">Quên mật khẩu?</Link></p>
             </form>
           ) : (
-            <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">Đăng nhập bằng email/mật khẩu sẽ bật khi cấu hình Supabase Auth (NEXT_PUBLIC_SUPABASE_URL).</p>
+            <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-relaxed text-amber-800">Đăng nhập bằng email / mật khẩu sẽ bật khi cấu hình Supabase Auth (<code className="text-xs">NEXT_PUBLIC_SUPABASE_URL</code>).</p>
           )}
 
           {DEV && (
-            <form action={devLogin} className="mt-6 space-y-2 border-t border-black/5 pt-5">
+            <form action={devLogin} className="mt-6 space-y-3 border-t border-border pt-6">
               <input type="hidden" name="next" value={next} />
-              <p className="text-xs font-semibold uppercase text-ink-400">Chế độ phát triển — vào bằng tài khoản mẫu</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-ink-400">Chế độ phát triển — vào bằng tài khoản mẫu</p>
               <select name="email" className="input" defaultValue="superadmin@example.test" aria-label="Tài khoản mẫu">
                 {DEV_ACCOUNTS.map((a) => <option key={a.email} value={a.email}>{a.label}</option>)}
               </select>
-              <button className="btn-ghost w-full" type="submit">Vào khu quản trị</button>
+              <button className="btn-primary w-full" type="submit">Vào khu quản trị</button>
             </form>
           )}
         </div>
