@@ -3,6 +3,7 @@
  *
  *   pnpm --filter @satarobo/db thu-thanh-toan            # mặc định gọi http://localhost:3000
  *   THU_TT_URL=https://staging.example.vn pnpm --filter @satarobo/db thu-thanh-toan
+ *   THU_TT_DON=DH26-000070 pnpm thu-thanh-toan   # thử trên ĐÚNG đơn này; đơn từ lead có lớp tự xếp → chờ worker tự xếp lớp rồi báo kết quả
  *
  * Gửi webhook GIẢ LẬP đúng định dạng SePay (ký HMAC nếu máy chủ dùng SEPAY_WEBHOOK_SECRET, không thì API Key)
  * tới máy chủ đang chạy, rồi đọc CSDL để đối chiếu: khoản thu tự xác nhận, số phiếu thu, chống trùng, từ chối chữ ký sai,
@@ -71,14 +72,15 @@ try {
   if (!methods.length) throw new Error("Chưa có phương thức chuyển khoản nào có BIN + số tài khoản");
   const centerIds = methods.map((m) => m.center_id).filter(Boolean) as string[];
   const hasShared = methods.some((m) => !m.center_id);
+  const only = process.env.THU_TT_DON?.trim() || null;
   const [order] = await sql<Row[]>`
-    select o.id, o.code, o.center_id, o.total,
+    select o.id, o.code, o.center_id, o.total, o.lead_id,
       o.total - coalesce((select sum(p.amount) from payments p where p.order_id = o.id and p.status = 'confirmed'), 0) as outstanding,
       (select count(*) from payments p where p.order_id = o.id and p.status = 'recorded') as pending_sale
     from orders o
-    where o.status in ('pending_payment', 'partially_paid') ${hasShared ? sql`` : sql`and o.center_id in ${sql(centerIds)}`}
+    where o.status in ('pending_payment', 'partially_paid') ${only ? sql`and o.code = ${only}` : hasShared ? sql`` : sql`and o.center_id in ${sql(centerIds)}`}
     order by o.created_at desc limit 50`.then((rows) => rows.filter((o) => Number(o.outstanding) >= 20_000 && Number(o.pending_sale) === 0));
-  if (!order) throw new Error("Không có đơn đang mở còn thiếu ≥ 20.000đ (và không có khoản sale chờ xác nhận) để thử");
+  if (!order) throw new Error(only ? `Đơn ${only} không đang mở / đã có khoản sale chờ xác nhận / còn thiếu < 20.000đ` : "Không có đơn đang mở còn thiếu ≥ 20.000đ (và không có khoản sale chờ xác nhận) để thử");
   const method = methods.find((m) => m.center_id === order.center_id) ?? methods.find((m) => !m.center_id)!;
   const acc = String(method.account_no).replace(/[^A-Za-z0-9]/g, "");
   const code = String(order.code);
@@ -143,6 +145,23 @@ try {
   const id8 = idBase + 8;
   await send(tx(id8, 10_000, memo, { transferType: "out" }));
   check((await btOf(id8))?.status === "ignored", "Tiền ra → Bỏ qua");
+
+  // 9) Đơn từ lead có lớp tự xếp: worker tự chốt học viên + ghi danh sau khoản tiền đầu tiên
+  if (only && order.lead_id) {
+    const [want] = await sql<Row[]>`select count(*)::int as n from order_items where order_id = ${order.id as string} and target_class_id is not null`;
+    if (Number(want?.n) > 0) {
+      let ev: Row | undefined;
+      for (let i = 0; i < 45 && !ev; i++) {
+        await new Promise((r) => setTimeout(r, 2000));
+        [ev] = await sql<Row[]>`select note from order_events where order_id = ${order.id as string} and event = 'auto_enroll' order by created_at desc limit 1`;
+      }
+      const [enr] = await sql<Row[]>`
+        select count(*)::int as n, string_agg(c.code, ', ') as lop from order_items i join enrollments e on e.id = i.enrollment_id join classes c on c.id = e.class_id
+        where i.order_id = ${order.id as string}`;
+      const [ld] = await sql<Row[]>`select status from leads where id = ${order.lead_id as string}`;
+      check(Number(enr?.n) > 0, "Tiền về → worker tự xếp lớp", `${ev?.note ?? "chưa có sự kiện (worker chưa chạy?)"} · ghi danh: ${enr?.lop ?? "-"} · lead: ${ld?.status ?? "-"}`);
+    }
+  }
 
   console.log(`== Kết quả: ${pass} đạt, ${fail} lỗi. Đã tạo 1 khoản thu kiểm thử 10.000đ trên đơn ${code}.`);
   process.exitCode = fail ? 1 : 0;

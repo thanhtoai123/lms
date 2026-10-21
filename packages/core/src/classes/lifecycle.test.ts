@@ -36,7 +36,7 @@ test("loại buổi, số buổi ngoài lộ trình, checklist", () => {
   assert.equal(sessionLabel(1002, "coach_1_1"), "Kèm 1:1 #2");
   assert.deepEqual(missingRequiredChecklist({ post: { cleanup: true } }).map((i) => i.key), ["handover"]);
   assert.equal(missingRequiredChecklist({ post: { cleanup: true, handover: true } }).length, 0);
-  assert.equal(missingRequiredChecklist(null).length, 2);
+  assert.equal(missingRequiredChecklist(null).length, 1); // lớp online: chỉ bắt buộc nhắc bài về nhà + lịch buổi sau
 });
 
 // Lớp 8 buổi, CN 09:45 + T4 18:00 từ 2026-09-02 (T4)

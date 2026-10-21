@@ -62,7 +62,7 @@ export interface EInvoiceSettings {
   lookupUrl: string;
 }
 const DEFAULTS: EInvoiceSettings = {
-  enabled: false, provider: "sandbox", templateCode: "1", serial: `1C${String(new Date().getFullYear()).slice(-2)}TSR`, sellerName: "", sellerTaxCode: "", sellerAddress: "",
+  enabled: false, provider: "sandbox", templateCode: "1", serial: `1C${String(new Date().getFullYear()).slice(-2)}TTH`, sellerName: "", sellerTaxCode: "", sellerAddress: "",
   courseRate: "KCT", goodsRate: "10", autoDraft: true, autoIssue: false, startDate: null, lookupUrl: "/tra-cuu-hoa-don",
 };
 export async function einvoiceSettings(db: Db): Promise<EInvoiceSettings> {

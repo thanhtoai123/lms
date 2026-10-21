@@ -251,7 +251,7 @@ export const ADMIN_MENU: NavGroup[] = [
       {
         label: "Chương trình học", href: "/curriculums", icon: "book-marked", keywords: "giao an",
         tabs: [
-          { label: "Chương trình học", href: "/curriculums", perm: "curriculum:read", desc: "Giáo trình theo khoá: bài học, mục tiêu, học cụ." },
+          { label: "Chương trình học", href: "/curriculums", perm: "curriculum:read", desc: "Giáo trình theo khoá: bài học, mục tiêu, phần mềm / tài liệu." },
           { label: "Đề xuất sửa giáo án", href: "/de-xuat-giao-an", perm: "curriculum:read", desc: "GV đề xuất chỉnh bài học; Đào tạo duyệt." },
         ],
       },

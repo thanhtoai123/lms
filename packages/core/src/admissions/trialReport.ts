@@ -105,7 +105,7 @@ export const TRIAL_REPORT_TEMPLATE: TrialReportTemplate = {
       kind: "skill",
       criteria: [
         { key: "grasp", label: "Khả năng nắm bắt kiến thức", hint: "Hiểu hướng dẫn, làm theo được mà không cần nhắc lại nhiều", levels: STANDARD },
-        { key: "speed", label: "Tốc độ thực hành", hint: "Lắp ráp / lập trình xong trong thời gian của buổi", levels: SPEED },
+        { key: "speed", label: "Tốc độ thực hành", hint: "Hoàn thành bài lập trình / sản phẩm trong thời gian của buổi", levels: SPEED },
         { key: "computer", label: "Khả năng sử dụng máy tính", hint: "Dùng chuột, bàn phím, mở và lưu bài", levels: STANDARD },
       ],
     },

@@ -41,7 +41,7 @@ export const PAYMENT_METHOD_KIND_VI: Record<PaymentMethodKind, string> = {
 export const PAYMENT_SCOPE_FLAGS = ["canBuyCourse", "canBuyPackage", "canBuyExam", "canBuyProduct", "canDeposit"] as const;
 export type PaymentScopeFlag = (typeof PAYMENT_SCOPE_FLAGS)[number];
 export const PAYMENT_SCOPE_FLAG_VI: Record<PaymentScopeFlag, string> = {
-  canBuyCourse: "Khoá học offline",
+  canBuyCourse: "Khoá học (năm học / luyện thi)",
   canBuyPackage: "Gói khoá học",
   canBuyExam: "Kỳ thi",
   canBuyProduct: "Sản phẩm",

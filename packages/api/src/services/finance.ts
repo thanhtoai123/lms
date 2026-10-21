@@ -3,7 +3,7 @@ import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { TRPCError } from "@trpc/server";
 import {
   paymentMethods, orders, orderPrivate, orderItems, orderItemDiscounts, orderInstallments, orderEvents, payments, paymentAdjustments, paymentQrCodes, refunds, financeLedger, bankTransactions, commissions,
-  centers, users, userRoles, userNotifications, enrollments, classes, courses, students, parents, studentGuardians, leads, leadChildren,
+  centers, users, userRoles, userNotifications, enrollments, classes, courses, students, parents, studentGuardians, leads, leadChildren, outbox,
 } from "@satarobo/db";
 import {
   authorize, hasRole, visibleCenterIds, addDays, clampPageSize,
@@ -138,6 +138,10 @@ export async function recomputeOrderStatus(tx: Db, orderId: string, actorId: str
     await tx.update(orders).set({ status: next }).where(eq(orders.id, orderId));
     await tx.insert(orderEvents).values({ orderId, event: "status", fromStatus: o.status, toStatus: next, note, actorId });
     if (next === "paid" && opts.accrue !== false) await accrueCommissions(tx, orderId);
+    // Khoản tiền đầu tiên của đơn từ lead → worker tự xếp lớp (cùng transaction: tiền không về thì không xếp)
+    if (o.status === "pending_payment" && (next === "partially_paid" || next === "paid") && o.leadId) {
+      await tx.insert(outbox).values({ type: "order.first_payment", payload: { orderId } });
+    }
   }
 }
 
@@ -400,6 +404,8 @@ export async function insertLeadOrderTx(tx: Db, p: {
 }
 
 export interface OrderLineInput {
+  /** Lớp sẽ tự xếp khi đơn nhận khoản tiền đầu tiên (chỉ đơn từ lead, lớp đúng khoá của dòng) */
+  targetClassId?: string | null;
   courseId?: string | null;
   description: string;
   quantity: number;
@@ -466,6 +472,20 @@ export async function createOrder(ctx: ProtectedContext, input: CreateOrderInput
   const phone = lead ? localPhone(lead.phoneNormalized) : input.customer.phone.replace(/\D/g, "");
   if (phone.length < 9 || phone.length > 11) throw bad("Số điện thoại khách hàng không hợp lệ");
   if (input.items.some((i) => i.format && !SELLABLE_CLASS_FORMATS.includes(i.format))) throw bad("Hình thức lớp chỉ còn Lớp nhóm 6–8 học sinh hoặc Kèm 1:1");
+  // Lớp tự xếp khi tiền về: chỉ đơn từ lead, lớp còn mở, cùng cơ sở của đơn và đúng khoá của dòng
+  const targetIds = [...new Set(input.items.map((i) => i.targetClassId).filter((x): x is string => !!x))];
+  if (targetIds.length) {
+    if (!lead) throw bad("Chỉ đơn tạo từ lead mới chọn được lớp tự xếp khi tiền về");
+    const cls = await ctx.db.select({ id: classes.id, code: classes.code, courseId: classes.courseId, centerId: classes.centerId, status: classes.status }).from(classes).where(inArray(classes.id, targetIds));
+    for (const i of input.items) {
+      if (!i.targetClassId) continue;
+      const c = cls.find((x) => x.id === i.targetClassId);
+      if (!c) throw bad("Lớp tự xếp không tồn tại");
+      if (c.status !== "recruiting" && c.status !== "running") throw bad(`Lớp ${c.code} không còn nhận học viên`);
+      if (c.centerId !== input.centerId) throw bad(`Lớp ${c.code} khác cơ sở của đơn`);
+      if (i.courseId && c.courseId !== i.courseId) throw bad(`Lớp ${c.code} không đúng khoá của dòng "${i.description}"`);
+    }
+  }
   const ops = await getOps(ctx.db, input.centerId);
   const priced = priceLines(input.items.map((i) => ({
     unitPrice: i.unitPrice, quantity: i.quantity, discounts: i.discounts ?? [], maxPercent: ops.maxLineDiscountPercent,
@@ -539,7 +559,7 @@ export async function createOrder(ctx: ProtectedContext, input: CreateOrderInput
         orderId: o!.id, courseId: i.courseId ?? null, description: i.description.trim(), quantity: i.quantity, unitPrice: Math.round(i.unitPrice),
         amount: p.gross, discountAmount: p.discount, netAmount: p.net, packageSessions: i.packageSessions ?? null,
         leadChildId: i.leadChildId ?? null, studentId: i.studentId ?? null, enrollmentId: i.enrollmentId ?? null,
-        classFormat: fmt, formatMultiplier: String(COACH_MULTIPLIER[fmt] ?? 1),
+        classFormat: fmt, formatMultiplier: String(COACH_MULTIPLIER[fmt] ?? 1), targetClassId: i.targetClassId ?? null,
       };
     })).returning({ id: orderItems.id });
     // Chính sách giảm quyết định cách tính; `kind` giữ lại làm hình chiếu cho dữ liệu cũ
@@ -760,7 +780,7 @@ export async function getOrder(ctx: ProtectedContext, id: string) {
     ctx.db.query.centers.findFirst({ where: eq(centers.id, o.centerId), columns: { id: true, code: true, name: true } }),
     o.paymentMethodId ? ctx.db.query.paymentMethods.findFirst({ where: eq(paymentMethods.id, o.paymentMethodId) }) : null,
     ctx.db.query.orderPrivate.findFirst({ where: eq(orderPrivate.orderId, o.id) }),
-    ctx.db.select({ i: orderItems, courseCode: courses.code, studentName: students.fullName }).from(orderItems).leftJoin(courses, eq(courses.id, orderItems.courseId)).leftJoin(students, eq(students.id, orderItems.studentId)).where(eq(orderItems.orderId, o.id)),
+    ctx.db.select({ i: orderItems, courseCode: courses.code, studentName: students.fullName, targetClassCode: sql<string | null>`(select c.code from ${classes} c where c.id = ${orderItems.targetClassId})` }).from(orderItems).leftJoin(courses, eq(courses.id, orderItems.courseId)).leftJoin(students, eq(students.id, orderItems.studentId)).where(eq(orderItems.orderId, o.id)),
     ctx.db.select().from(orderInstallments).where(and(eq(orderInstallments.orderId, o.id), isNull(orderInstallments.cancelledAt))).orderBy(asc(orderInstallments.seq)),
     ctx.db.select({ p: payments, methodName: paymentMethods.name, recorder: sql<string | null>`(select full_name from ${users} u where u.id = ${payments.recordedBy})`, decider: sql<string | null>`(select full_name from ${users} u where u.id = ${payments.decidedBy})` })
       .from(payments).leftJoin(paymentMethods, eq(paymentMethods.id, payments.paymentMethodId)).where(eq(payments.orderId, o.id)).orderBy(desc(payments.recordedAt)),
@@ -810,7 +830,7 @@ export async function getOrder(ctx: ProtectedContext, id: string) {
     },
     center, method: method ? { id: method.id, name: method.name, kind: method.kind } : null,
     customerPrivate: priv ? { idNumber: maskIdNumber(priv.idNumber), address: priv.address ? `${priv.address.slice(0, 4)}…` : null, province: priv.province, ward: priv.ward, hasIdNumber: !!priv.idNumber } : null,
-    items: items.map((x) => ({ ...x.i, courseCode: x.courseCode, studentName: x.studentName, discounts: itemDiscounts.filter((d) => d.orderItemId === x.i.id) })),
+    items: items.map((x) => ({ ...x.i, courseCode: x.courseCode, studentName: x.studentName, targetClassCode: x.targetClassCode, discounts: itemDiscounts.filter((d) => d.orderItemId === x.i.id) })),
     installments,
     display,
     childDebts,

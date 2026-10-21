@@ -30,7 +30,7 @@ test("mốc học bạ = buổi báo cáo cuối mỗi học phần 15 buổi (T
   // Chính sách khác vẫn dùng được (vd kỳ 12 buổi có giữa kỳ)
   const old = { termLength: 12, checkpoints: [5, 12] };
   assert.deepEqual(reportCardMilestones(24, old), [5, 12, 17, 24]);
-  assert.equal(milestoneLabel(17, old), "Kỳ 2 · giữa kỳ (buổi 17)");
+  assert.equal(milestoneLabel(17, old), "HP2 · giữa học phần (buổi 17)");
 });
 
 test("kiểm tra học bạ trước khi gửi duyệt", () => {

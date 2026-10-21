@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useTRPC } from "@/lib/trpc/client";
 import {
-  priceLines, buildPlan, validateInstallmentPlan, formatUnitPrice, COACH_MULTIPLIER, SELLABLE_CLASS_FORMATS, CLASS_FORMAT_VI, MAX_INSTALLMENTS, classFormatOfPackage,
+  priceLines, buildPlan, validateInstallmentPlan, formatUnitPrice, COACH_MULTIPLIER, SELLABLE_CLASS_FORMATS, CLASS_FORMAT_VI, MAX_INSTALLMENTS, classFormatOfPackage, thComboOffers,
   ORDER_TYPES, ORDER_TYPE_VI, DISCOUNT_POLICIES, DISCOUNT_POLICY_VI, DISCOUNT_POLICY_KIND,
   discountPercentOf, discountNeedsApproval, DEFAULT_DISCOUNT_APPROVAL_PCT,
   type OrderType, type ClassFormat, type InstallmentKind, type DiscountPolicy,
@@ -19,12 +19,15 @@ type LeadDraft = {
   items: { courseId: string; description: string; unitPrice: number; packageSessions: number | null; leadChildId: string | null }[];
 };
 type LineDisc = { kind: "amount" | "percent"; policy: DiscountPolicy; value: number; reason: string };
-type Item = { courseId: string; description: string; quantity: number; unitPrice: number; packageSessions: number | ""; leadChildId: string; format: ClassFormat; basePrice: number; discounts: LineDisc[]; packageId: string };
+type Item = { courseId: string; description: string; quantity: number; unitPrice: number; packageSessions: number | ""; leadChildId: string; format: ClassFormat; basePrice: number; discounts: LineDisc[]; packageId: string; targetClassId: string };
+type OpenClass = { id: string; code: string; name: string; centerId: string; courseCode: string | null; enrolled: number; capacity: number };
 type PlanRow = { amount: number; dueDate: string; kind: InstallmentKind };
 
 type Pkg = { id: string; courseId: string; courseCode: string; code: string; name: string; sessions: number; price: number; savingPercent: number };
 
-export function OrderForm({ centers, methods, courses, packages = [], today, draft, leadDraft, maxLineDiscountPercent = 50 }: {
+export function OrderForm({ centers, methods, courses, packages = [], classes = [], today, draft, leadDraft, maxLineDiscountPercent = 50 }: {
+  /** Lớp đang tuyển / đang học — chọn lớp tự xếp khi tiền về (chỉ đơn từ lead) */
+  classes?: OpenClass[];
   centers: { id: string; code: string; name: string }[];
   methods: { id: string; name: string; centerId: string | null; allowFor: string[]; kind: string }[];
   courses: { id: string; code: string; name: string; totalSessions: number; listPrice: number }[];
@@ -44,7 +47,7 @@ export function OrderForm({ centers, methods, courses, packages = [], today, dra
   const [cust, setCust] = useState(leadDraft
     ? { name: leadDraft.parentName, phone: leadDraft.phone, email: leadDraft.email ?? "", idNumber: "", address: "", province: "", ward: "" }
     : { name: draft?.parent?.fullName ?? "", phone: draft?.parent?.phone ?? "", email: draft?.parent?.email ?? "", idNumber: "", address: "", province: "", ward: "" });
-  const emptyItem: Item = { courseId: "", description: "", quantity: 1, unitPrice: 0, packageSessions: "", leadChildId: "", format: "group", basePrice: 0, discounts: [], packageId: "" };
+  const emptyItem: Item = { courseId: "", description: "", quantity: 1, unitPrice: 0, packageSessions: "", leadChildId: "", format: "group", basePrice: 0, discounts: [], packageId: "", targetClassId: "" };
   const [items, setItems] = useState<Item[]>(draft
     ? [{ ...emptyItem, courseId: draft.courseId, description: `Học phí ${draft.courseCode} — gói ${draft.packageSessions} buổi (${draft.studentName}, lớp ${draft.classCode})`, unitPrice: draft.unitPrice, basePrice: draft.unitPrice, packageSessions: draft.packageSessions }]
     : leadDraft?.items.length
@@ -88,13 +91,24 @@ export function OrderForm({ centers, methods, courses, packages = [], today, dra
   const setItem = (i: number, patch: Partial<Item>) => setItems(items.map((x, j) => (j === i ? { ...x, ...patch } : x)));
   const pickCourse = (i: number, courseId: string) => {
     const c = courses.find((x) => x.id === courseId);
-    setItem(i, { courseId, packageId: "", description: c ? `Học phí ${c.code} — ${c.name}` : items[i]!.description, unitPrice: c ? c.listPrice : items[i]!.unitPrice, basePrice: c ? c.listPrice : items[i]!.basePrice, packageSessions: c ? c.totalSessions : "" });
+    setItem(i, { courseId, packageId: "", targetClassId: courseId === items[i]!.courseId ? items[i]!.targetClassId : "", description: c ? `Học phí ${c.code} — ${c.name}` : items[i]!.description, unitPrice: c ? c.listPrice : items[i]!.unitPrice, basePrice: c ? c.listPrice : items[i]!.basePrice, packageSessions: c ? c.totalSessions : "" });
   };
   /** Chọn gói bán → điền khoá, số buổi và đơn giá theo giá đang bán của gói */
+  /** Combo 2 năm học: thay các dòng hiện có bằng 2 dòng Năm 1 + Năm 2 theo giá combo (giữ con đã chọn ở dòng đầu) */
+  const combos = useMemo(() => thComboOffers().filter((o) => o.lines.every((l) => courses.some((c) => c.code === l.courseCode))), [courses]);
+  const applyCombo = (key: string) => {
+    const o = combos.find((x) => x.key === key);
+    if (!o) return;
+    const child = items[0]?.leadChildId ?? "";
+    setItems(o.lines.map((l) => {
+      const c = courses.find((x) => x.code === l.courseCode)!;
+      return { ...emptyItem, courseId: c.id, description: `Học phí ${l.courseCode} — ${l.courseName} · Combo 2 năm học (${l.part}/2)`, unitPrice: l.unitPrice, basePrice: l.unitPrice, packageSessions: l.sessions, leadChildId: child, format: o.format };
+    }));
+  };
   const pickPackage = (i: number, packageId: string) => {
     const p = packages.find((x) => x.id === packageId);
     if (!p) { setItem(i, { packageId: "" }); return; }
-    setItem(i, { packageId, courseId: p.courseId, description: `Học phí ${p.courseCode} — ${p.name}`, packageSessions: p.sessions, unitPrice: p.price, basePrice: p.price, format: classFormatOfPackage(p.code) });
+    setItem(i, { packageId, courseId: p.courseId, targetClassId: p.courseId === items[i]!.courseId ? items[i]!.targetClassId : "", description: `Học phí ${p.courseCode} — ${p.name}`, packageSessions: p.sessions, unitPrice: p.price, basePrice: p.price, format: classFormatOfPackage(p.code) });
   };
   /**
    * Đổi hình thức lớp: nếu khoá có gói bán đúng hình thức (…-NHOM / …-1KEM1) thì chuyển sang gói đó (giá gói đã có
@@ -117,6 +131,7 @@ export function OrderForm({ centers, methods, courses, packages = [], today, dra
         packageSessions: i.packageSessions === "" ? null : i.packageSessions, leadChildId: i.leadChildId || null,
         enrollmentId: draft && items.length === 1 ? draft.enrollmentId : null, studentId: draft && items.length === 1 ? draft.studentId : null,
         format: i.format, discounts: i.discounts.filter((d) => d.value > 0).map((d) => ({ kind: d.kind, policy: d.policy, value: Math.round(d.value), reason: d.reason.trim() })),
+        targetClassId: leadDraft && i.targetClassId ? i.targetClassId : null,
       })),
       discount: discount.value ? discount : null,
       paymentMethodId: methodId,
@@ -179,6 +194,19 @@ export function OrderForm({ centers, methods, courses, packages = [], today, dra
                 </select>
               </label>
             )}
+            {leadDraft && type === "course" && (() => {
+              const code = courses.find((c) => c.id === it.courseId)?.code ?? null;
+              const opts = classes.filter((c) => c.centerId === centerId && (!code || c.courseCode === code));
+              return (
+                <label className="text-xs text-ink-600 sm:col-span-12">Lớp sẽ TỰ XẾP khi tiền về (tuỳ chọn)
+                  <select className="input mt-1" value={it.targetClassId} onChange={(e) => setItem(i, { targetClassId: e.target.value })}>
+                    <option value="">— Chưa chọn: tiền về sẽ báo sale chốt lớp —</option>
+                    {opts.map((c) => <option key={c.id} value={c.id} disabled={c.capacity > 0 && c.enrolled >= c.capacity}>{c.code} · {c.name} · {c.enrolled}/{c.capacity} HV{c.capacity > 0 && c.enrolled >= c.capacity ? " (đủ)" : ""}</option>)}
+                  </select>
+                  <span className="mt-0.5 block text-[11px] text-ink-400">Khoản tiền đầu tiên được xác nhận → hệ thống tự tạo hồ sơ học viên, phụ huynh và ghi danh vào lớp này.</span>
+                </label>
+              );
+            })()}
             {leadDraft && (
               <label className="text-xs text-ink-600 sm:col-span-12">Học viên (con của lead)
                 <select className="input mt-1" value={it.leadChildId} onChange={(e) => setItem(i, { leadChildId: e.target.value })}>
@@ -233,7 +261,19 @@ export function OrderForm({ centers, methods, courses, packages = [], today, dra
             </div>
           </div>
         ))}
-        {!draft && <button className="text-xs font-semibold text-brand-600" onClick={() => setItems([...items, emptyItem])}>+ Thêm dòng</button>}
+        {!draft && (
+          <div className="flex flex-wrap items-end gap-3">
+            <button className="text-xs font-semibold text-brand-600" onClick={() => setItems([...items, emptyItem])}>+ Thêm dòng</button>
+            {type === "course" && combos.length > 0 && (
+              <label className="text-xs text-ink-600">Hoặc bán combo 2 năm học (thay các dòng trên bằng Năm 1 + Năm 2)
+                <select className="input mt-1" value="" onChange={(e) => applyCombo(e.target.value)}>
+                  <option value="">— Chọn combo —</option>
+                  {combos.map((o) => <option key={o.key} value={o.key}>{o.title} — {vnd(o.total)} (−{o.discountPct}% so với {vnd(o.listTotal)})</option>)}
+                </select>
+              </label>
+            )}
+          </div>
+        )}
         <div className="flex flex-wrap items-end justify-end gap-3 border-t border-black/5 pt-3 text-sm">
           <label className="text-xs text-ink-600">Giảm giá cả đơn
             <div className="mt-1 flex gap-1">

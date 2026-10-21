@@ -64,7 +64,7 @@ export const financeRouter = router({
       items: z.array(z.object({
         courseId: uuid.nullish(), description: z.string().trim().min(2, "Mô tả dòng hàng tối thiểu 2 ký tự").max(200), quantity: z.number().int().min(1).max(100), unitPrice: money,
         packageSessions: z.number().int().min(1).max(500).nullish(), leadChildId: uuid.nullish(), studentId: uuid.nullish(), enrollmentId: uuid.nullish(),
-        format: z.enum(CLASS_FORMATS).nullish(), discounts: z.array(lineDiscount).max(5).nullish(),
+        format: z.enum(CLASS_FORMATS).nullish(), discounts: z.array(lineDiscount).max(5).nullish(), targetClassId: uuid.nullish(),
       })).min(1, "Đơn cần ít nhất một dòng").max(20),
       discount: z.object({ type: z.enum(["amount", "percent"]), value: z.number().min(0).max(10_000_000_000) }).nullish(),
       paymentMethodId: uuid,

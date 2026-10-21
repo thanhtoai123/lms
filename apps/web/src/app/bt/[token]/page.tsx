@@ -31,7 +31,7 @@ export default async function PublicHomeworkPage({ params }: { params: Promise<{
             {h.feedback && <p className="whitespace-pre-line">Nhận xét của giáo viên: {h.feedback}</p>}
           </div>
           {h.canSubmit ? <HomeworkForm token={token} type={h.submissionType} accept={h.accept} again={h.status === "returned"} /> : (
-            h.submissionType === "offline" && h.status === "assigned" ? <div className="card p-4 text-center text-sm">Bài này con nộp trực tiếp tại lớp.</div> : null
+            h.submissionType === "offline" && h.status === "assigned" ? <div className="card p-4 text-center text-sm">Bài này con trình bày trực tiếp trong buổi học trên ClassIn.</div> : null
           )}
         </div>
       )}

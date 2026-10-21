@@ -131,14 +131,14 @@ export interface ChecklistItem { key: string; label: string; required: boolean }
 
 export const SESSION_CHECKLIST: { pre: ChecklistItem[]; post: ChecklistItem[] } = {
   pre: [
-    { key: "kit", label: "Kiểm tra bộ kit / pin / thiết bị đủ cho lớp", required: false },
+    { key: "kit", label: "Mở sẵn phần mềm của buổi (RoboSim, Scratch…) và tài liệu học", required: false },
     { key: "lesson", label: "Xem trước bài học và mục tiêu buổi", required: false },
-    { key: "room", label: "Phòng học, máy chiếu, mạng sẵn sàng", required: false },
+    { key: "room", label: "Phòng ClassIn, micro / camera, đường truyền sẵn sàng", required: false },
   ],
   post: [
-    { key: "cleanup", label: "Thu dọn, kiểm đếm kit sau buổi", required: true },
+    { key: "cleanup", label: "Lưu sản phẩm / bài làm của học viên lên hệ thống", required: false },
     { key: "photos", label: "Tải ảnh lớp (nếu có) để duyệt", required: false },
-    { key: "handover", label: "Bàn giao HV cho phụ huynh đầy đủ", required: true },
+    { key: "handover", label: "Nhắc bài về nhà và lịch buổi sau trong nhóm Zalo lớp", required: true },
   ],
 };
 

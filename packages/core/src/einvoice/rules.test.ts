@@ -40,8 +40,8 @@ test("hoá đơn: người mua, MST, ký hiệu", () => {
   assert.deepEqual(validateBuyer({ name: "PH A", company: "Công ty TNHH ABC", taxCode: "0101234567", address: "1 Nguyễn Hữu Thọ", email: "ke-toan@abc.vn", phone: null, noInvoiceRequested: false }), []);
   // Chỉ ghi tên đơn vị, thiếu cả MST lẫn địa chỉ → báo MST (địa chỉ chỉ kiểm khi đã có MST)
   assert.equal(validateBuyer({ name: null, company: "Công ty TNHH ABC", taxCode: null, address: null, email: null, phone: null, noInvoiceRequested: false }).length, 1);
-  assert.deepEqual(validateSerial("1C26TSR", 2026), []);
-  assert.equal(validateSerial("1C25TSR", 2026).length, 1);
+  assert.deepEqual(validateSerial("1C26TTH", 2026), []);
+  assert.equal(validateSerial("1C25TTH", 2026).length, 1);
   assert.equal(validateSerial("C26", 2026).length, 1);
 });
 

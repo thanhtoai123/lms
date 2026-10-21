@@ -443,7 +443,7 @@ function PrivateNote({ initial, disabled, onSave }: { initial: string; disabled:
   return (
     <div className="space-y-1 pt-2">
       <label className="label">Ghi chú nội bộ (phụ huynh không thấy)</label>
-      <textarea className="input min-h-16" maxLength={2000} value={t} onChange={(e) => setT(e.target.value)} placeholder="Thiếu 2 bộ pin, bé A cần hỗ trợ thêm…" />
+      <textarea className="input min-h-16" maxLength={2000} value={t} onChange={(e) => setT(e.target.value)} placeholder="Bé A mất kết nối 10 phút, cần hỗ trợ thêm phần cảm biến…" />
       <button type="button" className="btn-ghost !py-1 text-xs" disabled={disabled || t === initial} onClick={() => onSave(t.trim())}>Lưu ghi chú</button>
     </div>
   );

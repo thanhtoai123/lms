@@ -16,7 +16,9 @@ export type DomainEvent =
   | { type: "attendance.corrected"; sessionId: string; enrollmentId: string; studentId: string; from: string | null; to: string; reason: string; actorId: string }
   | { type: "report_card.published"; reportCardId: string; enrollmentId: string; studentId: string }
   | { type: "course.completed"; enrollmentId: string; studentId: string; courseId: string; nextCourseId: string | null }
-  | { type: "report_card.due"; enrollmentId: string; sessionId: string; sequenceNo: number };
+  | { type: "report_card.due"; enrollmentId: string; sessionId: string; sequenceNo: number }
+  /** Đơn nhận khoản tiền ĐẦU TIÊN (chờ thanh toán → đang đóng / đã đóng đủ) — worker tự xếp lớp cho đơn từ lead */
+  | { type: "order.first_payment"; orderId: string };
 
 export type DomainEventType = DomainEvent["type"];
 

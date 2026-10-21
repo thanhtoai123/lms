@@ -131,7 +131,7 @@ export function DeploymentAdmin({ data, centers, people }: { data: Deps; centers
           </label>
           <label className="text-xs text-ink-600">Hiệu lực từ *<input type="date" className="input mt-1" value={f.from} onChange={(e) => setF({ ...f, from: e.target.value })} /></label>
           <label className="text-xs text-ink-600">Đến ngày<input type="date" className="input mt-1" value={f.to} onChange={(e) => setF({ ...f, to: e.target.value })} /></label>
-          <label className="text-xs text-ink-600">Số quyết định<input className="input mt-1" value={f.decisionNo} onChange={(e) => setF({ ...f, decisionNo: e.target.value })} placeholder="VD: 12/2026/QĐ-SR" maxLength={60} /></label>
+          <label className="text-xs text-ink-600">Số quyết định<input className="input mt-1" value={f.decisionNo} onChange={(e) => setF({ ...f, decisionNo: e.target.value })} placeholder="VD: 12/2026/QĐ-THSTEAM" maxLength={60} /></label>
           <label className="text-xs text-ink-600 md:col-span-2">Lý do *<input className="input mt-1" value={f.reason} onChange={(e) => setF({ ...f, reason: e.target.value })} placeholder="Lý do điều động…" /></label>
           <div className="md:col-span-3">
             <button className="btn-primary" disabled={add.isPending || !f.staffId || !f.centerId || f.reason.trim().length < 5}

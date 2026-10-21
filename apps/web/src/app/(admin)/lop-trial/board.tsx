@@ -94,7 +94,7 @@ export function TrialBoard({ items, today, openReport }: { items: Item[]; today:
                     {mode.kind === "result" && (
                       <>
                         <label className="label">Nhận xét buổi thử (tuỳ chọn — tư vấn sẽ dùng khi gọi chốt)</label>
-                        <input className="input" maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Bé hào hứng, lắp xong mô hình…" />
+                        <input className="input" maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Bé hào hứng, làm xong sản phẩm…" />
                         <div className="flex gap-2">
                           <button className="btn-primary" disabled={busy} onClick={() => result.mutate({ bookingId: t.id, result: "attend", note: reason.trim() || null })}>Bé đã đến học</button>
                           <button className="btn-ghost text-red-700" disabled={busy} onClick={() => result.mutate({ bookingId: t.id, result: "no_show", note: reason.trim() || null })}>Không đến</button>

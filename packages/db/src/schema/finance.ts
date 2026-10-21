@@ -9,7 +9,7 @@ import {
 import { centers } from "./org";
 import { users } from "./identity";
 import { parents, students } from "./people";
-import { courses, enrollments } from "./academics";
+import { courses, enrollments, classes } from "./academics";
 import { leads, leadChildren } from "./admissions";
 
 const money = (name: string) => bigint(name, { mode: "number" });
@@ -136,6 +136,8 @@ export const orderItems = pgTable(
     discountAmount: money("discount_amount").notNull().default(0),
     /** amount − discount_amount: phần thực phải thu của dòng (công nợ theo con) */
     netAmount: money("net_amount").notNull().default(0),
+    /** Lớp sẽ TỰ XẾP khi đơn nhận khoản tiền đầu tiên (đơn tạo từ lead) — xem services/autoEnroll.ts */
+    targetClassId: uuid("target_class_id").references(() => classes.id, { onDelete: "set null" }),
   },
   (t) => [index("order_items_order_idx").on(t.orderId), index("order_items_lead_child_idx").on(t.leadChildId), index("order_items_enrollment_idx").on(t.enrollmentId), index("order_items_student_idx").on(t.studentId)],
 );

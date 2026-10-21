@@ -162,7 +162,7 @@ export function StudentForm({ centers, initial, studentId, guardiansInitial, can
               value={f.code}
               onChange={set("code")}
               disabled={editing && !canChangeCode}
-              placeholder={editing ? "" : "Để trống để tự sinh (VD SR.HV.001)"}
+              placeholder={editing ? "" : "Để trống để tự sinh (VD ONL-26-000001)"}
             />
             <p className="mt-0.5 text-[11px] text-ink-400">
               {editing && !canChangeCode
@@ -188,7 +188,7 @@ export function StudentForm({ centers, initial, studentId, guardiansInitial, can
             </select>
           </div>
           <div className="sm:col-span-2"><label className="label">Trường đang học</label><input className="input" value={f.school} onChange={set("school")} /></div>
-          <div className="sm:col-span-3"><label className="label">Sở thích / điểm mạnh</label><input className="input" value={f.interests} onChange={set("interests")} placeholder="Lắp ráp, lập trình Scratch, vẽ…" /></div>
+          <div className="sm:col-span-3"><label className="label">Sở thích / điểm mạnh</label><input className="input" value={f.interests} onChange={set("interests")} placeholder="Robotics, lập trình Scratch, vẽ, AI…" /></div>
         </div>
       </Section>
 

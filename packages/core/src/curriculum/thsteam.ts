@@ -417,3 +417,47 @@ export function courseLabel(code: string, name: string): string {
 export function isThCourseCode(code: string): boolean {
   return thCourseSpecs().some((c) => c.code === code);
 }
+
+/* ------------------------------------------------------------------ */
+/* Gói combo 2 năm học                                                  */
+/* ------------------------------------------------------------------ */
+
+export interface ThComboOffer {
+  /** Khoá chọn trong ô: "<mã chương trình>:<hình thức>" */
+  key: string;
+  programCode: string;
+  format: "group" | "coach_1_1";
+  /** "Combo 2 năm · Lập trình Robotics AI · Tiểu học 8–10 tuổi · Lớp nhóm" */
+  title: string;
+  listTotal: number;
+  total: number;
+  discountPct: number;
+  /** Hai dòng đơn: Năm 1 + Năm 2, chia đều giá combo (dòng cuối nhận phần lẻ) */
+  lines: { courseCode: string; courseName: string; unitPrice: number; sessions: number; part: 1 | 2 }[];
+}
+
+/**
+ * Combo 2 năm học theo bảng học phí (TH_PRICING.combo): chỉ chương trình có từ 2 năm học trở lên.
+ * Bán thành HAI dòng đơn (Năm 1, Năm 2) để ghi danh từng năm đúng khoá; giá mỗi dòng = giá combo / 2.
+ */
+export function thComboOffers(): ThComboOffer[] {
+  const out: ThComboOffer[] = [];
+  for (const p of TH_PROGRAMS) {
+    if (p.years.length < 2) continue;
+    const [y1, y2] = [p.years[0]!, p.years[1]!];
+    for (const format of ["group", "coach_1_1"] as const) {
+      const pr = format === "group" ? TH_PRICING.combo.group : TH_PRICING.combo.oneToOne;
+      const first = Math.floor(pr.price / 2 / 1000) * 1000;
+      out.push({
+        key: `${p.code}:${format}`, programCode: p.code, format,
+        title: `Combo 2 năm · ${programTitle(p)} · ${format === "group" ? "Lớp nhóm" : "Kèm 1:1"}`,
+        listTotal: pr.list, total: pr.price, discountPct: pr.discountPct,
+        lines: [
+          { courseCode: yearCourseCode(p, y1.no), courseName: yearCourseName(p, y1), unitPrice: first, sessions: TH_SESSIONS_PER_YEAR, part: 1 },
+          { courseCode: yearCourseCode(p, y2.no), courseName: yearCourseName(p, y2), unitPrice: pr.price - first, sessions: TH_SESSIONS_PER_YEAR, part: 2 },
+        ],
+      });
+    }
+  }
+  return out;
+}

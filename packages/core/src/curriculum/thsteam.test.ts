@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {
   TH_TRACKS, TH_PROGRAMS, TH_PRICING, TH_SESSIONS_PER_YEAR, thCourseSpecs, thPathSpecs, yearLessonPlan, examLessonPlan, parseSyllabus,
   programCriteria, sessionRole, gradeOfAge, programTitle, examCourseName, thProgram, TH_CRITERIA_ORDER,
-  TH_YEAR_NAMING, yearCourseCode, yearCourseName, moduleTitle, courseLabel,
+  TH_YEAR_NAMING, yearCourseCode, yearCourseName, moduleTitle, courseLabel, thComboOffers,
 } from "./thsteam.js";
 import { validateCriterion } from "../portfolio/standard.js";
 import { reportCardMilestones } from "../reportcards/rules.js";
@@ -134,4 +134,19 @@ test("khoá học nạp vào hệ thống: mã duy nhất, lớp ở trường t
   const code1 = paths.find((p) => p.code === "CODE-THCS1")!;
   assert.deepEqual(code1.courses, [{ code: "CODE-THCS1-N1", required: true }, { code: "CODE-THCS1-N2", required: true }, { code: "CODE-THCS1-THI-KHKT", required: false }]);
   for (const p of paths) for (const c of p.courses) assert.ok(specs.some((s) => s.code === c.code), c.code);
+});
+
+test("combo 2 năm: chỉ chương trình ≥ 2 năm, hai dòng cộng đúng giá combo", () => {
+  const offers = thComboOffers();
+  assert.ok(offers.length > 0);
+  for (const o of offers) {
+    assert.equal(o.lines.length, 2);
+    assert.equal(o.lines[0]!.unitPrice + o.lines[1]!.unitPrice, o.total);
+    assert.ok(o.lines[0]!.courseCode.endsWith("-N1") && o.lines[1]!.courseCode.endsWith("-N2"));
+  }
+  const robo = offers.find((o) => o.key === "ROBO-TH:group")!;
+  assert.equal(robo.total, 9_750_000);
+  assert.equal(robo.discountPct, 35);
+  assert.deepEqual(robo.lines.map((l) => l.unitPrice), [4_875_000, 4_875_000]);
+  assert.ok(!offers.some((o) => o.programCode === "AI-TH"), "AI Tiểu học chỉ 1 năm — không có combo");
 });

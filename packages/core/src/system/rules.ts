@@ -67,7 +67,7 @@ export const EMAIL_EVENTS = {
     label: "Học bạ đã có",
     vars: ["ten_ph", "ten_hv", "lop", "link"],
     subject: "Học bạ của bé {ten_hv} đã sẵn sàng",
-    body: "Kính gửi {ten_ph},\n\nHọc bạ kỳ này của bé {ten_hv} (lớp {lop}) đã được giáo viên hoàn thành.\nXem chi tiết: {link}\n\nTH STEAM Academy",
+    body: "Kính gửi {ten_ph},\n\nHọc bạ học phần vừa qua của bé {ten_hv} (lớp {lop}) đã được giáo viên hoàn thành.\nXem chi tiết: {link}\n\nTH STEAM Academy",
   },
   SURVEY_INVITE: {
     label: "Mời khảo sát",

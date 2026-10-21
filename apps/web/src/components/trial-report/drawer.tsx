@@ -484,9 +484,9 @@ export function TrialReportDrawer({ source, reportId, onClose }: { source?: Tria
                 <p className="text-xs text-muted-foreground">Viết ít nhất một ô từ {TRIAL_REPORT_COMMENT_MIN} ký tự. Lời cụ thể, tích cực — phụ huynh đọc phần này đầu tiên.</p>
               </div>
               {([
-                ["strengths", "Điểm nổi bật của bé", "VD: Bé tự lắp xong xe robot, rất tò mò hỏi vì sao bánh xe quay…"],
+                ["strengths", "Điểm nổi bật của bé", "VD: Bé tự lập trình robot ảo đi đúng đường, rất tò mò hỏi vì sao cảm biến nhận ra vạch…"],
                 ["growth", "Bé có thể phát triển thêm", "VD: Bé cần luyện thêm thao tác kéo thả chuột và mạnh dạn phát biểu…"],
-                ["productNote", "Sản phẩm bé làm được trong buổi", "VD: Xe robot né vật cản chạy được 2 vòng sân…"],
+                ["productNote", "Sản phẩm bé làm được trong buổi", "VD: Robot ảo trên RoboSim né vật cản, hoàn thành nhiệm vụ sa bàn…"],
               ] as const).map(([k, label, ph]) => (
                 <label key={k} className="block">
                   <span className="mb-1 flex items-baseline justify-between text-sm font-semibold text-foreground">
@@ -543,7 +543,7 @@ export function TrialReportDrawer({ source, reportId, onClose }: { source?: Tria
                 </label>
               </div>
               <label className="block text-xs text-muted-foreground">Lý do ngắn
-                <input className="input mt-1" maxLength={TRIAL_REPORT_NOTE_MAX} value={form.recommendationNote} onChange={(e) => set({ recommendationNote: e.target.value })} placeholder="VD: Bé thao tác nhanh, hợp lộ trình lắp ráp + lập trình kéo thả" />
+                <input className="input mt-1" maxLength={TRIAL_REPORT_NOTE_MAX} value={form.recommendationNote} onChange={(e) => set({ recommendationNote: e.target.value })} placeholder="VD: Bé thao tác nhanh, hợp lộ trình Robotics AI (robot ảo RoboSim) + lập trình kéo thả" />
               </label>
               <div className="grid gap-2 sm:grid-cols-2">
                 <Toggle on={form.pathway} onChange={(v) => set({ pathway: v })} label="Định hướng lộ trình phát triển tư duy công nghệ dài hạn" />

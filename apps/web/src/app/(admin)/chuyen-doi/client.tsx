@@ -12,7 +12,7 @@ import { CsvButton } from "@/components/csv-button";
 const STUDENT_COLS = ["ma_hv", "ho_ten", "ngay_sinh", "gioi_tinh", "khoi", "truong", "co_so", "trang_thai", "ten_ph", "sdt_ph", "email_ph", "quan_he", "ten_ph_2", "sdt_ph_2", "suc_khoe", "ghi_chu"] as const;
 const STUDENT_SAMPLE = [["HV00123", "Nguyễn Văn A", "05/03/2017", "Nam", "3", "Tiểu học ABC", "ONL", "Đang học", "Nguyễn Thị B", "0900000001", "", "Mẹ", "", "", "", ""]] as const;
 const ENROLL_COLS = ["ma_hv", "ma_lop", "so_buoi_goi", "da_hoc", "con_lai", "trang_thai", "ngay_ghi_danh", "bao_luu_den", "ghi_chu"] as const;
-const ENROLL_SAMPLE = [["HV00123", "ONL.ROBO-TH-N1.26.001", "48", "10", "38", "Đang học", "01/02/2026", "", ""], ["HV00124", "ONL.ROBO-TH-N1.26.001", "24", "", "20", "Bảo lưu", "01/03/2026", "30/10/2026", ""]] as const;
+const ENROLL_SAMPLE = [["HV00123", "ONL.ROBO-TH-N1.26.001", "45", "10", "35", "Đang học", "01/02/2026", "", ""], ["HV00124", "ONL.ROBO-TH-N1.26.001", "15", "", "12", "Bảo lưu", "01/03/2026", "30/10/2026", ""]] as const;
 const RECON_COLS = ["ma_hv", "ma_lop", "con_lai", "cong_no"] as const;
 const RECON_SAMPLE = [["HV00123", "ONL.ROBO-TH-N1.26.001", "38", "0"]] as const;
 

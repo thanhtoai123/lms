@@ -49,12 +49,12 @@ export async function adminOverview(ctx: ProtectedContext) {
 
   const queues: QueueItem[] = [];
 
-  // 0) Học bạ kỳ chưa viết (buổi 5 / buổi 12)
+  // 0) Học bạ học phần chưa viết (buổi 15 / 30 / 45)
   // Trước: tải 500 dòng chỉ để lấy `.length` và 3 dòng xem trước (số hiển thị bị cắt ở 500).
   // Sau: 1 count(*) cho hai con số + 1 truy vấn lấy đúng 3 dòng xem trước.
   if (can("report_card:read")) {
     const [c, due] = await Promise.all([countDueReportCards(ctx), dueReportCards(ctx, { limit: 3 })]);
-    queues.push({ key: "report_cards", title: "Học bạ kỳ chưa viết (buổi 5 / buổi 12)", count: c.total, overdue: c.overdue, href: "/ho-so-hoc-tap?xem=hoc-ba-moc", preview: due.map((d) => `${d.classCode} · ${d.studentName} · buổi ${d.seq}`) });
+    queues.push({ key: "report_cards", title: "Học bạ học phần chưa viết (buổi 15 / 30 / 45)", count: c.total, overdue: c.overdue, href: "/ho-so-hoc-tap?xem=hoc-ba-moc", preview: due.map((d) => `${d.classCode} · ${d.studentName} · buổi ${d.seq}`) });
   }
 
   // 0b) Lớp chờ duyệt mở

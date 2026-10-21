@@ -423,7 +423,7 @@ async function issueCompletion(
   const avg = await completionAverage(ctx, e.id);
   return ctx.db.transaction(async (tx) => {
     const year = new Date().getFullYear();
-    const prefix = `SR-${e.courseCode.toUpperCase()}-${String(year).slice(-2)}-`;
+    const prefix = certificateNumber(e.courseCode, year, 0).slice(0, -6); // "TH-<khoá>-yy-" — cùng dạng số đang sinh
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${prefix}))`);
     const [mx] = await tx.select({ m: sql<string | null>`max(${courseCompletions.certificateNo})` }).from(courseCompletions).where(sql`${courseCompletions.certificateNo} like ${prefix + "%"}`);
     const certNo = certificateNumber(e.courseCode, year, mx?.m ? Number(mx.m.slice(prefix.length)) + 1 : 1);

@@ -12,6 +12,7 @@ import {
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { assertTenant, tenantCond, tenantCondStrict } from "./tenantScope";
 import { deliverNotifications } from "./notify";
+import { autoEnrollOrder } from "./autoEnroll";
 import { writeAudit } from "./audit";
 import { slaOverdueMinutesSql, slaOverdueSql } from "./leadSlaSql";
 
@@ -75,6 +76,8 @@ export async function processOutbox(db: Database, opts: { batch?: number; retry?
   for (const row of rows) {
     const event = { type: row.type, ...row.payload } as DomainEvent;
     try {
+      // Việc nghiệp vụ chạy ở worker (không qua bộ luật automation)
+      if (event.type === "order.first_payment") await autoEnrollOrder(db, event.orderId);
       const matches = runRules(event, DEFAULT_RULES);
       for (const m of matches) for (const a of m.actions) { await executeAction(db, a, event, m.rule); actions++; }
       await db.update(outbox).set({ processedAt: new Date() }).where(eq(outbox.id, row.id));

@@ -261,7 +261,7 @@ export async function createClass(ctx: ProtectedContext, input: CreateClassInput
       const status: ClassStatus = mode === "draft" ? "draft" : "pending_approval";
       const [cls] = await tx.insert(classes).values({
         code, name: input.name.trim(), courseId: input.courseId, curriculumId: input.curriculumId ?? null, centerId: input.centerId, homeRoomId: input.homeRoomId ?? null,
-        leadTeacherId: input.leadTeacherId ?? null, assistantTeacherId: input.assistantTeacherId ?? null, capacity: input.capacity ?? 12, minCapacity: input.minCapacity ?? 1,
+        leadTeacherId: input.leadTeacherId ?? null, assistantTeacherId: input.assistantTeacherId ?? null, capacity: input.capacity ?? 8, minCapacity: input.minCapacity ?? 1,
         description: input.description ?? null, plannedSessions: input.totalSessions ?? course.totalSessions, startDate: input.startDate, status,
         ...(mode !== "draft" ? { submittedAt: new Date(), submittedBy: ctx.user.id } : {}),
       }).returning();

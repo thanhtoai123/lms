@@ -136,7 +136,7 @@ export function CommissionPolicyPanel({ centers, today }: { centers: { id: strin
             </label>
             <label className="text-xs text-ink-600">Hiệu lực từ *<input type="date" className="input mt-1" value={f.effectiveFrom} onChange={(e) => setF({ ...f, effectiveFrom: e.target.value })} /></label>
             <label className="text-xs text-ink-600">Hiệu lực đến<input type="date" className="input mt-1" value={f.effectiveTo} onChange={(e) => setF({ ...f, effectiveTo: e.target.value })} /></label>
-            <label className="text-xs text-ink-600 sm:col-span-2">Nguồn văn bản<input className="input mt-1" value={f.sourceRef} onChange={(e) => setF({ ...f, sourceRef: e.target.value })} placeholder="SR.QD.208 · PL04 Điều 1" /></label>
+            <label className="text-xs text-ink-600 sm:col-span-2">Nguồn văn bản<input className="input mt-1" value={f.sourceRef} onChange={(e) => setF({ ...f, sourceRef: e.target.value })} placeholder="VD: Quy chế hoa hồng 2026 · Điều 1" /></label>
             <label className="flex items-center gap-2 pt-5 text-sm"><input type="checkbox" checked={f.isActive} onChange={(e) => setF({ ...f, isActive: e.target.checked })} /> Đang áp dụng</label>
             <label className="text-xs text-ink-600 sm:col-span-3">Ghi chú<input className="input mt-1" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></label>
           </div>
@@ -185,7 +185,7 @@ export function CommissionPolicyPanel({ centers, today }: { centers: { id: strin
           <div className="flex flex-wrap items-end gap-2">
             <label className="flex-1 text-xs text-ink-600">
               {f.id ? "Lý do sửa * (ghi vào nhật ký)" : "Lý do / căn cứ (tuỳ chọn)"}
-              <input className="input mt-1" value={f.reason} onChange={(e) => setF({ ...f, reason: e.target.value })} placeholder="VD: áp dụng PL04 sửa đổi từ 01/10" />
+              <input className="input mt-1" value={f.reason} onChange={(e) => setF({ ...f, reason: e.target.value })} placeholder="VD: áp dụng quy chế sửa đổi từ 01/10" />
             </label>
             <button className="btn-primary" disabled={save.isPending || (!!f.id && f.reason.trim().length < 5)} onClick={submit}>{save.isPending ? "Đang lưu…" : "Lưu chính sách"}</button>
             <button className="btn-ghost" onClick={() => { setF(null); setErr(null); }}>Thôi</button>

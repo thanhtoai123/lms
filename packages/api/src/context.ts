@@ -107,6 +107,18 @@ export async function createContext(opts: { headers: Headers; ip?: string }): Pr
   if (authSubject && !u.authSubject) await db.update(users).set({ authSubject, lastLoginAt: new Date() }).where(eq(users.id, u.id));
   else if (!u.lastLoginAt || Date.now() - u.lastLoginAt.getTime() > 3_600_000) await db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, u.id));
 
+  return buildUserContext(db, u, { ip: opts.ip, via: authSubject ? "supabase" : "dev", aal });
+}
+
+/**
+ * Ngữ cảnh quyền của MỘT người dùng (vai trò còn hiệu lực, điều động, quyền nhóm, tenant) — dùng chung cho
+ * đăng nhập và cho việc nền chạy THAY người dùng (vd tự xếp lớp khi tiền về, chạy với quyền của người tạo đơn).
+ */
+async function buildUserContext(
+  db: Database,
+  u: typeof users.$inferSelect,
+  o: { ip?: string; via: "supabase" | "dev"; aal: string | null },
+): Promise<Context> {
   // Ngày hiện tại theo giờ Việt Nam: vai trò hết hiệu lực là quyền tự tắt ngay lần truy cập này
   const today = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10);
   const roles = await db.select({ role: userRoles.role, centerId: userRoles.centerId, validFrom: userRoles.validFrom, validTo: userRoles.validTo })
@@ -143,7 +155,8 @@ export async function createContext(opts: { headers: Headers; ip?: string }): Pr
       source: g.source,
     })),
   };
-  const via = authSubject ? "supabase" as const : "dev" as const;
+  const via = o.via;
+  const aal = o.aal;
   const mfa = mfaState({ roles: actor.assignments.map((a) => a.role), required: mfaRequiredRoles(process.env.REQUIRE_MFA_ROLES), viaSupabase: via === "supabase", aal });
 
   // Trung tâm (tenant) của người đăng nhập; tài khoản cũ chưa gắn tenant → tenant mặc định của chuỗi
@@ -152,7 +165,14 @@ export async function createContext(opts: { headers: Headers; ip?: string }): Pr
   const tenantIds = tenantScope({ tenantId, assignments: actor.assignments }, allTenants);
 
   return {
-    db, actor, user: { id: u.id, email: u.email, fullName: u.fullName }, ip: opts.ip, auth: { via, aal, mfa },
+    db, actor, user: { id: u.id, email: u.email, fullName: u.fullName }, ip: o.ip, auth: { via, aal, mfa },
     tenantId, tenantIds, tenants: allTenants,
   };
+}
+
+/** Ngữ cảnh cho việc nền chạy thay một người dùng còn hoạt động; null nếu không có / đã khoá */
+export async function contextForUserId(db: Database, userId: string): Promise<Context | null> {
+  const u = await db.query.users.findFirst({ where: eq(users.id, userId) });
+  if (!u || !u.isActive) return null;
+  return buildUserContext(db, u, { via: "dev", aal: null, ip: "worker" });
 }

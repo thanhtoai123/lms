@@ -231,7 +231,7 @@ export async function provision(ctx: ProtectedContext, input: ProvisionInput) {
     if (roomCount > 0) {
       await tx.insert(rooms).values(
         Array.from({ length: roomCount }, (_, i) => ({
-          tenantId: tid, centerId: center!.id, code: `P${i + 1}`, name: `Phòng ${i + 1}`, capacity: 12, equipment: ["Bảng trắng"] as string[],
+          tenantId: tid, centerId: center!.id, code: `P${i + 1}`, name: `Phòng ${i + 1}`, capacity: 8, equipment: ["Phòng ClassIn"] as string[],
         })),
       );
       bump("rooms", roomCount);

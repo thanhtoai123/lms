@@ -159,7 +159,7 @@ export function BookTrial({ centers, courses, initialLeadId }: { centers: Center
           </div>
           <div className="flex flex-wrap items-end gap-2">
             <label className="flex-1 text-xs text-ink-600">Ghi chú cho GV (tuỳ chọn)
-              <input className="input mt-1" maxLength={300} placeholder="Bé hơi nhút nhát, PH đưa đón…" value={note} onChange={(e) => setNote(e.target.value)} />
+              <input className="input mt-1" maxLength={300} placeholder="Bé hơi nhút nhát, máy nhà chưa cài ClassIn…" value={note} onChange={(e) => setNote(e.target.value)} />
             </label>
             <button className="btn-primary" disabled={!sessionId || book.isPending} onClick={() => sessionId && book.mutate({ leadId: lead.id, childId: childId || null, sessionId, note: note.trim() || null })}>
               {book.isPending ? "Đang xếp…" : "3. Xếp học thử"}

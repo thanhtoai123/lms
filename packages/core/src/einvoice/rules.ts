@@ -98,7 +98,7 @@ export function validateBuyer(b: Buyer): string[] {
 /** Ký hiệu hoá đơn: 1 (GTGT) / 2 (bán hàng) + C (có mã) / K (không mã) + 2 số năm + loại + 2 ký tự */
 export function validateSerial(serial: string, year: number): string[] {
   const e: string[] = [];
-  if (!/^[1-2][CK]\d{2}[TDLMNBGHXY][A-Z0-9]{2}$/.test(serial)) e.push("Ký hiệu hoá đơn dạng 1C26TSR (loại · có mã · năm · loại hình · 2 ký tự)");
+  if (!/^[1-2][CK]\d{2}[TDLMNBGHXY][A-Z0-9]{2}$/.test(serial)) e.push("Ký hiệu hoá đơn dạng 1C26TTH (loại · có mã · năm · loại hình · 2 ký tự)");
   else if (Number(serial.slice(2, 4)) !== year % 100) e.push(`Ký hiệu phải mang năm ${year % 100} — đổi ký hiệu khi sang năm mới`);
   return e;
 }

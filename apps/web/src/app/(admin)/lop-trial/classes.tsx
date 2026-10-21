@@ -41,7 +41,7 @@ export function TrialClassList({ items, canManage, centers, courses }: { items: 
   const trpc = useTRPC();
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState({ centerId: "", courseId: "", capacity: "12", note: "" });
+  const [draft, setDraft] = useState({ centerId: "", courseId: "", capacity: "8", note: "" });
   /** Huỷ lớp: bấm lần 1 mở ô lý do, bấm lần 2 mới thực sự huỷ */
   const [cancelling, setCancelling] = useState<string | null>(null);
   const [confirm, setConfirm] = useState(false);
@@ -54,7 +54,7 @@ export function TrialClassList({ items, canManage, centers, courses }: { items: 
     onSuccess: (r) => {
       setError(null);
       setOpen(false);
-      setDraft({ centerId: "", courseId: "", capacity: "12", note: "" });
+      setDraft({ centerId: "", courseId: "", capacity: "8", note: "" });
       setNotice(`Đã tạo lớp ${r.name} (${r.code}). Nhớ thêm buổi — lớp chưa có buổi thì chưa xếp được học viên.`);
       router.push(`/lop-trial/${r.id}`);
     },

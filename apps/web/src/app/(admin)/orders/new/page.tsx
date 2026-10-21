@@ -19,6 +19,10 @@ export default async function NewOrderPage({ searchParams }: { searchParams: Pro
     caller.catalog.coursePackageOptions().catch(() => []),
   ]);
   const leadDraft = !sp.enrollmentId && sp.leadId ? await caller.finance.orderDraftFromLead({ leadId: sp.leadId }).catch(() => null) : null;
+  // Lớp đang tuyển / đang học — để chọn "lớp tự xếp khi tiền về" cho đơn từ lead
+  const openClasses = leadDraft
+    ? (await caller.academics.classes.list({}).catch(() => [])).filter((c) => c.status === "recruiting" || c.status === "running")
+    : [];
   const today = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10);
   const listPrices = await caller.catalog.courses({ active: true });
   return (
@@ -42,6 +46,7 @@ export default async function NewOrderPage({ searchParams }: { searchParams: Pro
         courses={courses.filter((c) => c.isActive).map((c) => ({ ...c, listPrice: listPrices.find((x) => x.id === c.id)?.listPrice ?? 0 }))}
         packages={packages.map((p) => ({ id: p.id, courseId: p.courseId, courseCode: p.courseCode, code: p.code, name: p.name, sessions: p.sessions, price: p.price, savingPercent: p.savingPercent }))}
         today={today}
+        classes={openClasses.map((c) => ({ id: c.id, code: c.code, name: c.name, centerId: c.centerId, courseCode: c.courseCode, enrolled: c.enrolled, capacity: c.capacity }))}
         draft={draft ? {
           enrollmentId: draft.enrollmentId, centerId: draft.centerId, studentId: draft.studentId, studentName: draft.studentName, classCode: draft.classCode,
           courseId: draft.courseId, courseCode: draft.courseCode, packageSessions: draft.packageSessions, unitPrice: draft.unitPrice,

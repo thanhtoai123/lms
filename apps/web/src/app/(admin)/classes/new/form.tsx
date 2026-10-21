@@ -18,8 +18,8 @@ export function NewClassForm({ ref_, canApprove }: { ref_: Ref; canApprove: bool
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const [startDate, setStartDate] = useState("");
-  const [capacity, setCapacity] = useState(20);
-  const [minCapacity, setMinCapacity] = useState(5);
+  const [capacity, setCapacity] = useState(8);
+  const [minCapacity, setMinCapacity] = useState(6);
   const [totalSessions, setTotalSessions] = useState<number | "">("");
   const [assistantTeacherId, setAssistantTeacherId] = useState("");
   const [description, setDescription] = useState("");

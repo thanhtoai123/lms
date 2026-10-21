@@ -509,7 +509,7 @@ export async function issuePathCertificates(ctx: ProtectedContext, input: { path
     const year = Number(new Date(now.getTime() + 7 * 3600e3).toISOString().slice(0, 4));
     for (const t of targets) {
       const center = centerRows.find((c) => c.id === t.centerId) ?? null;
-      const number = await nextPathNumber(tx, center?.code ?? "SR", year);
+      const number = await nextPathNumber(tx, center?.code ?? "ONL", year);
       const avgRaw = avgRows.find((a) => a.studentId === t.studentId)?.avg ?? null;
       const avg = avgRaw === null ? null : Math.round(Number(avgRaw) * 10) / 10;
       const snapshot = buildCertificateSnapshot({

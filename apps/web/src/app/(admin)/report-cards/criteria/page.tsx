@@ -20,7 +20,7 @@ export default async function CriteriaPage() {
       />
       {none > 0 && (
         <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-          {none} chương trình chưa có tiêu chí riêng — đang dùng bộ mặc định 4 tiêu chí chung. Mở từng chương trình để chọn bộ mẫu phù hợp (robotics, lập trình, STEAM cho bé nhỏ, AI & dữ liệu) hoặc sao chép từ chương trình khác.
+          {none} chương trình chưa có tiêu chí riêng. Mở từng chương trình để áp bộ mẫu chuẩn TH STEAM (6 năng lực + 3 phẩm chất) hoặc sao chép từ chương trình khác.
         </p>
       )}
       {!o.canEdit && <p className="rounded-xl bg-black/[0.04] p-3 text-sm text-ink-600">Bạn chỉ xem được. Người có quyền quản lý khoá học (Đào tạo, quản trị) mới sửa được tiêu chí.</p>}

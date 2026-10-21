@@ -67,7 +67,7 @@ export function milestoneInfo(seq: number, p: MilestonePolicy = DEFAULT_MILESTON
 export function milestoneLabel(seq: number, p: MilestonePolicy = DEFAULT_MILESTONES): string {
   const m = milestoneInfo(seq, p);
   if (p.checkpoints.length === 1) return `HP${m.term} · Báo cáo cuối khoá (buổi ${seq})`;
-  return `Kỳ ${m.term} · ${m.kind === "mid" ? "giữa kỳ" : "cuối kỳ"} (buổi ${seq})`;
+  return `HP${m.term} · ${m.kind === "mid" ? "giữa học phần" : "cuối học phần"} (buổi ${seq})`;
 }
 
 export const SCORE_MIN = 1;

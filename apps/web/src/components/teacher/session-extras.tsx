@@ -175,7 +175,7 @@ function QuickPhoto({ sessionId, sessionDate, roster, counts }: {
           </p>
         )}
       </div>
-      <input className="input" maxLength={200} value={caption} onChange={(e) => setCaption(e.target.value)} placeholder="Chú thích (tuỳ chọn): Các con thử robot trên sa bàn" />
+      <input className="input" maxLength={200} value={caption} onChange={(e) => setCaption(e.target.value)} placeholder="Chú thích (tuỳ chọn): Các con demo dự án trên ClassIn" />
       <button type="button" className="btn-primary min-h-11 w-full" disabled={busy || !files.length || !tagged.length} onClick={upload}>
         {busy ? <><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Đang tải…</> : `Tải ${files.length || ""} ảnh & gửi duyệt`}
       </button>

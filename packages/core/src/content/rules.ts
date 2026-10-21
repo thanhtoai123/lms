@@ -28,7 +28,7 @@ export const DOC_STATUS_VI: Record<DocStatus, string> = { draft: "Nháp", publis
 export const DOC_CATEGORIES = ["lesson_plan", "slides", "worksheet", "video", "guide", "program", "other"] as const;
 export type DocCategory = (typeof DOC_CATEGORIES)[number];
 export const DOC_CATEGORY_VI: Record<DocCategory, string> = {
-  lesson_plan: "Giáo án", slides: "Bài trình chiếu", worksheet: "Phiếu bài tập", video: "Video", guide: "Hướng dẫn lắp / lập trình", program: "Mã chương trình mẫu", other: "Khác",
+  lesson_plan: "Giáo án", slides: "Bài trình chiếu", worksheet: "Phiếu bài tập", video: "Video", guide: "Hướng dẫn lập trình / phần mềm", program: "Mã chương trình mẫu", other: "Khác",
 };
 
 /** Phần mở rộng → MIME cho phép */
@@ -216,7 +216,7 @@ export function mergeScormStatus(prev: ScormStatus, next: ScormStatus): ScormSta
 
 export const SUBMISSION_TYPES = ["file", "link", "text", "offline"] as const;
 export type SubmissionType = (typeof SUBMISSION_TYPES)[number];
-export const SUBMISSION_TYPE_VI: Record<SubmissionType, string> = { file: "Nộp ảnh / tệp", link: "Nộp đường link (Scratch, video…)", text: "Trả lời ngắn", offline: "Nộp tại lớp" };
+export const SUBMISSION_TYPE_VI: Record<SubmissionType, string> = { file: "Nộp ảnh / tệp", link: "Nộp đường link (Scratch, video…)", text: "Trả lời ngắn", offline: "Trình bày trong buổi học (ClassIn)" };
 
 export const ASSIGNMENT_STATUSES = ["draft", "published", "closed"] as const;
 export type AssignmentStatus = (typeof ASSIGNMENT_STATUSES)[number];

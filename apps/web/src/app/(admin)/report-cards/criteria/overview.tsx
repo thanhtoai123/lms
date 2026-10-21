@@ -43,7 +43,7 @@ export function CourseCriteriaCard({ course: c, allCourses, canEdit, canSetNext 
           {needsLevels && <p className="text-xs text-amber-900">Tiêu chí chưa có mô tả mức đang dùng mô tả mặc định theo tên — nên viết mô tả riêng để giáo viên chấm nhất quán.</p>}
         </div>
       ) : (
-        <p className="text-sm text-ink-600">Chưa cấu hình tiêu chí cho chương trình này — phiếu buổi dùng 4 tiêu chí chung (Lắp ráp & thiết kế, Tư duy lập trình, Giải quyết vấn đề, Hợp tác & trình bày).</p>
+        <p className="text-sm text-ink-600">Chưa cấu hình tiêu chí cho chương trình này — hãy áp bộ mẫu chuẩn TH STEAM (6 năng lực + 3 phẩm chất) để phiếu buổi chấm theo chuẩn.</p>
       )}
 
       <div className="flex flex-wrap items-center justify-between gap-2">

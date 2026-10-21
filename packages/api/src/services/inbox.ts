@@ -346,7 +346,7 @@ async function reportCardGroup(ctx: ProtectedContext): Promise<InboxGroup | null
     RC.dueReportCards(ctx, { limit: MAX_PER_GROUP }),
   ]);
   return {
-    key: "report_card", title: "Học bạ kỳ chưa viết", icon: "scroll-text",
+    key: "report_card", title: "Học bạ học phần chưa viết", icon: "scroll-text",
     actionLabel: "Viết học bạ", actionKind: "open", undoable: false,
     href: "/ho-so-hoc-tap?xem=hoc-ba-moc", emptyHint: "Học bạ các mốc đã viết đủ.",
     total: c.total, overdue: c.overdue,

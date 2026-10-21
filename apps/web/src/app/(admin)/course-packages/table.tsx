@@ -23,7 +23,7 @@ type V = {
 
 const blankOf = (c: Course | undefined): V => ({
   courseId: c?.id ?? "", code: c ? `${c.code}-${c.totalSessions}` : "", name: c ? `${c.name} — trọn khoá ${c.totalSessions} buổi` : "",
-  level: "", sessions: String(c?.totalSessions ?? 12), listPrice: String(c?.listPrice ?? 0), salePrice: "", description: "",
+  level: "", sessions: String(c?.totalSessions ?? 45), listPrice: String(c?.listPrice ?? 0), salePrice: "", description: "",
   isFeatured: false, isActive: true, sortOrder: "0",
 });
 

@@ -74,7 +74,7 @@ export const DEFAULT_RULES: AutomationRule[] = [
   },
   {
     code: "REPORT_CARD_MILESTONE",
-    name: "Đến mốc buổi 5/12 → nhắc GV viết học bạ",
+    name: "Đến buổi báo cáo (buổi 15 mỗi học phần) → nhắc GV viết học bạ",
     enabled: true,
     on: "report_card.due",
     actions: (e) => (e.type === "report_card.due" ? [{ kind: "notify_user", userId: null, role: "TEACHER", title: "Đến hạn viết học bạ", body: `Buổi ${e.sequenceNo} — viết học bạ năng lực cho học viên`, link: `/teacher/sessions/${e.sessionId}`, priority: 2, notificationType: "report_card.due" }] : []),

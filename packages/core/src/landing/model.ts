@@ -105,7 +105,7 @@ export const SECTION_DEFS: Record<SectionType, SectionDef> = {
   programs: {
     type: "programs", label: "Chương trình học", desc: "Thẻ chương trình / khoá học với mô tả, mức học phí và liên kết.",
     fields: [t("title", "Tiêu đề", 120, { required: true }), ta("intro", "Giới thiệu", 300)],
-    lists: [{ key: "items", label: "Chương trình", addLabel: "Thêm chương trình", max: 6, fields: [t("name", "Tên", 100, { required: true }), t("badge", "Nhãn nhỏ (vd Offline)", 30), ta("text", "Mô tả", 400), t("meta", "Thông tin (độ tuổi, số buổi…)", 120), t("price", "Học phí", 60, { hint: "Chỉ ghi khi đã chốt giá" }), u("url", "Liên kết xem thêm"), t("linkLabel", "Chữ liên kết", 40), img("image", "Ảnh")] }],
+    lists: [{ key: "items", label: "Chương trình", addLabel: "Thêm chương trình", max: 6, fields: [t("name", "Tên", 100, { required: true }), t("badge", "Nhãn nhỏ (vd Online · ClassIn)", 30), ta("text", "Mô tả", 400), t("meta", "Thông tin (độ tuổi, số buổi…)", 120), t("price", "Học phí", 60, { hint: "Chỉ ghi khi đã chốt giá" }), u("url", "Liên kết xem thêm"), t("linkLabel", "Chữ liên kết", 40), img("image", "Ảnh")] }],
     needs: "items",
   },
   testimonials: {

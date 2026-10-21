@@ -11,7 +11,7 @@ export function CourseEditor({ course, options }: { course?: Course; options: { 
   const trpc = useTRPC();
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const empty = { code: "", name: "", gradeFrom: "", gradeTo: "", totalSessions: 48, sessionMinutes: 90, listPrice: 0, nextCourseId: "", description: "", level: "", isActive: true };
+  const empty = { code: "", name: "", gradeFrom: "", gradeTo: "", totalSessions: 45, sessionMinutes: 90, listPrice: 0, nextCourseId: "", description: "", level: "", isActive: true };
   const [f, setF] = useState(course ? { ...course, gradeFrom: course.gradeFrom?.toString() ?? "", gradeTo: course.gradeTo?.toString() ?? "", nextCourseId: course.nextCourseId ?? "", description: course.description ?? "", level: course.level ?? "" } : empty);
   const [err, setErr] = useState<string | null>(null);
   const save = useMutation(trpc.catalog.upsertCourse.mutationOptions({ onSuccess: () => { setOpen(false); if (!course) setF(empty); router.refresh(); }, onError: (e) => setErr(e.message) }));

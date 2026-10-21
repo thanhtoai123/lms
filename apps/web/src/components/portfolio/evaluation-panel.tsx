@@ -340,7 +340,7 @@ function EvaluationForm({
 
       <label className="block">
         <span className="text-xs font-semibold text-ink-600">Sản phẩm — bé làm được gì trong buổi{board.standard.requireProductNote && <span className="text-red-600"> *</span>}</span>
-        <input className="input mt-1 text-sm" maxLength={1000} disabled={!editable} value={form.productNote} placeholder="Xe robot dò line chạy trọn sa bàn…"
+        <input className="input mt-1 text-sm" maxLength={1000} disabled={!editable} value={form.productNote} placeholder="Robot ảo dò line hoàn thành sa bàn RoboSim…"
           onChange={(e) => onChange({ productNote: e.target.value })} onBlur={onBlur} />
       </label>
       <label className="block">

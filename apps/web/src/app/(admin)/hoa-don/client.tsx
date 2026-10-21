@@ -20,7 +20,7 @@ export function SettingsForm({ initial, canEdit }: { initial: Settings; canEdit:
       <label>Nhà cung cấp<select className="input mt-1" value={v.provider} disabled={!canEdit} onChange={f("provider")}><option value="sandbox">Thử nghiệm (không có giá trị pháp lý)</option><option value="http">Cổng kết nối nhà cung cấp (EINVOICE_API_URL)</option></select></label>
       <div className="grid grid-cols-2 gap-2">
         <label>Mẫu số<select className="input mt-1" value={v.templateCode} disabled={!canEdit} onChange={f("templateCode")}><option value="1">1 — Hoá đơn GTGT</option><option value="2">2 — Hoá đơn bán hàng</option></select></label>
-        <label>Ký hiệu<input className="input mt-1 font-mono uppercase" value={v.serial} disabled={!canEdit} onChange={f("serial")} placeholder="1C26TSR" /></label>
+        <label>Ký hiệu<input className="input mt-1 font-mono uppercase" value={v.serial} disabled={!canEdit} onChange={f("serial")} placeholder="1C26TTH" /></label>
       </div>
       <label className="md:col-span-2">Tên đơn vị bán (đúng đăng ký thuế)<input className="input mt-1" value={v.sellerName} disabled={!canEdit} onChange={f("sellerName")} /></label>
       <label>Mã số thuế<input className="input mt-1 font-mono" value={v.sellerTaxCode} disabled={!canEdit} onChange={f("sellerTaxCode")} /></label>

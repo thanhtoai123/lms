@@ -110,7 +110,7 @@ export function StaffForm({ initial, centers, canSalary, current }: {
               <label className={L}>Số tài khoản<input className="input mt-1" value={f.private?.bankAccount ?? ""} onChange={(e) => setP("bankAccount", e.target.value)} /></label>
               <label className={L}>Lương cơ bản (đ)<input className="input mt-1" type="number" min={0} step={100000} value={f.private?.baseSalary ?? ""} onChange={(e) => setP("baseSalary", e.target.value)} /></label>
               <label className={L}>Phụ cấp (đ)<input className="input mt-1" type="number" min={0} step={100000} value={f.private?.allowance ?? ""} onChange={(e) => setP("allowance", e.target.value)} /></label>
-              <label className={L}>Ngạch (SR.QD.200, 1–9)<input className="input mt-1" type="number" min={1} max={9} value={f.private?.salaryRank ?? ""} onChange={(e) => setP("salaryRank", e.target.value)} /></label>
+              <label className={L}>Ngạch lương (1–9)<input className="input mt-1" type="number" min={1} max={9} value={f.private?.salaryRank ?? ""} onChange={(e) => setP("salaryRank", e.target.value)} /></label>
               <label className={L}>Bậc (1–5)<input className="input mt-1" type="number" min={1} max={5} value={f.private?.salaryLevel ?? ""} onChange={(e) => setP("salaryLevel", e.target.value)} /></label>
               <label className={L}>Lương đóng BHXH (đ)<input className="input mt-1" type="number" min={0} step={100000} value={f.private?.bhxhBase ?? ""} onChange={(e) => setP("bhxhBase", e.target.value)} /></label>
               <label className={L}>Liên hệ khẩn cấp<input className="input mt-1" value={f.private?.emergencyContact ?? ""} onChange={(e) => setP("emergencyContact", e.target.value)} placeholder="Tên - Quan hệ - SĐT" /></label>

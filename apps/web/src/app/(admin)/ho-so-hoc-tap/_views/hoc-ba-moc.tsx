@@ -30,7 +30,7 @@ export async function MilestoneView({ classParam }: { classParam?: string }) {
     <div className="space-y-4">
       <PageHeader
         title="Học bạ mốc cần viết / duyệt"
-        desc="Mỗi kỳ 12 buổi có học bạ giữa kỳ (buổi 5) và cuối kỳ (buổi 12). Học bạ tự điền sẵn trung bình các phiếu buổi của giai đoạn — giáo viên xác nhận và viết nhận xét → giáo vụ duyệt → gửi phụ huynh."
+        desc="Mỗi học phần 15 buổi có một học bạ ở buổi báo cáo (buổi 15 / 30 / 45). Học bạ tự điền sẵn trung bình các phiếu buổi của giai đoạn — giáo viên xác nhận và viết nhận xét → giáo vụ duyệt → gửi phụ huynh."
         actions={<Link href="/report-cards/criteria" className="btn-ghost">Tiêu chí theo chương trình</Link>}
       />
       <div className="grid gap-4 xl:grid-cols-[1fr_340px]">

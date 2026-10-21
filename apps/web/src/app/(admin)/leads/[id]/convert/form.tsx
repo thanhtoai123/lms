@@ -29,7 +29,7 @@ export function ConvertForm({ lead, classes, packages = [], scholarshipMode }: {
     const first = matching(cc)[0];
     return {
       key, childId: child?.id ?? "", studentName: child?.fullName ?? (openChildren.length ? "" : lead.childName ?? ""), dateOfBirth: "", grade: String(child?.grade ?? (openChildren.length ? "" : lead.childGrade ?? "")),
-      classId: first?.id ?? "", packageSessions: String(first?.totalSessions ?? 48), status: "active", scholarship: scholarshipMode, scholarshipReason: "", showAll: false, packageId: "",
+      classId: first?.id ?? "", packageSessions: String(first?.totalSessions ?? 45), status: "active", scholarship: scholarshipMode, scholarshipReason: "", showAll: false, packageId: "",
     };
   };
   const [items, setItems] = useState<Item[]>(() => (openChildren.length ? openChildren.map((c, i) => newItem(i + 1, c)) : [newItem(1)]));

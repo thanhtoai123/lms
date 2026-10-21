@@ -22,7 +22,7 @@ export default function PhOffline() {
       >
         Thử lại
       </a>
-      <p style={{ fontSize: 14, color: "#6c6c6c", margin: 0 }}>Cần gấp? Gọi điện cho cơ sở nơi con học.</p>
+      <p style={{ fontSize: 14, color: "#6c6c6c", margin: 0 }}>Cần gấp? Gọi hotline 0971 29 30 31.</p>
     </main>
   );
 }

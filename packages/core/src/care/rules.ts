@@ -99,7 +99,7 @@ export const requestCode = (year: number, seq: number) => `YC${String(year % 100
 
 export const FEEDBACK_TAGS = ["teacher", "content", "facility", "schedule", "communication", "price", "result"] as const;
 export type FeedbackTag = (typeof FEEDBACK_TAGS)[number];
-export const FEEDBACK_TAG_VI: Record<FeedbackTag, string> = { teacher: "Giáo viên", content: "Nội dung bài", facility: "Cơ sở vật chất", schedule: "Lịch học", communication: "Liên lạc / thông tin", price: "Học phí", result: "Tiến bộ của con" };
+export const FEEDBACK_TAG_VI: Record<FeedbackTag, string> = { teacher: "Giáo viên", content: "Nội dung bài", facility: "Đường truyền / ClassIn", schedule: "Lịch học", communication: "Liên lạc / thông tin", price: "Học phí", result: "Tiến bộ của con" };
 export const FEEDBACK_STATUSES = ["new", "acknowledged", "resolved"] as const;
 export type FeedbackStatus = (typeof FEEDBACK_STATUSES)[number];
 export const FEEDBACK_STATUS_VI: Record<FeedbackStatus, string> = { new: "Mới", acknowledged: "Đã tiếp nhận", resolved: "Đã phản hồi" };

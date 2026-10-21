@@ -64,9 +64,9 @@ export function CurriculumEditor({ c }: { c: { id: string; courseId: string; nam
   const setStatus = (s: CurriculumStatus) => status.mutate({ id: c.id, status: s });
   const lessonForm = () => (
     <div className="space-y-2 rounded-xl border border-black/10 bg-white p-3">
-      <input className="input" placeholder="Tên bài (VD: Bài 1 — Làm quen bộ kit)" value={lf.title} onChange={(e) => setLf({ ...lf, title: e.target.value })} autoFocus />
+      <input className="input" placeholder="Tên bài (VD: HP1 · Dự án sáng tạo 1)" value={lf.title} onChange={(e) => setLf({ ...lf, title: e.target.value })} autoFocus />
       <textarea className="input min-h-16" placeholder="Mục tiêu bài học" value={lf.objectives} onChange={(e) => setLf({ ...lf, objectives: e.target.value })} />
-      <input className="input" placeholder="Học cụ / chuẩn bị" value={lf.materials} onChange={(e) => setLf({ ...lf, materials: e.target.value })} />
+      <input className="input" placeholder="Phần mềm / tài liệu chuẩn bị" value={lf.materials} onChange={(e) => setLf({ ...lf, materials: e.target.value })} />
       <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={lf.isReportCardMilestone} onChange={(e) => setLf({ ...lf, isReportCardMilestone: e.target.checked })} /> Mốc học bạ</label>
       <div className="flex gap-2">
         <button className="btn-primary" disabled={busy || lf.title.trim().length < 3} onClick={() => saveLesson.mutate({ id: editId === "new" ? undefined : editId ?? undefined, curriculumId: c.id, title: lf.title, objectives: lf.objectives || null, materials: lf.materials || null, isReportCardMilestone: lf.isReportCardMilestone })}>Lưu bài</button>

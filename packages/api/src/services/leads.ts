@@ -949,7 +949,18 @@ export async function convertLead(ctx: ProtectedContext, input: ConvertLeadInput
       const [enr] = await tx.insert(enrollments).values({ studentId: student!.id, classId: p.cls.id, packageSessions: p.it.packageSessions, status: p.it.status ?? "active", createdBy: ctx.user.id }).returning({ id: enrollments.id });
       if (p.child) {
         await tx.update(leadChildren).set({ convertedStudentId: student!.id }).where(eq(leadChildren.id, p.child.id));
-        await tx.update(orderItems).set({ studentId: student!.id, enrollmentId: enr!.id }).where(and(eq(orderItems.leadChildId, p.child.id), isNull(orderItems.studentId)));
+        // Gắn học viên cho mọi dòng của con; ghi danh chỉ gắn vào dòng ĐÚNG khoá của lớp (combo 2 năm: dòng Năm 2 chờ ghi danh năm sau)
+        await tx.update(orderItems).set({ studentId: student!.id }).where(and(eq(orderItems.leadChildId, p.child.id), isNull(orderItems.studentId)));
+        const linked = await tx.update(orderItems).set({ enrollmentId: enr!.id }).where(and(
+          eq(orderItems.leadChildId, p.child.id), isNull(orderItems.enrollmentId),
+          or(eq(orderItems.courseId, p.cls.courseId), isNull(orderItems.courseId)),
+        )).returning({ id: orderItems.id });
+        if (!linked.length) {
+          // Lớp khác khoá trên đơn (xếp theo năng lực): gắn vào dòng đầu tiên còn trống như trước
+          const [first] = await tx.select({ id: orderItems.id }).from(orderItems)
+            .where(and(eq(orderItems.leadChildId, p.child.id), isNull(orderItems.enrollmentId))).orderBy(asc(orderItems.id)).limit(1);
+          if (first) await tx.update(orderItems).set({ enrollmentId: enr!.id }).where(eq(orderItems.id, first.id));
+        }
       }
       created.push({ p, studentId: student!.id, studentName: student!.fullName, enrollmentId: enr!.id });
     }

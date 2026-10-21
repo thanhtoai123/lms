@@ -100,6 +100,7 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
                       {i.courseCode && <span className="chip ml-1 bg-black/5">{i.courseCode}{i.packageSessions ? ` · ${i.packageSessions} buổi` : ""}</span>}
                       <FormatChip format={i.classFormat} />
                       {i.studentName && <div className="text-xs text-ink-600">Học viên: {i.studentName}</div>}
+                      {i.targetClassCode && !i.enrollmentId && <div className="text-xs text-emerald-700">Tự xếp vào lớp {i.targetClassCode} khi có khoản tiền đầu tiên</div>}
                       {i.discounts.map((d) => <div key={d.id} className="text-xs text-amber-800">−{vnd(d.amount)}{d.kind === "percent" ? ` (${d.value}%)` : ""} · {DISCOUNT_POLICY_VI[d.policy as DiscountPolicy] ?? ""} · {d.reason}</div>)}
                     </td>
                     <td className="p-2">{i.quantity}</td>

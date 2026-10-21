@@ -214,7 +214,7 @@ export function TrialClassDetail({ id, openReport }: { id: string; /** Mở sẵ
                   {d.teachers.map((t) => <option key={t.id} value={t.id}>{t.fullName}</option>)}
                 </select>
               </label>
-              <label className="text-xs text-ink-600">Nội dung buổi<input className="input mt-1" maxLength={200} value={draft.topic} onChange={(e) => setDraft({ ...draft, topic: e.target.value })} placeholder="VD: Làm quen bộ kit" /></label>
+              <label className="text-xs text-ink-600">Nội dung buổi<input className="input mt-1" maxLength={200} value={draft.topic} onChange={(e) => setDraft({ ...draft, topic: e.target.value })} placeholder="VD: Làm quen RoboSim / Scratch" /></label>
               <div className="flex justify-end gap-2 sm:col-span-3">
                 <button type="button" className="btn-ghost" onClick={() => setAdding(false)}>Huỷ</button>
                 <button className="btn-primary" disabled={busy}>Thêm buổi</button>

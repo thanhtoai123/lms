@@ -14,7 +14,7 @@ const STATUS_CHIP: Record<RoomStatus, string> = { active: "bg-green-100 text-gre
 export function RoomsTable({ rows, centers, defaultCenterId }: { rows: Row[]; centers: { id: string; code: string }[]; defaultCenterId: string }) {
   const trpc = useTRPC();
   const router = useRouter();
-  const blank: V = { centerId: defaultCenterId, code: "", name: "", capacity: "12", status: "active", equipment: "" };
+  const blank: V = { centerId: defaultCenterId, code: "", name: "", capacity: "8", status: "active", equipment: "" };
   const [edit, setEdit] = useState<V | null>(null);
   const [error, setError] = useState<string | null>(null);
   const m = useMutation(trpc.org.upsertRoom.mutationOptions({ onSuccess: () => { setEdit(null); setError(null); router.refresh(); }, onError: (e) => setError(e.message) }));
@@ -30,7 +30,7 @@ export function RoomsTable({ rows, centers, defaultCenterId }: { rows: Row[]; ce
       <td className="p-2"><input className="input text-xs" placeholder="Tên *" value={v.name} onChange={(e) => setEdit({ ...v, name: e.target.value })} /></td>
       <td className="p-2"><input type="number" min={1} className="input !w-20 text-xs" value={v.capacity} onChange={(e) => setEdit({ ...v, capacity: e.target.value })} /></td>
       <td className="p-2"><select className="input text-xs" value={v.status} onChange={(e) => setEdit({ ...v, status: e.target.value as RoomStatus })}>{ROOM_STATUSES.map((s) => <option key={s} value={s}>{ROOM_STATUS_VI[s]}</option>)}</select></td>
-      <td className="p-2" colSpan={3}><input className="input text-xs" placeholder="Thiết bị, cách nhau bằng dấu phẩy (máy chiếu, TV, bộ kit…)" value={v.equipment} onChange={(e) => setEdit({ ...v, equipment: e.target.value })} /></td>
+      <td className="p-2" colSpan={3}><input className="input text-xs" placeholder="Thiết bị, cách nhau bằng dấu phẩy (phòng ClassIn, bảng vẽ, webcam…)" value={v.equipment} onChange={(e) => setEdit({ ...v, equipment: e.target.value })} /></td>
       <td className="p-2 whitespace-nowrap"><button className="btn-primary !px-2 !py-1 text-xs" disabled={m.isPending || !v.code || !v.name} onClick={() => save(v)}>Lưu</button> <button className="btn-ghost !px-2 !py-1 text-xs" onClick={() => setEdit(null)}>Huỷ</button></td>
     </tr>
   );
