@@ -278,8 +278,9 @@ const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n
 
 /**
  * Bố cục mặc định — khớp nền dựng sẵn `builtin/th-steam-mac-dinh.svg` (A4 ngang, khung 2970 × 2100):
- *   "Trân trọng chứng nhận" (in sẵn, 37,6 %) → TÊN HỌC VIÊN (39,5 %, trên đường kẻ 48,1 %) → Ngày sinh
- *   → "đã hoàn thành chương trình" (in sẵn, 54,8 %) → Tên khoá / lộ trình → Chuyên ngành → Thời lượng → Xếp loại
+ *   "Trân trọng chứng nhận" (in sẵn, 37,6 %) → TÊN HỌC VIÊN (41 %, trên đường kẻ 48,1 %)
+ *   → "đã hoàn thành chương trình" (in sẵn, 52,4 %) → TÊN KHOÁ / LỘ TRÌNH → Chuyên ngành → Thời lượng → Xếp loại.
+ *   Ô "Ngày sinh" có sẵn nhưng TẮT mặc định (bật được ở trình dựng mẫu).
  *   → hàng dưới: QR + "Quét mã để xác thực" + số chứng nhận (trái, tránh hoa văn góc) · dấu triện (giữa, in sẵn) · ngày cấp, chức danh, chỗ ký, họ tên người ký (phải).
  * Tên học viên đặt THẤP hơn dòng "Trân trọng chứng nhận" đủ chỗ cho dấu tiếng Việt chồng tầng (Ễ, Ỗ, Ẫ…) khi IN HOA.
  */
@@ -289,12 +290,12 @@ export function defaultTemplateFields(orientation: TemplateOrientation = "landsc
   const f = (key: CertificateFieldKey, x: number, y: number, w: number, h: number, fontSize: number, extra: Partial<TemplateField> = {}): TemplateField =>
     ({ ...base, key, x, y, w, h, fontSize, ...extra });
   return [
-    f("studentName", 10, L ? 39.5 : 36, 80, L ? 7.5 : 6, L ? 32 : 28, { bold: true, color: "#14215a", uppercase: true }),
-    f("studentDob", 30, L ? 49.2 : 43, 40, 3, 12, { color: "#475569", prefix: "Ngày sinh: " }),
-    f("pathName", 10, L ? 56.3 : 49, 80, L ? 5.5 : 4.5, L ? 24 : 20, { bold: true, color: "#1e40af" }),
-    f("description", 12, L ? 61.8 : 54, 76, 3.2, 14, { bold: true, color: "#14215a" }),
-    f("criteriaText", 15, L ? 65.4 : 58, 70, 3, 12, { italic: true, color: "#475569" }),
-    f("grade", 30, L ? 68.8 : 62, 40, 3, 13, { bold: true, color: "#14215a", prefix: "Xếp loại: " }),
+    f("studentName", 10, L ? 41 : 37, 80, L ? 7 : 6, L ? 32 : 28, { bold: true, color: "#14215a", uppercase: true }),
+    f("studentDob", 30, L ? 49.2 : 43, 40, 3, 12, { enabled: false, color: "#475569", prefix: "Ngày sinh: " }),
+    f("pathName", 10, L ? 54.2 : 49, 80, L ? 5.5 : 4.5, L ? 24 : 20, { bold: true, color: "#1e40af", uppercase: true }),
+    f("description", 12, L ? 60 : 54, 76, 3.2, 14, { bold: true, color: "#14215a" }),
+    f("criteriaText", 15, L ? 63.8 : 58, 70, 3, 12, { italic: true, color: "#475569" }),
+    f("grade", 30, L ? 67.6 : 62, 40, 3, 13, { bold: true, color: "#14215a", prefix: "Xếp loại: " }),
     f("issuedDate", 55, L ? 73.5 : 72, 35, 3, 12, { dateFormat: "long", place: "", italic: true, color: "#475569" }),
     f("signerTitle", 55, L ? 77.3 : 76, 35, 3, 12, { bold: true, uppercase: true, color: "#14215a", text: "Giám đốc trung tâm" }),
     f("signerName", 55, L ? 87.6 : 88, 35, 3.5, 15, { bold: true, color: "#14215a", text: "" }),
@@ -391,7 +392,7 @@ export function fontSizeCqw(pt: number, orientation: TemplateOrientation): numbe
  * dù sau này đổi tên lộ trình, tên cơ sở, người ký hay học viên đổi tên.
  */
 /** Phiên bản nội dung chuẩn in trên chứng nhận (certificates/standard.ts) — tăng khi đổi cách ghi nội dung */
-export const CERTIFICATE_STANDARD_VERSION = 2;
+export const CERTIFICATE_STANDARD_VERSION = 3;
 
 export interface CertificateSnapshot {
   v: 1;
@@ -475,8 +476,8 @@ export function sampleCertificateSnapshot(fields: readonly TemplateField[] = [],
     certificateNo: pathCertificateNumber("ONL", now.getFullYear(), 12),
     student: { fullName: "Nguyễn Minh An", code: "HV-MAU", dateOfBirth: "2016-03-12" },
     achievement: {
-      name: "Năm 2: Lập trình RoboVR",
-      description: "Chuyên ngành Lập trình Robotics AI · Tiểu học 8–10 tuổi",
+      name: "Lập trình RoboVR",
+      description: "Chuyên ngành Lập trình Robotics AI",
       criteriaText: "45 buổi học · 3 học phần: Basic – Advanced – Expert",
     },
     courses: [{ code: "ROBO-TH-N2", name: "Năm 2: Lập trình RoboVR" }],

@@ -83,30 +83,33 @@ Test: `packages/core/src/certificates/rules.test.ts`.
 Chỉ còn **một** kiểu giấy: trang chi tiết `/hoan-thanh-khoa/chung-nhan/[id]`, trang in hàng loạt và cổng phụ huynh đều
 vẽ bằng `CertificateSheet` theo mẫu đang dùng (bản HTML viền xanh cũ đã bỏ — xem gì in nấy).
 
-Nền dựng sẵn `builtin/th-steam-mac-dinh.svg` (bố cục v2) in sẵn: logo đứng, GIẤY CHỨNG NHẬN, "Trân trọng chứng nhận",
+Nền dựng sẵn `builtin/th-steam-mac-dinh.svg` (bố cục v3) in sẵn: logo đứng, GIẤY CHỨNG NHẬN, "Trân trọng chứng nhận",
 "đã hoàn thành chương trình", dấu triện, "Quét mã để xác thực". Ô trường của mẫu chuẩn (`standardTemplateFields`):
 
 | Dòng | Chứng nhận khoá (một năm học) | Chứng nhận lộ trình |
 |---|---|---|
 | Tên học viên (IN HOA) | NGUYỄN MINH AN | như bên trái |
-| Ngày sinh | Ngày sinh: 12/03/2016 (không có thì bỏ dòng) | như bên trái |
-| Tên khoá / lộ trình | Năm 2: Lập trình RoboVR | Lập trình Robotics AI · Tiểu học 8–10 tuổi |
-| Chuyên ngành | Chuyên ngành Lập trình Robotics AI · Tiểu học 8–10 tuổi | Lộ trình 2 năm học: Năm 1: … → Năm 2: … |
+| Tên khoá / lộ trình (IN HOA) | LẬP TRÌNH ROBOVR | LẬP TRÌNH ROBOTICS AI |
+| Chuyên ngành | Chuyên ngành Lập trình Robotics AI | Lộ trình 2 năm học: Lập trình RoboSim → Lập trình RoboVR |
 | Thời lượng | 45 buổi học · 3 học phần: Basic – Advanced – Expert | 90 buổi học · 6 học phần |
 | Xếp loại | Xếp loại: Hoàn thành tốt | theo điểm trung bình các khoá |
 | Hàng dưới | QR + Số chứng nhận · dấu triện · "Đà Nẵng, ngày … tháng … năm …" · GIÁM ĐỐC TRUNG TÂM · chỗ ký · Phan Thành Toại | như bên trái |
 
-- Tên khoá luôn theo danh mục chuẩn (`yearCourseName`), không dùng tên mô tả; dòng thời lượng không lặp lại tên khoá.
+- Không ghi "Năm N" và không ghi cấp học / độ tuổi trên giấy (theo yêu cầu chủ trung tâm 21/10/2026); khoá luyện thi in
+  "LUYỆN THI: <tên cuộc thi>". Dòng thời lượng không lặp lại tên khoá.
+- Không in ngày sinh: ngày sinh vẫn chụp vào bản ghi, ô "Ngày sinh học viên" có trong trình dựng mẫu nhưng tắt.
 - Người ký, chức danh, địa danh mặc định ở `TH_CERTIFICATE_SIGNER`; trung tâm sửa ở **Lộ trình → Mẫu chứng nhận**.
   Giấy đã cấp giữ người ký lúc cấp.
-- Ngày sinh in trên giấy nhưng KHÔNG hiện ở trang xác thực công khai `/cn/<token>`.
-- Tên học viên đặt ở 39,5 % (dòng in sẵn ở 37,6 %) để dấu chồng tầng khi IN HOA (Ễ, Ỗ, Ẫ…) không đè chữ phía trên.
+- Tên học viên đặt ở 41 % (dòng in sẵn ở 37,6 %, đường kẻ ở 48,1 %) để dấu chồng tầng khi IN HOA không đè chữ phía trên.
+- Khi nào cấp: chứng nhận khoá khi giáo viên đề xuất hoàn thành khoá (một năm học = 3 học phần, 45 buổi; khoá luyện thi
+  cũng là một khoá) và quản lý duyệt; chứng nhận lộ trình khi xong mọi năm học bắt buộc. Chưa có chứng nhận từng học phần.
 
 **Nâng giấy cấp trước khi chuẩn hoá** — `pnpm db:seed-thsteam` (packages/db/src/thsteam-certificates.ts):
-mẫu nền dựng sẵn còn bố cục cũ → đặt lại ô trường (giữ người ký / địa danh đã tự nhập, thay chữ giữ chỗ
-"Quản lý trung tâm"); bản chụp chưa có `std` → ghi lại tên khoá, chuyên ngành, thời lượng, ngày sinh theo chuẩn,
-giữ nguyên số, tên học viên, ngày cấp, xếp loại; mỗi giấy ghi một dòng nhật ký. Trigger `certificates_immutable`
-(sql/0020) chỉ cho phép đúng việc này một lần, khi phiên bật `satarobo.chuan_hoa_chung_nhan`; sau đó giấy lại bất biến.
+mẫu nền dựng sẵn còn đúng bố cục chuẩn cũ → đặt lại ô trường (giữ người ký / địa danh đã tự nhập, thay chữ giữ chỗ
+"Quản lý trung tâm"); bản chụp có `std` nhỏ hơn `CERTIFICATE_STANDARD_VERSION` (hiện 3) → ghi lại tên khoá, chuyên ngành,
+thời lượng theo chuẩn, giữ nguyên số, tên học viên, ngày cấp, xếp loại; mỗi giấy ghi một dòng nhật ký. Trigger
+`certificates_immutable` (sql/0020) chỉ cho phép NÂNG phiên bản, khi phiên bật `satarobo.chuan_hoa_chung_nhan`;
+sau đó giấy lại bất biến. Khi đã cấp giấy thật cho học viên, hạn chế đổi phiên bản nội dung.
 
 ## 5. Hướng dẫn thiết kế mẫu trên Canva
 

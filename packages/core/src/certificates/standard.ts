@@ -2,22 +2,20 @@
  * NỘI DUNG CHUẨN IN TRÊN GIẤY CHỨNG NHẬN TH STEAM ACADEMY — một nguồn duy nhất cho mọi nơi cấp chứng nhận
  * (duyệt hoàn thành khoá, cấp chứng nhận lộ trình, dữ liệu mẫu, đồng bộ danh mục chuẩn).
  *
- * Giấy chứng nhận khoá (một năm học), từ trên xuống:
+ * Giấy chứng nhận khoá (một năm học = 3 học phần × 15 buổi), từ trên xuống:
  *   GIẤY CHỨNG NHẬN · Trân trọng chứng nhận
  *   NGUYỄN MINH AN                       ← tên học viên (IN HOA)
- *   Ngày sinh: 12/03/2016
  *   đã hoàn thành chương trình
- *   Năm 2: Lập trình RoboVR              ← tên khoá chuẩn (yearCourseName)
- *   Chuyên ngành Lập trình Robotics AI · Tiểu học 8–10 tuổi
+ *   LẬP TRÌNH ROBOVR                     ← tên môn của năm học, IN HOA, không ghi "Năm N"
+ *   Chuyên ngành Lập trình Robotics AI   ← không ghi cấp học / độ tuổi
  *   45 buổi học · 3 học phần: Basic – Advanced – Expert
  *   Xếp loại: Hoàn thành tốt
  *   [QR] Số: …        [dấu triện]        Đà Nẵng, ngày 23 tháng 8 năm 2026 · GIÁM ĐỐC TRUNG TÂM · (ký) · Họ tên
  *
- * Không lặp tên khoá ở dòng mô tả (lỗi cũ: "Hoàn thành chương trình khoá học <tên khoá> (45 buổi)").
+ * Không in ngày sinh (vẫn chụp vào bản ghi để đối chiếu). Không lặp tên khoá ở dòng thời lượng.
  */
 import {
-  TH_MODULES_PER_YEAR, TH_PROGRAMS, TH_SESSIONS_PER_YEAR, TH_DIFFICULTY_SHORT, examCourseCode, examCourseName, programTitle,
-  yearCourseCode, yearCourseName,
+  TH_MODULES_PER_YEAR, TH_PROGRAMS, TH_SESSIONS_PER_YEAR, TH_DIFFICULTY_SHORT, examCourseCode, thTrack, yearCourseCode, yearSubjectName,
 } from "../curriculum/thsteam.js";
 import type { ThProgram } from "../curriculum/thsteam-types.js";
 import { TH_BRAND } from "../system/th-brand.js";
@@ -47,6 +45,9 @@ function programOfCode(code: string): ThProgram | null {
   return TH_PROGRAMS.find((p) => code === p.code || code.startsWith(`${p.code}-N`) || code.startsWith(`${p.code}-THI-`)) ?? null;
 }
 
+/** Tên chuyên ngành, không kèm cấp học: "Lập trình Robotics AI" */
+const trackName = (p: ThProgram) => thTrack(p.track)?.name ?? p.name;
+
 const levelsLine = () => (["basic", "advanced", "expert"] as const).map((d) => TH_DIFFICULTY_SHORT[d]).join(" – ");
 
 /** Nội dung in cho chứng nhận hoàn thành KHOÁ (một năm học, hoặc khoá luyện thi) */
@@ -57,16 +58,16 @@ export function courseCertificateAchievement(course: { code: string; name: strin
     const year = p.years.find((y) => yearCourseCode(p, y.no) === course.code);
     if (year) {
       return {
-        name: yearCourseName(p, year),
-        description: `Chuyên ngành ${programTitle(p)}`,
+        name: yearSubjectName(p, year),
+        description: `Chuyên ngành ${trackName(p)}`,
         criteriaText: `${sessions ?? TH_SESSIONS_PER_YEAR} buổi học · ${TH_MODULES_PER_YEAR} học phần: ${levelsLine()}`,
       };
     }
     const contest = p.contests.find((c) => examCourseCode(p, c) === course.code);
     if (contest) {
       return {
-        name: examCourseName(p, contest),
-        description: `Chuyên ngành ${programTitle(p)}`,
+        name: `Luyện thi: ${contest.short}`,
+        description: `Chuyên ngành ${trackName(p)}`,
         criteriaText: `${sessions ?? contest.sessions} buổi học · khóa luyện thi tự chọn`,
       };
     }
@@ -80,8 +81,8 @@ export function pathCertificateAchievement(path: { code: string; name: string; c
   if (p) {
     const n = p.years.length;
     return {
-      name: programTitle(p),
-      description: `Lộ trình ${n} năm học: ${p.years.map((y) => yearCourseName(p, y)).join(" → ")}`,
+      name: trackName(p),
+      description: `Lộ trình ${n} năm học: ${p.years.map((y) => yearSubjectName(p, y)).join(" → ")}`,
       criteriaText: `${n * TH_SESSIONS_PER_YEAR} buổi học · ${n * TH_MODULES_PER_YEAR} học phần`,
     };
   }

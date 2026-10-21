@@ -150,6 +150,11 @@ export function yearCourseName(p: ThProgram, y: ThYear): string {
   const n = naming(p, y);
   return `Năm ${y.no}: ${n.verb} ${n.tool}`;
 }
+/** Tên môn của năm học, không kèm "Năm N": "Lập trình RoboSim" (in trên giấy chứng nhận) */
+export function yearSubjectName(p: ThProgram, y: ThYear): string {
+  const n = naming(p, y);
+  return `${n.verb} ${n.tool}`;
+}
 /** Tên học phần: "HP1: RoboSim Basic" */
 export function moduleTitle(p: ThProgram, y: ThYear, m: { no: number; difficulty: ThDifficulty }): string {
   return `HP${m.no}: ${naming(p, y).tool} ${TH_DIFFICULTY_SHORT[m.difficulty]}`;

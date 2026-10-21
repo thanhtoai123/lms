@@ -1,12 +1,13 @@
 /**
  * CHUẨN HOÁ GIẤY CHỨNG NHẬN TH STEAM (chạy trong `pnpm db:seed-thsteam`, chạy lại an toàn).
  *
- * 1. Mẫu dùng NỀN DỰNG SẴN (builtin/th-steam-mac-dinh.svg, bố cục v2): đặt lại ô trường theo bố cục chuẩn
- *    (`standardTemplateFields`) nếu mẫu còn bố cục cũ (chưa có ô "Ngày sinh"). Giữ người ký / chức danh / địa danh
+ * 1. Mẫu dùng NỀN DỰNG SẴN (builtin/th-steam-mac-dinh.svg, bố cục v3): đặt lại ô trường theo bố cục chuẩn
+ *    (`standardTemplateFields`) nếu mẫu còn đúng một bố cục chuẩn CŨ (v1/v2, chưa ai kéo sửa vị trí tên học viên).
+ *    Mẫu trung tâm đã tự kéo sửa vị trí: giữ nguyên. Giữ người ký / chức danh / địa danh
  *    trung tâm đã tự nhập; chỉ thay chữ giữ chỗ cũ ("Quản lý trung tâm", trống). Mẫu nền tải lên riêng: không động vào.
- * 2. Bản chụp nội dung của giấy ĐÃ CẤP trước khi chuẩn hoá (chưa có `std`): ghi lại tên khoá / lộ trình, dòng chuyên
- *    ngành, thời lượng theo chuẩn, thêm ngày sinh; giữ nguyên số chứng nhận, ngày cấp, xếp loại, tên học viên, cơ sở.
- *    Mỗi giấy chỉ chuẩn hoá MỘT lần (có `std` rồi thì bỏ qua) — sau đó bản chụp lại bất biến như thiết kế.
+ * 2. Bản chụp nội dung của giấy ĐÃ CẤP theo phiên bản chuẩn cũ hơn (`std` < CERTIFICATE_STANDARD_VERSION): ghi lại tên
+ *    khoá / lộ trình, dòng chuyên ngành, thời lượng theo chuẩn hiện hành; giữ nguyên số chứng nhận, ngày cấp, xếp loại,
+ *    tên học viên, cơ sở. Mỗi phiên bản chỉ nâng MỘT lần — sau đó bản chụp lại bất biến như thiết kế.
  *    Trigger `certificates_immutable` (sql/0020) chỉ cho phép đúng việc này khi phiên bật `satarobo.chuan_hoa_chung_nhan`,
  *    và mỗi giấy được ghi nhật ký (audit_log, module certificates, lý do "Chuẩn hoá nội dung in").
  */
@@ -20,6 +21,9 @@ import type { Database } from "./index";
 
 const PLACEHOLDER_SIGNERS = new Set(["", "quản lý trung tâm", "quản lý trung tâm (mẫu)"]);
 const OLD_TEMPLATE_NAMES = new Set(["Mẫu mặc định TH STEAM Academy (A4 ngang)"]);
+
+/** Vị trí (y %) của ô tên học viên ở các bố cục chuẩn cũ — khớp thì mẫu chưa bị kéo sửa */
+const OLD_STANDARD_NAME_Y = new Set([38, 39.5]);
 
 const isPlaceholderSigner = (v: string | null | undefined) => PLACEHOLDER_SIGNERS.has((v ?? "").trim().toLocaleLowerCase("vi-VN"));
 
@@ -43,7 +47,8 @@ export async function standardizeThCertificates(db: Database) {
   let templates = 0;
   for (const t of tpls) {
     const raw = Array.isArray(t.fields) ? (t.fields as Partial<TemplateField>[]) : [];
-    const oldLayout = !raw.some((f) => f && f.key === "studentDob");
+    const nameY = raw.find((f) => f && f.key === "studentName")?.y;
+    const oldLayout = !raw.length || (typeof nameY === "number" && OLD_STANDARD_NAME_Y.has(nameY));
     const rename = OLD_TEMPLATE_NAMES.has(t.name);
     if (!oldLayout && !rename) continue;
     await db.update(certificateTemplates).set({

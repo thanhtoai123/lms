@@ -1,11 +1,11 @@
 -- ============================================================================
 -- 0020 — CHUẨN HOÁ NỘI DUNG GIẤY CHỨNG NHẬN (một lần, có kiểm soát)
 -- ============================================================================
--- Giấy chứng nhận vẫn BẤT BIẾN (0012). Ngoại lệ duy nhất: bản chụp cấp TRƯỚC khi có nội dung chuẩn
--- (snapshot chưa có khoá "std") được nâng lên bản chuẩn MỘT lần bởi `pnpm db:seed-thsteam`
+-- Giấy chứng nhận vẫn BẤT BIẾN (0012). Ngoại lệ duy nhất: bản chụp theo phiên bản nội dung chuẩn CŨ hơn
+-- (khoá "std" nhỏ hơn hoặc chưa có) được nâng lên phiên bản mới — mỗi phiên bản một lần — bởi `pnpm db:seed-thsteam`
 -- (packages/db/src/thsteam-certificates.ts), khi phiên đặt `satarobo.chuan_hoa_chung_nhan = 'on'`.
 -- Khi nâng: số chứng nhận, tên học viên, ngày cấp, xếp loại trong bản chụp phải giữ nguyên; mọi cột khác không đổi.
--- Bản chụp đã có "std" thì không sửa được nữa (kể cả khi bật cờ).
+-- Không hạ phiên bản, không sửa lại trong cùng phiên bản (kể cả khi bật cờ).
 
 CREATE OR REPLACE FUNCTION certificates_immutable() RETURNS trigger AS $$
 DECLARE
@@ -13,8 +13,7 @@ DECLARE
 BEGIN
   IF NEW.snapshot IS DISTINCT FROM OLD.snapshot THEN
     nang_chuan := coalesce(current_setting('satarobo.chuan_hoa_chung_nhan', true), '') = 'on'
-      AND NOT (OLD.snapshot ? 'std')
-      AND coalesce((NEW.snapshot ->> 'std')::int, 0) >= 2
+      AND coalesce((NEW.snapshot ->> 'std')::int, 0) > coalesce((OLD.snapshot ->> 'std')::int, 0)
       AND NEW.snapshot ->> 'certificateNo' IS NOT DISTINCT FROM OLD.snapshot ->> 'certificateNo'
       AND NEW.snapshot ->> 'studentName' IS NOT DISTINCT FROM OLD.snapshot ->> 'studentName'
       AND NEW.snapshot ->> 'issuedDate' IS NOT DISTINCT FROM OLD.snapshot ->> 'issuedDate'
