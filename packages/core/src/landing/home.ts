@@ -52,7 +52,7 @@ export const HOME_PAGE = {
   slug: "trang-chu",
   title: "Trang chủ TH STEAM Academy",
   template: "trang-chu-thsteam",
-  variant: "classic" as const,
+  variant: "studio" as const,
   seoTitle: "Học Robotics, AI, lập trình online cho trẻ 8–18 tuổi | TH STEAM",
   seoDescription: "Con học Robotics, Trí tuệ nhân tạo, Thiết kế đồ họa và Lập trình online cùng giáo viên qua ClassIn: lớp nhỏ, tự làm sản phẩm thật, học trải nghiệm 1:1 trước.",
   seoImage: "/lp-anh/og-trang-chu.png",
@@ -67,10 +67,10 @@ export const HOME_PAGE = {
         // 1. MỞ ĐẦU — gọi đúng nỗi lo, hứa một chuyển đổi cụ thể, form ngay màn hình đầu
         sec("leadHero", "mo-dau", {
           eyebrow: "Robotics · AI · Đồ họa · Lập trình — online cho học sinh 8–18 tuổi",
-          title: "Biến giờ con ngồi trước màn hình thành giờ con tạo ra công nghệ",
+          title: "Biến giờ con ngồi trước màn hình thành giờ con *tạo ra công nghệ*",
           subtitle: "Khoá học Robotics, Trí tuệ nhân tạo, Thiết kế đồ họa và Lập trình online. Giáo viên dạy trực tiếp qua ClassIn, lớp nhỏ, con tự tay làm ra sản phẩm và tự tin giới thiệu nó trước bố mẹ.",
-          image: "/lp-anh/tc-hero.svg",
-          imageAlt: "Tranh minh hoạ lớp học công nghệ online qua ClassIn: giáo viên dạy trực tiếp, học sinh làm robot, AI và mô hình 3D",
+          image: "/lp-anh/that/cover-minh-hoa-robovr.webp",
+          imageAlt: "Minh hoạ lớp Robotics AI online qua ClassIn: giáo viên chia sẻ màn hình RoboVR, học sinh cùng làm",
           formTitle: "Đặt lịch học trải nghiệm 1:1 cho con",
           formNote: "Giáo viên gọi lại trong giờ làm việc để hẹn giờ phù hợp với gia đình.",
           interest: "",
@@ -88,7 +88,7 @@ export const HOME_PAGE = {
         // 2. NỖI LO — số liệu có nguồn, nền tối để dừng mắt
         sec("insights", "noi-lo", {
           eyebrow: "Điều nhiều bố mẹ đang lo",
-          title: "Mỗi ngày con ở trên màn hình nhiều giờ. Nhưng con đang làm gì ở đó?",
+          title: "Mỗi ngày con ở trên màn hình nhiều giờ. Nhưng *con đang làm gì* ở đó?",
           intro: "Cấm hẳn thì khó, buông thì không yên. Những con số dưới đây cho thấy vấn đề không chỉ nằm ở số giờ.",
           closing: "Các bác sĩ nhi khoa Hoa Kỳ (AAP) khuyên cha mẹ xem chất lượng thời gian dùng màn hình, không chỉ đếm số giờ. Câu hỏi đúng không phải là có cho con dùng máy hay không, mà là con dùng nó để làm gì.",
           tone: "toi",
@@ -104,7 +104,7 @@ export const HOME_PAGE = {
         // 3. BỐI CẢNH — thế giới con lớn lên (lo lắng thứ hai: tương lai), nền sáng
         sec("insights", "tuong-lai", {
           eyebrow: "Thế giới con sắp bước vào",
-          title: "Khi con lớn lên, hiểu công nghệ sẽ là kỹ năng nền tảng",
+          title: "Khi con lớn lên, hiểu công nghệ sẽ là *kỹ năng nền tảng*",
           intro: "Không phải để con nào cũng thành kỹ sư. Mà để dù làm nghề gì, con cũng làm chủ được công cụ của thời mình.",
           closing: "Con không cần trở thành lập trình viên. Nhưng con cần hiểu công nghệ đủ sâu để dùng nó làm ra điều có ích, thay vì để nó dẫn dắt mình.",
           tone: "",
@@ -120,11 +120,10 @@ export const HOME_PAGE = {
         // 4. GIẢI PHÁP — đổi cách con dùng máy (thông điệp "bố mẹ làm được")
         sec("contrast", "sang-tao", {
           eyebrow: "Cùng một chiếc máy tính",
-          title: "Chơi game và làm ra game — hai đứa trẻ rất khác nhau",
+          title: "Chơi game và *làm ra game* — hai đứa trẻ rất khác nhau",
           intro: `Ở ${B}, thời gian con ngồi trước máy là thời gian con tự tay làm ra một thứ gì đó, sửa nó cho đến khi chạy, rồi đứng lên giới thiệu nó.`,
           leftTitle: "Khi con chỉ dùng công nghệ",
           rightTitle: "Khi con tạo ra công nghệ",
-          image: "/lp-anh/tc-xem-tao.svg", imageAlt: "Tranh minh hoạ: từ chỉ lướt xem video trên điện thoại đến tự lập trình robot và tạo sản phẩm trên máy tính",
           note: "Dùng máy tính và AI an toàn, trung thực là một trong 6 năng lực giáo viên đánh giá ở mỗi học sinh — không chỉ dạy kỹ thuật.",
         }, {
           left: [
@@ -146,7 +145,7 @@ export const HOME_PAGE = {
         // 5. CHUYÊN NGÀNH — tab, mỗi tab nói "hợp với bạn nhỏ nào" và "con làm được gì"
         sec("tracks", "chuyen-nganh", {
           eyebrow: "4 chuyên ngành · 8–18 tuổi",
-          title: "Mỗi bạn nhỏ một thế mạnh. Chọn con đường hợp với con",
+          title: "Mỗi bạn nhỏ một thế mạnh. Chọn *con đường hợp với con*",
           intro: "Chưa biết con hợp hướng nào? Buổi học trải nghiệm 1:1 giúp giáo viên nhận ra con thích gì, giỏi gì để gợi ý chuyên ngành phù hợp.",
           ctaLabel: "Đặt lịch học trải nghiệm để được tư vấn lộ trình", ctaUrl: "#dang-ky",
         }, {
@@ -193,11 +192,10 @@ export const HOME_PAGE = {
         // 6. GIÁ TRỊ — con thay đổi gì (tiêu chí đánh giá thật của trung tâm, nói "hướng tới", không hứa)
         sec("change", "con-thay-doi", {
           eyebrow: "Sau một năm học",
-          title: "Điều bố mẹ sẽ thấy ở con, không chỉ là điểm số",
+          title: "Điều bố mẹ sẽ thấy ở con, *không chỉ là điểm số*",
           intro: "Mỗi học sinh được đánh giá theo 6 năng lực và 3 phẩm chất, thang Tốt / Đạt / Cần cố gắng như ở trường. Đây là những thay đổi chương trình hướng tới:",
           beforeLabel: "Trước khi học", afterLabel: "Sau năm học",
           note: "Mỗi bạn tiến bộ theo nhịp riêng. Giáo viên ghi nhận từng tiêu chí và gửi bố mẹ sau mỗi buổi báo cáo.",
-          image: "/lp-anh/lp-phu-huynh-theo-doi.svg", imageAlt: "Tranh minh hoạ phụ huynh theo dõi biểu đồ năng lực của con trên điện thoại",
         }, {
           items: [
             { area: "Tư duy công nghệ", before: "Làm theo hướng dẫn từng bước", after: "Tự chia bài toán thành các bước, lập kế hoạch giải" },
@@ -211,8 +209,9 @@ export const HOME_PAGE = {
 
         // 7. VÌ SAO YÊN TÂM — cách học (đặc điểm thật, không so sánh đối thủ)
         sec("features", "cam-ket", {
-          title: "Vì sao bố mẹ có thể yên tâm",
+          title: "Vì sao bố mẹ có thể *yên tâm*",
           intro: "Một lớp học online tốt không nằm ở phần mềm, mà ở cách giáo viên theo sát con.",
+          image: "/lp-anh/that/cover-minh-hoa-creaticode.webp", imageAlt: "Minh hoạ lớp lập trình online qua ClassIn: giáo viên dạy trực tiếp, học sinh cùng làm trên CreatiCode",
         }, {
           items: [
             { title: "Giáo viên dạy trực tiếp, không phải video quay sẵn", text: "Mỗi buổi là một lớp học thật qua ClassIn: giáo viên giảng, làm mẫu, giao việc và sửa bài cho từng bạn.", icon: "man-hinh" },
@@ -226,7 +225,7 @@ export const HOME_PAGE = {
 
         // 8. MỘT BUỔI HỌC — giúp phụ huynh hình dung lớp online
         sec("steps", "buoi-hoc", {
-          title: "Một buổi học online của con diễn ra thế nào?",
+          title: "Một buổi học online của con *diễn ra thế nào?*",
           intro: "Ít ngồi nghe, nhiều tự làm: phần lớn thời gian con thực hành và sáng tạo trên máy của mình, giáo viên đi cùng từng bước.",
         }, {
           items: [

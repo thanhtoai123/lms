@@ -54,7 +54,7 @@ export const SECTION_DEFS: Record<SectionType, SectionDef> = {
     type: "leadHero", label: "Mở đầu + form đăng ký (quảng cáo)", single: true,
     desc: "Dành cho landing chạy quảng cáo: tiêu đề chứa từ khoá, 3–5 lợi ích, form 4 ô ngay màn hình đầu (điện thoại: form nằm ngay dưới tiêu đề).",
     fields: [
-      t("eyebrow", "Dòng nhỏ phía trên", 80), t("title", "Tiêu đề lớn (H1, có từ khoá)", 120, { required: true }), ta("subtitle", "Mô tả ngắn", 300),
+      t("eyebrow", "Dòng nhỏ phía trên", 80), t("title", "Tiêu đề lớn (H1, có từ khoá)", 120, { required: true, hint: "Đặt *cụm từ* trong dấu sao để tô màu nhấn" }), ta("subtitle", "Mô tả ngắn", 300),
       img("image", "Ảnh minh hoạ"), t("imageAlt", "Mô tả ảnh (alt, có từ khoá)", 160),
       t("formTitle", "Tiêu đề form", 80, { required: true }), t("formNote", "Dòng nhỏ dưới tiêu đề form", 140),
       t("interest", "Chuyên ngành chọn sẵn trong form", 60, { hint: "Robotics AI / Trí tuệ nhân tạo AI / Thiết kế đồ họa AI / Lập trình AI — để trống: phụ huynh tự chọn" }),
@@ -98,7 +98,7 @@ export const SECTION_DEFS: Record<SectionType, SectionDef> = {
   },
   features: {
     type: "features", label: "Cam kết / lợi ích", desc: "Thẻ đánh số: vì sao phụ huynh chọn trung tâm.",
-    fields: [t("title", "Tiêu đề", 120, { required: true }), ta("intro", "Giới thiệu", 300)],
+    fields: [t("title", "Tiêu đề", 120, { required: true }), ta("intro", "Giới thiệu", 300), img("image", "Ảnh lớn đầu lưới (tuỳ chọn)"), t("imageAlt", "Mô tả ảnh (alt)", 160)],
     lists: [{ key: "items", label: "Thẻ", addLabel: "Thêm thẻ", max: 8, fields: [t("title", "Tiêu đề thẻ", 100, { required: true }), ta("text", "Mô tả", 300), t("icon", "Biểu tượng", 20, { hint: "Biểu tượng (tuỳ chọn): man-hinh, nhom, mat, chuan, nha, ho-so, tia-sang, la-ban, code, cup, chia-se, ten-lua" })] }],
     needs: "items",
   },
@@ -209,9 +209,9 @@ export interface LandingSection {
 }
 export interface LandingDoc { sections: LandingSection[] }
 
-export const LANDING_VARIANTS = ["classic", "soft", "bold"] as const;
+export const LANDING_VARIANTS = ["classic", "soft", "bold", "studio"] as const;
 export type LandingVariant = (typeof LANDING_VARIANTS)[number];
-export const VARIANT_LABEL: Record<LandingVariant, string> = { classic: "Cổ điển — nền sáng, thẻ bo tròn", soft: "Dịu — nền kem, nhiều khoảng trắng", bold: "Nổi bật — băng màu đậm, chữ lớn" };
+export const VARIANT_LABEL: Record<LandingVariant, string> = { classic: "Cổ điển — nền sáng, thẻ bo tròn", soft: "Dịu — nền kem, nhiều khoảng trắng", bold: "Nổi bật — băng màu đậm, chữ lớn", studio: "Studio — trang chính: chữ lớn, nhiều khoảng trắng, ảnh thật (DESIGN.md)" };
 
 export const MAX_SECTIONS = 40;
 export const SLUG_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
