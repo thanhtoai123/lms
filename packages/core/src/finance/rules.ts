@@ -2,6 +2,7 @@
  * Tài chính học phí: đơn hàng, kế hoạch trả góp, thanh toán (sale ghi nhận → kế toán xác nhận),
  * công nợ, tuổi nợ, hoàn tiền theo buổi. Tiền là số nguyên VND.
  */
+import { vietQrDataUri } from "./vietqr.js";
 import { addDays, parseISODate } from "../dates.js";
 
 export const ORDER_TYPES = ["course", "product", "exam", "other"] as const;
@@ -758,6 +759,14 @@ export function transferMemo(code: string): string {
  * Nhận cả hai dạng mã: ORD-YYMMDD-NNNNNN (bản gốc) và DHyy-NNNNNN.
  */
 export function extractOrderRef(content: string): string | null {
+  // 1) Có tiền tố nội dung chuẩn (THSTEAM, hoặc SATA của mã QR cũ): lấy đúng số chữ số ngay sau mã, bất kể ngân hàng
+  //    nối thêm gì phía sau (VD "THSTEAM DH26000012 0971293031" → khi bỏ dấu cách, chữ số dính liền nhau).
+  const up = content.toUpperCase();
+  const dhA = /(?:THSTEAM|SATA)[^A-Z0-9]*DH[^A-Z0-9]*(\d{2})[^A-Z0-9]*(\d{6})/.exec(up);
+  if (dhA) return `DH${dhA[1]}-${dhA[2]}`;
+  const ordA = /(?:THSTEAM|SATA)[^A-Z0-9]*ORD[^A-Z0-9]*(\d{6})[^A-Z0-9]*(\d{6})/.exec(up);
+  if (ordA) return `ORD-${ordA[1]}-${ordA[2]}`;
+  // 2) Không có tiền tố: chỉ nhận khi mã đứng riêng (không dính thêm chữ số) để tránh đọc nhầm
   const flat = content.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
   const ord = /ORD(\d{6})(\d{6})(?!\d)/.exec(flat);
   if (ord) return `ORD-${ord[1]}-${ord[2]}`;
@@ -891,9 +900,16 @@ export function refundTransition(from: RefundStatus, event: "approve" | "reject"
   return to;
 }
 
-/** Link ảnh QR VietQR (chuẩn NAPAS) cho chuyển khoản */
+/**
+ * Ảnh QR VietQR (chuẩn NAPAS) cho chuyển khoản — TỰ SINH trên máy chủ (data:image/svg+xml), không gọi img.vietqr.io.
+ * `accountName` giữ trong chữ ký để tương thích; mã VietQR không chứa tên chủ tài khoản (app ngân hàng tự tra).
+ * Trả chuỗi rỗng khi BIN / số tài khoản không hợp lệ.
+ */
 export function vietQrImageUrl(p: { bankBin: string; accountNo: string; accountName?: string | null; amount: number; memo: string }): string {
-  const q = new URLSearchParams({ amount: String(Math.max(0, Math.round(p.amount))), addInfo: p.memo });
-  if (p.accountName) q.set("accountName", p.accountName);
-  return `https://img.vietqr.io/image/${encodeURIComponent(p.bankBin)}-${encodeURIComponent(p.accountNo)}-compact2.png?${q.toString()}`;
+  try {
+    return vietQrDataUri({ bankBin: p.bankBin.trim(), accountNo: p.accountNo.replace(/[^A-Za-z0-9]/g, ""), amount: Math.max(1, Math.round(p.amount)), memo: p.memo });
+  } catch {
+    // Tài khoản khai sai (BIN / số TK) → không vẽ QR; giao diện vẫn hiện số TK + nội dung để chuyển tay
+    return "";
+  }
 }

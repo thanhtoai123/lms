@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { useTRPC } from "@/lib/trpc/client";
-import { PAYMENT_METHOD_KINDS, PAYMENT_METHOD_KIND_VI, PAYMENT_SCOPE_FLAGS, PAYMENT_SCOPE_FLAG_VI, allowForToScopeFlags, type PaymentMethodKind, type PaymentScopeFlag } from "@satarobo/core";
+import { PAYMENT_METHOD_KINDS, PAYMENT_METHOD_KIND_VI, PAYMENT_SCOPE_FLAGS, PAYMENT_SCOPE_FLAG_VI, allowForToScopeFlags, VN_BANKS, type PaymentMethodKind, type PaymentScopeFlag } from "@satarobo/core";
 
 type Scope = Record<PaymentScopeFlag, boolean>;
 type M = {
@@ -48,6 +48,13 @@ export function MethodEditor({ method, centers }: { method?: M; centers: { id: s
           </label>
           {f.kind === "bank_transfer" && (
             <>
+              <label className="text-xs text-ink-600 sm:col-span-2">Chọn nhanh ngân hàng
+                <select className="input mt-1" value={VN_BANKS.some((b) => b.bin === f.bankBin) ? f.bankBin : ""}
+                  onChange={(e) => { const b = VN_BANKS.find((x) => x.bin === e.target.value); if (b) setF({ ...f, bankBin: b.bin, bankName: b.name }); }}>
+                  <option value="">— Ngân hàng khác: nhập mã BIN bên dưới —</option>
+                  {VN_BANKS.map((b) => <option key={b.bin} value={b.bin}>{b.name} · {b.bin}</option>)}
+                </select>
+              </label>
               <label className="text-xs text-ink-600">Mã BIN ngân hàng *<input className="input mt-1 font-mono" value={f.bankBin} onChange={(e) => setF({ ...f, bankBin: e.target.value })} placeholder="970436" /></label>
               <label className="text-xs text-ink-600">Ngân hàng<input className="input mt-1" value={f.bankName} onChange={(e) => setF({ ...f, bankName: e.target.value })} /></label>
               <label className="text-xs text-ink-600">Số tài khoản *<input className="input mt-1 font-mono" value={f.accountNo} onChange={(e) => setF({ ...f, accountNo: e.target.value })} /></label>

@@ -633,7 +633,7 @@ export async function integrations(ctx: ProtectedContext) {
   const pu = await pushOverview(ctx.db);
   type Item = { key: string; name: string; purpose: string; status: "ok" | "warn" | "off"; details: string[]; env: string[]; href?: string; test?: "email" | "zns" | "sms" | null };
   const items: Item[] = [
-    { key: "sepay", name: "SePay", purpose: "Biến động số dư → tự khớp đơn", status: e.SEPAY_API_KEY ? (wh?.rejected24 || sampleBank.length || !bankMethods.length ? "warn" : "ok") : "off", env: ["SEPAY_API_KEY"], href: "/bien-dong-so-du",
+    { key: "sepay", name: "SePay", purpose: "Biến động số dư → tự khớp đơn", status: e.SEPAY_API_KEY || e.SEPAY_WEBHOOK_SECRET ? (wh?.rejected24 || sampleBank.length || !bankMethods.length ? "warn" : "ok") : "off", env: ["SEPAY_WEBHOOK_SECRET", "SEPAY_API_KEY"], href: "/bien-dong-so-du",
       details: [`Webhook: /api/webhooks/sepay`, bankMethods.length ? `Tài khoản nhận đang bật: ${bankMethods.length}${sampleBank.length ? ` — ${sampleBank.length} là tài khoản MẪU (${sampleBank.map((m) => m.name).join(", ")}): sửa ở Phương thức thanh toán trước khi thu tiền thật` : ""}` : "Chưa có phương thức chuyển khoản nào đang bật — chưa xuất được mã QR", `Lần nhận gần nhất: ${bank?.last ?? "chưa có"}`, `24h: ${bank?.n24 ?? 0} giao dịch · bị từ chối ${wh?.rejected24 ?? 0}`] },
     { key: "email", name: "Email (Resend)", purpose: "Phiếu thu, nhắc học phí, đặt lại mật khẩu", status: e.RESEND_API_KEY ? (em?.failed ? "warn" : "ok") : "off", env: ["RESEND_API_KEY", "EMAIL_FROM"], href: "/email-logs",
       details: [`Người gửi: ${e.EMAIL_FROM ?? "TH STEAM Academy <no-reply@thsteam.edu.vn>"}`, `7 ngày: ${em?.sent7 ?? 0} đã gửi · chờ ${em?.queued ?? 0} · lỗi ${em?.failed ?? 0}`] },

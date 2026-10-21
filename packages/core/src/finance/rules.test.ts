@@ -69,9 +69,15 @@ test("mã chứng từ, nội dung CK, che CCCD, QR", () => {
   assert.equal(extractOrderRef("MBVCB.123 THSTEAM DH26000012 nop hoc phi"), code);
   assert.equal(extractOrderRef("thsteam dh26-000005 be An"), "DH26-000005");
   assert.equal(extractOrderRef("DH260000123"), null);
+  // ngân hàng nối số tài khoản / mã giao dịch ngay sau nội dung
+  assert.equal(extractOrderRef("THSTEAM DH26000012 0971293031"), "DH26-000012");
+  assert.equal(extractOrderRef("MBVCB.1234567.THSTEAMDH260000129876.CT tu 0123"), "DH26-000012");
+  assert.equal(extractOrderRef("IBFT THSTEAM-DH26-000012-FT26294"), "DH26-000012");
+  assert.equal(extractOrderRef("SATA ORD261004000008 0912"), "ORD-261004-000008");
   assert.equal(extractOrderRef("chuyen tien"), null);
   assert.equal(maskIdNumber("048123456789"), "048*******89");
-  assert.match(vietQrImageUrl({ bankBin: "970436", accountNo: "0123", amount: 1000, memo: "THSTEAM X" }), /970436-0123-compact2\.png\?amount=1000&addInfo=THSTEAM\+X/);
+  // ảnh QR tự sinh (không gọi img.vietqr.io)
+  assert.match(vietQrImageUrl({ bankBin: "970436", accountNo: "0123", amount: 1000, memo: "THSTEAM X" }), /^data:image\/svg\+xml;base64,/);
 });
 
 test("hoàn tiền theo buổi", () => {

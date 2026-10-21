@@ -55,3 +55,25 @@ export function zaloSignatureOk(
   if (!timestampFresh(timestamp, nowMs)) return false;
   return safeEqual(header, zaloSignature(raw, appId, timestamp as string | number, secret));
 }
+
+/**
+ * SePay HMAC-SHA256 (khuyến nghị thay cho API Key): header `X-SePay-Signature: sha256=<hex>` và
+ * `X-SePay-Timestamp: <giây Unix>`; chuỗi ký = `${timestamp}.${raw body}` (đúng từng byte nhận được).
+ * Cửa sổ thời gian rộng 60 phút vì SePay tự gửi lại tới ~33 phút sau lần đầu; gói tin phát lại cũng không tạo trùng
+ * khoản thu (chống trùng theo id giao dịch), nên cửa sổ chỉ để chặn gói tin rất cũ.
+ */
+export const SEPAY_MAX_SKEW_MS = 60 * 60_000;
+export function sepaySignature(raw: string, timestamp: string | number, secret: string): string {
+  return `sha256=${createHmac("sha256", secret).update(`${timestamp}.${raw}`, "utf8").digest("hex")}`;
+}
+export function sepaySignatureOk(
+  raw: string,
+  header: string | null | undefined,
+  timestamp: string | null | undefined,
+  secret: string | undefined,
+  nowMs: number = Date.now(),
+): boolean {
+  if (!secret || !header || !timestamp || !/^\d{9,11}$/.test(timestamp.trim())) return false;
+  if (!timestampFresh(timestamp.trim(), nowMs, SEPAY_MAX_SKEW_MS)) return false;
+  return safeEqual(header.trim().toLowerCase(), sepaySignature(raw, timestamp.trim(), secret));
+}

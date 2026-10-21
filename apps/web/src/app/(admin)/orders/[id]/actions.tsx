@@ -421,7 +421,7 @@ export function OrderQr({ orderId, canIssue }: { orderId: string; canIssue: bool
           {cur ? (
             <>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={cur.imageUrl} alt="Mã QR chuyển khoản" className="mx-auto w-56 rounded-xl border border-black/10" />
+              {cur.imageUrl && <img src={cur.imageUrl} alt="Mã QR chuyển khoản" className="mx-auto w-56 rounded-xl border border-black/10" />}
               <div className="text-sm">{cur.bankName} · <span className="font-mono">{cur.accountNo}</span></div>
               <div className="text-xs text-ink-600">{cur.accountName}</div>
               <div className="rounded-lg bg-brand-50 p-2 font-mono text-sm font-semibold">{cur.content}</div>

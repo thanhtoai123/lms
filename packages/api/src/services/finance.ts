@@ -188,6 +188,7 @@ export async function upsertPaymentMethod(ctx: ProtectedContext, input: PaymentM
   if (!/^[A-Z0-9_-]{2,20}$/.test(code)) throw bad("Mã phương thức chỉ gồm chữ in hoa, số, - _ (2–20 ký tự)");
   if (input.kind === "bank_transfer" && (!input.bankBin?.trim() || !input.accountNo?.trim() || !input.accountName?.trim())) throw bad("Chuyển khoản cần mã ngân hàng (BIN), số tài khoản và tên chủ tài khoản");
   if (input.bankBin && !/^\d{6}$/.test(input.bankBin.trim())) throw bad("Mã BIN ngân hàng gồm 6 chữ số (VD Vietcombank 970436)");
+  if (input.kind === "bank_transfer" && input.accountNo && !/^[A-Za-z0-9]{1,19}$/.test(input.accountNo.replace(/[\s.-]/g, ""))) throw bad("Số tài khoản chỉ gồm chữ và số, tối đa 19 ký tự (mã QR VietQR)");
   // Phạm vi dùng: nhận 5 cờ (bản gốc) hoặc `allowFor` cũ; hai chiều luôn được giữ đồng bộ
   const scopeFlags = input.scope ?? allowForToScopeFlags(input.allowFor ?? []);
   const allowFor = input.scope ? scopeFlagsToAllowFor(input.scope) : [...new Set(input.allowFor ?? [])];
@@ -892,7 +893,7 @@ export async function orderQrState(ctx: ProtectedContext, input: { orderId: stri
     reusing: !!r,
     current: r
       ? {
-          id: r.id, amount: r.amount, content: r.content, imageUrl: r.imageUrl,
+          id: r.id, amount: r.amount, content: r.content, imageUrl: qrImageOf(r),
           bankName: r.bankName, accountNo: r.accountNo, accountName: r.accountName,
           issuedAt: r.issuedAt.toISOString(), expiresAt: r.expiresAt.toISOString(),
         }
@@ -904,6 +905,19 @@ export async function orderQrState(ctx: ProtectedContext, input: { orderId: stri
     })),
     now: now.toISOString(),
   };
+}
+
+/**
+ * Ảnh QR của một mã đã xuất: dựng lại từ BIN / số TK / số tiền / nội dung đã lưu (tự sinh, không gọi dịch vụ ngoài).
+ * Mã xuất trước đây lưu link img.vietqr.io vẫn hiện đúng vì ảnh được dựng lại từ dữ liệu.
+ */
+function qrImageOf(r: { bankBin: string | null; accountNo: string | null; amount: number; content: string; imageUrl: string }): string {
+  if (!r.bankBin || !r.accountNo) return r.imageUrl;
+  try {
+    return vietQrImageUrl({ bankBin: r.bankBin, accountNo: r.accountNo, amount: r.amount, memo: r.content });
+  } catch {
+    return r.imageUrl;
+  }
 }
 
 /**
@@ -933,7 +947,7 @@ export async function issueOrderQr(ctx: ProtectedContext, input: { orderId: stri
     const st = qrState(rows, amount, now);
     if (st.reuse && !input.force) {
       const r = st.reuse;
-      return { id: r.id, amount: r.amount, content: r.content, imageUrl: r.imageUrl, expiresAt: r.expiresAt.toISOString(), reused: true, label: QR_REUSE_LABEL };
+      return { id: r.id, amount: r.amount, content: r.content, imageUrl: qrImageOf(r), expiresAt: r.expiresAt.toISOString(), reused: true, label: QR_REUSE_LABEL };
     }
     if (input.force) {
       await tx.update(paymentQrCodes).set({ status: "revoked", revokedReason: "Xuất lại mã mới" })

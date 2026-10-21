@@ -39,7 +39,7 @@ export default async function FeesPage({ searchParams }: { searchParams: Promise
                 <summary className="flex min-h-11 cursor-pointer items-center font-semibold text-primary">Chuyển khoản (QR)</summary>
                 <div className="mt-2 space-y-1 text-[14px]">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={o.transfer.qr} alt="Mã QR chuyển khoản" className="mx-auto w-56" />
+                  {o.transfer.qr && <img src={o.transfer.qr} alt="Mã QR chuyển khoản" className="mx-auto w-56" />}
                   <div>{o.transfer.bank} · STK <b>{o.transfer.accountNo}</b> · {o.transfer.accountName}</div>
                   <div>Nội dung: <b className="font-mono">{o.transfer.memo}</b> (giữ nguyên để trung tâm xác nhận tự động)</div>
                 </div>

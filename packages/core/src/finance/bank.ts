@@ -18,6 +18,8 @@ export interface BankTx {
   externalId: string;
   gateway: string;
   accountNo: string;
+  /** Tài khoản ảo (VA) SePay báo kèm — dùng khi trung tâm khai số VA thay vì số tài khoản chính */
+  subAccount?: string | null;
   /** ISO có múi giờ +07:00 */
   occurredAt: string;
   amount: number;
@@ -51,7 +53,8 @@ export function parseSepayPayload(x: unknown): { ok: true; tx: BankTx } | { ok: 
   if (!direction) return { ok: false, error: "transferType phải là in/out" };
   const occurredAt = typeof p.transactionDate === "string" ? parseSepayDate(p.transactionDate) : null;
   if (!occurredAt) return { ok: false, error: "transactionDate không hợp lệ" };
-  const accountNo = digitsOnly(String(p.accountNumber ?? "")) || digitsOnly(String(p.subAccount ?? ""));
+  const sub = typeof p.subAccount === "string" ? p.subAccount.replace(/[^A-Za-z0-9]/g, "").slice(0, 40) : "";
+  const accountNo = digitsOnly(String(p.accountNumber ?? "")) || sub;
   if (!accountNo) return { ok: false, error: "Thiếu số tài khoản" };
   const acc = p.accumulated == null ? null : Number(p.accumulated);
   const content = [p.content, p.code].filter((v) => typeof v === "string" && v.trim()).join(" ").trim();
@@ -61,6 +64,7 @@ export function parseSepayPayload(x: unknown): { ok: true; tx: BankTx } | { ok: 
       externalId: String(id),
       gateway: String(p.gateway ?? "").slice(0, 60),
       accountNo,
+      subAccount: sub && sub !== accountNo ? sub : null,
       occurredAt,
       amount,
       direction,

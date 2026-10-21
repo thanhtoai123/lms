@@ -18,10 +18,13 @@ import { bad, pre, reasonOrThrow, can, notify, accountantsOf, managersOf, recomp
 /** Ngày theo giờ Việt Nam */
 const vnDate = (d: Date) => new Date(d.getTime() + 7 * 3600e3).toISOString().slice(0, 10);
 
+/** Phương thức chuyển khoản đang dùng có số tài khoản trùng (so chữ + số, không phân biệt hoa thường, bỏ dấu cách / gạch) */
 async function bankMethodsFor(db: Db, accountNo: string) {
+  const key = accountNo.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+  if (!key) return [];
   return db.select().from(paymentMethods).where(and(
     eq(paymentMethods.kind, "bank_transfer"), eq(paymentMethods.isActive, true),
-    sql`regexp_replace(coalesce(${paymentMethods.accountNo}, ''), '\\D', '', 'g') = ${digitsOnly(accountNo)}`,
+    sql`regexp_replace(upper(coalesce(${paymentMethods.accountNo}, '')), '[^A-Z0-9]', '', 'g') = ${key}`,
   ));
 }
 
@@ -42,10 +45,16 @@ async function orderSnapshot(db: Db, orderId: string) {
 
 /** Lưu giao dịch (idempotent theo nguồn + mã ngoài) rồi đối khớp. Dùng cho webhook và nhập sao kê. */
 export async function ingestBankTx(db: Db, t: BankTx, source: BankTxSource, raw: unknown, importBatchId: string | null = null, actorId: string | null = null) {
-  const methods = await bankMethodsFor(db, t.accountNo);
+  let methods = await bankMethodsFor(db, t.accountNo);
+  let accountNo = t.accountNo;
+  // Trung tâm khai số tài khoản ảo (VA) thay vì số chính → khớp theo subAccount SePay gửi kèm
+  if (!methods.length && t.subAccount) {
+    const viaSub = await bankMethodsFor(db, t.subAccount);
+    if (viaSub.length) { methods = viaSub; accountNo = t.subAccount; }
+  }
   const centerIds = [...new Set(methods.map((m) => m.centerId))];
   const [row] = await db.insert(bankTransactions).values({
-    source, externalId: t.externalId, gateway: t.gateway || null, accountNo: t.accountNo, paymentMethodId: methods[0]?.id ?? null,
+    source, externalId: t.externalId, gateway: t.gateway || null, accountNo, paymentMethodId: methods[0]?.id ?? null,
     centerId: centerIds.length === 1 ? centerIds[0]! : null, occurredAt: new Date(t.occurredAt), amount: t.amount, direction: t.direction,
     content: t.content, referenceCode: t.referenceCode, accumulated: t.accumulated, status: "unmatched", importBatchId, raw: raw ?? null,
   }).onConflictDoNothing().returning({ id: bankTransactions.id });
@@ -186,7 +195,7 @@ export async function listBankTx(ctx: ProtectedContext, input: { status?: BankTx
     page, pageSize, total: cnt?.n ?? 0,
     counts: { matched: agg?.matched ?? 0, unmatched: agg?.unmatched ?? 0, needs_review: agg?.needs_review ?? 0, ignored: agg?.ignored ?? 0 },
     sums: { in: Number(agg?.inSum ?? 0), matched: Number(agg?.matchedSum ?? 0), open: Number(agg?.openSum ?? 0) },
-    webhook: { path: "/api/webhooks/sepay", configured: !!process.env.SEPAY_API_KEY, lastReceivedAt: agg?.lastSepay ?? null },
+    webhook: { path: "/api/webhooks/sepay", configured: !!(process.env.SEPAY_API_KEY || process.env.SEPAY_WEBHOOK_SECRET), lastReceivedAt: agg?.lastSepay ?? null },
     accounts: accounts.filter((a) => canHandle(ctx, a.centerId) || can(ctx, "finance:read", a.centerId)),
     canImport: confirmCenters(ctx).length > 0,
     items: rows.map((x) => ({

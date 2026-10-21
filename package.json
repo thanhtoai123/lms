@@ -24,6 +24,7 @@
     "db:seed-home": "pnpm --filter @satarobo/db seed-home",
     "db:seed-site": "pnpm --filter @satarobo/db seed-site",
     "db:seed-thsteam": "pnpm --filter @satarobo/db seed-thsteam",
+    "thu-thanh-toan": "pnpm --filter @satarobo/db thu-thanh-toan",
     "db:reset": "pnpm --filter @satarobo/db reset",
     "db:apply-sql": "pnpm --filter @satarobo/db apply-sql",
     "db:studio": "pnpm --filter @satarobo/db studio",
