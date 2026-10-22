@@ -82,9 +82,9 @@ export const HOME_PAGE = {
           showcase: [
             { image: "/lp-anh/that/robosim-robot-lap-ghep.webp", imageAlt: "Robot lắp ghép có cảm biến chạy trên sa bàn thi đấu trong phần mềm RoboSim", title: "Robot lắp ghép, lập trình", tool: "RoboSim", credit: "WhalesBot", creditUrl: "https://www.whalesbot.ai/", fit: "", pos: "" },
             { image: "/lp-anh/that/scratch-game-phi-hanh-gia.webp", imageAlt: "Game phi hành gia nhảy qua các bậc làm bằng khối lệnh Scratch", title: "Game đầu tay", tool: "Scratch", credit: "Scratch (MIT)", creditUrl: "https://scratch.mit.edu/", fit: "", pos: "" },
-            { image: "/lp-anh/that/appinventor-hellopurr.webp", imageAlt: "Ứng dụng điện thoại Hello Purr làm bằng MIT App Inventor", title: "App điện thoại", tool: "MIT App Inventor", credit: "MIT App Inventor", creditUrl: "https://appinventor.mit.edu/", fit: "vua", pos: "" },
+            { image: "/lp-anh/that/creaticode-robot-sao-hoa.webp", imageAlt: "Robot thám hiểm sao Hỏa có tấm pin mặt trời, lập trình trong thế giới 3D của CreatiCode", title: "Robot thám hiểm sao Hỏa", tool: "CreatiCode 3D", credit: "CreatiCode", creditUrl: "https://www.creaticode.com/", fit: "", pos: "" },
             { image: "/lp-anh/that/tinkercad-mo-hinh-3d.webp", imageAlt: "Mô hình 3D khinh khí cầu, trực thăng, xe đua, mô tô, chú ngựa dựng trong Tinkercad", title: "Thiết kế đồ họa", tool: "Tinkercad", credit: "Autodesk Tinkercad", creditUrl: "https://www.tinkercad.com/", fit: "", pos: "80% 20%" },
-            { image: "/lp-anh/that/roblox-lau-dai-phep-thuat.webp", imageAlt: "Game 3D lâu đài phép thuật làm bằng Roblox Studio", title: "Thế giới game 3D", tool: "Roblox Studio", credit: "Roblox Creator Docs (CC BY 4.0)", creditUrl: "https://github.com/Roblox/creator-docs", fit: "", pos: "" },
+            { image: "/lp-anh/that/roblox-thanh-pho-dem.webp", imageAlt: "Thành phố cảng về đêm dựng bằng Roblox Studio", title: "Thế giới game 3D", tool: "Roblox Studio", credit: "Roblox Creator Docs (CC BY 4.0)", creditUrl: "https://github.com/Roblox/creator-docs", fit: "", pos: "" },
           ],
         }),
 
