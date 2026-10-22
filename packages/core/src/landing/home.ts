@@ -236,12 +236,14 @@ export const HOME_PAGE = {
         // 9. BẰNG CHỨNG — loại sản phẩm con làm ra (ảnh phần mềm thật, ghi nguồn)
         sec("gallery", "san-pham", { title: "Những thứ con sẽ tự tay làm ra" }, {
           items: [
-            { image: "/lp-anh/that/robosim-sa-ban-vong-loai.webp", caption: "Robot ảo vượt sa bàn thi đấu Sáng tạo Robotics", credit: "Ảnh: Thể lệ Cuộc thi Sáng tạo Robotics 2026", creditUrl: "https://tainangviet.vn/" },
-            { image: "/lp-anh/that/scratch-trinh-soan.webp", caption: "Hoạt hình, game đầu tay bằng Scratch", credit: "Ảnh: Wikimedia Commons / MouseCursor, CC BY-SA 2.0", creditUrl: "https://commons.wikimedia.org/wiki/File:Scratch_editor_screenshot.png" },
-            { image: "/lp-anh/that/creaticode-he-mat-troi-3d.webp", caption: "Mô phỏng Hệ Mặt Trời 3D bằng CreatiCode", credit: "Ảnh: CreatiCode", creditUrl: "https://www.creaticode.com/" },
-            { image: "/lp-anh/that/appinventor-thiet-ke-app.webp", caption: "App điện thoại tự thiết kế với App Inventor", credit: "Ảnh: Wikimedia Commons / Florian Schäffer, CC0", creditUrl: "https://commons.wikimedia.org/wiki/File:Mit_app_inventor_2_beta3.png" },
-            { image: "/lp-anh/that/roblox-studio-lau-dai.webp", caption: "Thế giới game 3D trong Roblox Studio", credit: "Ảnh: Roblox Creator Docs, CC BY 4.0", creditUrl: "https://github.com/Roblox/creator-docs" },
-            { image: "/lp-anh/that/python-pygame-ma.webp", caption: "Viết game bằng Python", credit: "Ảnh: Wikimedia Commons / Rikulpatel1, CC0", creditUrl: "https://commons.wikimedia.org/wiki/File:Python_pygame_code.png" },
+            { image: "/lp-anh/that/sp-robovr-duong-dua.webp", caption: "Robotics AI · Xe robot tự lái trên đường đua tương lai", credit: "Ảnh: WhalesBot RoboVR", creditUrl: "https://www.whalesbot.ai/3dvirtual" },
+            { image: "/lp-anh/that/robovr-xe-tu-lai.webp", caption: "Robotics AI · Robot giao hàng chạy theo bản đồ thành phố", credit: "Ảnh: WhalesBot RoboVR", creditUrl: "https://www.whalesbot.ai/3dvirtual" },
+            { image: "/lp-anh/that/sp-ai-may-phan-loai.webp", caption: "Trí tuệ nhân tạo · Máy tự phân loại đồ vật bằng AI nhìn", credit: "Ảnh: Google Teachable Machine", creditUrl: "https://teachablemachine.withgoogle.com/" },
+            { image: "/lp-anh/that/creaticode-dem-ngon-tay.webp", caption: "Trí tuệ nhân tạo · Ứng dụng AI đếm ngón tay qua camera", credit: "Ảnh: CreatiCode", creditUrl: "https://www.creaticode.com/" },
+            { image: "/lp-anh/that/sp-tinkercad-nhan-vat.webp", caption: "Thiết kế đồ họa · Nhân vật 3D tự dựng", credit: "Ảnh: Autodesk Tinkercad", creditUrl: "https://www.tinkercad.com/" },
+            { image: "/lp-anh/that/photoshop-generative-fill-ong.webp", caption: "Thiết kế đồ họa · Ảnh sáng tạo cùng AI trong Photoshop", credit: "Ảnh: Adobe Photoshop", creditUrl: "https://www.adobe.com/products/photoshop.html" },
+            { image: "/lp-anh/that/sp-scratch-game.webp", caption: "Lập trình · Game phi hành gia nhảy bậc bằng Scratch", credit: "Ảnh: Scratch (MIT)", creditUrl: "https://scratch.mit.edu/" },
+            { image: "/lp-anh/that/roblox-lau-dai-phep-thuat.webp", caption: "Lập trình · Thế giới game 3D lâu đài phép thuật", credit: "Ảnh: Roblox Creator Docs, CC BY 4.0", creditUrl: "https://github.com/Roblox/creator-docs" },
           ],
         }),
 

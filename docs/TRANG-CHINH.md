@@ -17,7 +17,7 @@ Nỗi lo → bối cảnh → giải pháp → chuyên ngành → giá trị →
 | 6 | Trước → sau (`con-thay-doi`) | Tiêu chí đánh giá thật (6 năng lực + 3 phẩm chất), nói "hướng tới" |
 | 7 | Vì sao yên tâm (`#cam-ket`) | Giáo viên trực tiếp, lớp nhỏ, báo cáo trước phụ huynh… |
 | 8 | Một buổi học (`#quy-trinh`) | Phụ huynh hình dung lớp online |
-| 9 | Sản phẩm (`#hinh-anh`) | Loại sản phẩm con làm ra (ảnh phần mềm, ghi nguồn) |
+| 9 | Sản phẩm (`#hinh-anh`) | Sản phẩm thật làm bằng công cụ của từng chuyên ngành, 2 ảnh mỗi ngành (ghi nguồn) |
 | 10 | Giảng viên (`#giang-vien`) | Ảnh và chứng chỉ thật |
 | 11 | Kêu gọi học thử + hỏi đáp + form (`#hoi-dap`, `#dang-ky`) | Rủi ro thấp: thử trước, quyết sau |
 
