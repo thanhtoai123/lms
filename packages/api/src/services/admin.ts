@@ -512,6 +512,12 @@ export async function sanitizePublicLeadRefs(database: Database, data: { centerI
     const c = await db.query.centers.findFirst({ where: and(eq(centers.id, data.centerId), eq(centers.isActive, true)), columns: { id: true } });
     if (!c) data.centerId = null;
   }
+  // Lead từ web không chọn cơ sở → về cơ sở Online (đổi bằng PUBLIC_LEAD_CENTER_CODE)
+  if (!data.centerId) {
+    const code = (process.env.PUBLIC_LEAD_CENTER_CODE ?? "ONL").trim().toUpperCase();
+    const onl = code ? await db.query.centers.findFirst({ where: and(eq(centers.code, code), eq(centers.isActive, true)), columns: { id: true } }) : undefined;
+    data.centerId = onl?.id ?? null;
+  }
   if (data.interestedCourseId) {
     const k = await db.query.courses.findFirst({ where: and(eq(courses.id, data.interestedCourseId), eq(courses.isActive, true)), columns: { id: true } });
     if (!k) data.interestedCourseId = null;

@@ -3,7 +3,7 @@ import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { TRPCError } from "@trpc/server";
 import {
   paymentMethods, orders, orderPrivate, orderItems, orderItemDiscounts, orderInstallments, orderEvents, payments, paymentAdjustments, paymentQrCodes, refunds, financeLedger, bankTransactions, commissions,
-  centers, users, userRoles, userNotifications, enrollments, classes, courses, students, parents, studentGuardians, leads, leadChildren, outbox,
+  centers, users, userRoles, coursePackages, userNotifications, enrollments, classes, courses, students, parents, studentGuardians, leads, leadChildren, outbox,
 } from "@satarobo/db";
 import {
   authorize, hasRole, visibleCenterIds, addDays, clampPageSize,
@@ -16,7 +16,7 @@ import {
   qrExpiresAt, qrExpired, qrState, DEFAULT_QR_TTL_HOURS, QR_REUSE_LABEL,
   applyDiscountPolicy, discountPolicyOf, DISCOUNT_POLICY_KIND, DISCOUNT_POLICY_VI, DEFAULT_MAX_LINE_DISCOUNT_PCT,
   initialDiscountApproval, discountPercentOf, paymentBlockedBy, DISCOUNT_APPROVAL_VI, DEFAULT_DISCOUNT_APPROVAL_PCT,
-  scopeFlagsToAllowFor, allowForToScopeFlags, clientSafeMessage,
+  scopeFlagsToAllowFor, allowForToScopeFlags, clientSafeMessage, checkLockedPrices, packagePriceOf, type CoursePriceBook,
   type OrderType, type OrderStatus, type PaymentStatus, type PaymentDecision, type RefundStatus, type PaymentMethodKind, type AgingBucket, type Discount, type Permission,
   type ClassFormat, type InstallmentKind, type LineDiscount, type DebtChip, type DebtAgeBucket,
   type OrderCodeFormat, type DiscountPolicy, type PaymentScopeFlag, type DiscountApproval,
@@ -453,6 +453,34 @@ export async function openOrderLineFor(db: Db, enrollmentIds: string[], excludeO
   return rows.filter((r): r is { enrollmentId: string; orderCode: string; orderId: string } => !!r.enrollmentId);
 }
 
+/**
+ * Đơn giá khoá theo bảng giá: dòng có khoá học phải đúng một mức trong bảng giá (giá khoá theo số buổi × hệ số,
+ * gói đang bán, combo 2 năm). Bán thấp hơn → khoản giảm giá ở dòng (vượt ngưỡng phải chờ duyệt).
+ * Đơn loại "Khoá học" mọi dòng phải chọn khoá, để không lách bằng dòng mô tả tự do.
+ */
+async function assertCatalogPrices(db: Db, type: OrderType, items: readonly OrderLineInput[]) {
+  if (type === "course" && items.some((i) => !i.courseId)) throw bad("Đơn học phí: mỗi dòng phải chọn khoá học (đơn giá lấy theo bảng giá)");
+  const ids = [...new Set(items.map((i) => i.courseId).filter((x): x is string => !!x))];
+  if (!ids.length) return;
+  const cs = await db.select({ id: courses.id, code: courses.code, listPrice: courses.listPrice, totalSessions: courses.totalSessions }).from(courses).where(inArray(courses.id, ids));
+  const pk = await db.select({ courseId: coursePackages.courseId, code: coursePackages.code, sessions: coursePackages.sessions, listPrice: coursePackages.listPrice, salePrice: coursePackages.salePrice })
+    .from(coursePackages).where(and(inArray(coursePackages.courseId, ids), eq(coursePackages.isActive, true)));
+  const books: Record<string, CoursePriceBook> = {};
+  for (const c of cs) {
+    books[c.code] = {
+      code: c.code, listPrice: Number(c.listPrice ?? 0), totalSessions: c.totalSessions ?? 0,
+      packages: pk.filter((p) => p.courseId === c.id).map((p) => ({ code: p.code, sessions: p.sessions, price: packagePriceOf({ listPrice: Number(p.listPrice), salePrice: p.salePrice == null ? null : Number(p.salePrice) }) })),
+    };
+  }
+  const lines = items.map((i) => ({
+    courseCode: i.courseId ? (cs.find((c) => c.id === i.courseId)?.code ?? "") : null,
+    unitPrice: i.unitPrice, sessions: i.packageSessions ?? null, format: (i.format ?? "group") as ClassFormat,
+    owner: i.leadChildId ?? i.studentId ?? i.enrollmentId ?? "-",
+  }));
+  const errs = checkLockedPrices(lines, books);
+  if (errs.length) throw bad(errs);
+}
+
 export async function createOrder(ctx: ProtectedContext, input: CreateOrderInput) {
   requirePermission(ctx, "finance:create", { centerId: input.centerId });
   const center = await ctx.db.query.centers.findFirst({ where: eq(centers.id, input.centerId) });
@@ -486,6 +514,7 @@ export async function createOrder(ctx: ProtectedContext, input: CreateOrderInput
       if (i.courseId && c.courseId !== i.courseId) throw bad(`Lớp ${c.code} không đúng khoá của dòng "${i.description}"`);
     }
   }
+  await assertCatalogPrices(ctx.db, input.type, input.items);
   const ops = await getOps(ctx.db, input.centerId);
   const priced = priceLines(input.items.map((i) => ({
     unitPrice: i.unitPrice, quantity: i.quantity, discounts: i.discounts ?? [], maxPercent: ops.maxLineDiscountPercent,

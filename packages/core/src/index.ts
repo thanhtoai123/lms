@@ -48,6 +48,7 @@ export * from "./people/avatar.js";
 export * from "./people/trungSdt.js";
 export * from "./finance/rules.js";
 export * from "./finance/bank.js";
+export * from "./finance/priceLock.js";
 export * from "./finance/vietqr.js";
 export * from "./finance/commission.js";
 export * from "./hr/shifts.js";

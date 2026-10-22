@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useTRPC } from "@/lib/trpc/client";
 import {
-  priceLines, buildPlan, validateInstallmentPlan, formatUnitPrice, COACH_MULTIPLIER, SELLABLE_CLASS_FORMATS, CLASS_FORMAT_VI, MAX_INSTALLMENTS, classFormatOfPackage, thComboOffers,
+  priceLines, buildPlan, validateInstallmentPlan, formatUnitPrice, COACH_MULTIPLIER, SELLABLE_CLASS_FORMATS, CLASS_FORMAT_VI, MAX_INSTALLMENTS, classFormatOfPackage, thComboOffers, lockedPriceOptions, packagePrice,
   ORDER_TYPES, ORDER_TYPE_VI, DISCOUNT_POLICIES, DISCOUNT_POLICY_VI, DISCOUNT_POLICY_KIND,
   discountPercentOf, discountNeedsApproval, DEFAULT_DISCOUNT_APPROVAL_PCT,
   type OrderType, type ClassFormat, type InstallmentKind, type DiscountPolicy,
@@ -118,7 +118,22 @@ export function OrderForm({ centers, methods, courses, packages = [], classes = 
     const it = items[i]!;
     const twin = it.courseId ? packages.find((p) => p.courseId === it.courseId && classFormatOfPackage(p.code) === format && p.sessions === (it.packageSessions || p.sessions)) : undefined;
     if (twin) { pickPackage(i, twin.id); return; }
-    setItem(i, { format, packageId: "" });
+    setItem(i, { format, packageId: "", unitPrice: formatUnitPrice(it.basePrice || it.unitPrice, format) });
+  };
+  /** Bảng giá của dòng có khoá: đơn giá chỉ chọn trong các mức này (máy chủ kiểm tra lại) */
+  const priceOptsOf = (it: Item): number[] => {
+    const c = courses.find((x) => x.id === it.courseId);
+    if (!c) return [];
+    const book = { code: c.code, listPrice: c.listPrice, totalSessions: c.totalSessions, packages: packages.filter((p) => p.courseId === c.id).map((p) => ({ code: p.code, sessions: p.sessions, price: p.price })) };
+    return lockedPriceOptions(book, it.packageSessions === "" ? null : it.packageSessions, it.format);
+  };
+  /** Đổi số buổi của dòng có khoá: đơn giá tính lại theo bảng giá (giá khoá theo buổi × hệ số) */
+  const pickSessions = (i: number, v: number | "") => {
+    const it = items[i]!;
+    const c = courses.find((x) => x.id === it.courseId);
+    if (!c || v === "" || !c.totalSessions) { setItem(i, { packageSessions: v }); return; }
+    const base = packagePrice(c.listPrice, c.totalSessions, v);
+    setItem(i, { packageSessions: v, packageId: "", basePrice: base, unitPrice: formatUnitPrice(base, it.format) });
   };
 
   const submit = () => {
@@ -216,9 +231,23 @@ export function OrderForm({ centers, methods, courses, packages = [], classes = 
               </label>
             )}
             <label className={`text-xs text-ink-600 ${type === "course" ? "sm:col-span-4" : "sm:col-span-6"}`}>Mô tả *<input className="input mt-1" value={it.description} onChange={(e) => setItem(i, { description: e.target.value })} /></label>
-            {type === "course" && <label className="text-xs text-ink-600 sm:col-span-1">Buổi<input type="number" min={1} max={500} className="input mt-1" value={it.packageSessions} onChange={(e) => setItem(i, { packageSessions: e.target.value === "" ? "" : Number(e.target.value) })} /></label>}
+            {type === "course" && <label className="text-xs text-ink-600 sm:col-span-1">Buổi<input type="number" min={1} max={500} className="input mt-1" value={it.packageSessions} onChange={(e) => pickSessions(i, e.target.value === "" ? "" : Number(e.target.value))} /></label>}
             <label className="text-xs text-ink-600 sm:col-span-1">SL<input type="number" min={1} className="input mt-1" value={it.quantity} onChange={(e) => setItem(i, { quantity: Number(e.target.value) })} /></label>
-            <label className="text-xs text-ink-600 sm:col-span-2">Đơn giá (đ) *<input type="number" min={0} step={1000} className="input mt-1" value={it.unitPrice} onChange={(e) => setItem(i, { unitPrice: Number(e.target.value), basePrice: it.format === "group" ? Number(e.target.value) : it.basePrice })} /></label>
+            {it.courseId ? (() => {
+              const opts = priceOptsOf(it);
+              const ok = opts.includes(Math.round(it.unitPrice));
+              return (
+                <label className="text-xs text-ink-600 sm:col-span-2">Đơn giá theo bảng giá *
+                  <select className={`input mt-1 ${ok ? "" : "border-red-400"}`} value={ok ? String(Math.round(it.unitPrice)) : ""} onChange={(e) => setItem(i, { unitPrice: Number(e.target.value) })}>
+                    {!ok && <option value="">{opts.length ? "— Chọn mức giá —" : "Chưa có giá cho số buổi / hình thức này"}</option>}
+                    {opts.map((v) => <option key={v} value={v}>{vnd(v)}</option>)}
+                  </select>
+                  <span className="mt-0.5 block text-[11px] text-ink-400">Giảm giá: thêm khoản giảm ở dòng.</span>
+                </label>
+              );
+            })() : (
+              <label className="text-xs text-ink-600 sm:col-span-2">Đơn giá (đ) *<input type="number" min={0} step={1000} className="input mt-1" value={it.unitPrice} onChange={(e) => setItem(i, { unitPrice: Number(e.target.value), basePrice: it.format === "group" ? Number(e.target.value) : it.basePrice })} /></label>
+            )}
             <div className="flex items-center justify-between gap-2 pb-2 text-sm tabular-nums sm:col-span-2"><b>{vnd(priced.lines[i]?.net ?? 0)}</b>{items.length > 1 && <button className="text-xs text-red-700" onClick={() => setItems(items.filter((_, j) => j !== i))}>Xoá dòng {i + 1}</button>}</div>
 
             {type === "course" && (
@@ -232,7 +261,6 @@ export function OrderForm({ centers, methods, courses, packages = [], classes = 
                 {it.format !== "group" && !it.packageId && (
                   <div className="pb-2 text-xs text-ink-600">
                     Kèm 1:1 niêm yết = {COACH_MULTIPLIER[it.format]} lần lớp nhóm: {vnd(it.basePrice || it.unitPrice)} × {COACH_MULTIPLIER[it.format]} = <b>{vnd(formatUnitPrice(it.basePrice || it.unitPrice, it.format))}</b>
-                    <button className="ml-2 font-semibold text-brand-600" onClick={() => setItem(i, { unitPrice: formatUnitPrice(it.basePrice || it.unitPrice, it.format) })}>Áp số này vào Đơn giá</button>
                   </div>
                 )}
               </div>
