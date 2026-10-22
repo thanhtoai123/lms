@@ -1,0 +1,78 @@
+# TH STEAM LMS — chạy thật trên một máy chủ (VPS). Bốn dịch vụ:
+#   postgres : cơ sở dữ liệu (toàn bộ dữ liệu cá nhân nằm ở đây — trong máy chủ của bạn)
+#   web      : ứng dụng Next.js (cổng 3000, chỉ Caddy gọi vào)
+#   worker   : tiến trình nền (gửi tin, SLA, ẩn danh định kỳ, đồng bộ…)
+#   caddy    : vào ra HTTPS, tự xin chứng chỉ Let's Encrypt cho tên miền
+#
+# Lần đầu: điền .env rồi chạy ./bootstrap.sh. Về sau cập nhật mã: ./deploy.sh
+name: thsteam
+
+x-app: &app
+  build:
+    context: ../..
+    dockerfile: deploy/prod/Dockerfile
+    args:
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+  image: thsteam-lms:latest
+  env_file: .env
+  environment:
+    DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD}@postgres:5432/satarobo
+    STORAGE_DIR: /data/storage
+    BACKUP_DIR: /data/backups
+  volumes:
+    - storage:/data/storage
+    - backups:/data/backups
+  depends_on:
+    postgres:
+      condition: service_healthy
+  restart: unless-stopped
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: satarobo
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - backups:/backups
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d satarobo"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+    # KHÔNG mở cổng ra ngoài: chỉ các dịch vụ trong mạng này nối tới
+
+  web:
+    <<: *app
+    # Caddy nói chuyện với web qua mạng nội bộ, không mở 3000 ra Internet
+
+  worker:
+    <<: *app
+    command: ["pnpm", "worker"]
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN}
+    depends_on:
+      - web
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  storage:
+  backups:
+  caddy-data:
+  caddy-config:

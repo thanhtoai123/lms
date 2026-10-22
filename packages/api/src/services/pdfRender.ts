@@ -21,7 +21,7 @@ interface PwBrowser {
   close(): Promise<void>;
 }
 interface PwModule {
-  chromium: { launch(opts: { channel?: string; executablePath?: string; headless: boolean }): Promise<PwBrowser> };
+  chromium: { launch(opts: { channel?: string; executablePath?: string; headless: boolean; args?: string[] }): Promise<PwBrowser> };
 }
 
 export function pdfRendererEnabled(): boolean {
@@ -60,7 +60,11 @@ export async function renderPdf(path: string, opts: { timeoutMs?: number } = {})
   const exe = (process.env.PDF_CHROME_PATH ?? "").trim();
   let browser: PwBrowser;
   try {
-    browser = await pw.chromium.launch(exe ? { executablePath: exe, headless: true } : { channel: (process.env.PDF_CHROME_CHANNEL ?? "chrome").trim() || "chrome", headless: true });
+    // Trong Docker/Linux chạy bằng root, Chromium cần --no-sandbox (đặt PDF_CHROME_ARGS trong ảnh). Nội dung in là
+    // trang nội bộ của chính hệ thống nên tắt sandbox ở đây chấp nhận được; máy cài trực tiếp để trống biến này.
+    const args = (process.env.PDF_CHROME_ARGS ?? "").trim().split(/\s+/).filter(Boolean);
+    const base = args.length ? { args } : {};
+    browser = await pw.chromium.launch(exe ? { executablePath: exe, headless: true, ...base } : { channel: (process.env.PDF_CHROME_CHANNEL ?? "chrome").trim() || "chrome", headless: true, ...base });
   } catch {
     throw new PdfRenderUnavailable("Không mở được Chrome trên máy chủ để xuất PDF — kiểm tra Chrome đã cài, hoặc đặt PDF_CHROME_PATH");
   }

@@ -1,0 +1,26 @@
+# Caddy tự xin và gia hạn chứng chỉ HTTPS (Let's Encrypt) cho tên miền.
+# Yêu cầu: tên miền đã trỏ A record về IP máy chủ này, cổng 80 và 443 mở.
+
+{$APP_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy web:3000
+	# Giới hạn kích thước tải lên ở mép ngoài (bài giảng SCORM tối đa ~200MB)
+	request_body {
+		max_size 220MB
+	}
+}
+
+# ── Bài giảng SCORM trên tên miền phụ (tuỳ chọn) ─────────────────────────────
+# Gói bài giảng SCORM chạy JavaScript riêng; để cách ly khỏi phiên quản trị, phục vụ nó trên MỘT tên
+# miền phụ (ví dụ bai.thsteam.edu.vn). Khi nào dùng bài giảng SCORM mới cần:
+#   1. Trỏ A record của tên miền phụ về IP máy chủ này.
+#   2. Bỏ dấu # ở khối dưới và đổi tên miền cho đúng.
+#   3. Trong .env đặt SCORM_ORIGIN=https://bai.thsteam.edu.vn rồi ./deploy.sh
+#
+# bai.thsteam.edu.vn {
+# 	encode zstd gzip
+# 	reverse_proxy web:3000
+# 	request_body {
+# 		max_size 220MB
+# 	}
+# }

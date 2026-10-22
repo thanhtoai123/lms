@@ -27,7 +27,8 @@
     "test": "echo 'no tests in db'",
     "sdt-trung": "tsx src/sdt-trung.ts",
     "rls-kiem": "tsx src/rls-kiem.ts",
-    "thu-thanh-toan": "tsx src/thu-thanh-toan.ts"
+    "thu-thanh-toan": "tsx src/thu-thanh-toan.ts",
+    "create-admin": "tsx src/create-admin.ts"
   },
   "dependencies": {
     "@satarobo/core": "workspace:*",
