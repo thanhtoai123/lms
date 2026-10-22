@@ -477,13 +477,11 @@ function renderStickyBar(doc: LandingDoc, ctx: RenderCtx): string {
 
 /** Liên kết chính sách / đo lường → hàng dưới cùng của chân trang; liên kết đăng ký → nút trong cột thương hiệu */
 const FOOT_LEGAL = /chinh-sach|#do-luong/;
-const FOOT_CTA = /^\/?#dang-ky/;
 function renderFooter(s: LandingSection, ctx: RenderCtx): string {
   const a = (r: Record<string, string>, cls = "") => `<a${cls ? ` class="${cls}"` : ""} href="${escHtml(href(ctx, r.href ?? ""))}"${external(href(ctx, r.href ?? ""))}>${escHtml(r.label ?? "")}</a>`;
   const rows = rowsOf(s, "links");
-  const cta = rows.find((r) => FOOT_CTA.test(r.href ?? ""));
   const legalLinks = rows.filter((r) => FOOT_LEGAL.test(r.href ?? "")).map((r) => a(r)).join("");
-  const links = rows.filter((r) => r !== cta && !FOOT_LEGAL.test(r.href ?? "")).map((r) => `<li>${a(r)}</li>`).join("");
+  const links = rows.filter((r) => !FOOT_LEGAL.test(r.href ?? "")).map((r) => `<li>${a(r)}</li>`).join("");
   const addr = rowsOf(s, "addresses").map((r) => `<li><strong>${escHtml(r.label ?? "")}</strong><span>${escHtml(r.text ?? "")}</span></li>`).join("");
   const phone = d(s, "phone");
   const contact = [phone ? `<a class="lp-foot-tel" href="tel:${escHtml(phone.replace(/[^\d+]/g, ""))}"><span>Hotline</span>${escHtml(phone)}</a>` : "", d(s, "email") ? `<a href="mailto:${escHtml(d(s, "email"))}">${escHtml(d(s, "email"))}</a>` : ""].filter(Boolean).join("");
@@ -491,7 +489,7 @@ function renderFooter(s: LandingSection, ctx: RenderCtx): string {
     + `<div class="lp-foot-grid"><div class="lp-foot-brandcol">${ctx.brand.lockupOnDarkUrl ? `<img class="lp-foot-lockup" src="${escHtml(abs(ctx, ctx.brand.lockupOnDarkUrl))}" alt="${escHtml(ctx.brand.name)}" width="300" height="55" loading="lazy" />` : `<strong class="lp-foot-brand">${escHtml(ctx.brand.name)}</strong>`}`
     + (d(s, "tagline") ? `<p>${text(d(s, "tagline"))}</p>` : "")
     + (contact ? `<div class="lp-foot-contact">${contact}</div>` : "")
-    + (cta ? a(cta, "lp-btn lp-btn-primary lp-btn-sm lp-foot-cta") : "") + `</div>`
+    + `</div>`
     + (addr ? `<div><p class="lp-foot-h">Thông tin</p><ul class="lp-addr">${addr}</ul></div>` : "")
     + (links ? `<nav aria-label="Khám phá"><p class="lp-foot-h">Khám phá</p><ul class="lp-foot-links">${links}</ul></nav>` : "")
     + `</div>`
@@ -769,8 +767,6 @@ const LANDING_CSS = `
 .lp-foot-contact{display:flex;flex-direction:column;gap:4px;margin-top:16px}
 .lp-foot-tel{text-decoration:none;font-weight:800;font-size:1.15rem}
 .lp-foot-tel span{display:block;font-size:.8rem;font-weight:600;color:rgba(248,250,252,.6)}
-.lp-foot a.lp-foot-cta{margin-top:18px;width:auto!important;color:#0f172a;background:#f59e0b;text-decoration:none}
-.lp-foot a.lp-foot-cta:hover{background:#d97706}
 .lp-addr{display:grid;gap:14px}
 .lp-addr li{display:flex;flex-direction:column;font-size:.95rem}
 .lp-addr strong{font-size:.85rem;color:rgba(248,250,252,.6);font-weight:600}
@@ -1530,7 +1526,7 @@ const LANDING_CSS = `
  .lp--vivid .lp-contrast .lp-note{margin-top:14px}
 }
 /* điện thoại, trang có thanh nút dưới cùng (đã có Gọi + Học trải nghiệm): chân trang bỏ hotline và nút đặt lịch cho gọn */
-@media (max-width:600px){.lp--vivid:has(.lp-sticky) .lp-foot-contact,.lp--vivid:has(.lp-sticky) .lp-foot-cta{display:none}}
+@media (max-width:600px){.lp--vivid:has(.lp-sticky) .lp-foot-contact{display:none}}
 /* ---- trang con (chính sách, tin tức, tuyển dụng): đầu trang xanh, tài liệu có mục lục, thẻ bài viết / việc làm ---- */
 .lp--vivid .lp-hero:not(.lp-lead-hero){color:#fff;padding:72px 0 80px;background:var(--v-star) no-repeat 92% 52px/26px,var(--v-star) no-repeat 6% 82%/16px,var(--v-orb) no-repeat 0 0/100% 100%,var(--v-blue)}
 .lp--vivid .lp-hero:not(.lp-lead-hero) .lp-wrap{grid-template-columns:1fr}

@@ -47,9 +47,8 @@ export const DEFAULT_CHROME: SiteChrome = {
     { label: "Website", text: TH_BRAND.website },
     { label: "Fanpage", text: TH_BRAND.fanpage },
   ],
-  // Liên kết chính sách / đo lường tự xuống hàng dưới cùng; "/#dang-ky" thành nút trong cột thương hiệu (landing/render.ts)
+  // Liên kết chính sách tự xuống hàng dưới cùng (landing/render.ts); chân trang không có nút đặt lịch (22/10/2026)
   links: [
-    { label: "Đặt lịch học trải nghiệm", href: "/#dang-ky" },
     { label: "Chuyên ngành", href: "/#chuyen-nganh" },
     { label: "Buổi học trải nghiệm", href: "/#hoc-thu" },
     { label: "Hỏi đáp", href: "/#hoi-dap" },
