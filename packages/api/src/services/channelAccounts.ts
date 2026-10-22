@@ -9,7 +9,7 @@
  * (so sánh theo thời gian hằng) HOẶC chữ ký HMAC-SHA256 của nguyên văn thân yêu cầu ở `X-Signature`.
  * Bí mật lưu mã hoá AES-256-GCM, không bao giờ trả về giao diện.
  */
-import { and, eq, gte, isNull, inArray, desc, sql } from "drizzle-orm";
+import { and, eq, gte, isNull, inArray, or, desc, sql } from "drizzle-orm";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { TRPCError } from "@trpc/server";
 import { channelAccounts, conversations, messages, parents, leads, centers, appointments, type Database } from "@satarobo/db";
