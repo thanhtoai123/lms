@@ -1,42 +1,53 @@
 import Link from "next/link";
 import { getDb } from "@satarobo/db";
 import { publicJobs } from "@satarobo/api";
-import { EMPLOYMENT_TYPE_VI, type EmploymentType } from "@satarobo/core";
+import { DEPARTMENT_VI, EMPLOYMENT_TYPE_VI, type Department, type EmploymentType } from "@satarobo/core";
 import { PublicShell } from "@/components/public-shell";
 import { SiteTracker } from "@/components/site-tracker";
+import { PageHero, viDate } from "@/components/site/page-hero";
+import { salaryLabel } from "./salary";
 
 export const revalidate = 120;
-export const metadata = { title: { absolute: "Tuyển dụng — TH STEAM Academy" }, alternates: { canonical: "/tuyen-dung" }, description: "Cơ hội việc làm tại hệ thống giáo dục STEM TH STEAM Academy." };
-
-function salaryLabel(j: { salaryText: string | null; salaryMin: number | null; salaryMax: number | null }) {
-  if (j.salaryText) return j.salaryText;
-  const m = (v: number) => `${Math.round(v / 1e5) / 10} tr`;
-  if (j.salaryMin && j.salaryMax) return `${m(j.salaryMin)} – ${m(j.salaryMax)}`;
-  if (j.salaryMin) return `Từ ${m(j.salaryMin)}`;
-  return "Thoả thuận";
-}
+export const metadata = { title: { absolute: "Tuyển dụng — TH STEAM Academy" }, alternates: { canonical: "/tuyen-dung" }, description: "Cùng TH STEAM Academy dạy Robotics, AI, Thiết kế đồ họa và Lập trình online cho học sinh 8–18 tuổi trên toàn quốc. Xem vị trí đang tuyển và nộp hồ sơ." };
 
 export default async function JobsPublicPage() {
   const items = await publicJobs(getDb());
   return (
-    <PublicShell>
+    <PublicShell landing>
       <SiteTracker />
-      <h1 className="text-2xl font-bold">Tuyển dụng</h1>
-      <p className="mt-1 text-sm text-ink-600">Cùng TH STEAM Academy truyền cảm hứng khoa học – công nghệ cho trẻ em.</p>
-      {items.length === 0 ? <div className="card mt-6 p-6 text-center text-sm text-ink-600">Hiện chưa có vị trí đang tuyển. Vui lòng quay lại sau.</div> : (
-        <ul className="mt-6 grid gap-3 sm:grid-cols-2">
-          {items.map((j) => (
-            <li key={j.slug} className="card p-4">
-              <Link href={`/tuyen-dung/${j.slug}`} className="text-lg font-semibold hover:text-brand-600">{j.title}</Link>
-              <div className="mt-1 text-sm text-ink-600">{j.centerName ?? "Toàn hệ thống"} · {EMPLOYMENT_TYPE_VI[j.employmentType as EmploymentType]} · {j.openings} người</div>
-              <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                <span className="chip bg-green-100 text-green-800">{salaryLabel(j)}</span>
-                {j.deadline && <span className="chip bg-slate-100">Hạn nộp {j.deadline.split("-").reverse().join("/")}</span>}
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
+      <PageHero
+        crumbs={[{ label: "Trang chủ", href: "/" }, { label: "Tuyển dụng" }]}
+        title="Cùng mang công nghệ đến các bạn nhỏ"
+        lead="TH STEAM Academy tìm giáo viên và cộng sự dạy Robotics, AI, Thiết kế đồ họa và Lập trình online cho học sinh trên toàn quốc."
+        meta={[{ text: `${items.length} vị trí đang tuyển`, gold: true }, { text: "Làm việc trực tuyến" }, { text: "Giáo trình và đào tạo sẵn" }]}
+      />
+      <section className="lp-sec lp-page">
+        <div className="lp-wrap">
+          {items.length === 0 ? (
+            <div className="lp-empty"><strong>Hiện chưa có vị trí đang tuyển</strong>Bạn quay lại sau, hoặc gửi giới thiệu bản thân qua hotline 0971 29 30 31.</div>
+          ) : (
+            <ul className="lp-jobs">
+              {items.map((j) => (
+                <li key={j.slug}>
+                  <Link href={`/tuyen-dung/${j.slug}`} className="lp-job">
+                    <div>
+                      <h2>{j.title}</h2>
+                      <p className="lp-job-sub">{DEPARTMENT_VI[j.department as Department] ?? j.department} · {j.centerName ?? "Toàn hệ thống"}</p>
+                      <ul className="lp-tags">
+                        <li className="is-green">{salaryLabel(j)}</li>
+                        <li>{EMPLOYMENT_TYPE_VI[j.employmentType as EmploymentType]}</li>
+                        <li>Cần {j.openings} người</li>
+                        {j.deadline && <li className="is-gold">Hạn nộp {viDate(j.deadline)}</li>}
+                      </ul>
+                    </div>
+                    <span className="lp-job-go">Xem và ứng tuyển →</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </section>
     </PublicShell>
   );
 }

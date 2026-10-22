@@ -146,7 +146,7 @@ export async function publicPost(db: Database, slug: string) {
   const p = await d.query.posts.findFirst({ where: and(eq(posts.slug, slug), eq(posts.status, "published")) });
   if (!p) return null;
   await d.update(posts).set({ views: sql`${posts.views} + 1` }).where(eq(posts.id, p.id));
-  const related = await d.select({ slug: posts.slug, title: posts.title }).from(posts)
+  const related = await d.select({ slug: posts.slug, title: posts.title, excerpt: posts.excerpt, coverImage: posts.coverImage, category: posts.category, publishedAt: posts.publishedAt }).from(posts)
     .where(and(eq(posts.status, "published"), eq(posts.category, p.category), sql`${posts.id} <> ${p.id}`)).orderBy(desc(posts.publishedAt)).limit(3);
   return {
     slug: p.slug, title: p.title, excerpt: p.excerpt, coverImage: p.coverImage, category: p.category, categoryLabel: POST_CATEGORY_VI[p.category as PostCategory],

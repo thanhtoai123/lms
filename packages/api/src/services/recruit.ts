@@ -149,7 +149,7 @@ export async function publicJob(db: Database, slug: string) {
   return {
     slug: x.slug, code: x.code, title: x.title, department: DEPARTMENT_VI[x.department as Department] ?? x.department, employmentType: x.employmentType, typeLabel: EMPLOYMENT_TYPE_VI[x.employmentType as EmploymentType],
     openings: x.openings, salaryText: x.salaryText, salaryMin: x.salaryMin, salaryMax: x.salaryMax, deadline: x.deadline, description: x.description,
-    requirements: x.requirements, benefits: x.benefits, centerName: j.centerName, centerAddress: j.centerAddress, accepting: !x.deadline || x.deadline >= today,
+    requirements: x.requirements, benefits: x.benefits, centerName: j.centerName, centerAddress: j.centerAddress, accepting: !x.deadline || x.deadline >= today, openedAt: x.openedAt,
   };
 }
 

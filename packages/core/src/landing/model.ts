@@ -47,7 +47,7 @@ export const SECTION_DEFS: Record<SectionType, SectionDef> = {
   hero: {
     type: "hero", label: "Mở đầu (Hero)", single: true,
     desc: "Tiêu đề lớn, mô tả, hai nút và ảnh. Khối đầu tiên phụ huynh nhìn thấy.",
-    fields: [t("eyebrow", "Dòng nhỏ phía trên", 80), t("title", "Tiêu đề lớn", 140, { required: true }), ta("subtitle", "Mô tả ngắn", 400), t("primaryLabel", "Nút chính", 40, { required: true }), u("primaryUrl", "Liên kết nút chính", { required: true }), t("secondaryLabel", "Nút phụ", 40), u("secondaryUrl", "Liên kết nút phụ"), img("image", "Ảnh")],
+    fields: [t("eyebrow", "Dòng nhỏ phía trên", 80), t("title", "Tiêu đề lớn", 140, { required: true }), ta("subtitle", "Mô tả ngắn", 400), t("primaryLabel", "Nút chính (để trống nếu không cần, vd trang chính sách)", 40), u("primaryUrl", "Liên kết nút chính"), t("secondaryLabel", "Nút phụ", 40), u("secondaryUrl", "Liên kết nút phụ"), img("image", "Ảnh")],
     lists: [{ key: "badges", label: "Điểm tin cậy (chip)", addLabel: "Thêm điểm", max: 4, fields: [t("text", "Nội dung", 70, { required: true })], hint: "Ví dụ: Lớp 6–8 học sinh · Học online qua ClassIn" }],
   },
   leadHero: {

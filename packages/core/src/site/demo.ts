@@ -217,7 +217,7 @@ const terms: SiteDemoPage = {
   desc: "Học phí, chương trình, quy chuẩn lớp online, học bù, bảo lưu, hoàn phí, phản ánh, hình ảnh của con.",
   seoTitle: `Điều khoản đăng ký học — ${B}`, seoDescription: "Học phí, học bù, bảo lưu, chuyển nhượng, hoàn học phí và phản ánh chất lượng khi đăng ký học tại TH STEAM Academy.",
   build: () => page([
-    sec("hero", "hero", { eyebrow: "Chính sách", title: "Điều khoản đăng ký học", subtitle: `Áp dụng từ năm học ${TH_PRICING.schoolYear}.`, primaryLabel: "Đăng ký học trải nghiệm 1:1", primaryUrl: "/hoc-thu-mien-phi", secondaryLabel: "Về trang chủ", secondaryUrl: "/" }, { badges: [] }),
+    sec("hero", "hero", { eyebrow: "Chính sách", title: "Điều khoản đăng ký học", subtitle: `Học phí, lịch học, học bù, bảo lưu, hoàn phí và phản ánh chất lượng. Áp dụng từ năm học ${TH_PRICING.schoolYear} cho lớp nhóm và lớp kèm 1:1.`, primaryLabel: "", primaryUrl: "", secondaryLabel: "", secondaryUrl: "" }, { badges: [] }),
     sec("text", "noi-dung", { title: "", body: termsMarkdown() }),
   ]),
 };
@@ -233,14 +233,15 @@ const privacy: SiteDemoPage = {
   desc: "Cách trung tâm thu thập, sử dụng và bảo vệ thông tin của phụ huynh và học sinh.",
   seoTitle: `Chính sách bảo mật — ${B}`, seoDescription: `Cách ${B} thu thập, sử dụng và bảo vệ thông tin của phụ huynh và học sinh.`,
   build: () => page([
-    sec("hero", "hero", { eyebrow: "Chính sách", title: "Chính sách bảo mật", subtitle: "Có hiệu lực từ ngày 21/10/2026. Áp dụng cho website, form đăng ký và quá trình học tại trung tâm.", primaryLabel: "Về trang chủ", primaryUrl: "/", secondaryLabel: "", secondaryUrl: "" }, { badges: [] }),
+    sec("hero", "hero", { eyebrow: "Chính sách", title: "Chính sách bảo mật", subtitle: "Trung tâm thu thập dữ liệu gì, dùng để làm gì và bố mẹ có những quyền nào. Có hiệu lực từ ngày 22/10/2026, áp dụng cho website, form đăng ký và quá trình học.", primaryLabel: "", primaryUrl: "", secondaryLabel: "", secondaryUrl: "" }, { badges: [] }),
     sec("text", "noi-dung", {
       title: "",
       body: [
         `${TH_BRAND.legalName} (${B}, sau đây gọi là "trung tâm") tôn trọng và bảo vệ dữ liệu cá nhân của phụ huynh và học sinh, theo Luật Bảo vệ dữ liệu cá nhân số 91/2025/QH15 và Nghị định 356/2025/NĐ-CP.`,
         "",
         "## 1. Dữ liệu trung tâm thu thập",
-        "- **Khi bố mẹ đăng ký học trải nghiệm:** họ tên phụ huynh, số điện thoại / Zalo, lớp của con, chuyên ngành quan tâm và ghi chú do bố mẹ tự nhập. Trang đăng ký đầy đủ có thể hỏi thêm tên con và trường.",
+        "- **Khi bố mẹ đăng ký học trải nghiệm:** họ tên phụ huynh, số điện thoại / Zalo, lớp của con và chuyên ngành con quan tâm.",
+        "- **Ô đồng ý trong form** được chọn sẵn để bố mẹ tiện gửi; bố mẹ có thể bỏ chọn. Khi bỏ chọn, trung tâm chỉ dùng số điện thoại để phản hồi đúng yêu cầu vừa gửi, không gửi thông tin khác.",
         "- **Khi con học tại trung tâm:** lịch học, chuyên cần, bài tập, sản phẩm, video buổi học, phiếu đánh giá năng lực và chứng nhận (hồ sơ công nghệ của con); thông tin học phí, hoá đơn.",
         "- **Khi xem website:** trang đã xem, nguồn truy cập (mã chiến dịch UTM) và một mã ngẫu nhiên lưu trên trình duyệt để đếm lượt truy cập. Mã này không chứa tên hay số điện thoại.",
         "- **Cookie đo lường quảng cáo (Meta, Google):** chỉ được nạp khi bố mẹ bấm \"Đồng ý\" ở thông báo đo lường trên website.",
