@@ -6,7 +6,7 @@ import { PublicShell } from "@/components/public-shell";
 import { SiteTracker } from "@/components/site-tracker";
 
 export const revalidate = 120;
-export const metadata = { title: "Tuyển dụng — TH STEAM Academy", description: "Cơ hội việc làm tại hệ thống giáo dục STEM TH STEAM Academy." };
+export const metadata = { title: { absolute: "Tuyển dụng — TH STEAM Academy" }, alternates: { canonical: "/tuyen-dung" }, description: "Cơ hội việc làm tại hệ thống giáo dục STEM TH STEAM Academy." };
 
 function salaryLabel(j: { salaryText: string | null; salaryMin: number | null; salaryMax: number | null }) {
   if (j.salaryText) return j.salaryText;

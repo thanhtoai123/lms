@@ -269,7 +269,7 @@ export const programLabel = (p: ThProgram): string => `${TH_LEVEL_VI[p.level]} $
 /** Chữ mặc định của trang /dang-ky (khối "register") */
 export const TH_REGISTER_BLOCK = {
   title: "Đăng ký học trải nghiệm 1:1",
-  subtitle: "Con học một buổi 1:1 cùng giáo viên qua ClassIn. Sau buổi học, giáo viên tư vấn chuyên ngành và lộ trình phù hợp.",
+  subtitle: "Con học trực tuyến 1:1 cùng thầy và tự tay làm sản phẩm; sau buổi học, thầy đánh giá và gợi ý lộ trình riêng cho con. Không mất phí.",
   thankYou: `Cảm ơn ba mẹ! ${TH_BRAND.name} sẽ liên hệ lại trong giờ làm việc để hẹn buổi học trải nghiệm.`,
-  button: "Đăng ký học trải nghiệm",
+  button: "Đặt lịch học trải nghiệm 1:1",
 } as const;

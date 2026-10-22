@@ -12,7 +12,7 @@ const load = cache(async (slug: string) => (/^[a-z0-9-]{3,100}$/.test(slug) ? pu
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const j = await load((await params).slug);
-  return j ? { title: `${j.title} — Tuyển dụng TH STEAM Academy`, description: j.description.slice(0, 160) } : { title: "Không tìm thấy" };
+  return j ? { title: { absolute: `${j.title} — Tuyển dụng TH STEAM Academy` }, description: j.description.slice(0, 160), alternates: { canonical: `/tuyen-dung/${(await params).slug}` } } : { title: "Không tìm thấy" };
 }
 
 export default async function JobDetailPage({ params }: { params: Promise<{ slug: string }> }) {

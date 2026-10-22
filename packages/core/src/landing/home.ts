@@ -21,6 +21,7 @@ import { emptySection, type LandingDoc, type LandingSection, type SectionType } 
 import { TH_BRAND } from "../system/th-brand.js";
 import { TH_TRACK_SHORT } from "../curriculum/thsteam.js";
 import { PREPARE_TEXT, TEACHER, telHref } from "../site/thsteam-content.js";
+import { DEFAULT_CHROME } from "../site/chrome.js";
 
 function sec(type: SectionType, id: string, data: Record<string, string> = {}, lists: Record<string, Record<string, string>[]> = {}, enabled = true): LandingSection {
   const s = emptySection(type, id);
@@ -318,14 +319,12 @@ export const HOME_PAGE = {
           ],
         }),
 
+        // Chân trang: trên website được thay bằng khung chung (site/chrome.ts DEFAULT_CHROME); giữ cùng nội dung
         sec("footer", "footer", {
-          tagline: `${TH_BRAND.tagline} — ${TH_BRAND.taglineVi}.`,
-          email: "", phone: TH_BRAND.hotline,
-          legal: TH_BRAND.legalName,
-          copyright: `© 2026 ${B}`,
+          tagline: DEFAULT_CHROME.tagline, email: "", phone: TH_BRAND.hotline, legal: TH_BRAND.legalName, copyright: DEFAULT_CHROME.copyright,
         }, {
-          addresses: [{ label: "Hình thức học", text: "Online qua ClassIn" }, { label: "Website", text: TH_BRAND.website }],
-          links: [{ label: "Đăng ký học trải nghiệm", href: "#dang-ky" }, { label: "Điều khoản đăng ký học", href: "/chinh-sach/dieu-khoan" }, { label: "Chính sách bảo mật", href: "/chinh-sach/bao-mat" }],
+          addresses: DEFAULT_CHROME.addresses.map((x) => ({ ...x })),
+          links: DEFAULT_CHROME.links.map((x) => ({ ...x })),
         }),
       ],
     };

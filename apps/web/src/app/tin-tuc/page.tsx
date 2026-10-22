@@ -6,7 +6,7 @@ import { PublicShell } from "@/components/public-shell";
 import { SiteTracker } from "@/components/site-tracker";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Tin tức — TH STEAM Academy", description: "Tin tức, sự kiện và câu chuyện học viên TH STEAM Academy" };
+export const metadata = { title: { absolute: "Tin tức — TH STEAM Academy" }, alternates: { canonical: "/tin-tuc" }, description: "Tin tức, sự kiện và câu chuyện học viên TH STEAM Academy" };
 
 export default async function NewsIndex({ searchParams }: { searchParams: Promise<{ c?: string; page?: string }> }) {
   const sp = await searchParams;

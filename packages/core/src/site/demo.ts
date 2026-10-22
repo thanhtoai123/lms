@@ -48,7 +48,7 @@ const CTA = (title: string, id = "cta") => sec("cta", id, {
 
 /* --------------------------- Giới thiệu --------------------------- */
 const about: SiteDemoPage = {
-  slug: "gioi-thieu", title: "Giới thiệu", template: "site-gioi-thieu", label: "Giới thiệu", variant: "classic",
+  slug: "gioi-thieu", title: "Giới thiệu", template: "site-gioi-thieu", label: "Giới thiệu", variant: "vivid",
   desc: "Câu chuyện thương hiệu, giá trị cốt lõi, chuẩn đào tạo và giảng viên.",
   seoTitle: `Giới thiệu — ${B}`, seoDescription: `${B}: Robotics, AI, đồ họa và lập trình cho học sinh 8–18 tuổi, học online cùng giáo viên qua ClassIn.`,
   build: () => page([
@@ -94,7 +94,7 @@ const about: SiteDemoPage = {
 
 /* --------------------------- Chương trình học (danh sách) --------------------------- */
 const courses: SiteDemoPage = {
-  slug: "khoa-hoc", title: "Chương trình học", template: "site-khoa-hoc", label: "Danh sách chương trình", variant: "classic",
+  slug: "khoa-hoc", title: "Chương trình học", template: "site-khoa-hoc", label: "Danh sách chương trình", variant: "vivid",
   desc: "4 chuyên ngành, lộ trình theo cấp học, học phí; mỗi chuyên ngành dẫn sang trang riêng.",
   seoTitle: `Chương trình học Robotics, AI, đồ họa, lập trình — ${B}`.slice(0, 70),
   seoDescription: "4 chuyên ngành cho học sinh Tiểu học, THCS, THPT: lộ trình năm học 45 buổi, luyện thi tự chọn, học phí năm học 2026–2027.",
@@ -148,7 +148,7 @@ function trackPage(t: ThTrack): SiteDemoPage {
   const contests = ps.flatMap((p) => p.contests.map((c) => ({ p, c })));
   const notes = ps.map((p) => p.contestNote).filter((x): x is string => !!x);
   return {
-    slug: TH_TRACK_PAGE[t.code].slug, title: t.name, template: "site-khoa-hoc-chi-tiet", label: "Trang một chuyên ngành", variant: "classic",
+    slug: TH_TRACK_PAGE[t.code].slug, title: t.name, template: "site-khoa-hoc-chi-tiet", label: "Trang một chuyên ngành", variant: "vivid",
     desc: "Trang một chuyên ngành: chương trình theo cấp học, nội dung từng học phần, luyện thi, hỏi đáp.",
     seoTitle: `${t.name} — ${B}`.slice(0, 70),
     seoDescription: clip(`${t.name} cho học sinh ${trackLevels(t)} (${ageRange(a.from, a.to)}): ${ps.map((p) => p.name).join("; ")}. Học online qua ClassIn.`, 170),
@@ -184,7 +184,7 @@ const trackPages = TH_TRACKS.map(trackPage);
 
 /* --------------------------- Liên hệ --------------------------- */
 const contact: SiteDemoPage = {
-  slug: "lien-he", title: "Liên hệ", template: "site-lien-he", label: "Liên hệ", variant: "classic",
+  slug: "lien-he", title: "Liên hệ", template: "site-lien-he", label: "Liên hệ", variant: "vivid",
   desc: "Hotline, website, fanpage, cách phản ánh và form để lại thông tin.",
   seoTitle: `Liên hệ — ${B}`, seoDescription: `Hotline ${TH_BRAND.hotline} · ${TH_BRAND.website}. Để lại thông tin để ${B} tư vấn lộ trình và hẹn buổi học trải nghiệm 1:1.`,
   build: () => page([
@@ -213,7 +213,7 @@ const contact: SiteDemoPage = {
 
 /* --------------------------- Chính sách --------------------------- */
 const terms: SiteDemoPage = {
-  slug: "chinh-sach-dieu-khoan", title: "Điều khoản đăng ký học", template: "site-chinh-sach", label: "Chính sách / điều khoản", variant: "classic",
+  slug: "chinh-sach-dieu-khoan", title: "Điều khoản đăng ký học", template: "site-chinh-sach", label: "Chính sách / điều khoản", variant: "vivid",
   desc: "Học phí, chương trình, quy chuẩn lớp online, học bù, bảo lưu, hoàn phí, phản ánh, hình ảnh của con.",
   seoTitle: `Điều khoản đăng ký học — ${B}`, seoDescription: "Học phí, học bù, bảo lưu, chuyển nhượng, hoàn học phí và phản ánh chất lượng khi đăng ký học tại TH STEAM Academy.",
   build: () => page([
@@ -229,7 +229,7 @@ const terms: SiteDemoPage = {
  * trung tâm nên nhờ luật sư rà lại trước khi chạy quảng cáo lớn.
  */
 const privacy: SiteDemoPage = {
-  slug: "chinh-sach-bao-mat", title: "Chính sách bảo mật", template: "site-chinh-sach", label: "Chính sách / điều khoản", variant: "classic",
+  slug: "chinh-sach-bao-mat", title: "Chính sách bảo mật", template: "site-chinh-sach", label: "Chính sách / điều khoản", variant: "vivid",
   desc: "Cách trung tâm thu thập, sử dụng và bảo vệ thông tin của phụ huynh và học sinh.",
   seoTitle: `Chính sách bảo mật — ${B}`, seoDescription: `Cách ${B} thu thập, sử dụng và bảo vệ thông tin của phụ huynh và học sinh.`,
   build: () => page([
@@ -294,7 +294,7 @@ export const SITE_DRAFT_SLUGS: readonly string[] = [];
 /* --------------------------- Mẫu tạo trang mới --------------------------- */
 /** Mẫu trang chi tiết cho chương trình / khoá mới (chưa có trong danh mục chuẩn): chữ mẫu có [DEMO] để nhắc thay */
 const courseTemplate: SiteDemoPage = {
-  slug: "", title: "", template: "site-khoa-hoc-chi-tiet", label: "Trang chi tiết một chương trình", variant: "classic",
+  slug: "", title: "", template: "site-khoa-hoc-chi-tiet", label: "Trang chi tiết một chương trình", variant: "vivid",
   desc: "Trang một chương trình / khoá học: mô tả, con học được gì, học phần, hỏi đáp.",
   seoTitle: "", seoDescription: "",
   build: () => page([

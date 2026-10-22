@@ -13,6 +13,7 @@
  */
 import { emptySection, type LandingDoc, type LandingSection, type LandingVariant, type SectionType } from "./model.js";
 import { TH_BRAND } from "../system/th-brand.js";
+import { DEFAULT_CHROME } from "../site/chrome.js";
 import {
   TH_LEVEL_VI, TH_SESSIONS_PER_YEAR, TH_TRACKS, TH_TRACK_SHORT, TH_DIFFICULTY_PLAIN, ageRange, examCourseName, moduleTitle, thProgramsOfTrack, yearCourseName,
   type ThProgram, type ThTrackCode,
@@ -132,13 +133,13 @@ const register = () => sec("steps", "quy-trinh", { title: "Bắt đầu thật �
 const thanks = `Cảm ơn ba mẹ! ${B} sẽ gọi lại trong giờ làm việc để tư vấn và hẹn buổi học trải nghiệm 1:1 cho con.`;
 const bottomForm = (title: string) => sec("form", "form", { title, subtitle: "Để lại số điện thoại, giáo viên tư vấn gọi lại để hẹn giờ học trải nghiệm 1:1 qua ClassIn.", thankYou: thanks });
 const footer = () => sec("footer", "footer", {
-  tagline: `${TH_BRAND.tagline} — ${TH_BRAND.taglineVi}. Robotics, AI, đồ họa và lập trình cho học sinh, học online cùng giáo viên qua ClassIn.`,
+  tagline: DEFAULT_CHROME.tagline,
   email: "", phone: TH_BRAND.hotline, legal: TH_BRAND.legalName, copyright: `© 2026 ${B}`,
 }, {
-  addresses: [{ label: "Hình thức học", text: "Online qua ClassIn · lớp nhóm 6–8 học sinh · 90 phút/buổi" }, { label: "Website", text: TH_BRAND.website }, { label: "Fanpage", text: TH_BRAND.fanpage }],
+  addresses: DEFAULT_CHROME.addresses.map((x) => ({ ...x })),
   links: [
     ...TH_TRACKS.map((t) => ({ label: t.name, href: `/lp/${ADS_TRACK_SLUG[t.code]}` })),
-    { label: "Trang chủ", href: "/" }, { label: "Điều khoản đăng ký học", href: "/chinh-sach/dieu-khoan" }, { label: "Chính sách bảo mật", href: "/chinh-sach/bao-mat" },
+    { label: "Trang chủ", href: "/" }, { label: "Điều khoản đăng ký học", href: "/chinh-sach/dieu-khoan" }, { label: "Chính sách bảo mật", href: "/chinh-sach/bao-mat" }, { label: "Đổi lựa chọn đo lường", href: "#do-luong" },
   ],
 });
 const cta = (title: string) => sec("cta", "cta", {

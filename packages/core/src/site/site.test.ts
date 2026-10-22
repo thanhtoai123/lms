@@ -77,7 +77,7 @@ test("khung chung: dựng được đầu / chân trang HTML, logo về trang ch
   assert.ok(h.includes('class="lp-brand" href="/"') && h.includes("/#chuyen-nganh") && h.includes(`tel:${TH_BRAND.hotlineTel}`));
   assert.ok(renderHeaderHtml(header, ctx()).includes('href="#top"'));
   const f = renderFooterHtml(footer, ctx());
-  assert.ok(f.includes("ClassIn") && f.includes("/chinh-sach/bao-mat") && f.includes("/chinh-sach/dieu-khoan") && f.includes(TH_BRAND.website));
+  assert.ok(f.includes("toàn quốc") && f.includes("/chinh-sach/bao-mat") && f.includes("/chinh-sach/dieu-khoan") && f.includes(TH_BRAND.website));
 });
 
 test("trang con: đủ trang, slug đúng sơ đồ, xuất bản được; chỉ bản nháp chính sách bảo mật còn chữ [DEMO]", () => {

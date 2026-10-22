@@ -14,7 +14,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const { slug } = await params;
   const p = await load(slug);
   if (!p) return { title: "Không tìm thấy bài viết" };
-  return { title: `${p.seoTitle} — TH STEAM Academy`, description: p.seoDescription, openGraph: { title: p.seoTitle, description: p.seoDescription, images: p.coverImage ? [p.coverImage] : [] } };
+  return { title: { absolute: `${p.seoTitle} — TH STEAM Academy` }, description: p.seoDescription, alternates: { canonical: `/tin-tuc/${slug}` }, openGraph: { title: p.seoTitle, description: p.seoDescription, images: p.coverImage ? [p.coverImage] : [] } };
 }
 
 export default async function NewsPost({ params }: { params: Promise<{ slug: string }> }) {
@@ -33,8 +33,8 @@ export default async function NewsPost({ params }: { params: Promise<{ slug: str
         <div className="sr-prose mt-6" dangerouslySetInnerHTML={{ __html: p.html }} />
       </article>
       <div className="card mt-8 flex flex-wrap items-center justify-between gap-3 p-5">
-        <div><div className="font-semibold">Cho con trải nghiệm Robotics, AI, đồ họa, lập trình</div><div className="text-sm text-ink-600">Học trải nghiệm 1:1 cùng giáo viên qua ClassIn.</div></div>
-        <Link href="/dang-ky" className="btn-primary">Đăng ký học trải nghiệm</Link>
+        <div><div className="font-semibold">Cho con một buổi học trải nghiệm 1:1</div><div className="text-sm text-ink-600">Con làm sản phẩm cùng thầy; thầy đánh giá và gợi ý lộ trình riêng cho con. Không mất phí.</div></div>
+        <Link href="/#dang-ky" className="btn-primary">Đặt lịch học trải nghiệm</Link>
       </div>
       {p.related.length > 0 && (
         <div className="mt-8">

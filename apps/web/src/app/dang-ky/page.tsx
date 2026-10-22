@@ -7,7 +7,7 @@ import { PublicShell } from "@/components/public-shell";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = { title: TH_REGISTER_BLOCK.title };
+export const metadata = { title: { absolute: `${TH_REGISTER_BLOCK.title} — TH STEAM Academy` }, description: TH_REGISTER_BLOCK.subtitle, alternates: { canonical: "/dang-ky" } };
 
 /**
  * Trang form công khai. Gửi về /api/public/leads.
