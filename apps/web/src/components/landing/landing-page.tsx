@@ -4,6 +4,7 @@ import { getSiteChrome, publicLanding, publicTrackingConfig } from "@satarobo/ap
 import { HOME_SLUG, TH_BRAND, applyChrome, homeFocus, isSiteSlug, jsonLdString, landingJsonLd, sitePathOf } from "@satarobo/core";
 import { loadBrand } from "@/lib/brand";
 import { cspNonce } from "@/lib/nonce";
+import { publicSiteUrl } from "@/lib/site-url";
 import { LandingView } from "./landing-view";
 import { AdTags } from "./ad-tags";
 
@@ -12,7 +13,7 @@ const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) 
 
 /** Địa chỉ gốc công khai của website (canonical, Open Graph, JSON-LD) */
 export function siteBase(): string {
-  return (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/+$/, "");
+  return publicSiteUrl();
 }
 /** Đường dẫn công khai của một trang dựng khối: trang website ("/", "/khoa-hoc/…") hoặc landing "/lp/<tên>" */
 export const landingPath = (slug: string): string => sitePathOf(slug) ?? `/lp/${slug}`;

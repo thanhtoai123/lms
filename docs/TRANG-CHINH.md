@@ -113,4 +113,6 @@ Khi có sản phẩm thật của học viên (có đồng ý của phụ huynh)
   (NĐ 128/2024/NĐ-CP sửa NĐ 81/2018). Nếu sau này niêm yết giá thật cho buổi đánh giá thì mới ghi giá trị.
 - JSON-LD: `Service` + `Offer` giá 0 VND (chỉ sinh khi dòng nổi bật của khối nói rõ không mất phí).
 - Nút gọi hành động thống nhất: "Đặt lịch học trải nghiệm" / "Học trải nghiệm 1:1".
+- Khối trải nghiệm có cột đặt lịch nền navy với ảnh thầy (người trực tiếp đánh giá); form cuối trang là tấm navy hai cột: bên trái nhắc lại 3 giá trị + hotline, bên phải form.
+- SEO: địa chỉ gốc lấy từ NEXT_PUBLIC_APP_URL; bản chạy thật thiếu biến thì tự dùng https://thsteam.edu.vn (apps/web/src/lib/site-url.ts). JSON-LD tổ chức có ContactPoint (hotline, tiếng Việt, VN).
 

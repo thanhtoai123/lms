@@ -152,8 +152,11 @@ export const SECTION_DEFS: Record<SectionType, SectionDef> = {
   },
   form: {
     type: "form", label: "Form đăng ký học thử", desc: "Form gửi thẳng vào CRM (lead), tự gắn nguồn UTM của chiến dịch.",
-    fields: [t("title", "Tiêu đề", 120, { required: true }), ta("subtitle", "Mô tả", 300), t("thankYou", "Lời cảm ơn sau khi gửi", 300)],
-    lists: [],
+    fields: [
+      t("title", "Tiêu đề", 120, { required: true }), ta("subtitle", "Mô tả", 300), t("thankYou", "Lời cảm ơn sau khi gửi", 300),
+      t("badge", "Dòng nổi bật (vd không mất phí)", 80), t("callLabel", "Chữ liên hệ nhanh (vd Cần tư vấn ngay? Gọi …)", 60), u("callUrl", "Liên kết liên hệ nhanh", { hint: "vd tel:0900000000" }),
+    ],
+    lists: [{ key: "points", label: "Ý giá trị cạnh form (dấu ✓)", addLabel: "Thêm ý", max: 5, fields: [t("text", "Nội dung", 110, { required: true })] }],
   },
   text: {
     type: "text", label: "Đoạn chữ tự do", desc: "Tiêu đề + nội dung (hỗ trợ **đậm**, danh sách “- ”, tiêu đề “## ”) + ảnh.",
@@ -201,6 +204,7 @@ export const SECTION_DEFS: Record<SectionType, SectionDef> = {
     fields: [
       t("eyebrow", "Dòng nhỏ phía trên", 80), t("title", "Tiêu đề", 140, { required: true, hint: "Đặt *cụm từ* trong dấu sao để tô màu nhấn" }), ta("intro", "Mô tả", 400),
       t("gainsTitle", "Tiêu đề phần “bố mẹ nhận được”", 80), t("badge", "Dòng nổi bật (vd không mất phí)", 80), ta("note", "Ghi chú nhỏ dưới nút", 240),
+      img("photo", "Ảnh người đánh giá (tuỳ chọn)"), t("photoName", "Tên người đánh giá", 60), t("photoRole", "Vai trò", 80),
       t("primaryLabel", "Nút chính", 40, { required: true }), u("primaryUrl", "Liên kết nút chính", { required: true }),
       t("secondaryLabel", "Nút phụ", 40), u("secondaryUrl", "Liên kết nút phụ", { hint: "vd tel:0900000000" }),
     ],

@@ -271,6 +271,7 @@ export const HOME_PAGE = {
           gainsTitle: "Sau buổi học, *bố mẹ nhận được*",
           badge: "Bố mẹ không phải trả phí cho buổi này",
           note: "Gia đình tự quyết định có cho con học tiếp hay không sau khi nghe thầy nhận xét. Vì thầy dạy 1:1, lịch được xếp theo thứ tự đăng ký.",
+          photo: "/lp-anh/that/thay-phan-thanh-toai.webp", photoName: TEACHER.name, photoRole: "Trực tiếp đánh giá và định hướng cho con",
           primaryLabel: "Đặt lịch học trải nghiệm", primaryUrl: "#dang-ky", secondaryLabel: `Gọi ${TH_BRAND.hotline}`, secondaryUrl: telHref,
         }, {
           steps: [
@@ -304,9 +305,17 @@ export const HOME_PAGE = {
         }),
 
         sec("form", "form", {
-          title: "Đặt lịch buổi học trải nghiệm 1:1 cho con",
-          subtitle: "Để lại thông tin, trung tâm gọi lại trong giờ làm việc để hẹn giờ. Con học cùng thầy, làm sản phẩm đầu tay; thầy gửi bố mẹ nhận xét năng lực và lộ trình riêng cho con.",
+          title: "Đặt lịch buổi học trải nghiệm *1:1 cho con*",
+          subtitle: "Để lại thông tin, trung tâm gọi lại trong giờ làm việc để hẹn giờ học phù hợp với gia đình.",
+          badge: "Không mất phí · Học online tại nhà",
+          callLabel: `Cần tư vấn ngay? Gọi ${TH_BRAND.hotline}`, callUrl: telHref,
           thankYou: `Cảm ơn ba mẹ! ${B} sẽ liên hệ lại trong giờ làm việc để hẹn buổi học trải nghiệm cho con.`,
+        }, {
+          points: [
+            { text: "Con học 1:1 cùng thầy, tự tay làm sản phẩm đầu tay" },
+            { text: "Thầy nhận xét điểm mạnh, điều con cần rèn" },
+            { text: "Bố mẹ nhận gợi ý chuyên ngành và lộ trình riêng cho con" },
+          ],
         }),
 
         sec("footer", "footer", {

@@ -34,7 +34,7 @@ export function landingJsonLd(doc: LandingDoc, m: JsonLdMeta): Record<string, un
   graph.push({
     "@type": "EducationalOrganization", "@id": orgId, name: m.brand.name, url: `${m.baseUrl}/`,
     ...(m.brand.logo ? { logo: absUrl(m.baseUrl, m.brand.logo) } : {}),
-    ...(m.brand.phone ? { telephone: m.brand.phone } : {}),
+    ...(m.brand.phone ? { telephone: m.brand.phone, contactPoint: { "@type": "ContactPoint", telephone: m.brand.phone, contactType: "customer service", areaServed: "VN", availableLanguage: "vi" } } : {}),
     ...(m.brand.email ? { email: m.brand.email } : {}),
     ...(m.brand.sameAs?.length ? { sameAs: m.brand.sameAs } : {}),
   });

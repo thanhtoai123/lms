@@ -337,9 +337,11 @@ function renderTrial(s: LandingSection, ctx: RenderCtx): string {
     + `<h3>${escHtml(r.title ?? "")}</h3>${r.text ? `<p>${text(r.text)}</p>` : ""}</div></li>`).join("");
   const gains = rowsOf(s, "gains").map((r, i) => `<li>${iconTile(r.icon, i)}<div><h4>${escHtml(r.title ?? "")}</h4>${r.text ? `<p>${text(r.text)}</p>` : ""}</div></li>`).join("");
   const card = `<div class="lp-trial-card">`
-    + (d(s, "gainsTitle") ? `<h3 class="lp-trial-gt">${hl(d(s, "gainsTitle"))}</h3>` : "")
-    + (gains ? `<ul class="lp-trial-gains">${gains}</ul>` : "")
-    + `<div class="lp-trial-act">${d(s, "badge") ? `<p class="lp-trial-badge">${escHtml(d(s, "badge"))}</p>` : ""}`
+    + `<div class="lp-trial-left">` + (d(s, "gainsTitle") ? `<h3 class="lp-trial-gt">${hl(d(s, "gainsTitle"))}</h3>` : "")
+    + (gains ? `<ul class="lp-trial-gains">${gains}</ul>` : "") + `</div>`
+    + `<div class="lp-trial-act">`
+    + (d(s, "photo") ? `<div class="lp-trial-who-card">${imgTag(ctx, d(s, "photo"), d(s, "photoName") || "Giảng viên", { cls: "lp-trial-av" })}<p><b>${escHtml(d(s, "photoName"))}</b>${d(s, "photoRole") ? `<span>${escHtml(d(s, "photoRole"))}</span>` : ""}</p></div>` : "")
+    + (d(s, "badge") ? `<p class="lp-trial-badge">${escHtml(d(s, "badge"))}</p>` : "")
     + `<div class="lp-actions">${btn(ctx, d(s, "primaryLabel"), d(s, "primaryUrl"), "primary")}${btn(ctx, d(s, "secondaryLabel"), d(s, "secondaryUrl"), "ghost")}</div>`
     + (d(s, "note") ? `<p class="lp-trial-note">${text(d(s, "note"))}</p>` : "") + `</div></div>`;
   return wrap(s, "lp-trial", headK(s) + `<ol class="lp-trial-steps">${steps}</ol>` + card, s.id);
@@ -464,7 +466,12 @@ function renderFooter(s: LandingSection, ctx: RenderCtx): string {
 }
 
 function formHead(s: LandingSection): string {
-  return `<header class="lp-head"><h2>${escHtml(d(s, "title"))}</h2>${d(s, "subtitle") ? `<p>${text(d(s, "subtitle"))}</p>` : ""}</header>`;
+  const pts = rowsOf(s, "points").map((r) => `<li>${escHtml(r.text ?? "")}</li>`).join("");
+  const call = d(s, "callLabel") && d(s, "callUrl") && validUrl(d(s, "callUrl")) ? `<a class="lp-form-call" href="${escHtml(d(s, "callUrl"))}" data-cta="1">${escHtml(d(s, "callLabel"))}</a>` : "";
+  return `<header class="lp-head${pts || call ? " lp-form-side" : ""}">`
+    + (d(s, "badge") ? `<p class="lp-form-badge">${escHtml(d(s, "badge"))}</p>` : "")
+    + `<h2>${hl(d(s, "title"))}</h2>${d(s, "subtitle") ? `<p>${text(d(s, "subtitle"))}</p>` : ""}`
+    + (pts ? `<ul class="lp-ticks">${pts}</ul>` : "") + call + `</header>`;
 }
 function formOpen(s: LandingSection): string {
   return `<section class="lp-sec lp-form" id="dang-ky"><div class="lp-wrap lp-form-in">${formHead(s)}`;
@@ -878,7 +885,8 @@ const LANDING_CSS = `
 .lp-trial-step h3{font-size:1.08rem}
 .lp-trial-step p:not(.lp-trial-who){color:var(--lp-mut);font-size:.95rem;margin-top:4px}
 .lp-trial-card{margin-top:24px;background:#fff;border:1px solid var(--lp-line);border-radius:calc(var(--lp-r) + 6px);padding:28px;display:grid;grid-template-columns:1.4fr 1fr;gap:28px;align-items:center}
-.lp-trial-gt{grid-column:1/-1;font-size:clamp(1.25rem,2.4vw,1.6rem)}
+.lp-trial-left{display:flex;flex-direction:column;gap:22px;justify-content:center}
+.lp-trial-gt{font-size:clamp(1.25rem,2.4vw,1.6rem)}
 .lp-trial-gains{display:grid;grid-template-columns:1fr 1fr;gap:18px}
 .lp-trial-gains li{display:flex;gap:12px;align-items:flex-start}
 .lp-trial-gains h4{margin:0;font-size:1.02rem;line-height:1.3}
@@ -1202,9 +1210,6 @@ const LANDING_CSS = `
 .lp--vivid .lp-faq{border-radius:16px}
 .lp--vivid .lp-faq[open]{border-color:#93c5fd;box-shadow:0 0 0 3px #dbeafe}
 /* form cuối trang: nền xanh nhạt, thẻ trắng */
-.lp--vivid .lp-form{background:#dbeafe}
-.lp--vivid .lp-form-in{max-width:640px}
-.lp--vivid .lp-form .lp-form-card{border:0;border-top:6px solid var(--v-gold);border-radius:24px}
 .lp--vivid .lp-bento-pic{grid-row:span 2}
 /* dải ảnh sản phẩm thật dưới tiêu đề: thẻ khung trắng, nhãn trắng góc dưới (sản phẩm + phần mềm) */
 .lp-show-list{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
@@ -1255,23 +1260,58 @@ const LANDING_CSS = `
  .lp--vivid .lp-show-list:has(>li:nth-child(5))>li:nth-child(1) figcaption b{font-size:.92rem}
  .lp--vivid .lp-show .lp-credit{padding:4px 20px 0}
 }
-/* buổi học trải nghiệm: nền xanh (lặp mô-típ đầu trang), hành trình 4 bước nối bằng đường vàng, thẻ giá trị trắng */
+/* buổi học trải nghiệm: nền xanh + quỹ đạo vàng; hành trình 4 bước nối đường vàng; thẻ giá trị trắng, cột đặt lịch navy nổi bật */
 .lp--vivid .lp-trial{background:var(--v-star) no-repeat 94% 60px/26px,var(--v-orb) no-repeat 0 0/100% 100%,var(--v-blue);color:#fff}
-.lp--vivid .lp-trial .lp-head h2{color:#fff}
+.lp--vivid .lp-trial .lp-head{max-width:860px}
+.lp--vivid .lp-trial .lp-head h2{color:#fff;font-size:clamp(1.9rem,4.2vw,3rem)}
 .lp--vivid .lp-trial .lp-hl{color:#fff}
-.lp--vivid .lp-trial .lp-head p{color:rgba(255,255,255,.88)}
+.lp--vivid .lp-trial .lp-head p{color:rgba(255,255,255,.9);font-size:1.15rem;max-width:760px}
 .lp--vivid .lp-trial .lp-kicker{background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.25)}
 .lp--vivid .lp-trial-steps{grid-template-columns:repeat(4,1fr);gap:20px;position:relative}
-.lp--vivid .lp-trial-steps::before{content:"";position:absolute;left:8%;right:8%;top:42px;border-top:3px dashed rgba(245,158,11,.85)}
-.lp--vivid .lp-trial-step{flex-direction:column;gap:12px;border:0;border-radius:22px;padding:24px 22px;position:relative;color:#0f172a;box-shadow:0 24px 50px -30px rgba(2,6,23,.6)}
-.lp--vivid .lp-trial-no{width:44px;height:44px;font-size:1.15rem;box-shadow:0 0 0 6px #fff}
-.lp--vivid .lp-trial-step:nth-child(4){background:#fef3c7}
-.lp--vivid .lp-trial-step:nth-child(4) .lp-trial-who{color:#b45309}
-.lp--vivid .lp-trial-card{margin-top:28px;border:0;border-radius:28px;padding:36px 40px;color:#0f172a;box-shadow:0 40px 80px -40px rgba(2,6,23,.7);border-top:6px solid var(--v-gold)}
+.lp--vivid .lp-trial-steps::before{content:"";position:absolute;left:8%;right:8%;top:50px;border-top:3px dashed rgba(245,158,11,.9)}
+.lp--vivid .lp-trial-step{flex-direction:column;gap:14px;border:0;border-radius:24px;padding:28px 26px;position:relative;color:#0f172a;box-shadow:0 24px 50px -30px rgba(2,6,23,.6)}
+.lp--vivid .lp-trial-no{width:52px;height:52px;font-size:1.3rem;box-shadow:0 0 0 6px #fff}
+.lp--vivid .lp-trial-who{display:inline-block;font-size:.82rem;background:#dbeafe;border-radius:999px;padding:3px 10px;margin-bottom:8px!important}
+.lp--vivid .lp-trial-step h3{font-size:1.22rem;line-height:1.3}
+.lp--vivid .lp-trial-step p:not(.lp-trial-who){font-size:1rem;line-height:1.55}
+.lp--vivid .lp-trial-step:nth-child(4){background:#fef3c7;box-shadow:0 0 0 3px var(--v-gold),0 30px 60px -30px rgba(2,6,23,.7)}
+.lp--vivid .lp-trial-step:nth-child(4) .lp-trial-who{color:#b45309;background:#fff}
+.lp--vivid .lp-trial-card{margin-top:32px;border:0;border-radius:32px;padding:44px;color:#0f172a;box-shadow:0 40px 80px -40px rgba(2,6,23,.7);grid-template-columns:1.35fr 1fr;gap:40px;align-items:stretch}
+.lp--vivid .lp-trial-gt{font-size:clamp(1.5rem,2.8vw,2.1rem);letter-spacing:-.02em}
 .lp--vivid .lp-trial-gt .lp-hl{color:var(--v-blue)}
-.lp--vivid .lp-trial-act{background:#f8fafc;border-radius:20px;padding:22px}
-@media (max-width:1100px){.lp--vivid .lp-trial-steps{grid-template-columns:1fr 1fr}.lp--vivid .lp-trial-steps::before{display:none}}
-@media (max-width:600px){.lp--vivid .lp-trial-steps{grid-template-columns:1fr;gap:12px}.lp--vivid .lp-trial-step{flex-direction:row;padding:18px}.lp--vivid .lp-trial-card{padding:24px 18px;border-radius:22px}.lp--vivid .lp-trial-act{padding:16px}}
+.lp--vivid .lp-trial-gains{gap:26px 28px;align-content:center}
+.lp--vivid .lp-trial-gains h4{font-size:1.12rem}
+.lp--vivid .lp-trial-gains p{font-size:.98rem;line-height:1.55}
+.lp--vivid .lp-trial-act{background:var(--v-orb) no-repeat 0 0/220% 100%,#0f172a;color:#fff;border-radius:24px;padding:30px 28px;gap:10px;justify-content:center}
+.lp--vivid .lp-trial-who-card{display:flex;gap:14px;align-items:center;padding-bottom:14px;border-bottom:1px solid rgba(255,255,255,.14);margin-bottom:6px}
+.lp--vivid .lp-trial-av{width:64px;height:64px;border-radius:50%;object-fit:cover;object-position:50% 20%;border:3px solid var(--v-gold);flex:none}
+.lp--vivid .lp-trial-who-card p{display:flex;flex-direction:column;line-height:1.35}
+.lp--vivid .lp-trial-who-card b{font-size:1.05rem}
+.lp--vivid .lp-trial-who-card span{font-size:.9rem;color:rgba(255,255,255,.75)}
+.lp--vivid .lp-trial-badge{background:rgba(16,185,129,.18);color:#6ee7b7;font-size:1rem;padding:8px 16px}
+.lp--vivid .lp-trial-act .lp-btn-primary{min-height:58px;font-size:1.08rem}
+@media (max-width:400px){.lp--vivid .lp-trial-act .lp-btn-primary{font-size:.98rem;padding-left:12px;padding-right:12px}}
+.lp--vivid .lp-trial-act .lp-btn-ghost{color:#fff;border-color:rgba(255,255,255,.55)}
+.lp--vivid .lp-trial-act .lp-btn-ghost:hover{background:rgba(255,255,255,.1)}
+.lp--vivid .lp-trial-note{color:rgba(255,255,255,.7);font-size:.88rem}
+@media (max-width:1100px){.lp--vivid .lp-trial-steps{grid-template-columns:1fr 1fr}.lp--vivid .lp-trial-steps::before{display:none}.lp--vivid .lp-trial-card{grid-template-columns:1fr;padding:32px}}
+@media (max-width:600px){.lp--vivid .lp-trial-steps{grid-template-columns:1fr;gap:12px}.lp--vivid .lp-trial-step{flex-direction:row;padding:20px 18px;gap:14px}.lp--vivid .lp-trial-no{width:44px;height:44px;font-size:1.1rem}.lp--vivid .lp-trial-card{padding:24px 18px;border-radius:24px;gap:24px}.lp--vivid .lp-trial-act{padding:22px 18px}}
+/* form cuối trang: tấm navy bo tròn hai cột — bên trái nhắc lại giá trị, bên phải form trắng */
+.lp--vivid .lp-form{background:#fff}
+.lp--vivid .lp-form .lp-form-in{max-width:1200px;display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center;background:var(--v-star) no-repeat 6% 14%/24px,var(--v-orb) no-repeat 0 0/100% 100%,#0f172a;border-radius:32px;padding:56px;color:#fff;background-position:95% 10%,0 0,0 0}
+.lp--vivid .lp-form .lp-head.lp-form-side{margin:0;text-align:left;max-width:none}
+.lp--vivid .lp-form .lp-head h2{color:#fff;font-size:clamp(1.8rem,3.6vw,2.6rem)}
+.lp--vivid .lp-form .lp-hl{color:#fff}
+.lp--vivid .lp-form .lp-head p{margin:14px 0 0;color:rgba(255,255,255,.85);max-width:none}
+.lp--vivid .lp-form-badge{display:inline-block;background:rgba(245,158,11,.18);color:#fcd34d;font-weight:800;border-radius:999px;padding:7px 16px;font-size:.95rem;margin-bottom:16px!important}
+.lp--vivid .lp-form .lp-ticks{margin-top:24px;gap:12px}
+.lp--vivid .lp-form .lp-ticks li{color:#fff}
+.lp--vivid .lp-form .lp-ticks li::before{background:var(--v-gold);color:#0f172a}
+.lp-form-call{display:inline-block;margin-top:24px;font-weight:800;color:#fcd34d;text-decoration:none;border-bottom:2px solid rgba(252,211,77,.5)}
+.lp-form-call:hover{border-bottom-color:#fcd34d}
+.lp--vivid .lp-form .lp-form-card{border:0;border-top:6px solid var(--v-gold);border-radius:24px;color:#0f172a;box-shadow:0 30px 60px -30px rgba(0,0,0,.6)}
+@media (max-width:960px){.lp--vivid .lp-form .lp-form-in{grid-template-columns:1fr;padding:36px 28px;gap:28px}}
+@media (max-width:600px){.lp--vivid .lp-form .lp-form-in{padding:28px 18px;border-radius:24px;margin:0 -8px;width:auto;background:var(--v-orb) no-repeat 0 0/100% 100%,#0f172a}}
 /* một chuyển động duy nhất: thẻ ảnh đầu trang nổi lên khi tải trang */
 .lp--vivid .lp-sec .lp-head,.lp--vivid .lp-ins-list>li,.lp--vivid .lp-grid>li,.lp--vivid .lp-chg>li,.lp--vivid .lp-vs-col,.lp--vivid .lp-steps-list>li,.lp--vivid .lp-photos>li,.lp--vivid .lp-faq-list>details,.lp--vivid .lp-teacher-in>*,.lp--vivid .lp-ins-close{animation:none}
 @media (prefers-reduced-motion:no-preference){.lp--vivid .lp-lead-hero .lp-hero-pic:not(.lp-show) img{animation:lp-rise .9s cubic-bezier(.2,.7,.2,1) .15s both}}

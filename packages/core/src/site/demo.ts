@@ -68,7 +68,7 @@ const about: SiteDemoPage = {
         "- **Quỹ đạo vàng** là con đường khám phá khoa học; **tên lửa** là khát vọng bứt phá; **ngôi sao** là đích đến: chứng nhận, thành tích, sự tự tin.",
       ].join("\n"),
     }),
-    sec("features", "gia-tri", { title: "Giá trị cốt lõi", intro: `${TH_BRAND.method}: con học bằng cách tự tay làm ra sản phẩm.` }, {
+    sec("features", "gia-tri", { title: "Giá trị cốt lõi", intro: "Mỗi buổi học, con tự tay làm ra một sản phẩm của riêng mình." }, {
       items: [
         { title: "Innovation — Đổi mới sáng tạo", text: "Mỗi học phần kết thúc bằng một dự án do con tự lên ý tưởng và xây dựng." },
         { title: "Interdisciplinary — Tích hợp liên môn", text: "Robotics, AI, đồ họa và lập trình gắn với toán, khoa học, tiếng Anh và đời sống." },

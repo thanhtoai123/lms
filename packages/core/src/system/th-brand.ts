@@ -10,7 +10,7 @@ export const TH_BRAND = {
   legalName: "Trung tâm Đào tạo Tin học AI & Công nghệ TH STEAM",
   tagline: "IGNITING FUTURE INNOVATION",
   taglineVi: "Thắp lửa đổi mới cho tương lai",
-  method: "Phương pháp thực chiến \"1-Chạm\"",
+  method: "Học thực hành: mỗi buổi con tự tay làm ra một sản phẩm",
   values: ["Innovation (Đổi mới sáng tạo)", "Interdisciplinary (Tích hợp liên môn)", "Integrity & Excellence (Chính trực & Đỉnh cao)"],
   hotline: "0971 29 30 31",
   hotlineTel: "0971293031",
