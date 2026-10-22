@@ -64,6 +64,10 @@ export const SECTION_DEFS: Record<SectionType, SectionDef> = {
     lists: [
       { key: "points", label: "Lợi ích (dấu ✓)", addLabel: "Thêm lợi ích", max: 5, fields: [t("text", "Nội dung", 110, { required: true })] },
       { key: "badges", label: "Điểm tin cậy (chip)", addLabel: "Thêm điểm", max: 4, fields: [t("text", "Nội dung", 60, { required: true })] },
+      { key: "showcase", label: "Dải ảnh sản phẩm dưới tiêu đề (thay cho ảnh minh hoạ)", addLabel: "Thêm ảnh", max: 4, hint: "3–4 ảnh sản phẩm thật làm bằng phần mềm con học, mỗi ảnh ghi nguồn", fields: [
+        img("image", "Ảnh", { required: true }), t("imageAlt", "Mô tả ảnh (alt)", 160), t("title", "Nhãn (vd Game 3D tự làm)", 40, { required: true }), t("tool", "Phần mềm", 40),
+        t("credit", "Nguồn ảnh", 80), u("creditUrl", "Liên kết nguồn ảnh"),
+      ] },
     ],
   },
   roadmap: {
@@ -213,7 +217,7 @@ export interface LandingDoc { sections: LandingSection[] }
 
 export const LANDING_VARIANTS = ["classic", "soft", "bold", "studio", "vivid"] as const;
 export type LandingVariant = (typeof LANDING_VARIANTS)[number];
-export const VARIANT_LABEL: Record<LandingVariant, string> = { classic: "Cổ điển — nền sáng, thẻ bo tròn", soft: "Dịu — nền kem, nhiều khoảng trắng", bold: "Nổi bật — băng màu đậm, chữ lớn", studio: "Studio — chữ lớn, nhiều khoảng trắng, ảnh thật", vivid: "Sắc màu — trang chính: màu thương hiệu đậm, thẻ chuyên ngành, ảnh ghép phần mềm thật (DESIGN.md)" };
+export const VARIANT_LABEL: Record<LandingVariant, string> = { classic: "Cổ điển — nền sáng, thẻ bo tròn", soft: "Dịu — nền kem, nhiều khoảng trắng", bold: "Nổi bật — băng màu đậm, chữ lớn", studio: "Studio — chữ lớn, nhiều khoảng trắng, ảnh thật", vivid: "Sắc màu — trang chính: màu thương hiệu đậm, thẻ chuyên ngành, ảnh sản phẩm thật (DESIGN.md)" };
 
 export const MAX_SECTIONS = 40;
 export const SLUG_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;

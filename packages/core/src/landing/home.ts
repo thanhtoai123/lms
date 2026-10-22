@@ -55,7 +55,7 @@ export const HOME_PAGE = {
   variant: "vivid" as const,
   seoTitle: "Học Robotics, AI, lập trình online cho trẻ 8–18 tuổi | TH STEAM",
   seoDescription: "Con học Robotics, Trí tuệ nhân tạo, Thiết kế đồ họa và Lập trình online cùng giáo viên qua ClassIn: lớp nhỏ, tự làm sản phẩm thật, học trải nghiệm 1:1 trước.",
-  seoImage: "/lp-anh/og-trang-chu.png",
+  seoImage: "/lp-anh/og-trang-chu.jpg",
   build(): LandingDoc {
     return {
       sections: [
@@ -69,9 +69,6 @@ export const HOME_PAGE = {
           eyebrow: "Lớp công nghệ online cho con 8–18 tuổi",
           title: "Biến giờ con ngồi trước màn hình thành giờ con *tạo ra công nghệ*",
           subtitle: "Khoá học Robotics, Trí tuệ nhân tạo, Thiết kế đồ họa và Lập trình online. Giáo viên dạy trực tiếp qua ClassIn, lớp nhỏ, con tự tay làm ra sản phẩm và tự tin giới thiệu nó trước bố mẹ.",
-          image: "/lp-anh/tc-ghep-hero.webp",
-          imageAlt: "Những thứ con tự làm ở TH STEAM: game 3D trong Roblox Studio, hoạt hình Scratch, AI nhận diện hình ảnh, chương trình Python và báo cáo năng lực gửi phụ huynh",
-          credit: "Ảnh ghép từ màn hình phần mềm: Roblox Creator Docs (CC BY 4.0), Scratch qua Wikimedia Commons (CC BY-SA 2.0), Teachable Machine (Apache-2.0), Python qua Wikimedia Commons (CC0)",
           formTitle: "Đặt lịch học trải nghiệm 1:1 cho con",
           formNote: "Giáo viên gọi lại trong giờ làm việc để hẹn giờ phù hợp với gia đình.",
           interest: "",
@@ -81,6 +78,12 @@ export const HOME_PAGE = {
             { text: "Con làm ra sản phẩm thật: robot ảo, game, ứng dụng, mô hình 3D" },
             { text: "Bố mẹ tận mắt xem con trình bày và nhận đánh giá năng lực" },
             { text: "Con học thử một buổi 1:1 trước khi gia đình quyết định" },
+          ],
+          showcase: [
+            { image: "/lp-anh/that/roblox-lau-dai-phep-thuat.webp", imageAlt: "Game 3D lâu đài phép thuật làm bằng Roblox Studio", title: "Game 3D tự làm", tool: "Roblox Studio", credit: "Roblox Creator Docs (CC BY 4.0)", creditUrl: "https://github.com/Roblox/creator-docs" },
+            { image: "/lp-anh/that/robovr-xe-tu-lai.webp", imageAlt: "Robot xe tự lái chạy trên bản đồ thành phố trong phần mềm RoboVR", title: "Robot tự lái", tool: "RoboVR", credit: "WhalesBot RoboVR", creditUrl: "https://www.whalesbot.ai/3dvirtual" },
+            { image: "/lp-anh/that/teachable-machine-am-thanh.webp", imageAlt: "Mô hình AI nhận biết tiếng búng tay và vỗ tay, huấn luyện bằng Teachable Machine", title: "AI nghe vỗ tay", tool: "Teachable Machine", credit: "Google Teachable Machine", creditUrl: "https://teachablemachine.withgoogle.com/" },
+            { image: "/lp-anh/that/tinkercad-nha-go.webp", imageAlt: "Mô hình 3D ngôi nhà gỗ dựng trong Tinkercad", title: "Nhà 3D mơ ước", tool: "Tinkercad", credit: "Autodesk Tinkercad", creditUrl: "https://www.tinkercad.com/" },
           ],
         }),
 
@@ -234,7 +237,7 @@ export const HOME_PAGE = {
           items: [
             { image: "/lp-anh/that/robosim-sa-ban-vong-loai.webp", caption: "Robot ảo vượt sa bàn thi đấu Sáng tạo Robotics", credit: "Ảnh: Thể lệ Cuộc thi Sáng tạo Robotics 2026", creditUrl: "https://tainangviet.vn/" },
             { image: "/lp-anh/that/scratch-trinh-soan.webp", caption: "Hoạt hình, game đầu tay bằng Scratch", credit: "Ảnh: Wikimedia Commons / MouseCursor, CC BY-SA 2.0", creditUrl: "https://commons.wikimedia.org/wiki/File:Scratch_editor_screenshot.png" },
-            { image: "/lp-anh/that/creaticode-dem-ngon-tay.webp", caption: "AI nhận diện bàn tay, đếm ngón tay qua camera", credit: "Ảnh: CreatiCode", creditUrl: "https://www.creaticode.com/" },
+            { image: "/lp-anh/that/creaticode-he-mat-troi-3d.webp", caption: "Mô phỏng Hệ Mặt Trời 3D bằng CreatiCode", credit: "Ảnh: CreatiCode", creditUrl: "https://www.creaticode.com/" },
             { image: "/lp-anh/that/appinventor-thiet-ke-app.webp", caption: "App điện thoại tự thiết kế với App Inventor", credit: "Ảnh: Wikimedia Commons / Florian Schäffer, CC0", creditUrl: "https://commons.wikimedia.org/wiki/File:Mit_app_inventor_2_beta3.png" },
             { image: "/lp-anh/that/roblox-studio-lau-dai.webp", caption: "Thế giới game 3D trong Roblox Studio", credit: "Ảnh: Roblox Creator Docs, CC BY 4.0", creditUrl: "https://github.com/Roblox/creator-docs" },
             { image: "/lp-anh/that/python-pygame-ma.webp", caption: "Viết game bằng Python", credit: "Ảnh: Wikimedia Commons / Rikulpatel1, CC0", creditUrl: "https://commons.wikimedia.org/wiki/File:Python_pygame_code.png" },

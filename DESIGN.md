@@ -11,7 +11,7 @@ Bản `studio` trước đó (trắng, tối giản) bị đánh giá là nhạt
 | Tiêu đề khối căn giữa, chữ đậm | Có | Có, câu dẫn ≤ 680px |
 | Thẻ khoá học có màu + độ tuổi | MindX: ảnh trên nền màu + nút mũi tên | 4 thẻ chọn chuyên ngành 4 màu, biểu tượng, độ tuổi; bảng chi tiết trắng bên dưới |
 | Dải số liệu nền tối | Teky: thẻ đen | Tấm navy bo 32px, số vàng, **mọi số có nguồn** |
-| Ảnh học sinh thật | Rất nhiều | **Chưa có ảnh có đồng ý** → ảnh ghép màn hình phần mềm thật trên laptop / máy tính bảng / điện thoại |
+| Ảnh học sinh thật | Rất nhiều | **Chưa có ảnh có đồng ý** → dải ảnh sản phẩm thật làm bằng phần mềm con học (game Roblox, robot RoboVR, AI, nhà 3D) |
 | Nút đăng ký lặp lại | Có | Form đầu trang, dải kêu gọi, form cuối, thanh cố định trên điện thoại |
 
 Không chép: bố cục banner trượt, số liệu không nguồn ("300.000+ dự án", "96% có việc làm"), chữ "hàng đầu".
@@ -41,7 +41,8 @@ Dòng nhỏ trên tiêu đề: viên thuốc nền #DBEAFE, **viết thường**
 
 1. Đầu trang: thanh trắng, logo ngang, menu, hotline xanh, nút vàng.
 2. Mở đầu: nền xanh; trái = nhãn, H1 trắng có gạch vàng, mô tả, ✓, chip; phải = form trắng viền trên vàng.
-   Hàng dưới: ảnh ghép rộng `lp-anh/tc-ghep-hero.webp` nằm vắt từ nền xanh xuống nền trắng; nguồn ảnh ghi nhỏ bên dưới.
+   Hàng dưới: dải 4 thẻ ảnh sản phẩm thật (khung trắng 8px, bo 26px, cao thấp so le, nhãn trắng có vạch màu chuyên ngành)
+   vắt từ nền xanh xuống nền trắng; điện thoại: vuốt ngang. Nguồn ảnh gom một dòng bên dưới.
 3. Nỗi lo: tấm navy bo tròn trong khung, 4 thẻ số vàng + nguồn.
 4. Bối cảnh: thẻ trắng có vạch màu trên, số xanh.
 5. So sánh: cột trái xám, mũi tên vàng tròn, cột phải nền xanh ngọc nhạt.
@@ -51,11 +52,12 @@ Dòng nhỏ trên tiêu đề: viên thuốc nền #DBEAFE, **viết thường**
 
 ## Chuyển động
 
-Một chuyển động duy nhất: ảnh ghép đầu trang nổi lên khi tải trang. Không hiệu ứng hiện dần từng khối. Tắt khi máy bật "giảm chuyển động".
+Một chuyển động duy nhất: 4 thẻ ảnh đầu trang nổi lên lần lượt khi tải trang. Không hiệu ứng hiện dần từng khối. Tắt khi máy bật "giảm chuyển động".
 
 ## Ảnh
 
-- Ảnh ghép dựng bằng `tools/minh-hoa/ghep_anh.py` (Chromium, nền trong suốt): chỉ dùng ảnh màn hình giấy phép mở
-  (Roblox Creator Docs CC BY 4.0, Scratch CC BY-SA 2.0, Teachable Machine Apache-2.0, Python CC0) + giao diện tự vẽ.
-- Không ảnh trẻ em giả, không người AI. Khi có ảnh lớp học / học viên thật có đồng ý: thay ảnh ghép hoặc thêm vào khối Sản phẩm.
+- Ảnh sản phẩm: ảnh thật lấy từ nguồn mở (Roblox Creator Docs CC BY 4.0, Wikimedia Commons) hoặc trang của nhà sản xuất
+  (WhalesBot, Google, Autodesk — ghi nguồn, xin phép trước khi chạy quảng cáo). Ảnh chia sẻ `og-trang-chu.jpg` dựng bằng
+  `tools/minh-hoa/ghep_anh.py`.
+- Không ảnh trẻ em giả, không người AI. Khi có ảnh lớp học / học viên thật có đồng ý: thay dần dải ảnh đầu trang hoặc thêm vào khối Sản phẩm.
 - Ảnh AI (nếu tạo sau): chỉ bối cảnh, thiết bị, đồ vật; ghi "Ảnh minh hoạ".

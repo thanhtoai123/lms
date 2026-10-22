@@ -4,7 +4,7 @@
 Dựng bằng Chromium (Playwright) nên chữ và khung sắc nét; nền trong suốt để đặt lên mọi màu nền.
 
     REPO=. FONTS=/duong/dan/font python3 tools/minh-hoa/ghep_anh.py          # mọi cảnh
-    REPO=. python3 tools/minh-hoa/ghep_anh.py tc-ghep-hero                    # một cảnh
+    REPO=. python3 tools/minh-hoa/ghep_anh.py og-trang-chu                     # một cảnh
 
 FONTS: thư mục chứa pjs-vi.woff2, pjs-ext.woff2, pjs-latin.woff2 (Plus Jakarta Sans, bản biến thiên).
 Không có thì dùng font hệ thống (Inter / Arial).
@@ -110,57 +110,17 @@ def star(x, y, s, c=G):
     return f'<span class="star" style="left:{x}px;top:{y}px;width:{s}px;height:{s}px">{STAR(c)}</span>'
 
 
-# ------------------------------------------------------------------ cảnh 1: đầu trang (dải ảnh rộng dưới tiêu đề)
-def tc_ghep_hero():
-    W, H = 1200, 600
-    roblox = data_url("roblox-studio-lau-dai", box=(0, 60, 1120, 788))
-    scratch = data_url("scratch-trinh-soan", max_w=1000)
-    tm = data_url("teachable-machine-du-lieu", box=(40, 60, 1060, 520), max_w=700)
-    py = data_url("python-pygame-ma", box=(0, 0, 900, 420), max_w=600)
-    leaf = (f'<svg viewBox="0 0 120 120" width="110" height="110"><path d="M60 108C60 70 62 40 92 14C100 50 92 86 60 108Z" fill="{E}"/>'
-            f'<path d="M60 108C58 78 44 52 18 38C14 70 30 96 60 108Z" fill="{ED}"/><path d="M60 108C64 70 76 44 90 22" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round" opacity=".7"/></svg>')
-    corner = lambda pos: f'<i style="position:absolute;{pos};width:22px;height:22px;border:4px solid {G};border-radius:4px"></i>'
-    phone_ui = f"""<div style="padding:40px 14px 14px;height:100%;background:{S};display:flex;flex-direction:column;gap:10px">
-      <div style="font-weight:800;font-size:15px">AI nhận diện</div>
-      <div style="position:relative;background:#fff;border-radius:16px;height:150px;display:grid;place-items:center;border:1px solid {L}">{leaf}
-        {corner("left:10px;top:10px;border-right:0;border-bottom:0")}{corner("right:10px;top:10px;border-left:0;border-bottom:0")}
-        {corner("left:10px;bottom:10px;border-right:0;border-top:0")}{corner("right:10px;bottom:10px;border-left:0;border-top:0")}</div>
-      <div style="font-size:12px;font-weight:700;color:{T2}">Lá cây <b style="float:right;color:{ED}">92%</b><div class="bar" style="margin-top:4px"><i style="width:92%;background:{E}"></i></div></div>
-      <div style="font-size:12px;font-weight:700;color:{T2}">Bông hoa <b style="float:right">8%</b><div class="bar" style="margin-top:4px"><i style="width:8%;background:{B}"></i></div></div>
-      <div style="margin-top:auto;text-align:center;background:{B};color:#fff;border-radius:999px;padding:9px;font-weight:800;font-size:13px">Chụp ảnh mới</div></div>"""
-    body = f"""
-<div class="stage" style="width:{W}px;height:{H}px">
- {swoosh(W, H, "M40 500 C 260 600, 760 600, 1160 170", G, 12)}
- {star(1120, 96, 34)}{star(36, 140, 22, E)}{star(1030, 520, 18, "#fff")}{star(170, 560, 16)}
- <div class="tablet" style="left:56px;top:176px;width:320px;height:246px;transform:rotate(-6deg)"><div class="scr"><img class="shot" src="{scratch}"></div></div>
- <div class="laptop" style="left:336px;top:56px;width:528px"><div class="lid"><div class="scr"><img class="shot" src="{roblox}"></div></div><div class="base"></div></div>
- <div class="phone" style="left:906px;top:186px;width:186px;height:356px;transform:rotate(5deg)"><div class="scr">{phone_ui}</div></div>
- <div class="card" style="left:76px;top:20px;width:250px">
-   <div class="ttl">{ico("ai", ET, ED)}<span>Dạy máy học<div class="sub">Teachable Machine</div></span></div>
-   <div class="thumb"><img class="shot" style="height:88px" src="{tm}"></div>
- </div>
- <div class="card" style="left:870px;top:24px;width:256px">
-   <div class="ttl">{ico("game", BT, BD)}<span>Game tự làm<div class="sub">Roblox Studio</div></span></div>
-   <div style="display:flex;gap:6px;margin-top:10px"><span class="pill" style="background:{GT};color:{GD}">★ Màn 1</span><span class="pill" style="background:{ET};color:{ED}">Chạy ▶</span></div>
- </div>
- <div class="card" style="left:232px;top:452px;width:250px">
-   <div class="ttl">{ico("code", GT, GD)}<span>Python<div class="sub">Viết code, sửa lỗi</div></span></div>
-   <div class="thumb"><img class="shot" style="height:54px" src="{py}"></div>
- </div>
- <div class="card" style="left:640px;top:470px;width:240px">
-   <div class="ttl">{ico("cup", BT, BD)}<span>Báo cáo năng lực<div class="sub">Gửi phụ huynh định kỳ</div></span></div>
-   <div class="bar"><i style="width:86%;background:{E}"></i></div>
-   <div class="bar"><i style="width:70%;background:{B}"></i></div>
- </div>
-</div>"""
-    return W, H, body, "Ảnh ghép: màn hình phần mềm thật trên laptop, máy tính bảng, điện thoại — game Roblox Studio, Scratch, App Inventor, AI Teachable Machine, Python"
-
-
 # ------------------------------------------------------------------ cảnh 2: ảnh chia sẻ (Facebook, Zalo, Google) 1200×630
 def og_trang_chu():
     W, H = 1200, 630
     logo = base64.b64encode((REPO / "apps/web/public/thsteam/logo-ngang-mot-mau-trang.svg").read_bytes()).decode()
-    hero = base64.b64encode((OUT / "tc-ghep-hero.webp").read_bytes()).decode()
+    tile = lambda f: "data:image/webp;base64," + base64.b64encode((THAT / f).read_bytes()).decode()
+    def card(x, y, w, h, f, title, tool, bar, rot=0, fit="cover", bg="#fff"):
+        return (f'<div style="position:absolute;left:{x}px;top:{y}px;width:{w}px;height:{h}px;background:#fff;padding:7px;border-radius:24px;'
+                f'box-shadow:0 30px 50px -24px rgba(2,6,23,.6);transform:rotate({rot}deg)">'
+                f'<img src="{tile(f)}" style="width:100%;height:100%;object-fit:{fit};object-position:50% 0;border-radius:18px;background:{bg}">'
+                f'<div style="position:absolute;left:18px;bottom:18px;background:#fff;border-left:4px solid {bar};border-radius:10px;padding:6px 12px;line-height:1.25">'
+                f'<b style="display:block;font-size:17px;color:{N}">{title}</b><span style="font-size:13px;color:{T2};font-weight:600">{tool}</span></div></div>')
     line = ("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 12' preserveAspectRatio='none'%3E"
             "%3Cpath d='M3 8.5C50 2.5 130 1.5 197 6' fill='none' stroke='%23F59E0B' stroke-width='5' stroke-linecap='round'/%3E%3C/svg%3E")
     body = f"""
@@ -176,13 +136,15 @@ def og_trang_chu():
      <span style="font-weight:800;font-size:24px">0971 29 30 31</span>
    </div>
  </div>
- <img src="data:image/webp;base64,{hero}" style="position:absolute;left:600px;top:180px;width:640px">
+ {card(900, 56, 270, 214, "robovr-xe-tu-lai.webp", "Robot tự lái", "RoboVR", E, 3)}
+ {card(590, 180, 290, 300, "roblox-lau-dai-phep-thuat.webp", "Game 3D tự làm", "Roblox Studio", B, -3)}
+ {card(915, 300, 240, 260, "teachable-machine-am-thanh.webp", "AI nghe vỗ tay", "Teachable Machine", G, 3, "cover", "#DBEAFE")}
  <div style="position:absolute;left:56px;bottom:34px;color:rgba(255,255,255,.8);font-weight:700;font-size:20px">thsteam.edu.vn</div>
 </div>"""
     return W, H, body, "TH STEAM Academy"
 
 
-SCENES = {"tc-ghep-hero": tc_ghep_hero, "og-trang-chu": og_trang_chu}
+SCENES = {"og-trang-chu": og_trang_chu}
 
 
 def render(name):
@@ -198,8 +160,8 @@ def render(name):
         b.close()
     im = Image.open(io.BytesIO(png)).convert("RGBA")
     if name.startswith("og-"):
-        out = OUT / f"{name}.png"
-        im.resize((W, H), Image.LANCZOS).convert("RGB").save(out, "PNG", optimize=True)
+        out = OUT / f"{name}.jpg"
+        im.resize((W, H), Image.LANCZOS).convert("RGB").save(out, "JPEG", quality=86, optimize=True, progressive=True)
         print(out, out.stat().st_size // 1024, "KB")
         return
     for w, suffix in ((1600, ""), (800, "-800")):

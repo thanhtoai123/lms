@@ -2,7 +2,6 @@ from playwright.sync_api import sync_playwright
 import os, sys
 PUB=os.path.abspath(os.path.join(os.environ.get("REPO", "."), "apps/web/public"))
 PAGES=[
- ("trang-chu","Biến giờ màn hình thành giờ sáng tạo công nghệ","Robotics · AI · Đồ họa · Lập trình cho trẻ 8–18 tuổi","tc-hero"),
  ("hoc-cong-nghe-online","Khóa học công nghệ online cho trẻ 8–18 tuổi","Robotics · AI · Đồ họa · Lập trình","lp-hero-chung"),
  ("robotics-ai-cho-tre","Lập trình Robotics AI cho trẻ 8–10 tuổi","RoboSim → RoboVR · 2 năm học","lp-hero-robotics"),
  ("tri-tue-nhan-tao-ai-cho-hoc-sinh","Trí tuệ nhân tạo AI cho học sinh 8–14 tuổi","AI for kids · AI for teen","lp-hero-ai"),
