@@ -537,6 +537,7 @@ export function keepText(t: string, joinLast = true): string {
   const x = fixGroups(t);
   if (!joinLast) return x;
   const j = x.trimEnd().lastIndexOf(" ");
+  if (x.slice(j + 1).includes(NB)) return x;
   return j > 0 && x.trim().split(/\s+/).length >= 3 ? x.slice(0, j) + NB + x.slice(j + 1) : x;
 }
 const fixGroups = (t: string) => t
@@ -557,7 +558,9 @@ export function keepTogether(html: string): string {
   return out.replace(/(<(h[1-4]|summary|figcaption|button|p|li|span|small|strong|b|a)\b[^>]*>)([^<]*(?:<\/?(?:em|i|u|abbr|time|br|code|strong|b)\b[^>]*>[^<]*)*)(<\/\2>)/g, (_m, open: string, tag: string, inner: string, close: string) => {
     const i = inner.lastIndexOf(">");
     const head = inner.slice(0, i + 1), tail = inner.slice(i + 1);
-    const words = tail.trim().split(/\s+/);
+    const words = tail.trim().split(/[ \t\n]+/);
+    // từ cuối đã là một cụm giữ liền (vd tên thương hiệu) → không nối thêm, để cả cụm xuống dòng gọn
+    if (words[words.length - 1]!.includes(NB)) return open + inner + close;
     const isBlock = /^(p|li|span|small|strong|b|a)$/.test(tag);
     if (words.length < (isBlock ? 4 : 2) || (isBlock && (words[words.length - 1]!.length > 9 || words[words.length - 2]!.length > 9)) || tail.length > 600) return open + inner + close;
     const j = tail.lastIndexOf(" ");
