@@ -592,7 +592,7 @@ const LANDING_CSS = `
 .lp-sec{padding:64px 0}
 .lp-alt{background:var(--lp-alt)}
 .lp-head{max-width:720px;margin:0 0 32px}
-.lp-head h2{font-size:clamp(1.55rem,3.2vw,2.2rem)}
+.lp-head :is(h1,h2){font-size:clamp(1.55rem,3.2vw,2.2rem)}
 .lp-head p{margin-top:10px;color:var(--lp-mut);font-size:1.05rem}
 .lp-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:12px 22px;border-radius:999px;font-weight:700;font-size:1rem;text-decoration:none;text-align:center;max-width:100%;transition:transform .15s,box-shadow .15s,background .15s;border:2px solid transparent}
 .lp-btn:focus-visible,.lp a:focus-visible,.lp summary:focus-visible{outline:3px solid var(--accent,#f59e0b);outline-offset:2px}
@@ -965,6 +965,7 @@ const LANDING_CSS = `
 }
 @media (max-width:560px){.lp-top .lp-btn-sm{padding:8px 12px;font-size:.85rem;min-height:40px}.lp-brand img.lp-lockup{max-width:48vw}.lp-top-in{gap:10px}}
 @media (max-width:480px){.lp-brand img.lp-lockup{max-width:46vw}.lp-btn{width:100%}.lp-actions{flex-direction:column}.lp-top .lp-btn{width:auto}}
+@media (max-width:440px){.lp .lp-top .lp-top-in{padding:0 12px;gap:8px}.lp .lp-top .lp-btn-sm{padding:8px 10px;font-size:.8rem}.lp .lp-brand{min-width:0}.lp .lp-brand img.lp-lockup{max-width:calc(100vw - 240px)}}
 @media (prefers-reduced-motion:reduce){.lp *{transition:none!important}}
 @media (prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}
 .lp-hl{font-style:normal;color:var(--primary,#1d4ed8)}
@@ -979,7 +980,7 @@ const LANDING_CSS = `
 .lp--studio .lp-sec{padding:120px 0}
 .lp--studio .lp-alt{background:#f8fafc}
 .lp--studio .lp-head{max-width:760px;margin:0 0 48px}
-.lp--studio .lp-head h2{font-size:clamp(1.75rem,3.6vw,2.75rem);font-weight:800;line-height:1.12;letter-spacing:-.02em}
+.lp--studio .lp-head :is(h1,h2){font-size:clamp(1.75rem,3.6vw,2.75rem);font-weight:800;line-height:1.12;letter-spacing:-.02em}
 .lp--studio .lp-head p{margin-top:16px;font-size:1.15rem;line-height:1.6;color:#475569}
 .lp--studio .lp-kicker{font-size:.8rem;color:#1e40af;letter-spacing:.14em;margin-bottom:14px!important}
 .lp--studio .lp-btn{min-height:52px;padding:14px 26px;font-weight:700}
@@ -1107,7 +1108,7 @@ const LANDING_CSS = `
 .lp--vivid .lp-sec{padding:96px 0}
 .lp--vivid .lp-alt{background:#f8fafc}
 .lp--vivid .lp-head{max-width:800px;margin:0 auto 52px;text-align:center}
-.lp--vivid .lp-head h2{font-size:clamp(1.8rem,3.8vw,2.7rem);font-weight:800;line-height:1.16;letter-spacing:-.02em}
+.lp--vivid .lp-head :is(h1,h2){font-size:clamp(1.8rem,3.8vw,2.7rem);font-weight:800;line-height:1.16;letter-spacing:-.02em}
 .lp--vivid .lp-head p{margin:16px auto 0;font-size:1.12rem;line-height:1.6;color:#475569;max-width:680px}
 .lp--vivid .lp-kicker{display:inline-block;text-transform:none;letter-spacing:0;font-size:.92rem;font-weight:700;color:#1e40af;background:#dbeafe;border-radius:999px;padding:6px 16px;margin-bottom:16px!important}
 .lp--vivid .lp-hl{color:var(--v-blue);background:var(--v-line) no-repeat 0 100%/100% .3em;padding-bottom:.1em}
@@ -1146,7 +1147,7 @@ const LANDING_CSS = `
 /* số liệu nền tối: tấm navy bo tròn trong khung, số vàng */
 .lp--vivid .lp-insights.lp-dark{background:#fff;color:#f8fafc;padding-top:56px}
 .lp--vivid .lp-insights.lp-dark .lp-wrap{background:radial-gradient(700px 360px at 100% 0,rgba(29,78,216,.55),transparent 70%),#0f172a;border-radius:32px;padding:72px 56px 64px;max-width:1200px}
-.lp--vivid .lp-dark .lp-head h2{color:#fff}
+.lp--vivid .lp-dark .lp-head :is(h1,h2){color:#fff}
 .lp--vivid .lp-dark .lp-hl{color:#fcd34d}
 .lp--vivid .lp-dark .lp-kicker{background:rgba(245,158,11,.16);color:#fcd34d}
 .lp--vivid .lp-dark .lp-head p{color:rgba(248,250,252,.8)}
@@ -1293,7 +1294,7 @@ const LANDING_CSS = `
 /* buổi học trải nghiệm: nền xanh + quỹ đạo vàng; hành trình 4 bước nối đường vàng; thẻ giá trị trắng, cột đặt lịch navy nổi bật */
 .lp--vivid .lp-trial{background:var(--v-star) no-repeat 94% 60px/26px,var(--v-orb) no-repeat 0 0/100% 100%,var(--v-blue);color:#fff}
 .lp--vivid .lp-trial .lp-head{max-width:860px}
-.lp--vivid .lp-trial .lp-head h2{color:#fff;font-size:clamp(1.9rem,4.2vw,3rem)}
+.lp--vivid .lp-trial .lp-head :is(h1,h2){color:#fff;font-size:clamp(1.9rem,4.2vw,3rem)}
 .lp--vivid .lp-trial .lp-hl{color:#fff}
 .lp--vivid .lp-trial .lp-head p{color:rgba(255,255,255,.9);font-size:1.15rem;max-width:760px}
 .lp--vivid .lp-trial .lp-kicker{background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.25)}
@@ -1330,7 +1331,7 @@ const LANDING_CSS = `
 .lp--vivid .lp-form{background:#fff}
 .lp--vivid .lp-form .lp-form-in{max-width:1200px;display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center;background:var(--v-star) no-repeat 6% 14%/24px,var(--v-orb) no-repeat 0 0/100% 100%,#0f172a;border-radius:32px;padding:56px;color:#fff;background-position:95% 10%,0 0,0 0}
 .lp--vivid .lp-form .lp-head.lp-form-side{margin:0;text-align:left;max-width:none}
-.lp--vivid .lp-form .lp-head h2{color:#fff;font-size:clamp(1.8rem,3.6vw,2.6rem)}
+.lp--vivid .lp-form .lp-head :is(h1,h2){color:#fff;font-size:clamp(1.8rem,3.6vw,2.6rem)}
 .lp--vivid .lp-form .lp-hl{color:#fff}
 .lp--vivid .lp-form .lp-head p{margin:14px 0 0;color:rgba(255,255,255,.85);max-width:none}
 .lp--vivid .lp-form-badge{display:inline-block;background:rgba(245,158,11,.18);color:#fcd34d;font-weight:800;border-radius:999px;padding:7px 16px;font-size:.95rem;margin-bottom:16px!important}
