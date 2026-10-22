@@ -394,20 +394,11 @@ function heroShowcase(s: LandingSection, ctx: RenderCtx): string {
   const items = rows.map((r, i) => {
     const pos = /^\d{1,3}% \d{1,3}%$/.test((r.pos ?? "").trim()) ? (r.pos ?? "").trim() : "";
     const img = imgTag(ctx, r.image ?? "", r.imageAlt || r.title || "", { eager: i === 0, sizes: i === 0 && rows.length >= 5 ? "(max-width: 860px) 76vw, 620px" : "(max-width: 860px) 76vw, 340px" });
-    return `<li class="lp-show-i lp-show-${i}${/^(vua|vừa|contain)$/i.test((r.fit ?? "").trim()) ? " lp-show-fit" : ""}"${pos ? ` style="--pos:${pos}"` : ""}><figure>${img}`
+    return `<li class="lp-show-i lp-show-${i}${/^(vua|vừa|contain)$/i.test((r.fit ?? "").trim()) ? " lp-show-fit" : ""}"${pos ? ` style="--pos:${pos}"` : ""}><figure${r.credit ? ` title="Ảnh: ${escHtml(r.credit)}"` : ""}>${img}`
       + `<figcaption><b>${escHtml(r.title ?? "")}</b>${r.tool ? `<span>${escHtml(r.tool)}</span>` : ""}</figcaption></figure></li>`;
   }).join("");
-  // Nguồn ảnh không hiện dưới dải ảnh nữa (22/10/2026) — gom vào mục "Nguồn ảnh" ở chân trang (showcaseCredits)
+  // Nguồn ảnh không hiện trên trang (22/10/2026, theo yêu cầu trung tâm) — chỉ còn trong thuộc tính title của từng ảnh
   return `<div class="lp-hero-pic lp-show"><ul class="lp-show-list">${items}</ul></div>`;
-}
-/** Nguồn ảnh của dải ảnh đầu trang (không trùng), dạng liên kết — chân trang hiện trong mục thu gọn "Nguồn ảnh" (giấy phép CC BY yêu cầu ghi nguồn) */
-function showcaseCredits(doc: LandingDoc, ctx: RenderCtx): string {
-  const seen = new Set<string>();
-  const rows = doc.sections.filter((x) => x.type === "leadHero" && sectionVisible(x)).flatMap((x) => rowsOf(x, "showcase"));
-  return rows.filter((r) => r.credit && src(ctx, r.image ?? "") && !seen.has(r.credit) && !!seen.add(r.credit)).map((r) => {
-    const cu = r.creditUrl && validUrl(r.creditUrl) ? href(ctx, r.creditUrl) : "";
-    return cu ? `<a href="${escHtml(cu)}"${external(cu)} rel="noopener nofollow">${escHtml(r.credit ?? "")}</a>` : escHtml(r.credit ?? "");
-  }).join(" · ");
 }
 function leadHeroPic(s: LandingSection, ctx: RenderCtx): string {
   const show = heroShowcase(s, ctx);
@@ -487,7 +478,7 @@ function renderStickyBar(doc: LandingDoc, ctx: RenderCtx): string {
 /** Liên kết chính sách / đo lường → hàng dưới cùng của chân trang; liên kết đăng ký → nút trong cột thương hiệu */
 const FOOT_LEGAL = /chinh-sach|#do-luong/;
 const FOOT_CTA = /^\/?#dang-ky/;
-function renderFooter(s: LandingSection, ctx: RenderCtx, credits = ""): string {
+function renderFooter(s: LandingSection, ctx: RenderCtx): string {
   const a = (r: Record<string, string>, cls = "") => `<a${cls ? ` class="${cls}"` : ""} href="${escHtml(href(ctx, r.href ?? ""))}"${external(href(ctx, r.href ?? ""))}>${escHtml(r.label ?? "")}</a>`;
   const rows = rowsOf(s, "links");
   const cta = rows.find((r) => FOOT_CTA.test(r.href ?? ""));
@@ -506,7 +497,6 @@ function renderFooter(s: LandingSection, ctx: RenderCtx, credits = ""): string {
     + `</div>`
     + `<div class="lp-foot-bottom"><div><p class="lp-copy">${escHtml(d(s, "copyright") || `© ${ctx.brand.name}`)}</p>${d(s, "legal") ? `<p class="lp-legal">${text(d(s, "legal"))}</p>` : ""}</div>`
     + (legalLinks ? `<nav class="lp-foot-legal" aria-label="Chính sách">${legalLinks}</nav>` : "") + `</div>`
-    + (credits ? `<details class="lp-foot-credits"><summary>Nguồn ảnh minh hoạ</summary><p>${credits}</p></details>` : "")
     + `</div></footer>`;
 }
 
@@ -622,7 +612,7 @@ export function renderParts(doc: LandingDoc, ctx: RenderCtx): LandingPart[] {
       case "tracks": push(alt(renderTracks(s, ctx), isAlt)); break;
       case "change": push(alt(renderChange(s, ctx), isAlt)); break;
       case "trial": push(renderTrial(s, ctx)); break;
-      case "footer": push((lead ? renderStickyBar(doc, ctx) : "") + renderFooter(s, ctx, showcaseCredits(doc, ctx))); break;
+      case "footer": push((lead ? renderStickyBar(doc, ctx) : "") + renderFooter(s, ctx)); break;
       case "form":
         if (ctx.mode === "page") parts.push({ kind: "form", sectionId: s.id, thankYou: d(s, "thankYou"), head: formHead(s), alt: isAlt, compact: !!lead, interest: lead ? leadInterest(lead) : "" });
         else push(alt(formOpen(s), isAlt) + formExport(s, ctx) + `</div></section>`);
@@ -1527,10 +1517,6 @@ const LANDING_CSS = `
  .lp--vivid .lp-faq-more[open]>.lp-faq-list{margin-top:10px}
 }
 @media (max-width:370px){.lp--vivid .lp-sticky-num{display:none}.lp--vivid .lp-sticky .lp-btn-ghost{flex:0 0 auto;padding-left:18px;padding-right:18px}}
-.lp--vivid .lp-foot-credits{margin-top:14px;font-size:.82rem;color:rgba(248,250,252,.6)}
-.lp--vivid .lp-foot-credits summary{cursor:pointer;display:inline-block;padding:4px 0;color:rgba(248,250,252,.72)}
-.lp--vivid .lp-foot-credits p{margin:6px 0 0;line-height:1.6}
-.lp--vivid .lp-foot-credits a{color:rgba(248,250,252,.8)}
 /* "Khi con chỉ dùng / khi con tạo ra công nghệ" trên điện thoại: hai thẻ sát nhau, mũi tên nhỏ đè lên mép, chữ gọn */
 @media (max-width:600px){
  .lp--vivid .lp-contrast .lp-vs{gap:0}
