@@ -95,7 +95,7 @@ export function overviewLines(): string[] {
 /** Bảng học phí năm học (thẻ "programs" có giá) — đúng TH_PRICING */
 export function priceCards(): Row[] {
   const y = TH_PRICING.year, c = TH_PRICING.combo, e = TH_PRICING.exam;
-  const row = (name: string, badge: string, text: string, meta: string, price: number): Row => ({ name, badge, text, meta, price: vnd(price), url: "/dang-ky", linkLabel: "Đăng ký học trải nghiệm", image: "" });
+  const row = (name: string, badge: string, text: string, meta: string, price: number): Row => ({ name, badge, text, meta, price: vnd(price), url: "/hoc-thu-mien-phi", linkLabel: "Đăng ký học trải nghiệm", image: "" });
   return [
     row("Lớp nhóm · 1 năm học", "Lớp 6–8 học sinh", `Niêm yết ${vnd(y.group.list)}, giảm ${y.group.discountPct}%.`, `${y.sessions} buổi · 90 phút/buổi`, y.group.price),
     row("Lớp nhóm · combo 2 năm học", "Lớp 6–8 học sinh", `Niêm yết ${vnd(c.group.list)}, giảm ${c.group.discountPct}%.`, `${c.sessions} buổi · 90 phút/buổi`, c.group.price),

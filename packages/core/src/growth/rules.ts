@@ -139,7 +139,7 @@ export const SITE_PAGES: Record<string, { label: string; path: string; fields: B
     { key: "mapUrl", label: "Link bản đồ", type: "url", max: 500 },
     { key: "note", label: "Ghi chú giờ làm việc", type: "textarea", max: 500 },
   ] },
-  register: { label: "Đăng ký học thử", path: "/dang-ky", fields: [
+  register: { label: "Đăng ký học thử", path: "/hoc-thu-mien-phi", fields: [
     { key: "title", label: "Tiêu đề", type: "text", max: 120, required: true },
     { key: "subtitle", label: "Mô tả", type: "textarea", max: 300 },
     { key: "thankYou", label: "Lời cảm ơn sau khi gửi", type: "textarea", max: 300, required: true },

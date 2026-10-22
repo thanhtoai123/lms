@@ -43,7 +43,7 @@ const B = TH_BRAND.name;
 
 const CTA = (title: string, id = "cta") => sec("cta", id, {
   title, text: "Con học một buổi 1:1 cùng giáo viên qua ClassIn, sau đó giáo viên tư vấn lộ trình phù hợp.",
-  primaryLabel: "Đăng ký học trải nghiệm 1:1", primaryUrl: "/dang-ky", secondaryLabel: `Gọi ${TH_BRAND.hotline}`, secondaryUrl: telHref,
+  primaryLabel: "Đăng ký học trải nghiệm 1:1", primaryUrl: "/hoc-thu-mien-phi", secondaryLabel: `Gọi ${TH_BRAND.hotline}`, secondaryUrl: telHref,
 }, { points: [{ text: "Học online tại nhà" }, { text: "Lớp nhóm 6–8 học sinh" }, { text: "90 phút/buổi · 1 buổi/tuần" }] });
 
 /* --------------------------- Giới thiệu --------------------------- */
@@ -55,7 +55,7 @@ const about: SiteDemoPage = {
     sec("hero", "hero", {
       eyebrow: `Về ${B} · ${TH_BRAND.tagline}`, title: "Thắp lửa đam mê công nghệ cho thế hệ trẻ",
       subtitle: `${B} dạy Robotics, Trí tuệ nhân tạo, Thiết kế đồ họa và Lập trình cho học sinh. Mọi lớp học online qua ClassIn, giáo viên dạy trực tiếp, lớp nhỏ 6–8 học sinh.`,
-      primaryLabel: "Đăng ký học trải nghiệm 1:1", primaryUrl: "/dang-ky", secondaryLabel: "Xem chương trình học", secondaryUrl: "/khoa-hoc",
+      primaryLabel: "Đăng ký học trải nghiệm 1:1", primaryUrl: "/hoc-thu-mien-phi", secondaryLabel: "Xem chương trình học", secondaryUrl: "/khoa-hoc",
       image: TH_ART.hero,
     }, { badges: [{ text: "4 chuyên ngành" }, { text: "Tiểu học · THCS · THPT" }, { text: "Học online qua ClassIn" }] }),
     sec("text", "cau-chuyen", {
@@ -102,7 +102,7 @@ const courses: SiteDemoPage = {
     sec("hero", "hero", {
       eyebrow: "Chương trình học", title: "4 chuyên ngành, lộ trình rõ ràng theo cấp học",
       subtitle: `Mỗi năm học 45 buổi = 3 học phần × 15 buổi, từ Basic (Nền tảng) → Advanced (Nâng cao) → Expert (Chuyên sâu). ${TH_DELIVERY}.`,
-      primaryLabel: "Đăng ký học trải nghiệm 1:1", primaryUrl: "/dang-ky", secondaryLabel: "Xem học phí", secondaryUrl: "/khoa-hoc#hoc-phi",
+      primaryLabel: "Đăng ký học trải nghiệm 1:1", primaryUrl: "/hoc-thu-mien-phi", secondaryLabel: "Xem học phí", secondaryUrl: "/khoa-hoc#hoc-phi",
       image: TH_ART.hero,
     }, { badges: [{ text: "Tiểu học · 8–10 tuổi" }, { text: "THCS · 11–15 tuổi" }, { text: "THPT · 15–18 tuổi" }] }),
     sec("programs", "chuyen-nganh", { title: "Chọn chuyên ngành cho con", intro: "Mỗi thẻ dẫn tới trang chi tiết: chương trình theo cấp học, nội dung từng học phần, luyện thi." }, { items: trackCards() }),
@@ -156,7 +156,7 @@ function trackPage(t: ThTrack): SiteDemoPage {
       sec("hero", "hero", {
         eyebrow: `Chuyên ngành · ${trackLevels(t)}`, title: t.name,
         subtitle: `${t.tagline ?? ""} ${TH_DELIVERY}.`.trim(),
-        primaryLabel: "Đăng ký học trải nghiệm 1:1", primaryUrl: "/dang-ky", secondaryLabel: "Xem các chuyên ngành khác", secondaryUrl: "/khoa-hoc",
+        primaryLabel: "Đăng ký học trải nghiệm 1:1", primaryUrl: "/hoc-thu-mien-phi", secondaryLabel: "Xem các chuyên ngành khác", secondaryUrl: "/khoa-hoc",
         image: TH_ART[t.code],
       }, { badges: [{ text: ageRange(a.from, a.to) }, { text: `${ps.length} chương trình · ${trackYears(t)} năm học` }, { text: "Lớp 6–8 học sinh hoặc kèm 1:1" }, { text: "90 phút/buổi · 1 buổi/tuần" }] }),
       sec("programs", "chuong-trinh", { title: "Chương trình theo cấp học", intro: "Mỗi năm học 45 buổi = 3 học phần Basic → Advanced → Expert. Bấm vào chương trình để xem nội dung từng học phần." }, {
@@ -191,7 +191,7 @@ const contact: SiteDemoPage = {
     sec("hero", "hero", {
       eyebrow: "Liên hệ", title: `Liên hệ ${B}`,
       subtitle: "Gọi hotline hoặc để lại thông tin, trung tâm liên hệ lại để tư vấn lộ trình và hẹn buổi học trải nghiệm 1:1 cho con.",
-      primaryLabel: `Gọi ${TH_BRAND.hotline}`, primaryUrl: telHref, secondaryLabel: "Đăng ký học trải nghiệm", secondaryUrl: "/dang-ky",
+      primaryLabel: `Gọi ${TH_BRAND.hotline}`, primaryUrl: telHref, secondaryLabel: "Đăng ký học trải nghiệm", secondaryUrl: "/hoc-thu-mien-phi",
     }, { badges: [{ text: `Hotline ${TH_BRAND.hotline}` }, { text: TH_BRAND.website }, { text: `Fanpage ${TH_BRAND.fanpage}` }] }),
     sec("text", "kenh", {
       title: "Kênh liên hệ",
@@ -217,7 +217,7 @@ const terms: SiteDemoPage = {
   desc: "Học phí, chương trình, quy chuẩn lớp online, học bù, bảo lưu, hoàn phí, phản ánh, hình ảnh của con.",
   seoTitle: `Điều khoản đăng ký học — ${B}`, seoDescription: "Học phí, học bù, bảo lưu, chuyển nhượng, hoàn học phí và phản ánh chất lượng khi đăng ký học tại TH STEAM Academy.",
   build: () => page([
-    sec("hero", "hero", { eyebrow: "Chính sách", title: "Điều khoản đăng ký học", subtitle: `Áp dụng từ năm học ${TH_PRICING.schoolYear}.`, primaryLabel: "Đăng ký học trải nghiệm 1:1", primaryUrl: "/dang-ky", secondaryLabel: "Về trang chủ", secondaryUrl: "/" }, { badges: [] }),
+    sec("hero", "hero", { eyebrow: "Chính sách", title: "Điều khoản đăng ký học", subtitle: `Áp dụng từ năm học ${TH_PRICING.schoolYear}.`, primaryLabel: "Đăng ký học trải nghiệm 1:1", primaryUrl: "/hoc-thu-mien-phi", secondaryLabel: "Về trang chủ", secondaryUrl: "/" }, { badges: [] }),
     sec("text", "noi-dung", { title: "", body: termsMarkdown() }),
   ]),
 };
@@ -301,7 +301,7 @@ const courseTemplate: SiteDemoPage = {
     sec("hero", "hero", {
       eyebrow: "Chương trình học", title: "[DEMO] Tên chương trình",
       subtitle: `[DEMO] Một đến hai câu: chương trình dành cho ai, con làm được gì. ${TH_DELIVERY}.`,
-      primaryLabel: "Đăng ký học trải nghiệm 1:1", primaryUrl: "/dang-ky", secondaryLabel: "Xem các chuyên ngành", secondaryUrl: "/khoa-hoc",
+      primaryLabel: "Đăng ký học trải nghiệm 1:1", primaryUrl: "/hoc-thu-mien-phi", secondaryLabel: "Xem các chuyên ngành", secondaryUrl: "/khoa-hoc",
     }, { badges: [{ text: "[DEMO] Độ tuổi" }, { text: "[DEMO] Số năm học · số buổi" }, { text: "Học online qua ClassIn" }] }),
     sec("features", "con-hoc", { title: "[DEMO] Con học được gì", intro: "Mỗi học phần một nhóm kỹ năng và một sản phẩm." }, {
       items: [

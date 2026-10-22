@@ -132,7 +132,7 @@ test("export: HTML độc lập, CSS nhúng, liên kết nội bộ thành tuy�
   assert.ok(html.startsWith("<!doctype html>"));
   assert.ok(html.includes("<style>") && html.includes(".lp-hero"));
   assert.ok(html.includes('src="https://app.example.com/icon.svg"'));
-  assert.ok(html.includes('href="https://app.example.com/dang-ky?lp=trang-chu"'));
+  assert.ok(html.includes('href="https://app.example.com/hoc-thu-mien-phi?lp=trang-chu"'));
   assert.ok(html.includes('content="https://app.example.com/api/public/site-media/a.png"'));
   assert.ok(html.includes("--primary:"));
   assert.ok(!html.includes("data-lp-form"));

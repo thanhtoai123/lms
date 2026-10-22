@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = publicSiteUrl();
   const s = await publicSitemap(getDb()).catch(() => ({ pages: [], news: [], jobs: [] }));
-  const fixed = ["/tin-tuc", "/tuyen-dung", "/dang-ky"].map((path) => ({ path, lastModified: null as Date | null }));
+  const fixed = ["/tin-tuc", "/tuyen-dung", "/hoc-thu-mien-phi"].map((path) => ({ path, lastModified: null as Date | null }));
   const seen = new Set<string>();
   return [...s.pages, ...fixed, ...s.news, ...s.jobs].filter((x) => (seen.has(x.path) ? false : (seen.add(x.path), true))).map((x) => ({
     url: base + (x.path === "/" ? "" : x.path),

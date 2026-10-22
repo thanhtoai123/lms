@@ -30,7 +30,7 @@ export function TrackingSettings({ initial, canEdit }: { initial: { metaPixelId:
 }
 
 export function UtmBuilder({ campaigns }: { campaigns: { utmCampaign: string; name: string; landingUrl: string | null }[] }) {
-  const [base, setBase] = useState(campaigns[0]?.landingUrl ?? "https://thsteam.edu.vn/dang-ky");
+  const [base, setBase] = useState(campaigns[0]?.landingUrl ?? "https://thsteam.edu.vn/hoc-thu-mien-phi");
   const [source, setSource] = useState("facebook");
   const [medium, setMedium] = useState("cpc");
   const [campaign, setCampaign] = useState(campaigns[0]?.utmCampaign ?? "");
@@ -66,7 +66,7 @@ export function CampaignForm({ centers, camp }: { centers: { id: string; code: s
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const today = new Date().toISOString().slice(0, 10);
-  const [v, setV] = useState<Camp>(camp ?? { name: "", utmCampaign: "", channel: "facebook", centerId: null, budget: 0, startDate: today, endDate: null, landingUrl: "https://thsteam.edu.vn/dang-ky", notes: null, isActive: true });
+  const [v, setV] = useState<Camp>(camp ?? { name: "", utmCampaign: "", channel: "facebook", centerId: null, budget: 0, startDate: today, endDate: null, landingUrl: "https://thsteam.edu.vn/hoc-thu-mien-phi", notes: null, isActive: true });
   const m = useMutation(trpc.marketing.upsertCampaign.mutationOptions({ onSuccess: () => { setOpen(false); router.refresh(); } }));
   if (!open) return <button type="button" className={camp ? "text-xs text-brand-600" : "btn-primary"} onClick={() => setOpen(true)}>{camp ? "Sửa" : "+ Chiến dịch"}</button>;
   return (

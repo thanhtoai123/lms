@@ -45,7 +45,7 @@ export const SITE_NODES: readonly SiteNode[] = [
   { key: "policy-terms", slug: "chinh-sach-dieu-khoan", path: "/chinh-sach/dieu-khoan", label: "Điều khoản đăng ký học", group: "policy", desc: "Học phí, học bù, bảo lưu, hoàn phí, phản ánh." },
   { key: "news", slug: null, path: "/tin-tuc", label: "Tin tức", group: "system", desc: "Bài viết, sự kiện, góc phụ huynh.", manage: "/news" },
   { key: "jobs", slug: null, path: "/tuyen-dung", label: "Tuyển dụng", group: "system", desc: "Vị trí đang mở và nộp hồ sơ.", manage: "/jobs" },
-  { key: "register", slug: null, path: "/dang-ky", label: "Đăng ký học trải nghiệm", group: "system", desc: "Form đăng ký học trải nghiệm 1:1, gửi vào CRM.", manage: "/site-content" },
+  { key: "register", slug: null, path: "/hoc-thu-mien-phi", label: "Đăng ký học trải nghiệm", group: "system", desc: "Form đăng ký học trải nghiệm 1:1, gửi vào CRM.", manage: "/site-content" },
 ];
 
 const FIXED: Record<string, string> = { "trang-chu": "/", "gioi-thieu": "/gioi-thieu", "khoa-hoc": "/khoa-hoc", "lien-he": "/lien-he" };

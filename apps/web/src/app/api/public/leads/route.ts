@@ -81,7 +81,7 @@ export async function POST(req: Request) {
       userAgent: req.headers.get("user-agent"),
     }, null);
     if (typeof body.anonId === "string") {
-      await recordTrack(db, { event: "form_submit", anonId: body.anonId, path: "/dang-ky", utmSource: parsed.data.utmSource, utmMedium: parsed.data.utmMedium, utmCampaign: parsed.data.utmCampaign, leadId: r.lead.id }).catch(() => null);
+      await recordTrack(db, { event: "form_submit", anonId: body.anonId, path: "/hoc-thu-mien-phi", utmSource: parsed.data.utmSource, utmMedium: parsed.data.utmMedium, utmCampaign: parsed.data.utmCampaign, leadId: r.lead.id }).catch(() => null);
     }
     await logWebhook(db, { source: "public_lead", status: r.duplicated ? "duplicate" : "processed", httpStatus: 200, payload: body, headers: hdrs, result: { leadId: r.lead.id, duplicated: r.duplicated }, ip });
     if (!r.duplicated) {

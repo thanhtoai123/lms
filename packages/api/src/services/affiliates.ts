@@ -127,7 +127,7 @@ export async function getAffiliate(ctx: ProtectedContext, id: string) {
     ...a, centerCode: row.centerCode, typeLabel: AFFILIATE_TYPE_VI[a.type as AffiliateType], canEdit: can(ctx, "affiliate:update", a.centerId),
     phone: a.phone && !can(ctx, "affiliate:update", a.centerId) ? maskPhone(normalizeVnPhone(a.phone) ?? a.phone) : a.phone,
     payoutInfo: payer || can(ctx, "affiliate:update", a.centerId) ? a.payoutInfo : a.payoutInfo ? "•••" : null,
-    link: `/dang-ky?ref=${a.code}&utm_source=referral&utm_medium=affiliate&utm_campaign=${a.code.toLowerCase()}`,
+    link: `/hoc-thu-mien-phi?ref=${a.code}&utm_source=referral&utm_medium=affiliate&utm_campaign=${a.code.toLowerCase()}`,
     leads: ls.map((l) => ({ ...l, phone: maskPhone(l.phone), statusLabel: LEAD_STATUS_VI[l.status as LeadStatus] ?? l.status })),
     rewards: rs.map((x) => ({ ...x.r, lead: x.lead, order: x.order, approver: x.approver, statusLabel: REWARD_STATUS_VI[x.r.status as RewardStatus] })),
   };

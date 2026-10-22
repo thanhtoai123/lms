@@ -134,6 +134,8 @@ const wrap = (s: LandingSection, cls: string, inner: string, id?: string) =>
 /** Đầu trang dựng từ một khối header (dùng cho trang không phải trang dựng khối) */
 export function renderHeaderHtml(s: LandingSection, ctx: RenderCtx): string { return renderHeader(s, ctx); }
 export function renderFooterHtml(s: LandingSection, ctx: RenderCtx): string { return renderFooter(s, ctx); }
+/** Tiêu đề khối form (nhãn, tiêu đề, ✓, gọi hotline) — dùng cho trang đăng ký riêng; `asH1` khi form là nội dung chính của trang */
+export function renderFormHeadHtml(s: LandingSection, asH1 = false): string { const h = formHead(s); return asH1 ? h.replace("<h2>", "<h1>").replace("</h2>", "</h1>") : h; }
 
 /** Ảnh nội bộ ("/…") trong tệp xuất cho host khác → địa chỉ tuyệt đối của hệ thống */
 const abs = (ctx: RenderCtx, u: string) => (ctx.mode === "export" && u.startsWith("/") && ctx.baseUrl ? ctx.baseUrl + u : u);
@@ -489,9 +491,12 @@ function formOpen(s: LandingSection): string {
 }
 function formExport(s: LandingSection, ctx: RenderCtx): string {
   // HTML độc lập không gửi form được sang hệ thống khác miền → dẫn về trang đăng ký của hệ thống
-  const to = (ctx.baseUrl ?? "") + "/dang-ky?lp=" + encodeURIComponent(ctx.slug);
+  const to = (ctx.baseUrl ?? "") + TRIAL_PATH + "?lp=" + encodeURIComponent(ctx.slug);
   return `<div class="lp-form-card"><p>Để lại thông tin, trung tâm sẽ liên hệ lại trong giờ làm việc.</p>${btn(ctx, "Đăng ký học trải nghiệm 1:1", to, "primary")}</div>`;
 }
+
+/** Đường dẫn trang đăng ký học trải nghiệm (form riêng, cùng form trang chính); /dang-ky chuyển hướng về đây */
+export const TRIAL_PATH = "/hoc-thu-mien-phi";
 
 /** Từng phần của trang theo thứ tự. Trang công khai ghép phần "form" bằng thành phần React; export thì dùng nút dẫn về hệ thống */
 export function renderParts(doc: LandingDoc, ctx: RenderCtx): LandingPart[] {
