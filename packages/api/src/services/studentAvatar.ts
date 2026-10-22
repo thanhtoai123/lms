@@ -48,7 +48,7 @@ async function loadStudent(db: Db, id: string) {
 export async function uploadStudentAvatar(ctx: ProtectedContext, input: { studentId: string; mime: string; bytes: Uint8Array }) {
   const s = await loadStudent(ctx.db, input.studentId);
   assertTenant(ctx, s, "Học viên");
-  requirePermission(ctx, "student:update", { centerId: s.homeCenterId });
+  requirePermission(ctx, "student:update", { centerId: s.homeCenterId, strictCenter: true });
   const f = prepare(input);
   const key = await save(ctx.db, s.id, s.avatarKey, { ...f, mime: input.mime });
   await writeAudit(ctx.db, { actorId: ctx.user.id, action: "UPDATE", module: "students", entity: "student_avatar", entityId: s.id, after: { bytes: f.bytes.byteLength, mime: input.mime }, ip: ctx.ip, tenantId: s.tenantId });
@@ -59,7 +59,7 @@ export async function uploadStudentAvatar(ctx: ProtectedContext, input: { studen
 export async function removeStudentAvatar(ctx: ProtectedContext, studentId: string) {
   const s = await loadStudent(ctx.db, studentId);
   assertTenant(ctx, s, "Học viên");
-  requirePermission(ctx, "student:update", { centerId: s.homeCenterId });
+  requirePermission(ctx, "student:update", { centerId: s.homeCenterId, strictCenter: true });
   if (!s.avatarKey) return { ok: true as const, changed: false };
   await ctx.db.update(students).set({ avatarKey: null, updatedAt: new Date() }).where(eq(students.id, s.id));
   await deleteObject(s.avatarKey).catch(() => undefined);

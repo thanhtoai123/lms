@@ -155,7 +155,9 @@ function bankScope(ctx: ProtectedContext): SQL {
 
 function canHandle(ctx: ProtectedContext, centerId: string | null) {
   const cc = confirmCenters(ctx);
-  return cc.includes(null) || (centerId ? cc.includes(centerId) : cc.length > 0);
+  // Giao dịch chưa gắn cơ sở (chuyển khoản chưa khớp) chỉ người có quyền xác nhận ở cấp Hội sở (gán không kèm cơ sở)
+  // xử lý được — tránh để kế toán một cơ sở "bỏ qua" tiền của cơ sở khác trên sao kê dùng chung
+  return cc.includes(null) || (centerId ? cc.includes(centerId) : false);
 }
 
 export async function listBankTx(ctx: ProtectedContext, input: { status?: BankTxStatus; q?: string; from?: string; to?: string; page?: number }) {

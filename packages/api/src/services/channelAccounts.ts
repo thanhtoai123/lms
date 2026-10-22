@@ -9,11 +9,11 @@
  * (so sánh theo thời gian hằng) HOẶC chữ ký HMAC-SHA256 của nguyên văn thân yêu cầu ở `X-Signature`.
  * Bí mật lưu mã hoá AES-256-GCM, không bao giờ trả về giao diện.
  */
-import { and, eq, gte, isNull, desc, sql } from "drizzle-orm";
+import { and, eq, gte, isNull, inArray, desc, sql } from "drizzle-orm";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { TRPCError } from "@trpc/server";
 import { channelAccounts, conversations, messages, parents, leads, centers, appointments, type Database } from "@satarobo/db";
-import { authorizeGlobal, docSuKienZcrm, duDeGhiTin, nickImLang, HAN_MUC_NICK_NGAY, type SuKienKenh, loiUrlCongNoi, khoaHoiThoai, timHoiThoaiZcrm, thanGuiZcrm, docLichHenZcrm, phanTichNhung, type HoiThoaiZcrm } from "@satarobo/core";
+import { authorizeGlobal, visibleCenterIds, docSuKienZcrm, duDeGhiTin, nickImLang, HAN_MUC_NICK_NGAY, type SuKienKenh, loiUrlCongNoi, khoaHoiThoai, timHoiThoaiZcrm, thanGuiZcrm, docLichHenZcrm, phanTichNhung, type HoiThoaiZcrm } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { sealWith, openWith } from "./pii";
 import { writeAudit } from "./audit";
@@ -499,7 +499,12 @@ function nguonCua(url: string | null | undefined): string | null {
 export async function giaoDienZcrm(ctx: ProtectedContext) {
   requirePermission(ctx, "message:read");
   requirePermission(ctx, "lead:read");
-  const ds = await ctx.db.select().from(channelAccounts).where(and(eq(channelAccounts.channel, "zalo_ca_nhan"), eq(channelAccounts.active, true)));
+  // Chỉ nick của cơ sở người này thấy, cộng nick chung chưa gắn cơ sở (null); đơn vị nhượng quyền không thấy ZCRM của chuỗi khác
+  const visible = visibleCenterIds(ctx.actor);
+  const ds = await ctx.db.select().from(channelAccounts).where(and(
+    eq(channelAccounts.channel, "zalo_ca_nhan"), eq(channelAccounts.active, true),
+    visible === null ? sql`true` : visible.length ? or(inArray(channelAccounts.centerId, visible), isNull(channelAccounts.centerId))! : isNull(channelAccounts.centerId),
+  ));
   const nguonLms = nguonCua(process.env.NEXT_PUBLIC_APP_URL) ?? "http://localhost:3000";
   const choPhep = [process.env.ZCRM_ORIGINS, process.env.CSP_FRAME_SRC_EXTRA].filter(Boolean).join(" ").split(/[\s,]+/).map((x) => x.trim().replace(/\/+$/, "")).filter(Boolean);
   const out: { id: string; label: string; url: string; nguon: string; nhungDuoc: boolean; lyDo: string[] }[] = [];

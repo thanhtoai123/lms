@@ -430,19 +430,25 @@ export async function requestRedemption(ctx: ProtectedContext, input: { studentI
   requirePermission(ctx, "coin:redeem", { centerId: s.homeCenterId, strictCenter: true });
   const rw = await ctx.db.query.rewardItems.findFirst({ where: eq(rewardItems.id, input.rewardId) });
   if (!rw || !rw.isActive) throw pre("Quà không còn áp dụng");
-  const b = (await balancesOf(ctx.db, [s.id])).get(s.id)!;
-  const avail = availableBalance(b.balance, b.held);
-  if (avail < rw.cost) throw pre(`Không đủ xu: khả dụng ${avail}, cần ${rw.cost}${b.held ? ` (đang giữ ${b.held} cho yêu cầu chờ duyệt)` : ""}`);
+  const b0 = (await balancesOf(ctx.db, [s.id])).get(s.id)!;
+  const avail0 = availableBalance(b0.balance, b0.held);
+  if (avail0 < rw.cost) throw pre(`Không đủ xu: khả dụng ${avail0}, cần ${rw.cost}${b0.held ? ` (đang giữ ${b0.held} cho yêu cầu chờ duyệt)` : ""}`);
   if (rw.inventoryItemId) {
     const lv = await ctx.db.query.stockLevels.findFirst({ where: and(eq(stockLevels.itemId, rw.inventoryItemId), eq(stockLevels.centerId, s.homeCenterId)) });
     if ((lv?.onHand ?? 0) < 1) throw pre("Quà đã hết tại cơ sở");
   }
   const center = await ctx.db.query.centers.findFirst({ where: eq(centers.id, s.homeCenterId) });
-  return ctx.db.transaction(async (tx) => {
-    const code = await nextRedemptionCode(tx as unknown as Db, center?.code ?? "CS");
+  return ctx.db.transaction(async (txx) => {
+    const tx = txx as unknown as Db;
+    // Khoá theo học viên rồi tính lại số xu giữ: hai yêu cầu đổi quà cùng lúc không cùng vượt số dư
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${"coin:" + s.id}))`);
+    const b = (await balancesOf(tx, [s.id])).get(s.id)!;
+    const avail = availableBalance(b.balance, b.held);
+    if (avail < rw.cost) throw pre(`Không đủ xu: khả dụng ${avail}, cần ${rw.cost}${b.held ? ` (đang giữ ${b.held} cho yêu cầu chờ duyệt)` : ""}`);
+    const code = await nextRedemptionCode(tx, center?.code ?? "CS");
     const [r] = await tx.insert(redemptions).values({ code, studentId: s.id, centerId: s.homeCenterId!, rewardId: rw.id, cost: rw.cost, note: input.note?.trim() || null, requestedBy: ctx.user.id }).returning({ id: redemptions.id });
     const mgrs = await tx.select({ u: userRoles.userId }).from(userRoles).where(and(eq(userRoles.centerId, s.homeCenterId!), eq(userRoles.role, "CENTER_MANAGER")));
-    await deliverNotifications(tx, mgrs.map((m) => m.u), { title: "Yêu cầu đổi quà", body: `${s.fullName} đổi "${rw.name}" (${rw.cost} xu)`, link: "/th-coin?tab=redeem", priority: 3, type: "coin.redeem" });
+    await deliverNotifications(tx as unknown as Db, mgrs.map((m) => m.u), { title: "Yêu cầu đổi quà", body: `${s.fullName} đổi "${rw.name}" (${rw.cost} xu)`, link: "/th-coin?tab=redeem", priority: 3, type: "coin.redeem" });
     await writeAudit(tx as unknown as Db, { actorId: ctx.user.id, action: "CREATE", module: "coin", entity: "redemptions", entityId: r!.id, after: { code, reward: rw.name, cost: rw.cost }, ip: ctx.ip });
     return { id: r!.id, code };
   });

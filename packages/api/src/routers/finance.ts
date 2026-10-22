@@ -66,7 +66,7 @@ export const financeRouter = router({
         packageSessions: z.number().int().min(1).max(500).nullish(), leadChildId: uuid.nullish(), studentId: uuid.nullish(), enrollmentId: uuid.nullish(),
         format: z.enum(CLASS_FORMATS).nullish(), discounts: z.array(lineDiscount).max(5).nullish(), targetClassId: uuid.nullish(),
       })).min(1, "Đơn cần ít nhất một dòng").max(20),
-      discount: z.object({ type: z.enum(["amount", "percent"]), value: z.number().min(0).max(10_000_000_000) }).nullish(),
+      discount: z.object({ type: z.enum(["amount", "percent"]), value: z.number().min(0).max(10_000_000_000) }).refine((d) => d.type !== "percent" || d.value <= 100, { message: "Giảm theo phần trăm tối đa 100%" }).nullish(),
       paymentMethodId: uuid,
       installments: z.union([
         z.object({ count: z.number().int().min(1).max(MAX_INSTALLMENTS), firstDueDate: isoDate, intervalDays: z.number().int().min(7).max(180).optional(), deposit: money.nullish(), monthly: z.boolean().optional() }),
