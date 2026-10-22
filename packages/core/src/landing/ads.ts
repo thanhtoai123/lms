@@ -139,7 +139,7 @@ const footer = () => sec("footer", "footer", {
   addresses: DEFAULT_CHROME.addresses.map((x) => ({ ...x })),
   links: [
     ...TH_TRACKS.map((t) => ({ label: t.name, href: `/lp/${ADS_TRACK_SLUG[t.code]}` })),
-    { label: "Trang chủ", href: "/" }, { label: "Điều khoản đăng ký học", href: "/chinh-sach/dieu-khoan" }, { label: "Chính sách bảo mật", href: "/chinh-sach/bao-mat" }, { label: "Đổi lựa chọn đo lường", href: "#do-luong" },
+    { label: "Trang chủ", href: "/" }, { label: "Điều khoản đăng ký học", href: "/chinh-sach/dieu-khoan" }, { label: "Chính sách bảo mật", href: "/chinh-sach/bao-mat" },
   ],
 });
 const cta = (title: string) => sec("cta", "cta", {

@@ -274,7 +274,7 @@ const privacy: SiteDemoPage = {
         "",
         "## 7. Đo lường trên website",
         "- Trung tâm tự đếm lượt xem trang và nguồn truy cập để cải thiện website; dữ liệu này không bán, không gửi cho bên quảng cáo.",
-        "- Cookie của Meta Pixel, Google Analytics, Google Ads chỉ chạy khi bố mẹ chọn \"Đồng ý\". Muốn đổi lựa chọn: bấm \"Đổi lựa chọn đo lường\" ở chân trang.",
+        "- Cookie của Meta Pixel, Google Analytics, Google Ads chỉ chạy khi bố mẹ chọn \"Đồng ý\". Bố mẹ có thể [đổi lựa chọn đo lường](/#do-luong) bất cứ lúc nào.",
         "",
         "## 8. Thay đổi chính sách",
         "Khi chính sách thay đổi, trung tâm cập nhật trên trang này và ghi ngày hiệu lực mới.",

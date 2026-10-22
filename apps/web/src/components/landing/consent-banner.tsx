@@ -3,7 +3,7 @@
 /**
  * HỎI ĐỒNG Ý ĐO LƯỜNG QUẢNG CÁO (chỉ hiện khi trang có thẻ Meta / Google — xem ad-tags.tsx).
  * Đồng ý → chạy `window.__thAdsBoot()` và ghi nhớ; Từ chối → ghi nhớ, không nạp thẻ. Không chặn nội dung, không tick sẵn.
- * Bấm "Đổi lựa chọn đo lường" ở chân trang (liên kết #do-luong) để hỏi lại.
+ * Mở liên kết /#do-luong (mục 7 Chính sách bảo mật: "đổi lựa chọn đo lường") để hỏi lại.
  */
 import { useEffect, useState } from "react";
 
