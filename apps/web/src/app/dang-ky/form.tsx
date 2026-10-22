@@ -41,7 +41,7 @@ export function TrialForm({ utm, thankYou }: { utm: { utm_source: string; utm_me
       </div>
       <div><label className="mb-1 block text-sm font-semibold text-ink-800">Trường</label><input name="truong" className="input" /></div>
       <div><label className="mb-1 block text-sm font-semibold text-ink-800">Ghi chú</label><textarea name="ghiChu" className="input" placeholder="Con thích Robotics, AI, đồ họa hay lập trình; học buổi nào tiện…" /></div>
-      <label className="flex items-start gap-2 text-sm leading-snug text-ink-600"><input type="checkbox" name="consent" required className="mt-0.5 shrink-0" /><span>Tôi đồng ý để TH STEAM Academy liên hệ và xử lý thông tin theo <a className="underline" href="/chinh-sach/bao-mat" target="_blank" rel="noreferrer">chính sách bảo mật</a>.</span></label>
+      <label className="flex items-start gap-2 text-sm leading-snug text-ink-600"><input type="checkbox" name="consent" defaultChecked className="mt-0.5 shrink-0" /><span>Tôi đồng ý để TH STEAM Academy liên hệ và xử lý thông tin theo <a className="underline" href="/chinh-sach/bao-mat" target="_blank" rel="noreferrer">chính sách bảo mật</a>.</span></label>
       <label className="flex items-start gap-2 text-sm leading-snug text-ink-600"><input type="checkbox" name="marketingConsent" className="mt-0.5 shrink-0" /><span>Tôi muốn nhận thông tin ưu đãi, sự kiện của TH STEAM Academy (có thể huỷ bất cứ lúc nào).</span></label>
       {state === "error" && <p className="text-sm text-danger">{msg}</p>}
       <button className="btn-primary w-full !min-h-12 !rounded-full !bg-[#f59e0b] !text-[#0f172a] font-bold hover:!bg-[#d97706]" disabled={state === "sending"}>{state === "sending" ? "Đang gửi…" : TH_REGISTER_BLOCK.button}</button>
