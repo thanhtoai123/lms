@@ -6,7 +6,7 @@ import {
   AFFILIATE_TYPE_VI, REWARD_STATUS_VI, LEAD_STATUS_VI,
   type AffiliateType, type RewardRule, type RewardStatus, type LeadStatus,
 } from "@satarobo/core";
-import type { ProtectedContext } from "../trpc";
+import { allowedAt, type ProtectedContext } from "../trpc";
 import { writeAudit } from "./audit";
 import { notify } from "./finance";
 import { assertCenterTenant, tenantCond, tenantCondViaCenter } from "./tenantScope";
@@ -26,7 +26,7 @@ function rule<T>(fn: () => T): T {
     throw e;
   }
 }
-const can = (ctx: ProtectedContext, p: `affiliate:${string}`, centerId: string | null) => authorize(ctx.actor, p, { centerId }).allowed;
+const can = (ctx: ProtectedContext, p: `affiliate:${string}`, centerId: string | null) => allowedAt(ctx, p, { centerId });
 function scopeOf(ctx: ProtectedContext, col: typeof affiliates.centerId | typeof affiliateRewards.centerId): SQL {
   // Nguồn giới thiệu chưa có cột tenant → suy theo cơ sở gắn với dòng
   const tenant = tenantCondViaCenter(ctx, col);

@@ -1,5 +1,7 @@
 import { z } from "zod";
-import { NOTIFICATION_PRIORITIES } from "@satarobo/core";
+import { NOTIFICATION_PRIORITIES, authorizeGlobal } from "@satarobo/core";
+import { TRPCError } from "@trpc/server";
+import { inChainHeadOffice } from "../services/tenantScope";
 import { router, protectedProcedure, requirePermission } from "../trpc";
 import * as E from "../services/engagement";
 import * as N from "../services/notify";
@@ -21,6 +23,7 @@ export const engagementRouter = router({
     .query(({ ctx, input }) => N.notificationCenter(ctx, input)),
   runActionAlerts: protectedProcedure.mutation(async ({ ctx }) => {
     requirePermission(ctx, "automation:run");
+    if (!authorizeGlobal(ctx.actor, "automation:run") || !inChainHeadOffice(ctx)) throw new TRPCError({ code: "FORBIDDEN", message: "Chỉ quản trị Hội sở" });
     return N.buildActionRequiredAlerts(ctx.db);
   }),
   markRead: protectedProcedure.input(z.object({ ids: z.array(z.string().uuid()).optional(), all: z.boolean().optional() })).mutation(({ ctx, input }) => E.markRead(ctx, input)),
@@ -33,6 +36,7 @@ export const engagementRouter = router({
   /** Chạy worker thủ công (dev/ops) */
   runWorker: protectedProcedure.mutation(async ({ ctx }) => {
     requirePermission(ctx, "automation:run");
+    if (!authorizeGlobal(ctx.actor, "automation:run") || !inChainHeadOffice(ctx)) throw new TRPCError({ code: "FORBIDDEN", message: "Chỉ quản trị Hội sở" });
     const sla = await E.scanLeadSla(ctx.db);
     const r = await E.processOutbox(ctx.db);
     return { ...r, slaEvents: sla };

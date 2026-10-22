@@ -112,7 +112,7 @@ async function analyse(ctx: ProtectedContext, rows: RawLeadImportRow[], mode: Le
   const existing: { id: string; parentName: string; status: LeadStatus; phoneNormalized: string }[] = [];
   for (let i = 0; i < phones.length; i += 1000) {
     existing.push(...(await ctx.db.select({ id: leads.id, parentName: leads.parentName, status: leads.status, phoneNormalized: leads.phoneNormalized }).from(leads)
-      .where(and(inArray(leads.phoneNormalized, phones.slice(i, i + 1000)), isNull(leads.deletedAt)))));
+      .where(and(inArray(leads.phoneNormalized, phones.slice(i, i + 1000)), isNull(leads.deletedAt), ctx.tenantId ? eq(leads.tenantId, ctx.tenantId) : sql`true`))));
   }
   const byPhone = new Map<string, (typeof existing)[number]>();
   for (const e of existing) if (!byPhone.has(e.phoneNormalized) || e.status !== "lost") byPhone.set(e.phoneNormalized, e);
@@ -196,6 +196,7 @@ export async function commitLeadImport(ctx: ProtectedContext, input: { rows: Raw
         },
         ctx.user.id,
         {
+          tenantId: ctx.tenantId,
           overwrite: lines.some((l) => overwrite.has(l)),
           status: input.mode === "registered" ? "enrolled" : undefined,
           receivedAt: registeredAt ? new Date(`${registeredAt}T08:00:00+07:00`) : null,

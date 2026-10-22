@@ -16,7 +16,7 @@ import {
   EVAL_FORM_TYPE_VI, EVAL_ROUND_STATUS_VI, EVAL_RATING_MAX,
   type EvalFormType, type EvalQuestionType, type EvalRoundAction, type EvalRoundStatus, type Permission,
 } from "@satarobo/core";
-import { requirePermission, type ProtectedContext } from "../trpc";
+import { requirePermission, allowedAt, type ProtectedContext } from "../trpc";
 import { tenantCondViaCenter } from "./tenantScope";
 import { writeAudit } from "./audit";
 import { todayISO } from "./sessions";
@@ -25,7 +25,7 @@ type Db = ProtectedContext["db"];
 const bad = (m: string | string[]) => new TRPCError({ code: "BAD_REQUEST", message: Array.isArray(m) ? m.join("; ") : m });
 const pre = (m: string) => new TRPCError({ code: "PRECONDITION_FAILED", message: m });
 const notFound = (m: string) => new TRPCError({ code: "NOT_FOUND", message: m });
-const can = (ctx: ProtectedContext, p: Permission, centerId: string | null) => authorize(ctx.actor, p, { centerId }).allowed;
+const can = (ctx: ProtectedContext, p: Permission, centerId: string | null) => allowedAt(ctx, p, { centerId });
 
 function scopeOn(ctx: ProtectedContext, col: AnyPgColumn): SQL {
   const v = visibleCenterIds(ctx.actor);

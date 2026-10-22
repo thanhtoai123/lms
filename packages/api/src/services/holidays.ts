@@ -6,6 +6,7 @@ import {
   type ScheduleRule, type Weekday, type ExistingSession,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
+import { inChainHeadOffice } from "./tenantScope";
 import { writeAudit } from "./audit";
 import { deliverNotifications } from "./notify";
 import { todayISO } from "./sessions";
@@ -21,7 +22,7 @@ function canGlobal(ctx: ProtectedContext, perm: "holiday:create" | "holiday:dele
 
 function checkScope(ctx: ProtectedContext, perm: "holiday:create" | "holiday:delete", centerId: string | null) {
   if (centerId === null) {
-    if (!canGlobal(ctx, perm)) throw new TRPCError({ code: "FORBIDDEN", message: "Chỉ Hội sở được đặt ngày nghỉ toàn hệ thống — hãy chọn cơ sở" });
+    if (!canGlobal(ctx, perm) || !inChainHeadOffice(ctx)) throw new TRPCError({ code: "FORBIDDEN", message: "Chỉ Hội sở được đặt ngày nghỉ toàn hệ thống — hãy chọn cơ sở" });
   } else {
     requirePermission(ctx, perm, { centerId });
   }

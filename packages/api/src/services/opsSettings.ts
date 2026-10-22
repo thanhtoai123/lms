@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { appSettings, centers, type Database } from "@satarobo/db";
 import { authorize, authorizeGlobal, hasPermission, resolveOps, validateOps, OPS_GROUPS, OPS_DEFAULTS, type OpsGroup, type OpsSettings, type OpsField } from "@satarobo/core";
 import type { ProtectedContext } from "../trpc";
+import { inChainHeadOffice, assertCenterTenant } from "./tenantScope";
 import { writeAudit } from "./audit";
 
 type Db = ProtectedContext["db"];
@@ -38,7 +39,8 @@ export async function opsGroup(ctx: ProtectedContext, input: { group: OpsGroup; 
 
 export async function saveOpsGroup(ctx: ProtectedContext, input: { group: OpsGroup; centerId: string | null; values: Record<string, number | boolean | string | null>; reason?: string | null }) {
   const level = input.centerId ? "center" : "global";
-  const ok = input.centerId ? authorize(ctx.actor, "automation:update", { centerId: input.centerId }).allowed : authorizeGlobal(ctx.actor, "system:configure");
+  const ok = input.centerId ? authorize(ctx.actor, "automation:update", { centerId: input.centerId }).allowed : authorizeGlobal(ctx.actor, "system:configure") && inChainHeadOffice(ctx);
+  if (input.centerId) await assertCenterTenant(ctx, input.centerId);
   if (!ok) throw new TRPCError({ code: "FORBIDDEN", message: input.centerId ? "Không có quyền cấu hình cơ sở này" : "Chỉ quản trị Hội sở đặt mặc định toàn hệ thống" });
   if (input.centerId && !(await ctx.db.query.centers.findFirst({ where: eq(centers.id, input.centerId) }))) throw new TRPCError({ code: "NOT_FOUND", message: "Không có cơ sở" });
   const errs = validateOps(input.group, input.values, level);

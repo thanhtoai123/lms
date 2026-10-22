@@ -30,7 +30,7 @@ async function loadState(db: Db, studentId: string) {
 }
 
 function authorizeFor(ctx: ProtectedContext, s: { homeCenterId: string | null }, enrs: { centerId: string }[]) {
-  requirePermission(ctx, "enrollment:update", { centerId: s.homeCenterId });
+  requirePermission(ctx, "enrollment:update", { centerId: s.homeCenterId, strictCenter: true });
   for (const c of new Set(enrs.map((e) => e.centerId))) requirePermission(ctx, "enrollment:update", { centerId: c });
 }
 

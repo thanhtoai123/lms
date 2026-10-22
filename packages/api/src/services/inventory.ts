@@ -12,7 +12,7 @@ import {
   MANUAL_MOVEMENTS, ITEM_TYPE_VI, MOVEMENT_TYPE_VI,
   type Permission, type ItemType, type MovementType, type RentalStatus, type AuditStatus, type AuditAction, type StockCodePrefix, type StockTone,
 } from "@satarobo/core";
-import { requirePermission, type ProtectedContext } from "../trpc";
+import { requirePermission, allowedAt, type ProtectedContext } from "../trpc";
 import { writeAudit } from "./audit";
 import { todayISO } from "./sessions";
 import { createOrder } from "./finance";
@@ -22,7 +22,7 @@ type Db = ProtectedContext["db"];
 const bad = (m: string | string[]) => new TRPCError({ code: "BAD_REQUEST", message: Array.isArray(m) ? m.join("; ") : m });
 const pre = (m: string | string[]) => new TRPCError({ code: "PRECONDITION_FAILED", message: Array.isArray(m) ? m.join("; ") : m });
 const notFound = (m: string) => new TRPCError({ code: "NOT_FOUND", message: m });
-const can = (ctx: ProtectedContext, p: Permission, centerId: string | null) => authorize(ctx.actor, p, { centerId }).allowed;
+const can = (ctx: ProtectedContext, p: Permission, centerId: string | null) => allowedAt(ctx, p, { centerId });
 const PAGE = 50;
 
 function rule<T>(fn: () => T): T {

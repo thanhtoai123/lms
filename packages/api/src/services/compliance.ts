@@ -13,7 +13,7 @@ import {
   type DsrType, type DsrStatus, type DsrAction, type SubjectType, type ConsentPurpose,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
-import { tenantCond } from "./tenantScope";
+import { tenantCond, assertTenant, inChainHeadOffice } from "./tenantScope";
 import { writeAudit } from "./audit";
 import { putObject, signedFileUrl } from "../storage";
 import { todayISO } from "./sessions";
@@ -35,8 +35,8 @@ function rule<T>(fn: () => T): T {
   }
 }
 /** Người xử lý yêu cầu dữ liệu: quản trị hệ thống (DPO) */
-const isProcessor = (ctx: ProtectedContext) => authorizeGlobal(ctx.actor, "compliance:update");
-const isGlobalReader = (ctx: ProtectedContext) => isProcessor(ctx) || authorizeGlobal(ctx.actor, "compliance:read");
+const isProcessor = (ctx: ProtectedContext) => authorizeGlobal(ctx.actor, "compliance:update") && inChainHeadOffice(ctx);
+const isGlobalReader = (ctx: ProtectedContext) => isProcessor(ctx) || (authorizeGlobal(ctx.actor, "compliance:read") && inChainHeadOffice(ctx));
 function reqScope(ctx: ProtectedContext): SQL {
   if (isGlobalReader(ctx)) return sql`true`;
   const v = visibleCenterIds(ctx.actor) ?? [];
@@ -116,7 +116,7 @@ export async function createRequest(ctx: ProtectedContext, input: { type: DsrTyp
   const errs = validateDsr(input);
   if (errs.length) throw bad(errs);
   if ((input.subjectType && !input.subjectId) || (!input.subjectType && input.subjectId)) throw bad("Chọn đủ loại và hồ sơ chủ thể");
-  if (input.subjectType && input.subjectId) await loadSubject(ctx.db, input.subjectType, input.subjectId);
+  if (input.subjectType && input.subjectId) await loadSubject(ctx.db, input.subjectType, input.subjectId, ctx);
   const receivedAt = new Date();
   const dueAt = dsrDue(input.type, receivedAt);
   const ackDueAt = dsrAckDue(receivedAt);
@@ -130,14 +130,16 @@ export async function createRequest(ctx: ProtectedContext, input: { type: DsrTyp
   return { id: r!.id, code, dueAt, ackDueAt };
 }
 
-async function loadSubject(db: Db, type: SubjectType, id: string) {
+async function loadSubject(db: Db, type: SubjectType, id: string, ctx?: ProtectedContext) {
   if (type === "lead") {
     const l = await db.query.leads.findFirst({ where: eq(leads.id, id) });
     if (!l) throw notFound("Không tìm thấy lead");
+    if (ctx) assertTenant(ctx, l, "Lead");
     return { type, id, name: l.parentName, phone: l.phone, email: l.email, centerId: l.centerId, anonymizedAt: l.anonymizedAt, record: l as unknown as Record<string, unknown> };
   }
   const p = await db.query.parents.findFirst({ where: eq(parents.id, id) });
   if (!p) throw notFound("Không tìm thấy phụ huynh");
+  if (ctx) assertTenant(ctx, p, "Phụ huynh");
   return { type, id, name: p.fullName, phone: p.phone, email: p.email, centerId: null as string | null, anonymizedAt: p.anonymizedAt, record: p as unknown as Record<string, unknown> };
 }
 
@@ -165,7 +167,7 @@ export async function getRequest(ctx: ProtectedContext, id: string) {
   const processor = isProcessor(ctx);
   let subject: null | { type: SubjectType; id: string; name: string; phone: string; anonymized: boolean; consents: { purpose: ConsentPurpose; label: string; granted: boolean | null; at: Date | null }[]; erasure: ReturnType<typeof erasureDecision>; note: string | null } = null;
   if (d.subjectType && d.subjectId) {
-    const s = await loadSubject(ctx.db, d.subjectType as SubjectType, d.subjectId);
+    const s = await loadSubject(ctx.db, d.subjectType as SubjectType, d.subjectId, ctx);
     const facts = await subjectFacts(ctx.db, s.type, s.id);
     const cons = await consentState(ctx.db, s.type, s.id);
     subject = {
@@ -208,7 +210,7 @@ export async function requestAction(ctx: ProtectedContext, input: { id: string; 
     if (!d.subjectId) throw pre("Chưa liên kết hồ sơ chủ thể");
     if (d.type === "access" && !d.exportKey) throw pre("Chưa xuất bản sao dữ liệu cho người yêu cầu");
     if (d.type === "delete") {
-      const s = await loadSubject(ctx.db, d.subjectType as SubjectType, d.subjectId);
+      const s = await loadSubject(ctx.db, d.subjectType as SubjectType, d.subjectId, ctx);
       if (!s.anonymizedAt) throw pre("Chưa thực hiện ẩn danh hoá — hoặc từ chối kèm lý do (nghĩa vụ lưu giữ)");
     }
     if (d.type === "withdraw_consent" || d.type === "object") {
@@ -233,7 +235,7 @@ export async function linkSubject(ctx: ProtectedContext, input: { id: string; su
   const d = await ctx.db.query.dataRequests.findFirst({ where: eq(dataRequests.id, input.id) });
   if (!d) throw notFound("Không tìm thấy yêu cầu");
   if (d.status === "completed" || d.status === "rejected") throw pre("Yêu cầu đã đóng");
-  const s = await loadSubject(ctx.db, input.subjectType, input.subjectId);
+  const s = await loadSubject(ctx.db, input.subjectType, input.subjectId, ctx);
   // Gắn yêu cầu dữ liệu vào một hồ sơ cụ thể là bước mở đường cho "xuất dữ liệu" / "xoá dữ liệu"
   // của chính hồ sơ đó — phải ghi nhật ký, và ghi trong cùng transaction với thay đổi.
   await ctx.db.transaction(async (txx) => {
@@ -255,7 +257,7 @@ export async function exportSubjectData(ctx: ProtectedContext, input: { id: stri
   const d = await ctx.db.query.dataRequests.findFirst({ where: eq(dataRequests.id, input.id) });
   if (!d?.subjectId || !d.subjectType) throw pre("Chưa liên kết hồ sơ chủ thể");
   const type = d.subjectType as SubjectType;
-  const s = await loadSubject(ctx.db, type, d.subjectId);
+  const s = await loadSubject(ctx.db, type, d.subjectId, ctx);
   const pack: Record<string, unknown> = { yeuCau: d.code, xuatLuc: new Date().toISOString(), loaiChuThe: type, phienBanDieuKhoan: CONSENT_TEXT_VERSION };
   const strip = (o: Record<string, unknown>) => Object.fromEntries(Object.entries(o).filter(([k]) => !/hash|Enc$|assignedToId|createdBy|updatedBy|userId/i.test(k)));
   pack.hoSo = strip(s.record);
@@ -318,7 +320,7 @@ export async function eraseSubject(ctx: ProtectedContext, input: { id: string; c
   if (d.status !== "in_progress") throw pre("Chuyển yêu cầu sang 'Đang xử lý' (đã xác minh) trước khi xoá");
   if (input.confirm !== d.code) throw bad(`Nhập đúng mã ${d.code} để xác nhận`);
   const type = d.subjectType as SubjectType;
-  const s = await loadSubject(ctx.db, type, d.subjectId);
+  const s = await loadSubject(ctx.db, type, d.subjectId, ctx);
   if (s.anonymizedAt) throw pre("Hồ sơ đã được ẩn danh");
   const facts = await subjectFacts(ctx.db, type, s.id);
   const dec = erasureDecision({ subjectType: type, ...facts });

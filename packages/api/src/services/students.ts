@@ -168,9 +168,9 @@ export async function getStudent(ctx: ProtectedContext, id: string) {
   const s = await ctx.db.query.students.findFirst({ where: and(eq(students.id, id), isNull(students.deletedAt)) });
   if (!s) throw new TRPCError({ code: "NOT_FOUND" });
   assertTenant(ctx, s, "Học viên");
-  requirePermission(ctx, "student:read", { centerId: s.homeCenterId });
+  requirePermission(ctx, "student:read", { centerId: s.homeCenterId, strictCenter: true });
   const full = canSeeFullPhone(ctx);
-  const canUpdate = authorize(ctx.actor, "student:update", { centerId: s.homeCenterId }).allowed;
+  const canUpdate = authorize(ctx.actor, "student:update", { centerId: s.homeCenterId, strictCenter: true }).allowed;
 
   const [center, preferredCenter, guardians, enrs, care, priv, pauses] = await Promise.all([
     s.homeCenterId ? ctx.db.query.centers.findFirst({ where: eq(centers.id, s.homeCenterId), columns: { id: true, code: true, name: true } }) : null,
@@ -363,7 +363,7 @@ export async function createStudent(ctx: ProtectedContext, input: StudentInput &
       await saveAddress(tx as unknown as Db, st!.id, input.address ?? undefined, ctx.user.id);
       let ids = 0;
       for (const [i, g] of guardians.entries()) {
-        const parentId = await upsertParent(tx as unknown as Db, { fullName: g.fullName.trim(), phone: g.phone, email: nn(g.email), mediaConsent: !!g.mediaConsent });
+        const parentId = await upsertParent(tx as unknown as Db, { fullName: g.fullName.trim(), phone: g.phone, email: nn(g.email), mediaConsent: !!g.mediaConsent, tenantId: ctx.tenantId });
         if (await saveNationalId(tx as unknown as Db, parentId, g.nationalId)) ids++;
         await tx.insert(studentGuardians).values({ studentId: st!.id, parentId, relation: g.relation ?? "parent", isPrimary: i === 0 });
       }
@@ -396,10 +396,11 @@ export async function nextStudentCode(db: Db, centerCode: string) {
  * `84911000001` nhập từ hệ cũ là cùng một người, so chuỗi thô thì tạo ra hai dòng — và
  * hai dòng trùng số nghĩa là phụ huynh đó không đăng nhập được cổng /ph.
  */
-export async function upsertParent(db: Db, p: { fullName: string; phone: string; email: string | null; mediaConsent: boolean }) {
+export async function upsertParent(db: Db, p: { fullName: string; phone: string; email: string | null; mediaConsent: boolean; tenantId?: string | null }) {
   const pn = normalizeVnPhone(p.phone);
+  // Chỉ gộp với phụ huynh CÙNG trung tâm (tenant): không gắn nhầm con mình vào phụ huynh của trung tâm khác
   const existing = await db.query.parents.findFirst({
-    where: and(pn ? eq(parents.phoneNormalized, pn) : eq(parents.phone, p.phone), isNull(parents.deletedAt)),
+    where: and(pn ? eq(parents.phoneNormalized, pn) : eq(parents.phone, p.phone), isNull(parents.deletedAt), p.tenantId ? eq(parents.tenantId, p.tenantId) : sql`true`),
   });
   if (existing) {
     const patch: Partial<typeof parents.$inferInsert> = {};
@@ -411,6 +412,7 @@ export async function upsertParent(db: Db, p: { fullName: string; phone: string;
   // Đặt sẵn `phoneNormalized` dù trigger ở CSDL cũng làm — để bản ghi vừa tạo đọc lại là đúng ngay,
   // không phải chờ một vòng SELECT nữa, và để đúng cả khi chạy trên CSDL chưa áp sql/0017.
   const [row] = await db.insert(parents).values({
+    ...(p.tenantId ? { tenantId: p.tenantId } : {}),
     fullName: p.fullName, phone: p.phone, phoneNormalized: pn, email: p.email,
     mediaConsent: p.mediaConsent, mediaConsentAt: p.mediaConsent ? new Date() : null,
   }).returning({ id: parents.id });
@@ -433,7 +435,8 @@ export async function updateStudent(
 ) {
   const s = await ctx.db.query.students.findFirst({ where: and(eq(students.id, id), isNull(students.deletedAt)) });
   if (!s) throw new TRPCError({ code: "NOT_FOUND" });
-  requirePermission(ctx, "student:update", { centerId: s.homeCenterId });
+  assertTenant(ctx, s, "Học viên");
+  requirePermission(ctx, "student:update", { centerId: s.homeCenterId, strictCenter: true });
   if (input.homeCenterId && input.homeCenterId !== s.homeCenterId) {
     requirePermission(ctx, "student:update", { centerId: input.homeCenterId });
     await assertCenter(ctx.db, input.homeCenterId, "Cơ sở");
@@ -444,7 +447,7 @@ export async function updateStudent(
   if (rawCode !== undefined && nn(rawCode) && normalizeStudentCode(rawCode) !== s.code) {
     // Đổi MÃ học viên là đổi danh tính hồ sơ (đối chiếu hệ cũ, phiếu thu, bảng điểm danh đã in),
     // nên tách khỏi student:update — người sửa hồ sơ thường không được đổi mã.
-    requirePermission(ctx, "student:change_code", { centerId: s.homeCenterId });
+    requirePermission(ctx, "student:change_code", { centerId: s.homeCenterId, strictCenter: true });
     patch.code = (await manualCode(ctx.db, rawCode, s.id))!;
   }
 
@@ -482,7 +485,7 @@ export async function updateStudent(
         guardianLog.push({ parentId: u.cur.parentId, before: { fullName: u.cur.fullName, phone: u.cur.phone, email: u.cur.email, relation: u.cur.relation }, after: { fullName: u.fullName, phone: u.phone, email: u.email, relation: u.relation }, nationalIdChanged: idSaved });
       }
       for (const g of newGuardians) {
-        const parentId = await upsertParent(tx as unknown as Db, { fullName: g.fullName.trim(), phone: g.phone, email: nn(g.email), mediaConsent: !!g.mediaConsent });
+        const parentId = await upsertParent(tx as unknown as Db, { fullName: g.fullName.trim(), phone: g.phone, email: nn(g.email), mediaConsent: !!g.mediaConsent, tenantId: ctx.tenantId });
         const exists = await tx.query.studentGuardians.findFirst({ where: and(eq(studentGuardians.studentId, s.id), eq(studentGuardians.parentId, parentId)) });
         if (exists) continue;
         await saveNationalId(tx as unknown as Db, parentId, g.nationalId);
@@ -506,10 +509,10 @@ export async function updateStudent(
 export async function addGuardian(ctx: ProtectedContext, input: { studentId: string } & GuardianInput) {
   const s = await ctx.db.query.students.findFirst({ where: eq(students.id, input.studentId) });
   if (!s) throw new TRPCError({ code: "NOT_FOUND" });
-  requirePermission(ctx, "student:update", { centerId: s.homeCenterId });
+  requirePermission(ctx, "student:update", { centerId: s.homeCenterId, strictCenter: true });
   const g = checkGuardian(input);
   await ctx.db.transaction(async (tx) => {
-    const parentId = await upsertParent(tx as unknown as Db, { fullName: g.fullName.trim(), phone: g.phone, email: nn(g.email), mediaConsent: !!g.mediaConsent });
+    const parentId = await upsertParent(tx as unknown as Db, { fullName: g.fullName.trim(), phone: g.phone, email: nn(g.email), mediaConsent: !!g.mediaConsent, tenantId: ctx.tenantId });
     const exists = await tx.query.studentGuardians.findFirst({ where: and(eq(studentGuardians.studentId, s.id), eq(studentGuardians.parentId, parentId)) });
     if (exists) throw new TRPCError({ code: "CONFLICT", message: "Phụ huynh này đã gắn với học viên" });
     const [cnt] = await tx.select({ n: sql<number>`count(*)::int` }).from(studentGuardians).where(eq(studentGuardians.studentId, s.id));
@@ -525,7 +528,7 @@ export async function addGuardian(ctx: ProtectedContext, input: { studentId: str
 export async function revealStudentPrivate(ctx: ProtectedContext, input: { studentId: string; reason: string }) {
   const s = await ctx.db.query.students.findFirst({ where: and(eq(students.id, input.studentId), isNull(students.deletedAt)) });
   if (!s) throw new TRPCError({ code: "NOT_FOUND" });
-  requirePermission(ctx, "student:update", { centerId: s.homeCenterId });
+  requirePermission(ctx, "student:update", { centerId: s.homeCenterId, strictCenter: true });
   let reason: string;
   try {
     reason = requireReason(input.reason);

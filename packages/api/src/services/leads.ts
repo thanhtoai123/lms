@@ -14,7 +14,7 @@ import {
 import { resolveAdmissionsPolicy, autoPickAssignee, recordAssignment, canSeeLeadPhone, type Db } from "./admissionsAdmin";
 import { slaOverdueSql, slaWarningSql } from "./leadSlaSql";
 import { canShareLead, leadReadCondition, leadReader, requireLeadRead, requireLeadsAccess } from "./leadAccess";
-import { assertTenant, redact, redactList } from "./tenantScope";
+import { assertTenant, assertCenterTenant, redact, redactList } from "./tenantScope";
 import { assertRateLimit, rateKey } from "../lib/rateLimit";
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { writeAudit } from "./audit";
@@ -78,6 +78,8 @@ export interface CreateLeadOptions {
   assignSource?: AssignmentSource;
   /** Lead trùng chưa chốt: giao cho sale này (không tiêu lượt) */
   reassignExistingTo?: string | null;
+  /** Trung tâm (tenant) của người nhập: tìm trùng và tạo lead chỉ trong trung tâm này */
+  tenantId?: string | null;
 }
 
 async function refLabels(db: Db) {
@@ -93,7 +95,8 @@ async function refLabels(db: Db) {
  */
 export async function createLeadByStaff(ctx: ProtectedContext, input: CreateLeadInput) {
   requirePermission(ctx, "lead:create", input.centerId ? { centerId: input.centerId } : {});
-  const r = await createLead(ctx.db, input, ctx.user.id);
+  if (input.centerId) await assertCenterTenant(ctx, input.centerId);
+  const r = await createLead(ctx.db, input, ctx.user.id, { tenantId: ctx.tenantId });
   if (!r.duplicated) return r;
   return { ...r, lead: { id: r.lead.id, parentName: input.parentName?.trim() || "(khách cũ)", assignedToId: r.lead.assignedToId } };
 }
@@ -122,7 +125,7 @@ export async function createLead(db: ProtectedContext["db"], input: CreateLeadIn
     const policy = await resolveAdmissionsPolicy(t, input.centerId ?? null);
     const since = policy.dedupeDays > 0 ? new Date(Date.now() - policy.dedupeDays * 86_400_000) : null;
     const [existing] = await tx.select().from(leads)
-      .where(and(eq(leads.phoneNormalized, phoneNormalized), isNull(leads.deletedAt), since ? gte(leads.lastTouchAt, since) : sql`true`))
+      .where(and(eq(leads.phoneNormalized, phoneNormalized), isNull(leads.deletedAt), since ? gte(leads.lastTouchAt, since) : sql`true`, opts.tenantId ? eq(leads.tenantId, opts.tenantId) : sql`true`))
       .orderBy(sql`case when ${inArray(leads.status, [...OPEN_LEAD_STATUSES])} then 0 else 1 end`, desc(leads.lastTouchAt))
       .limit(1);
 
@@ -187,6 +190,7 @@ export async function createLead(db: ProtectedContext["db"], input: CreateLeadIn
     const [lead] = await tx
       .insert(leads)
       .values({
+        ...(opts.tenantId ? { tenantId: opts.tenantId } : {}),
         parentName, phone: input.phone.trim(), phoneNormalized, email: input.email?.trim() || null,
         childName: input.childName?.trim() || children[0]?.fullName || null, childGrade: input.childGrade ?? children[0]?.grade ?? null, childBirthYear: input.childBirthYear ?? null, school: input.school ?? null,
         interestedCourseId: input.interestedCourseId ?? children[0]?.interestedCourseId ?? null, centerId, source: input.source ?? null,
@@ -701,7 +705,7 @@ export async function updateLead(ctx: ProtectedContext, input: UpdateLeadInput) 
     const pn = normalizeVnPhone(input.phone);
     if (!pn) throw bad("Số điện thoại không hợp lệ");
     if (pn !== lead.phoneNormalized) {
-      const [dup] = await ctx.db.select({ id: leads.id, parentName: leads.parentName }).from(leads).where(and(eq(leads.phoneNormalized, pn), ne(leads.id, lead.id), isNull(leads.deletedAt))).limit(1);
+      const [dup] = await ctx.db.select({ id: leads.id, parentName: leads.parentName }).from(leads).where(and(eq(leads.phoneNormalized, pn), ne(leads.id, lead.id), isNull(leads.deletedAt), lead.tenantId ? eq(leads.tenantId, lead.tenantId) : sql`true`)).limit(1);
       if (dup) throw new TRPCError({ code: "CONFLICT", message: `Số điện thoại đã thuộc lead khác: ${dup.parentName} (/leads/${dup.id}) — mở lead đó để gộp thông tin` });
     }
     patch.phone = input.phone.trim();

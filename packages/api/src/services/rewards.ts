@@ -5,14 +5,15 @@ import {
   coinTransactions, coinRules, rewardItems, redemptions, inventoryItems, stockLevels, students, classes, centers, enrollments, sessions, attendance, users, userNotifications, userRoles,
 } from "@satarobo/db";
 import {
+  authorizeGlobal,
   authorize, visibleCenterIds, hasRole, hasPermission,
   validateAward, validateAdjust, revokeBlock, balanceAfter, redemptionTransition, availableBalance, validateReward, coinTier,
   validateCoinRule, coinsFor, COIN_RULE_CODES, COIN_RULE_DEFS,
   COIN_REASON_VI, REDEMPTION_STATUS_VI, COIN_LIMITS,
   type Permission, type CoinReason, type CoinLevel, type CoinRuleCode, type RedemptionStatus, type RedemptionAction,
 } from "@satarobo/core";
-import { requirePermission, type ProtectedContext } from "../trpc";
-import { tenantCond, tenantCondViaCenter } from "./tenantScope";
+import { requirePermission, type ProtectedContext, allowedAt } from "../trpc";
+import { tenantCond, tenantCondViaCenter, inChainHeadOffice, isChainSuperAdmin } from "./tenantScope";
 
 function requireCoinRead(ctx: ProtectedContext) {
   if (!hasPermission(ctx.actor, "coin:read")) throw new TRPCError({ code: "FORBIDDEN", message: "Không có quyền coin:read" });
@@ -27,7 +28,7 @@ const bad = (m: string | string[]) => new TRPCError({ code: "BAD_REQUEST", messa
 const pre = (m: string | string[]) => new TRPCError({ code: "PRECONDITION_FAILED", message: Array.isArray(m) ? m.join("; ") : m });
 const notFound = (m: string) => new TRPCError({ code: "NOT_FOUND", message: m });
 const forbid = (m: string) => new TRPCError({ code: "FORBIDDEN", message: m });
-const can = (ctx: ProtectedContext, p: Permission, centerId: string | null, ownerIds?: string[]) => authorize(ctx.actor, p, { centerId, ownerIds }).allowed;
+const can = (ctx: ProtectedContext, p: Permission, centerId: string | null, ownerIds?: string[]) => allowedAt(ctx, p, { centerId, ownerIds, strictCenter: true });
 const PAGE = 50;
 
 function rule<T>(fn: () => T): T {
@@ -349,7 +350,7 @@ export async function listCoinRules(ctx: ProtectedContext) {
 }
 
 export async function upsertCoinRule(ctx: ProtectedContext, input: { code: CoinRuleCode; description: string; coins: number; condition?: string | null; isActive: boolean }) {
-  if (!ctx.actor.assignments.some((a) => can(ctx, "coin:adjust", a.centerId))) throw forbid("Chỉ quản lý cơ sở / Hội sở được sửa luật thưởng xu");
+  if (!authorizeGlobal(ctx.actor, "coin:adjust") || !inChainHeadOffice(ctx)) throw forbid("Luật thưởng xu dùng chung cả chuỗi — chỉ Hội sở được sửa");
   const errs = validateCoinRule(input);
   if (errs.length) throw bad(errs);
   const before = await ctx.db.query.coinRules.findFirst({ where: eq(coinRules.code, input.code) });
@@ -378,7 +379,7 @@ export async function listRewards(ctx: ProtectedContext, input: { includeInactiv
 }
 
 export async function upsertReward(ctx: ProtectedContext, input: { id?: string; name: string; description?: string | null; cost: number; inventoryItemId?: string | null; isActive: boolean; sortOrder?: number }) {
-  if (!hasRole(ctx.actor, "SUPER_ADMIN")) throw forbid("Danh mục quà dùng chung — chỉ Quản trị hệ thống sửa");
+  if (!isChainSuperAdmin(ctx)) throw forbid("Danh mục quà dùng chung — chỉ Quản trị hệ thống sửa");
   const errs = validateReward({ name: input.name, cost: input.cost, stockLimited: !!input.inventoryItemId });
   if (errs.length) throw bad(errs);
   const v = { name: input.name.trim(), description: input.description?.trim() || null, cost: input.cost, inventoryItemId: input.inventoryItemId ?? null, isActive: input.isActive, sortOrder: input.sortOrder ?? 0 };
@@ -426,7 +427,7 @@ async function nextRedemptionCode(db: Db, centerCode: string) {
 export async function requestRedemption(ctx: ProtectedContext, input: { studentId: string; rewardId: string; note?: string | null }) {
   const s = await ctx.db.query.students.findFirst({ where: eq(students.id, input.studentId) });
   if (!s?.homeCenterId) throw notFound("Không tìm thấy học viên / chưa có cơ sở");
-  requirePermission(ctx, "coin:redeem", { centerId: s.homeCenterId });
+  requirePermission(ctx, "coin:redeem", { centerId: s.homeCenterId, strictCenter: true });
   const rw = await ctx.db.query.rewardItems.findFirst({ where: eq(rewardItems.id, input.rewardId) });
   if (!rw || !rw.isActive) throw pre("Quà không còn áp dụng");
   const b = (await balancesOf(ctx.db, [s.id])).get(s.id)!;

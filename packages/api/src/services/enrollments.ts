@@ -18,7 +18,7 @@ import { consumedSql, centerScope, canSeeFullPhone } from "./students";
 import { getOps, opsForCenters } from "./opsSettings";
 import { todayISO } from "./sessions";
 import { proposeRefundIfPaid } from "./refundHooks";
-import { assertTenant } from "./tenantScope";
+import { assertTenant, assertCenterTransferAllowed } from "./tenantScope";
 
 type Db = ProtectedContext["db"];
 const OPEN = ["active", "trial", "paused"] as const;
@@ -263,6 +263,8 @@ export async function previewTransfer(ctx: ProtectedContext, input: { enrollment
   requirePermission(ctx, "enrollment:update", { centerId: e.centerId });
   const t = await ctx.db.query.classes.findFirst({ where: and(eq(classes.id, input.targetClassId), isNull(classes.deletedAt)) });
   if (!t) throw new TRPCError({ code: "NOT_FOUND", message: "Lớp đích không tồn tại" });
+  assertTenant(ctx, t, "Lớp đích");
+  await assertCenterTransferAllowed(ctx, { fromCenterId: e.centerId, toCenterId: t.centerId, what: "học viên" });
   // Lớp đích có thể thuộc cơ sở khác: việc chuyển được kiểm soát bởi quyền duyệt ở cơ sở nguồn (class:approve)
   const canApprove = authorize(ctx.actor, "class:approve", { centerId: e.centerId }).allowed;
   const [cnt] = await ctx.db.select({ n: sql<number>`count(*)::int` }).from(enrollments).where(and(eq(enrollments.classId, t.id), inArray(enrollments.status, [...OPEN])));

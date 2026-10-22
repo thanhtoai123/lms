@@ -15,7 +15,7 @@ import { requirePermission, type ProtectedContext } from "../trpc";
 import { writeAudit } from "./audit";
 import { putObject } from "../storage";
 import { todayISO } from "./sessions";
-import { tenantCond, tenantSql } from "./tenantScope";
+import { tenantCond, tenantSql, requireChainHeadOffice } from "./tenantScope";
 
 type Db = ProtectedContext["db"];
 const bad = (m: string | string[]) => new TRPCError({ code: "BAD_REQUEST", message: Array.isArray(m) ? m.join("; ") : m });
@@ -77,6 +77,7 @@ export async function getPost(ctx: ProtectedContext, id: string) {
 
 export async function upsertPost(ctx: ProtectedContext, input: { id?: string; title: string; slug?: string | null; excerpt?: string | null; body: string; coverImage?: string | null; category: PostCategory; seoTitle?: string | null; seoDescription?: string | null }) {
   requirePermission(ctx, input.id ? "site:update" : "site:create");
+  requireChainHeadOffice(ctx, "website");
   const slug = (input.slug?.trim() || slugify(input.title)).toLowerCase();
   const v = {
     title: input.title.trim(), slug, excerpt: input.excerpt?.trim() || null, body: input.body, coverImage: input.coverImage?.trim() || null,
@@ -102,6 +103,7 @@ export async function upsertPost(ctx: ProtectedContext, input: { id?: string; ti
 
 export async function postAction(ctx: ProtectedContext, input: { id: string; action: PostAction; publishAt?: string | null }) {
   requirePermission(ctx, "site:update");
+  requireChainHeadOffice(ctx, "website");
   const p = await ctx.db.query.posts.findFirst({ where: eq(posts.id, input.id) });
   if (!p) throw notFound("Không tìm thấy bài viết");
   const now = new Date();
@@ -176,6 +178,7 @@ export async function siteContent(ctx: ProtectedContext) {
 
 export async function saveSiteBlock(ctx: ProtectedContext, input: { page: string; data: Record<string, string>; version: number }) {
   requirePermission(ctx, "site:update");
+  requireChainHeadOffice(ctx, "website");
   const def = SITE_PAGES[input.page];
   if (!def) throw notFound("Trang không tồn tại");
   const data = Object.fromEntries(Object.entries(input.data).map(([k, v]) => [k, String(v ?? "").trim()]).filter(([, v]) => v !== ""));
@@ -195,6 +198,7 @@ export async function saveSiteBlock(ctx: ProtectedContext, input: { page: string
 
 export async function restoreSiteBlock(ctx: ProtectedContext, input: { page: string; version: number }) {
   requirePermission(ctx, "site:update");
+  requireChainHeadOffice(ctx, "website");
   const h = await ctx.db.query.siteBlockHistory.findFirst({ where: and(eq(siteBlockHistory.page, input.page), eq(siteBlockHistory.version, input.version)) });
   if (!h) throw notFound("Không tìm thấy phiên bản");
   const cur = await ctx.db.query.siteBlocks.findFirst({ where: eq(siteBlocks.page, input.page) });
@@ -209,6 +213,7 @@ export async function publicSite(db: Database, page: SitePageKey) {
 
 export async function uploadSiteMedia(ctx: ProtectedContext, input: { fileName: string; mime: string; bytes: Uint8Array; alt?: string | null }) {
   requirePermission(ctx, "site:update");
+  requireChainHeadOffice(ctx, "website");
   const ext = IMAGE_EXT[input.mime];
   if (!ext) throw bad("Chỉ nhận ảnh JPG, PNG, WEBP");
   if (input.bytes.byteLength > SITE_MEDIA_MAX) throw bad("Ảnh tối đa 5MB");
@@ -248,6 +253,7 @@ export async function getMarketingSettings(db: Db): Promise<MarketingSettings> {
 
 export async function saveMarketingSettings(ctx: ProtectedContext, input: MarketingSettings) {
   requirePermission(ctx, "marketing:configure");
+  requireChainHeadOffice(ctx, "cấu hình marketing");
   const e: string[] = [];
   if (input.metaPixelId && !/^\d{10,20}$/.test(input.metaPixelId)) e.push("Meta Pixel ID gồm 10–20 chữ số");
   if (input.ga4MeasurementId && !/^G-[A-Z0-9]{6,12}$/.test(input.ga4MeasurementId)) e.push("GA4 Measurement ID dạng G-XXXXXXX");
@@ -385,6 +391,7 @@ export async function listCampaigns(ctx: ProtectedContext, input: { from?: strin
 
 export async function upsertCampaign(ctx: ProtectedContext, input: { id?: string; name: string; utmCampaign: string; channel: Channel; centerId?: string | null; budget: number; startDate: string; endDate?: string | null; landingUrl?: string | null; notes?: string | null; isActive?: boolean }) {
   requirePermission(ctx, "marketing:configure");
+  requireChainHeadOffice(ctx, "cấu hình marketing");
   const utm = normUtm(input.utmCampaign) ?? "";
   const errs = validateCampaign({ ...input, utmCampaign: utm });
   if (input.landingUrl && !/^https:\/\/[^\s]+$/.test(input.landingUrl)) errs.push("Trang đích phải bắt đầu bằng https://");
@@ -410,6 +417,7 @@ export async function upsertCampaign(ctx: ProtectedContext, input: { id?: string
 
 export async function recordSpend(ctx: ProtectedContext, input: { campaignId: string; date: string; amount: number; clicks?: number | null; impressions?: number | null; note?: string | null }) {
   requirePermission(ctx, "marketing:configure");
+  requireChainHeadOffice(ctx, "cấu hình marketing");
   const c = await ctx.db.query.campaigns.findFirst({ where: eq(campaigns.id, input.campaignId) });
   if (!c) throw notFound("Không tìm thấy chiến dịch");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date)) throw bad("Ngày không hợp lệ");

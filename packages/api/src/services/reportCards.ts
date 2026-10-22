@@ -5,6 +5,7 @@ import {
   studentGuardians, parentNotifications, centers, users, sessionEvaluations, attendance, certificates,
 } from "@satarobo/db";
 import {
+  authorizeGlobal,
   reportCardTransition, reportCardMilestones, milestoneLabel, validateReportCard, averageScore, gradeFromAverage, certificateNumber,
   completionCheck, completionTransition, validateCompletionInput, enrollmentTransition, visibleCenterIds, authorize,
   clampPageSize,
@@ -13,7 +14,7 @@ import {
   type ReportCardStatus, type CompletionStatus, type MilestoneAggregate, type EvalForAggregate,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
-import { tenantCond } from "./tenantScope";
+import { tenantCond, tenantCondViaCenter, inChainHeadOffice } from "./tenantScope";
 import { writeAudit } from "./audit";
 import { emit } from "./outbox";
 import { consumedSql } from "./students";
@@ -29,7 +30,7 @@ type Db = ProtectedContext["db"];
 /* ------------------------------------------------------------------ */
 
 export async function setNextCourse(ctx: ProtectedContext, input: { courseId: string; nextCourseId: string | null }) {
-  requirePermission(ctx, "report_card:configure", {});
+  if (!authorizeGlobal(ctx.actor, "report_card:configure") || !inChainHeadOffice(ctx)) throw new TRPCError({ code: "FORBIDDEN", message: "Lộ trình khoá học dùng chung cả chuỗi — chỉ Hội sở được sửa" });
   if (input.nextCourseId === input.courseId) throw new TRPCError({ code: "BAD_REQUEST", message: "Khoá tiếp theo không thể là chính nó" });
   const before = await ctx.db.query.courses.findFirst({ where: eq(courses.id, input.courseId), columns: { nextCourseId: true } });
   await ctx.db.transaction(async (txx) => {
@@ -164,7 +165,7 @@ function dueReportCardConds(ctx: ProtectedContext, today: string) {
     tenantCond(ctx, sessions),
     lte(sessions.date, today),
     sql`${sessions.status} not in ('cancelled','rescheduled')`,
-    visible === null ? sql`true` : visible.length ? inArray(classes.centerId, visible) : sql`false`,
+    visible === null ? tenantCondViaCenter(ctx, classes.centerId) : visible.length ? inArray(classes.centerId, visible) : sql`false`,
     sql`not exists (select 1 from ${reportCards} rc where rc.enrollment_id = ${enrollments.id} and rc.milestone_seq = ${sessions.sequenceNo} and rc.status in ('submitted','approved','published'))`,
   );
 }
@@ -344,7 +345,7 @@ export async function reviewQueue(ctx: ProtectedContext) {
     .innerJoin(students, eq(students.id, enrollments.studentId))
     .innerJoin(classes, eq(classes.id, enrollments.classId))
     .leftJoin(users, eq(users.id, reportCards.authorId))
-    .where(and(inArray(reportCards.status, ["submitted", "approved"]), visible === null ? sql`true` : visible.length ? inArray(classes.centerId, visible) : sql`false`))
+    .where(and(inArray(reportCards.status, ["submitted", "approved"]), visible === null ? tenantCondViaCenter(ctx, classes.centerId) : visible.length ? inArray(classes.centerId, visible) : sql`false`))
     .orderBy(asc(reportCards.submittedAt));
 }
 
@@ -352,7 +353,7 @@ export async function reviewQueue(ctx: ProtectedContext) {
 export async function studentReportBook(ctx: ProtectedContext, studentId: string) {
   const st = await ctx.db.query.students.findFirst({ where: eq(students.id, studentId) });
   if (!st) throw new TRPCError({ code: "NOT_FOUND" });
-  requirePermission(ctx, "report_card:read", { centerId: st.homeCenterId });
+  requirePermission(ctx, "report_card:read", { centerId: st.homeCenterId, strictCenter: true });
   const cards = await ctx.db
     .select({ id: reportCards.id, seq: reportCards.milestoneSeq, status: reportCards.status, averageScore: reportCards.averageScore, rubricScale: reportCards.rubricScale, teacherComment: reportCards.teacherComment, strengths: reportCards.strengths, improvements: reportCards.improvements, publishedAt: reportCards.publishedAt, updatedAt: reportCards.updatedAt, aggregate: reportCards.aggregate, enrollmentId: enrollments.id, classCode: classes.code, className: classes.name, courseCode: courses.code, authorName: users.fullName })
     .from(reportCards)
@@ -547,7 +548,7 @@ export async function pendingCompletions(ctx: ProtectedContext, input: { limit?:
     .innerJoin(centers, eq(centers.id, classes.centerId))
     .innerJoin(courses, eq(courses.id, courseCompletions.courseId))
     .leftJoin(users, eq(users.id, courseCompletions.proposedBy))
-    .where(and(eq(courseCompletions.status, "proposed"), visible === null ? sql`true` : visible.length ? inArray(classes.centerId, visible) : sql`false`))
+    .where(and(eq(courseCompletions.status, "proposed"), visible === null ? tenantCondViaCenter(ctx, classes.centerId) : visible.length ? inArray(classes.centerId, visible) : sql`false`))
     .orderBy(asc(courseCompletions.proposedAt))
     .limit(clampPageSize(input.limit, 300, 500));
   return rows.filter((r) => authorize(ctx.actor, "completion:approve", { centerId: r.centerId }).allowed);
@@ -611,7 +612,7 @@ export async function listCompletions(ctx: ProtectedContext, input: { centerId?:
     .innerJoin(classes, eq(classes.id, enrollments.classId))
     .innerJoin(centers, eq(centers.id, classes.centerId))
     .innerJoin(courses, eq(courses.id, courseCompletions.courseId))
-    .where(and(eq(courseCompletions.status, "approved"), isNull(courseCompletions.revokedAt), input.centerId ? eq(classes.centerId, input.centerId) : sql`true`, visible === null ? sql`true` : visible.length ? inArray(classes.centerId, visible) : sql`false`))
+    .where(and(eq(courseCompletions.status, "approved"), isNull(courseCompletions.revokedAt), input.centerId ? eq(classes.centerId, input.centerId) : sql`true`, visible === null ? tenantCondViaCenter(ctx, classes.centerId) : visible.length ? inArray(classes.centerId, visible) : sql`false`))
     .orderBy(desc(courseCompletions.issuedAt))
     .limit(input.limit ?? 200);
 }

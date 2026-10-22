@@ -7,7 +7,7 @@ import {
   type AttendanceStatus, type AttendanceRecord, type ClassStatus,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
-import { tenantCond } from "./tenantScope";
+import { tenantCond, tenantCondViaCenter } from "./tenantScope";
 import { getOps, opsForCenters } from "./opsSettings";
 import { writeAudit } from "./audit";
 import { emit } from "./outbox";
@@ -88,7 +88,7 @@ export async function attendanceOverview(ctx: ProtectedContext, input: { centerI
   const visible = visibleCenterIds(ctx.actor);
   const conds = [
     isNull(classes.deletedAt),
-    visible === null ? sql`true` : visible.length ? (inArray(classes.centerId, visible) as SQL) : sql`false`,
+    visible === null ? tenantCondViaCenter(ctx, classes.centerId) : visible.length ? (inArray(classes.centerId, visible) as SQL) : sql`false`,
   ];
   if (input.centerId) conds.push(eq(classes.centerId, input.centerId));
   if (input.status) conds.push(eq(classes.status, input.status));

@@ -2,7 +2,7 @@ import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import { ZodError } from "zod";
 import {
-  ForbiddenError, SessionTransitionError, assertAuthorized, clientSafeMessage,
+  ForbiddenError, SessionTransitionError, assertAuthorized, authorize, clientSafeMessage,
   shouldLogSlow, slowProcedureLog, slowThresholdFromEnv, tenantChanGhi,
   type Permission, type ResourceRef,
 } from "@satarobo/core";
@@ -142,6 +142,21 @@ export const protectedProcedure = t.procedure.use(measure).use(mapDomainErrors).
 export type ProtectedContext = Context & { actor: NonNullable<Context["actor"]>; user: NonNullable<Context["user"]> };
 
 /** Helper dùng trong service: ném FORBIDDEN nếu không có quyền */
+/** Cơ sở có thuộc tenant trong phạm vi của người này không (không có dữ liệu tenant → coi như có) */
+export function centerInScope(ctx: ProtectedContext, centerId: string | null | undefined): boolean {
+  if (!centerId || !ctx.centerTenant || !ctx.tenantIds.length) return true;
+  const t = ctx.centerTenant[centerId];
+  return !t || ctx.tenantIds.includes(t);
+}
+
+/** authorize + chặn cơ sở của tenant ngoài phạm vi — dùng thay cho `authorize(ctx.actor, …).allowed` trong service */
+export function allowedAt(ctx: ProtectedContext, perm: Permission, resource: ResourceRef = {}): boolean {
+  return authorize(ctx.actor, perm, resource).allowed && centerInScope(ctx, resource.centerId);
+}
+
 export function requirePermission(ctx: ProtectedContext, perm: Permission, resource?: ResourceRef) {
   assertAuthorized(ctx.actor, perm, resource);
+  // Cơ sở thuộc tenant ngoài phạm vi của người này → chặn (vai trò toàn hệ thống của đơn vị nhượng quyền
+  // khớp quyền ở MỌI cơ sở theo bảng quyền, nên phải chặn thêm ở tầng tenant)
+  if (!centerInScope(ctx, resource?.centerId)) throw new TRPCError({ code: "FORBIDDEN", message: "Cơ sở thuộc trung tâm khác" });
 }

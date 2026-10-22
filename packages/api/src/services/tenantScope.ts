@@ -9,6 +9,7 @@
  *
  * Luật thuần nằm ở packages/core/src/org/tenant.ts; file này chỉ nối vào Drizzle và ngữ cảnh tRPC.
  */
+import { TRPCError } from "@trpc/server";
 import { eq, inArray, isNull, or, sql, type SQL } from "drizzle-orm";
 import type { AnyPgColumn, PgColumn } from "drizzle-orm/pg-core";
 import { centers } from "@satarobo/db";
@@ -209,4 +210,9 @@ export function inChainHeadOffice(ctx: Ctx): boolean {
 /** Quản trị tối cao TOÀN HỆ THỐNG (gán không kèm cơ sở) của Hội sở chuỗi */
 export function isChainSuperAdmin(ctx: Ctx & { actor: { assignments: readonly { role: string; centerId: string | null }[] } }): boolean {
   return inChainHeadOffice(ctx) && ctx.actor.assignments.some((a) => a.role === "SUPER_ADMIN" && a.centerId === null);
+}
+
+/** Chặn đơn vị nhượng quyền sửa cài đặt / nội dung dùng chung của cả chuỗi (website, kênh gửi, mặc định vận hành…) */
+export function requireChainHeadOffice(ctx: Ctx, what = "cài đặt dùng chung của chuỗi"): void {
+  if (!inChainHeadOffice(ctx)) throw new TRPCError({ code: "FORBIDDEN", message: `Chỉ Hội sở chuỗi được đổi ${what}` });
 }

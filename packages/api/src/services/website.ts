@@ -6,6 +6,7 @@ import {
   type SiteChrome,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
+import { requireChainHeadOffice } from "./tenantScope";
 import { writeAudit } from "./audit";
 import { createLandingPage } from "./landing";
 import { getSiteChrome, SITE_CHROME_KEY } from "./siteChrome";
@@ -45,6 +46,7 @@ export async function websiteOverview(ctx: ProtectedContext) {
 
 export async function saveSiteChrome(ctx: ProtectedContext, input: { chrome: unknown }) {
   requirePermission(ctx, "site:update");
+  requireChainHeadOffice(ctx, "website");
   const next: SiteChrome = normalizeChrome(input.chrome);
   const errors = validateChrome(next);
   if (errors.length) throw bad(errors);
@@ -59,6 +61,7 @@ export async function saveSiteChrome(ctx: ProtectedContext, input: { chrome: unk
 /** Tạo (dạng NHÁP, chưa xuất bản) các trang demo còn thiếu của khung website */
 export async function createDemoPages(ctx: ProtectedContext, input: { slugs?: string[] } = {}) {
   requirePermission(ctx, "site:update");
+  requireChainHeadOffice(ctx, "website");
   const want = SITE_DEMO_PAGES.filter((p) => !input.slugs || input.slugs.includes(p.slug));
   const existing = new Set((await ctx.db.select({ slug: landingPages.slug }).from(landingPages).where(inArray(landingPages.slug, want.map((p) => p.slug)))).map((r) => r.slug));
   const created: string[] = [];
@@ -77,6 +80,7 @@ export async function createDemoPages(ctx: ProtectedContext, input: { slugs?: st
 /** Thêm một khoá học / trang chính sách mới (nháp) từ mẫu trang con */
 export async function createSitePage(ctx: ProtectedContext, input: { group: "course" | "policy"; name: string; slug: string }) {
   requirePermission(ctx, "site:update");
+  requireChainHeadOffice(ctx, "website");
   const tail = slugify(input.slug || input.name);
   if (tail.length < 2) throw bad("Đường dẫn quá ngắn");
   const prefix = input.group === "course" ? COURSE_PREFIX : POLICY_PREFIX;

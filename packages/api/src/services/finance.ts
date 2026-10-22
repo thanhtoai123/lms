@@ -21,7 +21,7 @@ import {
   type ClassFormat, type InstallmentKind, type LineDiscount, type DebtChip, type DebtAgeBucket,
   type OrderCodeFormat, type DiscountPolicy, type PaymentScopeFlag, type DiscountApproval,
 } from "@satarobo/core";
-import { requirePermission, type ProtectedContext } from "../trpc";
+import { requirePermission, allowedAt, type ProtectedContext } from "../trpc";
 import { getOps, opsForCenters } from "./opsSettings";
 import { writeAudit } from "./audit";
 import { deliverNotifications } from "./notify";
@@ -64,7 +64,7 @@ export function scope(ctx: ProtectedContext, col: SQL | typeof orders.centerId):
   return v.length ? and(inArray(col as typeof orders.centerId, v), tenant)! : sql`false`;
 }
 
-export const can = (ctx: ProtectedContext, p: Permission, centerId: string | null) => authorize(ctx.actor, p, { centerId }).allowed;
+export const can = (ctx: ProtectedContext, p: Permission, centerId: string | null) => allowedAt(ctx, p, { centerId });
 
 /** Gửi qua cổng chung để danh mục loại thông báo quyết định mức ưu tiên + có đẩy hay không */
 export async function notify(db: Db, userIds: (string | null | undefined)[], title: string, body: string, link: string, priority = 2, type: string | null = null) {

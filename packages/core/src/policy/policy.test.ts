@@ -268,3 +268,10 @@ test("ba quyền tinh vi: đổi mã học viên / đè lead khi nhập / xuất
   assert.equal(authorize(csm, "student:export", { centerId: "cs1" }).allowed, false);
   assert.equal(authorize(quanLy, "student:export", { centerId: "cs1" }).allowed, true);
 });
+
+test("bản ghi không gắn cơ sở (strictCenter): chỉ vai trò toàn hệ thống chạm được", () => {
+  assert.equal(authorize(cs1Manager, "student:update", { centerId: null }).allowed, true, "giữ hành vi cũ khi không bật strict");
+  assert.equal(authorize(cs1Manager, "student:update", { centerId: null, strictCenter: true }).allowed, false);
+  assert.equal(authorize(superAdmin, "student:update", { centerId: null, strictCenter: true }).allowed, true);
+  assert.equal(authorize(cs1Manager, "student:update", { centerId: "cs1", strictCenter: true }).allowed, true);
+});

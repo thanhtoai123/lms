@@ -278,6 +278,11 @@ export async function transitionSession(ctx: ProtectedContext, input: { sessionI
   const s = await loadSessionForAuth(ctx, input.sessionId);
   requirePermission(ctx, "session:update", { centerId: s.centerId, ownerIds: s.ownerIds });
   const detail = await getSessionDetail(ctx, input.sessionId);
+  // Mở lại buổi đã hoàn tất làm đổi điểm danh sau khi đã tính học phí / công: chỉ quản lý cơ sở, phải có lý do
+  if (input.event === "reopen" && detail.status === "completed") {
+    requirePermission(ctx, "session:update", { centerId: s.centerId });
+    if (!input.reason?.trim() || input.reason.trim().length < 5) throw new TRPCError({ code: "BAD_REQUEST", message: "Mở lại buổi đã hoàn tất cần lý do (tối thiểu 5 ký tự)" });
+  }
 
   const to: SessionStatus = transition(detail.status, input.event, {
     enrolledCount: detail.enrolledCount,

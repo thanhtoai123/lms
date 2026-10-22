@@ -18,7 +18,7 @@ import {
   REQUEST_KIND_VI, PARENT_REQUEST_TYPE_VI, type Permission,
 } from "@satarobo/core";
 import type { ProtectedContext } from "../trpc";
-import { tenantCond } from "./tenantScope";
+import { tenantCond, tenantCondViaCenter } from "./tenantScope";
 import { todayISO, listSessions, countSessions } from "./sessions";
 import { resolveAdmissionsPolicy } from "./admissionsAdmin";
 import { slaOverdueMinutesSql, slaOverdueSql } from "./leadSlaSql";
@@ -172,7 +172,7 @@ async function leadTaskGroup(ctx: ProtectedContext): Promise<InboxGroup | null> 
 async function leadSlaGroup(ctx: ProtectedContext): Promise<InboxGroup | null> {
   if (!canAnywhere(ctx, "lead:read")) return null;
   const visible = visibleCenterIds(ctx.actor);
-  const scope = visible === null ? sql`true` : visible.length ? inArray(leads.centerId, visible) : sql`false`;
+  const scope = visible === null ? tenantCondViaCenter(ctx, leads.centerId) : visible.length ? inArray(leads.centerId, visible) : sql`false`;
   const policy = await resolveAdmissionsPolicy(ctx.db, null);
   const now = new Date();
   const overdueMinutes = slaOverdueMinutesSql(policy.sla, leads.status, leads.lastTouchAt, now);

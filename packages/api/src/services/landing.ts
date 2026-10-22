@@ -7,7 +7,7 @@ import {
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { writeAudit } from "./audit";
-import { tenantSql } from "./tenantScope";
+import { tenantSql, requireChainHeadOffice } from "./tenantScope";
 import { getSiteChrome } from "./siteChrome";
 
 /**
@@ -124,6 +124,7 @@ export async function getLandingPage(ctx: ProtectedContext, id: string) {
 
 export async function createLandingPage(ctx: ProtectedContext, input: { title: string; slug: string; templateKey: string }) {
   requirePermission(ctx, "site:update");
+  requireChainHeadOffice(ctx, "website");
   const title = cut(input.title, 150);
   if (title.length < 3) throw bad("Tên trang tối thiểu 3 ký tự");
   const slug = input.slug.trim().toLowerCase();
@@ -153,6 +154,7 @@ export interface SaveDraftInput {
 
 export async function saveLandingDraft(ctx: ProtectedContext, input: SaveDraftInput) {
   requirePermission(ctx, "site:update");
+  requireChainHeadOffice(ctx, "website");
   const title = cut(input.title, 150);
   if (title.length < 3) throw bad("Tên trang tối thiểu 3 ký tự");
   if (!(LANDING_VARIANTS as readonly string[]).includes(input.variant)) throw bad("Kiểu giao diện không hợp lệ");
@@ -184,6 +186,7 @@ export async function saveLandingDraft(ctx: ProtectedContext, input: SaveDraftIn
 /** Xuất bản: kiểm đủ nội dung → chụp bản nháp thành bản công khai + ghi lịch sử */
 export async function publishLandingPage(ctx: ProtectedContext, input: { id: string }) {
   requirePermission(ctx, "site:update");
+  requireChainHeadOffice(ctx, "website");
   return ctx.db.transaction(async (tx) => {
     const cur = await loadRow(tx as unknown as Db, input.id);
     const snap = draftSnapshot(cur);
@@ -201,6 +204,7 @@ export async function publishLandingPage(ctx: ProtectedContext, input: { id: str
 /** Gỡ khỏi công khai (giữ nguyên nháp và lịch sử). Đường dẫn công khai trả 404 */
 export async function unpublishLandingPage(ctx: ProtectedContext, input: { id: string }) {
   requirePermission(ctx, "site:update");
+  requireChainHeadOffice(ctx, "website");
   const cur = await loadRow(ctx.db, input.id);
   if (cur.status !== "published") return { ok: true };
   await ctx.db.update(landingPages).set({ status: "draft", updatedBy: ctx.user.id, updatedAt: new Date() }).where(eq(landingPages.id, cur.id));
@@ -210,6 +214,7 @@ export async function unpublishLandingPage(ctx: ProtectedContext, input: { id: s
 
 export async function archiveLandingPage(ctx: ProtectedContext, input: { id: string; archived: boolean }) {
   requirePermission(ctx, "site:update");
+  requireChainHeadOffice(ctx, "website");
   const cur = await loadRow(ctx.db, input.id);
   if (input.archived && cur.status === "published") throw bad("Hãy gỡ khỏi công khai trước khi lưu trữ");
   await ctx.db.update(landingPages).set({ status: input.archived ? "archived" : "draft", updatedBy: ctx.user.id, updatedAt: new Date() }).where(eq(landingPages.id, cur.id));
@@ -219,6 +224,7 @@ export async function archiveLandingPage(ctx: ProtectedContext, input: { id: str
 
 export async function duplicateLandingPage(ctx: ProtectedContext, input: { id: string; title: string; slug: string }) {
   requirePermission(ctx, "site:update");
+  requireChainHeadOffice(ctx, "website");
   const src = await loadRow(ctx.db, input.id);
   const title = cut(input.title, 150);
   if (title.length < 3) throw bad("Tên trang tối thiểu 3 ký tự");
@@ -237,6 +243,7 @@ export async function duplicateLandingPage(ctx: ProtectedContext, input: { id: s
 /** Đưa một phiên bản đã xuất bản trước đây về NHÁP (chưa công khai — phải bấm Xuất bản) */
 export async function restoreLandingVersion(ctx: ProtectedContext, input: { id: string; version: number }) {
   requirePermission(ctx, "site:update");
+  requireChainHeadOffice(ctx, "website");
   return ctx.db.transaction(async (tx) => {
     const cur = await loadRow(tx as unknown as Db, input.id);
     const h = await tx.query.landingPageHistory.findFirst({ where: and(eq(landingPageHistory.pageId, cur.id), eq(landingPageHistory.version, input.version)) });

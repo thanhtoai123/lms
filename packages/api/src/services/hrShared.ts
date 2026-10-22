@@ -15,7 +15,7 @@ import {
   normalizePeriodStatus, periodFrozen, weekdayOf, PERIOD_STATUS_VI,
   type Permission, type DayResult, type DayShift, type TimesheetFlag, type CellOrigin, type RequestKind, type RequestStatus, type ShiftSegment,
 } from "@satarobo/core";
-import type { ProtectedContext } from "../trpc";
+import { allowedAt, type ProtectedContext } from "../trpc";
 import { opsForCenters } from "./opsSettings";
 import { deliverNotifications } from "./notify";
 import { todayISO } from "./sessions";
@@ -37,7 +37,7 @@ export function rule<T>(fn: () => T): T {
   }
 }
 
-export const can = (ctx: ProtectedContext, p: Permission, centerId: string | null) => authorize(ctx.actor, p, { centerId }).allowed;
+export const can = (ctx: ProtectedContext, p: Permission, centerId: string | null) => allowedAt(ctx, p, { centerId });
 export const isSA = (ctx: ProtectedContext) => hasRole(ctx.actor, "SUPER_ADMIN");
 
 /** Danh sách cơ sở actor có quyền p (null trong mảng = toàn hệ thống) */

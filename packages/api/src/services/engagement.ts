@@ -5,12 +5,13 @@ import {
   type Database,
 } from "@satarobo/db";
 import {
+  authorizeGlobal,
   runRules, DEFAULT_RULES, DEFAULT_SLA, OPEN_LEAD_STATUSES, visibleCenterIds, authorize,
   DEFAULT_RETRY, failureUpdate, clampPageSize, type RetryPolicy,
   type DomainEvent, type Action, type Role,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
-import { assertTenant, tenantCond, tenantCondStrict } from "./tenantScope";
+import { assertTenant, tenantCond, tenantCondStrict, inChainHeadOffice } from "./tenantScope";
 import { deliverNotifications } from "./notify";
 import { autoEnrollOrder } from "./autoEnroll";
 import { writeAudit } from "./audit";
@@ -105,7 +106,7 @@ export async function processOutbox(db: Database, opts: { batch?: number; retry?
  * Không truyền `ids` = đẩy lại tất cả. Đếm số dòng đã đẩy.
  */
 export async function retryDeadLetter(ctx: ProtectedContext, input: { ids?: string[] } = {}) {
-  requirePermission(ctx, "automation:update");
+  if (!authorizeGlobal(ctx.actor, "automation:update") || !inChainHeadOffice(ctx)) throw new TRPCError({ code: "FORBIDDEN", message: "Chỉ quản trị Hội sở đẩy lại hàng đợi" });
   const conds: SQL[] = [isNull(outbox.processedAt), sql`${outbox.deadLetterAt} is not null`];
   if (input.ids?.length) conds.push(inArray(outbox.id, input.ids.slice(0, 500)));
   const rows = await ctx.db

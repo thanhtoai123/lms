@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { and, eq, gte, isNull, lte, or, sql } from "drizzle-orm";
-import { getDb, users, userRoles, teachers, parents, staff, staffDeployments, userGroups, userGroupMembers, userGroupPermissions, tenants, tenantSettings, withDbErrors, type Database } from "@satarobo/db";
+import { getDb, centers, users, userRoles, teachers, parents, staff, staffDeployments, userGroups, userGroupMembers, userGroupPermissions, tenants, tenantSettings, withDbErrors, type Database } from "@satarobo/db";
 import {
   decodeJwtPayload, mfaRequiredRoles, mfaState, activeRoleAssignments, widenByDeployments, tenantScope, withSettingsDefaults,
   devActorAllowed, normalizeDevActor, DEV_ACTOR_HEADER, GLOBAL_ROLES,
@@ -32,6 +32,11 @@ export interface Context {
   tenantIds: string[];
   /** Toàn bộ tenant kèm cấu hình quyền riêng tư (bảng nhỏ, nạp một lần mỗi lượt gọi) */
   tenants: TenantRuntime[];
+  /**
+   * Cơ sở → tenant (chỉ nạp khi có từ 2 tenant). `requirePermission` dùng để chặn thao tác lên cơ sở
+   * của tenant ngoài phạm vi, kể cả khi vai trò toàn hệ thống của tenant nhượng quyền khớp quyền.
+   */
+  centerTenant?: Record<string, string | null>;
 }
 
 /**
@@ -173,10 +178,15 @@ async function buildUserContext(
   const allTenants = await loadTenants(db);
   const tenantId = u.tenantId ?? allTenants.find((t) => t.isDefault)?.id ?? null;
   const tenantIds = tenantScope({ tenantId, assignments: actor.assignments }, allTenants);
+  let centerTenant: Record<string, string | null> | undefined;
+  if (allTenants.length > 1) {
+    const cs = await db.select({ id: centers.id, tenantId: centers.tenantId }).from(centers).catch(() => [] as { id: string; tenantId: string | null }[]);
+    centerTenant = Object.fromEntries(cs.map((c) => [c.id, c.tenantId]));
+  }
 
   return {
     db, actor, user: { id: u.id, email: u.email, fullName: u.fullName }, ip: o.ip, auth: { via, aal, mfa },
-    tenantId, tenantIds, tenants: allTenants,
+    tenantId, tenantIds, tenants: allTenants, centerTenant,
   };
 }
 

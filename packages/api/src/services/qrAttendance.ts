@@ -68,7 +68,7 @@ export async function cardsForPrint(ctx: ProtectedContext, input: { classId?: st
 export async function reissueCard(ctx: ProtectedContext, input: { studentId: string; reason: string }) {
   const st = await ctx.db.query.students.findFirst({ where: eq(students.id, input.studentId) });
   if (!st) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy học viên" });
-  requirePermission(ctx, "student:update", { centerId: st.homeCenterId });
+  requirePermission(ctx, "student:update", { centerId: st.homeCenterId, strictCenter: true });
   if (input.reason.trim().length < 5) throw new TRPCError({ code: "BAD_REQUEST", message: "Ghi lý do cấp lại thẻ (mất thẻ, hỏng…)" });
   const [r] = await ctx.db.update(students).set({ cardVersion: sql`${students.cardVersion} + 1` }).where(eq(students.id, st.id)).returning({ v: students.cardVersion });
   await writeAudit(ctx.db, { actorId: ctx.user.id, action: "UPDATE", module: "students", entity: "students", entityId: st.id, before: { cardVersion: st.cardVersion }, after: { cardVersion: r!.v }, reason: input.reason.trim(), ip: ctx.ip });

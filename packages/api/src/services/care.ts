@@ -16,7 +16,7 @@ import {
   type Permission, type ParentRequestType, type ParentRequestStatus, type ContactChannel, type FeedbackStatus, type SurveyQuestion, type SurveyTrigger,
   type SurveyStatus, type SurveyAnswers, type RequestAction, type BroadcastChannel, type FeedbackTag,
 } from "@satarobo/core";
-import { requirePermission, type ProtectedContext } from "../trpc";
+import { requirePermission, allowedAt, type ProtectedContext } from "../trpc";
 import { deliverySettings } from "./delivery";
 import { awardByRule } from "./rewards";
 import { writeAudit } from "./audit";
@@ -29,7 +29,7 @@ type Db = ProtectedContext["db"];
 const bad = (m: string | string[]) => new TRPCError({ code: "BAD_REQUEST", message: Array.isArray(m) ? m.join("; ") : m });
 const pre = (m: string | string[]) => new TRPCError({ code: "PRECONDITION_FAILED", message: Array.isArray(m) ? m.join("; ") : m });
 const notFound = (m: string) => new TRPCError({ code: "NOT_FOUND", message: m });
-const can = (ctx: ProtectedContext, p: Permission, centerId: string | null) => authorize(ctx.actor, p, { centerId }).allowed;
+const can = (ctx: ProtectedContext, p: Permission, centerId: string | null) => allowedAt(ctx, p, { centerId });
 function rule<T>(fn: () => T): T {
   try {
     return fn();
@@ -121,7 +121,7 @@ export async function listParentRequests(ctx: ProtectedContext, input: { status?
 export async function requestContext(ctx: ProtectedContext, input: { studentId: string; enrollmentId?: string | null }) {
   const st = await ctx.db.query.students.findFirst({ where: eq(students.id, input.studentId), columns: { id: true, fullName: true, code: true, homeCenterId: true } });
   if (!st) throw notFound("Không tìm thấy học viên");
-  requirePermission(ctx, "care:read", { centerId: st.homeCenterId });
+  requirePermission(ctx, "care:read", { centerId: st.homeCenterId, strictCenter: true });
   const guardians = await ctx.db.select({ id: parents.id, fullName: parents.fullName, phone: parents.phone, isPrimary: studentGuardians.isPrimary }).from(studentGuardians)
     .innerJoin(parents, eq(parents.id, studentGuardians.parentId)).where(eq(studentGuardians.studentId, st.id)).orderBy(desc(studentGuardians.isPrimary));
   const enr = await ctx.db.select({ id: enrollments.id, status: enrollments.status, classId: classes.id, classCode: classes.code, centerId: classes.centerId, courseCode: courses.code })
@@ -744,7 +744,7 @@ export async function hideNotification(ctx: ProtectedContext, input: { id: strin
   const n = await ctx.db.query.parentNotifications.findFirst({ where: eq(parentNotifications.id, input.id) });
   if (!n) throw notFound("Không tìm thấy thông báo");
   const st = n.studentId ? await ctx.db.query.students.findFirst({ where: eq(students.id, n.studentId), columns: { homeCenterId: true } }) : null;
-  requirePermission(ctx, "care:update", { centerId: st?.homeCenterId ?? null });
+  requirePermission(ctx, "care:update", { centerId: st?.homeCenterId ?? null, strictCenter: true });
   const reason = reasonOf(input.reason, 5);
   if (input.hidden && n.hiddenAt) throw pre("Thông báo đã được ẩn");
   if (!input.hidden && !n.hiddenAt) throw pre("Thông báo đang hiển thị");
@@ -767,7 +767,7 @@ export async function retryNotification(ctx: ProtectedContext, input: { id: stri
   const n = await ctx.db.query.parentNotifications.findFirst({ where: eq(parentNotifications.id, input.id) });
   if (!n) throw notFound("Không tìm thấy thông báo");
   const st = n.studentId ? await ctx.db.query.students.findFirst({ where: eq(students.id, n.studentId), columns: { homeCenterId: true } }) : null;
-  requirePermission(ctx, "care:update", { centerId: st?.homeCenterId ?? null });
+  requirePermission(ctx, "care:update", { centerId: st?.homeCenterId ?? null, strictCenter: true });
   if (n.status !== "failed") throw pre("Chỉ gửi lại thông báo lỗi");
   await ctx.db.update(parentNotifications).set({ status: "queued", error: null }).where(eq(parentNotifications.id, n.id));
   return { ok: true };
@@ -837,7 +837,7 @@ export async function runBirthdayScan(ctx: ProtectedContext, input: { days?: num
 export async function sendBirthdayGreeting(ctx: ProtectedContext, input: { studentId: string; message?: string | null }) {
   const st = await ctx.db.query.students.findFirst({ where: eq(students.id, input.studentId) });
   if (!st || !st.dateOfBirth) throw notFound("Không tìm thấy học viên / chưa có ngày sinh");
-  requirePermission(ctx, "care:create", { centerId: st.homeCenterId });
+  requirePermission(ctx, "care:create", { centerId: st.homeCenterId, strictCenter: true });
   const today = todayISO();
   const nb = nextBirthday(st.dateOfBirth, addDays(today, -1));
   if (nb.daysUntil > 2) throw pre("Chỉ gửi lời chúc vào hôm trước, trong ngày hoặc hôm sau sinh nhật");

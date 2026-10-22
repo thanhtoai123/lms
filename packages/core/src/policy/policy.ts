@@ -85,6 +85,11 @@ export interface ResourceRef {
   centerId?: string | null;
   /** id chủ sở hữu (vd teacherId của buổi học, parentId của học viên) */
   ownerIds?: string[];
+  /**
+   * Bản ghi CỤ THỂ: centerId null nghĩa là "thuộc Hội sở / chưa gắn cơ sở", không phải "cơ sở nào cũng được".
+   * Khi bật, bản ghi không có cơ sở chỉ người có vai trò toàn hệ thống (hoặc chủ sở hữu theo quyền _own) mới chạm được.
+   */
+  strictCenter?: boolean;
 }
 
 /**
@@ -157,7 +162,7 @@ export function authorize(actor: Actor, wanted: Permission, resource: ResourceRe
 
   for (const a of actor.assignments) {
     const perms = ROLE_PERMISSIONS[a.role] ?? [];
-    const scopeOk = a.centerId === null || resource.centerId === undefined || resource.centerId === null || a.centerId === resource.centerId;
+    const scopeOk = a.centerId === null || resource.centerId === undefined || (resource.centerId === null && !resource.strictCenter) || a.centerId === resource.centerId;
 
     for (const p of perms) {
       if (matches(p, wanted) && scopeOk) {
@@ -172,7 +177,7 @@ export function authorize(actor: Actor, wanted: Permission, resource: ResourceRe
   }
 
   for (const g of extraPermissions) {
-    const scopeOk = g.centerId === null || resource.centerId === undefined || resource.centerId === null || g.centerId === resource.centerId;
+    const scopeOk = g.centerId === null || resource.centerId === undefined || (resource.centerId === null && !resource.strictCenter) || g.centerId === resource.centerId;
     if (!scopeOk) continue;
     if (matches(g.permission, wanted) && (!wanted.endsWith("_own") || isOwner)) {
       return { allowed: true, reason: `Nhóm ${g.source ?? "người dùng"} cấp ${g.permission}` };

@@ -17,6 +17,7 @@ import { requirePermission, type ProtectedContext } from "../trpc";
 import { trangThaiTokenZalo } from "./zaloToken";
 import { nickCaNhan } from "./channelAccounts";
 import { deliverySettings } from "./delivery";
+import { conversationScope } from "./messaging";
 
 /** Mốc "sắp hết khung" — dưới 6 giờ thì phải trả lời ngay hôm nay */
 const SAP_HET_GIO = 6;
@@ -44,7 +45,7 @@ export async function zaloCrm(ctx: ProtectedContext, input: { days?: number } = 
       daGanLead: sql<number>`count(*) filter (where ${conversations.leadId} is not null)::int`,
     })
     .from(conversations)
-    .where(and(eq(conversations.channel, "zalo"), gte(conversations.createdAt, tuNgay)));
+    .where(and(eq(conversations.channel, "zalo"), conversationScope(ctx), gte(conversations.createdAt, tuNgay)));
 
   /* --- Lead sinh ra từ Zalo và đã ghi danh bao nhiêu ------------------- */
   const [leadDem] = await ctx.db
@@ -54,7 +55,7 @@ export async function zaloCrm(ctx: ProtectedContext, input: { days?: number } = 
     })
     .from(conversations)
     .innerJoin(leads, eq(leads.id, conversations.leadId))
-    .where(and(eq(conversations.channel, "zalo"), gte(conversations.createdAt, tuNgay)));
+    .where(and(eq(conversations.channel, "zalo"), conversationScope(ctx), gte(conversations.createdAt, tuNgay)));
 
   /* --- Tin đến / tin đi trong kỳ --------------------------------------- */
   const [tin] = await ctx.db
@@ -65,7 +66,7 @@ export async function zaloCrm(ctx: ProtectedContext, input: { days?: number } = 
     })
     .from(messages)
     .innerJoin(conversations, eq(conversations.id, messages.conversationId))
-    .where(and(eq(conversations.channel, "zalo"), gte(messages.createdAt, tuNgay)));
+    .where(and(eq(conversations.channel, "zalo"), conversationScope(ctx), gte(messages.createdAt, tuNgay)));
 
   /* --- Hội thoại đang mở + còn bao lâu hết khung 48 giờ ---------------- */
   const moRa = await ctx.db
@@ -83,7 +84,7 @@ export async function zaloCrm(ctx: ProtectedContext, input: { days?: number } = 
     .from(conversations)
     .leftJoin(leads, eq(leads.id, conversations.leadId))
     .leftJoin(users, eq(users.id, conversations.assignedTo))
-    .where(and(eq(conversations.channel, "zalo"), sql`${conversations.status} <> 'closed'`))
+    .where(and(eq(conversations.channel, "zalo"), conversationScope(ctx), sql`${conversations.status} <> 'closed'`))
     .orderBy(desc(conversations.lastMessageAt))
     .limit(100);
 
@@ -146,13 +147,13 @@ export async function zaloCrm(ctx: ProtectedContext, input: { days?: number } = 
     })
     .from(messages)
     .innerJoin(conversations, eq(conversations.id, messages.conversationId))
-    .where(and(eq(conversations.channel, "zalo"), gte(messages.createdAt, tuNgay)));
+    .where(and(eq(conversations.channel, "zalo"), conversationScope(ctx), gte(messages.createdAt, tuNgay)));
 
   /* --- Khách rời OA: nhắn tự do không tới nữa -------------------------- */
   const [roiOa] = await ctx.db
     .select({ n: sql<number>`count(*)::int` })
     .from(conversations)
-    .where(and(eq(conversations.channel, "zalo"), sql`'roi_oa' = any(${conversations.flags})`, sql`${conversations.status} <> 'closed'`));
+    .where(and(eq(conversations.channel, "zalo"), conversationScope(ctx), sql`'roi_oa' = any(${conversations.flags})`, sql`${conversations.status} <> 'closed'`));
 
   /* --- Zalo cá nhân: hội thoại + lead theo nick ------------------------ */
   const [demCaNhan] = await ctx.db
@@ -162,7 +163,7 @@ export async function zaloCrm(ctx: ProtectedContext, input: { days?: number } = 
       chuaGanLead: sql<number>`count(*) filter (where ${conversations.leadId} is null and ${conversations.status} <> 'closed')::int`,
     })
     .from(conversations)
-    .where(and(eq(conversations.channel, "zalo_ca_nhan"), gte(conversations.createdAt, tuNgay)));
+    .where(and(eq(conversations.channel, "zalo_ca_nhan"), conversationScope(ctx), gte(conversations.createdAt, tuNgay)));
 
   const [whCaNhan] = await ctx.db
     .select({
@@ -231,7 +232,7 @@ export async function zaloSapHetKhung(ctx: ProtectedContext) {
   const rows = await ctx.db
     .select({ id: conversations.id, ten: conversations.displayName, lastInboundAt: conversations.lastInboundAt })
     .from(conversations)
-    .where(and(eq(conversations.channel, "zalo"), sql`${conversations.status} <> 'closed'`, isNotNull(conversations.lastInboundAt)))
+    .where(and(eq(conversations.channel, "zalo"), conversationScope(ctx), sql`${conversations.status} <> 'closed'`, isNotNull(conversations.lastInboundAt)))
     .limit(200);
   const now = new Date();
   return rows

@@ -15,6 +15,7 @@ import type { ProtectedContext } from "../trpc";
 import { accessTokenZalo } from "./zaloToken";
 import { guiQuaKenh, ngayVN, type DichGui } from "./channelAccounts";
 import { writeAudit } from "./audit";
+import { assertTenant, inChainHeadOffice, tenantCondViaCenter } from "./tenantScope";
 import { todayISO } from "./sessions";
 import { notify } from "./finance";
 import { createLead } from "./leads";
@@ -58,15 +59,24 @@ async function messagingSettings(db: Db): Promise<MessagingSettings> {
 /* Phạm vi xem                                                          */
 /* ------------------------------------------------------------------ */
 
-function scope(ctx: ProtectedContext): SQL {
+/**
+ * Phạm vi hội thoại người này thấy. Hội thoại chưa gắn cơ sở (hộp thư chung của chuỗi) chỉ người thuộc
+ * trung tâm chủ chuỗi thấy — đơn vị nhượng quyền chỉ thấy hội thoại cơ sở mình hoặc được giao cho mình.
+ */
+export function conversationScope(ctx: ProtectedContext): SQL {
   const ids = centersWith(ctx.actor, "message:read");
   const own = ctx.actor.personId && hasRole(ctx.actor, "TEACHER") ? eq(conversations.teacherId, ctx.actor.personId) : sql`false`;
-  if (ids === null) return sql`true`;
+  const chain = inChainHeadOffice(ctx);
+  if (ids === null && chain) return sql`true`;
+  // Vai trò toàn hệ thống của đơn vị nhượng quyền: mọi cơ sở thuộc tenant mình, trừ hộp thư chung chưa gắn cơ sở
+  if (ids === null) return or(and(isNotNull(conversations.centerId), tenantCondViaCenter(ctx, conversations.centerId)), own, eq(conversations.assignedTo, ctx.user.id))!;
   if (!ids.length) return or(own, eq(conversations.assignedTo, ctx.user.id))!;
-  return or(inArray(conversations.centerId, ids), isNull(conversations.centerId), own, eq(conversations.assignedTo, ctx.user.id))!;
+  return or(inArray(conversations.centerId, ids), chain ? isNull(conversations.centerId) : sql`false`, own, eq(conversations.assignedTo, ctx.user.id))!;
 }
+const scope = conversationScope;
 function canAct(ctx: ProtectedContext, c: { centerId: string | null; teacherId: string | null; assignedTo: string | null }, perm: "message:create" | "message:update") {
   if (c.assignedTo === ctx.user.id) return true;
+  if (!c.centerId && !inChainHeadOffice(ctx)) return false;
   return authorize(ctx.actor, perm, { centerId: c.centerId, ownerIds: c.teacherId ? [c.teacherId] : [] }).allowed;
 }
 function isSupervisor(ctx: ProtectedContext, centerId?: string | null) {
@@ -492,6 +502,10 @@ export async function linkConversation(ctx: ProtectedContext, input: { id: strin
   if (parentId) {
     const p = await ctx.db.query.parents.findFirst({ where: eq(parents.id, parentId) });
     if (!p) throw notFound("Không tìm thấy phụ huynh");
+    assertTenant(ctx, p, "Phụ huynh");
+    const kids = await ctx.db.select({ c: students.homeCenterId }).from(studentGuardians).innerJoin(students, eq(students.id, studentGuardians.studentId)).where(eq(studentGuardians.parentId, p.id));
+    const cs = [...new Set(kids.map((k) => k.c).filter((x): x is string => !!x))];
+    if (cs.length && !cs.some((centerId) => authorize(ctx.actor, "student:read", { centerId }).allowed)) throw forbid("Không có quyền với phụ huynh này");
   }
   const lead = leadId ? await ctx.db.query.leads.findFirst({ where: eq(leads.id, leadId) }) : null;
   await markActivity(ctx.db, c.id, { leadId, parentId, centerId: c.centerId ?? lead?.centerId ?? null, assignedTo: c.assignedTo ?? lead?.assignedToId ?? ctx.user.id });
@@ -576,7 +590,7 @@ export async function supervision(ctx: ProtectedContext, input: { from?: string;
 }
 
 export async function saveMessagingSettings(ctx: ProtectedContext, input: MessagingSettings) {
-  if (!authorizeGlobal(ctx.actor, "message:audit") && !authorizeGlobal(ctx.actor, "system:update")) throw forbid("Chỉ Hội sở cấu hình kênh nhắn tin");
+  if ((!authorizeGlobal(ctx.actor, "message:audit") && !authorizeGlobal(ctx.actor, "system:update")) || !inChainHeadOffice(ctx)) throw forbid("Chỉ Hội sở cấu hình kênh nhắn tin");
   if (input.defaultCenterId) {
     const c = await ctx.db.query.centers.findFirst({ where: eq(centers.id, input.defaultCenterId) });
     if (!c) throw bad("Cơ sở không tồn tại");

@@ -10,8 +10,8 @@ import {
   INVOICE_STATUS_VI, INVOICE_KIND_VI, TAX_RATES, TAX_RATE_VI,
   type InvoiceStatus, type InvoiceKind, type InvoiceLine, type TaxRate, type InvoiceAction,
 } from "@satarobo/core";
-import type { ProtectedContext } from "../trpc";
-import { tenantCond } from "./tenantScope";
+import { allowedAt, type ProtectedContext } from "../trpc";
+import { tenantCond, assertTenant, inChainHeadOffice } from "./tenantScope";
 import { writeAudit } from "./audit";
 import { todayISO } from "./sessions";
 import { queueEmail, getSettings } from "./admin";
@@ -33,7 +33,7 @@ function rule<T>(fn: () => T): T {
     throw e;
   }
 }
-const can = (ctx: ProtectedContext, p: `finance:${string}`, centerId: string | null) => authorize(ctx.actor, p, { centerId }).allowed;
+const can = (ctx: ProtectedContext, p: `finance:${string}`, centerId: string | null) => allowedAt(ctx, p, { centerId });
 /** Phạm vi xem hoá đơn: cơ sở được phép VÀ trung tâm (tenant) của hoá đơn */
 function scope(ctx: ProtectedContext): SQL {
   const v = visibleCenterIds(ctx.actor);
@@ -83,7 +83,7 @@ export async function getEInvoiceSettings(ctx: ProtectedContext) {
 }
 
 export async function saveEInvoiceSettings(ctx: ProtectedContext, input: EInvoiceSettings) {
-  if (!authorizeGlobal(ctx.actor, "finance:configure")) throw forbid("Chỉ kế toán Hội sở cấu hình hoá đơn điện tử");
+  if (!authorizeGlobal(ctx.actor, "finance:configure") || !inChainHeadOffice(ctx)) throw forbid("Chỉ kế toán Hội sở cấu hình hoá đơn điện tử");
   const e: string[] = [];
   const year = Number(todayISO().slice(0, 4));
   e.push(...validateSerial(input.serial.trim().toUpperCase(), year));
@@ -178,6 +178,7 @@ async function draftForPayment(db: Db, paymentId: string, s: EInvoiceSettings, a
 export async function createDraft(ctx: ProtectedContext, input: { paymentId: string }) {
   const p = await ctx.db.query.payments.findFirst({ where: eq(payments.id, input.paymentId) });
   if (!p) throw notFound("Không tìm thấy khoản thu");
+  assertTenant(ctx, p, "Hoá đơn");
   if (!can(ctx, "finance:confirm", p.centerId)) throw forbid("Chỉ kế toán lập hoá đơn");
   const s = await einvoiceSettings(ctx.db);
   return draftForPayment(ctx.db, p.id, s, ctx.user.id);
@@ -293,6 +294,7 @@ async function doIssue(db: Db, id: string, actorId: string | null, ip?: string):
 export async function issueInvoice(ctx: ProtectedContext, input: { id: string }) {
   const inv = await ctx.db.query.einvoices.findFirst({ where: eq(einvoices.id, input.id) });
   if (!inv) throw notFound("Không tìm thấy hoá đơn");
+  assertTenant(ctx, inv, "Hoá đơn");
   if (!can(ctx, "finance:confirm", inv.centerId)) throw forbid("Chỉ kế toán phát hành hoá đơn");
   // `doIssue` tự ghi audit TRONG transaction chốt số (gọi ra nhà cung cấp nằm giữa hai transaction
   // nên không gói chung được) — ở đây chỉ truyền IP xuống, không ghi lần thứ hai.
@@ -302,6 +304,7 @@ export async function issueInvoice(ctx: ProtectedContext, input: { id: string })
 export async function updateDraft(ctx: ProtectedContext, input: { id: string; buyerName?: string | null; buyerCompany?: string | null; buyerTaxCode?: string | null; buyerAddress?: string | null; buyerEmail?: string | null; noInvoiceRequested?: boolean }) {
   const inv = await ctx.db.query.einvoices.findFirst({ where: eq(einvoices.id, input.id) });
   if (!inv) throw notFound("Không tìm thấy hoá đơn");
+  assertTenant(ctx, inv, "Hoá đơn");
   if (!can(ctx, "finance:confirm", inv.centerId)) throw forbid("Chỉ kế toán sửa hoá đơn");
   if (!["draft", "failed"].includes(inv.status)) throw pre("Chỉ sửa hoá đơn nháp / lỗi — hoá đơn đã phát hành phải điều chỉnh hoặc thay thế");
   const t = (v: string | null | undefined) => (v === undefined ? undefined : v?.trim() || null);
@@ -333,6 +336,7 @@ export async function updateDraft(ctx: ProtectedContext, input: { id: string; bu
 export async function cancelDraft(ctx: ProtectedContext, input: { id: string; reason: string }) {
   const inv = await ctx.db.query.einvoices.findFirst({ where: eq(einvoices.id, input.id) });
   if (!inv) throw notFound("Không tìm thấy hoá đơn");
+  assertTenant(ctx, inv, "Hoá đơn");
   if (!can(ctx, "finance:confirm", inv.centerId)) throw forbid("Chỉ kế toán");
   if (input.reason.trim().length < 5) throw bad("Ghi lý do huỷ nháp");
   const to = rule(() => invoiceTransition(inv.status as InvoiceStatus, "cancel"));
@@ -352,6 +356,7 @@ export async function cancelDraft(ctx: ProtectedContext, input: { id: string; re
 export async function createCorrection(ctx: ProtectedContext, input: { originalId: string; kind: "adjustment" | "replacement"; reason: string; agreementNote: string; lines: InvoiceLine[]; refundId?: string | null; buyer?: { name?: string | null; company?: string | null; taxCode?: string | null; address?: string | null; email?: string | null } | null }) {
   const o = await ctx.db.query.einvoices.findFirst({ where: eq(einvoices.id, input.originalId) });
   if (!o) throw notFound("Không tìm thấy hoá đơn gốc");
+  assertTenant(ctx, o, "Hoá đơn");
   if (!can(ctx, "finance:confirm", o.centerId)) throw forbid("Chỉ kế toán");
   const lines = input.lines.map((l) => ({ ...l, name: l.name.trim(), unit: l.unit.trim() || "Lần", quantity: Math.round(l.quantity) || 1, amount: Math.round(l.amount), unitPrice: Math.round(l.amount / (Math.round(l.quantity) || 1)) }));
   const errs = validateCorrection({ kind: input.kind, originalStatus: o.status as InvoiceStatus, agreementNote: input.agreementNote, reason: input.reason, lines });
@@ -438,6 +443,7 @@ export async function getInvoice(ctx: ProtectedContext, id: string) {
     .innerJoin(centers, eq(centers.id, einvoices.centerId)).leftJoin(orders, eq(orders.id, einvoices.orderId)).leftJoin(payments, eq(payments.id, einvoices.paymentId))
     .where(eq(einvoices.id, id)).limit(1);
   if (!x) throw notFound("Không tìm thấy hoá đơn");
+  assertTenant(ctx, x.i, "Hoá đơn");
   if (!can(ctx, "finance:read", x.i.centerId)) throw forbid("Không có quyền xem hoá đơn này");
   const ev = await ctx.db.select({ e: einvoiceEvents, by: users.fullName }).from(einvoiceEvents).leftJoin(users, eq(users.id, einvoiceEvents.userId))
     .where(eq(einvoiceEvents.invoiceId, id)).orderBy(asc(einvoiceEvents.createdAt));

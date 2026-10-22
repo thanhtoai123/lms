@@ -8,7 +8,7 @@ import {
   JOB_STATUS_VI, CANDIDATE_STAGE_VI, CANDIDATE_STAGES, INTERVIEW_RESULT_VI, EMPLOYMENT_TYPE_VI, CANDIDATE_RETENTION_MONTHS, ANON_NAME, anonymizedPhone,
   type JobStatus, type CandidateStage, type InterviewResult, type EmploymentType, type Department, DEPARTMENT_VI,
 } from "@satarobo/core";
-import type { ProtectedContext } from "../trpc";
+import { allowedAt, type ProtectedContext } from "../trpc";
 import { writeAudit } from "./audit";
 import { putObject, signedFileUrl } from "../storage";
 import { todayISO } from "./sessions";
@@ -31,7 +31,7 @@ function rule<T>(fn: () => T): T {
     throw e;
   }
 }
-const can = (ctx: ProtectedContext, p: `recruit:${string}`, centerId: string | null) => authorize(ctx.actor, p, { centerId }).allowed;
+const can = (ctx: ProtectedContext, p: `recruit:${string}`, centerId: string | null) => allowedAt(ctx, p, { centerId, strictCenter: true });
 function scopeSql(col: SQL | typeof jobPostings.centerId, ids: string[] | null): SQL {
   if (ids === null) return sql`true`;
   return ids.length ? sql`(${col} is null or ${inArray(col as typeof jobPostings.centerId, ids)})` : sql`false`;

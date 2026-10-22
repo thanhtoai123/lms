@@ -8,6 +8,7 @@ import {
   type DeliverySettings, type DeliveryEvent, type DeliveryFailure,
 } from "@satarobo/core";
 import type { ProtectedContext } from "../trpc";
+import { inChainHeadOffice } from "./tenantScope";
 import { accessTokenZalo } from "./zaloToken";
 import { writeAudit } from "./audit";
 
@@ -281,7 +282,7 @@ export async function getDeliveryConfig(ctx: ProtectedContext) {
 }
 
 export async function saveDeliveryConfig(ctx: ProtectedContext, input: DeliverySettings) {
-  if (!authorizeGlobal(ctx.actor, "system:configure")) throw forbid("Chỉ quản trị Hội sở cấu hình kênh gửi");
+  if (!authorizeGlobal(ctx.actor, "system:configure") || !inChainHeadOffice(ctx)) throw forbid("Chỉ quản trị Hội sở cấu hình kênh gửi");
   const clean: DeliverySettings = {
     ...input,
     zns: { mode: input.zns.mode, templates: Object.fromEntries(Object.entries(input.zns.templates).filter(([, t]) => t && t.templateId.trim()).map(([k, t]) => [k, { templateId: t!.templateId.trim(), params: t!.params }])) },
@@ -298,7 +299,7 @@ export async function saveDeliveryConfig(ctx: ProtectedContext, input: DeliveryS
 
 /** Gửi thử một sự kiện tới SĐT nhập tay (dữ liệu mẫu) */
 export async function testDelivery(ctx: ProtectedContext, input: { channel: "zns" | "sms"; event: DeliveryEvent; phone: string }) {
-  if (!authorizeGlobal(ctx.actor, "system:configure")) throw forbid("Chỉ quản trị Hội sở");
+  if (!authorizeGlobal(ctx.actor, "system:configure") || !inChainHeadOffice(ctx)) throw forbid("Chỉ quản trị Hội sở");
   const s = await deliverySettings(ctx.db);
   const to = znsPhone(input.phone);
   if (!to) throw bad("SĐT không hợp lệ");

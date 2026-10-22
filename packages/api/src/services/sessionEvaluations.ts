@@ -31,7 +31,7 @@ import {
   type SessionSheetView, type Permission,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
-import { assertTenant, tenantCond } from "./tenantScope";
+import { assertTenant, tenantCond, tenantCondViaCenter } from "./tenantScope";
 import { writeAudit } from "./audit";
 import { signedMediaUrl } from "../storage";
 import { standardFor, loadStandards, standardOf, sheetDeadlineSql } from "./portfolioStandardConfig";
@@ -556,7 +556,7 @@ export async function pendingEvaluationSessions(ctx: ProtectedContext, input: { 
     sql`${sessions.date} >= ${from}`,
     sql`${sessions.date} <= ${today}`,
     sql`${sessions.status} in ('in_progress','attendance_done','notes_done','completed')`,
-    visible === null ? sql`true` : visible.length ? inArray(classes.centerId, visible) : sql`false`,
+    visible === null ? tenantCondViaCenter(ctx, classes.centerId) : visible.length ? inArray(classes.centerId, visible) : sql`false`,
     own,
   ];
   const missingExpr = sql<number>`(

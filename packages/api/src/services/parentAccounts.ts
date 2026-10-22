@@ -70,7 +70,7 @@ export async function listParentAccounts(ctx: ProtectedContext, input: { q?: str
 }
 
 async function loadParent(ctx: ProtectedContext, id: string) {
-  const [p] = await ctx.db.select().from(parents).where(and(eq(parents.id, id), isNull(parents.deletedAt), parentScope(ctx))).limit(1);
+  const [p] = await ctx.db.select().from(parents).where(and(eq(parents.id, id), isNull(parents.deletedAt), parentScope(ctx), tenantCond(ctx, parents))).limit(1);
   if (!p) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy phụ huynh" });
   return p;
 }
