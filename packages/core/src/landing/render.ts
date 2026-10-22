@@ -465,7 +465,9 @@ function renderTeacher(s: LandingSection, ctx: RenderCtx): string {
 /** Thanh gọi / đăng ký cố định ở cuối màn hình điện thoại (landing quảng cáo) */
 function renderStickyBar(doc: LandingDoc, ctx: RenderCtx): string {
   const header = doc.sections.find((x) => x.type === "header" && x.enabled);
-  const phone = header ? d(header, "phone") : "";
+  const footer = doc.sections.find((x) => x.type === "footer" && x.enabled);
+  // Đầu trang không hiện hotline nữa → nút "Gọi" của thanh dưới cùng lấy số ở chân trang
+  const phone = (header ? d(header, "phone") : "") || (footer ? d(footer, "phone") : "");
   void ctx;
   return `<div class="lp-sticky" role="region" aria-label="Đăng ký nhanh">`
     + (phone ? `<a class="lp-btn lp-btn-ghost" href="tel:${escHtml(phone.replace(/[^\d+]/g, ""))}" data-cta="1">Gọi ${escHtml(phone)}</a>` : "")

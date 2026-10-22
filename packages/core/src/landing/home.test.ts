@@ -132,6 +132,13 @@ test("trang chính: thông tin liên hệ thật theo bộ nhận diện", () =>
   for (const must of [TH_BRAND.hotline, `tel:${TH_BRAND.hotlineTel}`, TH_BRAND.website, TH_BRAND.legalName.replace("&", "&amp;"), TH_BRAND.taglineVi]) assert.ok(h.includes(must), must);
 });
 
+test("trang chính: thanh nút điện thoại có nút Gọi hotline dù đầu trang không hiện số", () => {
+  const h = html();
+  const bar = h.slice(h.indexOf('class="lp-sticky"'));
+  assert.ok(bar.includes(`tel:${TH_BRAND.hotlineTel}`) && bar.includes("Học trải nghiệm 1:1"));
+  assert.ok(!/<header class="lp-top">[\s\S]*?lp-tel[\s\S]*?<\/header>/.test(h), "đầu trang không có hotline");
+});
+
 test("trang chính: chuẩn hoá không làm mất chữ (không bị cắt vì quá giới hạn)", () => {
   assert.deepEqual(doc(), HOME_PAGE.build());
 });
