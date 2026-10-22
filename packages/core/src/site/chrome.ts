@@ -38,7 +38,7 @@ export const DEFAULT_CHROME: SiteChrome = {
     { label: "Con thay đổi gì", href: "/#con-thay-doi" },
     { label: "Hỏi đáp", href: "/#hoi-dap" },
   ],
-  tagline: `${TH_BRAND.tagline} — ${TH_BRAND.taglineVi}. Robotics, AI, Thiết kế đồ họa và Lập trình cho học sinh 8–18 tuổi, học trực tuyến cùng giáo viên ở bất kỳ đâu.`,
+  tagline: `“${TH_BRAND.taglineVi}”: mỗi buổi học, con tự tay sáng tạo một sản phẩm công nghệ, để niềm đam mê được nhen lên và lớn dần cùng con, dù con ở bất kỳ đâu.`,
   email: "",
   legal: TH_BRAND.legalName,
   copyright: `© 2026 ${TH_BRAND.name}`,

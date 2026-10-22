@@ -129,7 +129,7 @@ test("trang chính: SEO — tiêu đề ≤ 60–70, mô tả ≤ 160, một H1,
 
 test("trang chính: thông tin liên hệ thật theo bộ nhận diện", () => {
   const h = html();
-  for (const must of [TH_BRAND.hotline, `tel:${TH_BRAND.hotlineTel}`, TH_BRAND.website, TH_BRAND.legalName.replace("&", "&amp;"), TH_BRAND.tagline]) assert.ok(h.includes(must), must);
+  for (const must of [TH_BRAND.hotline, `tel:${TH_BRAND.hotlineTel}`, TH_BRAND.website, TH_BRAND.legalName.replace("&", "&amp;"), TH_BRAND.taglineVi]) assert.ok(h.includes(must), must);
 });
 
 test("trang chính: chuẩn hoá không làm mất chữ (không bị cắt vì quá giới hạn)", () => {
