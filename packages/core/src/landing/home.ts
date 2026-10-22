@@ -61,7 +61,7 @@ export const HOME_PAGE = {
     return {
       sections: [
         // Đầu / chân trang thật lấy từ khung chung của website (site/chrome.ts); hai khối này chỉ để trang đứng riêng được.
-        sec("header", "header", { phone: TH_BRAND.hotline, ctaLabel: "Học trải nghiệm 1:1", ctaUrl: "#dang-ky" }, {
+        sec("header", "header", { phone: "", ctaLabel: "Học trải nghiệm 1:1", ctaUrl: "#dang-ky" }, {
           nav: [{ label: "Vì sao nên học", href: "#noi-lo" }, { label: "Chuyên ngành", href: "#chuyen-nganh" }, { label: "Buổi học", href: "#quy-trinh" }, { label: "Giảng viên", href: "#giang-vien" }, { label: "Hỏi đáp", href: "#hoi-dap" }],
         }),
 

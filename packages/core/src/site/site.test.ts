@@ -61,7 +61,8 @@ test("khung chung: thay đầu / chân trang, giữ khối ở giữa và id", (
   assert.equal(changed.sections[0]!.type, "header");
   assert.equal(changed.sections.at(-1)!.type, "footer");
   assert.equal(changed.sections.length, doc.sections.length);
-  assert.equal(changed.sections[0]!.data.phone, "0900 000 111");
+  assert.equal(changed.sections[0]!.data.phone, ""); // đầu trang không hiện hotline
+  assert.equal(changed.sections.at(-1)!.data.phone, "0900 000 111");
   assert.equal(changed.sections[0]!.lists.nav!.length, 1);
   assert.equal(changed.sections[0]!.id, doc.sections[0]!.id);
   // không đổi khối giữa
@@ -74,7 +75,7 @@ test("khung chung: thay đầu / chân trang, giữ khối ở giữa và id", (
 test("khung chung: dựng được đầu / chân trang HTML, logo về trang chủ", () => {
   const { header, footer } = chromeSections(DEFAULT_CHROME);
   const h = renderHeaderHtml(header, ctx({ homeHref: "/" }));
-  assert.ok(h.includes('class="lp-brand" href="/"') && h.includes("/#chuyen-nganh") && h.includes(`tel:${TH_BRAND.hotlineTel}`));
+  assert.ok(h.includes('class="lp-brand" href="/"') && h.includes("/#chuyen-nganh") && !h.includes("lp-tel"), "đầu trang không hiện hotline");
   assert.ok(renderHeaderHtml(header, ctx()).includes('href="#top"'));
   const f = renderFooterHtml(footer, ctx());
   assert.ok(f.includes("toàn quốc") && f.includes("/chinh-sach/bao-mat") && f.includes("/chinh-sach/dieu-khoan") && f.includes(TH_BRAND.website));

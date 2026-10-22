@@ -105,7 +105,8 @@ export function validateChrome(c: SiteChrome): string[] {
 
 function headerOf(c: SiteChrome): LandingSection {
   const s = emptySection("header", "header");
-  s.data = { phone: c.phone, ctaLabel: c.ctaLabel, ctaUrl: c.ctaUrl };
+  // Đầu trang không hiện hotline (22/10/2026): nút vàng là lời mời duy nhất; hotline ở khối form, thanh nút điện thoại, chân trang
+  s.data = { phone: "", ctaLabel: c.ctaLabel, ctaUrl: c.ctaUrl };
   s.lists = { nav: c.nav.map((l) => ({ ...l })) };
   return s;
 }
