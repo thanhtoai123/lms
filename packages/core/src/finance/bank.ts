@@ -92,6 +92,8 @@ export interface MatchOrder {
   total: number;
   confirmed: number;
   pending: { id: string; amount: number }[];
+  /** Lý do đơn chưa được thu tiền (đang chờ / bị từ chối duyệt giảm giá) — tiền về phải chờ kế toán xử lý */
+  blockedBy?: string | null;
 }
 
 export type MatchDecision =
@@ -114,6 +116,7 @@ export function decideBankMatch(input: { direction: "in" | "out"; amount: number
   if (!o) return { kind: "unmatched", note: `Không tìm thấy đơn ${ref}` };
   if (!input.accountOk) return { kind: "needs_review", note: `Tài khoản nhận không thuộc cơ sở của đơn ${o.code}` };
   if (o.status === "cancelled" || o.status === "refunded") return { kind: "needs_review", note: `Đơn ${o.code} đã đóng — cần xử lý hoàn/giữ tiền` };
+  if (o.blockedBy) return { kind: "needs_review", note: `Đơn ${o.code}: ${o.blockedBy}` };
   const outstanding = Math.max(0, o.total - o.confirmed);
   if (outstanding <= 0) return { kind: "needs_review", note: `Đơn ${o.code} đã thu đủ — tiền thừa ${formatVnd(input.amount)}` };
   const same = o.pending.find((p) => p.amount === input.amount);
@@ -530,6 +533,7 @@ export function parseStatementCsv(text: string, accountNo: string, gateway: stri
   const txs: BankTx[] = [];
   const errors: { line: number; error: string }[] = [];
   let skippedOut = 0;
+  const seen = new Map<string, number>();
   all.slice(1).forEach((r, i) => {
     const line = i + 2;
     const credit = parseVnAmount(get(r, "credit"));
@@ -542,7 +546,12 @@ export function parseStatementCsv(text: string, accountNo: string, gateway: stri
     if (!date) return void errors.push({ line, error: "Ngày không hợp lệ" });
     const content = get(r, "content").slice(0, 500);
     const ref = get(r, "reference").slice(0, 80) || null;
-    const externalId = ref ? `${accountNo}:${ref}` : `${accountNo}:${date}:${credit}:${fold(content).slice(0, 80)}`;
+    // Không có mã tham chiếu: hai giao dịch giống hệt trong cùng ngày vẫn là hai giao dịch → đánh số lần xuất hiện
+    // (nhập lại đúng file vẫn ra đúng các khoá cũ nên không bị nhập trùng)
+    const base = ref ? `${accountNo}:${ref}` : `${accountNo}:${date}:${credit}:${fold(content).slice(0, 80)}`;
+    const nth = (seen.get(base) ?? 0) + 1;
+    seen.set(base, nth);
+    const externalId = ref || nth === 1 ? base : `${base}#${nth}`;
     txs.push({ externalId, gateway, accountNo, occurredAt: `${date}T00:00:00+07:00`, amount: credit, direction: "in", content, referenceCode: ref, accumulated: null });
   });
   return { txs, errors, skippedOut, headerErrors };

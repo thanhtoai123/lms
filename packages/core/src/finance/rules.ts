@@ -193,6 +193,15 @@ export const DISCOUNT_APPROVAL_CHIP: Record<DiscountApproval, string> = {
   rejected: "bg-red-100 text-red-700",
 };
 
+/**
+ * Tiền đã thu thuộc về một dòng đơn: khoản gắn thẳng dòng đó + phần chia theo tỉ lệ giá trị dòng
+ * của các khoản không gắn dòng nào (chuyển khoản tự khớp, ghi nhận chung cho cả đơn).
+ */
+export function attributedPaid(i: { direct: number; unattributed: number; lineNet: number; orderNet: number }): number {
+  const share = i.orderNet > 0 ? Math.round((i.unattributed * Math.max(0, i.lineNet)) / i.orderNet) : 0;
+  return Math.min(Math.max(0, i.lineNet), i.direct + share);
+}
+
 /** % giảm của cả đơn, làm tròn tới số nguyên (0 khi đơn không có giá trị gốc) */
 export function discountPercentOf(gross: number, discountAmount: number): number {
   const g = Math.max(0, Math.round(gross));
@@ -533,6 +542,37 @@ export function replanInstallments(total: number, current: readonly ReplanCurren
     else if (keep.amount < c.paid) errs.push(`Đợt ${c.seq} đã thu ${formatVnd(c.paid)} — số tiền mới không được nhỏ hơn`);
   }
   return [...new Set(errs)];
+}
+
+/**
+ * Kế hoạch mới khi tổng đơn đổi (sửa học phí): giữ đợt đã thu và phần đã thu của từng đợt;
+ * phần chênh trừ dần từ đợt cuối chưa thu (giảm) hoặc cộng vào đợt cuối chưa thu đủ (tăng),
+ * không còn đợt nào chưa thu thì thêm một đợt mới sau `fallbackDue`.
+ * Đợt về 0 mà chưa thu đồng nào thì bỏ. Trả null khi không cần đổi.
+ */
+export function rebalancePlan(
+  current: readonly { seq: number; amount: number; paid: number; dueDate: string; kind?: InstallmentKind | null; studentId?: string | null; orderItemId?: string | null }[],
+  newTotal: number,
+  fallbackDue: string,
+): { amount: number; dueDate: string; kind: InstallmentKind; studentId: string | null; orderItemId: string | null }[] | null {
+  if (!current.length) return null;
+  const sum = current.reduce((s, c) => s + c.amount, 0);
+  let delta = Math.round(newTotal) - sum;
+  if (delta === 0) return null;
+  const rows = current.map((c) => ({ amount: c.amount, paid: Math.min(c.paid, c.amount), dueDate: c.dueDate, kind: (c.kind ?? "installment") as InstallmentKind, studentId: c.studentId ?? null, orderItemId: c.orderItemId ?? null }));
+  if (delta < 0) {
+    for (let i = rows.length - 1; i >= 0 && delta < 0; i--) {
+      const room = rows[i]!.amount - rows[i]!.paid;
+      const cut = Math.min(room, -delta);
+      rows[i]!.amount -= cut;
+      delta += cut;
+    }
+  } else {
+    const last = [...rows].reverse().find((r) => r.amount > r.paid);
+    if (last) last.amount += delta;
+    else rows.push({ amount: delta, paid: 0, dueDate: fallbackDue, kind: "installment", studentId: null, orderItemId: null });
+  }
+  return rows.filter((r) => r.amount > 0).map(({ paid: _p, ...r }) => r);
 }
 
 /* ------------------------------------------------------------------ */
@@ -887,7 +927,9 @@ export function refundProposal(r: RefundInput) {
   const perSession = r.packageSessions > 0 ? r.packageValue / r.packageSessions : 0;
   const used = Math.min(r.consumedSessions, r.packageSessions);
   const usedValue = Math.round(used * perSession);
-  const raw = r.paid - usedValue - r.alreadyRefunded;
+  // Đã thu tính cho ghi danh này không vượt giá trị gói của nó (đơn nhiều con: tiền của con khác không bị hoàn nhầm)
+  const paid = r.packageValue > 0 ? Math.min(r.paid, r.packageValue) : r.paid;
+  const raw = paid - usedValue - r.alreadyRefunded;
   const refundable = Math.max(0, Math.floor(raw / 1000) * 1000);
   return { perSession: Math.round(perSession), usedSessions: used, remainingSessions: r.packageSessions - used, usedValue, refundable };
 }

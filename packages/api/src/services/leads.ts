@@ -881,6 +881,11 @@ export async function convertLead(ctx: ProtectedContext, input: ConvertLeadInput
     }
     const cls = await loadClass(it.classId);
     if (!cls || cls.deletedAt) throw new TRPCError({ code: "NOT_FOUND", message: `${n}: lớp không tồn tại` });
+    assertTenant(ctx, cls, "Lớp");
+    // Học bổng toàn phần = giảm 100%: chỉ người có quyền duyệt tài chính của cơ sở mới cấp
+    if (it.scholarshipFull && !authorize(ctx.actor, "finance:approve", { centerId: cls.centerId }).allowed) {
+      throw new TRPCError({ code: "FORBIDDEN", message: `${n}: học bổng toàn phần cần quản lý cơ sở (quyền duyệt tài chính) chốt` });
+    }
     if (cls.status === "finished" || cls.status === "cancelled") throw pre(`Lớp ${cls.code} đã kết thúc / huỷ`);
     requirePermission(ctx, "enrollment:create", { centerId: cls.centerId });
     const courseId = child?.interestedCourseId ?? (openKids.length ? null : lead.interestedCourseId);
@@ -917,11 +922,28 @@ export async function convertLead(ctx: ProtectedContext, input: ConvertLeadInput
 
   return ctx.db.transaction(async (tx) => {
     const t = tx as unknown as Db;
-    let parent = await tx.query.parents.findFirst({ where: and(eq(parents.phone, lead.phoneNormalized), isNull(parents.deletedAt)) });
+    // Khoá theo lead: bấm đúp / worker tự xếp lớp chạy song song không tạo trùng học viên
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${"lead:" + lead.id}))`);
+    const childIds = plan.map((p) => p.child?.id).filter((x): x is string => !!x);
+    if (childIds.length) {
+      const done = await tx.select({ id: leadChildren.id, fullName: leadChildren.fullName }).from(leadChildren)
+        .where(and(inArray(leadChildren.id, childIds), sql`${leadChildren.convertedStudentId} is not null`));
+      if (done.length) throw new TRPCError({ code: "CONFLICT", message: `${done.map((d) => d.fullName).join(", ")} vừa được chốt — tải lại trang` });
+    } else {
+      const fresh = await tx.query.leads.findFirst({ where: eq(leads.id, lead.id), columns: { convertedAt: true } });
+      if (fresh?.convertedAt && !lead.convertedAt) throw new TRPCError({ code: "CONFLICT", message: "Lead vừa được chốt — tải lại trang" });
+    }
+    // Tra phụ huynh theo SỐ ĐÃ CHUẨN HOÁ trong cùng trung tâm (cột phone lưu thô "09…" / "84…")
+    let parent = await tx.query.parents.findFirst({ where: and(
+      or(eq(parents.phoneNormalized, lead.phoneNormalized), eq(parents.phone, lead.phoneNormalized)),
+      lead.tenantId ? eq(parents.tenantId, lead.tenantId) : sql`true`,
+      isNull(parents.deletedAt),
+    ) });
     let accountPending = false;
     if (!parent) {
       [parent] = await tx.insert(parents).values({
-        fullName: parentName, phone: lead.phoneNormalized, email: parentIn.email?.trim() || lead.email || null,
+        ...(lead.tenantId ? { tenantId: lead.tenantId } : {}),
+        fullName: parentName, phone: lead.phoneNormalized, phoneNormalized: lead.phoneNormalized, email: parentIn.email?.trim() || lead.email || null,
         mediaConsent: !!input.mediaConsent, mediaConsentAt: input.mediaConsent ? new Date() : null,
         accountStatus: "pending_activation", activationRequestedAt: new Date(),
       }).returning();

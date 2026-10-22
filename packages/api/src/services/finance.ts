@@ -15,7 +15,7 @@ import {
   buildOrderCode, orderCodePrefix, DEFAULT_ORDER_CODE_FORMAT,
   qrExpiresAt, qrExpired, qrState, DEFAULT_QR_TTL_HOURS, QR_REUSE_LABEL,
   applyDiscountPolicy, discountPolicyOf, DISCOUNT_POLICY_KIND, DISCOUNT_POLICY_VI, DEFAULT_MAX_LINE_DISCOUNT_PCT,
-  initialDiscountApproval, discountPercentOf, paymentBlockedBy, DISCOUNT_APPROVAL_VI, DEFAULT_DISCOUNT_APPROVAL_PCT,
+  initialDiscountApproval, discountPercentOf, discountNeedsApproval, rebalancePlan, attributedPaid, paymentBlockedBy, DISCOUNT_APPROVAL_VI, DEFAULT_DISCOUNT_APPROVAL_PCT,
   scopeFlagsToAllowFor, allowForToScopeFlags, clientSafeMessage, checkLockedPrices, packagePriceOf, type CoursePriceBook,
   type OrderType, type OrderStatus, type PaymentStatus, type PaymentDecision, type RefundStatus, type PaymentMethodKind, type AgingBucket, type Discount, type Permission,
   type ClassFormat, type InstallmentKind, type LineDiscount, type DebtChip, type DebtAgeBucket,
@@ -459,9 +459,19 @@ export async function openOrderLineFor(db: Db, enrollmentIds: string[], excludeO
  * Đơn loại "Khoá học" mọi dòng phải chọn khoá, để không lách bằng dòng mô tả tự do.
  */
 async function assertCatalogPrices(db: Db, type: OrderType, items: readonly OrderLineInput[]) {
-  if (type === "course" && items.some((i) => !i.courseId)) throw bad("Đơn học phí: mỗi dòng phải chọn khoá học (đơn giá lấy theo bảng giá)");
+  if (type === "course" && !items.some((i) => i.courseId)) throw bad("Đơn học phí phải có ít nhất một dòng chọn khoá học (đơn giá lấy theo bảng giá)");
   const ids = [...new Set(items.map((i) => i.courseId).filter((x): x is string => !!x))];
   if (!ids.length) return;
+  // Dòng gắn ghi danh: số buổi phải đúng số buổi của ghi danh (không bán giá gói 10 buổi cho ghi danh 45 buổi)
+  const enrIds = [...new Set(items.map((i) => i.enrollmentId).filter((x): x is string => !!x))];
+  if (enrIds.length) {
+    const ens = await db.select({ id: enrollments.id, packageSessions: enrollments.packageSessions }).from(enrollments).where(inArray(enrollments.id, enrIds));
+    items.forEach((i, idx) => {
+      if (!i.enrollmentId || !i.courseId) return;
+      const en = ens.find((x) => x.id === i.enrollmentId);
+      if (en && i.packageSessions != null && en.packageSessions && i.packageSessions !== en.packageSessions) throw bad(`Dòng ${idx + 1}: số buổi (${i.packageSessions}) khác số buổi của ghi danh (${en.packageSessions})`);
+    });
+  }
   const cs = await db.select({ id: courses.id, code: courses.code, listPrice: courses.listPrice, totalSessions: courses.totalSessions }).from(courses).where(inArray(courses.id, ids));
   const pk = await db.select({ courseId: coursePackages.courseId, code: coursePackages.code, sessions: coursePackages.sessions, listPrice: coursePackages.listPrice, salePrice: coursePackages.salePrice })
     .from(coursePackages).where(and(inArray(coursePackages.courseId, ids), eq(coursePackages.isActive, true)));
@@ -569,6 +579,12 @@ export async function createOrder(ctx: ProtectedContext, input: CreateOrderInput
 
   return ctx.db.transaction(async (txx) => {
     const tx = txx as unknown as Db;
+    // Hai đơn tạo song song cho cùng một ghi danh: khoá theo ghi danh rồi kiểm lại trong transaction
+    for (const id of [...allEnrollmentIds].sort()) await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${"enroll-order:" + id}))`);
+    if (allEnrollmentIds.length) {
+      const again = await openOrderLineFor(tx, allEnrollmentIds);
+      if (again[0]) throw new TRPCError({ code: "CONFLICT", message: `Ghi danh vừa có dòng đơn đang mở ở ${again[0].orderCode} — tải lại trang` });
+    }
     const code = await nextOrderCode(tx, todayISO(), (ops.orderCodeFormat as OrderCodeFormat) ?? DEFAULT_ORDER_CODE_FORMAT);
     const [o] = await tx.insert(orders).values({
       code, type: input.type, status: total === 0 ? "paid" : "pending_payment", centerId: input.centerId, parentId: input.parentId ?? lead?.convertedParentId ?? null, studentId, enrollmentId: legacyEnrollmentId, leadId: lead?.id ?? null,
@@ -978,6 +994,7 @@ export async function issueOrderQr(ctx: ProtectedContext, input: { orderId: stri
   const o = await loadOrder(ctx, input.orderId, "finance:create");
   requirePermission(ctx, "finance:create", { centerId: o.centerId });
   if (o.status === "cancelled" || o.status === "refunded") throw pre("Đơn đã đóng — không xuất mã QR");
+  { const blocked = paymentBlockedBy(o.discountApproval); if (blocked) throw pre(blocked); }
   const today = todayISO();
   const now = new Date();
   const ops = await getOps(ctx.db, o.centerId);
@@ -1056,6 +1073,9 @@ export async function decideDiscountApproval(ctx: ProtectedContext, input: { ord
   const o = await loadOrder(ctx, input.orderId, "finance:approve");
   if (o.discountApproval !== "pending") throw pre(`Đơn không ở trạng thái chờ duyệt (${DISCOUNT_APPROVAL_VI[o.discountApproval]})`);
   if (o.createdBy && o.createdBy === ctx.user.id) throw new TRPCError({ code: "FORBIDDEN", message: "Không tự duyệt giảm giá cho đơn mình tạo — nhờ người khác có quyền duyệt tài chính" });
+  const [req] = await ctx.db.select({ actorId: orderEvents.actorId }).from(orderEvents)
+    .where(and(eq(orderEvents.orderId, o.id), eq(orderEvents.event, "discount_approval_requested"))).orderBy(desc(orderEvents.createdAt)).limit(1);
+  if (req?.actorId && req.actorId === ctx.user.id) throw new TRPCError({ code: "FORBIDDEN", message: "Không tự duyệt mức giảm do chính mình đề nghị — nhờ người khác có quyền duyệt tài chính" });
   const note = (input.note ?? "").trim();
   if (input.decision === "reject" && note.length < 3) throw bad("Từ chối phải ghi lý do (tối thiểu 3 ký tự)");
   const next: DiscountApproval = input.decision === "approve" ? "approved" : "rejected";
@@ -1085,12 +1105,15 @@ export async function cancelOrder(ctx: ProtectedContext, input: { id: string; re
   const o = await loadOrder(ctx, input.id);
   if (!can(ctx, "finance:approve", o.centerId) && !can(ctx, "finance:confirm", o.centerId)) throw new TRPCError({ code: "FORBIDDEN", message: "Chỉ quản lý cơ sở hoặc kế toán được huỷ đơn" });
   const reason = reasonOrThrow(input.reason);
-  const pays = await ctx.db.select({ amount: payments.amount, status: payments.status }).from(payments).where(eq(payments.orderId, o.id));
-  const bal = orderBalance(o.total, pays);
-  const block = canCancelOrder(o.status, bal.confirmed, bal.pending);
-  if (block) throw pre(block);
   await ctx.db.transaction(async (tx) => {
-    await tx.update(orders).set({ status: "cancelled", cancelReason: reason }).where(eq(orders.id, o.id));
+    // Kiểm số dư TRONG khoá đơn: tiền chuyển khoản về giữa lúc kiểm và lúc huỷ không bị bỏ sót
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${"order:" + o.id}))`);
+    const pays = await tx.select({ amount: payments.amount, status: payments.status }).from(payments).where(eq(payments.orderId, o.id));
+    const bal = orderBalance(o.total, pays);
+    const block = canCancelOrder(o.status, bal.confirmed, bal.pending);
+    if (block) throw pre(block);
+    const up = await tx.update(orders).set({ status: "cancelled", cancelReason: reason }).where(and(eq(orders.id, o.id), eq(orders.status, o.status))).returning({ id: orders.id });
+    if (!up.length) throw new TRPCError({ code: "CONFLICT", message: "Đơn vừa thay đổi — tải lại trang" });
     await tx.insert(orderEvents).values({ orderId: o.id, event: "cancel", fromStatus: o.status, toStatus: "cancelled", note: reason, actorId: ctx.user.id });
     if (o.total > 0) await tx.insert(financeLedger).values({ orderId: o.id, centerId: o.centerId, entryType: "cancel", amount: -o.total, refId: o.id, note: `Huỷ đơn: ${reason}`, actorId: ctx.user.id });
     await writeAudit(tx as unknown as Db, { actorId: ctx.user.id, action: "TRANSITION", module: "finance", entity: "orders", entityId: o.id, before: { status: o.status }, after: { status: "cancelled" }, reason, ip: ctx.ip });
@@ -1313,6 +1336,8 @@ export async function decidePayment(ctx: ProtectedContext, input: { paymentId: s
   if (errs.length) throw pre(errs);
   const o = await ctx.db.query.orders.findFirst({ where: eq(orders.id, p.orderId) });
   if (!o) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy đơn" });
+  assertTenant(ctx, o, "Đơn");
+  if (input.decision !== "reject") { const blocked = paymentBlockedBy(o.discountApproval); if (blocked) throw pre(blocked); }
   const center = await ctx.db.query.centers.findFirst({ where: eq(centers.id, p.centerId), columns: { code: true } });
   const result = await ctx.db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${"order:" + o.id}))`);
@@ -1452,6 +1477,9 @@ export async function bulkConfirmBackfill(ctx: ProtectedContext, input: { paymen
         await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${"order:" + t.orderId}))`);
         const [c] = await tx.select({ n: sql<number>`coalesce(sum(${payments.amount}), 0)::bigint` }).from(payments).where(and(eq(payments.orderId, t.orderId), eq(payments.status, "confirmed")));
         if (Number(c?.n ?? 0) + t.amount > t.orderTotal) throw pre(`Vượt tổng đơn ${t.orderCode}`);
+        const ord = await tx.query.orders.findFirst({ where: eq(orders.id, t.orderId), columns: { discountApproval: true, tenantId: true } });
+        assertTenant(ctx, ord, "Đơn");
+        { const blocked = paymentBlockedBy(ord?.discountApproval); if (blocked) throw pre(`${t.orderCode}: ${blocked}`); }
         const center = await tx.query.centers.findFirst({ where: eq(centers.id, t.centerId), columns: { code: true } });
         const receiptNo = await nextReceiptNo(tx, center?.code ?? "HO", yr);
         const up = await tx.update(payments).set({ status: "confirmed", decidedBy: ctx.user.id, decidedAt: new Date(), decisionReason: `Xác nhận lượt nhập liệu ban đầu: ${note}`, receiptNo, version: sql`${payments.version} + 1` })
@@ -1725,6 +1753,7 @@ export async function backfillTuition(ctx: ProtectedContext, input: {
     let orderCodeStr: string;
     let total: number;
     let itemId: string | null;
+    let backfillApproval: DiscountApproval = "none";
     if (existing) {
       await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${"order:" + existing.order.id}))`);
       orderId = existing.order.id;
@@ -1733,7 +1762,8 @@ export async function backfillTuition(ctx: ProtectedContext, input: {
       itemId = existing.itemId;
     } else {
       if (!g?.phone) throw pre("Học viên chưa có phụ huynh / SĐT để lập đơn");
-      const gross = Math.round(input.total ?? packagePrice(Number(e.listPrice), e.courseSessions, e.packageSessions));
+      const catalog = packagePrice(Number(e.listPrice), e.courseSessions, e.packageSessions);
+      const gross = Math.round(input.total ?? catalog);
       if (gross <= 0) throw bad("Tổng học phí phải > 0");
       // Giảm giá theo chính sách (lý do vẫn bắt buộc, trần % theo cấu hình vận hành)
       const ops = await getOps(ctx.db, e.centerId);
@@ -1742,6 +1772,9 @@ export async function backfillTuition(ctx: ProtectedContext, input: {
       const discount = dis.amount;
       total = gross - discount;
       if (paid > total) throw pre(`Đã thu (${formatVnd(paid)}) lớn hơn tổng phải đóng (${formatVnd(total)})`);
+      // Học phí cũ thấp hơn bảng giá hiện hành: phần chênh tính như giảm giá → chạm ngưỡng thì chờ quản lý duyệt
+      const ref = Math.max(gross, catalog);
+      backfillApproval = initialDiscountApproval({ gross: ref, discountAmount: ref - total, thresholdPct: ops.discountApprovalPercent ?? DEFAULT_DISCOUNT_APPROVAL_PCT });
       await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${"enroll-order:" + e.id}))`);
       const again = await openOrderLineFor(tx, [e.id]);
       if (again[0]) throw new TRPCError({ code: "CONFLICT", message: `Ghi danh vừa có đơn ${again[0].orderCode} — tải lại trang` });
@@ -1749,7 +1782,7 @@ export async function backfillTuition(ctx: ProtectedContext, input: {
       const [o] = await tx.insert(orders).values({
         code: orderCodeStr, type: "course", status: "pending_payment", centerId: e.centerId, parentId: g.id, studentId: e.studentId, enrollmentId: e.id,
         customerName: g.fullName, customerPhone: g.phone.replace(/\D/g, ""), customerEmail: g.email,
-        subtotal: gross, discountAmount: discount, total, paymentMethodId: methodId,
+        subtotal: gross, discountAmount: discount, discountApproval: backfillApproval, total, paymentMethodId: methodId,
         internalNote: `Ghi học phí cũ${input.note ? ` — ${input.note}` : ""}${discount ? ` · ${DISCOUNT_POLICY_VI[policy]} ${formatVnd(discount)}: ${(input.discountReason ?? "").trim()}` : ""}`.slice(0, 1000),
         createdBy: ctx.user.id,
       }).returning({ id: orders.id });
@@ -1768,6 +1801,11 @@ export async function backfillTuition(ctx: ProtectedContext, input: {
       }
       await tx.insert(orderInstallments).values({ orderId, seq: 1, amount: total, dueDate: paidAt, kind: "installment", studentId: e.studentId, orderItemId: itemId, createdBy: ctx.user.id });
       await tx.insert(orderEvents).values({ orderId, event: "create", toStatus: "pending_payment", note: "Ghi học phí cũ", actorId: ctx.user.id });
+      if (backfillApproval === "pending") {
+        const pct = discountPercentOf(Math.max(gross, catalog), Math.max(gross, catalog) - total);
+        await tx.insert(orderEvents).values({ orderId, event: "discount_approval_requested", note: `Học phí cũ thấp hơn bảng giá ${pct}% — chờ duyệt`, actorId: ctx.user.id });
+        await notify(tx, await managersOf(tx, e.centerId), "Đơn chờ duyệt giảm giá", `${orderCodeStr} · học phí cũ thấp hơn bảng giá ${pct}% · ${e.studentName}`, `/orders/${orderId}`, 1, "order.discount_approval");
+      }
       await tx.insert(financeLedger).values({ orderId, centerId: e.centerId, entryType: "charge", amount: total, refId: orderId, note: `Tạo đơn ${orderCodeStr} (ghi học phí cũ)`, actorId: ctx.user.id });
     }
     let paymentId: string | null = null;
@@ -1920,22 +1958,34 @@ export async function updateEnrollmentFee(ctx: ProtectedContext, input: { enroll
   const reason = reasonOrThrow(input.reason);
   const newTotal = Math.round(input.newTotal);
   if (!Number.isInteger(newTotal) || newTotal < 0) throw bad("Học phí mới phải là số nguyên ≥ 0");
-  const [line] = await ctx.db.select({ item: orderItems, order: orders })
+  const [first] = await ctx.db.select({ orderId: orders.id, centerId: orders.centerId })
     .from(orderItems).innerJoin(orders, eq(orders.id, orderItems.orderId))
     .where(and(eq(orderItems.enrollmentId, input.enrollmentId), inArray(orders.status, [...OPEN_ORDER_STATUSES])))
     .orderBy(desc(orders.createdAt)).limit(1);
-  if (!line) throw pre("Ghi danh chưa có dòng đơn đang mở — lập đơn trước");
-  requirePermission(ctx, "finance:confirm", { centerId: line.order.centerId });
-  const oldNet = line.item.netAmount;
-  const delta = newTotal - oldNet;
-  if (delta === 0) throw bad("Bằng học phí hiện tại — không có gì để sửa");
+  if (!first) throw pre("Ghi danh chưa có dòng đơn đang mở — lập đơn trước");
+  requirePermission(ctx, "finance:confirm", { centerId: first.centerId });
+  const ops = await getOps(ctx.db, first.centerId);
+  const approvalPct = ops.discountApprovalPercent ?? DEFAULT_DISCOUNT_APPROVAL_PCT;
+  const today = todayISO();
   return ctx.db.transaction(async (txx) => {
     const tx = txx as unknown as Db;
-    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${"order:" + line.order.id}))`);
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${"order:" + first.orderId}))`);
+    // Đọc lại trong khoá: hai người sửa cùng lúc không ghi lệch bút toán
+    const [line] = await tx.select({ item: orderItems, order: orders })
+      .from(orderItems).innerJoin(orders, eq(orders.id, orderItems.orderId))
+      .where(and(eq(orderItems.enrollmentId, input.enrollmentId), eq(orders.id, first.orderId), inArray(orders.status, [...OPEN_ORDER_STATUSES]))).limit(1);
+    if (!line) throw new TRPCError({ code: "CONFLICT", message: "Đơn vừa thay đổi — tải lại trang" });
+    assertTenant(ctx, line.order, "Đơn");
+    const oldNet = line.item.netAmount;
+    const delta = newTotal - oldNet;
+    if (delta === 0) throw bad("Bằng học phí hiện tại — không có gì để sửa");
     const mine = await tx.select({ amount: payments.amount }).from(payments)
       .where(and(eq(payments.status, "confirmed"), or(eq(payments.orderItemId, line.item.id), eq(payments.enrollmentId, input.enrollmentId))!));
-    const confirmed = mine.reduce((s, p) => s + p.amount, 0);
-    if (newTotal < confirmed) throw pre(`Học phí mới (${formatVnd(newTotal)}) nhỏ hơn số kế toán đã xác nhận (${formatVnd(confirmed)}) — dùng hoàn tiền`);
+    const confirmedLine = mine.reduce((s, p) => s + p.amount, 0);
+    if (newTotal < confirmedLine) throw pre(`Học phí mới (${formatVnd(newTotal)}) nhỏ hơn số kế toán đã xác nhận (${formatVnd(confirmedLine)}) — dùng hoàn tiền`);
+    const [c] = await tx.select({ n: sql<number>`coalesce(sum(${payments.amount}), 0)::bigint` }).from(payments).where(and(eq(payments.orderId, line.order.id), eq(payments.status, "confirmed")));
+    const confirmedOrder = Number(c?.n ?? 0);
+    if (line.order.total + delta < confirmedOrder) throw pre(`Tổng đơn sau khi sửa (${formatVnd(line.order.total + delta)}) nhỏ hơn số đã thu của đơn (${formatVnd(confirmedOrder)}) — dùng hoàn tiền`);
     const patch = newTotal <= line.item.amount
       ? { discountAmount: line.item.amount - newTotal, netAmount: newTotal }
       : { amount: newTotal, unitPrice: Math.round(newTotal / Math.max(1, line.item.quantity)), discountAmount: 0, netAmount: newTotal };
@@ -1944,12 +1994,33 @@ export async function updateEnrollmentFee(ctx: ProtectedContext, input: { enroll
       .from(orderItems).where(eq(orderItems.orderId, line.order.id));
     const subtotal = Number(agg?.gross ?? 0);
     const total = Number(agg?.net ?? 0);
-    await tx.update(orders).set({ subtotal, total, discountAmount: Math.max(0, subtotal - total), updatedAt: new Date() }).where(eq(orders.id, line.order.id));
+    const discountAmount = Math.max(0, subtotal - total);
+    // Duyệt giảm giá như khi lập đơn: giảm làm tổng giảm của đơn chạm ngưỡng → chờ quản lý duyệt, chưa thu được tiền
+    const needs = discountNeedsApproval({ gross: subtotal, discountAmount, thresholdPct: approvalPct });
+    const prevApproval = line.order.discountApproval;
+    const nextApproval: DiscountApproval = !needs ? "none" : delta < 0 ? "pending" : prevApproval === "approved" ? "approved" : prevApproval === "none" ? "pending" : prevApproval;
+    await tx.update(orders).set({
+      subtotal, total, discountAmount, updatedAt: new Date(),
+      ...(nextApproval !== prevApproval || (delta < 0 && needs) ? { discountApproval: nextApproval, discountApprovalBy: null, discountApprovalAt: null, discountApprovalNote: null } : {}),
+    }).where(eq(orders.id, line.order.id));
+    // Kế hoạch thanh toán theo tổng mới: giữ phần đã thu, chênh lệch dồn vào các đợt chưa thu
+    const current = await installmentState(tx, line.order.id, confirmedOrder, today);
+    const plan = rebalancePlan(current.map((x) => ({ seq: x.seq, amount: x.amount, paid: x.paid, dueDate: x.dueDate, kind: x.kind, studentId: x.studentId, orderItemId: x.orderItemId })), total, addDays(today, 30));
+    if (plan) {
+      await tx.update(orderInstallments).set({ cancelledAt: new Date(), cancelReason: `Sửa học phí: ${reason}`, updatedAt: new Date() })
+        .where(and(eq(orderInstallments.orderId, line.order.id), isNull(orderInstallments.cancelledAt)));
+      if (plan.length) await tx.insert(orderInstallments).values(plan.map((p, i) => ({ orderId: line.order.id, seq: i + 1, amount: p.amount, dueDate: p.dueDate, kind: p.kind, studentId: p.studentId, orderItemId: p.orderItemId, createdBy: ctx.user.id })));
+    }
     await tx.insert(financeLedger).values({ orderId: line.order.id, centerId: line.order.centerId, entryType: "adjustment", amount: delta, refId: line.item.id, note: `Sửa học phí hợp đồng ${formatVnd(oldNet)} → ${formatVnd(newTotal)}: ${reason}`, actorId: ctx.user.id });
     await tx.insert(orderEvents).values({ orderId: line.order.id, event: "fee_changed", note: `${line.item.description}: ${formatVnd(oldNet)} → ${formatVnd(newTotal)} — ${reason}`, actorId: ctx.user.id });
+    if (nextApproval === "pending") {
+      const pct = discountPercentOf(subtotal, discountAmount);
+      await tx.insert(orderEvents).values({ orderId: line.order.id, event: "discount_approval_requested", note: `Sửa học phí: tổng giảm ${pct}% (ngưỡng duyệt ${approvalPct}%) — chờ duyệt`, actorId: ctx.user.id });
+      await notify(tx, await managersOf(tx, line.order.centerId), "Đơn chờ duyệt giảm giá", `${line.order.code} · sửa học phí, giảm ${pct}% (${formatVnd(discountAmount)})`, `/orders/${line.order.id}`, 1, "order.discount_approval");
+    }
     await recomputeOrderStatus(tx, line.order.id, ctx.user.id, "Sửa học phí hợp đồng");
-    await writeAudit(tx, { actorId: ctx.user.id, action: "UPDATE", module: "finance", entity: "order_items", entityId: line.item.id, before: { netAmount: oldNet, orderTotal: line.order.total }, after: { netAmount: newTotal, orderTotal: total }, reason, ip: ctx.ip });
-    return { ok: true, orderId: line.order.id, orderTotal: total, delta };
+    await writeAudit(tx, { actorId: ctx.user.id, action: "UPDATE", module: "finance", entity: "order_items", entityId: line.item.id, before: { netAmount: oldNet, orderTotal: line.order.total, discountApproval: prevApproval }, after: { netAmount: newTotal, orderTotal: total, discountApproval: nextApproval, replanned: !!plan }, reason, ip: ctx.ip });
+    return { ok: true, orderId: line.order.id, orderTotal: total, delta, discountApproval: nextApproval };
   });
 }
 
@@ -1966,6 +2037,21 @@ const TRIGGER_VI: Record<RefundTrigger, string> = { withdraw: "Nghỉ học", tr
  * Đề xuất = Σ đã thu − số buổi đã học × đơn giá buổi. Không kiểm quyền tài chính: chỉ gọi bên trong
  * transaction của thao tác học vụ đã được phân quyền; duyệt / chi vẫn đi luồng /hoan-tien.
  */
+/** Tiền đã xác nhận thuộc về một dòng đơn (khoản gắn dòng + phần chia của khoản chung) — xem attributedPaid */
+async function linePaidOf(db: Db, orderId: string, itemId: string, lineNet: number, orderNet: number): Promise<number> {
+  const [r] = await db.select({
+    direct: sql<number>`coalesce(sum(${payments.amount}) filter (where ${payments.orderItemId} = ${itemId}), 0)::bigint`,
+    shared: sql<number>`coalesce(sum(${payments.amount}) filter (where ${payments.orderItemId} is null), 0)::bigint`,
+  }).from(payments).where(and(eq(payments.orderId, orderId), eq(payments.status, "confirmed")));
+  return attributedPaid({ direct: Number(r?.direct ?? 0), unattributed: Number(r?.shared ?? 0), lineNet, orderNet });
+}
+
+/** Ghi danh đã chuyển sang lớp khác (có ghi danh kế tiếp) — tiền vẫn đang được dùng ở lớp mới, không hoàn */
+async function hasSuccessor(db: Db, enrollmentId: string): Promise<boolean> {
+  const n = await db.query.enrollments.findFirst({ where: eq(enrollments.transferredFromId, enrollmentId), columns: { id: true } });
+  return !!n;
+}
+
 export async function proposeRefundIfPaid(tx: Db, input: { enrollmentId: string; reason: string; trigger: RefundTrigger; actorId: string }): Promise<{ refundId: string | null; amount: number }> {
   const none = { refundId: null, amount: 0 };
   const [e] = await tx
@@ -2002,15 +2088,23 @@ export async function proposeRefundIfPaid(tx: Db, input: { enrollmentId: string;
     pkg = courseItem?.packageSessions ?? e.packageSessions;
   }
 
-  const [paid] = await tx.select({ n: sql<number>`coalesce(sum(${payments.amount}), 0)::bigint` }).from(payments)
-    .where(and(eq(payments.orderId, orderId), eq(payments.status, "confirmed"), itemId ? or(eq(payments.orderItemId, itemId), isNull(payments.orderItemId))! : sql`true`));
-  const rs = await tx.select({ amount: refunds.amount, status: refunds.status }).from(refunds).where(eq(refunds.orderId, orderId));
+  let paidAmount: number;
+  if (itemId && line) {
+    paidAmount = await linePaidOf(tx, orderId, itemId, line.net, line.total);
+  } else {
+    const [paid] = await tx.select({ n: sql<number>`coalesce(sum(${payments.amount}), 0)::bigint` }).from(payments)
+      .where(and(eq(payments.orderId, orderId), eq(payments.status, "confirmed")));
+    paidAmount = Number(paid?.n ?? 0);
+  }
+  // Đơn nhiều con: đề xuất / đã hoàn tính theo từng ghi danh, không chặn nhau giữa anh chị em
+  const rs = await tx.select({ amount: refunds.amount, status: refunds.status }).from(refunds)
+    .where(and(eq(refunds.orderId, orderId), itemId ? inArray(refunds.enrollmentId, chain) : sql`true`));
   if (rs.some((r) => r.status === "pending" || r.status === "approved")) return none;
   const already = rs.filter((r) => r.status !== "rejected").reduce((s, r) => s + r.amount, 0);
 
   // Buổi đã dùng của cả gói = gói gốc − số buổi còn lại hiện tại (đã mang sang khi chuyển lớp)
   const used = Math.max(0, pkg - remainingSessions(e.packageSessions, e.consumed));
-  const proposal = refundProposal({ paid: Number(paid?.n ?? 0), packageValue, packageSessions: pkg, consumedSessions: used, alreadyRefunded: already });
+  const proposal = refundProposal({ paid: paidAmount, packageValue, packageSessions: pkg, consumedSessions: used, alreadyRefunded: already });
   if (proposal.refundable <= 0) return none;
 
   const reason = `[${TRIGGER_VI[input.trigger]} — tự đề xuất] ${input.reason}`.slice(0, 500);
@@ -2039,7 +2133,7 @@ export async function refundGaps(ctx: ProtectedContext, input: { centerId?: stri
     .innerJoin(centers, eq(centers.id, classes.centerId)).where(and(...conds)).orderBy(desc(enrollments.endedAt)).limit(500);
   const ids = rows.map((r) => r.enrollmentId);
   const lines = ids.length
-    ? await ctx.db.select({ enrollmentId: orderItems.enrollmentId, orderId: orders.id, orderCode: orders.code, net: orderItems.netAmount, packageSessions: orderItems.packageSessions })
+    ? await ctx.db.select({ enrollmentId: orderItems.enrollmentId, orderId: orders.id, orderCode: orders.code, net: orderItems.netAmount, packageSessions: orderItems.packageSessions, itemId: orderItems.id, orderTotal: orders.total })
         .from(orderItems).innerJoin(orders, eq(orders.id, orderItems.orderId))
         .where(and(inArray(orderItems.enrollmentId, ids), inArray(orders.status, ["partially_paid", "paid"])))
     : [];
@@ -2052,16 +2146,23 @@ export async function refundGaps(ctx: ProtectedContext, input: { centerId?: stri
     ? await ctx.db.select({ orderId: payments.orderId, n: sql<number>`coalesce(sum(${payments.amount}), 0)::bigint` }).from(payments)
         .where(and(inArray(payments.orderId, orderIds), eq(payments.status, "confirmed"))).groupBy(payments.orderId)
     : [];
-  const existing = orderIds.length ? await ctx.db.select({ orderId: refunds.orderId, status: refunds.status, amount: refunds.amount }).from(refunds).where(inArray(refunds.orderId, orderIds)) : [];
+  const existing = orderIds.length ? await ctx.db.select({ orderId: refunds.orderId, enrollmentId: refunds.enrollmentId, status: refunds.status, amount: refunds.amount }).from(refunds).where(inArray(refunds.orderId, orderIds)) : [];
+  const moved = ids.length
+    ? new Set((await ctx.db.select({ from: enrollments.transferredFromId }).from(enrollments).where(inArray(enrollments.transferredFromId, ids))).map((x) => x.from))
+    : new Set<string | null>();
+  const sharePaid = new Map<string, number>();
+  for (const l of lines) if (l.itemId) sharePaid.set(l.itemId, await linePaidOf(ctx.db, l.orderId, l.itemId, l.net, l.orderTotal));
   const items = rows.map((r) => {
-    const l = lines.find((x) => x.enrollmentId === r.enrollmentId) ?? legacy.find((x) => x.enrollmentId === r.enrollmentId) ?? null;
+    if (moved.has(r.enrollmentId)) return null;
+    const isLine = lines.find((x) => x.enrollmentId === r.enrollmentId);
+    const l = isLine ?? legacy.find((x) => x.enrollmentId === r.enrollmentId) ?? null;
     if (!l) return null;
-    const rs = existing.filter((x) => x.orderId === l.orderId);
+    const rs = existing.filter((x) => x.orderId === l.orderId && (!isLine || x.enrollmentId === r.enrollmentId));
     if (rs.some((x) => x.status === "pending" || x.status === "approved")) return null;
     const already = rs.filter((x) => x.status !== "rejected").reduce((s, x) => s + x.amount, 0);
     const pkg = l.packageSessions ?? r.packageSessions;
     const p = refundProposal({
-      paid: Number(paid.find((x) => x.orderId === l.orderId)?.n ?? 0), packageValue: l.net,
+      paid: isLine ? (sharePaid.get(isLine.itemId) ?? 0) : Number(paid.find((x) => x.orderId === l.orderId)?.n ?? 0), packageValue: l.net,
       packageSessions: pkg, consumedSessions: r.consumed, alreadyRefunded: already,
     });
     if (p.refundable <= 0) return null;
@@ -2083,13 +2184,15 @@ async function refundContext(ctx: ProtectedContext, enrollmentId: string) {
   if (!e) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy đăng ký học" });
   requirePermission(ctx, "finance:read", { centerId: e.centerId });
   // Ưu tiên dòng đơn của ghi danh (đơn nhiều con), rồi mới tới đơn gắn ghi danh kiểu cũ
-  const [line] = await ctx.db.select({ id: orders.id, code: orders.code, total: orders.total, status: orders.status, confirmed: confirmedSql, net: orderItems.netAmount, itemSessions: orderItems.packageSessions })
+  const [line] = await ctx.db.select({ id: orders.id, code: orders.code, total: orders.total, status: orders.status, confirmed: confirmedSql, net: orderItems.netAmount, itemSessions: orderItems.packageSessions, itemId: orderItems.id })
     .from(orderItems).innerJoin(orders, eq(orders.id, orderItems.orderId))
     .where(and(eq(orderItems.enrollmentId, e.id), inArray(orders.status, ["partially_paid", "paid", "refunded"]))).orderBy(desc(orders.createdAt)).limit(1);
   const [legacy] = line ? [] : await ctx.db.select({ id: orders.id, code: orders.code, total: orders.total, status: orders.status, confirmed: confirmedSql })
     .from(orders).where(and(eq(orders.enrollmentId, e.id), inArray(orders.status, ["partially_paid", "paid", "refunded"]))).orderBy(desc(orders.createdAt)).limit(1);
   const o = line ?? legacy;
   if (!o) return { enrollment: e, order: null, proposal: null, refunds: [] as (typeof refunds.$inferSelect)[] };
+  // Đã chuyển lớp: gói học tiếp tục ở ghi danh mới → không đề xuất hoàn ở ghi danh cũ
+  if (await hasSuccessor(ctx.db, e.id)) return { enrollment: e, order: null, proposal: null, refunds: [] as (typeof refunds.$inferSelect)[] };
   let packageValue = line?.net ?? 0;
   let pkgSessions = line?.itemSessions ?? e.packageSessions;
   if (!line) {
@@ -2098,9 +2201,10 @@ async function refundContext(ctx: ProtectedContext, enrollmentId: string) {
     packageValue = courseItem?.amount ?? o.total;
     pkgSessions = courseItem?.packageSessions ?? e.packageSessions;
   }
-  const rs = await ctx.db.select().from(refunds).where(eq(refunds.orderId, o.id)).orderBy(desc(refunds.createdAt));
+  const rs = await ctx.db.select().from(refunds).where(and(eq(refunds.orderId, o.id), line ? eq(refunds.enrollmentId, e.id) : sql`true`)).orderBy(desc(refunds.createdAt));
   const already = rs.filter((r) => r.status !== "rejected").reduce((s, r) => s + r.amount, 0);
-  const proposal = refundProposal({ paid: Number(o.confirmed), packageValue, packageSessions: pkgSessions, consumedSessions: e.consumed, alreadyRefunded: already });
+  const paidForThis = line ? await linePaidOf(ctx.db, o.id, line.itemId, line.net, line.total) : Number(o.confirmed);
+  const proposal = refundProposal({ paid: paidForThis, packageValue, packageSessions: pkgSessions, consumedSessions: e.consumed, alreadyRefunded: already });
   return { enrollment: e, order: { id: o.id, code: o.code, total: o.total, status: o.status, confirmed: Number(o.confirmed) }, proposal: { ...proposal, packageValue, alreadyRefunded: already }, refunds: rs };
 }
 
@@ -2118,6 +2222,9 @@ export async function requestRefund(ctx: ProtectedContext, input: { enrollmentId
   const errs = validateRefundRequest(amount, r.proposal.refundable, input.reason);
   if (errs.length) throw pre(errs);
   const [row] = await ctx.db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${"refund:" + r.enrollment.id}))`);
+    const open = await tx.select({ id: refunds.id }).from(refunds).where(and(eq(refunds.enrollmentId, r.enrollment.id), inArray(refunds.status, ["pending", "approved"]))).limit(1);
+    if (open.length) throw pre("Đã có yêu cầu hoàn tiền đang xử lý cho ghi danh này");
     const ins = await tx.insert(refunds).values({
       orderId: r.order!.id, enrollmentId: r.enrollment.id, centerId: r.enrollment.centerId, status: "pending", amount, proposedAmount: r.proposal!.refundable,
       sessionsUsed: r.proposal!.usedSessions, sessionsTotal: r.enrollment.packageSessions, reason: input.reason.trim(), trigger: input.trigger ?? "manual", auto: false, requestedBy: ctx.user.id,

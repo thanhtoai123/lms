@@ -35,6 +35,8 @@ function optionsOf(b: CoursePriceBook, sessions: number | null, format: ClassFor
     for (const base of bases) out.push({ price: formatUnitPrice(base, format) });
   }
   for (const p of b.packages) if (p.sessions === s && p.price > 0 && classFormatOfPackage(p.code) === format) out.push({ price: p.price });
+  // Khoá miễn phí trong bảng giá (giá 0, không có gói): chỉ nhận đơn giá 0
+  if (!out.length && b.listPrice === 0 && !b.packages.length) out.push({ price: 0 });
   for (const o of thComboOffers()) {
     if (o.format !== format) continue;
     for (const l of o.lines) if (l.courseCode === b.code && l.sessions === s) out.push({ price: l.unitPrice, combo: { key: o.key, part: l.part } });

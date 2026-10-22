@@ -5,7 +5,7 @@ import {
   centers, users, enrollments, classes, courses, students, studentGuardians, parents,
 } from "@satarobo/db";
 import {
-  decideBankMatch, extractOrderRef, digitsOnly, parseStatementCsv, parseLegacyCsv, planAllocation, matchLegacyStudent, legacyLineStatus,
+  decideBankMatch, paymentBlockedBy, extractOrderRef, digitsOnly, parseStatementCsv, parseLegacyCsv, planAllocation, matchLegacyStudent, legacyLineStatus,
   normalizeLegacyPhone, packagePrice, formatVnd, allocateInstallments,
   type BankTx, type BankTxSource, type BankTxStatus, type LegacyRow, type LegacyTuitionRow, type LegacyLineStatus,
 } from "@satarobo/core";
@@ -60,6 +60,11 @@ export async function ingestBankTx(db: Db, t: BankTx, source: BankTxSource, raw:
   }).onConflictDoNothing().returning({ id: bankTransactions.id });
   if (!row) {
     const ex = await db.query.bankTransactions.findFirst({ where: and(eq(bankTransactions.source, source), eq(bankTransactions.externalId, t.externalId)), columns: { id: true, status: true } });
+    // Lần trước lưu được giao dịch nhưng đối khớp lỗi giữa chừng → nguồn gửi lại thì đối khớp lại
+    if (ex && ex.status === "unmatched") {
+      const r = await matchBankTx(db, ex.id, actorId).catch(() => null);
+      if (r) return { id: ex.id, duplicate: true, ...r };
+    }
     return { id: ex?.id ?? null, duplicate: true, status: ex?.status ?? null, note: "Giao dịch đã nhận trước đó" };
   }
   const r = await matchBankTx(db, row.id, actorId);
@@ -82,7 +87,7 @@ export async function matchBankTx(db: Db, id: string, actorId: string | null): P
     const snap = order ? await orderSnapshot(tx, order.id) : null;
     const d = decideBankMatch({
       direction: bt.direction, amount: bt.amount, content: bt.content, accountKnown: methods.length > 0, accountOk: !!method,
-      order: snap ? { code: snap.o.code, status: snap.o.status, total: snap.o.total, confirmed: snap.confirmed, pending: snap.pending } : null,
+      order: snap ? { code: snap.o.code, status: snap.o.status, total: snap.o.total, confirmed: snap.confirmed, pending: snap.pending, blockedBy: paymentBlockedBy(snap.o.discountApproval) } : null,
     });
     if (d.kind === "unmatched" || d.kind === "needs_review" || d.kind === "ignored") {
       await tx.update(bankTransactions).set({ status: d.kind, matchNote: d.note, orderId: snap?.o.id ?? null, centerId: snap?.o.centerId ?? bt.centerId, ...(actorId ? { handledBy: actorId, handledAt: new Date() } : {}) })
@@ -257,7 +262,9 @@ export async function matchManually(ctx: ProtectedContext, input: { id: string; 
   const order = await ctx.db.query.orders.findFirst({ where: eq(orders.id, input.orderId) });
   if (!order) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy đơn" });
   requirePermission(ctx, "finance:confirm", { centerId: order.centerId });
+  assertTenant(ctx, order, "Đơn");
   if (order.status === "cancelled" || order.status === "refunded") throw pre("Đơn đã đóng");
+  { const blocked = paymentBlockedBy(order.discountApproval); if (blocked) throw pre(blocked); }
   const methods = await bankMethodsFor(ctx.db, bt.accountNo);
   const method = methods.find((m) => m.centerId === order.centerId) ?? methods.find((m) => m.centerId === null)
     ?? (await ctx.db.query.paymentMethods.findFirst({ where: and(eq(paymentMethods.kind, "bank_transfer"), eq(paymentMethods.isActive, true), or(isNull(paymentMethods.centerId), eq(paymentMethods.centerId, order.centerId))) }));
@@ -416,6 +423,7 @@ export async function unlinkBankTx(ctx: ProtectedContext, input: { id: string; r
   if (!bt) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy giao dịch" });
   if (!canHandle(ctx, bt.centerId)) throw new TRPCError({ code: "FORBIDDEN", message: "Không có quyền finance:confirm cho giao dịch này" });
   if (bt.status !== "matched") throw pre("Chỉ gỡ được giao dịch đã khớp");
+  if (bt.centerId) await assertCenterTenant(ctx, bt.centerId);
   const reason = reasonOrThrow(input.reason);
   const orderId = bt.orderId;
   return ctx.db.transaction(async (txx) => {
@@ -485,6 +493,7 @@ export async function createInstallmentForSurplus(ctx: ProtectedContext, input: 
   const order = await ctx.db.query.orders.findFirst({ where: eq(orders.id, bt.orderId) });
   if (!order) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy đơn" });
   requirePermission(ctx, "finance:confirm", { centerId: order.centerId });
+  assertTenant(ctx, order, "Đơn");
   if (order.status === "cancelled" || order.status === "refunded") throw pre("Đơn đã đóng — không tạo đợt mới");
   const surplus = bt.surplusAmount;
   const today = todayISO();
@@ -587,6 +596,18 @@ export async function previewStatement(ctx: ProtectedContext, input: { csv: stri
   };
 }
 
+/** Giao dịch sao kê đã nhận qua SePay chưa: cùng tài khoản, số tiền, ngày (giờ VN) và mã tham chiếu (nếu có) hoặc nội dung */
+async function seenViaSepay(db: Db, t: BankTx): Promise<boolean> {
+  const day = t.occurredAt.slice(0, 10);
+  const rows = await db.select({ ref: bankTransactions.referenceCode, content: bankTransactions.content }).from(bankTransactions).where(and(
+    eq(bankTransactions.source, "sepay"), eq(bankTransactions.direction, "in"), eq(bankTransactions.amount, t.amount),
+    or(eq(bankTransactions.accountNo, t.accountNo), sql`right(${bankTransactions.accountNo}, 6) = right(${t.accountNo}, 6)`),
+    sql`(${bankTransactions.occurredAt} at time zone 'Asia/Ho_Chi_Minh')::date = ${day}::date`,
+  )).limit(20);
+  const norm = (x: string | null) => (x ?? "").replace(/\s+/g, "").toUpperCase();
+  return rows.some((r) => (t.referenceCode && r.ref ? norm(r.ref) === norm(t.referenceCode) : norm(r.content).includes(norm(t.content).slice(0, 40)) || norm(t.content).includes(norm(r.content).slice(0, 40))));
+}
+
 export async function importStatement(ctx: ProtectedContext, input: { csv: string; paymentMethodId: string; fileName?: string | null; note: string }) {
   const m = await statementMethod(ctx, input.paymentMethodId);
   const note = reasonOrThrow(input.note);
@@ -598,6 +619,8 @@ export async function importStatement(ctx: ProtectedContext, input: { csv: strin
   const [batch] = await ctx.db.insert(importBatches).values({ kind: "bank_statement", fileName: input.fileName?.slice(0, 200) || null, note, totalRows: r.txs.length + r.errors.length + r.skippedOut, createdBy: ctx.user.id }).returning({ id: importBatches.id });
   const res = { imported: 0, duplicates: 0, matched: 0, needs_review: 0, unmatched: 0, ignored: 0, amount: 0 };
   for (const t of r.txs) {
+    // Cùng một giao dịch đã về qua SePay → không nhập lại từ sao kê (tránh thu trùng một khoản)
+    if (await seenViaSepay(ctx.db, t)) { res.duplicates++; continue; }
     const x = await ingestBankTx(ctx.db, t, "statement", { line: "csv" }, batch!.id, ctx.user.id);
     if (x.duplicate) {
       res.duplicates++;

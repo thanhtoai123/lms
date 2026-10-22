@@ -31,3 +31,26 @@ test("khoá đơn giá: giá combo cần đủ Năm 1 + Năm 2 cho cùng học v
   assert.match(checkLockedPrices([y1], books)[0]!, /combo/);
   assert.equal(checkLockedPrices([y1, { ...y2, owner: "con-b" }], books).length, 2);
 });
+
+import { rebalancePlan } from "./rules.js";
+test("sửa học phí: kế hoạch giữ phần đã thu, giảm trừ từ đợt cuối, tăng cộng vào đợt chưa thu", () => {
+  const cur = [
+    { seq: 1, amount: 3_000_000, paid: 3_000_000, dueDate: "2026-10-01" },
+    { seq: 2, amount: 3_000_000, paid: 1_000_000, dueDate: "2026-11-01" },
+    { seq: 3, amount: 3_000_000, paid: 0, dueDate: "2026-12-01" },
+  ];
+  assert.deepEqual(rebalancePlan(cur, 5_000_000, "2027-01-01")!.map((r) => r.amount), [3_000_000, 2_000_000]);
+  assert.deepEqual(rebalancePlan(cur, 10_000_000, "2027-01-01")!.map((r) => r.amount), [3_000_000, 3_000_000, 4_000_000]);
+  assert.equal(rebalancePlan(cur, 9_000_000, "2027-01-01"), null);
+  const allPaid = [{ seq: 1, amount: 2_000_000, paid: 2_000_000, dueDate: "2026-10-01" }];
+  assert.deepEqual(rebalancePlan(allPaid, 2_500_000, "2027-01-01")!.map((r) => [r.amount, r.dueDate]), [[2_000_000, "2026-10-01"], [500_000, "2027-01-01"]]);
+});
+
+import { attributedPaid, refundProposal } from "./rules.js";
+test("hoàn tiền đơn nhiều con: chỉ tính tiền đã thu của con đó", () => {
+  assert.equal(attributedPaid({ direct: 0, unattributed: 20_000_000, lineNet: 10_000_000, orderNet: 20_000_000 }), 10_000_000);
+  assert.equal(attributedPaid({ direct: 0, unattributed: 10_000_000, lineNet: 10_000_000, orderNet: 20_000_000 }), 5_000_000);
+  assert.equal(attributedPaid({ direct: 8_000_000, unattributed: 4_000_000, lineNet: 10_000_000, orderNet: 20_000_000 }), 10_000_000);
+  const p = refundProposal({ paid: 20_000_000, packageValue: 10_000_000, packageSessions: 45, consumedSessions: 5, alreadyRefunded: 0 });
+  assert.ok(p.refundable <= 10_000_000 - Math.round(5 * 10_000_000 / 45) + 1000);
+});
