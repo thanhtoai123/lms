@@ -268,7 +268,7 @@ export const HOME_PAGE = {
         sec("trial", "hoc-thu", {
           eyebrow: "Buổi học trải nghiệm 1:1",
           title: "Một buổi học để hiểu con — và biết *con nên bắt đầu từ đâu*",
-          intro: "Không phải buổi giới thiệu khoá học. Con học thật cùng thầy và tự tay làm ra sản phẩm đầu tay; thầy quan sát cách con nghĩ, cách con làm để đánh giá, rồi cùng bố mẹ vạch lộ trình phát triển công nghệ phù hợp với con.",
+          intro: "Con học thật cùng thầy và tự tay làm ra sản phẩm đầu tay; thầy quan sát cách con nghĩ, cách con làm để đánh giá, rồi cùng bố mẹ vạch lộ trình phát triển công nghệ phù hợp với con.",
           gainsTitle: "Sau buổi học, *bố mẹ nhận được*",
           badge: "Bố mẹ không phải trả phí cho buổi này",
           note: "Gia đình tự quyết định có cho con học tiếp hay không sau khi nghe thầy nhận xét. Vì thầy dạy 1:1, lịch được xếp theo thứ tự đăng ký.",
