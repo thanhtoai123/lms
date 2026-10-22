@@ -71,7 +71,7 @@ export const HOME_PAGE = {
           title: "Biến giờ con ngồi trước màn hình thành giờ con *tạo ra công nghệ*",
           subtitle: "Khoá học Robotics, Trí tuệ nhân tạo, Thiết kế đồ họa và Lập trình online. Giáo viên dạy trực tiếp qua ClassIn, lớp nhỏ, con tự tay làm ra sản phẩm và tự tin giới thiệu nó trước bố mẹ.",
           formTitle: "Đặt lịch học trải nghiệm 1:1 cho con",
-          formNote: "Con làm sản phẩm cùng thầy; thầy nhận xét và gợi ý lộ trình riêng cho con. Không mất phí.",
+          formNote: "Con làm sản phẩm cùng thầy; thầy nhận xét và gợi ý lộ trình riêng cho con hoàn toàn miễn phí.",
           interest: "",
           thankYou: `Cảm ơn ba mẹ! ${B} sẽ liên hệ lại trong giờ làm việc để hẹn buổi học trải nghiệm cho con.`,
         }, {

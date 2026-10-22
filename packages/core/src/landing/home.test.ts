@@ -36,9 +36,9 @@ test("trang chính: không kể thông số kỹ thuật (học phần, số bu�
   for (const bad of [/học phần(?! mềm)/i, /\b45 buổi/, /\b15 buổi/, /\b90 buổi/, /Basic|Advanced|Expert/]) assert.ok(!bad.test(h), String(bad));
 });
 
-test("trang chính: không chữ giữ chỗ, không 'miễn phí', không học phí, không khẳng định cấm, không thương hiệu cũ", () => {
+test("trang chính: không chữ giữ chỗ, không học phí, không khẳng định cấm, không thương hiệu cũ", () => {
   const h = html();
-  for (const bad of [/0\.000\.000/, /đang cập nhật/i, /miễn phí/i, /\d\.\d{3}\.\d{3}đ/, /độc quyền/i, /duy nhất/i, /số 1/i, /hàng đầu/i, /tốt nhất/i, /cam kết đầu ra/i, /24\/7/, /lorem/i, /sata/i, /satarobo/i]) assert.ok(!bad.test(h), String(bad));
+  for (const bad of [/0\.000\.000/, /đang cập nhật/i, /\d\.\d{3}\.\d{3}đ/, /độc quyền/i, /duy nhất/i, /số 1/i, /hàng đầu/i, /tốt nhất/i, /cam kết đầu ra/i, /24\/7/, /lorem/i, /sata/i, /satarobo/i]) assert.ok(!bad.test(h), String(bad));
 });
 
 test("trang chính: MỌI con số đều có nguồn kèm liên kết https tới đúng danh sách nguồn đã kiểm", () => {
@@ -176,4 +176,10 @@ test("trang chính: khối buổi học trải nghiệm — 4 bước, giá tr�
   assert.doesNotMatch(h, /trị giá|giá gốc|1\.000\.000|0 ?đ\b/i, "không nêu giá gốc / giá trị quy đổi");
   const ld = JSON.stringify(landingJsonLd(doc(), { baseUrl: "https://thsteam.edu.vn", path: "/", title: HOME_PAGE.seoTitle, brand: { name: TH_BRAND.name } }));
   assert.match(ld, /"@type":"Service"[\s\S]*"price":"0"/);
+});
+
+test("trang chính: chữ 'miễn phí' chỉ ở câu dưới tiêu đề form đầu trang (quyết định 22/10/2026), nơi khác dùng 'không mất phí'", () => {
+  const h = html();
+  assert.equal((h.match(/miễn phí/gi) ?? []).length, 1);
+  assert.ok(h.includes("gợi ý lộ trình riêng cho con hoàn toàn miễn phí"));
 });
