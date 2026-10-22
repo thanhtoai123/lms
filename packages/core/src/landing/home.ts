@@ -13,7 +13,7 @@
  *  - Đường dẫn `/?nganh=robotics|ai|do-hoa|lap-trinh` (quảng cáo): mở sẵn tab, đổi tiêu đề lớn, chọn sẵn chuyên ngành.
  *
  * Ảnh: tranh minh hoạ vector theo bộ nhận diện (tools/minh-hoa/art_trang_chu.py, tc-*.svg) và ảnh phần mềm thật có nguồn —
- *    ưu tiên giấy phép mở (Wikimedia Commons, Roblox Creator Docs CC BY 4.0, Teachable Machine Apache-2.0); ảnh của nhà sản xuất
+ *    ưu tiên giấy phép mở (Wikimedia Commons, Roblox Creator Docs CC BY 4.0, ảnh tạo bằng AI CC0 / phạm vi công cộng); ảnh của nhà sản xuất
  *    (WhalesBot, Autodesk, CreatiCode, Adobe, thể lệ cuộc thi) ghi nguồn và nên xin phép trước khi chạy quảng cáo lớn.
  * Mỗi lần cải tiến: sửa trong Website → Landing page → "Trang chủ" rồi Xuất bản; hoặc sửa ở đây cho lần dựng sau.
  */
@@ -75,13 +75,13 @@ export const HOME_PAGE = {
           thankYou: `Cảm ơn ba mẹ! ${B} sẽ liên hệ lại trong giờ làm việc để hẹn buổi học trải nghiệm cho con.`,
         }, {
           points: [
-            { text: "Con làm ra sản phẩm thật: robot ảo, game, ứng dụng, mô hình 3D" },
+            { text: "Con làm ra sản phẩm thật: robot ảo, game, video AI, mô hình 3D, trang web" },
             { text: "Bố mẹ tận mắt xem con trình bày và nhận đánh giá năng lực" },
             { text: "Con học thử một buổi 1:1 trước khi gia đình quyết định" },
           ],
           showcase: [
             { image: "/lp-anh/that/robosim-robot-lap-ghep.webp", imageAlt: "Robot lắp ghép có cảm biến chạy trên sa bàn thi đấu trong phần mềm RoboSim", title: "Robot lắp ghép, lập trình", tool: "RoboSim", credit: "WhalesBot", creditUrl: "https://www.whalesbot.ai/", fit: "", pos: "" },
-            { image: "/lp-anh/that/teachable-machine-may-phan-loai.webp", imageAlt: "Máy phân loại hạt ngũ cốc tự động, dùng mô hình AI nhận diện hình ảnh huấn luyện bằng Teachable Machine", title: "Máy phân loại dùng AI", tool: "Teachable Machine", credit: "Google Teachable Machine", creditUrl: "https://teachablemachine.withgoogle.com/", fit: "", pos: "100% 20%" },
+            { image: "/lp-anh/that/sp-ai-video.webp", imageAlt: "Minh hoạ video kể chuyện ngắn dựng từ tranh tạo bằng AI", title: "Video kể chuyện bằng AI", tool: "Công cụ AI tạo ảnh, video", credit: "Wikimedia Commons (ảnh AI, CC0)", creditUrl: "https://commons.wikimedia.org/wiki/File:%27Greenwood_Estates_Vista_City%27_by_Midjourney.jpg", fit: "", pos: "" },
             { image: "/lp-anh/that/creaticode-robot-sao-hoa.webp", imageAlt: "Robot thám hiểm sao Hỏa có tấm pin mặt trời, lập trình trong thế giới 3D của CreatiCode", title: "Robot thám hiểm sao Hỏa", tool: "CreatiCode 3D", credit: "CreatiCode", creditUrl: "https://www.creaticode.com/", fit: "", pos: "" },
             { image: "/lp-anh/that/tinkercad-mo-hinh-3d.webp", imageAlt: "Mô hình 3D khinh khí cầu, trực thăng, xe đua, mô tô, chú ngựa dựng trong Tinkercad", title: "Thiết kế đồ họa", tool: "Tinkercad", credit: "Autodesk Tinkercad", creditUrl: "https://www.tinkercad.com/", fit: "", pos: "80% 20%" },
             { image: "/lp-anh/that/roblox-thanh-pho-dem.webp", imageAlt: "Thành phố cảng về đêm dựng bằng Roblox Studio", title: "Thế giới game 3D", tool: "Roblox Studio", credit: "Roblox Creator Docs (CC BY 4.0)", creditUrl: "https://github.com/Roblox/creator-docs", fit: "", pos: "" },
@@ -159,11 +159,11 @@ export const HOME_PAGE = {
             },
             {
               key: HOME_TRACK_KEYS.AI, icon: "ai", tab: "Trí tuệ nhân tạo", name: "Trí tuệ nhân tạo AI", ages: "Tiểu học · THCS · 8–14 tuổi",
-              hook: "Con đã, đang và sẽ dùng AI — hãy để con dùng đúng cách.",
-              text: "Con dùng AI để học, vẽ, làm nhạc, làm video và trang web. Quan trọng hơn, con học cách đặt câu hỏi, kiểm chứng câu trả lời và nhận ra khi AI sai — để AI giúp con nghĩ sâu hơn, không phải nghĩ hộ con.",
-              outcomes: "Viết yêu cầu rõ ràng để AI hỗ trợ đúng việc\nKiểm chứng thông tin, nhận ra khi AI trả lời sai\nLàm video kể chuyện, trang web, dự án AI giải quyết vấn đề",
-              tools: "Bộ công cụ AI phổ biến · Luyện thi tự chọn: Sáng tạo trẻ AI (THCS)",
-              image: "/lp-anh/that/teachable-machine-nhan-dien-cu-chi.webp", imageAlt: "Dạy máy tính nhận biết cử chỉ bàn tay qua camera bằng Teachable Machine", credit: "Ảnh: Google Teachable Machine", creditUrl: "https://teachablemachine.withgoogle.com/",
+              hook: "Cho bạn nhỏ thích kể chuyện, vẽ, làm video — và muốn dùng AI đúng cách.",
+              text: "Con hiểu AI là gì, rồi dùng các công cụ AI phổ biến để làm ra sản phẩm của mình: tranh và truyện tranh, poster, bài hát, video ngắn, trang web giới thiệu. Con tự nghĩ ý tưởng, viết yêu cầu cho AI, chọn lọc và chỉnh sửa kết quả — AI giúp con làm nhanh hơn, không làm thay con.",
+              outcomes: "Tạo tranh, poster, video ngắn và trang web bằng công cụ AI\nViết yêu cầu (prompt) rõ ý: nhân vật, bối cảnh, màu sắc, cảm xúc\nHiểu AI hoạt động ra sao, biết AI có thể sai, dùng AI an toàn, trung thực",
+              tools: "Công cụ: ChatGPT, Gemini, Canva, Suno AI, công cụ video AI, công cụ làm web AI · Luyện thi tự chọn: Sáng tạo trẻ AI (THCS)",
+              image: "/lp-anh/that/sp-ai-bo-san-pham.webp", imageAlt: "Minh hoạ sản phẩm làm bằng công cụ AI: video kể chuyện, poster khoa học, trang web giới thiệu", credit: "Minh hoạ: tranh tạo bằng AI (Midjourney, DALL·E 3, Imagen) — Wikimedia Commons, CC0 / phạm vi công cộng", creditUrl: "https://commons.wikimedia.org/wiki/Category:Images_generated_by_Midjourney",
               headline: "Con học Trí tuệ nhân tạo AI online — dùng AI thông minh, an toàn, trung thực", interest: TH_TRACK_SHORT.AI,
             },
             {
@@ -238,8 +238,8 @@ export const HOME_PAGE = {
           items: [
             { image: "/lp-anh/that/sp-robovr-duong-dua.webp", caption: "Robotics AI · Xe robot tự lái trên đường đua tương lai", credit: "Ảnh: WhalesBot RoboVR", creditUrl: "https://www.whalesbot.ai/3dvirtual" },
             { image: "/lp-anh/that/robovr-xe-tu-lai.webp", caption: "Robotics AI · Robot giao hàng chạy theo bản đồ thành phố", credit: "Ảnh: WhalesBot RoboVR", creditUrl: "https://www.whalesbot.ai/3dvirtual" },
-            { image: "/lp-anh/that/sp-ai-may-phan-loai.webp", caption: "Trí tuệ nhân tạo · Máy tự phân loại đồ vật bằng AI nhìn", credit: "Ảnh: Google Teachable Machine", creditUrl: "https://teachablemachine.withgoogle.com/" },
-            { image: "/lp-anh/that/creaticode-dem-ngon-tay.webp", caption: "Trí tuệ nhân tạo · Ứng dụng AI đếm ngón tay qua camera", credit: "Ảnh: CreatiCode", creditUrl: "https://www.creaticode.com/" },
+            { image: "/lp-anh/that/sp-ai-poster.webp", caption: "Trí tuệ nhân tạo · Poster khoa học: tranh tạo bằng AI, chữ và bố cục con tự làm", credit: "Minh hoạ; tranh AI: DALL·E 3, Wikimedia Commons (phạm vi công cộng)", creditUrl: "https://commons.wikimedia.org/wiki/File:A_city_on_Mars_under_a_glass_dome_with_forests,_fields,_lakes,_houses.jpg" },
+            { image: "/lp-anh/that/sp-ai-web.webp", caption: "Trí tuệ nhân tạo · Trang web giới thiệu làm bằng công cụ web AI", credit: "Minh hoạ; tranh AI: Imagen, Wikimedia Commons (phạm vi công cộng)", creditUrl: "https://commons.wikimedia.org/wiki/File:Illuminated_Valley_in_the_Afternoon_(Imagen_4.0).webp" },
             { image: "/lp-anh/that/sp-tinkercad-nhan-vat.webp", caption: "Thiết kế đồ họa · Nhân vật 3D tự dựng", credit: "Ảnh: Autodesk Tinkercad", creditUrl: "https://www.tinkercad.com/" },
             { image: "/lp-anh/that/photoshop-generative-fill-ong.webp", caption: "Thiết kế đồ họa · Ảnh sáng tạo cùng AI trong Photoshop", credit: "Ảnh: Adobe Photoshop", creditUrl: "https://www.adobe.com/products/photoshop.html" },
             { image: "/lp-anh/that/sp-scratch-game.webp", caption: "Lập trình · Game phi hành gia nhảy bậc bằng Scratch", credit: "Ảnh: Scratch (MIT)", creditUrl: "https://scratch.mit.edu/" },

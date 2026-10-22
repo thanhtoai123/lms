@@ -107,7 +107,7 @@ test("trang chính: ảnh hợp lệ, có file thật, ảnh phần mềm ghi ng
     assert.ok(existsSync(new URL(`../../../../apps/web/public${u}`, import.meta.url)), u);
   }
   const g = doc().sections.find((s) => s.id === "san-pham")!;
-  assert.ok((g.lists.items ?? []).every((r) => /^Ảnh: /.test(r.credit ?? "") && /^https:\/\//.test(r.creditUrl ?? "")));
+  assert.ok((g.lists.items ?? []).every((r) => /^(Ảnh|Minh hoạ)[:;] /.test(r.credit ?? "") && /^https:\/\//.test(r.creditUrl ?? "")));
   const t = doc().sections.find((s) => s.id === "chuyen-nganh")!;
   assert.ok((t.lists.items ?? []).every((r) => !!r.credit && !!r.imageAlt));
 });

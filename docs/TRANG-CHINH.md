@@ -93,4 +93,13 @@ Không dùng: "thiếu 150–200 nghìn nhân lực CNTT", "tuổi có điện t
 - Ảnh thật có đồng ý: màn hình lớp ClassIn đang dạy, sản phẩm học viên (thay dần ảnh phần mềm ở khối Sản phẩm).
 - Lời phụ huynh thật → bật khối "Phụ huynh nói gì".
 - Ảnh AI (nếu dùng): chỉ bối cảnh, thiết bị, đồ vật; ghi "Ảnh minh hoạ".
-- Duyệt chính sách bảo mật mới (Luật 91/2025, NĐ 356/2025); xác nhận khoá AI có dạy Teachable Machine (ảnh tab AI).
+- Duyệt chính sách bảo mật mới (Luật 91/2025, NĐ 356/2025).
+
+## 7. Chuyên ngành Trí tuệ nhân tạo AI — hiểu đúng
+
+Chương trình dạy ỨNG DỤNG công cụ AI (ChatGPT, Gemini, Canva, Suno AI, công cụ video AI, công cụ làm web AI) để làm ra tranh,
+truyện tranh, poster, bài hát, video ngắn, trang web, kèm khái niệm AI cơ bản và dùng AI an toàn — KHÔNG phải dự án nghiên cứu /
+huấn luyện mô hình AI. Ảnh trên trang chính cho chuyên ngành này là ảnh minh hoạ loại sản phẩm (`tools/minh-hoa/san_pham_ai.py`):
+tranh nền tạo bằng AI lấy từ Wikimedia Commons (CC0 / phạm vi công cộng), khung poster / trình phát video / trình duyệt tự dựng.
+Khi có sản phẩm thật của học viên (có đồng ý của phụ huynh) thì thay vào.
+
