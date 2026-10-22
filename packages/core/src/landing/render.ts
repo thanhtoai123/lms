@@ -1335,6 +1335,7 @@ const LANDING_CSS = `
 .lp--vivid .lp-form .lp-hl{color:#fff}
 .lp--vivid .lp-form .lp-head p{margin:14px 0 0;color:rgba(255,255,255,.85);max-width:none}
 .lp--vivid .lp-form-badge{display:inline-block;background:rgba(245,158,11,.18);color:#fcd34d;font-weight:800;border-radius:999px;padding:7px 16px;font-size:.95rem;margin-bottom:16px!important}
+@media (max-width:420px){.lp--vivid .lp-form-badge{font-size:.82rem;padding:6px 12px}}
 .lp--vivid .lp-form .lp-ticks{margin-top:24px;gap:12px}
 .lp--vivid .lp-form .lp-ticks li{color:#fff}
 .lp--vivid .lp-form .lp-ticks li::before{background:var(--v-gold);color:#0f172a}
