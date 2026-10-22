@@ -110,7 +110,7 @@ export function errorStatus(e: unknown) {
  * Đọc thân yêu cầu có giới hạn kích thước (đếm theo từng mảnh, kể cả khi máy khách gửi chunked không có
  * Content-Length). Vượt trần → null để trả 413, không đọc tiếp vào bộ nhớ.
  */
-export async function readCapped(req: Request, max: number): Promise<Uint8Array | null> {
+export async function readCapped(req: Request, max: number): Promise<Uint8Array<ArrayBuffer> | null> {
   const len = Number(req.headers.get("content-length") ?? "");
   if (Number.isFinite(len) && len > max) return null;
   const r = req.body?.getReader();
@@ -124,7 +124,7 @@ export async function readCapped(req: Request, max: number): Promise<Uint8Array 
     if (n > max) { await r.cancel().catch(() => {}); return null; }
     chunks.push(value);
   }
-  const out = new Uint8Array(n);
+  const out = new Uint8Array(new ArrayBuffer(n));
   let o = 0;
   for (const c of chunks) { out.set(c, o); o += c.byteLength; }
   return out;

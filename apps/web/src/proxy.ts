@@ -87,7 +87,7 @@ export async function proxy(req: NextRequest) {
   // vì vậy phải đặt header này lên request, không chỉ lên response.
   const nonce = generateNonce();
   const ads = ADS_PATH.test(pathname);
-  const opts = { ...securityHeaderOptions(cspEnv(), nonce, ads), adsTags: ads };
+  const opts = { ...securityHeaderOptions(cspEnv(), nonce), adsTags: ads };
   const cspValue = securityHeaders(opts).find(([k]) => k === cspHeaderName(opts.reportOnly))![1];
   /**
    * Dựng lại header của YÊU CẦU tại thời điểm gọi — phải đọc `req.headers` muộn vì
@@ -99,7 +99,7 @@ export async function proxy(req: NextRequest) {
     h.delete(NONCE_REQUEST_HEADER);
     h.delete("content-security-policy");
     h.delete("content-security-policy-report-only");
-    h.set(NONCE_REQUEST_HEADER, nonce, ads);
+    h.set(NONCE_REQUEST_HEADER, nonce);
     // Đường dẫn đang mở — khung quản trị dùng để áp hàng rào trang theo menu (pageAllowed).
     // Luôn GHI ĐÈ giá trị máy khách gửi lên để không ai tự khai đường dẫn khác.
     h.set(PATH_REQUEST_HEADER, pathname);
