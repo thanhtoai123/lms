@@ -3,6 +3,7 @@ import { TrialForm } from "@/app/dang-ky/form";
 import { LeadForm } from "./lead-form";
 import { SiteTracker } from "@/components/site-tracker";
 import { UtmLinks } from "./utm-links";
+import { StickyToggle } from "./sticky-toggle";
 
 export interface LandingBrand { name: string; primary: string; accent: string; logoUrl: string; lockup?: string | null; lockupOnDark?: string | null }
 
@@ -59,7 +60,7 @@ export function LandingView({ doc, variant, slug, brand, utm, preview, homeHref,
           </section>
         );
       })}
-      {!preview && <><SiteTracker form={hasForm} /><UtmLinks slug={slug} /></>}
+      {!preview && <><SiteTracker form={hasForm} /><UtmLinks slug={slug} /><StickyToggle /></>}
     </div>
   );
 }

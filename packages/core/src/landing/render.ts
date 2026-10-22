@@ -625,7 +625,7 @@ const LANDING_CSS = `
 .lp-btn-light:hover{transform:translateY(-1px)}
 .lp-btn-outline{background:transparent;color:var(--primary-foreground,#fff);border-color:currentColor}
 .lp-actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:24px}
-.lp-top{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.94);backdrop-filter:blur(8px);border-bottom:1px solid var(--lp-line)}
+.lp-top{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.94);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border-bottom:1px solid var(--lp-line)}
 .lp-top-in{display:flex;align-items:center;gap:16px;min-height:64px}
 .lp-brand{display:flex;align-items:center;gap:10px;font-weight:800;text-decoration:none;color:var(--primary-ink,var(--primary,#1d4ed8));margin-right:auto}
 .lp-brand img{border-radius:10px;object-fit:contain}
@@ -817,7 +817,7 @@ const LANDING_CSS = `
 .lp-dark{background:radial-gradient(900px 420px at 85% -10%,rgba(29,78,216,.45),transparent 60%),radial-gradient(700px 380px at -10% 110%,rgba(16,185,129,.22),transparent 60%),#0f172a;color:#f8fafc}
 .lp-dark .lp-head p{color:rgba(248,250,252,.78)}
 .lp-dark .lp-kicker{color:#fcd34d}
-.lp-dark .lp-ins{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.12);backdrop-filter:blur(2px)}
+.lp-dark .lp-ins{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.12);-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px)}
 .lp-dark .lp-ins-val{color:#fbbf24}
 .lp-dark .lp-ins-txt,.lp-dark .lp-src{color:rgba(248,250,252,.7)}
 .lp-dark .lp-ins-close{color:#fff}
@@ -985,6 +985,9 @@ const LANDING_CSS = `
 @media (max-width:560px){.lp-top .lp-btn-sm{padding:8px 12px;font-size:.85rem;min-height:40px}.lp-brand img.lp-lockup{max-width:48vw}.lp-top-in{gap:10px}}
 @media (max-width:480px){.lp-brand img.lp-lockup{max-width:46vw}.lp-btn{width:100%}.lp-actions{flex-direction:column}.lp-top .lp-btn{width:auto}}
 @media (max-width:440px){.lp .lp-top .lp-top-in{padding:0 12px;gap:8px}.lp .lp-top .lp-btn-sm{padding:8px 10px;font-size:.8rem}.lp .lp-brand{min-width:0}.lp .lp-brand img.lp-lockup{max-width:calc(100vw - 240px)}}
+/* màn hình rất hẹp, đầu trang còn nút "Học trải nghiệm" (trang con): chỉ giữ biểu tượng TH của logo cho rõ, không thu nhỏ cả logo */
+@media (max-width:440px){.lp:has(.lp-sticky) .lp-brand img.lp-lockup{max-width:min(200px,62vw)}}
+@media (max-width:400px){.lp:not(:has(.lp-sticky)) .lp-brand img.lp-lockup{width:58px;height:40px;max-width:none;object-fit:cover;object-position:0 50%}}
 @media (prefers-reduced-motion:reduce){.lp *{transition:none!important}}
 @media (prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}
 .lp-hl{font-style:normal;color:var(--primary,#1d4ed8)}
@@ -1008,7 +1011,7 @@ const LANDING_CSS = `
 .lp--studio .lp-btn-primary:hover{transform:none}
 .lp--studio .lp-btn-ghost{color:#0f172a;border-width:1.5px}
 /* thanh menu nổi dạng viên thuốc */
-.lp--studio .lp-top{top:12px;width:calc(100% - 32px);max-width:1216px;margin:12px auto 0;border:1px solid var(--lp-line);border-radius:999px;background:rgba(255,255,255,.9);backdrop-filter:blur(10px);box-shadow:0 24px 60px -24px rgba(15,23,42,.28)}
+.lp--studio .lp-top{top:12px;width:calc(100% - 32px);max-width:1216px;margin:12px auto 0;border:1px solid var(--lp-line);border-radius:999px;background:rgba(255,255,255,.9);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);box-shadow:0 24px 60px -24px rgba(15,23,42,.28)}
 .lp--studio .lp-top-in{min-height:64px;padding:0 10px 0 22px}
 .lp--studio .lp-nav a{color:#334155;font-weight:600}
 .lp--studio .lp-brand img.lp-lockup{width:210px}
@@ -1033,7 +1036,7 @@ const LANDING_CSS = `
 .lp--studio .lp-ins{background:transparent;border:0;border-top:2px solid #e2e8f0;border-radius:0;padding:24px 0 0}
 .lp--studio .lp-ins::before{display:none}
 .lp--studio .lp-ins-val{font-size:clamp(2.6rem,5vw,3.6rem);letter-spacing:-.03em}
-.lp--studio .lp-dark .lp-ins{background:transparent;border-top-color:rgba(255,255,255,.18);backdrop-filter:none}
+.lp--studio .lp-dark .lp-ins{background:transparent;border-top-color:rgba(255,255,255,.18);-webkit-backdrop-filter:none;backdrop-filter:none}
 .lp--studio .lp-dark{background:#0f172a}
 .lp--studio .lp-dark .lp-kicker{color:#fcd34d}
 .lp--studio .lp-dark .lp-head p{color:rgba(248,250,252,.78)}
@@ -1174,7 +1177,7 @@ const LANDING_CSS = `
 .lp--vivid .lp-ins{border-radius:20px;padding:26px 24px;border:1px solid var(--lp-line)}
 .lp--vivid .lp-ins::before{left:24px;right:auto;top:0;bottom:auto;width:44px;height:5px;border-radius:0 0 6px 6px}
 .lp--vivid .lp-ins-val{font-size:clamp(2.4rem,4.6vw,3.2rem);letter-spacing:-.03em}
-.lp--vivid .lp-dark .lp-ins{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.12);backdrop-filter:none}
+.lp--vivid .lp-dark .lp-ins{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.12);-webkit-backdrop-filter:none;backdrop-filter:none}
 .lp--vivid .lp-dark .lp-ins-val{color:#fbbf24}
 .lp--vivid .lp-ins-close{margin:48px auto 0!important;text-align:center;border:0;padding:0;max-width:760px}
 /* so sánh */
@@ -1397,6 +1400,51 @@ const LANDING_CSS = `
 }
 @media (max-width:600px){.lp--vivid .lp-bento.lp-features .lp-grid.lp-grid{grid-template-columns:1fr}.lp--vivid .lp-tab-bar label.lp-tab-l{flex-direction:column;align-items:flex-start;gap:8px}.lp--vivid .lp-tab-ic{width:36px;height:36px;border-radius:10px}.lp--vivid .lp-tab-ic svg{width:22px;height:22px}.lp--vivid .lp-tab-l small{font-size:.8rem}}
 @media (max-width:420px){.lp--vivid .lp-steps-list{grid-template-columns:1fr}}
+/* ---- điện thoại: trang gọn hơn (22/10/2026). Danh sách thẻ dài → vuốt ngang (thẻ sau ló ra để biết còn nữa),
+   khoảng cách khối nhỏ lại, các bước học xếp hàng ngang icon–chữ. Không bỏ nội dung. ---- */
+.lp--vivid .lp-sticky{transition:transform .25s ease}
+.lp--vivid .lp-sticky.is-off{transform:translateY(110%)}
+@media (hover:none){.lp--vivid .lp-btn-primary:hover,.lp--vivid .lp-ncard:hover,.lp--vivid .lp-job:hover{transform:none}}
+@supports not selector(:has(a)){@media (max-width:860px){.lp--vivid .lp-foot{padding-bottom:calc(96px + env(safe-area-inset-bottom))}}}
+@media (max-width:600px){
+ .lp--vivid .lp-sec{padding:52px 0}
+ .lp--vivid .lp-head{margin-bottom:24px}
+ .lp--vivid .lp-head :is(h1,h2){font-size:clamp(1.5rem,6.6vw,1.8rem)}
+ .lp--vivid .lp-head p{font-size:1rem;margin-top:12px}
+ .lp--vivid .lp-kicker{font-size:.85rem;padding:5px 14px;margin-bottom:12px!important}
+ .lp--vivid .lp-sec :is(.lp-ins-list,.lp-chg,.lp-features .lp-grid){display:flex!important;gap:12px;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;margin:0 -20px;padding:4px 20px 16px;scroll-padding:0 20px;scrollbar-width:none;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch}
+ .lp--vivid .lp-sec :is(.lp-ins-list,.lp-chg,.lp-features .lp-grid)::-webkit-scrollbar{display:none}
+ .lp--vivid .lp-sec :is(.lp-ins-list,.lp-chg,.lp-features .lp-grid)>li{flex:0 0 84%;max-width:340px;scroll-snap-align:start;margin:0}
+ .lp--vivid .lp-features .lp-grid>li.lp-bento-pic{display:none}
+ .lp--vivid .lp-ins{padding:22px 20px}
+ .lp--vivid .lp-insights.lp-dark .lp-wrap{padding:44px 20px 40px}
+ .lp--vivid .lp-ins-close{margin-top:20px;font-size:1rem}
+ .lp--vivid .lp-sec :is(.lp-ins-list,.lp-chg,.lp-features .lp-grid)+*{margin-top:8px}
+ .lp--vivid .lp-steps-list{grid-template-columns:1fr!important;gap:10px}
+ .lp--vivid .lp-steps-list li{flex-direction:row;gap:14px;padding:16px 16px 16px 14px;border-radius:18px}
+ .lp--vivid .lp-steps-list li h3{font-size:1.02rem;margin:0 0 2px}
+ .lp--vivid .lp-steps-list li p{font-size:.95rem;margin:0}
+ .lp--vivid .lp-trial-steps{gap:10px}
+ .lp--vivid .lp-trial-step{padding:16px;gap:12px}
+ .lp--vivid .lp-trial-card{margin-top:20px}
+ .lp--vivid .lp-teacher-photo{max-width:260px;margin:0 auto}
+ .lp--vivid .lp-teacher-photo img{aspect-ratio:1/1;height:auto;object-position:50% 18%}
+ .lp--vivid .lp-faq summary{padding-top:14px;padding-bottom:14px}
+ .lp--vivid .lp-vs-col{padding:22px 18px}
+ .lp--vivid .lp-cta{padding:52px 0}
+ .lp--vivid .lp-submit{padding-left:12px;padding-right:12px;white-space:normal}
+ .lp--vivid .lp-form .lp-form-card{padding:20px 16px}
+}
+.lp a,.lp button,.lp label,.lp summary{-webkit-tap-highlight-color:rgba(29,78,216,.12)}
+@media (min-width:601px) and (max-width:1024px){
+ .lp--vivid .lp-chg{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+ .lp--vivid .lp-photos{grid-template-columns:repeat(3,1fr)!important;gap:14px}
+ .lp--vivid .lp-teacher-in{grid-template-columns:240px 1fr;gap:28px;align-items:start}
+ .lp--vivid .lp-teacher-photo{max-width:none}
+ .lp--vivid .lp-teacher-cert{grid-column:1/-1;max-width:440px;justify-self:center}
+ .lp--vivid .lp-sec{padding:72px 0}
+}
+@media (min-width:700px) and (max-width:1024px){.lp--vivid .lp-photos{grid-template-columns:repeat(4,1fr)!important}.lp--vivid .lp-photos figcaption{font-size:.88rem}}
 /* ---- trang con (chính sách, tin tức, tuyển dụng): đầu trang xanh, tài liệu có mục lục, thẻ bài viết / việc làm ---- */
 .lp--vivid .lp-hero:not(.lp-lead-hero){color:#fff;padding:72px 0 80px;background:var(--v-star) no-repeat 92% 52px/26px,var(--v-star) no-repeat 6% 82%/16px,var(--v-orb) no-repeat 0 0/100% 100%,var(--v-blue)}
 .lp--vivid .lp-hero:not(.lp-lead-hero) .lp-wrap{grid-template-columns:1fr}

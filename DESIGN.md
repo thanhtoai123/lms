@@ -62,3 +62,14 @@ Một chuyển động duy nhất: 5 thẻ ảnh đầu trang nổi lên lần l
   `tools/minh-hoa/ghep_anh.py`.
 - Không ảnh trẻ em giả, không người AI. Khi có ảnh lớp học / học viên thật có đồng ý: thay dần dải ảnh đầu trang hoặc thêm vào khối Sản phẩm.
 - Ảnh AI (nếu tạo sau): chỉ bối cảnh, thiết bị, đồ vật; ghi "Ảnh minh hoạ".
+
+## Điện thoại và máy tính bảng (22/10/2026)
+
+- Điện thoại (≤600px): số liệu nền navy, số liệu bối cảnh, "Điều bố mẹ sẽ thấy", "Vì sao yên tâm" là dải thẻ **vuốt ngang**
+  (thẻ sau ló ra 16% để biết còn nữa, cuộn bắt điểm); các bước "Một buổi học" xếp hàng icon–chữ; khoảng cách khối 52px.
+  Trang chính ở 375px: ~20.000px → ~15.300px, không bỏ nội dung nào.
+- Thanh nút dưới cùng tự ẩn khi form đăng ký đang hiện (`components/landing/sticky-toggle.tsx`), không che ô nhập.
+- Máy tính bảng (601–1024px): "Điều bố mẹ sẽ thấy" 2 cột, ảnh sản phẩm 3–4 cột, giảng viên ảnh trái – chữ phải.
+- Đầu trang hẹp (≤400px, trang con có nút "Học trải nghiệm"): logo chỉ giữ biểu tượng TH.
+- Tương thích: tiền tố `-webkit-backdrop-filter` (Safari < 18), `@supports not selector(:has())` cho trình duyệt cũ,
+  hiệu ứng nổi khi rê chuột tắt trên màn hình cảm ứng, ô nhập 16px (iOS không tự phóng to), vùng an toàn tai thỏ / thanh home.
