@@ -70,9 +70,11 @@ export function landingJsonLd(doc: LandingDoc, m: JsonLdMeta): Record<string, un
       });
     }
   }
-  // Buổi học trải nghiệm: một dịch vụ giáo dục có Offer giá 0 — chỉ khi khối "trial" có dòng nổi bật nói rõ không mất phí
+  // Buổi học trải nghiệm: một dịch vụ giáo dục có Offer giá 0 — chỉ khi trang nói rõ không mất phí
+  // (dòng nổi bật của khối "trial" hoặc nhãn của khối form đăng ký)
   const trial = visible.find((s) => s.type === "trial");
-  if (trial && /không (mất|phải trả) phí/i.test(trial.data.badge ?? "")) {
+  const NO_FEE = /không (mất|phải trả) phí/i;
+  if (trial && (NO_FEE.test(trial.data.badge ?? "") || visible.some((s) => s.type === "form" && NO_FEE.test(s.data.badge ?? "")))) {
     graph.push({
       "@type": "Service", name: (trial.data.eyebrow || "Buổi học trải nghiệm").slice(0, 120),
       description: (trial.data.intro ?? "").slice(0, 500) || undefined, provider: { "@id": orgId }, areaServed: "VN", serviceType: "Buổi học trải nghiệm và định hướng lộ trình",

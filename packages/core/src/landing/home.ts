@@ -270,7 +270,7 @@ export const HOME_PAGE = {
           title: "Một buổi học để hiểu con — và biết *con nên bắt đầu từ đâu*",
           intro: "Con học thật cùng thầy và tự tay làm ra sản phẩm đầu tay; thầy quan sát cách con nghĩ, cách con làm để đánh giá, rồi cùng bố mẹ vạch lộ trình phát triển công nghệ phù hợp với con.",
           gainsTitle: "Sau buổi học, *bố mẹ nhận được*",
-          badge: "Bố mẹ không phải trả phí cho buổi này",
+          badge: "",
           note: "",
           photo: "/lp-anh/that/thay-phan-thanh-toai.webp", photoName: TEACHER.name, photoRole: "Trực tiếp đánh giá và định hướng cho con",
           primaryLabel: "Đặt lịch học trải nghiệm", primaryUrl: "#dang-ky", secondaryLabel: `Gọi ${TH_BRAND.hotline}`, secondaryUrl: telHref,
