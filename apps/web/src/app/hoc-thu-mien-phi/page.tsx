@@ -15,7 +15,7 @@ export const metadata = {
 };
 
 /** Khối form cuối trang chính — trang này dùng đúng tiêu đề, ✓ và form 4 ô đó */
-const FORM = HOME_PAGE.sections.find((s) => s.type === "form") as LandingSection;
+const FORM = HOME_PAGE.build().sections.find((s) => s.type === "form") as LandingSection;
 
 /**
  * Trang đăng ký học trải nghiệm 1:1: cùng form với trang chính (họ tên, SĐT/Zalo, lớp, chuyên ngành + đồng ý).
