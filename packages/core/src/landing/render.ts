@@ -132,10 +132,10 @@ const wrap = (s: LandingSection, cls: string, inner: string, id?: string) =>
   `<section class="lp-sec ${cls}" id="${escHtml(id ?? s.type)}"><div class="lp-wrap">${inner}</div></section>`;
 
 /** Đầu trang dựng từ một khối header (dùng cho trang không phải trang dựng khối) */
-export function renderHeaderHtml(s: LandingSection, ctx: RenderCtx): string { return renderHeader(s, ctx); }
-export function renderFooterHtml(s: LandingSection, ctx: RenderCtx): string { return renderFooter(s, ctx); }
+export function renderHeaderHtml(s: LandingSection, ctx: RenderCtx): string { return keepTogether(renderHeader(s, ctx)); }
+export function renderFooterHtml(s: LandingSection, ctx: RenderCtx): string { return keepTogether(renderFooter(s, ctx)); }
 /** Tiêu đề khối form (nhãn, tiêu đề, ✓, gọi hotline) — dùng cho trang đăng ký riêng; `asH1` khi form là nội dung chính của trang */
-export function renderFormHeadHtml(s: LandingSection, asH1 = false): string { const h = formHead(s); return asH1 ? h.replace("<h2>", "<h1>").replace("</h2>", "</h1>") : h; }
+export function renderFormHeadHtml(s: LandingSection, asH1 = false): string { const h = formHead(s); return keepTogether(asH1 ? h.replace("<h2>", "<h1>").replace("</h2>", "</h1>") : h); }
 
 /** Ảnh nội bộ ("/…") trong tệp xuất cho host khác → địa chỉ tuyệt đối của hệ thống */
 const abs = (ctx: RenderCtx, u: string) => (ctx.mode === "export" && u.startsWith("/") && ctx.baseUrl ? ctx.baseUrl + u : u);
@@ -230,9 +230,14 @@ function renderGallery(s: LandingSection, ctx: RenderCtx): string {
   return wrap(s, "lp-gallery", head(s, ctx) + `<ul class="lp-photos">${items}</ul>`, "hinh-anh");
 }
 
+/** Hỏi đáp: nhiều hơn 6 câu → hiện 5 câu đầu, phần còn lại gói trong "Xem thêm N câu hỏi" (vẫn có trong trang, không cần JavaScript) */
+const FAQ_SHOW = 5;
 function renderFaq(s: LandingSection, ctx: RenderCtx): string {
-  const items = rowsOf(s, "items").map((r) => `<details class="lp-faq"><summary>${escHtml(r.q ?? "")}</summary><div>${text(r.a ?? "")}</div></details>`).join("");
-  return wrap(s, "lp-faqs", head(s, ctx) + `<div class="lp-faq-list">${items}</div>`, "hoi-dap");
+  const rows = rowsOf(s, "items").map((r) => `<details class="lp-faq"><summary>${escHtml(r.q ?? "")}</summary><div>${text(r.a ?? "")}</div></details>`);
+  const cut = rows.length > FAQ_SHOW + 1 ? FAQ_SHOW : rows.length;
+  const more = rows.slice(cut);
+  return wrap(s, "lp-faqs", head(s, ctx) + `<div class="lp-faq-list">${rows.slice(0, cut).join("")}</div>`
+    + (more.length ? `<details class="lp-faq-more"><summary><span class="lp-more-off">Xem thêm ${more.length} câu hỏi</span><span class="lp-more-on">Thu gọn</span></summary><div class="lp-faq-list">${more.join("")}</div></details>` : ""), "hoi-dap");
 }
 
 /**
@@ -470,7 +475,7 @@ function renderStickyBar(doc: LandingDoc, ctx: RenderCtx): string {
   const phone = (header ? d(header, "phone") : "") || (footer ? d(footer, "phone") : "");
   void ctx;
   return `<div class="lp-sticky" role="region" aria-label="Đăng ký nhanh">`
-    + (phone ? `<a class="lp-btn lp-btn-ghost" href="tel:${escHtml(phone.replace(/[^\d+]/g, ""))}" data-cta="1">Gọi ${escHtml(phone)}</a>` : "")
+    + (phone ? `<a class="lp-btn lp-btn-ghost" href="tel:${escHtml(phone.replace(/[^\d+]/g, ""))}" data-cta="1" aria-label="Gọi ${escHtml(phone)}">Gọi<span class="lp-sticky-num"> ${escHtml(phone)}</span></a>` : "")
     + `<a class="lp-btn lp-btn-primary" href="#dang-ky-nhanh" data-cta="1">Học trải nghiệm 1:1</a></div>`;
 }
 
@@ -518,6 +523,47 @@ function formExport(s: LandingSection, ctx: RenderCtx): string {
 
 /** Đường dẫn trang đăng ký học trải nghiệm (form riêng, cùng form trang chính); /dang-ky chuyển hướng về đây */
 export const TRIAL_PATH = "/hoc-thu-mien-phi";
+
+
+/* ---------------------------- chữ không rơi hàng ---------------------------- */
+const NB = "\u00a0";
+/**
+ * Giữ các cụm không được tách dòng (chỉ sửa phần chữ, không đụng thuộc tính / script):
+ * tên thương hiệu "TH STEAM Academy", số điện thoại "0971 29 30 31", số + đơn vị ("8–18 tuổi", "90 phút", "2 năm"…),
+ * và từ cuối của tiêu đề / câu hỏi / nút (tránh một chữ mồ côi trên dòng cuối, kể cả trình duyệt chưa hỗ trợ text-wrap).
+ */
+/** Bản cho chữ thường (thành phần React): giữ cụm như keepTogether và nối từ cuối với từ trước nó */
+export function keepText(t: string, joinLast = true): string {
+  const x = fixGroups(t);
+  if (!joinLast) return x;
+  const j = x.trimEnd().lastIndexOf(" ");
+  return j > 0 && x.trim().split(/\s+/).length >= 3 ? x.slice(0, j) + NB + x.slice(j + 1) : x;
+}
+const fixGroups = (t: string) => t
+    .replace(/TH STEAM (Academy|ACADEMY)/g, `TH${NB}STEAM${NB}$1`)
+    .replace(/\b(0\d{2,3}) (\d{2,3}) (\d{2}) (\d{2,3})\b/g, `$1${NB}$2${NB}$3${NB}$4`)
+    .replace(/(\d+(?:[–-]\d+)?) (tuổi|phút|buổi|năm|tiết|giờ|người|tháng|ngày|học sinh|bạn|lớp|chuyên ngành|học phần|%)(?=[\s.,;:)!?]|$)/g, `$1${NB}$2`)
+    .replace(/ (–|—|:|\?|!|·) /g, `${NB}$1 `);
+export function keepTogether(html: string): string {
+  const fixText = fixGroups;
+  let inRaw = false;
+  const out = html.split(/(<[^>]+>)/).map((seg) => {
+    if (seg.startsWith("<")) { if (/^<(script|style)\b/i.test(seg)) inRaw = true; else if (/^<\/(script|style)>/i.test(seg)) inRaw = false; return seg; }
+    return inRaw || !seg.trim() ? seg : fixText(seg);
+  }).join("");
+  // từ cuối của tiêu đề, câu hỏi, nút, chú thích ngắn: nối với từ trước nó
+  // đoạn văn / mục danh sách: chỉ nối khi từ cuối ngắn (≤ 7 ký tự) để không tạo cụm quá dài trên màn hình hẹp
+  // chỉ xử lý thẻ mà bên trong chỉ có định dạng chữ (em, a…) → thẻ chứa thẻ con lớn hơn để thẻ con tự xử lý
+  return out.replace(/(<(h[1-4]|summary|figcaption|button|p|li|span|small|strong|b|a)\b[^>]*>)([^<]*(?:<\/?(?:em|i|u|abbr|time|br|code|strong|b)\b[^>]*>[^<]*)*)(<\/\2>)/g, (_m, open: string, tag: string, inner: string, close: string) => {
+    const i = inner.lastIndexOf(">");
+    const head = inner.slice(0, i + 1), tail = inner.slice(i + 1);
+    const words = tail.trim().split(/\s+/);
+    const isBlock = /^(p|li|span|small|strong|b|a)$/.test(tag);
+    if (words.length < (isBlock ? 4 : 2) || (isBlock && (words[words.length - 1]!.length > 9 || words[words.length - 2]!.length > 9)) || tail.length > 600) return open + inner + close;
+    const j = tail.lastIndexOf(" ");
+    return open + head + tail.slice(0, j) + NB + tail.slice(j + 1) + close;
+  });
+}
 
 /** Từng phần của trang theo thứ tự. Trang công khai ghép phần "form" bằng thành phần React; export thì dùng nút dẫn về hệ thống */
 export function renderParts(doc: LandingDoc, ctx: RenderCtx): LandingPart[] {
@@ -573,6 +619,11 @@ export function renderParts(doc: LandingDoc, ctx: RenderCtx): LandingPart[] {
         else push(alt(formOpen(s), isAlt) + formExport(s, ctx) + `</div></section>`);
         break;
     }
+  }
+  for (const p of parts) {
+    if (p.kind === "html") p.html = keepTogether(p.html);
+    else if (p.kind === "leadHero") { p.left = keepTogether(p.left); p.pic = keepTogether(p.pic); p.formHead = keepTogether(p.formHead); }
+    else p.head = keepTogether(p.head);
   }
   return parts;
 }
@@ -1447,6 +1498,26 @@ const LANDING_CSS = `
  .lp--vivid .lp-sec{padding:72px 0}
 }
 @media (min-width:700px) and (max-width:1024px){.lp--vivid .lp-photos{grid-template-columns:repeat(4,1fr)!important}.lp--vivid .lp-photos figcaption{font-size:.88rem}}
+/* hỏi đáp: nút xem thêm; điện thoại: một thẻ, các câu ngăn bằng đường kẻ (gọn ~40%) */
+.lp--vivid .lp-faq-more{max-width:860px;margin:12px auto 0}
+.lp--vivid .lp-faq-more>summary{list-style:none;cursor:pointer;display:flex;justify-content:center;align-items:center;gap:8px;min-height:48px;margin:0 auto;width:max-content;max-width:100%;padding:10px 22px;border-radius:999px;border:1.5px solid #bfdbfe;background:#fff;color:#1e40af;font-weight:800}
+.lp--vivid .lp-faq-more>summary::-webkit-details-marker{display:none}
+.lp--vivid .lp-faq-more>summary::after{content:"↓";font-weight:800}
+.lp--vivid .lp-faq-more[open]>summary::after{content:"↑"}
+.lp--vivid .lp-faq-more .lp-more-on,.lp--vivid .lp-faq-more[open] .lp-more-off{display:none}
+.lp--vivid .lp-faq-more[open] .lp-more-on{display:inline}
+.lp--vivid .lp-faq-more[open]>.lp-faq-list{margin-top:12px}
+@media (max-width:600px){
+ .lp--vivid .lp-faq-list{gap:0;background:#fff;border:1px solid var(--lp-line);border-radius:18px;overflow:hidden}
+ .lp--vivid .lp-faq{border:0;border-radius:0;border-bottom:1px solid var(--lp-line);box-shadow:none}
+ .lp--vivid .lp-faq:last-child{border-bottom:0}
+ .lp--vivid .lp-faq[open]{box-shadow:none;background:#f8fafc}
+ .lp--vivid .lp-faq summary{padding:13px 42px 13px 16px;font-size:.98rem;line-height:1.4}
+ .lp--vivid .lp-faq summary::after{right:14px;font-size:1.25rem}
+ .lp--vivid .lp-faq>div{padding:0 16px 14px;font-size:.95rem}
+ .lp--vivid .lp-faq-more[open]>.lp-faq-list{margin-top:10px}
+}
+@media (max-width:370px){.lp--vivid .lp-sticky-num{display:none}.lp--vivid .lp-sticky .lp-btn-ghost{flex:0 0 auto;padding-left:18px;padding-right:18px}}
 /* ---- trang con (chính sách, tin tức, tuyển dụng): đầu trang xanh, tài liệu có mục lục, thẻ bài viết / việc làm ---- */
 .lp--vivid .lp-hero:not(.lp-lead-hero){color:#fff;padding:72px 0 80px;background:var(--v-star) no-repeat 92% 52px/26px,var(--v-star) no-repeat 6% 82%/16px,var(--v-orb) no-repeat 0 0/100% 100%,var(--v-blue)}
 .lp--vivid .lp-hero:not(.lp-lead-hero) .lp-wrap{grid-template-columns:1fr}

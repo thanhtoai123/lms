@@ -10,7 +10,7 @@
  * - Ô điện thoại kiểm số Việt Nam ngay trên trình duyệt; máy chủ vẫn chuẩn hoá và chống trùng.
  */
 import { useId, useRef, useState } from "react";
-import { LEAD_INTERESTS, TH_REGISTER_BLOCK } from "@satarobo/core";
+import { LEAD_INTERESTS, TH_REGISTER_BLOCK, keepText } from "@satarobo/core";
 import { anonId, track } from "@/components/site-tracker";
 
 type Utm = { utm_source: string; utm_medium: string; utm_campaign: string; ref?: string };
@@ -132,10 +132,10 @@ export function LeadForm({ utm, thankYou, interest, submitLabel }: { utm: Utm; t
           </select>
         </div>
       </div>
-      <label className="lp-consent"><input type="checkbox" name="consent" defaultChecked /> <span>Tôi đồng ý để TH STEAM Academy liên hệ tư vấn và xử lý thông tin theo <a href="/chinh-sach/bao-mat" target="_blank" rel="noopener">chính sách bảo mật</a>.</span></label>
+      <label className="lp-consent"><input type="checkbox" name="consent" defaultChecked /> <span>{keepText("Tôi đồng ý để TH STEAM Academy liên hệ tư vấn và xử lý thông tin theo", false)} <a href="/chinh-sach/bao-mat" target="_blank" rel="noopener">{keepText("chính sách bảo mật")}</a>.</span></label>
       {state === "error" && <p className="lp-f-err" role="alert">{msg}</p>}
-      <button className="lp-btn lp-btn-primary lp-submit" disabled={state === "sending"}>{state === "sending" ? "Đang gửi…" : submitLabel ?? "Đặt lịch học trải nghiệm 1:1"}</button>
-      <p className="lp-privacy">Thông tin chỉ dùng để tư vấn khóa học cho con.</p>
+      <button className="lp-btn lp-btn-primary lp-submit" disabled={state === "sending"}>{state === "sending" ? "Đang gửi…" : keepText(submitLabel ?? "Đặt lịch học trải nghiệm 1:1")}</button>
+      <p className="lp-privacy">{keepText("Thông tin chỉ dùng để tư vấn khóa học cho con.")}</p>
     </form>
   );
 }

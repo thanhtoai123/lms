@@ -11,7 +11,8 @@ import { LEAD_INTERESTS } from "./ads.js";
 
 const doc = () => normalizeLanding(HOME_PAGE.build());
 const ctx = (over: Partial<RenderCtx> = {}): RenderCtx => ({ slug: "trang-chu", variant: "classic", mode: "page", brand: { name: TH_BRAND.name, logoUrl: "/icon.svg", palette: buildPalette(BRAND_DEFAULT_COLORS) }, ...over });
-const html = (over: Partial<RenderCtx> = {}) => renderBody(doc(), ctx(over));
+/** HTML trang chính; khoảng trắng không ngắt dòng (giữ cụm chữ) đổi về dấu cách thường để so chữ */
+const html = (over: Partial<RenderCtx> = {}) => renderBody(doc(), ctx(over)).replace(/\u00a0/g, " ");
 
 test("trang chính: đường dẫn hợp lệ, xuất bản được không cảnh báo", () => {
   assert.equal(validSlug(HOME_PAGE.slug), null);

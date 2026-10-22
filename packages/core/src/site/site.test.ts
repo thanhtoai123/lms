@@ -77,7 +77,7 @@ test("khung chung: dựng được đầu / chân trang HTML, logo về trang ch
   const h = renderHeaderHtml(header, ctx({ homeHref: "/" }));
   assert.ok(h.includes('class="lp-brand" href="/"') && h.includes("/#chuyen-nganh") && !h.includes("lp-tel"), "đầu trang không hiện hotline");
   assert.ok(renderHeaderHtml(header, ctx()).includes('href="#top"'));
-  const f = renderFooterHtml(footer, ctx());
+  const f = renderFooterHtml(footer, ctx()).replace(/\u00a0/g, " ");
   assert.ok(f.includes("toàn quốc") && f.includes("/chinh-sach/bao-mat") && f.includes("/chinh-sach/dieu-khoan") && f.includes(TH_BRAND.website));
 });
 

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { keepText } from "@satarobo/core";
 
 /**
  * Đầu trang con (tin tức, tuyển dụng…): mảng xanh Deep Ocean + quỹ đạo vàng như trang chính, đường dẫn (breadcrumb),
@@ -23,8 +24,8 @@ export function PageHero({ crumbs, eyebrow, title, lead, meta }: {
             </nav>
           )}
           {eyebrow && <p className="lp-eyebrow">{eyebrow}</p>}
-          <h1>{title}</h1>
-          {lead && <p className="lp-lead">{lead}</p>}
+          <h1>{keepText(title)}</h1>
+          {lead && <p className="lp-lead">{keepText(lead)}</p>}
           {meta && meta.length > 0 && <ul className="lp-hero-meta">{meta.map((m, i) => <li key={i} className={m.gold ? "is-gold" : undefined}>{m.text}</li>)}</ul>}
         </div>
       </div>

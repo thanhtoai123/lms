@@ -292,16 +292,16 @@ export const HOME_PAGE = {
         // 12. HỎI ĐÁP — trả lời thẳng những băn khoăn thật
         sec("faq", "faq", { title: "Bố mẹ thường hỏi" }, {
           items: [
+            { q: "Buổi học trải nghiệm diễn ra thế nào, có mất phí không?", a: "Bố mẹ không phải trả phí cho buổi này. Sau khi đăng ký, trung tâm gọi lại để hẹn giờ; con học 1:1 online cùng thầy và tự làm một sản phẩm nhỏ. Cuối buổi, thầy nhận xét điểm mạnh, điều con cần rèn và gợi ý chuyên ngành, lộ trình phù hợp. Gia đình tự quyết định có học tiếp hay không." },
+            { q: "Học phí thế nào?", a: `Học phí giống nhau ở cả 4 chuyên ngành, có lớp nhóm và kèm 1:1, đăng ký 2 năm học được ưu đãi hơn. Sau buổi học trải nghiệm, giáo viên gửi bố mẹ lộ trình và học phí phù hợp với con; cần biết trước, bố mẹ gọi ${TH_BRAND.hotline}.` },
             { q: "Học thêm máy tính có làm con nghiện màn hình hơn không?", a: "Buổi học có mục tiêu và sản phẩm rõ ràng, giáo viên dẫn dắt từ đầu đến cuối — khác hẳn việc lướt mạng không giới hạn. Con được rèn thói quen tự chủ và dùng máy tính an toàn; đây là một tiêu chí được đánh giá định kỳ. Ở nhà, bố mẹ vẫn nên cùng con đặt giới hạn thời gian dùng thiết bị." },
+            { q: "Con bao nhiêu tuổi thì học được?", a: "Từ 8 đến 18 tuổi. Tiểu học (8–10 tuổi) học được cả 4 chuyên ngành; THCS có AI, Photoshop, Roblox, App Inventor, Python và lập trình web; THPT học lập trình web full-stack và WordPress." },
+            { q: "Học online con có tập trung được không?", a: "Lớp chỉ 6–8 bạn, bật camera và micro; giáo viên gọi tên, giao việc và xem sản phẩm của từng bạn trong buổi. Phần lớn thời gian con tự tay làm sản phẩm nên ít khi phải ngồi nghe suông." },
             { q: "Dùng AI có làm con lười suy nghĩ không?", a: "Đó là lo lắng chính đáng mà nhiều phụ huynh chia sẻ. Ở lớp, con dùng AI như một trợ lý: tự đặt câu hỏi, so sánh, kiểm chứng câu trả lời, rồi tự trình bày cách mình làm. Con phải hiểu sản phẩm của mình thì mới trả lời được câu hỏi của bố mẹ trong buổi báo cáo." },
             { q: "Con chưa biết gì về máy tính có học được không?", a: "Được. Chương trình bắt đầu từ thao tác cơ bản và lập trình kéo thả. Buổi học trải nghiệm 1:1 giúp giáo viên đánh giá để xếp con vào chặng phù hợp." },
-            { q: "Học online con có tập trung được không?", a: "Lớp chỉ 6–8 bạn, bật camera và micro; giáo viên gọi tên, giao việc và xem sản phẩm của từng bạn trong buổi. Phần lớn thời gian con tự tay làm sản phẩm nên ít khi phải ngồi nghe suông." },
-            { q: "Con bao nhiêu tuổi thì học được?", a: "Từ 8 đến 18 tuổi. Tiểu học (8–10 tuổi) học được cả 4 chuyên ngành; THCS có AI, Photoshop, Roblox, App Inventor, Python và lập trình web; THPT học lập trình web full-stack và WordPress." },
             { q: "Bố mẹ theo dõi con học thế nào?", a: "Qua nhóm Zalo lớp (lịch học, ảnh và video sản phẩm, nhận xét của giáo viên), hệ thống học tập để xem lại bài và chuyên cần, và hồ sơ công nghệ lưu mọi dự án của con. Định kỳ con báo cáo dự án trực tuyến trước phụ huynh, gia đình nhận phiếu đánh giá 6 năng lực, 3 phẩm chất." },
             { q: "Cần chuẩn bị gì để học?", a: PREPARE_TEXT },
             { q: "Con nghỉ học có được học bù không?", a: "Báo nghỉ trước ít nhất 24 giờ qua Zalo lớp hoặc hotline thì được học bù, tối đa 3 buổi mỗi năm học. Nghỉ không báo trước thì không học bù. Trung tâm hủy buổi học thì bù đủ." },
-            { q: "Buổi học trải nghiệm diễn ra thế nào, có mất phí không?", a: "Bố mẹ không phải trả phí cho buổi này. Sau khi đăng ký, trung tâm gọi lại để hẹn giờ; con học 1:1 online cùng thầy và tự làm một sản phẩm nhỏ. Cuối buổi, thầy nhận xét điểm mạnh, điều con cần rèn và gợi ý chuyên ngành, lộ trình phù hợp. Gia đình tự quyết định có học tiếp hay không." },
-            { q: "Học phí thế nào?", a: `Học phí giống nhau ở cả 4 chuyên ngành, có lớp nhóm và kèm 1:1, đăng ký 2 năm học được ưu đãi hơn. Sau buổi học trải nghiệm, giáo viên gửi bố mẹ lộ trình và học phí phù hợp với con; cần biết trước, bố mẹ gọi ${TH_BRAND.hotline}.` },
           ],
         }),
 

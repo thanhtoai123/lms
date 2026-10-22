@@ -201,11 +201,21 @@ test("logo ngang chính thức: đầu trang dùng bản màu, chân trang bản
   const brand = { name: "TH STEAM Academy", logoUrl: "/icon.svg", lockupUrl: "/thsteam/logo-ngang.svg", lockupOnDarkUrl: "/thsteam/logo-ngang-trang.svg", palette: buildPalette(BRAND_DEFAULT_COLORS) };
   const h = renderHeaderHtml(header, ctx({ brand }));
   assert.ok(h.includes('class="lp-lockup" src="/thsteam/logo-ngang.svg"'));
-  assert.ok(!h.includes("<span>TH STEAM Academy</span>"), "có logo ngang thì không lặp tên bằng chữ");
+  assert.ok(!h.replace(/\u00a0/g, " ").includes("<span>TH STEAM Academy</span>"), "có logo ngang thì không lặp tên bằng chữ");
   assert.ok(renderFooterHtml(footer, ctx({ brand })).includes('src="/thsteam/logo-ngang-trang.svg"'));
   const ex = renderHeaderHtml(header, ctx({ brand, mode: "export", baseUrl: "https://app.example.com" }));
   assert.ok(ex.includes('src="https://app.example.com/thsteam/logo-ngang.svg"'));
   // Trung tâm tải logo riêng → không có logo ngang: giữ biểu tượng + tên
   const own = renderHeaderHtml(header, ctx());
-  assert.ok(own.includes("<span>TH STEAM Academy</span>") && !own.includes("lp-lockup"));
+  assert.ok(own.replace(/\u00a0/g, " ").includes("<span>TH STEAM Academy</span>") && !own.includes("lp-lockup"));
+});
+
+test("chữ không rơi hàng: giữ cụm thương hiệu, số điện thoại, số + đơn vị; từ cuối tiêu đề; không đụng thuộc tính", async () => {
+  const { keepTogether } = await import("./render.js");
+  const out = keepTogether('<h2>Học với TH STEAM Academy cho con</h2><p>Gọi 0971 29 30 31 · con 8–18 tuổi, 90 phút</p><a href="tel:0971 29 30 31" title="TH STEAM Academy">x</a><script type="application/ld+json">{"a":"TH STEAM Academy"}</script>');
+  assert.ok(out.includes("TH\u00a0STEAM\u00a0Academy"));
+  assert.ok(out.includes("0971\u00a029\u00a030\u00a031") && out.includes("8–18\u00a0tuổi") && out.includes("90\u00a0phút"));
+  assert.ok(out.includes("cho\u00a0con</h2>"));
+  assert.ok(out.includes('href="tel:0971 29 30 31" title="TH STEAM Academy"'), "thuộc tính giữ nguyên");
+  assert.ok(out.includes('{"a":"TH STEAM Academy"}'), "script giữ nguyên");
 });
