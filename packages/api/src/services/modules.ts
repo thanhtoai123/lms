@@ -4,6 +4,7 @@ import { appSettings, users } from "@satarobo/db";
 import { MODULES, hasRole, normalizeModules, moduleUsage, ADMIN_MENU, type ModuleState } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { writeAudit } from "./audit";
+import { isChainSuperAdmin } from "./tenantScope";
 
 type Db = ProtectedContext["db"] | import("@satarobo/db").Database;
 
@@ -34,7 +35,7 @@ export async function modulesForAdmin(ctx: ProtectedContext) {
 
 export async function saveModules(ctx: ProtectedContext, input: { state: Record<string, boolean> }) {
   requirePermission(ctx, "system:update");
-  if (!hasRole(ctx.actor, "SUPER_ADMIN")) throw new TRPCError({ code: "FORBIDDEN", message: "Chỉ Quản trị hệ thống được bật / tắt module" });
+  if (!isChainSuperAdmin(ctx)) throw new TRPCError({ code: "FORBIDDEN", message: "Chỉ Quản trị hệ thống của Hội sở được bật / tắt module" });
   const known = new Set(MODULES.map((m) => m.key));
   for (const k of Object.keys(input.state)) if (!known.has(k)) throw new TRPCError({ code: "BAD_REQUEST", message: `Module không tồn tại: ${k}` });
   const before = await getModules(ctx.db);

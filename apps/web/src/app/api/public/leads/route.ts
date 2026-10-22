@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@satarobo/db";
-import { createLead, mapPublicLeadBody, logWebhook, recordTrack, publicTrackingConfig } from "@satarobo/api";
+import { createLead, mapPublicLeadBody, sanitizePublicLeadRefs, logWebhook, recordTrack, publicTrackingConfig } from "@satarobo/api";
 import { clientSafeMessage, fbcFromUrl, ipTuHeader, metaCapiLeadEvent } from "@satarobo/core";
 import { sharedRateLimited } from "@/lib/route-ctx";
 
@@ -71,6 +71,7 @@ export async function POST(req: Request) {
 
   const db = getDb();
   const hdrs = Object.fromEntries(req.headers.entries());
+  await sanitizePublicLeadRefs(db, parsed.data);
   try {
     // Nguồn & theo dõi: IP và user agent lấy từ chính request (không tin body gửi lên)
     const r = await createLead(db, {
@@ -88,7 +89,8 @@ export async function POST(req: Request) {
       const pick = typeof body.ghiChu === "string" ? /Quan tâm: ([^·]+)/.exec(body.ghiChu)?.[1]?.trim() ?? null : null;
       await sendMetaCapi(db, req, body, ip, typeof body.sdt === "string" ? body.sdt : "", pick).catch(() => {});
     }
-    return NextResponse.json({ ok: true, duplicated: r.duplicated }, { headers });
+    // Cùng một câu trả lời cho số mới và số đã có — không để người ngoài dò số nào đã là khách của trung tâm
+    return NextResponse.json({ ok: true }, { headers });
   } catch (e) {
     // Chỉ trả nguyên văn khi là lỗi kiểm tra dữ liệu (BAD_REQUEST); lỗi khác về câu chung
     const msg = clientSafeMessage(e);

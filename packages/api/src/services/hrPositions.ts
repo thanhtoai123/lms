@@ -10,7 +10,7 @@
 import { and, eq, sql, asc, desc, isNull, or, gte, lte, type SQL } from "drizzle-orm";
 import { staff, staffPositions, staffDeployments, positions, centers, users, userRoles } from "@satarobo/db";
 import {
-  validatePosition, validatePositionDef, addDays, ROLES, ROLE_LABEL_VI, POSITION_KIND_VI,
+  validatePosition, validatePositionDef, validateRoleGrant, addDays, ROLES, ROLE_LABEL_VI, POSITION_KIND_VI,
   type Role, type PositionKind,
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
@@ -54,6 +54,10 @@ export async function upsertPositionDef(ctx: ProtectedContext, input: { id?: str
   const existing = await ctx.db.select({ id: positions.id, name: positions.name, centerId: positions.centerId, reportsToId: positions.reportsToId }).from(positions);
   const errs = validatePositionDef({ ...input, id: input.id ?? null }, existing);
   if (errs.length) throw bad(errs);
+  // Vị trí mang BỘ VAI TRÒ → cùng luật như cấp vai trò trực tiếp (không đưa vai trò Hội sở / Quản trị tối cao vào vị trí cơ sở,
+  // người không phải Quản trị tối cao toàn hệ thống không tạo được vị trí mang vai trò đó)
+  const roleErrs = [...new Set(input.roles.flatMap((r) => validateRoleGrant({ actor: ctx.actor, role: r, centerId: input.centerId, targetUserId: "position" })))];
+  if (roleErrs.length) throw bad(roleErrs);
   const v = {
     centerId: input.centerId, name: input.name.trim(), department: input.department?.trim() || null,
     roles: [...new Set(input.roles)], reportsToId: input.reportsToId || null, isManager: input.isManager,
@@ -62,6 +66,9 @@ export async function upsertPositionDef(ctx: ProtectedContext, input: { id?: str
   if (input.id) {
     const before = await ctx.db.query.positions.findFirst({ where: eq(positions.id, input.id) });
     if (!before) throw notFound("Không tìm thấy vị trí");
+    // Sửa vị trí là sửa quyền của người đang giữ nó → phải có quyền ở ĐƠN VỊ HIỆN TẠI của vị trí, không chỉ đơn vị mới
+    if (before.centerId) requirePermission(ctx, "staff:update", { centerId: before.centerId });
+    else if (!centersWith(ctx, "staff:update").includes(null)) throw forbidden("Vị trí thuộc Hội sở chỉ nhân sự Hội sở sửa");
     await ctx.db.transaction(async (txx) => {
       const tx = txx as unknown as Db;
       await tx.update(positions).set(v).where(eq(positions.id, before.id));
@@ -113,6 +120,13 @@ export async function assignPosition(ctx: ProtectedContext, input: { staffId: st
   if (def && def.centerId && def.centerId !== input.centerId) throw bad(`Vị trí "${def.name}" thuộc đơn vị khác`);
   const title = (input.title?.trim() || def?.name || "").trim();
   if (!title) throw bad("Chọn vị trí hoặc nhập chức danh");
+  const defRoles = (def?.roles ?? []) as Role[];
+  if (defRoles.length) {
+    // Không tự gán cho mình một vị trí mang quyền (tách nhiệm vụ: người cấp ≠ người nhận)
+    if (s.userId && s.userId === ctx.user.id) throw forbidden("Không tự gán vị trí có quyền cho chính mình — nhờ người phụ trách khác");
+    const roleErrs = [...new Set(defRoles.flatMap((r) => validateRoleGrant({ actor: ctx.actor, role: r, centerId: input.centerId, targetUserId: s.userId ?? "staff" })))];
+    if (roleErrs.length) throw bad(roleErrs);
+  }
   const existing = await ctx.db.select().from(staffPositions).where(eq(staffPositions.staffId, s.id));
   const p = { kind: input.kind, centerId: input.centerId, title, effectiveFrom: input.effectiveFrom, effectiveTo: input.effectiveTo || null };
   const errs = validatePosition(p, existing);

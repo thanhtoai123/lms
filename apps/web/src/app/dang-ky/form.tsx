@@ -24,7 +24,7 @@ export function TrialForm({ utm, thankYou }: { utm: { utm_source: string; utm_me
     };
     const r = await fetch("/api/public/leads", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...body, ...Object.fromEntries(Object.entries(utm).filter(([, v]) => v)), ...tracking, source: "web-form", anonId: anonId() }) });
     const j = (await r.json()) as { ok: boolean; error?: string; duplicated?: boolean };
-    if (j.ok) { setState("done"); setMsg(j.duplicated ? "Chúng tôi đã nhận thông tin của bạn trước đó và sẽ liên hệ sớm." : thankYou || TH_REGISTER_BLOCK.thankYou); }
+    if (j.ok) { setState("done"); setMsg(thankYou || TH_REGISTER_BLOCK.thankYou); }
     else { setState("error"); setMsg(j.error ?? "Có lỗi, vui lòng thử lại."); }
   }
 

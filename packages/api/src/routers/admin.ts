@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { EMAIL_EVENT_KEYS, EMAIL_STATUSES, OTP_STATUSES, OTP_PURPOSES, WEBHOOK_SOURCES, WEBHOOK_STATUSES, type EmailEvent } from "@satarobo/core";
-import { router, protectedProcedure } from "../trpc";
+import { router, protectedProcedure, requirePermission } from "../trpc";
 import * as A from "../services/admin";
 import * as Z from "../services/zaloToken";
 import * as B from "../services/brand";
@@ -48,7 +48,7 @@ export const adminRouter = router({
   integrations: protectedProcedure.query(({ ctx }) => A.integrations(ctx)),
 
   /* Zalo OA — vòng đời token (access token chỉ sống 25 giờ, refresh token dùng một lần) */
-  zaloToken: protectedProcedure.query(({ ctx }) => Z.trangThaiTokenZalo(ctx.db as never)),
+  zaloToken: protectedProcedure.query(({ ctx }) => { requirePermission(ctx, "system:read", {}); return Z.trangThaiTokenZalo(ctx.db as never); }),
   zaloTokenRefresh: protectedProcedure.mutation(({ ctx }) => Z.lamMoiTokenTheoYeuCau(ctx)),
   zaloCredentials: protectedProcedure
     .input(z.object({ appId: z.string().trim().max(30), oaId: z.string().trim().max(30).nullish(), secretKey: z.string().trim().max(200).nullish(), refreshToken: z.string().trim().max(500).nullish() }))

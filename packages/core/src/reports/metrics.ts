@@ -93,7 +93,7 @@ export function normalizeRange(from: string | undefined, to: string | undefined,
 export function toCsv(headers: readonly string[], rows: readonly (readonly (string | number | null | undefined)[])[]): string {
   const cell = (v: string | number | null | undefined) => {
     let s = v === null || v === undefined ? "" : String(v);
-    if (/^[=+\-@]/.test(s) && typeof v === "string") s = `'${s}`;
+    if (/^[=+\-@\t\r]/.test(s) && typeof v === "string") s = `'${s}`;
     return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
   return "﻿" + [headers, ...rows].map((r) => r.map(cell).join(",")).join("\r\n");

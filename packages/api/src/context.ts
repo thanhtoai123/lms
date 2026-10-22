@@ -1,9 +1,9 @@
 import { createClient } from "@supabase/supabase-js";
-import { and, eq, gte, isNull, lte, or } from "drizzle-orm";
+import { and, eq, gte, isNull, lte, or, sql } from "drizzle-orm";
 import { getDb, users, userRoles, teachers, parents, staff, staffDeployments, userGroups, userGroupMembers, userGroupPermissions, tenants, tenantSettings, withDbErrors, type Database } from "@satarobo/db";
 import {
   decodeJwtPayload, mfaRequiredRoles, mfaState, activeRoleAssignments, widenByDeployments, tenantScope, withSettingsDefaults,
-  devActorAllowed, normalizeDevActor, DEV_ACTOR_HEADER,
+  devActorAllowed, normalizeDevActor, DEV_ACTOR_HEADER, GLOBAL_ROLES,
   type Actor, type Permission, type TenantType, type TenantStatus, type TenantSettings,
 } from "@satarobo/core";
 
@@ -73,6 +73,7 @@ export async function createContext(opts: { headers: Headers; ip?: string }): Pr
   const auth = opts.headers.get("authorization");
   let email: string | null = null;
   let authSubject: string | null = null;
+  let emailConfirmed = false;
   let aal: string | null = null;
 
   if (auth?.startsWith("Bearer ") && process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
@@ -83,6 +84,7 @@ export async function createContext(opts: { headers: Headers; ip?: string }): Pr
     if (data.user) {
       authSubject = data.user.id;
       email = data.user.email ?? null;
+      emailConfirmed = !!data.user.email_confirmed_at;
       aal = decodeJwtPayload(auth.slice(7))?.aal ?? null;
     }
   }
@@ -98,9 +100,16 @@ export async function createContext(opts: { headers: Headers; ip?: string }): Pr
 
   // Truy vấn ĐẦU TIÊN chạm CSDL: nếu Postgres chưa chạy thì báo bằng một câu tiếng Việt rõ ràng
   // thay vì ném nguyên câu SQL kèm tên mọi cột ra màn hình lỗi.
-  const u = await withDbErrors(() => (authSubject
+  let u = await withDbErrors(() => (authSubject
     ? db.query.users.findFirst({ where: eq(users.authSubject, authSubject) })
     : db.query.users.findFirst({ where: eq(users.email, email) })));
+  // Lần đăng nhập Supabase ĐẦU TIÊN: chưa có dòng nào mang auth_subject này → liên kết theo email, nhưng CHỈ khi
+  // email đã xác nhận ở Supabase và tài khoản nội bộ chưa liên kết với ai (không cho chiếm tài khoản đã liên kết).
+  // Supabase phải tắt tự đăng ký (Authentication → Sign In / Providers → Allow new users to sign up = off).
+  if (!u && authSubject && email && emailConfirmed) {
+    const cand = await db.query.users.findFirst({ where: and(sql`lower(${users.email}) = ${email.toLowerCase()}`, isNull(users.authSubject)) });
+    if (cand?.isActive) u = cand;
+  }
   if (!u || !u.isActive) return { db, actor: null, user: null, ip: opts.ip, ...emptyTenant };
 
   // Liên kết auth_subject lần đầu đăng nhập qua Supabase
@@ -126,7 +135,8 @@ async function buildUserContext(
   const teacher = await db.query.teachers.findFirst({ where: eq(teachers.userId, u.id), columns: { id: true } });
   const parent = teacher ? null : await db.query.parents.findFirst({ where: eq(parents.userId, u.id), columns: { id: true } });
 
-  let assignments = activeRoleAssignments(roles, today);
+  // Vai trò Hội sở (vd SUPER_ADMIN) chỉ có hiệu lực khi gán TOÀN HỆ THỐNG; bản gắn cơ sở (dữ liệu sai / bị cấp lậu) bị bỏ qua
+  let assignments = activeRoleAssignments(roles, today).filter((a) => !(GLOBAL_ROLES.includes(a.role) && a.centerId));
   // Điều động tác nghiệp: mở phạm vi dữ liệu của cơ sở được điều động trong đúng khoảng thời gian
   const st = await db.query.staff.findFirst({ where: eq(staff.userId, u.id), columns: { id: true } });
   if (st) {

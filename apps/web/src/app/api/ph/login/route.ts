@@ -1,4 +1,4 @@
-import { ipTuHeader } from "@satarobo/core";
+import { ipTuHeader, normalizeVnPhone } from "@satarobo/core";
 import { NextResponse } from "next/server";
 import { getDb } from "@satarobo/db";
 import { ParentPortal } from "@satarobo/api";
@@ -24,7 +24,7 @@ export async function POST(req: Request) {
     const gate = await sharedRateLimit("parentLoginIp", "ip", clientIp(req), "ph-login");
     if (gate) return tooManyResponse(gate, "đăng nhập");
     // Chặn dò mã của MỘT phụ huynh cụ thể: đổi IP không reset được bộ đếm này
-    const gatePhone = await sharedRateLimit("parentLoginPhone", "phone", phone, "ph-login");
+    const gatePhone = await sharedRateLimit("parentLoginPhone", "phone", normalizeVnPhone(phone) ?? phone, "ph-login");
     if (gatePhone) return tooManyResponse(gatePhone, "đăng nhập");
     const method = b.method === "code" ? "code" : "otp";
     const r = await ParentPortal.parentLogin(db, { phone, method, code: String(b.code ?? "").trim().slice(0, 10), ip, userAgent: req.headers.get("user-agent") });

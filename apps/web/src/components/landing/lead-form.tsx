@@ -82,7 +82,7 @@ export function LeadForm({ utm, thankYou, interest, submitLabel }: { utm: Utm; t
       if (j.ok) {
         fireConversion(eventId, pick, phone);
         setState("done");
-        setMsg(j.duplicated ? "Trung tâm đã nhận thông tin của ba mẹ trước đó và sẽ liên hệ sớm." : thankYou || TH_REGISTER_BLOCK.thankYou);
+        setMsg(thankYou || TH_REGISTER_BLOCK.thankYou);
       } else { setState("error"); setMsg(j.error ?? "Có lỗi, ba mẹ vui lòng thử lại."); }
     } catch {
       setState("error"); setMsg("Không gửi được — kiểm tra kết nối mạng rồi thử lại, hoặc gọi hotline.");

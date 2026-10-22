@@ -27,7 +27,7 @@ import {
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { writeAudit } from "./audit";
-import { assertTenant } from "./tenantScope";
+import { assertTenant, isChainSuperAdmin } from "./tenantScope";
 
 type Db = ProtectedContext["db"];
 const bad = (m: string) => new TRPCError({ code: "BAD_REQUEST", message: m });
@@ -163,6 +163,8 @@ function normCode(code: string): string {
 
 export async function provision(ctx: ProtectedContext, input: ProvisionInput) {
   requirePermission(ctx, "tenant:provision");
+  // Nhân bản trung tâm (kể cả tạo tài khoản quản trị mới) là việc của Hội sở chuỗi — quản trị trung tâm nhượng quyền không được tự mở trung tâm mới
+  if (!isChainSuperAdmin(ctx)) throw new TRPCError({ code: "FORBIDDEN", message: "Chỉ Quản trị tối cao của Hội sở chuỗi được nhân bản trung tâm" });
   const reason = reasonOf(input.reason, 10);
   const code = normCode(input.code);
   const codeErr = validateTenantCode(code);

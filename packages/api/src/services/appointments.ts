@@ -103,12 +103,18 @@ export async function luuLichHen(ctx: ProtectedContext, input: {
   if (input.leadId) {
     const l = await ctx.db.query.leads.findFirst({ where: eq(leads.id, input.leadId) });
     if (!l) throw notFound("Không thấy lead");
-    centerId = centerId ?? l.centerId;
+    // Lịch hẹn của một lead luôn thuộc cơ sở của lead đó — không cho gắn lead cơ sở khác vào lịch của cơ sở mình
+    if (l.centerId) {
+      if (!authorize(ctx.actor, "lead:update", { centerId: l.centerId }).allowed) throw forbid("Không có quyền với lead của cơ sở này");
+      centerId = l.centerId;
+    }
   }
   if (!authorize(ctx.actor, "lead:update", { centerId }).allowed) throw forbid("Không có quyền đặt lịch hẹn ở cơ sở này");
 
   const cu = input.id ? await ctx.db.query.appointments.findFirst({ where: eq(appointments.id, input.id) }) : null;
   if (input.id && !cu) throw notFound("Không thấy lịch hẹn");
+  // Sửa lịch hẹn có sẵn: phải có quyền ở cơ sở HIỆN TẠI của lịch đó, không chỉ cơ sở mới
+  if (cu && !authorize(ctx.actor, "lead:update", { centerId: cu.centerId }).allowed) throw forbid("Không có quyền sửa lịch hẹn của cơ sở này");
   const giaTri = {
     title: input.title.trim(),
     kind: input.kind ?? cu?.kind ?? "goi_lai",

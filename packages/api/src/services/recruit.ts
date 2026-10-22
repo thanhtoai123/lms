@@ -180,11 +180,13 @@ export async function applyToJob(db: Database, input: { slug: string; fullName: 
   }
   const dup = await d.query.candidates.findFirst({ where: and(eq(candidates.jobId, j.id), eq(candidates.phoneNormalized, pn)) });
   if (dup) {
-    if (cv) {
+    // Nộp lại cùng SĐT: KHÔNG thay CV đã có — form công khai không chứng minh được người gửi là chủ số điện thoại,
+    // nên không để người khác đổi CV của ứng viên (chèn tệp độc / phá hồ sơ). Chỉ điền CV khi hồ sơ cũ chưa có.
+    if (cv && !dup.cvKey) {
       await putObject(cv.key, input.cv!.bytes);
       await d.update(candidates).set({ cvKey: cv.key, cvName: cv.name }).where(eq(candidates.id, dup.id));
     }
-    await d.insert(candidateEvents).values({ candidateId: dup.id, action: "reapply", note: cv ? "Nộp lại hồ sơ (cập nhật CV)" : "Nộp lại hồ sơ" });
+    await d.insert(candidateEvents).values({ candidateId: dup.id, action: "reapply", note: !cv ? "Nộp lại hồ sơ" : dup.cvKey ? "Nộp lại kèm CV khác — giữ CV gốc; liên hệ ứng viên nếu cần bản mới" : "Nộp lại hồ sơ (bổ sung CV)" });
     return { ok: true as const, duplicated: true };
   }
   if (cv) await putObject(cv.key, input.cv!.bytes);

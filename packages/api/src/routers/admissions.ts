@@ -122,7 +122,7 @@ export const leadsRouter = router({
   /** Bật / tắt "Dùng chung cho CSKH cùng cơ sở" */
   setShared: protectedProcedure.input(z.object({ leadId: uuid, shared: z.boolean() })).mutation(({ ctx, input }) => L.setLeadShared(ctx, input)),
   get: protectedProcedure.input(z.object({ id: uuid })).query(({ ctx, input }) => L.getLead(ctx, input.id)),
-  create: protectedProcedure.input(intakeInput).mutation(({ ctx, input }) => L.createLead(ctx.db, { ...input, email: input.email || null }, ctx.user.id)),
+  create: protectedProcedure.input(intakeInput).mutation(({ ctx, input }) => L.createLeadByStaff(ctx, { ...input, email: input.email || null })),
   update: protectedProcedure
     .input(z.object({
       leadId: uuid, parentName: z.string().trim().min(2, "Tên phụ huynh tối thiểu 2 ký tự").max(120), phone: z.string().trim().min(9, "Số điện thoại không hợp lệ").max(20),

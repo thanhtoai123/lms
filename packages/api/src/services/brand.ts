@@ -8,6 +8,7 @@ import {
 } from "@satarobo/core";
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { writeAudit } from "./audit";
+import { isChainSuperAdmin } from "./tenantScope";
 import { putObject, getObject, deleteObject } from "../storage";
 
 type Db = ProtectedContext["db"];
@@ -59,7 +60,7 @@ async function writeBrand(ctx: ProtectedContext, next: BrandSettings) {
 
 function mustEdit(ctx: ProtectedContext) {
   requirePermission(ctx, "system:update");
-  if (!hasRole(ctx.actor, "SUPER_ADMIN")) throw new TRPCError({ code: "FORBIDDEN", message: "Chỉ Quản trị hệ thống được đổi nhận diện thương hiệu" });
+  if (!isChainSuperAdmin(ctx)) throw new TRPCError({ code: "FORBIDDEN", message: "Chỉ Quản trị hệ thống của Hội sở được đổi nhận diện thương hiệu" });
 }
 
 export async function saveBrandColors(ctx: ProtectedContext, input: BrandColors) {

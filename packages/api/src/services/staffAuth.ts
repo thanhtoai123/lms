@@ -8,6 +8,7 @@ import { requirePermission } from "../trpc";
 import { queueEmail } from "./admin";
 import { writeAudit } from "./audit";
 import { logger } from "../lib/logger";
+import { assertTenant } from "./tenantScope";
 
 type Db = ProtectedContext["db"];
 
@@ -40,6 +41,7 @@ export async function sendLoginLink(ctx: ProtectedContext, input: { userId: stri
   requirePermission(ctx, "system:update");
   const u = await ctx.db.query.users.findFirst({ where: eq(users.id, input.userId) });
   if (!u) throw new TRPCError({ code: "NOT_FOUND", message: "Không có tài khoản" });
+  assertTenant(ctx, u, "Tài khoản");
   if (!u.isActive || u.lockedAt) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Tài khoản đang khoá — mở khoá trước" });
   const admin = supabaseAdmin();
   if (!admin) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Chưa cấu hình Supabase (NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)" });

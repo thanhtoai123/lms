@@ -15,7 +15,10 @@ export async function POST(req: Request) {
   } catch {
     return NextResponse.json({ ok: false, error: "Dữ liệu không hợp lệ" }, { status: 400 });
   }
-  const purpose = OTP_PURPOSES.includes(body.purpose as OtpPurpose) ? (body.purpose as OtpPurpose) : null;
+  // Cửa công khai CHỈ cho "xác minh SĐT". Mã đăng nhập / kích hoạt cổng phụ huynh và quên mật khẩu đi qua luồng riêng
+  // (kiểm số có phải phụ huynh, tài khoản có bị khoá…) — không cho gửi / dò các mã đó từ đây.
+  const PUBLIC_PURPOSES: readonly OtpPurpose[] = ["phone_verify"];
+  const purpose = OTP_PURPOSES.includes(body.purpose as OtpPurpose) && PUBLIC_PURPOSES.includes(body.purpose as OtpPurpose) ? (body.purpose as OtpPurpose) : null;
   if (!purpose || typeof body.phone !== "string") return NextResponse.json({ ok: false, error: "Thiếu số điện thoại / mục đích" }, { status: 400 });
   const ip = ipTuHeader(req.headers, process.env);
   // Trần theo IP ngay ở cửa ngõ — đếm trong bảng `rate_limits` nên đúng cả khi chạy nhiều bản sao

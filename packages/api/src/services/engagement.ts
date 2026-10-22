@@ -5,7 +5,7 @@ import {
   type Database,
 } from "@satarobo/db";
 import {
-  runRules, DEFAULT_RULES, DEFAULT_SLA, OPEN_LEAD_STATUSES, visibleCenterIds,
+  runRules, DEFAULT_RULES, DEFAULT_SLA, OPEN_LEAD_STATUSES, visibleCenterIds, authorize,
   DEFAULT_RETRY, failureUpdate, clampPageSize, type RetryPolicy,
   type DomainEvent, type Action, type Role,
 } from "@satarobo/core";
@@ -347,7 +347,11 @@ export async function parentFeed(ctx: ProtectedContext, input: { parentId: strin
   const p = await ctx.db.query.parents.findFirst({ where: eq(parents.id, input.parentId), columns: { id: true, tenantId: true } });
   if (!p) throw new TRPCError({ code: "NOT_FOUND" });
   assertTenant(ctx, p, "Phụ huynh");
-  requirePermission(ctx, "student:read", { ownerIds: [input.parentId] });
+  // Xét quyền theo CƠ SỞ của các con: không truyền cơ sở thì "student:read ở bất kỳ cơ sở nào" cũng lọt
+  const kidCenters = await ctx.db.select({ c: students.homeCenterId }).from(studentGuardians).innerJoin(students, eq(students.id, studentGuardians.studentId)).where(eq(studentGuardians.parentId, input.parentId));
+  const cs = [...new Set(kidCenters.map((k) => k.c).filter((c): c is string => !!c))];
+  if (!cs.length) requirePermission(ctx, "student:read", { ownerIds: [input.parentId] });
+  else if (!cs.some((centerId) => authorize(ctx.actor, "student:read", { centerId, ownerIds: [input.parentId] }).allowed)) throw new TRPCError({ code: "FORBIDDEN", message: "Không có quyền xem thông báo của phụ huynh này" });
   return ctx.db.select().from(parentNotifications).where(and(eq(parentNotifications.parentId, input.parentId), eq(parentNotifications.channel, "in_app"), tenantCond(ctx, parentNotifications))).orderBy(desc(parentNotifications.createdAt)).limit(input.limit ?? 50);
 }
 

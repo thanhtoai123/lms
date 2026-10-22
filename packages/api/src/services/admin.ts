@@ -3,7 +3,7 @@ import { and, eq, inArray, sql, desc, asc, isNull, or, ilike, lte, gte, type SQL
 import { TRPCError } from "@trpc/server";
 import {
   emailTemplates, emailLogs, otpRequests, userGroups, userGroupMembers, userGroupPermissions, regions, webhookEvents, appSettings,
-  users, userRoles, userNotifications, centers, staff, students, classes, bankTransactions, paymentMethods, parentNotifications, outbox, tenants,
+  users, userRoles, userNotifications, centers, courses, staff, students, classes, bankTransactions, paymentMethods, parentNotifications, outbox, tenants,
   type Database,
 } from "@satarobo/db";
 import {
@@ -21,7 +21,7 @@ import { pushOverview } from "./pilot";
 import { getOps } from "./opsSettings";
 import { writeAudit } from "./audit";
 import { trangThaiTokenZalo } from "./zaloToken";
-import { assertTenant, tenantCond } from "./tenantScope";
+import { assertTenant, tenantCond, isChainSuperAdmin } from "./tenantScope";
 import { deliverNotifications } from "./notify";
 import { ingestBankTx } from "./bank";
 import { ingestExternal, parseMessengerPayload } from "./messaging";
@@ -505,6 +505,19 @@ export async function logWebhook(db: Database, x: { source: WebhookSource; statu
   }
 }
 
+/** Cơ sở / khoá do form CÔNG KHAI gửi lên chỉ nhận khi còn hoạt động; không thì để trống cho tư vấn tự điền */
+export async function sanitizePublicLeadRefs(database: Database, data: { centerId?: string | null; interestedCourseId?: string | null }) {
+  const db = asDb(database);
+  if (data.centerId) {
+    const c = await db.query.centers.findFirst({ where: and(eq(centers.id, data.centerId), eq(centers.isActive, true)), columns: { id: true } });
+    if (!c) data.centerId = null;
+  }
+  if (data.interestedCourseId) {
+    const k = await db.query.courses.findFirst({ where: and(eq(courses.id, data.interestedCourseId), eq(courses.isActive, true)), columns: { id: true } });
+    if (!k) data.interestedCourseId = null;
+  }
+}
+
 /** Chuẩn hoá body form đăng ký học thử công khai */
 export function mapPublicLeadBody(body: Record<string, unknown>) {
   return leadInput.safeParse({
@@ -720,6 +733,8 @@ export async function settingsForAdmin(ctx: ProtectedContext) {
 
 export async function saveSettings(ctx: ProtectedContext, input: AppSettings) {
   requirePermission(ctx, "system:update");
+  // Tên pháp lý, mã số thuế, chân phiếu thu: dùng chung toàn chuỗi → chỉ Quản trị tối cao Hội sở
+  if (!isChainSuperAdmin(ctx)) throw new TRPCError({ code: "FORBIDDEN", message: "Chỉ Quản trị tối cao của Hội sở được đổi cài đặt chung" });
   const v: AppSettings = Object.fromEntries(Object.keys(SETTINGS_DEFAULTS).map((k) => [k, String((input as unknown as Record<string, unknown>)[k] ?? "").trim()])) as unknown as AppSettings;
   const errs = validateSettings(v);
   if (errs.length) throw bad(errs);

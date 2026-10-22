@@ -17,6 +17,7 @@ import { authorizeGlobal, docSuKienZcrm, duDeGhiTin, nickImLang, HAN_MUC_NICK_NG
 import { requirePermission, type ProtectedContext } from "../trpc";
 import { sealWith, openWith } from "./pii";
 import { writeAudit } from "./audit";
+import { inChainHeadOffice } from "./tenantScope";
 import { ingestExternal, ingestExternalOutbound } from "./messaging";
 
 type Db = ProtectedContext["db"];
@@ -60,7 +61,7 @@ export async function luuTaiKhoanKenh(ctx: ProtectedContext, input: {
   id?: string | null; channel: "zalo_ca_nhan"; label: string; centerId?: string | null; externalId?: string | null;
   baseUrl?: string | null; apiKey?: string | null; webhookSecret?: string | null; dailyCap?: number | null; active?: boolean;
 }) {
-  if (!authorizeGlobal(ctx.actor, "system:configure")) throw forbid("Chỉ quản trị hệ thống được khai báo kênh");
+  if (!authorizeGlobal(ctx.actor, "system:configure") || !inChainHeadOffice(ctx)) throw forbid("Chỉ quản trị hệ thống của Hội sở được khai báo kênh");
   const label = input.label.trim();
   if (label.length < 2) throw new TRPCError({ code: "BAD_REQUEST", message: "Tên tài khoản kênh quá ngắn" });
   const cu = input.id ? await ctx.db.query.channelAccounts.findFirst({ where: eq(channelAccounts.id, input.id) }) : null;
@@ -74,8 +75,9 @@ export async function luuTaiKhoanKenh(ctx: ProtectedContext, input: {
   const giaTri = {
     channel: input.channel, label, slug, centerId: input.centerId ?? cu?.centerId ?? null,
     externalId: input.externalId?.trim() || cu?.externalId || null, baseUrl,
-    apiKey: input.apiKey?.trim() ? sealWith(NHAN, input.apiKey.trim()) : (cu?.apiKey ?? null),
-    webhookSecret: input.webhookSecret?.trim() ? sealWith(NHAN, input.webhookSecret.trim()) : (cu?.webhookSecret ?? null),
+    // Đổi địa chỉ API mà không nhập lại khoá → XOÁ khoá cũ: không để khoá đã lưu bị gửi sang máy chủ mới chưa kiểm chứng
+    apiKey: input.apiKey?.trim() ? sealWith(NHAN, input.apiKey.trim()) : (cu && cu.baseUrl !== baseUrl ? null : (cu?.apiKey ?? null)),
+    webhookSecret: input.webhookSecret?.trim() ? sealWith(NHAN, input.webhookSecret.trim()) : (cu && cu.baseUrl !== baseUrl ? null : (cu?.webhookSecret ?? null)),
     dailyCap: Math.max(1, Math.min(1000, input.dailyCap ?? cu?.dailyCap ?? HAN_MUC_NICK_NGAY)),
     active: input.active ?? cu?.active ?? true,
     updatedBy: ctx.user.id,

@@ -23,6 +23,7 @@ import type { ProtectedContext } from "../trpc";
 import { sealWith, openWith } from "./pii";
 import { writeAudit } from "./audit";
 import { logger } from "../lib/logger";
+import { inChainHeadOffice } from "./tenantScope";
 
 type Db = ProtectedContext["db"];
 const asDb = (d: Database) => d as unknown as Db;
@@ -165,7 +166,7 @@ export async function trangThaiTokenZalo(database: Database): Promise<ZaloTokenS
  * developers.zalo.me — hệ thống chỉ lưu (đã mã hoá) chứ không tự sinh được.
  */
 export async function luuKhaiBaoZalo(ctx: ProtectedContext, input: { appId: string; secretKey?: string | null; refreshToken?: string | null; oaId?: string | null }) {
-  if (!authorizeGlobal(ctx.actor, "system:configure")) throw new TRPCError({ code: "FORBIDDEN", message: "Chỉ quản trị hệ thống được khai báo tích hợp" });
+  if (!authorizeGlobal(ctx.actor, "system:configure") || !inChainHeadOffice(ctx)) throw new TRPCError({ code: "FORBIDDEN", message: "Chỉ quản trị hệ thống của Hội sở được khai báo tích hợp" });
   const appId = input.appId.trim();
   if (!/^\d{5,25}$/.test(appId)) throw new TRPCError({ code: "BAD_REQUEST", message: "app_id phải là dãy số" });
   const row = await ctx.db.query.zaloCredentials.findFirst({ where: eq(zaloCredentials.key, KHOA) });

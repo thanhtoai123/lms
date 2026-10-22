@@ -132,6 +132,7 @@ export async function updateUser(ctx: ProtectedContext, input: { id: string; ful
   requirePermission(ctx, "system:update");
   const u = await ctx.db.query.users.findFirst({ where: eq(users.id, input.id) });
   if (!u) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy tài khoản" });
+  assertTenant(ctx, u, "Tài khoản");
   const email = normEmail(input.email);
   if (email !== u.email.toLowerCase()) {
     if (u.authSubject) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Tài khoản đã liên kết đăng nhập — không đổi email tại đây" });
@@ -148,8 +149,9 @@ export async function updateUser(ctx: ProtectedContext, input: { id: string; ful
 
 export async function grantRole(ctx: ProtectedContext, input: { userId: string; role: Role; centerId: string | null }) {
   requirePermission(ctx, "system:update");
-  const u = await ctx.db.query.users.findFirst({ where: eq(users.id, input.userId), columns: { id: true } });
+  const u = await ctx.db.query.users.findFirst({ where: eq(users.id, input.userId), columns: { id: true, tenantId: true } });
   if (!u) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy tài khoản" });
+  assertTenant(ctx, u, "Tài khoản");
   fail(validateRoleGrant({ actor: ctx.actor, role: input.role, centerId: input.centerId, targetUserId: input.userId }));
   const exists = await ctx.db.query.userRoles.findFirst({
     where: and(eq(userRoles.userId, input.userId), eq(userRoles.role, input.role), input.centerId ? eq(userRoles.centerId, input.centerId) : isNull(userRoles.centerId)),
@@ -166,6 +168,7 @@ export async function revokeRole(ctx: ProtectedContext, input: { roleId: string;
   requirePermission(ctx, "system:update");
   const r = await ctx.db.query.userRoles.findFirst({ where: eq(userRoles.id, input.roleId) });
   if (!r) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy vai trò" });
+  assertTenant(ctx, await ctx.db.query.users.findFirst({ where: eq(users.id, r.userId), columns: { tenantId: true } }), "Tài khoản");
   const remaining = await superAdminCount(ctx.db, false);
   fail(validateRoleRevoke({ actor: ctx.actor, role: r.role, targetUserId: r.userId, remainingSuperAdmins: remaining }));
   const [left] = await ctx.db.select({ n: sql<number>`count(*)::int` }).from(userRoles).where(eq(userRoles.userId, r.userId));
@@ -181,6 +184,7 @@ export async function setUserLock(ctx: ProtectedContext, input: { userId: string
   requirePermission(ctx, "system:update");
   const u = await ctx.db.query.users.findFirst({ where: eq(users.id, input.userId) });
   if (!u) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy tài khoản" });
+  assertTenant(ctx, u, "Tài khoản");
   if (u.isActive === !input.lock) return { changed: false };
   const isSA = !!(await ctx.db.query.userRoles.findFirst({ where: and(eq(userRoles.userId, u.id), eq(userRoles.role, "SUPER_ADMIN")) }));
   fail(validateLock({ actor: ctx.actor, targetUserId: u.id, targetIsSuperAdmin: isSA, activeSuperAdmins: await superAdminCount(ctx.db, true), lock: input.lock, reason: input.reason }));

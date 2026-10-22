@@ -87,6 +87,18 @@ async function refLabels(db: Db) {
 }
 
 /**
+ * Nhân sự nhập lead từ màn quản trị: phải có quyền `lead:create` ở cơ sở được chọn.
+ * Trùng số điện thoại → KHÔNG trả nguyên hồ sơ cũ (có thể thuộc sale / cơ sở khác mà người nhập không được xem),
+ * chỉ trả mã lead + người phụ trách để báo kết quả; mở chi tiết vẫn phải qua kiểm quyền của getLead.
+ */
+export async function createLeadByStaff(ctx: ProtectedContext, input: CreateLeadInput) {
+  requirePermission(ctx, "lead:create", input.centerId ? { centerId: input.centerId } : {});
+  const r = await createLead(ctx.db, input, ctx.user.id);
+  if (!r.duplicated) return r;
+  return { ...r, lead: { id: r.lead.id, parentName: input.parentName?.trim() || "(khách cũ)", assignedToId: r.lead.assignedToId } };
+}
+
+/**
  * Tạo lead. Dùng bởi phiếu nhập của sale (có actor), form web công khai (actorId null) và nhập file.
  * - SĐT chuẩn hoá là căn cứ DUY NHẤT phát hiện trùng, so với mọi lead chưa xoá (mọi trạng thái).
  * - Trùng: gộp (chỉ điền ô trống, thêm con mới, giá trị khác ghi chú kèm ngày), tăng số lần nhập lại,

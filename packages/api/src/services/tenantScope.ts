@@ -195,3 +195,18 @@ export function maskedTenantIds(ctx: Ctx): string[] {
 }
 
 export { TenantIsolationError };
+
+/**
+ * Người dùng thuộc HỘI SỞ CHUỖI: tenant của họ là loại OWNED (hoặc hệ thống chỉ có một trung tâm, chưa khai tenant).
+ * Cài đặt dùng chung toàn chuỗi (tích hợp Zalo / kênh, thương hiệu, thông tin pháp lý, module) chỉ Hội sở chuỗi được đổi —
+ * quản trị của một trung tâm nhượng quyền thì không.
+ */
+export function inChainHeadOffice(ctx: Ctx): boolean {
+  if (!ctx.tenants.length) return true;
+  return myTenant(ctx)?.type === "OWNED";
+}
+
+/** Quản trị tối cao TOÀN HỆ THỐNG (gán không kèm cơ sở) của Hội sở chuỗi */
+export function isChainSuperAdmin(ctx: Ctx & { actor: { assignments: readonly { role: string; centerId: string | null }[] } }): boolean {
+  return inChainHeadOffice(ctx) && ctx.actor.assignments.some((a) => a.role === "SUPER_ADMIN" && a.centerId === null);
+}

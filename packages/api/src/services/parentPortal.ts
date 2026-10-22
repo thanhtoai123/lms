@@ -48,25 +48,25 @@ async function findParentByPhone(d: Db, phone: string) {
 export async function parentRequestOtp(db: Database, input: { phone: string; ip: string | null; userAgent: string | null }) {
   const d = asDb(db);
   const p = await findParentByPhone(d, input.phone);
-  if (!p || p.accountStatus === "locked" || p.processingRestricted) {
-    return { ok: true as const, delivered: false, note: "Nếu số điện thoại đã đăng ký với trung tâm, mã sẽ được gửi qua Zalo." };
-  }
+  // Mọi trường hợp (không phải phụ huynh, tài khoản khoá, đang chờ 60 giây, gửi lỗi) đều trả CÙNG một câu:
+  // không để người ngoài dò được số nào là phụ huynh của trung tâm.
+  const note = "Nếu số điện thoại đã đăng ký với trung tâm, mã sẽ được gửi qua Zalo trong ít phút.";
+  if (!p || p.accountStatus === "locked" || p.processingRestricted) return { ok: true as const, delivered: true, note };
   const r = await requestOtp(db, { phone: input.phone, purpose: "parent_login", ip: input.ip, userAgent: input.userAgent });
-  if (!r.ok) return r;
-  return { ok: true as const, delivered: r.delivered, note: "Nếu số điện thoại đã đăng ký với trung tâm, mã sẽ được gửi qua Zalo.", ...("devCode" in r ? { devCode: r.devCode } : {}) };
+  return { ok: true as const, delivered: true, note, ...(r.ok && "devCode" in r ? { devCode: r.devCode } : {}) };
 }
 
 export async function parentLogin(db: Database, input: { phone: string; method: "otp" | "code"; code: string; ip: string | null; userAgent: string | null }) {
   const d = asDb(db);
   const p = await findParentByPhone(d, input.phone);
-  const generic = { ok: false as const, error: "Số điện thoại hoặc mã không đúng" };
+  // Một câu lỗi chung cho mọi trường hợp (số không phải phụ huynh, chưa xin mã, mã sai, hết lượt) — không lộ số nào có tài khoản
+  const generic = { ok: false as const, error: "Số điện thoại hoặc mã không đúng, hoặc mã đã hết hạn. Xin mã mới nếu cần." };
   if (input.method === "otp") {
     const v = await verifyOtp(db, { phone: input.phone, purpose: "parent_login", code: input.code });
-    if (!v.ok) return { ok: false as const, error: v.error };
-    if (!p) return generic;
+    if (!v.ok || !p) return generic;
   } else {
     const v = await verifyActivationCode(d, { phone: normalizeVnPhone(input.phone) ?? input.phone, code: input.code });
-    if (!v.ok || !p || v.parentId !== p.id) return { ok: false as const, error: v.ok ? generic.error : v.error };
+    if (!v.ok || !p || v.parentId !== p.id) return generic;
   }
   if (p.accountStatus === "locked") return { ok: false as const, error: "Tài khoản đang bị khoá — liên hệ trung tâm" };
   if (p.processingRestricted) return { ok: false as const, error: "Tài khoản đã hạn chế xử lý dữ liệu — liên hệ trung tâm" };

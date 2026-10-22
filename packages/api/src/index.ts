@@ -96,7 +96,7 @@ export { publicPortfolio, portalPortfolio, portfolioForRender, type PublicPortfo
 export { studentAvatarUrl, uploadStudentAvatar, removeStudentAvatar, parentSetChildAvatar, parentRemoveChildAvatar, type ParentAvatarResult } from "./services/studentAvatar";
 export { verifyPortfolioRenderSignature } from "./storage";
 export { publicCertificate, portalCertificate, uploadTemplateBackground, type PublicCertificateResult, type PublicCertificateView, type PrintableCertificate } from "./services/certificates";
-export { logWebhook, mapPublicLeadBody, requestOtp, verifyOtp, processEmailQueue } from "./services/admin";
+export { logWebhook, mapPublicLeadBody, sanitizePublicLeadRefs, requestOtp, verifyOtp, processEmailQueue } from "./services/admin";
 export { addDocumentVersion } from "./services/documents";
 export { uploadPlan, sweepStuckPlanVersions, planFileStream } from "./services/lessonPlans";
 export { publicHomework, submitPublicHomework, staffSubmit, remindDueHomework } from "./services/assignments";

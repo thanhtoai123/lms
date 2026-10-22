@@ -14,7 +14,10 @@ export function validateRoleGrant(c: RoleGrantCheck): string[] {
   if (!ASSIGNABLE_ROLES.includes(c.role)) errs.push("Vai trò này không gán từ màn Tài khoản");
   if (GLOBAL_ROLES.includes(c.role) && c.centerId) errs.push("Vai trò Hội sở áp dụng toàn hệ thống, không chọn cơ sở");
   if (CENTER_ROLES.includes(c.role) && !c.centerId) errs.push("Vai trò cơ sở cần chọn cơ sở");
-  if (c.role === "SUPER_ADMIN" && !hasRole(c.actor, "SUPER_ADMIN")) errs.push("Chỉ Quản trị tối cao được cấp vai trò Quản trị tối cao");
+  // Chỉ vai trò gán TOÀN HỆ THỐNG mới tính: Quản trị tối cao gắn cơ sở (nếu có) không được cấp tiếp vai trò Hội sở
+  const globalOf = (r?: Role) => c.actor.assignments.some((a) => a.centerId === null && (!r || a.role === r));
+  if (c.role === "SUPER_ADMIN" && !globalOf("SUPER_ADMIN")) errs.push("Chỉ Quản trị tối cao được cấp vai trò Quản trị tối cao");
+  else if (GLOBAL_ROLES.includes(c.role) && c.role !== "SUPER_ADMIN" && !globalOf()) errs.push("Vai trò Hội sở chỉ người thuộc Hội sở được cấp");
   return errs;
 }
 
@@ -23,7 +26,7 @@ export function validateRoleRevoke(c: { actor: Actor; role: Role; targetUserId: 
   if (c.role === "SUPER_ADMIN") {
     if (c.targetUserId === c.actor.userId) errs.push("Không tự gỡ vai trò Quản trị tối cao của chính mình");
     if (c.remainingSuperAdmins <= 1) errs.push("Hệ thống phải còn ít nhất một Quản trị tối cao");
-    if (!hasRole(c.actor, "SUPER_ADMIN")) errs.push("Chỉ Quản trị tối cao được gỡ vai trò này");
+    if (!c.actor.assignments.some((a) => a.role === "SUPER_ADMIN" && a.centerId === null)) errs.push("Chỉ Quản trị tối cao được gỡ vai trò này");
   }
   return errs;
 }
