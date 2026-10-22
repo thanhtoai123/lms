@@ -12,12 +12,12 @@
 
 # ── Bài giảng SCORM trên tên miền phụ (tuỳ chọn) ─────────────────────────────
 # Gói bài giảng SCORM chạy JavaScript riêng; để cách ly khỏi phiên quản trị, phục vụ nó trên MỘT tên
-# miền phụ (ví dụ bai.thsteam.edu.vn). Khi nào dùng bài giảng SCORM mới cần:
+# miền phụ (ví dụ bai.thsteam.vn). Khi nào dùng bài giảng SCORM mới cần:
 #   1. Trỏ A record của tên miền phụ về IP máy chủ này.
 #   2. Bỏ dấu # ở khối dưới và đổi tên miền cho đúng.
-#   3. Trong .env đặt SCORM_ORIGIN=https://bai.thsteam.edu.vn rồi ./deploy.sh
+#   3. Trong .env đặt SCORM_ORIGIN=https://bai.thsteam.vn rồi ./deploy.sh
 #
-# bai.thsteam.edu.vn {
+# bai.thsteam.vn {
 # 	encode zstd gzip
 # 	reverse_proxy web:3000
 # 	request_body {

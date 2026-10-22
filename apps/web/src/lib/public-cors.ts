@@ -1,6 +1,6 @@
-const ALLOWED = () => (process.env.PUBLIC_FORM_ORIGINS ?? `https://thsteam.edu.vn,https://www.thsteam.edu.vn${process.env.NODE_ENV === "production" ? "" : ",http://localhost:3000"}`).split(",").map((s) => s.trim());
+const ALLOWED = () => (process.env.PUBLIC_FORM_ORIGINS ?? `https://thsteam.vn,https://www.thsteam.vn${process.env.NODE_ENV === "production" ? "" : ",http://localhost:3000"}`).split(",").map((s) => s.trim());
 
-/** CORS cho API công khai dùng bởi website thsteam.edu.vn */
+/** CORS cho API công khai dùng bởi website thsteam.vn */
 export function publicCors(origin: string | null, methods = "GET, POST, OPTIONS") {
   const list = ALLOWED();
   const ok = origin && list.includes(origin);

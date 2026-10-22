@@ -41,7 +41,7 @@ export function PostEditor({ initial, canEdit }: { initial: PostDraft; canEdit: 
           <span className="ml-auto self-center text-xs text-ink-400">{v.body.length.toLocaleString("vi-VN")} ký tự · {readingMinutes(v.body)} phút đọc</span>
         </div>
         {tab === "write"
-          ? <textarea className="input min-h-[420px] font-mono text-sm" value={v.body} disabled={!canEdit} onChange={(e) => set("body", e.target.value)} placeholder={"## Tiêu đề mục\nĐoạn văn với **chữ đậm**, *nghiêng*, [liên kết](https://thsteam.edu.vn)\n\n- gạch đầu dòng\n\n![mô tả ảnh](/api/public/site-media/...)"} />
+          ? <textarea className="input min-h-[420px] font-mono text-sm" value={v.body} disabled={!canEdit} onChange={(e) => set("body", e.target.value)} placeholder={"## Tiêu đề mục\nĐoạn văn với **chữ đậm**, *nghiêng*, [liên kết](https://thsteam.vn)\n\n- gạch đầu dòng\n\n![mô tả ảnh](/api/public/site-media/...)"} />
           : <div className="sr-prose card min-h-[420px] p-4" dangerouslySetInnerHTML={{ __html: html }} />}
         <p className="text-xs text-ink-400">Hỗ trợ: ## tiêu đề, **đậm**, *nghiêng*, - danh sách, 1. danh sách số, &gt; trích dẫn, [chữ](https://…), ![ảnh](url). Mã HTML bị vô hiệu hoá.</p>
       </div>
@@ -56,7 +56,7 @@ export function PostEditor({ initial, canEdit }: { initial: PostDraft; canEdit: 
           <label className="block text-xs">Mô tả SEO ({v.seoDescription.length}/170)<textarea className="input mt-1" rows={3} value={v.seoDescription} maxLength={170} disabled={!canEdit} onChange={(e) => set("seoDescription", e.target.value)} placeholder={v.excerpt} /></label>
           <div className="rounded-lg border border-black/10 p-2 text-xs">
             <div className="truncate text-blue-700">{v.seoTitle || v.title || "Tiêu đề"}</div>
-            <div className="text-green-700">thsteam.edu.vn/tin-tuc/{v.slug}</div>
+            <div className="text-green-700">thsteam.vn/tin-tuc/{v.slug}</div>
             <div className="line-clamp-2 text-ink-600">{v.seoDescription || v.excerpt}</div>
           </div>
         </div>

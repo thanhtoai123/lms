@@ -9,7 +9,7 @@ Toàn bộ dữ liệu cá nhân nằm trong Postgres trên chính máy chủ c�
   Cấu hình tối thiểu nên có: **2 vCPU · 4 GB RAM · 40 GB SSD** (khởi đầu cho một trung tâm).
   KHÔNG mua "hosting" cPanel/WordPress — loại đó không chạy được Node.js.
   Nhà cung cấp VN phổ biến: Viettel IDC, VNG Cloud, Bizfly, FPT Cloud, Vietnix, Tinohost…
-- **Tên miền** `thsteam.edu.vn` (có thể bạn đã có). Cần quyền sửa DNS (A record).
+- **Tên miền** `thsteam.vn` (có thể bạn đã có). Cần quyền sửa DNS (A record).
 - **Supabase** (miễn phí để bắt đầu) tại supabase.com — chỉ để đăng nhập nhân sự. Chọn vùng Singapore.
 - Sau này khi chạy ads / nhận tiền tự động: tài khoản **SePay** (đối soát chuyển khoản), **Zalo ZNS** (gửi OTP).
 
@@ -28,7 +28,7 @@ cp .env.prod.example .env
 nano .env                   # điền APP_DOMAIN, 3 khoá Supabase, REQUIRE_MFA_ROLES…
 
 # Dựng lần đầu (tạo bảng, nạp danh mục TH STEAM, tạo quản trị)
-./bootstrap.sh admin@thsteam.edu.vn "Phan Thành Toại"
+./bootstrap.sh admin@thsteam.vn "Phan Thành Toại"
 ```
 
 Trỏ DNS `A @ → IP máy chủ` (và `A www → IP`). Caddy tự xin HTTPS trong ~1 phút sau khi DNS đã trỏ.
@@ -36,7 +36,7 @@ Trỏ DNS `A @ → IP máy chủ` (và `A www → IP`). Caddy tự xin HTTPS tro
 ## 3. Trước khi mở cho khách (checklist chạy thật)
 
 - [ ] Supabase: **tắt đăng ký tự do**, **bật xác nhận email**, mời email quản trị.
-- [ ] Đăng nhập `https://thsteam.edu.vn/login`, **bật xác thực 2 lớp** cho quản trị.
+- [ ] Đăng nhập `https://thsteam.vn/login`, **bật xác thực 2 lớp** cho quản trị.
 - [ ] Quản trị → Website: **duyệt và xuất bản** các trang (seed để bản nháp); sửa trang
       **chính sách [DEMO]**; thêm **địa chỉ + số ĐKKD** ở chân trang.
 - [ ] Đặt `PII_ENCRYPTION_KEY` riêng (gen-secrets đã sinh) — đừng để trùng khoá ký media.
@@ -44,7 +44,7 @@ Trỏ DNS `A @ → IP máy chủ` (và `A www → IP`). Caddy tự xin HTTPS tro
       `0 2 * * * /full/path/deploy/prod/backup.sh >> /full/path/deploy/prod/backup.log 2>&1`
       rồi thử khôi phục một lần (lệnh ở cuối `backup.sh`).
 - [ ] Gửi thử 1 form học thử trên tên miền thật → kiểm tra lead vào Quản trị.
-- [ ] (Nếu dùng bài giảng SCORM) bật tên miền phụ `bai.thsteam.edu.vn`: xem `Caddyfile`,
+- [ ] (Nếu dùng bài giảng SCORM) bật tên miền phụ `bai.thsteam.vn`: xem `Caddyfile`,
       đặt `SCORM_ORIGIN` trong `.env`, chạy `./deploy.sh`.
 
 ## 4. Vận hành hằng ngày

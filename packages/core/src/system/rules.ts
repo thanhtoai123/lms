@@ -223,7 +223,7 @@ export const SETTINGS_DEFAULTS: AppSettings = {
   legalName: "Trung tâm Đào tạo Tin học AI & Công nghệ TH STEAM",
   hotline: "0971 29 30 31",
   supportEmail: "",
-  website: "https://thsteam.edu.vn",
+  website: "https://thsteam.vn",
   headOfficeAddress: "",
   taxCode: "",
   receiptFooter: "Cảm ơn quý phụ huynh đã tin tưởng TH STEAM Academy.",

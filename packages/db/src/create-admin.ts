@@ -1,7 +1,7 @@
 /**
  * Tạo (hoặc bảo đảm) MỘT quản trị tối cao THẬT cho hệ thống chạy thật.
  *
- *   EMAIL=admin@thsteam.edu.vn TEN="Phan Thành Toại" pnpm --filter @satarobo/db exec tsx src/create-admin.ts
+ *   EMAIL=admin@thsteam.vn TEN="Phan Thành Toại" pnpm --filter @satarobo/db exec tsx src/create-admin.ts
  *
  * Chỉ tạo hàng `users` + vai trò SUPER_ADMIN toàn hệ thống (không kèm cơ sở). KHÔNG đặt mật khẩu ở đây:
  * người này vào trang đăng nhập, dùng Supabase (email đã bật xác nhận) — lần đăng nhập đầu hệ thống tự
@@ -18,7 +18,7 @@ import { defaultTenantId } from "./thsteam-sync";
 const email = (process.env.EMAIL ?? "").trim().toLowerCase();
 const ten = (process.env.TEN ?? "Quản trị hệ thống").trim();
 if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
-  console.error('Thiếu EMAIL hợp lệ. Ví dụ: EMAIL=admin@thsteam.edu.vn TEN="Tên quản trị" pnpm --filter @satarobo/db exec tsx src/create-admin.ts');
+  console.error('Thiếu EMAIL hợp lệ. Ví dụ: EMAIL=admin@thsteam.vn TEN="Tên quản trị" pnpm --filter @satarobo/db exec tsx src/create-admin.ts');
   process.exit(1);
 }
 

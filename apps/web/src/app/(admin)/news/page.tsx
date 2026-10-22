@@ -22,7 +22,7 @@ export default async function NewsAdmin({ searchParams }: { searchParams: Promis
   const c = d.counts;
   return (
     <div className="space-y-4">
-      <PageHeader title="Tin tức" desc="Bài viết website: nháp → hẹn giờ / đăng → gỡ. Nội dung viết bằng markdown (tự lọc mã độc), trang công khai /tin-tuc và API cho website thsteam.edu.vn." actions={<div className="flex gap-2"><Link href="/tin-tuc" target="_blank" className="btn-ghost">Xem trang tin</Link>{d.canEdit && <Link href="/news/new" className="btn-primary">+ Viết bài</Link>}</div>} />
+      <PageHeader title="Tin tức" desc="Bài viết website: nháp → hẹn giờ / đăng → gỡ. Nội dung viết bằng markdown (tự lọc mã độc), trang công khai /tin-tuc và API cho website thsteam.vn." actions={<div className="flex gap-2"><Link href="/tin-tuc" target="_blank" className="btn-ghost">Xem trang tin</Link>{d.canEdit && <Link href="/news/new" className="btn-primary">+ Viết bài</Link>}</div>} />
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
         <Kpi label="Đã đăng" value={c?.published ?? 0} tone="good" />
         <Kpi label="Hẹn giờ" value={c?.scheduled ?? 0} tone="warn" />

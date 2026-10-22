@@ -14,8 +14,8 @@ export const TH_BRAND = {
   values: ["Innovation (Đổi mới sáng tạo)", "Interdisciplinary (Tích hợp liên môn)", "Integrity & Excellence (Chính trực & Đỉnh cao)"],
   hotline: "0971 29 30 31",
   hotlineTel: "0971293031",
-  website: "thsteam.edu.vn",
-  websiteUrl: "https://thsteam.edu.vn",
+  website: "thsteam.vn",
+  websiteUrl: "https://thsteam.vn",
   fanpage: "TH STEAM ACADEMY",
   audience: "Học sinh 6–17 tuổi",
   colors: {

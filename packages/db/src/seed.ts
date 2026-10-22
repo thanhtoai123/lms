@@ -345,13 +345,13 @@ async function main() {
     .values([
       { centerId: cs1!.id, status: "new", parentName: "PH Mẫu 01", phone: "0900000001", phoneNormalized: "84900000001", childName: "Bé An", childGrade: 3, source: "web-form", utmCampaign: "he-2026", assignedToId: sale1U!.id, assignedAt: h(1), lastTouchAt: h(1), consentAt: h(1),
         // Lead vào từ form công khai → có khối "Nguồn & theo dõi"; đã bật dùng chung cho CSKH cùng cơ sở
-        landingPage: "https://thsteam.edu.vn/dang-ky?utm_campaign=he-2026", referrer: "https://www.facebook.com/", eventId: "fb.1.1758000000000.123456789",
+        landingPage: "https://thsteam.vn/dang-ky?utm_campaign=he-2026", referrer: "https://www.facebook.com/", eventId: "fb.1.1758000000000.123456789",
         ipAddress: "113.161.42.7", userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 Safari/604.1", sharedWithCenter: true },
       { centerId: cs1!.id, status: "new", parentName: "PH Mẫu 02", phone: "0900000002", phoneNormalized: "84900000002", childName: "Bé Bình", childGrade: 5, source: "ads", utmSource: "facebook", assignedToId: null, lastTouchAt: h(0.2) },
       { centerId: cs1!.id, status: "contacted", parentName: "PH Mẫu 03", phone: "0900000003", phoneNormalized: "84900000003", childName: "Bé Chi", childGrade: 3, source: "referral", assignedToId: sale2U!.id, assignedAt: h(30), lastTouchAt: h(30) },
       { centerId: cs1!.id, status: "trial_scheduled", parentName: "PH Mẫu 04", phone: "0900000004", phoneNormalized: "84900000004", childName: "Bé Dũng", childGrade: 4, source: "hotline", interestedCourseId: robo1.id, assignedToId: sale1U!.id, assignedAt: h(50), lastTouchAt: h(20), nextActionAt: new Date(Date.now() + 26 * 3600e3) },
       { centerId: cs1!.id, status: "trial_in_progress", parentName: "PH Mẫu 05", phone: "0900000005", phoneNormalized: "84900000005", childName: "Bé Em", childGrade: 5, source: "web-form", interestedCourseId: robo2.id, assignedToId: sale2U!.id, assignedAt: h(100), lastTouchAt: h(40),
-        landingPage: "https://thsteam.edu.vn/khoa-hoc/robotics-ai", referrer: "https://www.google.com/", ipAddress: "27.72.100.19", userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/141.0 Safari/537.36", sharedWithCenter: true },
+        landingPage: "https://thsteam.vn/khoa-hoc/robotics-ai", referrer: "https://www.google.com/", ipAddress: "27.72.100.19", userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/141.0 Safari/537.36", sharedWithCenter: true },
       { centerId: cs1!.id, status: "trial_done", parentName: "PH Mẫu 06", phone: "0900000006", phoneNormalized: "84900000006", childName: "Bé Giang", childGrade: 3, source: "ads", utmSource: "google", assignedToId: sale1U!.id, assignedAt: h(120), lastTouchAt: h(30) },
       { centerId: cs1!.id, status: "deciding", parentName: "PH Mẫu 07", phone: "0900000007", phoneNormalized: "84900000007", childName: "Bé Hà", childGrade: 4, source: "referral", assignedToId: sale2U!.id, assignedAt: h(200), lastTouchAt: h(100) },
       { centerId: cs1!.id, status: "nurturing", parentName: "PH Mẫu 08", phone: "0900000008", phoneNormalized: "84900000008", childName: "Bé Khoa", childGrade: 3, source: "web-form", assignedToId: sale1U!.id, assignedAt: h(400), lastTouchAt: h(300) },
@@ -980,7 +980,7 @@ async function main() {
   ]);
   const monthStartISO = `${today.slice(0, 8)}01`;
   const [campHe, campGg] = await db.insert(campaigns).values([
-    { name: "Hè 2026 — Facebook", utmCampaign: "he-2026", channel: "facebook", centerId: cs1!.id, budget: 5_000_000, startDate: addDays(today, -40), endDate: addDays(today, 20), landingUrl: "https://thsteam.edu.vn/dang-ky", createdBy: mkU!.id },
+    { name: "Hè 2026 — Facebook", utmCampaign: "he-2026", channel: "facebook", centerId: cs1!.id, budget: 5_000_000, startDate: addDays(today, -40), endDate: addDays(today, 20), landingUrl: "https://thsteam.vn/dang-ky", createdBy: mkU!.id },
     { name: "Google tìm kiếm", utmCampaign: "gg-search", channel: "google", centerId: null, budget: 2_000_000, startDate: monthStartISO, createdBy: mkU!.id },
   ]).returning();
   await db.insert(campaignSpends).values([

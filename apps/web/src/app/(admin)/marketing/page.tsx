@@ -119,7 +119,7 @@ export default async function MarketingPage({ searchParams }: { searchParams: Pr
           <Section title="Tạo link UTM">
             <div className="p-4"><UtmBuilder campaigns={cp.items.filter((c) => c.isActive).map((c) => ({ utmCampaign: c.utmCampaign, name: c.name, landingUrl: c.landingUrl }))} /></div>
           </Section>
-          <Section title="Gắn tracking vào website thsteam.edu.vn">
+          <Section title="Gắn tracking vào website thsteam.vn">
             <div className="space-y-2 p-4 text-sm">
               <p>Website gửi sự kiện về <code>/api/public/track</code> (POST JSON). Mã ẩn danh sinh ngẫu nhiên trong trình duyệt, không chứa số điện thoại / email.</p>
               <pre className="overflow-x-auto rounded-lg bg-black/5 p-3 text-xs">{`fetch("${"https://<he-thong>"}/api/public/track", {

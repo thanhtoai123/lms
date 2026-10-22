@@ -44,7 +44,7 @@ const PAGE = 50;
 /* ------------------------------------------------------------------ */
 
 const SAMPLE_VARS: Record<string, string> = {
-  ten: "Nguyễn Văn A", email: "nhanvien@example.test", link: "https://thsteam.edu.vn/…", het_han: "30 phút", ten_ph: "chị Lan", ten_hv: "Minh An", ten_be: "Minh An",
+  ten: "Nguyễn Văn A", email: "nhanvien@example.test", link: "https://thsteam.vn/…", het_han: "30 phút", ten_ph: "chị Lan", ten_hv: "Minh An", ten_be: "Minh An",
   so_phieu: "PT-ONL-26-000123", so_tien: "4.800.000đ", ma_don: "DH26-000045", co_so: "ONL", han: "25/09/2026", lop: "ONL.ROBO-TH-N1.26.001",
 };
 
@@ -91,7 +91,7 @@ export async function processEmailQueue(db: Database, opts: { limit?: number; id
   if (opts.ids?.length) conds.push(inArray(emailLogs.id, opts.ids));
   const batch = await d.select().from(emailLogs).where(and(...conds)).orderBy(asc(emailLogs.nextAttemptAt)).limit(opts.limit ?? 50);
   const key = process.env.RESEND_API_KEY;
-  const from = process.env.EMAIL_FROM ?? "TH STEAM Academy <no-reply@thsteam.edu.vn>";
+  const from = process.env.EMAIL_FROM ?? "TH STEAM Academy <no-reply@thsteam.vn>";
   let sent = 0;
   let failed = 0;
   let skipped = 0;
@@ -670,7 +670,7 @@ export async function integrations(ctx: ProtectedContext) {
     { key: "sepay", name: "SePay", purpose: "Biến động số dư → tự khớp đơn", status: e.SEPAY_API_KEY || e.SEPAY_WEBHOOK_SECRET ? (wh?.rejected24 || sampleBank.length || !bankMethods.length ? "warn" : "ok") : "off", env: ["SEPAY_WEBHOOK_SECRET", "SEPAY_API_KEY"], href: "/bien-dong-so-du",
       details: [`Webhook: /api/webhooks/sepay`, bankMethods.length ? `Tài khoản nhận đang bật: ${bankMethods.length}${sampleBank.length ? ` — ${sampleBank.length} là tài khoản MẪU (${sampleBank.map((m) => m.name).join(", ")}): sửa ở Phương thức thanh toán trước khi thu tiền thật` : ""}` : "Chưa có phương thức chuyển khoản nào đang bật — chưa xuất được mã QR", `Lần nhận gần nhất: ${bank?.last ?? "chưa có"}`, `24h: ${bank?.n24 ?? 0} giao dịch · bị từ chối ${wh?.rejected24 ?? 0}`] },
     { key: "email", name: "Email (Resend)", purpose: "Phiếu thu, nhắc học phí, đặt lại mật khẩu", status: e.RESEND_API_KEY ? (em?.failed ? "warn" : "ok") : "off", env: ["RESEND_API_KEY", "EMAIL_FROM"], href: "/email-logs",
-      details: [`Người gửi: ${e.EMAIL_FROM ?? "TH STEAM Academy <no-reply@thsteam.edu.vn>"}`, `7 ngày: ${em?.sent7 ?? 0} đã gửi · chờ ${em?.queued ?? 0} · lỗi ${em?.failed ?? 0}`] },
+      details: [`Người gửi: ${e.EMAIL_FROM ?? "TH STEAM Academy <no-reply@thsteam.vn>"}`, `7 ngày: ${em?.sent7 ?? 0} đã gửi · chờ ${em?.queued ?? 0} · lỗi ${em?.failed ?? 0}`] },
     { key: "zns", name: "Zalo ZNS / SMS", purpose: "Thông báo & OTP qua Zalo, SMS dự phòng", status: ds.zns.mode === "live" ? (e.ZALO_ZNS_TOKEN ? "ok" : "warn") : ds.zns.mode === "sandbox" ? "warn" : "off", env: ["ZALO_ZNS_TOKEN", "ZNS_API_URL", "SMS_API_URL", "SMS_API_KEY"], href: "/cau-hinh-van-hanh?tab=zalo",
       details: [`ZNS: ${ds.zns.mode} · SMS: ${ds.sms.mode}${ds.sms.fallback ? " (dự phòng)" : ""}`, `Thông báo ZNS chờ gửi: ${zn?.queued ?? 0}`, `OTP 24h: ${otp?.n24 ?? 0}`] },
     { key: "webpush", name: "Thông báo đẩy (Web Push)", purpose: "Đẩy tin mới tới điện thoại phụ huynh đã bật thông báo ở cổng /ph", status: e.VAPID_PUBLIC_KEY && e.VAPID_PRIVATE_KEY ? "ok" : "off", env: ["VAPID_PUBLIC_KEY", "VAPID_PRIVATE_KEY", "VAPID_SUBJECT"], href: "/bao-cao/sau-go-live",
@@ -692,7 +692,7 @@ export async function integrations(ctx: ProtectedContext) {
     { key: "otp", name: "OTP", purpose: "Kích hoạt / quên mật khẩu", status: e.OTP_PEPPER ? "ok" : "warn", env: ["OTP_PEPPER"], href: "/otp-logs",
       details: [e.OTP_PEPPER ? "Khoá băm OTP: đã đặt" : "Khoá băm OTP: đang dùng khoá dev", `Giới hạn: ${OTP_POLICY.perPhoneMax} mã / ${OTP_POLICY.perPhoneWindowMin} phút mỗi SĐT`] },
     { key: "forms", name: "Form công khai", purpose: "Đăng ký học thử từ website", status: e.PUBLIC_FORM_ORIGINS ? "ok" : "warn", env: ["PUBLIC_FORM_ORIGINS"], href: "/crm/webhook-replay",
-      details: [`Nguồn cho phép: ${e.PUBLIC_FORM_ORIGINS ?? "mặc định (thsteam.edu.vn, localhost)"}`, `Sự kiện lỗi chờ chạy lại: ${wh?.failed ?? 0}`] },
+      details: [`Nguồn cho phép: ${e.PUBLIC_FORM_ORIGINS ?? "mặc định (thsteam.vn, localhost)"}`, `Sự kiện lỗi chờ chạy lại: ${wh?.failed ?? 0}`] },
   ];
 
   // Rate limit — nói đúng sự thật: KHÔNG có Redis trong mã; mọi trần dùng chung nằm ở Postgres
