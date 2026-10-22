@@ -181,7 +181,7 @@ export const HOME_PAGE = {
               text: "Đi từ kéo thả đến code thật: Scratch và CreatiCode AI ở tiểu học; game 3D Roblox và app điện thoại ở THCS; Python, lập trình web, WordPress ở THCS–THPT. Mỗi chặng con làm ra game, ứng dụng, website của chính mình.",
               outcomes: "Làm game, app điện thoại có AI, website hoàn chỉnh\nViết code Python, HTML, CSS, JavaScript\nĐọc lỗi, sửa lỗi, làm việc theo dự án",
               tools: "Phần mềm: Scratch → CreatiCode AI → Roblox → App Inventor → Python → Web → WordPress · Luyện thi tự chọn: Tin học trẻ, HKICO, KHKT, Tốt nghiệp THPT môn Tin học",
-              image: "/lp-anh/that/scratch-trinh-soan-game.webp", imageAlt: "Lập trình game phi hành gia bằng khối lệnh kéo thả trong Scratch: bên trái là khối lệnh, bên phải là game đang chạy", credit: "Ảnh: Scratch (MIT)", creditUrl: "https://scratch.mit.edu/",
+              image: "/lp-anh/that/web-code-ra-trang.webp", imageAlt: "Lập trình web: viết mã HTML trong VS Code bên trái, trang web hoàn chỉnh hiện ra trong trình duyệt bên phải", credit: "Ảnh: Bootstrap docs (MIT) · MDN Web Docs (CC BY-SA 2.5)", creditUrl: "https://developer.mozilla.org/",
               headline: "Con học lập trình online — từ chơi game đến tự làm game, app, website", interest: TH_TRACK_SHORT.CODE,
             },
           ],
