@@ -41,7 +41,7 @@ Dòng nhỏ trên tiêu đề: viên thuốc nền #DBEAFE, **viết thường**
 
 1. Đầu trang: thanh trắng, logo ngang, menu, hotline xanh, nút vàng.
 2. Mở đầu: nền xanh; trái = nhãn, H1 trắng có gạch vàng, mô tả, ✓, chip; phải = form trắng viền trên vàng.
-   Hàng dưới: lưới bento 5 thẻ ảnh sản phẩm thật — RoboSim to ở giữa, Scratch / App Inventor bên trái, RoboVR / Roblox bên
+   Hàng dưới: lưới bento 5 thẻ ảnh sản phẩm thật — RoboSim to ở giữa, Scratch / App Inventor bên trái, Tinkercad / Roblox bên
    phải (khung trắng, bo 24–30px, nhãn trắng có vạch màu) vắt từ nền xanh xuống nền trắng; máy tính bảng: ảnh to trên, 2×2
    dưới; điện thoại: vuốt ngang. Nguồn ảnh gom một dòng bên dưới.
 3. Nỗi lo: tấm navy bo tròn trong khung, 4 thẻ số vàng + nguồn.

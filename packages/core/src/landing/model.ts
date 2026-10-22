@@ -68,6 +68,7 @@ export const SECTION_DEFS: Record<SectionType, SectionDef> = {
         img("image", "Ảnh", { required: true }), t("imageAlt", "Mô tả ảnh (alt)", 160), t("title", "Nhãn (vd Game 3D tự làm)", 40, { required: true }), t("tool", "Phần mềm", 40),
         t("credit", "Nguồn ảnh", 80), u("creditUrl", "Liên kết nguồn ảnh"),
         t("fit", "Cách đặt ảnh", 10, { hint: "để trống = phủ kín khung · vua = hiện trọn ảnh trên nền nhạt (ảnh điện thoại, ảnh dọc)" }),
+        t("pos", "Điểm giữ trong khung", 12, { hint: "vd 70% 30% (ngang dọc) — phần ảnh luôn hiện khi khung cắt bớt; để trống = giữa" }),
       ] },
     ],
   },

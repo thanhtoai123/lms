@@ -347,8 +347,12 @@ function leadHeroLeft(s: LandingSection, ctx: RenderCtx, headline = ""): string 
 function heroShowcase(s: LandingSection, ctx: RenderCtx): string {
   const rows = rowsOf(s, "showcase").filter((r) => src(ctx, r.image ?? ""));
   if (!rows.length) return "";
-  const items = rows.map((r, i) => `<li class="lp-show-i lp-show-${i}${/^(vua|vừa|contain)$/i.test((r.fit ?? "").trim()) ? " lp-show-fit" : ""}"><figure>${imgTag(ctx, r.image ?? "", r.imageAlt || r.title || "", { sizes: i === 0 && rows.length >= 5 ? "(max-width: 860px) 76vw, 620px" : "(max-width: 860px) 76vw, 340px" })}`
-    + `<figcaption><b>${escHtml(r.title ?? "")}</b>${r.tool ? `<span>${escHtml(r.tool)}</span>` : ""}</figcaption></figure></li>`).join("");
+  const items = rows.map((r, i) => {
+    const pos = /^\d{1,3}% \d{1,3}%$/.test((r.pos ?? "").trim()) ? (r.pos ?? "").trim() : "";
+    const img = imgTag(ctx, r.image ?? "", r.imageAlt || r.title || "", { sizes: i === 0 && rows.length >= 5 ? "(max-width: 860px) 76vw, 620px" : "(max-width: 860px) 76vw, 340px" });
+    return `<li class="lp-show-i lp-show-${i}${/^(vua|vừa|contain)$/i.test((r.fit ?? "").trim()) ? " lp-show-fit" : ""}"${pos ? ` style="--pos:${pos}"` : ""}><figure>${img}`
+      + `<figcaption><b>${escHtml(r.title ?? "")}</b>${r.tool ? `<span>${escHtml(r.tool)}</span>` : ""}</figcaption></figure></li>`;
+  }).join("");
   const credits = rows.filter((r) => r.credit).map((r) => {
     const cu = r.creditUrl && validUrl(r.creditUrl) ? href(ctx, r.creditUrl) : "";
     return cu ? `<a href="${escHtml(cu)}"${external(cu)} rel="noopener nofollow">${escHtml(r.credit ?? "")}</a>` : escHtml(r.credit ?? "");
@@ -1164,7 +1168,7 @@ const LANDING_CSS = `
 .lp--vivid .lp-show-list{gap:18px}
 .lp--vivid .lp-show-i figure{padding:7px;border-radius:24px;box-shadow:0 30px 60px -30px rgba(2,6,23,.55);transition:transform .35s cubic-bezier(.2,.7,.2,1),box-shadow .35s}
 .lp--vivid .lp-show-i figure:hover{transform:translateY(-5px);box-shadow:0 40px 70px -30px rgba(2,6,23,.6)}
-.lp--vivid .lp-lead-hero .lp-show img{width:100%;aspect-ratio:auto;object-fit:cover;box-shadow:none;border-radius:18px;height:260px}
+.lp--vivid .lp-lead-hero .lp-show img{width:100%;aspect-ratio:auto;object-fit:cover;object-position:var(--pos,50% 50%);box-shadow:none;border-radius:18px;height:260px}
 .lp--vivid .lp-lead-hero .lp-show .lp-show-fit img{object-fit:contain;object-position:86% 50%;padding:12px 20px;filter:drop-shadow(0 12px 16px rgba(4,120,87,.28))}
 .lp--vivid .lp-show-i figcaption{left:18px;bottom:18px;border-left:4px solid var(--v-blue);border-radius:9px 12px 12px 9px;box-shadow:0 8px 20px -10px rgba(15,23,42,.45)}
 .lp--vivid .lp-show-i:nth-child(5n+2) figcaption{border-left-color:var(--v-gold)}

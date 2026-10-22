@@ -77,6 +77,7 @@ export const LP_MEDIA_SIZE: Readonly<Record<string, readonly [number, number]>> 
   "/lp-anh/that/tinkercad-banh-rang.webp": [800, 453],
   "/lp-anh/that/tinkercad-can-chinh-khoi.webp": [800, 533],
   "/lp-anh/that/tinkercad-giao-dien.webp": [1000, 566],
+  "/lp-anh/that/tinkercad-mo-hinh-3d.webp": [1200, 642],
   "/lp-anh/that/tinkercad-nha-go.webp": [540, 450],
   "/lp-anh/that/tkinter-ung-dung.webp": [1000, 434],
   "/lp-anh/that/vscode-bootstrap-goi-y.webp": [1000, 579],
