@@ -397,12 +397,17 @@ function heroShowcase(s: LandingSection, ctx: RenderCtx): string {
     return `<li class="lp-show-i lp-show-${i}${/^(vua|vừa|contain)$/i.test((r.fit ?? "").trim()) ? " lp-show-fit" : ""}"${pos ? ` style="--pos:${pos}"` : ""}><figure>${img}`
       + `<figcaption><b>${escHtml(r.title ?? "")}</b>${r.tool ? `<span>${escHtml(r.tool)}</span>` : ""}</figcaption></figure></li>`;
   }).join("");
+  // Nguồn ảnh không hiện dưới dải ảnh nữa (22/10/2026) — gom vào mục "Nguồn ảnh" ở chân trang (showcaseCredits)
+  return `<div class="lp-hero-pic lp-show"><ul class="lp-show-list">${items}</ul></div>`;
+}
+/** Nguồn ảnh của dải ảnh đầu trang (không trùng), dạng liên kết — chân trang hiện trong mục thu gọn "Nguồn ảnh" (giấy phép CC BY yêu cầu ghi nguồn) */
+function showcaseCredits(doc: LandingDoc, ctx: RenderCtx): string {
   const seen = new Set<string>();
-  const credits = rows.filter((r) => r.credit && !seen.has(r.credit) && !!seen.add(r.credit)).map((r) => {
+  const rows = doc.sections.filter((x) => x.type === "leadHero" && sectionVisible(x)).flatMap((x) => rowsOf(x, "showcase"));
+  return rows.filter((r) => r.credit && src(ctx, r.image ?? "") && !seen.has(r.credit) && !!seen.add(r.credit)).map((r) => {
     const cu = r.creditUrl && validUrl(r.creditUrl) ? href(ctx, r.creditUrl) : "";
     return cu ? `<a href="${escHtml(cu)}"${external(cu)} rel="noopener nofollow">${escHtml(r.credit ?? "")}</a>` : escHtml(r.credit ?? "");
   }).join(" · ");
-  return `<div class="lp-hero-pic lp-show"><ul class="lp-show-list">${items}</ul>${credits ? `<small class="lp-credit">Ảnh: ${credits}</small>` : ""}</div>`;
 }
 function leadHeroPic(s: LandingSection, ctx: RenderCtx): string {
   const show = heroShowcase(s, ctx);
@@ -482,7 +487,7 @@ function renderStickyBar(doc: LandingDoc, ctx: RenderCtx): string {
 /** Liên kết chính sách / đo lường → hàng dưới cùng của chân trang; liên kết đăng ký → nút trong cột thương hiệu */
 const FOOT_LEGAL = /chinh-sach|#do-luong/;
 const FOOT_CTA = /^\/?#dang-ky/;
-function renderFooter(s: LandingSection, ctx: RenderCtx): string {
+function renderFooter(s: LandingSection, ctx: RenderCtx, credits = ""): string {
   const a = (r: Record<string, string>, cls = "") => `<a${cls ? ` class="${cls}"` : ""} href="${escHtml(href(ctx, r.href ?? ""))}"${external(href(ctx, r.href ?? ""))}>${escHtml(r.label ?? "")}</a>`;
   const rows = rowsOf(s, "links");
   const cta = rows.find((r) => FOOT_CTA.test(r.href ?? ""));
@@ -501,6 +506,7 @@ function renderFooter(s: LandingSection, ctx: RenderCtx): string {
     + `</div>`
     + `<div class="lp-foot-bottom"><div><p class="lp-copy">${escHtml(d(s, "copyright") || `© ${ctx.brand.name}`)}</p>${d(s, "legal") ? `<p class="lp-legal">${text(d(s, "legal"))}</p>` : ""}</div>`
     + (legalLinks ? `<nav class="lp-foot-legal" aria-label="Chính sách">${legalLinks}</nav>` : "") + `</div>`
+    + (credits ? `<details class="lp-foot-credits"><summary>Nguồn ảnh minh hoạ</summary><p>${credits}</p></details>` : "")
     + `</div></footer>`;
 }
 
@@ -616,7 +622,7 @@ export function renderParts(doc: LandingDoc, ctx: RenderCtx): LandingPart[] {
       case "tracks": push(alt(renderTracks(s, ctx), isAlt)); break;
       case "change": push(alt(renderChange(s, ctx), isAlt)); break;
       case "trial": push(renderTrial(s, ctx)); break;
-      case "footer": push((lead ? renderStickyBar(doc, ctx) : "") + renderFooter(s, ctx)); break;
+      case "footer": push((lead ? renderStickyBar(doc, ctx) : "") + renderFooter(s, ctx, showcaseCredits(doc, ctx))); break;
       case "form":
         if (ctx.mode === "page") parts.push({ kind: "form", sectionId: s.id, thankYou: d(s, "thankYou"), head: formHead(s), alt: isAlt, compact: !!lead, interest: lead ? leadInterest(lead) : "" });
         else push(alt(formOpen(s), isAlt) + formExport(s, ctx) + `</div></section>`);
@@ -1521,6 +1527,24 @@ const LANDING_CSS = `
  .lp--vivid .lp-faq-more[open]>.lp-faq-list{margin-top:10px}
 }
 @media (max-width:370px){.lp--vivid .lp-sticky-num{display:none}.lp--vivid .lp-sticky .lp-btn-ghost{flex:0 0 auto;padding-left:18px;padding-right:18px}}
+.lp--vivid .lp-foot-credits{margin-top:14px;font-size:.82rem;color:rgba(248,250,252,.6)}
+.lp--vivid .lp-foot-credits summary{cursor:pointer;display:inline-block;padding:4px 0;color:rgba(248,250,252,.72)}
+.lp--vivid .lp-foot-credits p{margin:6px 0 0;line-height:1.6}
+.lp--vivid .lp-foot-credits a{color:rgba(248,250,252,.8)}
+/* "Khi con chỉ dùng / khi con tạo ra công nghệ" trên điện thoại: hai thẻ sát nhau, mũi tên nhỏ đè lên mép, chữ gọn */
+@media (max-width:600px){
+ .lp--vivid .lp-contrast .lp-vs{gap:0}
+ .lp--vivid .lp-contrast .lp-vs-col{padding:18px 18px 20px;border-radius:22px}
+ .lp--vivid .lp-contrast .lp-vs-col h3{font-size:1.08rem;margin-bottom:10px}
+ .lp--vivid .lp-contrast .lp-vs-col ul{gap:6px}
+ .lp--vivid .lp-contrast .lp-vs-col li{font-size:.97rem;line-height:1.45;text-wrap:wrap}
+ .lp--vivid .lp-contrast .lp-vs-r li{padding-left:30px}
+ .lp--vivid .lp-contrast .lp-vs-r li::before{width:20px;height:20px;top:1px}
+ .lp--vivid .lp-contrast .lp-vs-arrow{width:38px;height:38px;font-size:1.1rem;margin:-10px 0;position:relative;z-index:1;border:3px solid #fff}
+ .lp--vivid .lp-contrast .lp-note{margin-top:14px}
+}
+/* điện thoại, trang có thanh nút dưới cùng (đã có Gọi + Học trải nghiệm): chân trang bỏ hotline và nút đặt lịch cho gọn */
+@media (max-width:600px){.lp--vivid:has(.lp-sticky) .lp-foot-contact,.lp--vivid:has(.lp-sticky) .lp-foot-cta{display:none}}
 /* ---- trang con (chính sách, tin tức, tuyển dụng): đầu trang xanh, tài liệu có mục lục, thẻ bài viết / việc làm ---- */
 .lp--vivid .lp-hero:not(.lp-lead-hero){color:#fff;padding:72px 0 80px;background:var(--v-star) no-repeat 92% 52px/26px,var(--v-star) no-repeat 6% 82%/16px,var(--v-orb) no-repeat 0 0/100% 100%,var(--v-blue)}
 .lp--vivid .lp-hero:not(.lp-lead-hero) .lp-wrap{grid-template-columns:1fr}
@@ -1625,6 +1649,31 @@ const LANDING_CSS = `
  .lp--vivid .lp-chips{flex-wrap:nowrap;overflow-x:auto;margin:0 0 24px;padding:0 0 4px;scrollbar-width:none}
  .lp--vivid .lp-chips a{white-space:nowrap}
 }
+/* ---- cỡ chữ điện thoại (22/10/2026) — thang chữ theo chuẩn đọc trên di động (Material / Apple HIG):
+   thân bài 16px, chữ phụ 15px, chú thích ≥ 12.5px, H1 30px, H2 24px, H3 17–20px; ô nhập giữ 16px để iOS không phóng to ---- */
+@media (max-width:600px){
+ .lp.lp--vivid{font-size:16px;line-height:1.6}
+ .lp.lp--vivid h1,.lp.lp--vivid .lp-lead-hero h1,.lp.lp--vivid .lp-hero:not(.lp-lead-hero) h1{font-size:1.875rem;line-height:1.16;letter-spacing:-.02em}
+ .lp.lp--vivid .lp-head :is(h1,h2),.lp.lp--vivid .lp-trial .lp-head :is(h1,h2),.lp.lp--vivid .lp-form .lp-head :is(h1,h2){font-size:1.5rem;line-height:1.24}
+ .lp.lp--vivid h3{font-size:1.0625rem;line-height:1.35}
+ .lp.lp--vivid .lp-trial-gt{font-size:1.25rem}
+ .lp.lp--vivid .lp-form-title{font-size:1.2rem}
+ .lp.lp--vivid .lp-lead{font-size:1.0625rem;line-height:1.55}
+ .lp.lp--vivid .lp-head p,.lp.lp--vivid .lp-trial .lp-head p{font-size:1rem;line-height:1.55}
+ .lp.lp--vivid .lp-kicker,.lp.lp--vivid .lp-eyebrow{font-size:.84rem}
+ .lp.lp--vivid .lp-ins-val{font-size:2rem}
+ .lp.lp--vivid .lp-ins-lbl{font-size:1rem}
+ .lp.lp--vivid :is(.lp-card,.lp-trial-step,.lp-steps-list li,.lp-trial-gains li,.lp-teacher-pts li,.lp-chg li) p{font-size:.94rem;line-height:1.5}
+ .lp.lp--vivid .lp-tab-hook{font-size:1rem}
+ .lp.lp--vivid .lp-teacher-info blockquote{font-size:1rem}
+ .lp.lp--vivid .lp-btn{font-size:1rem}
+ .lp.lp--vivid .lp-btn-sm,.lp.lp--vivid .lp-sticky .lp-btn{font-size:.94rem}
+ .lp.lp--vivid .lp-f label{font-size:.88rem}
+ .lp.lp--vivid .lp-f :is(input,select,textarea){font-size:16px}
+ .lp.lp--vivid :is(.lp-src,.lp-credit,.lp-ph-tag,.lp-tag,.lp-trial-who){font-size:max(.78rem,12.5px)}
+ .lp.lp--vivid .lp-doc-body,.lp.lp--vivid .lp-article{font-size:1rem}
+}
+@media (max-width:380px){.lp.lp--vivid .lp-submit{font-size:.95rem;padding-left:8px;padding-right:8px}}
 /*@/v*/
 `;
 

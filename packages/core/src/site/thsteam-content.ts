@@ -172,7 +172,7 @@ export const PREPARE_TEXT = "Máy tính có camera, tai nghe có micro và Inter
 export const TEACHER = {
   name: "Thầy Phan Thành Toại",
   role: "Nhà sáng lập TH STEAM Academy",
-  text: "6 năm giảng dạy và phát triển chương trình đào tạo công nghệ số (EdTech). Giáo viên đạt chuẩn STEM.org Certified Educational Instructor (10/9/2026). Huấn luyện viên đội tuyển Robotics, Tin học trẻ, KHKT, HKICO.",
+  text: "6 năm giảng dạy và phát triển chương trình đào tạo công nghệ số (EdTech). Giáo viên đạt chuẩn STEM.org Certified Educational Instructor. Huấn luyện viên đội tuyển Robotics, Tin học trẻ, KHKT, HKICO.",
   motto: "“Dạy bằng sự tận tâm và trách nhiệm, để mỗi học sinh tự tin làm chủ công nghệ.”",
 } as const;
 

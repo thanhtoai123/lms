@@ -94,7 +94,7 @@ export const HOME_PAGE = {
           eyebrow: "Điều nhiều bố mẹ đang lo",
           title: "Mỗi ngày con ở trên màn hình nhiều giờ. Nhưng *con đang làm gì* ở đó?",
           intro: "Cấm hẳn thì khó, buông thì không yên. Những con số dưới đây cho thấy vấn đề không chỉ nằm ở số giờ.",
-          closing: "Bác sĩ nhi khoa Hoa Kỳ (AAP) khuyên cha mẹ để ý con dùng màn hình để làm gì, không chỉ đếm số giờ.",
+          closing: "",
           tone: "toi",
         }, {
           items: [
@@ -194,7 +194,7 @@ export const HOME_PAGE = {
           title: "Điều bố mẹ sẽ thấy ở con, *không chỉ là điểm số*",
           intro: "Mỗi học sinh được đánh giá theo 6 năng lực và 3 phẩm chất, thang Tốt / Đạt / Cần cố gắng như ở trường. Đây là những thay đổi chương trình hướng tới:",
           beforeLabel: "Trước khi học", afterLabel: "Sau năm học",
-          note: "Mỗi bạn tiến bộ theo nhịp riêng. Giáo viên ghi nhận từng tiêu chí và gửi bố mẹ sau mỗi buổi báo cáo.",
+          note: "",
         }, {
           items: [
             { area: "Tư duy công nghệ", before: "Làm theo hướng dẫn từng bước", after: "Tự chia bài toán thành các bước, lập kế hoạch giải" },
@@ -253,7 +253,7 @@ export const HOME_PAGE = {
           title: "Người trực tiếp đứng lớp cùng con",
           name: TEACHER.name, role: TEACHER.role, photo: "/lp-anh/that/thay-phan-thanh-toai.webp",
           bio: "Thầy tin rằng một bạn nhỏ ở bất kỳ đâu trên đất nước cũng xứng đáng được học công nghệ bài bản như ở thành phố lớn. Vì thế thầy xây dựng TH STEAM thành lớp học online: chỉ cần một chiếc máy tính, con được học trực tiếp cùng thầy, tự tay làm ra sản phẩm và tự tin bước vào thế giới số.",
-          quote: TEACHER.motto, certImage: "/lp-anh/that/chung-nhan-stem-org.webp", certCaption: "Chứng nhận STEM.org Certified Educational Instructor (10/9/2026)",
+          quote: TEACHER.motto, certImage: "/lp-anh/that/chung-nhan-stem-org.webp", certCaption: "Chứng nhận STEM.org Certified Educational Instructor",
         }, {
           points: [
             { title: "6 năm kinh nghiệm", text: "Giảng dạy và phát triển chương trình đào tạo công nghệ số (EdTech)." },
@@ -271,7 +271,7 @@ export const HOME_PAGE = {
           intro: "Con học thật cùng thầy và tự tay làm ra sản phẩm đầu tay; thầy quan sát cách con nghĩ, cách con làm để đánh giá, rồi cùng bố mẹ vạch lộ trình phát triển công nghệ phù hợp với con.",
           gainsTitle: "Sau buổi học, *bố mẹ nhận được*",
           badge: "Bố mẹ không phải trả phí cho buổi này",
-          note: "Gia đình tự quyết định có cho con học tiếp hay không sau khi nghe thầy nhận xét. Vì thầy dạy 1:1, lịch được xếp theo thứ tự đăng ký.",
+          note: "",
           photo: "/lp-anh/that/thay-phan-thanh-toai.webp", photoName: TEACHER.name, photoRole: "Trực tiếp đánh giá và định hướng cho con",
           primaryLabel: "Đặt lịch học trải nghiệm", primaryUrl: "#dang-ky", secondaryLabel: `Gọi ${TH_BRAND.hotline}`, secondaryUrl: telHref,
         }, {
