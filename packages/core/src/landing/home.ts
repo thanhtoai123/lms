@@ -278,7 +278,7 @@ export const HOME_PAGE = {
           steps: [
             { who: "Bố mẹ", title: "Đăng ký", text: "Để lại họ tên, số điện thoại và lớp của con — chưa tới một phút." },
             { who: "Trung tâm", title: "Tư vấn, hẹn lịch", text: "Gọi lại trong giờ làm việc, hỏi về sở thích của con và chọn giờ học hợp với gia đình." },
-            { who: "Con và thầy", title: "Học cùng thầy, làm sản phẩm", text: "Học 1:1 online qua ClassIn; con tự làm một sản phẩm nhỏ theo sở thích: game, robot ảo hay tranh AI." },
+            { who: "Con và thầy", title: "Học cùng thầy, làm sản phẩm", text: "Học 1:1 online; con tự làm một sản phẩm nhỏ theo sở thích: game, robot ảo hay tranh AI." },
             { who: "Thầy cố vấn", title: "Đánh giá và định hướng", text: "Thầy nhận xét điểm mạnh, điều con cần rèn và gợi ý chuyên ngành, cấp độ, lộ trình cho con." },
           ],
           gains: [
@@ -300,7 +300,7 @@ export const HOME_PAGE = {
             { q: "Bố mẹ theo dõi con học thế nào?", a: "Qua nhóm Zalo lớp (lịch học, ảnh và video sản phẩm, nhận xét của giáo viên), hệ thống học tập để xem lại bài và chuyên cần, và hồ sơ công nghệ lưu mọi dự án của con. Định kỳ con báo cáo dự án trực tuyến trước phụ huynh, gia đình nhận phiếu đánh giá 6 năng lực, 3 phẩm chất." },
             { q: "Cần chuẩn bị gì để học?", a: PREPARE_TEXT },
             { q: "Con nghỉ học có được học bù không?", a: "Báo nghỉ trước ít nhất 24 giờ qua Zalo lớp hoặc hotline thì được học bù, tối đa 3 buổi mỗi năm học. Nghỉ không báo trước thì không học bù. Trung tâm hủy buổi học thì bù đủ." },
-            { q: "Buổi học trải nghiệm diễn ra thế nào, có mất phí không?", a: "Bố mẹ không phải trả phí cho buổi này. Sau khi đăng ký, trung tâm gọi lại để hẹn giờ; con học 1:1 online qua ClassIn cùng thầy và tự làm một sản phẩm nhỏ. Cuối buổi, thầy nhận xét điểm mạnh, điều con cần rèn và gợi ý chuyên ngành, lộ trình phù hợp. Gia đình tự quyết định có học tiếp hay không." },
+            { q: "Buổi học trải nghiệm diễn ra thế nào, có mất phí không?", a: "Bố mẹ không phải trả phí cho buổi này. Sau khi đăng ký, trung tâm gọi lại để hẹn giờ; con học 1:1 online cùng thầy và tự làm một sản phẩm nhỏ. Cuối buổi, thầy nhận xét điểm mạnh, điều con cần rèn và gợi ý chuyên ngành, lộ trình phù hợp. Gia đình tự quyết định có học tiếp hay không." },
             { q: "Học phí thế nào?", a: `Học phí giống nhau ở cả 4 chuyên ngành, có lớp nhóm và kèm 1:1, đăng ký 2 năm học được ưu đãi hơn. Sau buổi học trải nghiệm, giáo viên gửi bố mẹ lộ trình và học phí phù hợp với con; cần biết trước, bố mẹ gọi ${TH_BRAND.hotline}.` },
           ],
         }),

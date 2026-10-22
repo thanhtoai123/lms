@@ -96,7 +96,7 @@ export function LeadForm({ utm, thankYou, interest, submitLabel }: { utm: Utm; t
         <p>{msg}</p>
         <ul>
           <li>Giáo viên tư vấn gọi lại trong giờ làm việc (ba mẹ để ý cuộc gọi hoặc tin nhắn Zalo).</li>
-          <li>Hẹn giờ học trải nghiệm 1:1 qua ClassIn cho con.</li>
+          <li>Hẹn giờ học trải nghiệm 1:1 online cho con.</li>
           <li>Chuẩn bị máy tính có camera, tai nghe có micro.</li>
         </ul>
       </div>
