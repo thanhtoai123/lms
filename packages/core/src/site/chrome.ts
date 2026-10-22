@@ -44,7 +44,6 @@ export const DEFAULT_CHROME: SiteChrome = {
   copyright: `© 2026 ${TH_BRAND.name}`,
   addresses: [
     { label: "Hình thức học", text: "Trực tuyến, dành cho học sinh trên toàn quốc" },
-    { label: "Lớp học", text: "Lớp nhóm nhỏ hoặc kèm 1:1 cùng giáo viên" },
     { label: "Website", text: TH_BRAND.website },
     { label: "Fanpage", text: TH_BRAND.fanpage },
   ],
