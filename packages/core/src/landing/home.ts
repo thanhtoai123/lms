@@ -80,10 +80,11 @@ export const HOME_PAGE = {
             { text: "Con học thử một buổi 1:1 trước khi gia đình quyết định" },
           ],
           showcase: [
-            { image: "/lp-anh/that/roblox-lau-dai-phep-thuat.webp", imageAlt: "Game 3D lâu đài phép thuật làm bằng Roblox Studio", title: "Game 3D tự làm", tool: "Roblox Studio", credit: "Roblox Creator Docs (CC BY 4.0)", creditUrl: "https://github.com/Roblox/creator-docs" },
-            { image: "/lp-anh/that/robovr-xe-tu-lai.webp", imageAlt: "Robot xe tự lái chạy trên bản đồ thành phố trong phần mềm RoboVR", title: "Robot tự lái", tool: "RoboVR", credit: "WhalesBot RoboVR", creditUrl: "https://www.whalesbot.ai/3dvirtual" },
-            { image: "/lp-anh/that/teachable-machine-am-thanh.webp", imageAlt: "Mô hình AI nhận biết tiếng búng tay và vỗ tay, huấn luyện bằng Teachable Machine", title: "AI nghe vỗ tay", tool: "Teachable Machine", credit: "Google Teachable Machine", creditUrl: "https://teachablemachine.withgoogle.com/" },
-            { image: "/lp-anh/that/tinkercad-nha-go.webp", imageAlt: "Mô hình 3D ngôi nhà gỗ dựng trong Tinkercad", title: "Nhà 3D mơ ước", tool: "Tinkercad", credit: "Autodesk Tinkercad", creditUrl: "https://www.tinkercad.com/" },
+            { image: "/lp-anh/that/robosim-robot-lap-ghep.webp", imageAlt: "Robot lắp ghép có cảm biến chạy trên sa bàn thi đấu trong phần mềm RoboSim", title: "Robot lắp ghép, lập trình", tool: "RoboSim", credit: "WhalesBot", creditUrl: "https://www.whalesbot.ai/", fit: "" },
+            { image: "/lp-anh/that/scratch-game-phi-hanh-gia.webp", imageAlt: "Game phi hành gia nhảy qua các bậc làm bằng khối lệnh Scratch", title: "Game đầu tay", tool: "Scratch", credit: "Scratch (MIT)", creditUrl: "https://scratch.mit.edu/", fit: "" },
+            { image: "/lp-anh/that/appinventor-hellopurr.webp", imageAlt: "Ứng dụng điện thoại Hello Purr làm bằng MIT App Inventor", title: "App điện thoại", tool: "MIT App Inventor", credit: "MIT App Inventor", creditUrl: "https://appinventor.mit.edu/", fit: "vua" },
+            { image: "/lp-anh/that/robovr-giao-dien-thi-dau.webp", imageAlt: "Màn hình chọn bản đồ thi đấu robot ảo trong phần mềm RoboVR", title: "Đua robot ảo", tool: "RoboVR", credit: "WhalesBot RoboVR", creditUrl: "https://www.whalesbot.ai/3dvirtual", fit: "" },
+            { image: "/lp-anh/that/roblox-lau-dai-phep-thuat.webp", imageAlt: "Game 3D lâu đài phép thuật làm bằng Roblox Studio", title: "Thế giới game 3D", tool: "Roblox Studio", credit: "Roblox Creator Docs (CC BY 4.0)", creditUrl: "https://github.com/Roblox/creator-docs", fit: "" },
           ],
         }),
 

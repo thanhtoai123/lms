@@ -64,9 +64,10 @@ export const SECTION_DEFS: Record<SectionType, SectionDef> = {
     lists: [
       { key: "points", label: "Lợi ích (dấu ✓)", addLabel: "Thêm lợi ích", max: 5, fields: [t("text", "Nội dung", 110, { required: true })] },
       { key: "badges", label: "Điểm tin cậy (chip)", addLabel: "Thêm điểm", max: 4, fields: [t("text", "Nội dung", 60, { required: true })] },
-      { key: "showcase", label: "Dải ảnh sản phẩm dưới tiêu đề (thay cho ảnh minh hoạ)", addLabel: "Thêm ảnh", max: 4, hint: "3–4 ảnh sản phẩm thật làm bằng phần mềm con học, mỗi ảnh ghi nguồn", fields: [
+      { key: "showcase", label: "Dải ảnh sản phẩm dưới tiêu đề (thay cho ảnh minh hoạ)", addLabel: "Thêm ảnh", max: 5, hint: "4–5 ảnh sản phẩm thật làm bằng phần mềm con học, mỗi ảnh ghi nguồn. Đủ 5 ảnh: ảnh đầu hiện to ở giữa", fields: [
         img("image", "Ảnh", { required: true }), t("imageAlt", "Mô tả ảnh (alt)", 160), t("title", "Nhãn (vd Game 3D tự làm)", 40, { required: true }), t("tool", "Phần mềm", 40),
         t("credit", "Nguồn ảnh", 80), u("creditUrl", "Liên kết nguồn ảnh"),
+        t("fit", "Cách đặt ảnh", 10, { hint: "để trống = phủ kín khung · vua = hiện trọn ảnh trên nền nhạt (ảnh điện thoại, ảnh dọc)" }),
       ] },
     ],
   },

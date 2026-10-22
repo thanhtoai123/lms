@@ -347,7 +347,7 @@ function leadHeroLeft(s: LandingSection, ctx: RenderCtx, headline = ""): string 
 function heroShowcase(s: LandingSection, ctx: RenderCtx): string {
   const rows = rowsOf(s, "showcase").filter((r) => src(ctx, r.image ?? ""));
   if (!rows.length) return "";
-  const items = rows.map((r, i) => `<li class="lp-show-i lp-show-${i}"><figure>${imgTag(ctx, r.image ?? "", r.imageAlt || r.title || "", { sizes: "(max-width: 860px) 72vw, 360px" })}`
+  const items = rows.map((r, i) => `<li class="lp-show-i lp-show-${i}${/^(vua|vừa|contain)$/i.test((r.fit ?? "").trim()) ? " lp-show-fit" : ""}"><figure>${imgTag(ctx, r.image ?? "", r.imageAlt || r.title || "", { sizes: i === 0 && rows.length >= 5 ? "(max-width: 860px) 76vw, 620px" : "(max-width: 860px) 76vw, 340px" })}`
     + `<figcaption><b>${escHtml(r.title ?? "")}</b>${r.tool ? `<span>${escHtml(r.tool)}</span>` : ""}</figcaption></figure></li>`).join("");
   const credits = rows.filter((r) => r.credit).map((r) => {
     const cu = r.creditUrl && validUrl(r.creditUrl) ? href(ctx, r.creditUrl) : "";
@@ -1152,38 +1152,53 @@ const LANDING_CSS = `
 .lp--vivid .lp-form-in{max-width:640px}
 .lp--vivid .lp-form .lp-form-card{border:0;border-top:6px solid var(--v-gold);border-radius:24px}
 .lp--vivid .lp-bento-pic{grid-row:span 2;min-height:0}
-/* dải ảnh sản phẩm thật vắt qua mép nền xanh: 4 thẻ ảnh khung trắng, cao thấp so le, nhãn trắng góc dưới */
+/* dải ảnh sản phẩm thật dưới tiêu đề: thẻ khung trắng, nhãn trắng góc dưới (sản phẩm + phần mềm) */
 .lp-show-list{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
-.lp-show-i figure{margin:0;position:relative;border-radius:20px;overflow:hidden;background:#fff}
-.lp-show-i img{width:100%;height:220px;object-fit:cover}
-.lp-show-i figcaption{position:absolute;left:12px;bottom:12px;background:rgba(255,255,255,.95);color:#0f172a;border-radius:12px;padding:6px 12px;line-height:1.3}
+.lp-show-i figure{margin:0;position:relative;border-radius:20px;overflow:hidden;background:#fff;height:100%}
+.lp-show-i img{display:block;width:100%;height:220px;object-fit:cover}
+.lp-show-fit img{object-fit:contain;background:#d1fae5;padding:12px 12px 64px}
+.lp-show-i figcaption{position:absolute;left:12px;bottom:12px;background:rgba(255,255,255,.96);color:#0f172a;border-radius:12px;padding:6px 12px;line-height:1.3}
 .lp-show-i figcaption b{display:block;font-size:.92rem}
 .lp-show-i figcaption span{font-size:.78rem;color:#475569;font-weight:600}
 .lp--vivid .lp-lead-hero .lp-show{margin-top:48px}
-.lp--vivid .lp-show-list{grid-template-columns:1.5fr 1.25fr 1fr 1fr;gap:20px;align-items:end}
-.lp--vivid .lp-show-i figure{padding:8px;border-radius:26px;box-shadow:0 34px 60px -32px rgba(2,6,23,.6);transition:transform .35s cubic-bezier(.2,.7,.2,1)}
-.lp--vivid .lp-show-i figure:hover{transform:translateY(-6px)}
-.lp--vivid .lp-lead-hero .lp-show img{width:100%;aspect-ratio:auto;object-fit:cover;box-shadow:none;border-radius:19px;height:300px}
-.lp--vivid .lp-lead-hero .lp-show-1 img{height:340px}
-.lp--vivid .lp-lead-hero .lp-show-2 img{height:280px}
-.lp--vivid .lp-lead-hero .lp-show-3 img{height:250px}
-.lp--vivid .lp-lead-hero .lp-show-2 img{object-fit:contain;object-position:50% 0;background:#dbeafe;padding:16px 14px 72px}
-.lp--vivid .lp-lead-hero .lp-show-3 img{object-fit:contain;object-position:50% 0;background:#f8fafc;padding:10px 6px 70px}
-.lp--vivid .lp-show-i figcaption{left:20px;bottom:20px;border-left:4px solid var(--v-blue);border-radius:10px 12px 12px 10px;box-shadow:0 8px 20px -10px rgba(15,23,42,.45)}
-.lp--vivid .lp-show-1 figcaption{border-left-color:var(--v-green)}
-.lp--vivid .lp-show-2 figcaption{border-left-color:var(--v-gold)}
-.lp--vivid .lp-show-3 figcaption{border-left-color:var(--v-navy)}
+.lp--vivid .lp-show-list{gap:18px}
+.lp--vivid .lp-show-i figure{padding:7px;border-radius:24px;box-shadow:0 30px 60px -30px rgba(2,6,23,.55);transition:transform .35s cubic-bezier(.2,.7,.2,1),box-shadow .35s}
+.lp--vivid .lp-show-i figure:hover{transform:translateY(-5px);box-shadow:0 40px 70px -30px rgba(2,6,23,.6)}
+.lp--vivid .lp-lead-hero .lp-show img{width:100%;aspect-ratio:auto;object-fit:cover;box-shadow:none;border-radius:18px;height:260px}
+.lp--vivid .lp-lead-hero .lp-show .lp-show-fit img{object-fit:contain;object-position:86% 50%;padding:12px 20px;filter:drop-shadow(0 12px 16px rgba(4,120,87,.28))}
+.lp--vivid .lp-show-i figcaption{left:18px;bottom:18px;border-left:4px solid var(--v-blue);border-radius:9px 12px 12px 9px;box-shadow:0 8px 20px -10px rgba(15,23,42,.45)}
+.lp--vivid .lp-show-i:nth-child(5n+2) figcaption{border-left-color:var(--v-gold)}
+.lp--vivid .lp-show-i:nth-child(5n+3) figcaption{border-left-color:var(--v-green)}
+.lp--vivid .lp-show-i:nth-child(5n+4) figcaption{border-left-color:var(--v-navy)}
+.lp--vivid .lp-show-i:nth-child(5n+5) figcaption{border-left-color:var(--v-green-d)}
+/* 5 ảnh: lưới "bento" — ảnh đầu to ở giữa, 4 ảnh nhỏ hai bên */
+.lp--vivid .lp-show-list:has(>li:nth-child(5)){grid-template-columns:1fr 1.75fr 1fr;grid-template-rows:200px 200px;grid-template-areas:"a big c" "b big d"}
+.lp--vivid .lp-show-list:has(>li:nth-child(5))>li:nth-child(1){grid-area:big}
+.lp--vivid .lp-show-list:has(>li:nth-child(5))>li:nth-child(2){grid-area:a}
+.lp--vivid .lp-show-list:has(>li:nth-child(5))>li:nth-child(3){grid-area:b}
+.lp--vivid .lp-show-list:has(>li:nth-child(5))>li:nth-child(4){grid-area:c}
+.lp--vivid .lp-show-list:has(>li:nth-child(5))>li:nth-child(5){grid-area:d}
+.lp--vivid .lp-lead-hero .lp-show-list:has(>li:nth-child(5)) img{height:100%}
+.lp--vivid .lp-show-list:has(>li:nth-child(5))>li:nth-child(1) figure{padding:9px;border-radius:30px}
+.lp--vivid .lp-lead-hero .lp-show-list:has(>li:nth-child(5))>li:nth-child(1) img{border-radius:22px}
+.lp--vivid .lp-show-list:has(>li:nth-child(5))>li:nth-child(1) figcaption{left:24px;bottom:24px;padding:9px 16px}
+.lp--vivid .lp-show-list:has(>li:nth-child(5))>li:nth-child(1) figcaption b{font-size:1.08rem}
 .lp--vivid .lp-show .lp-credit{text-align:center;padding:14px 0 0;color:#64748b}
-@media (prefers-reduced-motion:no-preference){.lp--vivid .lp-show-i{animation:lp-rise .8s cubic-bezier(.2,.7,.2,1) both}.lp--vivid .lp-show-1{animation-delay:.08s}.lp--vivid .lp-show-2{animation-delay:.16s}.lp--vivid .lp-show-3{animation-delay:.24s}}
-@media (max-width:1100px){.lp--vivid .lp-show-list{grid-template-columns:1fr 1fr}.lp--vivid .lp-lead-hero .lp-show .lp-show-i img{height:240px}}
+@media (prefers-reduced-motion:no-preference){.lp--vivid .lp-show-i{animation:lp-rise .8s cubic-bezier(.2,.7,.2,1) both}.lp--vivid .lp-show-i:nth-child(2){animation-delay:.06s}.lp--vivid .lp-show-i:nth-child(3){animation-delay:.12s}.lp--vivid .lp-show-i:nth-child(4){animation-delay:.18s}.lp--vivid .lp-show-i:nth-child(5){animation-delay:.24s}}
+@media (max-width:1100px){
+ .lp--vivid .lp-show-list{grid-template-columns:1fr 1fr}
+ .lp--vivid .lp-show-list:has(>li:nth-child(5)){grid-template-columns:1fr 1fr;grid-template-rows:280px 180px 180px;grid-template-areas:"big big" "a c" "b d"}
+ .lp--vivid .lp-lead-hero .lp-show-list:not(:has(>li:nth-child(5))) img{height:230px}
+}
 @media (max-width:860px){
  .lp--vivid .lp-lead-hero .lp-show{margin:8px -20px 0}
- .lp--vivid .lp-show-list{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;padding:4px 20px 12px;scrollbar-width:none;overscroll-behavior-x:contain}
+ .lp--vivid .lp-show-list,.lp--vivid .lp-show-list:has(>li:nth-child(5)){display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;padding:4px 20px 14px;scrollbar-width:none;overscroll-behavior-x:contain}
  .lp--vivid .lp-show-list::-webkit-scrollbar{display:none}
- .lp--vivid .lp-show-i{flex:0 0 74%;scroll-snap-align:center}
- .lp--vivid .lp-show-i figure{padding:6px;border-radius:22px}
- .lp--vivid .lp-lead-hero .lp-show .lp-show-i img{height:210px;border-radius:16px}
- .lp--vivid .lp-show-i figcaption{left:14px;bottom:14px}
+ .lp--vivid .lp-show-i{flex:0 0 76%;scroll-snap-align:center}
+ .lp--vivid .lp-show-i figure,.lp--vivid .lp-show-list:has(>li:nth-child(5))>li:nth-child(1) figure{padding:6px;border-radius:22px}
+ .lp--vivid .lp-lead-hero .lp-show .lp-show-i img,.lp--vivid .lp-lead-hero .lp-show-list:has(>li:nth-child(5)) img{height:210px;border-radius:16px}
+ .lp--vivid .lp-show-i figcaption,.lp--vivid .lp-show-list:has(>li:nth-child(5))>li:nth-child(1) figcaption{left:14px;bottom:14px;padding:6px 12px}
+ .lp--vivid .lp-show-list:has(>li:nth-child(5))>li:nth-child(1) figcaption b{font-size:.92rem}
  .lp--vivid .lp-show .lp-credit{padding:4px 20px 0}
 }
 /* một chuyển động duy nhất: thẻ ảnh đầu trang nổi lên khi tải trang */

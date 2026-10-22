@@ -60,9 +60,10 @@ Không dùng: "thiếu 150–200 nghìn nhân lực CNTT", "tuổi có điện t
 ## 4. Hình ảnh
 
 - Giao diện: kiểu `vivid` ("sắc màu"), quy chuẩn ở `DESIGN.md` (tham khảo Teky, MindX).
-- Ảnh đầu trang: dải 4 ảnh sản phẩm thật làm bằng phần mềm con học (danh sách `showcase` của khối mở đầu): game 3D Roblox
-  (Roblox Creator Docs, CC BY 4.0), robot tự lái RoboVR (WhalesBot), AI nghe vỗ tay (Google Teachable Machine), nhà 3D
-  Tinkercad (Autodesk). Nguồn hiện một dòng dưới dải ảnh. Ảnh của nhà sản xuất: xin phép trước khi dùng trong quảng cáo trả tiền.
+- Ảnh đầu trang: lưới 5 ảnh sản phẩm thật (danh sách `showcase` của khối mở đầu; đủ 5 ảnh thì ảnh đầu to ở giữa):
+  robot lắp ghép RoboSim (WhalesBot), game Scratch, app Hello Purr (MIT App Inventor), giao diện thi đấu RoboVR (WhalesBot),
+  game 3D Roblox (Roblox Creator Docs, CC BY 4.0). Nguồn hiện một dòng dưới lưới. Ảnh nhà sản xuất: xin phép trước khi chạy
+  quảng cáo trả tiền. Không dùng ảnh có nhân vật có bản quyền (vd Mario trong ảnh App Inventor).
   Ảnh chia sẻ `lp-anh/og-trang-chu.jpg` (`ghep_anh.py og-trang-chu`). Tranh vector `tc-hero.svg`, `tc-xem-tao.svg` không còn dùng trên trang chính.
 - Ảnh phần mềm thật, ưu tiên giấy phép mở, nguồn + liên kết hiện dưới ảnh (trường `credit`, `creditUrl`):
 
