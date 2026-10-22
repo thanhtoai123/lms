@@ -96,7 +96,7 @@ const header = () => sec("header", "header", { phone: TH_BRAND.hotline, ctaLabel
 
 const teacher = () => sec("teacher", "giang-vien", {
   title: "Giảng viên đồng hành cùng con", name: TEACHER.name, role: TEACHER.role, photo: LP_ART.teacherPhoto,
-  bio: "Sau 6 năm giảng dạy và xây dựng chương trình công nghệ cho học sinh, thầy thiết kế toàn bộ lộ trình của TH STEAM và trực tiếp đứng lớp. Ở lớp của thầy, con không ngồi nghe suông: mỗi buổi con tự tay làm ra một sản phẩm và hiểu vì sao nó chạy.",
+  bio: "Thầy tin rằng một bạn nhỏ ở bất kỳ đâu trên đất nước cũng xứng đáng được học công nghệ bài bản như ở thành phố lớn. Vì thế thầy xây dựng TH STEAM thành lớp học online: chỉ cần một chiếc máy tính, con được học trực tiếp cùng thầy, tự tay làm ra sản phẩm và tự tin bước vào thế giới số.",
   quote: TEACHER.motto, certImage: LP_ART.teacherCert, certCaption: "Chứng nhận STEM.org Certified Educational Instructor (10/9/2026)",
 }, {
   points: [
