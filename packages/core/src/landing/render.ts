@@ -353,7 +353,8 @@ function heroShowcase(s: LandingSection, ctx: RenderCtx): string {
     return `<li class="lp-show-i lp-show-${i}${/^(vua|vừa|contain)$/i.test((r.fit ?? "").trim()) ? " lp-show-fit" : ""}"${pos ? ` style="--pos:${pos}"` : ""}><figure>${img}`
       + `<figcaption><b>${escHtml(r.title ?? "")}</b>${r.tool ? `<span>${escHtml(r.tool)}</span>` : ""}</figcaption></figure></li>`;
   }).join("");
-  const credits = rows.filter((r) => r.credit).map((r) => {
+  const seen = new Set<string>();
+  const credits = rows.filter((r) => r.credit && !seen.has(r.credit) && !!seen.add(r.credit)).map((r) => {
     const cu = r.creditUrl && validUrl(r.creditUrl) ? href(ctx, r.creditUrl) : "";
     return cu ? `<a href="${escHtml(cu)}"${external(cu)} rel="noopener nofollow">${escHtml(r.credit ?? "")}</a>` : escHtml(r.credit ?? "");
   }).join(" · ");

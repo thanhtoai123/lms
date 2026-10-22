@@ -81,7 +81,7 @@ export const HOME_PAGE = {
           ],
           showcase: [
             { image: "/lp-anh/that/robosim-robot-lap-ghep.webp", imageAlt: "Robot lắp ghép có cảm biến chạy trên sa bàn thi đấu trong phần mềm RoboSim", title: "Robot lắp ghép, lập trình", tool: "RoboSim", credit: "WhalesBot", creditUrl: "https://www.whalesbot.ai/", fit: "", pos: "" },
-            { image: "/lp-anh/that/scratch-game-phi-hanh-gia.webp", imageAlt: "Game phi hành gia nhảy qua các bậc làm bằng khối lệnh Scratch", title: "Game đầu tay", tool: "Scratch", credit: "Scratch (MIT)", creditUrl: "https://scratch.mit.edu/", fit: "", pos: "" },
+            { image: "/lp-anh/that/teachable-machine-may-phan-loai.webp", imageAlt: "Máy phân loại hạt ngũ cốc tự động, dùng mô hình AI nhận diện hình ảnh huấn luyện bằng Teachable Machine", title: "Máy phân loại dùng AI", tool: "Teachable Machine", credit: "Google Teachable Machine", creditUrl: "https://teachablemachine.withgoogle.com/", fit: "", pos: "100% 20%" },
             { image: "/lp-anh/that/creaticode-robot-sao-hoa.webp", imageAlt: "Robot thám hiểm sao Hỏa có tấm pin mặt trời, lập trình trong thế giới 3D của CreatiCode", title: "Robot thám hiểm sao Hỏa", tool: "CreatiCode 3D", credit: "CreatiCode", creditUrl: "https://www.creaticode.com/", fit: "", pos: "" },
             { image: "/lp-anh/that/tinkercad-mo-hinh-3d.webp", imageAlt: "Mô hình 3D khinh khí cầu, trực thăng, xe đua, mô tô, chú ngựa dựng trong Tinkercad", title: "Thiết kế đồ họa", tool: "Tinkercad", credit: "Autodesk Tinkercad", creditUrl: "https://www.tinkercad.com/", fit: "", pos: "80% 20%" },
             { image: "/lp-anh/that/roblox-thanh-pho-dem.webp", imageAlt: "Thành phố cảng về đêm dựng bằng Roblox Studio", title: "Thế giới game 3D", tool: "Roblox Studio", credit: "Roblox Creator Docs (CC BY 4.0)", creditUrl: "https://github.com/Roblox/creator-docs", fit: "", pos: "" },
@@ -163,7 +163,7 @@ export const HOME_PAGE = {
               text: "Con dùng AI để học, vẽ, làm nhạc, làm video và trang web. Quan trọng hơn, con học cách đặt câu hỏi, kiểm chứng câu trả lời và nhận ra khi AI sai — để AI giúp con nghĩ sâu hơn, không phải nghĩ hộ con.",
               outcomes: "Viết yêu cầu rõ ràng để AI hỗ trợ đúng việc\nKiểm chứng thông tin, nhận ra khi AI trả lời sai\nLàm video kể chuyện, trang web, dự án AI giải quyết vấn đề",
               tools: "Bộ công cụ AI phổ biến · Luyện thi tự chọn: Sáng tạo trẻ AI (THCS)",
-              image: "/lp-anh/that/teachable-machine-du-lieu.webp", imageAlt: "Dạy máy tính nhận biết hình ảnh bằng Teachable Machine: thu thập ảnh mẫu cho từng nhóm", credit: "Ảnh: Google Creative Lab – Teachable Machine, Apache-2.0", creditUrl: "https://github.com/googlecreativelab/teachablemachine-community",
+              image: "/lp-anh/that/teachable-machine-nhan-dien-cu-chi.webp", imageAlt: "Dạy máy tính nhận biết cử chỉ bàn tay qua camera bằng Teachable Machine", credit: "Ảnh: Google Teachable Machine", creditUrl: "https://teachablemachine.withgoogle.com/",
               headline: "Con học Trí tuệ nhân tạo AI online — dùng AI thông minh, an toàn, trung thực", interest: TH_TRACK_SHORT.AI,
             },
             {
@@ -181,7 +181,7 @@ export const HOME_PAGE = {
               text: "Đi từ kéo thả đến code thật: Scratch và CreatiCode AI ở tiểu học; game 3D Roblox và app điện thoại ở THCS; Python, lập trình web, WordPress ở THCS–THPT. Mỗi chặng con làm ra game, ứng dụng, website của chính mình.",
               outcomes: "Làm game, app điện thoại có AI, website hoàn chỉnh\nViết code Python, HTML, CSS, JavaScript\nĐọc lỗi, sửa lỗi, làm việc theo dự án",
               tools: "Phần mềm: Scratch → CreatiCode AI → Roblox → App Inventor → Python → Web → WordPress · Luyện thi tự chọn: Tin học trẻ, HKICO, KHKT, Tốt nghiệp THPT môn Tin học",
-              image: "/lp-anh/that/roblox-studio-dua-xe.webp", imageAlt: "Làm game đua xe 3D trong Roblox Studio", credit: "Ảnh: Roblox Creator Docs, CC BY 4.0", creditUrl: "https://github.com/Roblox/creator-docs",
+              image: "/lp-anh/that/scratch-trinh-soan-game.webp", imageAlt: "Lập trình game phi hành gia bằng khối lệnh kéo thả trong Scratch: bên trái là khối lệnh, bên phải là game đang chạy", credit: "Ảnh: Scratch (MIT)", creditUrl: "https://scratch.mit.edu/",
               headline: "Con học lập trình online — từ chơi game đến tự làm game, app, website", interest: TH_TRACK_SHORT.CODE,
             },
           ],
