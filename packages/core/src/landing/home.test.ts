@@ -156,3 +156,16 @@ test("website một trang: trang chính, menu chung, landing quảng cáo không
   assert.doesNotMatch(all, /"\/khoa-hoc/);
   assert.ok(SITE_MERGED.some((m) => m.from === "/khoa-hoc"));
 });
+
+test("trang chính: khối buổi học trải nghiệm — 4 bước, giá trị gia đình nhận, nút đặt lịch tới form, không so sánh giá ảo", () => {
+  const t = doc().sections.find((s) => s.id === "hoc-thu")!;
+  assert.equal(t.type, "trial");
+  assert.equal((t.lists.steps ?? []).length, 4);
+  assert.ok((t.lists.gains ?? []).length >= 3);
+  const h = html();
+  assert.match(h, /class="lp-sec lp-trial" id="hoc-thu"/);
+  assert.match(h, /lp-trial-card[\s\S]*href="#dang-ky"/);
+  assert.doesNotMatch(h, /trị giá|giá gốc|1\.000\.000|0 ?đ\b/i, "không nêu giá gốc / giá trị quy đổi");
+  const ld = JSON.stringify(landingJsonLd(doc(), { baseUrl: "https://thsteam.edu.vn", path: "/", title: HOME_PAGE.seoTitle, brand: { name: TH_BRAND.name } }));
+  assert.match(ld, /"@type":"Service"[\s\S]*"price":"0"/);
+});

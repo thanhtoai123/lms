@@ -70,6 +70,15 @@ export function landingJsonLd(doc: LandingDoc, m: JsonLdMeta): Record<string, un
       });
     }
   }
+  // Buổi học trải nghiệm: một dịch vụ giáo dục có Offer giá 0 — chỉ khi khối "trial" có dòng nổi bật nói rõ không mất phí
+  const trial = visible.find((s) => s.type === "trial");
+  if (trial && /không (mất|phải trả) phí/i.test(trial.data.badge ?? "")) {
+    graph.push({
+      "@type": "Service", name: (trial.data.eyebrow || "Buổi học trải nghiệm").slice(0, 120),
+      description: (trial.data.intro ?? "").slice(0, 500) || undefined, provider: { "@id": orgId }, areaServed: "VN", serviceType: "Buổi học trải nghiệm và định hướng lộ trình",
+      offers: { "@type": "Offer", price: "0", priceCurrency: "VND", url: `${url}#dang-ky`, availability: "https://schema.org/InStock" },
+    });
+  }
   const road = visible.find((s) => s.type === "roadmap");
   if (road) {
     for (const r of rowsOf(road, "items")) {

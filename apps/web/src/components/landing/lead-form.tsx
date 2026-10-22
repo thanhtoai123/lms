@@ -134,7 +134,7 @@ export function LeadForm({ utm, thankYou, interest, submitLabel }: { utm: Utm; t
       </div>
       <label className="lp-consent"><input type="checkbox" name="consent" required /> <span>Tôi đồng ý để TH STEAM Academy liên hệ tư vấn và xử lý thông tin theo <a href="/chinh-sach/bao-mat" target="_blank" rel="noopener">chính sách bảo mật</a>.</span></label>
       {state === "error" && <p className="lp-f-err" role="alert">{msg}</p>}
-      <button className="lp-btn lp-btn-primary lp-submit" disabled={state === "sending"}>{state === "sending" ? "Đang gửi…" : submitLabel ?? "Đăng ký học thử 1:1"}</button>
+      <button className="lp-btn lp-btn-primary lp-submit" disabled={state === "sending"}>{state === "sending" ? "Đang gửi…" : submitLabel ?? "Đặt lịch học trải nghiệm 1:1"}</button>
       <p className="lp-privacy">Thông tin chỉ dùng để tư vấn khóa học cho con.</p>
     </form>
   );

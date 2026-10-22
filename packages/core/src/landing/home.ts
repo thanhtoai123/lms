@@ -54,7 +54,7 @@ export const HOME_PAGE = {
   template: "trang-chu-thsteam",
   variant: "vivid" as const,
   seoTitle: "Học Robotics, AI, lập trình online cho trẻ 8–18 tuổi | TH STEAM",
-  seoDescription: "Con học Robotics, Trí tuệ nhân tạo, Thiết kế đồ họa và Lập trình online cùng giáo viên qua ClassIn: lớp nhỏ, tự làm sản phẩm thật, học trải nghiệm 1:1 trước.",
+  seoDescription: "Robotics, AI, Đồ họa, Lập trình online qua ClassIn cho con 8–18 tuổi. Học trải nghiệm 1:1 không mất phí: con làm sản phẩm, thầy đánh giá và định hướng lộ trình.",
   seoImage: "/lp-anh/og-trang-chu.jpg",
   build(): LandingDoc {
     return {
@@ -70,14 +70,14 @@ export const HOME_PAGE = {
           title: "Biến giờ con ngồi trước màn hình thành giờ con *tạo ra công nghệ*",
           subtitle: "Khoá học Robotics, Trí tuệ nhân tạo, Thiết kế đồ họa và Lập trình online. Giáo viên dạy trực tiếp qua ClassIn, lớp nhỏ, con tự tay làm ra sản phẩm và tự tin giới thiệu nó trước bố mẹ.",
           formTitle: "Đặt lịch học trải nghiệm 1:1 cho con",
-          formNote: "Giáo viên gọi lại trong giờ làm việc để hẹn giờ phù hợp với gia đình.",
+          formNote: "Con làm sản phẩm cùng thầy; thầy nhận xét và gợi ý lộ trình riêng cho con. Không mất phí.",
           interest: "",
           thankYou: `Cảm ơn ba mẹ! ${B} sẽ liên hệ lại trong giờ làm việc để hẹn buổi học trải nghiệm cho con.`,
         }, {
           points: [
             { text: "Con làm ra sản phẩm thật: robot ảo, game, video AI, mô hình 3D, trang web" },
             { text: "Bố mẹ tận mắt xem con trình bày và nhận đánh giá năng lực" },
-            { text: "Con học thử một buổi 1:1 trước khi gia đình quyết định" },
+            { text: "Buổi trải nghiệm 1:1: thầy đánh giá và định hướng lộ trình cho con" },
           ],
           showcase: [
             { image: "/lp-anh/that/robosim-robot-lap-ghep.webp", imageAlt: "Robot lắp ghép có cảm biến chạy trên sa bàn thi đấu trong phần mềm RoboSim", title: "Robot lắp ghép, lập trình", tool: "RoboSim", credit: "WhalesBot", creditUrl: "https://www.whalesbot.ai/", fit: "", pos: "" },
@@ -236,14 +236,14 @@ export const HOME_PAGE = {
         // 9. BẰNG CHỨNG — loại sản phẩm con làm ra (ảnh phần mềm thật, ghi nguồn)
         sec("gallery", "san-pham", { title: "Những thứ con sẽ tự tay làm ra" }, {
           items: [
-            { image: "/lp-anh/that/sp-robovr-duong-dua.webp", caption: "Robotics AI · Xe robot tự lái trên đường đua tương lai", credit: "Ảnh: WhalesBot RoboVR", creditUrl: "https://www.whalesbot.ai/3dvirtual" },
-            { image: "/lp-anh/that/robovr-xe-tu-lai.webp", caption: "Robotics AI · Robot giao hàng chạy theo bản đồ thành phố", credit: "Ảnh: WhalesBot RoboVR", creditUrl: "https://www.whalesbot.ai/3dvirtual" },
-            { image: "/lp-anh/that/sp-ai-poster.webp", caption: "Trí tuệ nhân tạo · Poster khoa học: tranh tạo bằng AI, chữ và bố cục con tự làm", credit: "Minh hoạ; tranh AI: DALL·E 3, Wikimedia Commons (phạm vi công cộng)", creditUrl: "https://commons.wikimedia.org/wiki/File:A_city_on_Mars_under_a_glass_dome_with_forests,_fields,_lakes,_houses.jpg" },
-            { image: "/lp-anh/that/sp-ai-web.webp", caption: "Trí tuệ nhân tạo · Trang web giới thiệu làm bằng công cụ web AI", credit: "Minh hoạ; tranh AI: Imagen, Wikimedia Commons (phạm vi công cộng)", creditUrl: "https://commons.wikimedia.org/wiki/File:Illuminated_Valley_in_the_Afternoon_(Imagen_4.0).webp" },
-            { image: "/lp-anh/that/sp-tinkercad-nhan-vat.webp", caption: "Thiết kế đồ họa · Nhân vật 3D tự dựng", credit: "Ảnh: Autodesk Tinkercad", creditUrl: "https://www.tinkercad.com/" },
-            { image: "/lp-anh/that/photoshop-generative-fill-ong.webp", caption: "Thiết kế đồ họa · Ảnh sáng tạo cùng AI trong Photoshop", credit: "Ảnh: Adobe Photoshop", creditUrl: "https://www.adobe.com/products/photoshop.html" },
-            { image: "/lp-anh/that/sp-scratch-game.webp", caption: "Lập trình · Game phi hành gia nhảy bậc bằng Scratch", credit: "Ảnh: Scratch (MIT)", creditUrl: "https://scratch.mit.edu/" },
-            { image: "/lp-anh/that/roblox-lau-dai-phep-thuat.webp", caption: "Lập trình · Thế giới game 3D lâu đài phép thuật", credit: "Ảnh: Roblox Creator Docs, CC BY 4.0", creditUrl: "https://github.com/Roblox/creator-docs" },
+            { image: "/lp-anh/that/sp-robovr-duong-dua.webp", tag: "Robotics AI", caption: "Xe robot tự lái trên đường đua tương lai", credit: "Ảnh: WhalesBot RoboVR", creditUrl: "https://www.whalesbot.ai/3dvirtual" },
+            { image: "/lp-anh/that/robovr-xe-tu-lai.webp", tag: "Robotics AI", caption: "Robot giao hàng chạy theo bản đồ thành phố", credit: "Ảnh: WhalesBot RoboVR", creditUrl: "https://www.whalesbot.ai/3dvirtual" },
+            { image: "/lp-anh/that/sp-ai-poster.webp", tag: "Trí tuệ nhân tạo", caption: "Poster khoa học: tranh tạo bằng AI, chữ và bố cục con tự làm", credit: "Minh hoạ; tranh AI: DALL·E 3, Wikimedia Commons (phạm vi công cộng)", creditUrl: "https://commons.wikimedia.org/wiki/File:A_city_on_Mars_under_a_glass_dome_with_forests,_fields,_lakes,_houses.jpg" },
+            { image: "/lp-anh/that/sp-ai-web.webp", tag: "Trí tuệ nhân tạo", caption: "Trang web giới thiệu làm bằng công cụ web AI", credit: "Minh hoạ; tranh AI: Imagen, Wikimedia Commons (phạm vi công cộng)", creditUrl: "https://commons.wikimedia.org/wiki/File:Illuminated_Valley_in_the_Afternoon_(Imagen_4.0).webp" },
+            { image: "/lp-anh/that/sp-tinkercad-nhan-vat.webp", tag: "Thiết kế đồ họa", caption: "Nhân vật 3D tự dựng", credit: "Ảnh: Autodesk Tinkercad", creditUrl: "https://www.tinkercad.com/" },
+            { image: "/lp-anh/that/photoshop-generative-fill-ong.webp", tag: "Thiết kế đồ họa", caption: "Ảnh sáng tạo cùng AI trong Photoshop", credit: "Ảnh: Adobe Photoshop", creditUrl: "https://www.adobe.com/products/photoshop.html" },
+            { image: "/lp-anh/that/sp-scratch-game.webp", tag: "Lập trình", caption: "Game phi hành gia nhảy bậc bằng Scratch", credit: "Ảnh: Scratch (MIT)", creditUrl: "https://scratch.mit.edu/" },
+            { image: "/lp-anh/that/roblox-lau-dai-phep-thuat.webp", tag: "Lập trình", caption: "Thế giới game 3D lâu đài phép thuật", credit: "Ảnh: Roblox Creator Docs, CC BY 4.0", creditUrl: "https://github.com/Roblox/creator-docs" },
           ],
         }),
 
@@ -263,11 +263,28 @@ export const HOME_PAGE = {
 
         sec("testimonials", "phan-hoi", { title: "Phụ huynh nói gì" }, { items: [] }, false),
 
-        // 11. HÀNH ĐỘNG — rủi ro thấp: thử trước, quyết sau
-        sec("cta", "hoc-thu", {
-          title: "Để con thử một buổi trước khi quyết định",
-          text: "Con học 1:1 cùng giáo viên qua ClassIn. Sau buổi học, bố mẹ được tư vấn chuyên ngành và lộ trình hợp với con — rồi gia đình mới quyết định.",
+        // 11. HÀNH ĐỘNG — giá trị buổi học trải nghiệm 1:1: đánh giá + định hướng (không so sánh giá ảo, không nêu số tiền)
+        sec("trial", "hoc-thu", {
+          eyebrow: "Buổi học trải nghiệm 1:1",
+          title: "Một buổi học để hiểu con — và biết *con nên bắt đầu từ đâu*",
+          intro: "Không phải buổi giới thiệu khoá học. Con học thật cùng thầy và tự tay làm ra sản phẩm đầu tay; thầy quan sát cách con nghĩ, cách con làm để đánh giá, rồi cùng bố mẹ vạch lộ trình phát triển công nghệ phù hợp với con.",
+          gainsTitle: "Sau buổi học, *bố mẹ nhận được*",
+          badge: "Bố mẹ không phải trả phí cho buổi này",
+          note: "Gia đình tự quyết định có cho con học tiếp hay không sau khi nghe thầy nhận xét. Vì thầy dạy 1:1, lịch được xếp theo thứ tự đăng ký.",
           primaryLabel: "Đặt lịch học trải nghiệm", primaryUrl: "#dang-ky", secondaryLabel: `Gọi ${TH_BRAND.hotline}`, secondaryUrl: telHref,
+        }, {
+          steps: [
+            { who: "Bố mẹ", title: "Đăng ký", text: "Để lại họ tên, số điện thoại và lớp của con — chưa tới một phút." },
+            { who: "Trung tâm", title: "Tư vấn, hẹn lịch", text: "Gọi lại trong giờ làm việc, hỏi về sở thích của con và chọn giờ học hợp với gia đình." },
+            { who: "Con và thầy", title: "Học cùng thầy, làm sản phẩm", text: "Học 1:1 online qua ClassIn; con tự làm một sản phẩm nhỏ theo sở thích: game, robot ảo hay tranh AI." },
+            { who: "Thầy cố vấn", title: "Đánh giá và định hướng", text: "Thầy nhận xét điểm mạnh, điều con cần rèn và gợi ý chuyên ngành, cấp độ, lộ trình cho con." },
+          ],
+          gains: [
+            { title: "Sản phẩm đầu tay của con", text: "Con mang về, giới thiệu với cả nhà — thấy ngay con làm được gì.", icon: "cup" },
+            { title: "Nhận xét năng lực của con", text: "Tư duy, thao tác máy tính, sự tập trung và tự tin, theo khung đánh giá của chương trình.", icon: "chuan" },
+            { title: "Lộ trình riêng cho con", text: "Nên học chuyên ngành nào, bắt đầu ở cấp độ nào, học trong bao lâu.", icon: "la-ban" },
+            { title: "Giải đáp mọi băn khoăn", text: "Học phí, lịch học, cách bố mẹ theo dõi con — hỏi trực tiếp người dạy.", icon: "chia-se" },
+          ],
         }),
 
         // 12. HỎI ĐÁP — trả lời thẳng những băn khoăn thật
@@ -281,13 +298,14 @@ export const HOME_PAGE = {
             { q: "Bố mẹ theo dõi con học thế nào?", a: "Qua nhóm Zalo lớp (lịch học, ảnh và video sản phẩm, nhận xét của giáo viên), hệ thống học tập để xem lại bài và chuyên cần, và hồ sơ công nghệ lưu mọi dự án của con. Định kỳ con báo cáo dự án trực tuyến trước phụ huynh, gia đình nhận phiếu đánh giá 6 năng lực, 3 phẩm chất." },
             { q: "Cần chuẩn bị gì để học?", a: PREPARE_TEXT },
             { q: "Con nghỉ học có được học bù không?", a: "Báo nghỉ trước ít nhất 24 giờ qua Zalo lớp hoặc hotline thì được học bù, tối đa 3 buổi mỗi năm học. Nghỉ không báo trước thì không học bù. Trung tâm hủy buổi học thì bù đủ." },
+            { q: "Buổi học trải nghiệm diễn ra thế nào, có mất phí không?", a: "Bố mẹ không phải trả phí cho buổi này. Sau khi đăng ký, trung tâm gọi lại để hẹn giờ; con học 1:1 online qua ClassIn cùng thầy và tự làm một sản phẩm nhỏ. Cuối buổi, thầy nhận xét điểm mạnh, điều con cần rèn và gợi ý chuyên ngành, lộ trình phù hợp. Gia đình tự quyết định có học tiếp hay không." },
             { q: "Học phí thế nào?", a: `Học phí giống nhau ở cả 4 chuyên ngành, có lớp nhóm và kèm 1:1, đăng ký 2 năm học được ưu đãi hơn. Sau buổi học trải nghiệm, giáo viên gửi bố mẹ lộ trình và học phí phù hợp với con; cần biết trước, bố mẹ gọi ${TH_BRAND.hotline}.` },
           ],
         }),
 
         sec("form", "form", {
-          title: "Cho con một buổi học trải nghiệm 1:1",
-          subtitle: "Để lại thông tin, giáo viên gọi lại trong giờ làm việc để hẹn giờ. Sau buổi học, bố mẹ được gợi ý chuyên ngành và lộ trình phù hợp với con.",
+          title: "Đặt lịch buổi học trải nghiệm 1:1 cho con",
+          subtitle: "Để lại thông tin, trung tâm gọi lại trong giờ làm việc để hẹn giờ. Con học cùng thầy, làm sản phẩm đầu tay; thầy gửi bố mẹ nhận xét năng lực và lộ trình riêng cho con.",
           thankYou: `Cảm ơn ba mẹ! ${B} sẽ liên hệ lại trong giờ làm việc để hẹn buổi học trải nghiệm cho con.`,
         }),
 

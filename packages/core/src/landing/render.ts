@@ -222,7 +222,8 @@ function renderGallery(s: LandingSection, ctx: RenderCtx): string {
     const im = src(ctx, r.image ?? "");
     const cu = r.creditUrl && validUrl(r.creditUrl) ? href(ctx, r.creditUrl) : "";
     const credit = r.credit ? `<small class="lp-credit">${cu ? `<a href="${escHtml(cu)}"${external(cu)} rel="noopener nofollow">${escHtml(r.credit)}</a>` : escHtml(r.credit)}</small>` : "";
-    return im ? `<li><figure>${imgTag(ctx, r.image ?? "", r.caption ?? "")}${r.caption || credit ? `<figcaption>${escHtml(r.caption ?? "")}${credit}</figcaption>` : ""}</figure></li>` : "";
+    const tag = r.tag ? `<span class="lp-ph-tag">${escHtml(r.tag)}</span>` : "";
+    return im ? `<li><figure>${imgTag(ctx, r.image ?? "", [r.tag, r.caption].filter(Boolean).join(": "), { sizes: "(max-width: 600px) 80vw, (max-width: 1100px) 33vw, 290px" })}${r.caption || credit || tag ? `<figcaption>${tag}${escHtml(r.caption ?? "")}${credit}</figcaption>` : ""}</figure></li>` : "";
   }).join("");
   return wrap(s, "lp-gallery", head(s, ctx) + `<ul class="lp-photos">${items}</ul>`, "hinh-anh");
 }
@@ -329,6 +330,21 @@ function renderChange(s: LandingSection, ctx: RenderCtx): string {
     + (d(s, "note") ? `<p class="lp-note">${text(d(s, "note"))}</p>` : ""), s.id);
 }
 
+/** Giá trị buổi học trải nghiệm: hành trình 4 bước + những gì gia đình nhận được + nút đặt lịch */
+function renderTrial(s: LandingSection, ctx: RenderCtx): string {
+  const steps = rowsOf(s, "steps").map((r, i) => `<li class="lp-trial-step"><span class="lp-trial-no" aria-hidden="true">${i + 1}</span><div>`
+    + (r.who ? `<p class="lp-trial-who">${escHtml(r.who)}</p>` : "")
+    + `<h3>${escHtml(r.title ?? "")}</h3>${r.text ? `<p>${text(r.text)}</p>` : ""}</div></li>`).join("");
+  const gains = rowsOf(s, "gains").map((r, i) => `<li>${iconTile(r.icon, i)}<div><h4>${escHtml(r.title ?? "")}</h4>${r.text ? `<p>${text(r.text)}</p>` : ""}</div></li>`).join("");
+  const card = `<div class="lp-trial-card">`
+    + (d(s, "gainsTitle") ? `<h3 class="lp-trial-gt">${hl(d(s, "gainsTitle"))}</h3>` : "")
+    + (gains ? `<ul class="lp-trial-gains">${gains}</ul>` : "")
+    + `<div class="lp-trial-act">${d(s, "badge") ? `<p class="lp-trial-badge">${escHtml(d(s, "badge"))}</p>` : ""}`
+    + `<div class="lp-actions">${btn(ctx, d(s, "primaryLabel"), d(s, "primaryUrl"), "primary")}${btn(ctx, d(s, "secondaryLabel"), d(s, "secondaryUrl"), "ghost")}</div>`
+    + (d(s, "note") ? `<p class="lp-trial-note">${text(d(s, "note"))}</p>` : "") + `</div></div>`;
+  return wrap(s, "lp-trial", headK(s) + `<ol class="lp-trial-steps">${steps}</ol>` + card, s.id);
+}
+
 /* ---------------------------- khối cho landing quảng cáo ---------------------------- */
 
 function leadHeroLeft(s: LandingSection, ctx: RenderCtx, headline = ""): string {
@@ -349,7 +365,7 @@ function heroShowcase(s: LandingSection, ctx: RenderCtx): string {
   if (!rows.length) return "";
   const items = rows.map((r, i) => {
     const pos = /^\d{1,3}% \d{1,3}%$/.test((r.pos ?? "").trim()) ? (r.pos ?? "").trim() : "";
-    const img = imgTag(ctx, r.image ?? "", r.imageAlt || r.title || "", { sizes: i === 0 && rows.length >= 5 ? "(max-width: 860px) 76vw, 620px" : "(max-width: 860px) 76vw, 340px" });
+    const img = imgTag(ctx, r.image ?? "", r.imageAlt || r.title || "", { eager: i === 0, sizes: i === 0 && rows.length >= 5 ? "(max-width: 860px) 76vw, 620px" : "(max-width: 860px) 76vw, 340px" });
     return `<li class="lp-show-i lp-show-${i}${/^(vua|vừa|contain)$/i.test((r.fit ?? "").trim()) ? " lp-show-fit" : ""}"${pos ? ` style="--pos:${pos}"` : ""}><figure>${img}`
       + `<figcaption><b>${escHtml(r.title ?? "")}</b>${r.tool ? `<span>${escHtml(r.tool)}</span>` : ""}</figcaption></figure></li>`;
   }).join("");
@@ -430,7 +446,7 @@ function renderStickyBar(doc: LandingDoc, ctx: RenderCtx): string {
   void ctx;
   return `<div class="lp-sticky" role="region" aria-label="Đăng ký nhanh">`
     + (phone ? `<a class="lp-btn lp-btn-ghost" href="tel:${escHtml(phone.replace(/[^\d+]/g, ""))}" data-cta="1">Gọi ${escHtml(phone)}</a>` : "")
-    + `<a class="lp-btn lp-btn-primary" href="#dang-ky-nhanh" data-cta="1">Đăng ký học thử</a></div>`;
+    + `<a class="lp-btn lp-btn-primary" href="#dang-ky-nhanh" data-cta="1">Học trải nghiệm 1:1</a></div>`;
 }
 
 function renderFooter(s: LandingSection, ctx: RenderCtx): string {
@@ -506,6 +522,7 @@ export function renderParts(doc: LandingDoc, ctx: RenderCtx): LandingPart[] {
       case "contrast": push(alt(renderContrast(s, ctx), isAlt)); break;
       case "tracks": push(alt(renderTracks(s, ctx), isAlt)); break;
       case "change": push(alt(renderChange(s, ctx), isAlt)); break;
+      case "trial": push(renderTrial(s, ctx)); break;
       case "footer": push((lead ? renderStickyBar(doc, ctx) : "") + renderFooter(s, ctx)); break;
       case "form":
         if (ctx.mode === "page") parts.push({ kind: "form", sectionId: s.id, thankYou: d(s, "thankYou"), head: formHead(s), alt: isAlt, compact: !!lead, interest: lead ? leadInterest(lead) : "" });
@@ -672,7 +689,7 @@ const LANDING_CSS = `
 .lp-lead-hero h1{font-size:clamp(1.9rem,4.4vw,3rem)}
 .lp-lead-hero .lp-form-card{padding:22px 20px 18px;border:2px solid var(--accent,#f59e0b);box-shadow:0 26px 60px -30px rgba(15,23,42,.45)}
 .lp-form-card>.lp-form-title,.lp-form-card>.lp-form-note{padding:0}
-.lp-form-title{font-size:1.3rem;font-weight:800;line-height:1.25;color:var(--lp-ink)}
+.lp-form-title{font-size:1.3rem;font-weight:800;line-height:1.25;color:var(--lp-ink);text-wrap:balance}
 .lp-form-card>.lp-form-title{color:var(--lp-ink)}
 .lp-form-note{margin-top:6px!important;color:var(--lp-mut);font-size:.92rem}
 .lp-ticks{display:grid;gap:10px;margin-top:20px}
@@ -755,7 +772,7 @@ const LANDING_CSS = `
 .lp-ico{display:inline-grid;place-items:center;width:48px;height:48px;border-radius:14px;flex:none;background:#dbeafe;color:#1e40af}
 .lp-ico-1{background:#d1fae5;color:#047857}
 .lp-ico-2{background:#fef3c7;color:#b45309}
-.lp-credit{display:block;margin-top:2px;font-size:.72rem;color:#64748b}
+.lp-credit{display:block;margin-top:2px;font-size:.78rem;color:#64748b}
 .lp-credit a,.lp-tab-pic figcaption a{color:inherit;text-decoration:underline;text-underline-offset:2px}
 .lp-vs{display:grid;grid-template-columns:1fr auto 1fr;gap:18px;align-items:stretch}
 .lp-vs-one{grid-template-columns:1fr}
@@ -778,7 +795,7 @@ const LANDING_CSS = `
 .lp-tab-bar label:hover{border-color:var(--primary,#1d4ed8)}
 .lp-tab-panel{display:none;grid-template-columns:1.05fr 1fr;gap:36px;align-items:center;background:#fff;border:1px solid var(--lp-line);border-radius:calc(var(--lp-r) + 6px);padding:28px;animation:lp-fade .35s ease both}
 .lp-tab-pic{margin:0}
-.lp-tab-pic figcaption{font-size:.72rem;color:#64748b;margin-top:6px}
+.lp-tab-pic figcaption{font-size:.78rem;color:#64748b;margin-top:6px}
 .lp-frame{border-radius:14px;overflow:hidden;border:1px solid var(--lp-line);background:#fff;box-shadow:0 30px 60px -36px rgba(15,23,42,.45)}
 .lp-frame>span{display:block;height:26px;background:#f1f5f9;border-bottom:1px solid var(--lp-line);position:relative}
 .lp-frame>span::before{content:"";position:absolute;left:12px;top:9px;width:8px;height:8px;border-radius:50%;background:#f87171;box-shadow:13px 0 0 #fbbf24,26px 0 0 #34d399}
@@ -852,7 +869,29 @@ const LANDING_CSS = `
  .lp-chg-a{padding-left:0}
  .lp-chg-a::before{content:none}
 }
-@media (max-width:380px){.lp-f-row{grid-template-columns:1fr}}
+@media (max-width:380px){.lp-f-row{grid-template-columns:1fr}.lp-submit,.lp-trial-act .lp-btn{font-size:.95rem;padding-left:12px;padding-right:12px}}
+/* ---- Giá trị buổi học trải nghiệm ---- */
+.lp-trial-steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;counter-reset:none}
+.lp-trial-step{display:flex;gap:14px;align-items:flex-start;background:#fff;border:1px solid var(--lp-line);border-radius:var(--lp-r);padding:20px}
+.lp-trial-no{flex:none;display:grid;place-items:center;width:40px;height:40px;border-radius:50%;background:var(--accent,#f59e0b);color:#0f172a;font-weight:800;font-size:1.1rem}
+.lp-trial-who{font-size:.8rem;font-weight:800;color:var(--primary-ink,#1e40af);margin-bottom:2px!important}
+.lp-trial-step h3{font-size:1.08rem}
+.lp-trial-step p:not(.lp-trial-who){color:var(--lp-mut);font-size:.95rem;margin-top:4px}
+.lp-trial-card{margin-top:24px;background:#fff;border:1px solid var(--lp-line);border-radius:calc(var(--lp-r) + 6px);padding:28px;display:grid;grid-template-columns:1.4fr 1fr;gap:28px;align-items:center}
+.lp-trial-gt{grid-column:1/-1;font-size:clamp(1.25rem,2.4vw,1.6rem)}
+.lp-trial-gains{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.lp-trial-gains li{display:flex;gap:12px;align-items:flex-start}
+.lp-trial-gains h4{margin:0;font-size:1.02rem;line-height:1.3}
+.lp-trial-gains p{color:var(--lp-mut);font-size:.93rem;margin-top:3px}
+.lp-trial-act{display:flex;flex-direction:column;gap:6px}
+.lp-trial-act .lp-actions{margin-top:10px;flex-direction:column}
+.lp-trial-act .lp-btn{width:100%}
+.lp-trial-badge{align-self:flex-start;background:#d1fae5;color:#047857;font-weight:800;border-radius:999px;padding:8px 16px;font-size:.95rem}
+.lp-trial-note{font-size:.85rem;color:#64748b;margin-top:6px!important}
+@media (max-width:860px){.lp-trial-card{grid-template-columns:1fr;padding:22px}.lp-trial-gains{grid-template-columns:1fr}}
+/* chữ: không để một từ lẻ rơi xuống dòng cuối, không tràn khung */
+:where(.lp) :where(p,li,figcaption,summary){text-wrap:pretty;overflow-wrap:break-word}
+:where(.lp) :where(h1,h2,h3,h4){overflow-wrap:break-word;hyphens:none}
 /*@v:soft*/
 .lp--soft{--lp-bg:#f8fafc;--lp-alt:#ffffff;--lp-r:24px}
 .lp--soft .lp-hero{background:linear-gradient(180deg,#fef3c7,#f8fafc)}
@@ -1141,6 +1180,15 @@ const LANDING_CSS = `
 .lp--vivid .lp-photos figure{background:#fff;border:1px solid var(--lp-line);border-radius:20px;overflow:hidden;height:100%}
 .lp--vivid .lp-photos img{border-radius:0;aspect-ratio:16/10}
 .lp--vivid .lp-photos figcaption{margin:0;padding:12px 14px 14px;color:#0f172a;font-weight:600;font-size:.95rem}
+.lp-ph-tag{display:block;font-size:.78rem;font-weight:800;color:#1e40af;margin-bottom:2px}
+.lp--vivid .lp-photos li:nth-child(n+3):nth-child(-n+4) .lp-ph-tag{color:#047857}
+.lp--vivid .lp-photos li:nth-child(n+5):nth-child(-n+6) .lp-ph-tag{color:#b45309}
+.lp--vivid .lp-photos li:nth-child(n+7) .lp-ph-tag{color:#0f172a}
+@media (max-width:600px){
+ .lp--vivid .lp-photos{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;margin:0 -20px;padding:4px 20px 12px;scrollbar-width:none;overscroll-behavior-x:contain}
+ .lp--vivid .lp-photos::-webkit-scrollbar{display:none}
+ .lp--vivid .lp-photos>li{flex:0 0 78%;scroll-snap-align:center}
+}
 .lp--vivid .lp-teacher-photo{border-radius:28px}
 .lp--vivid .lp-teacher .lp-head{text-align:center}
 /* dải kêu gọi: mảng xanh + quỹ đạo vàng (lặp lại mô-típ đầu trang) */
@@ -1207,6 +1255,23 @@ const LANDING_CSS = `
  .lp--vivid .lp-show-list:has(>li:nth-child(5))>li:nth-child(1) figcaption b{font-size:.92rem}
  .lp--vivid .lp-show .lp-credit{padding:4px 20px 0}
 }
+/* buổi học trải nghiệm: nền xanh (lặp mô-típ đầu trang), hành trình 4 bước nối bằng đường vàng, thẻ giá trị trắng */
+.lp--vivid .lp-trial{background:var(--v-star) no-repeat 94% 60px/26px,var(--v-orb) no-repeat 0 0/100% 100%,var(--v-blue);color:#fff}
+.lp--vivid .lp-trial .lp-head h2{color:#fff}
+.lp--vivid .lp-trial .lp-hl{color:#fff}
+.lp--vivid .lp-trial .lp-head p{color:rgba(255,255,255,.88)}
+.lp--vivid .lp-trial .lp-kicker{background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.25)}
+.lp--vivid .lp-trial-steps{grid-template-columns:repeat(4,1fr);gap:20px;position:relative}
+.lp--vivid .lp-trial-steps::before{content:"";position:absolute;left:8%;right:8%;top:42px;border-top:3px dashed rgba(245,158,11,.85)}
+.lp--vivid .lp-trial-step{flex-direction:column;gap:12px;border:0;border-radius:22px;padding:24px 22px;position:relative;color:#0f172a;box-shadow:0 24px 50px -30px rgba(2,6,23,.6)}
+.lp--vivid .lp-trial-no{width:44px;height:44px;font-size:1.15rem;box-shadow:0 0 0 6px #fff}
+.lp--vivid .lp-trial-step:nth-child(4){background:#fef3c7}
+.lp--vivid .lp-trial-step:nth-child(4) .lp-trial-who{color:#b45309}
+.lp--vivid .lp-trial-card{margin-top:28px;border:0;border-radius:28px;padding:36px 40px;color:#0f172a;box-shadow:0 40px 80px -40px rgba(2,6,23,.7);border-top:6px solid var(--v-gold)}
+.lp--vivid .lp-trial-gt .lp-hl{color:var(--v-blue)}
+.lp--vivid .lp-trial-act{background:#f8fafc;border-radius:20px;padding:22px}
+@media (max-width:1100px){.lp--vivid .lp-trial-steps{grid-template-columns:1fr 1fr}.lp--vivid .lp-trial-steps::before{display:none}}
+@media (max-width:600px){.lp--vivid .lp-trial-steps{grid-template-columns:1fr;gap:12px}.lp--vivid .lp-trial-step{flex-direction:row;padding:18px}.lp--vivid .lp-trial-card{padding:24px 18px;border-radius:22px}.lp--vivid .lp-trial-act{padding:16px}}
 /* một chuyển động duy nhất: thẻ ảnh đầu trang nổi lên khi tải trang */
 .lp--vivid .lp-sec .lp-head,.lp--vivid .lp-ins-list>li,.lp--vivid .lp-grid>li,.lp--vivid .lp-chg>li,.lp--vivid .lp-vs-col,.lp--vivid .lp-steps-list>li,.lp--vivid .lp-photos>li,.lp--vivid .lp-faq-list>details,.lp--vivid .lp-teacher-in>*,.lp--vivid .lp-ins-close{animation:none}
 @media (prefers-reduced-motion:no-preference){.lp--vivid .lp-lead-hero .lp-hero-pic:not(.lp-show) img{animation:lp-rise .9s cubic-bezier(.2,.7,.2,1) .15s both}}

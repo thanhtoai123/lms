@@ -19,7 +19,7 @@ Nỗi lo → bối cảnh → giải pháp → chuyên ngành → giá trị →
 | 8 | Một buổi học (`#quy-trinh`) | Phụ huynh hình dung lớp online |
 | 9 | Sản phẩm (`#hinh-anh`) | Sản phẩm thật làm bằng công cụ của từng chuyên ngành, 2 ảnh mỗi ngành (ghi nguồn) |
 | 10 | Giảng viên (`#giang-vien`) | Ảnh và chứng chỉ thật |
-| 11 | Kêu gọi học thử + hỏi đáp + form (`#hoi-dap`, `#dang-ky`) | Rủi ro thấp: thử trước, quyết sau |
+| 11 | Buổi học trải nghiệm 1:1 (`#hoc-thu`, khối `trial`) + hỏi đáp + form (`#hoi-dap`, `#dang-ky`) | Giá trị buổi trải nghiệm: 4 bước, gia đình nhận được gì, nút đặt lịch |
 
 Không nêu số học phần, số buổi, cấp độ Basic/Advanced/Expert, học phí trên trang chính. Học phí: giáo viên gửi sau buổi học
 trải nghiệm hoặc phụ huynh gọi hotline (website không còn trang học phí riêng).
@@ -102,4 +102,15 @@ truyện tranh, poster, bài hát, video ngắn, trang web, kèm khái niệm AI
 huấn luyện mô hình AI. Ảnh trên trang chính cho chuyên ngành này là ảnh minh hoạ loại sản phẩm (`tools/minh-hoa/san_pham_ai.py`):
 tranh nền tạo bằng AI lấy từ Wikimedia Commons (CC0 / phạm vi công cộng), khung poster / trình phát video / trình duyệt tự dựng.
 Khi có sản phẩm thật của học viên (có đồng ý của phụ huynh) thì thay vào.
+
+## 8. Buổi học trải nghiệm 1:1 — thông điệp và căn cứ
+
+- Hành trình 4 bước: Bố mẹ đăng ký → Trung tâm tư vấn, hẹn lịch → Con học 1:1 cùng thầy, làm sản phẩm → Thầy cố vấn đánh giá
+  và định hướng lộ trình. Gia đình nhận: sản phẩm đầu tay, nhận xét năng lực (theo khung đánh giá), lộ trình riêng, giải đáp.
+- KHÔNG ghi "trị giá 1.000.000đ còn 0đ" (quyết định 22/10/2026): trung tâm chưa bán riêng buổi này, nêu giá gốc không có thật dễ bị
+  coi là thông tin khuyến mại sai lệch (Luật Thương mại Điều 14; Luật Bảo vệ quyền lợi người tiêu dùng). Thay bằng câu
+  "Bố mẹ không phải trả phí cho buổi này". Cung ứng dịch vụ mẫu không thu tiền không phải thông báo Sở Công Thương từ 01/12/2024
+  (NĐ 128/2024/NĐ-CP sửa NĐ 81/2018). Nếu sau này niêm yết giá thật cho buổi đánh giá thì mới ghi giá trị.
+- JSON-LD: `Service` + `Offer` giá 0 VND (chỉ sinh khi dòng nổi bật của khối nói rõ không mất phí).
+- Nút gọi hành động thống nhất: "Đặt lịch học trải nghiệm" / "Học trải nghiệm 1:1".
 

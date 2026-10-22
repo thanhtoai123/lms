@@ -15,7 +15,7 @@ export type LFieldType = "text" | "textarea" | "url" | "image";
 export interface LField { key: string; label: string; type: LFieldType; max: number; required?: boolean; hint?: string }
 export interface LList { key: string; label: string; addLabel: string; max: number; min?: number; fields: LField[]; hint?: string }
 
-export const SECTION_TYPES = ["header", "hero", "leadHero", "stats", "features", "programs", "roadmap", "tools", "split", "teacher", "testimonials", "cta", "steps", "timeline", "gallery", "faq", "form", "text", "insights", "contrast", "tracks", "change", "footer"] as const;
+export const SECTION_TYPES = ["header", "hero", "leadHero", "stats", "features", "programs", "roadmap", "tools", "split", "teacher", "testimonials", "cta", "steps", "timeline", "gallery", "faq", "form", "text", "insights", "contrast", "tracks", "change", "trial", "footer"] as const;
 export type SectionType = (typeof SECTION_TYPES)[number];
 
 export interface SectionDef {
@@ -141,7 +141,7 @@ export const SECTION_DEFS: Record<SectionType, SectionDef> = {
   gallery: {
     type: "gallery", label: "Thư viện ảnh", desc: "Ảnh lớp học, sản phẩm của bé (chỉ ảnh đã được phụ huynh đồng ý).",
     fields: [t("title", "Tiêu đề", 120, { required: true })],
-    lists: [{ key: "items", label: "Ảnh", addLabel: "Thêm ảnh", max: 8, fields: [img("image", "Ảnh", { required: true }), t("caption", "Chú thích", 120), t("credit", "Nguồn / giấy phép ảnh", 120, { hint: "vd Ảnh: Wikimedia Commons / Zio27, CC0" }), u("creditUrl", "Liên kết nguồn ảnh")] }],
+    lists: [{ key: "items", label: "Ảnh", addLabel: "Thêm ảnh", max: 8, fields: [img("image", "Ảnh", { required: true }), t("tag", "Nhãn nhỏ (vd chuyên ngành)", 30), t("caption", "Chú thích", 120), t("credit", "Nguồn / giấy phép ảnh", 120, { hint: "vd Ảnh: Wikimedia Commons / Zio27, CC0" }), u("creditUrl", "Liên kết nguồn ảnh")] }],
     needs: "items",
   },
   faq: {
@@ -194,6 +194,21 @@ export const SECTION_DEFS: Record<SectionType, SectionDef> = {
     fields: [t("eyebrow", "Dòng nhỏ phía trên", 80), t("title", "Tiêu đề", 140, { required: true }), ta("intro", "Mô tả", 400), t("beforeLabel", "Nhãn cột trước", 40), t("afterLabel", "Nhãn cột sau", 40), ta("note", "Ghi chú", 300), img("image", "Ảnh minh hoạ"), t("imageAlt", "Mô tả ảnh (alt)", 160)],
     lists: [{ key: "items", label: "Tiêu chí", addLabel: "Thêm tiêu chí", max: 9, fields: [t("area", "Tiêu chí", 60, { required: true }), t("before", "Trước khi học", 140, { required: true }), t("after", "Sau năm học", 160, { required: true })] }],
     needs: "items",
+  },
+  trial: {
+    type: "trial", label: "Giá trị buổi học trải nghiệm",
+    desc: "Các bước của buổi trải nghiệm (bố mẹ đăng ký → hẹn lịch → con học cùng thầy → thầy đánh giá, định hướng) và những gì gia đình nhận được, kèm nút đặt lịch. Chỉ ghi điều trung tâm làm thật; không so sánh giá ảo.",
+    fields: [
+      t("eyebrow", "Dòng nhỏ phía trên", 80), t("title", "Tiêu đề", 140, { required: true, hint: "Đặt *cụm từ* trong dấu sao để tô màu nhấn" }), ta("intro", "Mô tả", 400),
+      t("gainsTitle", "Tiêu đề phần “bố mẹ nhận được”", 80), t("badge", "Dòng nổi bật (vd không mất phí)", 80), ta("note", "Ghi chú nhỏ dưới nút", 240),
+      t("primaryLabel", "Nút chính", 40, { required: true }), u("primaryUrl", "Liên kết nút chính", { required: true }),
+      t("secondaryLabel", "Nút phụ", 40), u("secondaryUrl", "Liên kết nút phụ", { hint: "vd tel:0900000000" }),
+    ],
+    lists: [
+      { key: "steps", label: "Các bước", addLabel: "Thêm bước", max: 5, fields: [t("who", "Ai làm (vd Bố mẹ)", 30), t("title", "Tên bước", 60, { required: true }), ta("text", "Mô tả", 220)] },
+      { key: "gains", label: "Gia đình nhận được", addLabel: "Thêm ý", max: 6, fields: [t("title", "Tiêu đề", 70, { required: true }), ta("text", "Mô tả", 200), t("icon", "Biểu tượng", 20, { hint: "man-hinh, nhom, mat, chuan, nha, ho-so, tia-sang, la-ban, code, cup, chia-se, ten-lua" })] },
+    ],
+    needs: "steps",
   },
   footer: {
     type: "footer", label: "Chân trang", single: true, fixed: "bottom",
@@ -325,7 +340,7 @@ export function validateLanding(doc: LandingDoc, meta: { title: string; slug: st
   if (meta.title.trim().length < 3) errors.push("Tên trang tối thiểu 3 ký tự");
   const visible = doc.sections.filter(sectionVisible);
   if (!visible.some((s) => s.type === "hero" || s.type === "leadHero")) errors.push("Cần bật khối Mở đầu (Hero)");
-  if (!visible.some((s) => s.type === "form" || s.type === "hero" || s.type === "leadHero" || s.type === "cta")) errors.push("Trang cần có form hoặc nút kêu gọi để phụ huynh đăng ký");
+  if (!visible.some((s) => s.type === "form" || s.type === "hero" || s.type === "leadHero" || s.type === "cta" || s.type === "trial")) errors.push("Trang cần có form hoặc nút kêu gọi để phụ huynh đăng ký");
   if (visible.some((s) => s.type === "hero") && visible.some((s) => s.type === "leadHero")) warnings.push("Trang có cả Mở đầu (Hero) và Mở đầu + form — chỉ nên giữ một tiêu đề lớn (H1)");
 
   for (const s of doc.sections) {
