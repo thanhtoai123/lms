@@ -1329,7 +1329,7 @@ const LANDING_CSS = `
 @media (max-width:600px){.lp--vivid .lp-trial-steps{grid-template-columns:1fr;gap:12px}.lp--vivid .lp-trial-step{flex-direction:row;padding:20px 18px;gap:14px}.lp--vivid .lp-trial-no{width:44px;height:44px;font-size:1.1rem}.lp--vivid .lp-trial-card{padding:24px 18px;border-radius:24px;gap:24px}.lp--vivid .lp-trial-act{padding:22px 18px}}
 /* form cuối trang: tấm navy bo tròn hai cột — bên trái nhắc lại giá trị, bên phải form trắng */
 .lp--vivid .lp-form{background:#fff}
-.lp--vivid .lp-form .lp-form-in{max-width:1200px;display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center;background:var(--v-star) no-repeat 6% 14%/24px,var(--v-orb) no-repeat 0 0/100% 100%,#0f172a;border-radius:32px;padding:56px;color:#fff;background-position:95% 10%,0 0,0 0}
+.lp--vivid .lp-form .lp-form-in{max-width:1200px;width:calc(100% - 40px);margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center;background:var(--v-star) no-repeat 6% 14%/24px,var(--v-orb) no-repeat 0 0/100% 100%,#0f172a;border-radius:32px;padding:56px;color:#fff;background-position:95% 10%,0 0,0 0}
 .lp--vivid .lp-form .lp-head.lp-form-side{margin:0;text-align:left;max-width:none}
 .lp--vivid .lp-form .lp-head :is(h1,h2){color:#fff;font-size:clamp(1.8rem,3.6vw,2.6rem)}
 .lp--vivid .lp-form .lp-hl{color:#fff}
@@ -1342,7 +1342,7 @@ const LANDING_CSS = `
 .lp-form-call:hover{border-bottom-color:#fcd34d}
 .lp--vivid .lp-form .lp-form-card{border:0;border-top:6px solid var(--v-gold);border-radius:24px;color:#0f172a;box-shadow:0 30px 60px -30px rgba(0,0,0,.6)}
 @media (max-width:960px){.lp--vivid .lp-form .lp-form-in{grid-template-columns:1fr;padding:36px 28px;gap:28px}}
-@media (max-width:600px){.lp--vivid .lp-form .lp-form-in{padding:28px 18px;border-radius:24px;background:var(--v-orb) no-repeat 0 0/100% 100%,#0f172a}}
+@media (max-width:600px){.lp--vivid .lp-form .lp-form-in{padding:28px 18px;border-radius:24px;width:calc(100% - 24px);background:var(--v-orb) no-repeat 0 0/100% 100%,#0f172a}}
 /* một chuyển động duy nhất: thẻ ảnh đầu trang nổi lên khi tải trang */
 .lp--vivid .lp-sec .lp-head,.lp--vivid .lp-ins-list>li,.lp--vivid .lp-grid>li,.lp--vivid .lp-chg>li,.lp--vivid .lp-vs-col,.lp--vivid .lp-steps-list>li,.lp--vivid .lp-photos>li,.lp--vivid .lp-faq-list>details,.lp--vivid .lp-teacher-in>*,.lp--vivid .lp-ins-close{animation:none}
 @media (prefers-reduced-motion:no-preference){.lp--vivid .lp-lead-hero .lp-hero-pic:not(.lp-show) img{animation:lp-rise .9s cubic-bezier(.2,.7,.2,1) .15s both}}
