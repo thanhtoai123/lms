@@ -890,9 +890,10 @@ const LANDING_CSS = `
 @media (prefers-reduced-motion:reduce){.lp *{transition:none!important}}
 @media (prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}
 .lp-hl{font-style:normal;color:var(--primary,#1d4ed8)}
-.lp-bento-pic{grid-row:span 3;border-radius:28px;overflow:hidden;background:#dbeafe;min-height:320px}
-.lp-bento-pic img{width:100%;height:100%;object-fit:cover}
-@media (max-width:1000px){.lp-bento-pic{grid-row:auto;grid-column:1/-1;aspect-ratio:16/9;min-height:0}}
+/* ảnh minh hoạ của lưới "Vì sao yên tâm": hiện TRỌN ảnh (không cắt mép), căn giữa trên nền trắng như một thẻ */
+.lp-bento-pic{grid-row:span 3;align-self:center;border-radius:28px;overflow:hidden}
+.lp-bento-pic img{width:100%;height:auto}
+@media (max-width:1000px){.lp-bento-pic{grid-row:auto;grid-column:1/-1;max-width:640px;justify-self:center}}
 /*@v:studio*/
 /* ================= KIỂU "STUDIO" — trang chính (DESIGN.md ở gốc repo) ================= */
 .lp--studio{--lp-ink:#0f172a;--lp-mut:#475569;--lp-line:#e2e8f0;--lp-alt:#f8fafc;--lp-r:20px;font-size:17px;line-height:1.65;background:#fff}
@@ -1155,7 +1156,7 @@ const LANDING_CSS = `
 .lp--vivid .lp-form{background:#dbeafe}
 .lp--vivid .lp-form-in{max-width:640px}
 .lp--vivid .lp-form .lp-form-card{border:0;border-top:6px solid var(--v-gold);border-radius:24px}
-.lp--vivid .lp-bento-pic{grid-row:span 2;min-height:0}
+.lp--vivid .lp-bento-pic{grid-row:span 2}
 /* dải ảnh sản phẩm thật dưới tiêu đề: thẻ khung trắng, nhãn trắng góc dưới (sản phẩm + phần mềm) */
 .lp-show-list{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
 .lp-show-i figure{margin:0;position:relative;border-radius:20px;overflow:hidden;background:#fff;height:100%}
