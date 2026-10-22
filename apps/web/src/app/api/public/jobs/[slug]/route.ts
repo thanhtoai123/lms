@@ -2,7 +2,7 @@ import { ipTuHeader } from "@satarobo/core";
 import { getDb } from "@satarobo/db";
 import { publicJob, applyToJob, logWebhook, CV_MAX_BYTES } from "@satarobo/api";
 import { publicCors } from "@/lib/public-cors";
-import { rateLimited } from "@/lib/route-ctx";
+import { rateLimited, readCappedForm } from "@/lib/route-ctx";
 
 export async function GET(req: Request, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -19,7 +19,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
   if (!/^[a-z0-9-]{3,100}$/.test(slug)) return Response.json({ ok: false, error: "Không tìm thấy" }, { status: 404, headers });
   if (rateLimited(`job|${ip}`, 5, 10 * 60_000)) return Response.json({ ok: false, error: "Gửi quá nhiều lần, thử lại sau" }, { status: 429, headers });
   if (Number(req.headers.get("content-length") ?? 0) > CV_MAX_BYTES + 200_000) return Response.json({ ok: false, error: "CV tối đa 5MB" }, { status: 413, headers });
-  const form = await req.formData().catch(() => null);
+  const form = await readCappedForm(req, CV_MAX_BYTES + 200_000).catch(() => null);
   if (!form) return Response.json({ ok: false, error: "Dữ liệu không hợp lệ" }, { status: 400, headers });
   if (String(form.get("website") ?? "")) return Response.json({ ok: true }, { headers });
   const cv = form.get("cv");

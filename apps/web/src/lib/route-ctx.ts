@@ -1,6 +1,7 @@
 import { createContext, checkRateLimit, rateKey, tooManyMessage } from "@satarobo/api";
 import { getDb } from "@satarobo/db";
 import { devActorAllowed, DEV_ACTOR_HEADER, MemoryRateLimiter, scormNguon, dungMienHocLieu, ipTuHeader, type RateLimitName } from "@satarobo/core";
+import { ACCESS_COOKIE } from "@/lib/auth-session";
 
 type RateKeyKind = Parameters<typeof rateKey>[1];
 
@@ -17,7 +18,7 @@ export async function routeContext(req: Request) {
   h.delete(DEV_ACTOR_HEADER);
   const dev = devActorAllowed(process.env) ? readCookie(cookie, DEV_ACTOR_HEADER) : undefined;
   if (dev) h.set(DEV_ACTOR_HEADER, dev);
-  const sb = readCookie(cookie, "sb-access-token");
+  const sb = readCookie(cookie, ACCESS_COOKIE);
   if (sb && !h.get("authorization")) h.set("authorization", `Bearer ${sb}`);
   // Miền học liệu SCORM không bao giờ có phiên quản trị (xem core/content/scormNguon.ts)
   const nguon = scormNguon(process.env);
@@ -103,3 +104,43 @@ export function errorStatus(e: unknown) {
   if (name === "ForbiddenError" || name === "ScopeError") return 403;
   return code === "FORBIDDEN" ? 403 : code === "NOT_FOUND" ? 404 : code === "UNAUTHORIZED" ? 401 : 400;
 }
+
+
+/**
+ * Đọc thân yêu cầu có giới hạn kích thước (đếm theo từng mảnh, kể cả khi máy khách gửi chunked không có
+ * Content-Length). Vượt trần → null để trả 413, không đọc tiếp vào bộ nhớ.
+ */
+export async function readCapped(req: Request, max: number): Promise<Uint8Array | null> {
+  const len = Number(req.headers.get("content-length") ?? "");
+  if (Number.isFinite(len) && len > max) return null;
+  const r = req.body?.getReader();
+  if (!r) return new Uint8Array(0);
+  const chunks: Uint8Array[] = [];
+  let n = 0;
+  for (;;) {
+    const { done, value } = await r.read();
+    if (done) break;
+    n += value.byteLength;
+    if (n > max) { await r.cancel().catch(() => {}); return null; }
+    chunks.push(value);
+  }
+  const out = new Uint8Array(n);
+  let o = 0;
+  for (const c of chunks) { out.set(c, o); o += c.byteLength; }
+  return out;
+}
+
+/** Bản đọc chữ của `readCapped` (JSON, form urlencoded) */
+export async function readCappedText(req: Request, max: number): Promise<string | null> {
+  const b = await readCapped(req, max);
+  return b === null ? null : new TextDecoder().decode(b);
+}
+
+/** Đọc multipart/form-data có giới hạn kích thước */
+export async function readCappedForm(req: Request, max: number): Promise<FormData | null> {
+  const b = await readCapped(req, max);
+  if (b === null) return null;
+  return new Response(b, { headers: { "content-type": req.headers.get("content-type") ?? "" } }).formData();
+}
+
+export const TOO_LARGE = () => Response.json({ ok: false, error: "Dữ liệu gửi lên quá lớn" }, { status: 413 });

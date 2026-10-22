@@ -1,6 +1,6 @@
 import { getDb } from "@satarobo/db";
 import { logWebhook, nhanSuKienKenh } from "@satarobo/api";
-import { clientIp, sharedRateLimit } from "@/lib/route-ctx";
+import { clientIp, sharedRateLimit, readCappedText, TOO_LARGE } from "@/lib/route-ctx";
 
 /**
  * Webhook kênh chat ngoài (hiện dùng cho Zalo cá nhân chạy trên ZCRM).
@@ -11,10 +11,13 @@ import { clientIp, sharedRateLimit } from "@/lib/route-ctx";
 export async function POST(req: Request, { params }: { params: Promise<{ slug: string }> }) {
   const db = getDb();
   const { slug } = await params;
-  const raw = await req.text();
   const ip = clientIp(req);
-  const gate = await sharedRateLimit("webhookIp", "ip", ip, `wh-kenh-${slug}`);
+  // Trần theo IP với mục đích CỐ ĐỊNH (đặt theo slug thì kẻ gửi rác đổi slug là có bộ đếm mới), kiểm trước khi đọc thân
+  const gate = await sharedRateLimit("webhookIp", "ip", ip, "wh-kenh");
   if (gate) return Response.json({ ok: false, error: "Quá nhiều yêu cầu" }, { status: 429, headers: { "Retry-After": String(Math.max(1, gate.retryAfterSec)) } });
+  if (!/^[a-z0-9-]{3,64}$/i.test(slug)) return Response.json({ ok: false }, { status: 404 });
+  const raw = await readCappedText(req, 256 * 1024);
+  if (raw === null) return TOO_LARGE();
 
   let body: unknown = null;
   try { body = JSON.parse(raw); } catch { body = null; }
@@ -25,6 +28,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
 
   const r = await nhanSuKienKenh(db, { slug, raw, headers, body });
   if (!r.ok) {
+    // Đường không tồn tại: không ghi nhật ký (không cho người lạ đổ dữ liệu vào bảng nhật ký)
+    if (r.httpStatus === 404) return Response.json({ ok: false }, { status: 404 });
     await logWebhook(db, { source: "zalo_ca_nhan", externalId: slug, status: r.status, httpStatus: r.httpStatus, payload: body, headers: hdrSach, error: r.error, ip });
     return Response.json({ ok: false, error: r.error }, { status: r.httpStatus });
   }

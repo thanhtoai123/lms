@@ -93,6 +93,8 @@ async function refLabels(db: Db) {
  * Trùng số điện thoại → KHÔNG trả nguyên hồ sơ cũ (có thể thuộc sale / cơ sở khác mà người nhập không được xem),
  * chỉ trả mã lead + người phụ trách để báo kết quả; mở chi tiết vẫn phải qua kiểm quyền của getLead.
  */
+const vnLocal = (p: string) => (/^84\d{9}$/.test(p) ? `0${p.slice(2)}` : p);
+
 export async function createLeadByStaff(ctx: ProtectedContext, input: CreateLeadInput) {
   requirePermission(ctx, "lead:create", input.centerId ? { centerId: input.centerId } : {});
   if (input.centerId) await assertCenterTenant(ctx, input.centerId);
@@ -343,7 +345,8 @@ export async function leadInbox(ctx: ProtectedContext, input: LeadInboxInput) {
     .map((row) => redact(ctx, row))
     .map(({ phoneNormalized, ...r }) => ({
       ...r,
-      phone: full ? phoneNormalized : maskPhone(phoneNormalized),
+      // Hiện theo kiểu quen thuộc 09xx… (cột lưu dạng chuẩn hoá 84…)
+      phone: full ? vnLocal(phoneNormalized) : maskPhone(vnLocal(phoneNormalized)),
       sla: slaOf(r.status, r.lastTouchAt),
       /** "owner" | "shared" | "full" — để gắn nhãn "Dùng chung" / "Bạn đang chia sẻ lead này" */
       visibility: leadVisibilityReason(reader, r),

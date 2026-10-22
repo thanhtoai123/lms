@@ -1,6 +1,9 @@
 import { getDb } from "@satarobo/db";
 import { publicInvoiceLookup } from "@satarobo/api";
+import { headers } from "next/headers";
+import { ipTuHeader } from "@satarobo/core";
 import { PublicShell } from "@/components/public-shell";
+import { sharedRateLimited } from "@/lib/route-ctx";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Tra cứu hoá đơn — TH STEAM Academy", robots: { index: false } };
@@ -9,7 +12,9 @@ const vnd = (n: number) => `${Math.round(n).toLocaleString("vi-VN")}đ`;
 export default async function LookupPage({ searchParams }: { searchParams: Promise<{ ma?: string }> }) {
   const sp = await searchParams;
   const code = (sp.ma ?? "").trim().slice(0, 40);
-  const r = code ? await publicInvoiceLookup(getDb(), code) : null;
+  // Chặn máy dò mã tra cứu (mỗi lần trúng là lộ tên, mã số thuế người mua và nội dung hoá đơn)
+  const limited = code ? await sharedRateLimited("certificateVerifyIp", "ip", ipTuHeader(await headers(), process.env), "inv-lookup") : false;
+  const r = code && !limited ? await publicInvoiceLookup(getDb(), code) : null;
   return (
     <PublicShell>
       <h1 className="text-2xl font-bold">Tra cứu hoá đơn điện tử</h1>
@@ -17,7 +22,8 @@ export default async function LookupPage({ searchParams }: { searchParams: Promi
         <input name="ma" defaultValue={code} className="input flex-1 font-mono uppercase" placeholder="Mã tra cứu in trên email / hoá đơn" required />
         <button className="btn-primary">Tra cứu</button>
       </form>
-      {code && !r && <div className="card mt-4 p-4 text-sm">Không tìm thấy hoá đơn với mã này.</div>}
+      {code && limited && <div className="card mt-4 p-4 text-sm">Tra cứu quá nhiều lần — vui lòng thử lại sau ít phút.</div>}
+      {code && !limited && !r && <div className="card mt-4 p-4 text-sm">Không tìm thấy hoá đơn với mã này.</div>}
       {r && (
         <div className="card mt-4 space-y-2 p-5 text-sm">
           {r.sandbox && <div className="rounded bg-amber-100 p-2 text-center text-xs font-semibold">BẢN THỬ NGHIỆM — KHÔNG CÓ GIÁ TRỊ PHÁP LÝ</div>}

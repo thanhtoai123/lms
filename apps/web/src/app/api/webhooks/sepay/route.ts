@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getDb } from "@satarobo/db";
 import { ingestBankTx, logWebhook } from "@satarobo/api";
 import { checkApiKey, parseSepayPayload, ipTuHeader, sepaySignatureOk } from "@satarobo/core";
-import { clientIp, sharedRateLimit } from "@/lib/route-ctx";
+import { clientIp, sharedRateLimit, readCappedText } from "@/lib/route-ctx";
 import { webLogger } from "@/lib/logger";
 
 /**
@@ -32,7 +32,8 @@ export async function POST(req: Request) {
   if (!secret && !key) return NextResponse.json({ success: false, error: "Webhook chưa được cấu hình (SEPAY_WEBHOOK_SECRET hoặc SEPAY_API_KEY)" }, { status: 503 });
 
   // Đọc body THÔ: chữ ký HMAC tính trên đúng từng byte, không được parse rồi stringify lại
-  const raw = await req.text();
+  const raw = await readCappedText(req, 64 * 1024);
+  if (raw === null) return NextResponse.json({ success: false, error: "Dữ liệu quá lớn" }, { status: 413 });
   let body: unknown = null;
   try {
     body = raw ? JSON.parse(raw) : null;

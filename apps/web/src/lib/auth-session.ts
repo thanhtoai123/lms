@@ -4,12 +4,21 @@
  */
 import { tokenNeedsRefresh, ipTuHeader } from "@satarobo/core";
 
-export const ACCESS_COOKIE = "sb-access-token";
-export const REFRESH_COOKIE = "sb-refresh-token";
+/**
+ * Chạy thật (HTTPS): tên cookie mang tiền tố `__Host-` — trình duyệt chỉ nhận cookie này khi có Secure, Path=/ và
+ * KHÔNG có Domain, nên một trang ở tên miền con (vd miền học liệu SCORM) không thể cài đè phiên đăng nhập.
+ */
+const HOST = process.env.NODE_ENV === "production" ? "__Host-" : "";
+export const ACCESS_COOKIE = `${HOST}sb-access-token`;
+export const REFRESH_COOKIE = `${HOST}sb-refresh-token`;
 export const REFRESH_DAYS = 30;
 /** Mốc thao tác gần nhất (ms) và giới hạn không thao tác (phút) — tự đăng xuất */
-export const SEEN_COOKIE = "sr-seen";
-export const IDLE_COOKIE = "sr-idle";
+export const SEEN_COOKIE = `${HOST}sr-seen`;
+export const IDLE_COOKIE = `${HOST}sr-idle`;
+/** Xoá cookie phiên đúng thuộc tính (cookie `__Host-` chỉ xoá được khi có Secure + Path=/) */
+export function clearCookieOptions() {
+  return { httpOnly: true, sameSite: "lax" as const, path: "/", secure: process.env.NODE_ENV === "production", maxAge: 0 };
+}
 
 export function seenCookieOptions() {
   return { httpOnly: true, sameSite: "lax" as const, path: "/", secure: secure(), maxAge: REFRESH_DAYS * 86_400 };

@@ -1,7 +1,7 @@
 import { getDb } from "@satarobo/db";
 import { submitPublicHomework } from "@satarobo/api";
 import { SUBMISSION_MAX_BYTES, SUBMISSION_MAX_FILES, ipTuHeader } from "@satarobo/core";
-import { rateLimited } from "@/lib/route-ctx";
+import { rateLimited, readCappedForm } from "@/lib/route-ctx";
 
 /** POST /api/public/homework/[token] — phụ huynh nộp bài cho con (token là quyền) */
 export async function POST(req: Request, { params }: { params: Promise<{ token: string }> }) {
@@ -11,7 +11,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
   if (rateLimited(`hw|${ip}|${token}`, 10, 10 * 60_000)) return Response.json({ ok: false, error: "Gửi quá nhiều lần, thử lại sau" }, { status: 429 });
   const len = Number(req.headers.get("content-length") ?? 0);
   if (len > SUBMISSION_MAX_FILES * SUBMISSION_MAX_BYTES + 1_000_000) return Response.json({ ok: false, error: "Tệp quá lớn" }, { status: 413 });
-  const form = await req.formData().catch(() => null);
+  const form = await readCappedForm(req, SUBMISSION_MAX_FILES * SUBMISSION_MAX_BYTES + 1_000_000).catch(() => null);
   if (!form) return Response.json({ ok: false, error: "Dữ liệu không hợp lệ" }, { status: 400 });
   const files = form.getAll("files").filter((f): f is File => f instanceof File && f.size > 0).slice(0, SUBMISSION_MAX_FILES + 1);
   const r = await submitPublicHomework(getDb(), token, {

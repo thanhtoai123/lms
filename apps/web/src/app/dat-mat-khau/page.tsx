@@ -22,15 +22,15 @@ async function save(formData: FormData) {
   const pw2 = String(formData.get("password2") ?? "");
   const back = (e: string) => redirect(`/dat-mat-khau?token_hash=${encodeURIComponent(tokenHash)}&type=${type}&e=${encodeURIComponent(e)}`);
   if (!validTokenHash(tokenHash)) redirect("/dat-mat-khau?e=link");
-  if (pw !== pw2) back("Hai mật khẩu không khớp");
+  if (pw !== pw2) back("mismatch");
   const pre = passwordProblems(pw, null);
-  if (pre.length) back(pre.join("; "));
+  if (pre.length) back("weak");
   const s = await verifyTokenHash(tokenHash, type);
   if (!s) redirect("/dat-mat-khau?e=link");
   const probs = passwordProblems(pw, s.user?.email ?? null);
-  if (probs.length) redirect(`/dat-mat-khau?e=${encodeURIComponent(`${probs.join("; ")} — liên kết đã dùng, yêu cầu liên kết mới`)}&expired=1`);
+  if (probs.length) redirect("/dat-mat-khau?e=weak_used&expired=1");
   const err = await setPassword(s.access_token, pw);
-  if (err) redirect(`/dat-mat-khau?e=${encodeURIComponent(err)}&expired=1`);
+  if (err) redirect("/dat-mat-khau?e=server&expired=1");
   const c = await cookies();
   if (s.user?.email) await recordLogin(getDb(), { email: s.user.email, result: "password_set", ...clientMeta(await headers()) });
   c.set(ACCESS_COOKIE, s.access_token, cookieOptions("access", s.expires_in));
@@ -39,6 +39,14 @@ async function save(formData: FormData) {
   c.set(IDLE_COOKIE, String(await staffIdleMinutes(getDb())), seenCookieOptions());
   redirect("/viec-hom-nay");
 }
+
+/** Thông báo lỗi theo mã cố định — không hiện chữ lấy từ đường dẫn (tránh bị chèn nội dung lừa đảo vào khung lỗi chính thức) */
+const ERR: Record<string, string> = {
+  mismatch: "Hai mật khẩu không khớp.",
+  weak: "Mật khẩu chưa đủ mạnh: tối thiểu 10 ký tự, có cả chữ và số, không chứa tên email.",
+  weak_used: "Mật khẩu chưa đủ mạnh (không được chứa tên email). Liên kết đã dùng — yêu cầu liên kết mới.",
+  server: "Không lưu được mật khẩu. Liên kết đã dùng — yêu cầu liên kết mới.",
+};
 
 export default async function SetPasswordPage({ searchParams }: { searchParams: Promise<{ token_hash?: string; type?: string; e?: string; expired?: string }> }) {
   const sp = await searchParams;
@@ -49,7 +57,7 @@ export default async function SetPasswordPage({ searchParams }: { searchParams: 
       <div className="card w-full max-w-sm space-y-4 p-6">
         <h1 className="text-xl font-bold">{type === "invite" ? "Tạo mật khẩu tài khoản" : "Đặt lại mật khẩu"}</h1>
         {!supabaseOn() && <p className="text-sm text-amber-800">Hệ thống chưa bật đăng nhập bằng mật khẩu.</p>}
-        {sp.e && sp.e !== "link" && <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{sp.e}</p>}
+        {sp.e && ERR[sp.e] && <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{ERR[sp.e]}</p>}
         {ok ? (
           <form action={save} className="space-y-3">
             <input type="hidden" name="token_hash" value={sp.token_hash} />

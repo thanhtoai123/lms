@@ -61,7 +61,10 @@ async function supabaseLogin(formData: FormData) {
     redirect(`/login?error=1${back}`);
   }
   const supabase = createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
-    cookies: { getAll: () => c.getAll(), setAll: (all) => all.forEach(({ name, value, options }) => c.set(name, value, options)) },
+    // Không để thư viện ghi cookie sb-…-auth-token (mặc định JavaScript đọc được, chứa refresh token 30 ngày):
+    // phiên chỉ nằm trong các cookie httpOnly do hệ thống tự đặt ngay dưới đây
+    cookies: { getAll: () => [], setAll: () => {} },
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
   });
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error || !data.session) {

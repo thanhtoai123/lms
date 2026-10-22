@@ -14,6 +14,7 @@
  *  - Lớp bộ nhớ (cửa sổ trượt) vẫn chạy TRƯỚC như lớp thứ nhất: chặn được đợt bắn dồn
  *    mà không cần đi tới CSDL.
  */
+import { loginEventSecret } from "./secrets";
 import { createHash } from "node:crypto";
 import { TRPCError } from "@trpc/server";
 import { eq, lte, sql } from "drizzle-orm";
@@ -51,7 +52,8 @@ const ALLOW: RateDecision = { allowed: true, remaining: Number.MAX_SAFE_INTEGER,
 
 /** Định danh nhạy cảm (SĐT, email) băm trước khi làm khoá — bảng đếm không được là một danh bạ */
 function hashIdentifier(value: string): string {
-  const pepper = process.env.OTP_PEPPER ?? process.env.MEDIA_SIGNING_SECRET ?? "";
+  // Không để rơi về chuỗi rỗng khi chạy thật (bảng đếm băm không khoá thì dò ngược được SĐT / email)
+  const pepper = loginEventSecret();
   return createHash("sha256").update(`ratelimit|${pepper}|${value.trim().toLowerCase()}`).digest("hex").slice(0, 32);
 }
 

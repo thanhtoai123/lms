@@ -1,7 +1,13 @@
 import { ipTuHeader } from "@satarobo/core";
 import { getDb } from "@satarobo/db";
 import { ingestExternal, logWebhook, metaSignatureOk, parseMessengerPayload } from "@satarobo/api";
-import { clientIp, sharedRateLimit } from "@/lib/route-ctx";
+import { clientIp, sharedRateLimit, readCappedText, TOO_LARGE } from "@/lib/route-ctx";
+import { timingSafeEqual } from "node:crypto";
+
+function sameSecret(a: string, b: string): boolean {
+  const x = Buffer.from(a), y = Buffer.from(b);
+  return x.length === y.length && timingSafeEqual(x, y);
+}
 
 /**
  * Webhook Facebook Messenger (fanpage TH STEAM ACADEMY).
@@ -11,7 +17,7 @@ import { clientIp, sharedRateLimit } from "@/lib/route-ctx";
 export async function GET(req: Request) {
   const u = new URL(req.url);
   const token = process.env.META_VERIFY_TOKEN;
-  if (token && u.searchParams.get("hub.mode") === "subscribe" && u.searchParams.get("hub.verify_token") === token) {
+  if (token && u.searchParams.get("hub.mode") === "subscribe" && sameSecret(u.searchParams.get("hub.verify_token") ?? "", token)) {
     return new Response(u.searchParams.get("hub.challenge") ?? "", { status: 200, headers: { "Content-Type": "text/plain" } });
   }
   return new Response("Forbidden", { status: 403 });
@@ -19,12 +25,13 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   const db = getDb();
-  const raw = await req.text();
   const ip = ipTuHeader(req.headers, process.env);
   // Trần rộng, chỉ chặn đợt bắn dồn; Meta tự gửi lại khi gặp 429 nên không mất tin
   const gate = await sharedRateLimit("webhookIp", "ip", clientIp(req), "wh-messenger");
   if (gate) return Response.json({ ok: false, error: "Quá nhiều yêu cầu" }, { status: 429, headers: { "Retry-After": String(Math.max(1, gate.retryAfterSec)) } });
   if (!process.env.META_APP_SECRET) return Response.json({ ok: false, error: "Chưa cấu hình META_APP_SECRET" }, { status: 503 });
+  const raw = await readCappedText(req, 512 * 1024);
+  if (raw === null) return TOO_LARGE();
   let body: unknown = null;
   try { body = JSON.parse(raw); } catch { body = null; }
   if (!metaSignatureOk(raw, req.headers.get("x-hub-signature-256"), process.env.META_APP_SECRET)) {

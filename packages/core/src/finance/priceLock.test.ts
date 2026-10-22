@@ -54,3 +54,11 @@ test("hoàn tiền đơn nhiều con: chỉ tính tiền đã thu của con đó
   const p = refundProposal({ paid: 20_000_000, packageValue: 10_000_000, packageSessions: 45, consumedSessions: 5, alreadyRefunded: 0 });
   assert.ok(p.refundable <= 10_000_000 - Math.round(5 * 10_000_000 / 45) + 1000);
 });
+
+import { courseCodeForInterest } from "../curriculum/thsteam.js";
+test("form công khai: chuyên ngành + lớp → khoá năm 1 phù hợp", () => {
+  assert.equal(courseCodeForInterest("Robotics AI", 4), "ROBO-TH-N1");
+  assert.equal(courseCodeForInterest("Chưa rõ", 4), null);
+  assert.equal(courseCodeForInterest("Robotics AI", null), null);
+  assert.match(courseCodeForInterest("Lập trình AI", 7) ?? "", /^CODE-THCS/);
+});

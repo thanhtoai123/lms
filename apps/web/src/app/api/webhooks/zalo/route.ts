@@ -1,17 +1,18 @@
 import { ipTuHeader } from "@satarobo/core";
 import { getDb } from "@satarobo/db";
 import { logWebhook, xuLySuKienOa, zaloSignatureOk } from "@satarobo/api";
-import { clientIp, sharedRateLimit } from "@/lib/route-ctx";
+import { clientIp, sharedRateLimit, readCappedText, TOO_LARGE } from "@/lib/route-ctx";
 
 /** Webhook Zalo OA: kiểm tra X-ZEvent-Signature (ZALO_APP_ID + ZALO_OA_SECRET), lưu tin người dùng gửi tới OA */
 export async function POST(req: Request) {
   const db = getDb();
-  const raw = await req.text();
   const ip = ipTuHeader(req.headers, process.env);
   // Trần rộng, chỉ chặn đợt bắn dồn; Zalo gửi lại khi gặp 429 nên không mất tin
   const gate = await sharedRateLimit("webhookIp", "ip", clientIp(req), "wh-zalo");
   if (gate) return Response.json({ ok: false, error: "Quá nhiều yêu cầu" }, { status: 429, headers: { "Retry-After": String(Math.max(1, gate.retryAfterSec)) } });
   if (!process.env.ZALO_OA_SECRET || !process.env.ZALO_APP_ID) return Response.json({ ok: false, error: "Chưa cấu hình Zalo OA" }, { status: 503 });
+  const raw = await readCappedText(req, 256 * 1024);
+  if (raw === null) return TOO_LARGE();
   let body: unknown = null;
   try { body = JSON.parse(raw); } catch { body = null; }
   const ts = (body as { timestamp?: string | number } | null)?.timestamp ?? null;

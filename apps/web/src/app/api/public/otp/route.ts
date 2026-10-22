@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getDb } from "@satarobo/db";
 import { requestOtp, verifyOtp } from "@satarobo/api";
 import { OTP_PURPOSES, type OtpPurpose, ipTuHeader } from "@satarobo/core";
-import { clientIp, sharedRateLimit, tooManyResponse } from "@/lib/route-ctx";
+import { clientIp, sharedRateLimit, tooManyResponse, readCappedText } from "@/lib/route-ctx";
 
 /**
  * POST /api/public/otp — { action: "request" | "verify", phone, purpose, code? }
@@ -11,7 +11,7 @@ import { clientIp, sharedRateLimit, tooManyResponse } from "@/lib/route-ctx";
 export async function POST(req: Request) {
   let body: { action?: string; phone?: string; purpose?: string; code?: string };
   try {
-    body = (await req.json()) as typeof body;
+    body = JSON.parse((await readCappedText(req, 4 * 1024)) ?? "") as typeof body;
   } catch {
     return NextResponse.json({ ok: false, error: "Dữ liệu không hợp lệ" }, { status: 400 });
   }

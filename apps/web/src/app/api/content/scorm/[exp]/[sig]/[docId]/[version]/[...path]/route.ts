@@ -13,6 +13,11 @@ export async function GET(req: Request, { params }: { params: Promise<P> }) {
   // Miền học liệu riêng: gói chỉ được phát trên miền đó. Phát trên miền quản trị là để JavaScript
   // của gói chạy kèm cookie đăng nhập của người xem (xem core/content/scormNguon.ts).
   const nguon = scormNguon(process.env);
+  // Chạy thật mà chưa có miền học liệu riêng: KHÔNG phát gói trên miền quản trị (JavaScript trong gói sẽ chạy
+  // cùng nguồn với trang quản trị, gọi được API bằng phiên của người đang xem)
+  if (!nguon && process.env.NODE_ENV === "production" && process.env.SCORM_ALLOW_SAME_ORIGIN !== "1") {
+    return new Response("Chưa cấu hình miền học liệu riêng (SCORM_ORIGIN) — liên hệ quản trị hệ thống", { status: 503 });
+  }
   if (nguon && !dungMienHocLieu(nguon, req.headers.get("x-forwarded-host") ?? req.headers.get("host"))) {
     return new Response("Bài giảng chỉ mở trên miền học liệu", { status: 403 });
   }

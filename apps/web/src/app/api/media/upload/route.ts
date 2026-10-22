@@ -1,6 +1,6 @@
 import { registerUploadedMedia } from "@satarobo/api";
 import { MEDIA_UPLOAD_MAX_FILES, clientSafeMessage } from "@satarobo/core";
-import { routeContext, crossSite, crossSiteResponse } from "@/lib/route-ctx";
+import { routeContext, crossSite, crossSiteResponse, readCappedForm } from "@/lib/route-ctx";
 
 /**
  * Tải ảnh lớp vào **kho của lớp** (multipart): sessionId, caption, takenAt, classWide,
@@ -11,7 +11,8 @@ export async function POST(req: Request) {
   const ctx = await routeContext(req);
   if (!ctx) return Response.json({ ok: false, error: "Chưa đăng nhập" }, { status: 401 });
 
-  const form = await req.formData();
+  const form = await readCappedForm(req, MEDIA_UPLOAD_MAX_FILES * 25 * 1024 * 1024).catch(() => null);
+  if (!form) return Response.json({ ok: false, error: "Dữ liệu tải lên quá lớn hoặc không hợp lệ" }, { status: 413 });
   const sessionId = String(form.get("sessionId") ?? "");
   const caption = String(form.get("caption") ?? "").trim() || null;
   const takenAtRaw = String(form.get("takenAt") ?? "").trim();

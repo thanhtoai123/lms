@@ -20,6 +20,8 @@ const TEN_HOST = "__Host-ph_session";
 export const PH_COOKIE = PROD ? TEN_HOST : TEN_THUONG;
 /** Mọi tên có thể gặp khi ĐỌC phiên (đổi tên giữa hai lần triển khai không làm rớt ai) */
 export const PH_COOKIE_NAMES = [TEN_HOST, TEN_THUONG] as const;
+/** Tên được ĐỌC làm phiên: chạy thật chỉ nhận `__Host-` (tên thường có thể bị trang ở tên miền con cài đè) */
+const PH_READ_NAMES: readonly string[] = PROD ? [TEN_HOST] : PH_COOKIE_NAMES;
 
 /** Thuộc tính cookie phiên — gom một chỗ để nơi đặt và nơi xoá không lệch nhau */
 export function phCookieOptions(expires?: Date) {
@@ -34,7 +36,7 @@ export function phCookieOptions(expires?: Date) {
 
 function tokenTuChuoiCookie(raw: string): string | null {
   const parts = raw.split(/;\s*/);
-  for (const ten of PH_COOKIE_NAMES) {
+  for (const ten of PH_READ_NAMES) {
     const hit = parts.find((x) => x.startsWith(`${ten}=`))?.slice(ten.length + 1);
     if (hit) return decodeURIComponent(hit);
   }
@@ -43,7 +45,7 @@ function tokenTuChuoiCookie(raw: string): string | null {
 
 export async function currentParent() {
   const c = await cookies();
-  const tok = PH_COOKIE_NAMES.map((n) => c.get(n)?.value).find(Boolean) ?? null;
+  const tok = PH_READ_NAMES.map((n) => c.get(n)?.value).find(Boolean) ?? null;
   return ParentPortal.parentFromToken(getDb(), tok);
 }
 

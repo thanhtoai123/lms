@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { decodeJwtPayload } from "@satarobo/core";
 import { ACCESS_COOKIE, REFRESH_COOKIE, cookieOptions, enrollTotp, listFactors, supabaseOn, unenrollFactor, verifyTotp } from "@/lib/auth-session";
-import { rateLimited } from "@/lib/route-ctx";
+import { rateLimited, sharedRateLimited } from "@/lib/route-ctx";
 import { getDb } from "@satarobo/db";
 import { recordLogin, setMfaEnabled } from "@satarobo/api";
 import { clientMeta } from "@/lib/auth-session";
@@ -32,7 +32,8 @@ export async function POST(req: Request) {
     return "error" in r ? NextResponse.json({ ok: false, error: r.error }, { status: 400 }) : NextResponse.json({ ok: true, factorId: r.id, qr: r.qr, secret: r.secret });
   }
   if (b.action === "verify" && typeof b.factorId === "string" && /^\d{6}$/.test(b.code ?? "")) {
-    if (rateLimited(`mfa-verify|${sub}`, 10, 15 * 60_000)) return NextResponse.json({ ok: false, error: "Nhập sai quá nhiều — thử lại sau 15 phút" }, { status: 429 });
+    // Trần dùng chung giữa các bản sao máy chủ (bộ đếm trong bộ nhớ thì đổi bản sao là đếm lại)
+    if (rateLimited(`mfa-verify|${sub}`, 10, 15 * 60_000) || await sharedRateLimited("staffLoginEmail", "token", sub, "mfa-verify")) return NextResponse.json({ ok: false, error: "Nhập sai quá nhiều — thử lại sau 15 phút" }, { status: 429 });
     const r = await verifyTotp(access, b.factorId, b.code!);
     if ("error" in r) return NextResponse.json({ ok: false, error: r.error }, { status: 400 });
     const email = decodeJwtPayload(r.access_token)?.email ?? decodeJwtPayload(access)?.email;

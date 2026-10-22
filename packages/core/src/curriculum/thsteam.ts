@@ -95,6 +95,23 @@ export function gradeOfAge(age: number): number {
   return Math.min(12, Math.max(1, age - 5));
 }
 
+/**
+ * Khoá năm 1 phù hợp với lựa chọn "Quan tâm" trên form (tên ngắn chuyên ngành) và lớp của con.
+ * Lớp → tuổi (lớp 1 = 6 tuổi); chọn chương trình của chuyên ngành có khoảng tuổi chứa tuổi đó,
+ * không có thì chương trình gần nhất. Không nhận ra chuyên ngành → null.
+ */
+export function courseCodeForInterest(interest: string | null | undefined, grade: number | null | undefined): string | null {
+  const track = (Object.keys(TH_TRACK_SHORT) as ThTrackCode[]).find((k) => TH_TRACK_SHORT[k] === (interest ?? "").trim());
+  if (!track) return null;
+  const ps = TH_PROGRAMS.filter((p) => p.track === track);
+  if (!ps.length) return null;
+  if (!grade || grade < 1 || grade > 12) return null;
+  const age = grade + 5;
+  const hit = ps.find((p) => age >= p.ageFrom && age <= p.ageTo)
+    ?? [...ps].sort((x, y) => Math.min(Math.abs(age - x.ageFrom), Math.abs(age - x.ageTo)) - Math.min(Math.abs(age - y.ageFrom), Math.abs(age - y.ageTo)))[0]!;
+  return yearCourseCode(hit, 1);
+}
+
 export function yearCourseCode(p: ThProgram, yearNo: number): string {
   return `${p.code}-N${yearNo}`;
 }

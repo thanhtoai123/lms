@@ -14,7 +14,7 @@ import {
   scormNguon,
   dungMienHocLieu,
 } from "@satarobo/core";
-import { ACCESS_COOKIE, IDLE_COOKIE, REFRESH_COOKIE, SEEN_COOKIE, cookieOptions, needsRefresh, refreshSession, seenCookieOptions, supabaseOn } from "@/lib/auth-session";
+import { ACCESS_COOKIE, IDLE_COOKIE, REFRESH_COOKIE, SEEN_COOKIE, clearCookieOptions, cookieOptions, needsRefresh, refreshSession, seenCookieOptions, supabaseOn } from "@/lib/auth-session";
 
 /**
  * Chặn sớm: chưa có phiên đăng nhập thì chuyển về /login?next=… trước khi render
@@ -24,7 +24,9 @@ import { ACCESS_COOKIE, IDLE_COOKIE, REFRESH_COOKIE, SEEN_COOKIE, cookieOptions,
  * Đây cũng là NƠI DUY NHẤT gắn header bảo mật cho phản hồi trang, vì CSP có **nonce sinh
  * theo từng yêu cầu** nên không đặt tĩnh trong `next.config.ts` được.
  */
-const PUBLIC = [/^\/login(\/|$)/, /^\/quen-mat-khau(\/|$)/, /^\/dat-mat-khau(\/|$)/, /^\/ks(\/|$)/, /^\/pdg(\/|$)/, /^\/hs(\/|$)/, /^\/cn(\/|$)/, /^\/in-ho-so(\/|$)/, /^\/bt(\/|$)/, /^\/lp(\/|$)/, /^\/tin-tuc(\/|$)/, /^\/gioi-thieu(\/|$)/, /^\/khoa-hoc(\/|$)/, /^\/lien-he(\/|$)/, /^\/chinh-sach(\/|$)/, /^\/logout(\/|$)/, /^\/dang-ky(\/|$)/, /^\/hoc-thu-mien-phi(\/|$)/, /^\/tuyen-dung(\/|$)/, /^\/tn(\/|$)/, /^\/ph(\/|$)/, /^\/tra-cuu-hoa-don(\/|$)/, /^\/api\//, /^\/_next\//, /^\/manifest\.webmanifest$/, /^\/favicon/, /\.(?:png|jpg|jpeg|svg|ico|webp|txt|xml)$/];
+const PUBLIC = [/^\/login(\/|$)/, /^\/quen-mat-khau(\/|$)/, /^\/dat-mat-khau(\/|$)/, /^\/ks(\/|$)/, /^\/pdg(\/|$)/, /^\/hs(\/|$)/, /^\/cn(\/|$)/, /^\/in-ho-so(\/|$)/, /^\/bt(\/|$)/, /^\/lp(\/|$)/, /^\/tin-tuc(\/|$)/, /^\/gioi-thieu(\/|$)/, /^\/khoa-hoc(\/|$)/, /^\/lien-he(\/|$)/, /^\/chinh-sach(\/|$)/, /^\/logout(\/|$)/, /^\/dang-ky(\/|$)/, /^\/hoc-thu-mien-phi(\/|$)/, /^\/tuyen-dung(\/|$)/, /^\/tn(\/|$)/, /^\/ph(\/|$)/, /^\/tra-cuu-hoa-don(\/|$)/, /^\/api\//, /^\/_next\//, /^\/manifest\.webmanifest$/, /^\/favicon/,
+  // Tệp tĩnh: chỉ trong đúng các thư mục công khai (trước đây mọi đường dẫn đuôi .png/.xml… đều lọt qua kiểm phiên)
+  /^\/(?:anh-site|lp-anh|mau-chung-nhan|thsteam)\/[^?#]+\.(?:png|jpe?g|svg|ico|webp|gif|avif|pdf)$/, /^\/(?:robots\.txt|sitemap\.xml|icon\.svg)$/];
 
 function laMienHocLieu(req: NextRequest) {
   const nguon = scormNguon({ SCORM_ORIGIN: process.env.SCORM_ORIGIN });
@@ -69,8 +71,11 @@ const cspEnv = () => ({
  * COOP, CORP, frame-ancestors) lên MỌI phản hồi đi qua proxy — kể cả redirect.
  * Định nghĩa nằm ở `@satarobo/core/security/headers` để chỉ có một nơi phải sửa.
  */
-function withSecurity(res: NextResponse, nonce: string) {
-  for (const [k, v] of securityHeaders(securityHeaderOptions(cspEnv(), nonce))) res.headers.set(k, v);
+/** Trang công khai được phép tải mã đo lường quảng cáo (pixel / GA4); trang quản trị, cổng PH thì không */
+const ADS_PATH = /^\/(?:$|lp(?:\/|$)|tin-tuc(?:\/|$)|gioi-thieu(?:\/|$)|khoa-hoc(?:\/|$)|lien-he(?:\/|$)|chinh-sach(?:\/|$)|dang-ky(?:\/|$)|hoc-thu-mien-phi(?:\/|$)|tuyen-dung(?:\/|$))/;
+
+function withSecurity(res: NextResponse, nonce: string, ads = false) {
+  for (const [k, v] of securityHeaders({ ...securityHeaderOptions(cspEnv(), nonce), adsTags: ads })) res.headers.set(k, v);
   return res;
 }
 
@@ -81,7 +86,8 @@ export async function proxy(req: NextRequest) {
   // rồi tự gắn `nonce=…` cho các thẻ <script> nó sinh ra (bootstrap, dữ liệu RSC, các mảnh JS);
   // vì vậy phải đặt header này lên request, không chỉ lên response.
   const nonce = generateNonce();
-  const opts = securityHeaderOptions(cspEnv(), nonce);
+  const ads = ADS_PATH.test(pathname);
+  const opts = { ...securityHeaderOptions(cspEnv(), nonce, ads), adsTags: ads };
   const cspValue = securityHeaders(opts).find(([k]) => k === cspHeaderName(opts.reportOnly))![1];
   /**
    * Dựng lại header của YÊU CẦU tại thời điểm gọi — phải đọc `req.headers` muộn vì
@@ -93,7 +99,7 @@ export async function proxy(req: NextRequest) {
     h.delete(NONCE_REQUEST_HEADER);
     h.delete("content-security-policy");
     h.delete("content-security-policy-report-only");
-    h.set(NONCE_REQUEST_HEADER, nonce);
+    h.set(NONCE_REQUEST_HEADER, nonce, ads);
     // Đường dẫn đang mở — khung quản trị dùng để áp hàng rào trang theo menu (pageAllowed).
     // Luôn GHI ĐÈ giá trị máy khách gửi lên để không ai tự khai đường dẫn khác.
     h.set(PATH_REQUEST_HEADER, pathname);
@@ -105,14 +111,14 @@ export async function proxy(req: NextRequest) {
   // Miền học liệu SCORM chỉ phát bài giảng (/api/content/scorm/…, không qua proxy này).
   // Mọi trang khác trên miền đó — nhất là /login — bị chặn: đăng nhập được trên miền học liệu
   // là JavaScript của gói lại chạy kèm cookie phiên, mất tác dụng cách ly.
-  if (laMienHocLieu(req)) return withSecurity(new NextResponse("Không tìm thấy", { status: 404 }), nonce);
-  if (PUBLIC.some((r) => r.test(pathname))) return withSecurity(pass(), nonce);
+  if (laMienHocLieu(req)) return withSecurity(new NextResponse("Không tìm thấy", { status: 404 }), nonce, ads);
+  if (PUBLIC.some((r) => r.test(pathname))) return withSecurity(pass(), nonce, ads);
   const access = req.cookies.get(ACCESS_COOKIE)?.value;
   const refresh = req.cookies.get(REFRESH_COOKIE)?.value;
   const dev = devActorAllowed(process.env) && req.cookies.has(DEV_ACTOR_HEADER);
   // Trang chủ "/": khách chưa có phiên được vào thẳng trang (landing "trang-chu" nếu đã xuất bản, không thì tự chuyển sang
   // đăng nhập). Người đã có phiên đi tiếp luồng bên dưới để token được làm mới như trước.
-  if (pathname === "/" && !access && !refresh && !dev) return withSecurity(pass(), nonce);
+  if (pathname === "/" && !access && !refresh && !dev) return withSecurity(pass(), nonce, ads);
 
   // Tự đăng xuất khi không thao tác (chỉ phiên nhân sự thật). /logout ghi nhật ký và thu hồi phiên.
   const now = Date.now();
@@ -122,7 +128,7 @@ export async function proxy(req: NextRequest) {
     const url = req.nextUrl.clone();
     url.pathname = "/logout";
     url.search = "?reason=idle";
-    return withSecurity(NextResponse.redirect(url), nonce);
+    return withSecurity(NextResponse.redirect(url), nonce, ads);
   }
   const touch = (res: NextResponse) => {
     // Mỗi lần mở trang = một lần thao tác; ghi tối đa mỗi 30 giây
@@ -132,7 +138,7 @@ export async function proxy(req: NextRequest) {
     if (/^\/teacher(\/|$)/.test(pathname) && req.cookies.get(GIAO_DIEN_COOKIE)?.value !== "gv") {
       res.cookies.set(GIAO_DIEN_COOKIE, "gv", { httpOnly: true, sameSite: "lax", path: "/", secure: process.env.NODE_ENV === "production", maxAge: 60 * 60 * 24 * 180 });
     }
-    return withSecurity(res, nonce);
+    return withSecurity(res, nonce, ads);
   };
 
   if (supabaseOn() && needsRefresh(access, refresh)) {
@@ -147,13 +153,13 @@ export async function proxy(req: NextRequest) {
     }
     if (s === null && !dev) {
       const res = toLogin(req);
-      res.cookies.delete(ACCESS_COOKIE);
-      res.cookies.delete(REFRESH_COOKIE);
-      return withSecurity(res, nonce);
+      res.cookies.set(ACCESS_COOKIE, "", clearCookieOptions());
+      res.cookies.set(REFRESH_COOKIE, "", clearCookieOptions());
+      return withSecurity(res, nonce, ads);
     }
   }
   if (access || refresh || dev) return touch(pass());
-  return withSecurity(toLogin(req), nonce);
+  return withSecurity(toLogin(req), nonce, ads);
 }
 
 export const config = {

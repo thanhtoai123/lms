@@ -1,5 +1,5 @@
 import { addDocumentVersion } from "@satarobo/api";
-import { routeContext, errorStatus, crossSite, crossSiteResponse } from "@/lib/route-ctx";
+import { routeContext, errorStatus, crossSite, crossSiteResponse, readCappedForm } from "@/lib/route-ctx";
 import { clientSafeMessage } from "@satarobo/core";
 
 /** Tải phiên bản tệp cho tài liệu (multipart: documentId, note, file) */
@@ -9,7 +9,10 @@ export async function POST(req: Request) {
   if (!ctx) return Response.json({ ok: false, error: "Chưa đăng nhập" }, { status: 401 });
   let form: FormData;
   try {
-    form = await req.formData();
+    // Trần 210MB (gói SCORM tối đa 200MB + phần đầu multipart); vượt trần dừng đọc ngay
+    const f = await readCappedForm(req, 210 * 1024 * 1024);
+    if (!f) return Response.json({ ok: false, error: "Tệp quá lớn (tối đa 200MB)" }, { status: 413 });
+    form = f;
   } catch {
     return Response.json({ ok: false, error: "Dữ liệu tải lên không hợp lệ" }, { status: 400 });
   }

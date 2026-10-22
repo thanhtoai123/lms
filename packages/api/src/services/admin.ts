@@ -11,7 +11,7 @@ import {
   OTP_POLICY, otpPolicyFrom, otpRequestDecision, otpVerifyDecision, normalizeVnPhone,
   canReplay, safeHeaders, SETTINGS_DEFAULTS, validateSettings, validateCode, validateGroup, parseSepayPayload, hasRole, DEPARTMENT_VI,
   groupPermissionCatalog, validateGroupPermissions, GROUP_PERMISSION_ACTION_VI, otpDailyCutoff, znsCostEstimate, otpCutoffState,
-  pickForTenant,
+  pickForTenant, courseCodeForInterest,
   maskPiiText, scrubSql,
   type EmailEvent, type EmailStatus, type OtpPurpose, type OtpStatus, type WebhookSource, type WebhookStatus, type AppSettings, type Department,
 } from "@satarobo/core";
@@ -494,7 +494,12 @@ export async function assignCenterRegion(ctx: ProtectedContext, input: { centerI
 
 export async function logWebhook(db: Database, x: { source: WebhookSource; status: WebhookStatus; httpStatus: number; payload: unknown; headers?: Record<string, string>; externalId?: string | null; result?: unknown; error?: string | null; ip?: string | null }) {
   try {
-    const payload = x.payload && typeof x.payload === "object" ? x.payload : { raw: String(x.payload ?? "").slice(0, 2000) };
+    let payload: unknown = x.payload && typeof x.payload === "object" ? x.payload : { raw: String(x.payload ?? "").slice(0, 2000) };
+    // Không giữ nguyên văn yêu cầu bị từ chối (chưa xác thực — có thể là rác hoặc dữ liệu cá nhân người lạ gửi bừa),
+    // và cắt bớt yêu cầu quá lớn để bảng nhật ký không phình
+    const s = JSON.stringify(payload) ?? "";
+    if (x.httpStatus === 401 || x.httpStatus === 403 || x.httpStatus === 404 || x.httpStatus === 413) payload = { rejected: true, size: s.length };
+    else if (s.length > 16_000) payload = { truncated: s.slice(0, 16_000), size: s.length };
     await asDb(db).insert(webhookEvents).values({
       source: x.source, status: x.status, httpStatus: x.httpStatus, payload, headers: x.headers ? safeHeaders(x.headers) : null, externalId: x.externalId ?? null,
       // Thông báo lỗi có thể là lỗi tầng CSDL (kèm câu SQL + giá trị tham số) → lược trước khi lưu
@@ -506,7 +511,7 @@ export async function logWebhook(db: Database, x: { source: WebhookSource; statu
 }
 
 /** Cơ sở / khoá do form CÔNG KHAI gửi lên chỉ nhận khi còn hoạt động; không thì để trống cho tư vấn tự điền */
-export async function sanitizePublicLeadRefs(database: Database, data: { centerId?: string | null; interestedCourseId?: string | null }) {
+export async function sanitizePublicLeadRefs(database: Database, data: { centerId?: string | null; interestedCourseId?: string | null; childGrade?: number | null; notes?: string | null }) {
   const db = asDb(database);
   if (data.centerId) {
     const c = await db.query.centers.findFirst({ where: and(eq(centers.id, data.centerId), eq(centers.isActive, true)), columns: { id: true } });
@@ -521,6 +526,16 @@ export async function sanitizePublicLeadRefs(database: Database, data: { centerI
   if (data.interestedCourseId) {
     const k = await db.query.courses.findFirst({ where: and(eq(courses.id, data.interestedCourseId), eq(courses.isActive, true)), columns: { id: true } });
     if (!k) data.interestedCourseId = null;
+  }
+  // Form trang chủ gửi chuyên ngành dạng chữ ("Quan tâm: Robotics AI") + lớp của con → gắn khoá năm 1 phù hợp
+  // để cột "Quan tâm" ở danh sách lead có dữ liệu và tư vấn viên thấy ngay khoá cần tư vấn
+  if (!data.interestedCourseId) {
+    const m = /Quan tâm:\s*([^·\n]+)/.exec(data.notes ?? "");
+    const code = courseCodeForInterest(m?.[1]?.trim() ?? null, data.childGrade ?? null);
+    if (code) {
+      const k = await db.query.courses.findFirst({ where: and(eq(courses.code, code), eq(courses.isActive, true)), columns: { id: true } });
+      if (k) data.interestedCourseId = k.id;
+    }
   }
 }
 

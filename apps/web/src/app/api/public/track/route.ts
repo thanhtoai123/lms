@@ -1,7 +1,7 @@
 import { ipTuHeader } from "@satarobo/core";
 import { getDb } from "@satarobo/db";
 import { recordTrack, publicTrackingConfig } from "@satarobo/api";
-import { rateLimited } from "@/lib/route-ctx";
+import { rateLimited, readCappedText } from "@/lib/route-ctx";
 import { publicCors } from "@/lib/public-cors";
 
 export async function OPTIONS(req: Request) {
@@ -18,8 +18,8 @@ export async function POST(req: Request) {
   const headers = publicCors(req.headers.get("origin"));
   let b: Record<string, unknown>;
   try {
-    const text = await req.text();
-    if (text.length > 4000) return Response.json({ ok: false }, { status: 413, headers });
+    const text = await readCappedText(req, 4000);
+    if (text === null) return Response.json({ ok: false }, { status: 413, headers });
     b = JSON.parse(text) as Record<string, unknown>;
   } catch {
     return Response.json({ ok: false, error: "Dữ liệu không hợp lệ" }, { status: 400, headers });

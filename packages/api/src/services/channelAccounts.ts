@@ -140,6 +140,13 @@ export async function nhanSuKienKenh(db: Database, input: { slug: string; raw: s
   const secret = openWith(NHAN, acc.webhookSecret);
   if (!secret) return { ok: false, status: "rejected", httpStatus: 503, error: "Tài khoản kênh chưa đặt bí mật webhook" };
   if (!chuKyHopLe(input.raw, input.headers, secret)) return { ok: false, status: "rejected", httpStatus: 401, error: "Sai bí mật / chữ ký" };
+  // Công cụ có gửi mốc thời gian thì từ chối yêu cầu cũ hơn 10 phút (chống gửi lại một yêu cầu đã bắt được);
+  // tin trùng mã vẫn được bỏ qua ở bước ghi hội thoại
+  const ts = input.headers["x-webhook-timestamp"] ?? input.headers["x-timestamp"];
+  if (ts) {
+    const t = Number(ts) > 1e12 ? Number(ts) : Number(ts) * 1000;
+    if (!Number.isFinite(t) || Math.abs(Date.now() - t) > 10 * 60_000) return { ok: false, status: "rejected", httpStatus: 401, error: "Yêu cầu quá cũ" };
+  }
   return apDungSuKien(db, acc, input.body, input.headers["x-webhook-event"] ?? null);
 }
 

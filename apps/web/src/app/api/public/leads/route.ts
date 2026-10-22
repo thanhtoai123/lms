@@ -2,14 +2,14 @@ import { NextResponse } from "next/server";
 import { getDb } from "@satarobo/db";
 import { createLead, mapPublicLeadBody, sanitizePublicLeadRefs, logWebhook, recordTrack, publicTrackingConfig } from "@satarobo/api";
 import { clientSafeMessage, fbcFromUrl, ipTuHeader, metaCapiLeadEvent } from "@satarobo/core";
-import { sharedRateLimited } from "@/lib/route-ctx";
+import { sharedRateLimited, readCappedText } from "@/lib/route-ctx";
 
 /**
  * POST /api/public/leads — endpoint cho form "Đặt buổi học thử" trên website / landing page / Zalo Mini App.
  * Bảo vệ: honeypot field `website`, rate-limit theo IP dùng chung mọi bản sao (bảng rate_limits), CORS chỉ domain cho phép.
  */
 
-const ALLOWED_ORIGINS = (process.env.PUBLIC_FORM_ORIGINS ?? "https://thsteam.edu.vn,https://www.thsteam.edu.vn,http://localhost:3000").split(",").map((s) => s.trim());
+const ALLOWED_ORIGINS = (process.env.PUBLIC_FORM_ORIGINS ?? `https://thsteam.edu.vn,https://www.thsteam.edu.vn${process.env.NODE_ENV === "production" ? "" : ",http://localhost:3000"}`).split(",").map((s) => s.trim());
 
 function cors(origin: string | null) {
   const ok = origin && ALLOWED_ORIGINS.includes(origin);
@@ -57,7 +57,7 @@ export async function POST(req: Request) {
 
   let body: Record<string, unknown>;
   try {
-    body = (await req.json()) as Record<string, unknown>;
+    body = JSON.parse((await readCappedText(req, 32 * 1024)) ?? "") as Record<string, unknown>;
   } catch {
     return NextResponse.json({ ok: false, error: "Dữ liệu không hợp lệ" }, { status: 400, headers });
   }
